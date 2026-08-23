@@ -353,6 +353,56 @@ public class ProcessoDeEnfermagemTests : IDisposable
         titular.Should().Contain("avaliação de enfermagem");
     }
 
+    // ===== A CORREÇÃO (parcela 74, 2ª rodada) =====
+
+    /// <summary>
+    /// ⚠️ Retificar PRESERVA a consulta. Antes desta correção, <c>RetificarAsync</c> não
+    /// tinha sequer o parâmetro do processo: corrigir uma vírgula do texto descartava as
+    /// cinco etapas que a COFEN 358/2009 torna obrigatórias, e a tela dizia "Registrado".
+    ///
+    /// A lição: <b>quem RETIFICA precisa receber tudo o que quem REGISTRA recebe</b> — senão
+    /// a correção vira uma reescrita mutilada.
+    /// </summary>
+    [Fact]
+    public async Task Retificar_PRESERVA_o_processo_de_enfermagem()
+    {
+        var pacienteId = await PacienteAsync();
+        var original = await _servico.RegistrarAsync(
+            pacienteId, Dia, new TimeOnly(14, 20),
+            "Pacinte estável", Enfermeira, processo: ProcessoCompleto());
+
+        var corrigida = await _servico.RetificarAsync(
+            original.Id, Dia, new TimeOnly(14, 20),
+            "Paciente estável", Enfermeira, "erro de digitação",
+            processo: ProcessoCompleto());
+
+        corrigida.Historico.Should().StartWith("Refere dor lombar");
+        corrigida.Diagnosticos.Should().HaveCount(1);
+        corrigida.Cuidados.Should().HaveCount(1);
+        corrigida.EhConsulta.Should().BeTrue();
+        corrigida.RetificaEvolucaoId.Should().Be(original.Id);
+    }
+
+    /// <summary>
+    /// A correção mantém a DATA DO FATO. A técnica que corrige na segunda um registro
+    /// observado no sábado não pode mover o fato de dia: a folha do sábado perderia a linha,
+    /// e a do dia da correção ganharia uma que não aconteceu nele.
+    /// </summary>
+    [Fact]
+    public async Task Retificar_mantem_a_DATA_do_fato()
+    {
+        var pacienteId = await PacienteAsync();
+        var sabado = Dia;
+        var original = await _servico.RegistrarAsync(
+            pacienteId, sabado, new TimeOnly(14, 20), "observação", Enfermeira);
+
+        var corrigida = await _servico.RetificarAsync(
+            original.Id, sabado, new TimeOnly(14, 20), "observação corrigida",
+            Enfermeira, "erro de digitação");
+
+        corrigida.Data.Should().Be(sabado);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

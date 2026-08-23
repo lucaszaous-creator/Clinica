@@ -378,18 +378,26 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                 + "sistema existe para evitar.\n\nEncerrar mesmo assim?"))
             return;
 
+        var gravou = false;
         try
         {
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "finalizar o atendimento");
 
             // 1) O REGISTRO CLÍNICO — o que a clínica não pode perder.
-            if (!Atendimento.SessaoEmBranco && !await Atendimento.TentarSalvarAsync())
+            //
+            // ⚠️ A condição é `TemAlgoParaGravar`, NUNCA `!SessaoEmBranco`. As duas
+            // perguntas são diferentes: "em branco" decide se a tela PERGUNTA (e deixa a EVA
+            // e o mapa de fora com razão — eles são medida, não registro do que aconteceu),
+            // mas usá-la aqui descartava em silêncio a sessão de acupuntura mais comum da
+            // casa: EVA antes 8, depois 3, seis pontos no mapa e nenhuma linha de texto.
+            if (Atendimento.TemAlgoParaGravar && !await Atendimento.TentarSalvarAsync())
             {
                 Avisar("A sessão não pôde ser salva, então o atendimento NÃO foi encerrado. "
                        + "A mensagem do erro está na aba Atendimento.", erro: true);
                 return;
             }
+            gravou = true;
 
             // 2) O RECADO — reversível pelo "voltar etapa" do quadro.
             using var escopo = _escopos.CreateScope();
@@ -404,8 +412,53 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — atendimento não pôde ser encerrado", ex);
-            Avisar("A sessão foi gravada, mas o balcão não foi avisado de que você terminou: "
-                   + ex.Message, erro: true);
+
+            // ⚠️ A frase não pode AFIRMAR que a sessão foi gravada: a exceção pode ter vindo
+            // do `ExigirAlgum` acima, antes de qualquer gravação, e aí ela seria falsa
+            // justamente onde o profissional precisa saber o que fazer. Só quem chegou a
+            // gravar diz que gravou.
+            Avisar(gravou
+                ? "A sessão foi gravada, mas o balcão não foi avisado de que você terminou: "
+                  + ex.Message
+                : ex.Message, erro: true);
+        }
+    }
+
+    /// <summary>
+    /// DESFAZ o encerramento — o profissional clicou em Finalizar no paciente errado, ou
+    /// precisou chamar a pessoa de volta à sala.
+    ///
+    /// ⚠️ A porta existe porque a capacidade existe: <c>ReabrirAtendimentoAsync</c> sem
+    /// botão seria o defeito recorrente do projeto na variante mais discreta, e o único
+    /// caminho de volta seria pedir ao balcão que voltasse a etapa — o que tira o paciente
+    /// da sala, que é justamente o que não se quer.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReabrirSessaoAsync()
+    {
+        if (_foco.AgendamentoId is not { } id || !SessaoEncerrada)
+        {
+            Avisar("Não há atendimento encerrado para reabrir.", erro: true);
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "reabrir o atendimento");
+
+            using var escopo = _escopos.CreateScope();
+            var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
+            _horario = await agenda.ReabrirAtendimentoAsync(id, SessaoUsuario.Atual.Operador);
+            DescreverSessao();
+            Avisar("Atendimento reaberto — o balcão voltou a ver o paciente na sala.",
+                   erro: false);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — atendimento não pôde ser reaberto", ex);
+            Avisar(ex.Message, erro: true);
         }
     }
 

@@ -190,6 +190,14 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// <summary>Quando está corrigindo, o registro que vai ser substituído.</summary>
     private int? _retificando;
 
+    /// <summary>
+    /// A data do FATO que está sendo corrigido. A retificação a preserva: a técnica que
+    /// corrige na segunda um registro observado no sábado não pode mover o fato de dia — a
+    /// folha do sábado perderia a linha, e a do dia da correção ganharia uma que não
+    /// aconteceu nele.
+    /// </summary>
+    private DateOnly? _dataCorrigida;
+
     public string Paciente { get; }
 
     /// <summary>Contexto numa LINHA de texto, nunca uma faixa: faixa permanente vira moldura.</summary>
@@ -488,8 +496,13 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                 var hoje = DateOnly.FromDateTime(DateTime.Today);
 
                 if (Corrigindo && _retificando is { } alvo)
+                    // ⚠️ A data é a DO FATO (_dataCorrigida), nunca `hoje`: a técnica que
+                    // corrige na segunda um registro observado no sábado estaria movendo o
+                    // fato de dia — e a folha do sábado perderia a linha. E o PROCESSO vai
+                    // junto: sem ele, corrigir uma vírgula descartava a consulta inteira.
                     await servico.RetificarAsync(
-                        alvo, hoje, hora, Texto, Executante(), motivo!, Intercorrencia, sinais);
+                        alvo, _dataCorrigida ?? hoje, hora, Texto, Executante(), motivo!,
+                        Intercorrencia, sinais, ColherProcesso());
                 else
                     await servico.RegistrarAsync(
                         _pacienteId, hoje, hora, Texto, Executante(),
@@ -521,21 +534,91 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// grava-se outro apontando para ele, com o motivo.
     /// </summary>
     [RelayCommand]
-    private void Corrigir(LinhaEvolucaoEnfermagem? linha)
+    private async Task CorrigirAsync(LinhaEvolucaoEnfermagem? linha)
     {
         // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha, e sair calado
         // aqui é o certo (a exceção declarada da checagem 21).
         if (linha is null) return;
 
-        _retificando = linha.Id;
-        Corrigindo = true;
-        RotuloDoBotao = "Gravar correção";
-        Hora = linha.Hora;
-        Texto = linha.Texto;
-        Intercorrencia = linha.Intercorrencia;
-        Mensagem = $"Corrigindo o registro das {linha.Hora}. O original fica na folha, marcado.";
-        MensagemEhErro = false;
+        try
+        {
+            // ⚠️ CARREGA O REGISTRO INTEIRO (parcela 74, 2ª rodada). Antes esta função
+            // copiava só hora, texto e intercorrência da LINHA da tela — e a linha é um
+            // resumo formatado: os sinais vitais vêm como frase ("PA 160/100"), e o
+            // processo de enfermagem não vem. Resultado: gravar a correção descartava a
+            // pressão aferida e as cinco etapas da consulta, com a tela dizendo
+            // "Registrado".
+            using var scope = _escopos.CreateScope();
+            var repo = scope.ServiceProvider
+                .GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var original = await repo.ObterEvolucaoEnfermagemAsync(linha.Id);
+            if (original is null)
+            {
+                Mensagem = "O registro não foi encontrado — recarregue a folha.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            _retificando = original.Id;
+            _dataCorrigida = original.Data;
+            Corrigindo = true;
+            RotuloDoBotao = "Gravar correção";
+
+            Hora = original.Hora.ToString("HH\\:mm");
+            Texto = original.Texto;
+            Intercorrencia = original.Intercorrencia;
+
+            // Os sinais voltam como NÚMEROS, que é o que o compositor edita.
+            Sistolica = Texto2(original.PressaoSistolica);
+            Diastolica = Texto2(original.PressaoDiastolica);
+            Cardiaca = Texto2(original.FrequenciaCardiaca);
+            Respiratoria = Texto2(original.FrequenciaRespiratoria);
+            Temperatura = original.Temperatura?.ToString(
+                System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
+            Saturacao = Texto2(original.SaturacaoOxigenio);
+            Dor = Texto2(original.Dor);
+
+            // E as cinco etapas, quando o registro era uma CONSULTA.
+            Historico = original.Historico ?? string.Empty;
+            ExameFisico = original.ExameFisico ?? string.Empty;
+            Avaliacao = original.Avaliacao ?? string.Empty;
+
+            Diagnosticos.Clear();
+            foreach (var d in original.Diagnosticos.OrderBy(d => d.Ordem))
+                Diagnosticos.Add(new LinhaDiagnosticoEnfermagem
+                {
+                    Codigo = d.Codigo,
+                    Titulo = d.Titulo,
+                    RelacionadoA = d.RelacionadoA ?? string.Empty,
+                    EvidenciadoPor = d.EvidenciadoPor ?? string.Empty,
+                    ResultadoEsperado = d.ResultadoEsperado ?? string.Empty
+                });
+
+            Cuidados.Clear();
+            foreach (var c in original.Cuidados.OrderBy(c => c.Ordem))
+                Cuidados.Add(new LinhaCuidadoEnfermagem
+                {
+                    Codigo = c.Codigo,
+                    Descricao = c.Descricao,
+                    Frequencia = c.Frequencia ?? string.Empty
+                });
+
+            ConsultaCompleta = original.EhConsulta;
+
+            Mensagem = $"Corrigindo o registro de {original.Data:dd/MM/yyyy} às "
+                     + $"{original.Hora:HH\\:mm}. O original fica na folha, marcado, e a "
+                     + "correção mantém a data do fato.";
+            MensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — registro não pôde ser aberto para correção", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
     }
+
+    private static string Texto2(int? valor) => valor?.ToString() ?? string.Empty;
 
     [RelayCommand]
     private void CancelarCorrecao()
@@ -616,6 +699,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         ConsultaCompleta = false;
 
         _retificando = null;
+        _dataCorrigida = null;
         Corrigindo = false;
         RotuloDoBotao = "Registrar";
         Texto = string.Empty;

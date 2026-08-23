@@ -710,6 +710,44 @@ public sealed class AgendaService
     }
 
     /// <summary>
+    /// DESFAZ o encerramento: o paciente volta a estar em atendimento (parcela 74, 2ª
+    /// rodada).
+    ///
+    /// Existe separado do <see cref="VoltarEtapaAsync"/> pela mesma razão que
+    /// <see cref="DesfazerChamadaAsync"/> existe desde a parcela 38: são atos diferentes.
+    /// Voltar etapa tira o paciente da SALA; isto diz apenas <i>"eu não tinha terminado"</i>
+    /// — o caso do profissional que clicou em Finalizar no paciente errado, ou que precisou
+    /// chamar a pessoa de volta.
+    ///
+    /// O carimbo apagado vai ESCRITO na trilha, com o valor: depois do apagamento ele não
+    /// existe em mais lugar nenhum, e "quem desfez e o que dizia" é a pergunta de qualquer
+    /// conferência.
+    /// </summary>
+    public async Task<Agendamento> ReabrirAtendimentoAsync(
+        int agendamentoId, string operador, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+
+        if (ag.Status != StatusAgendamento.Agendado)
+            throw new InvalidOperationException(
+                "Este horário já foi encerrado no balcão.");
+
+        if (ag.FimAtendimentoEm is null)
+            throw new InvalidOperationException(
+                "Este atendimento não está encerrado.");
+
+        var apagado = ag.FimAtendimentoEm;
+        ag.FimAtendimentoEm = null;
+
+        await AuditarFilaAsync(ag, operador, "FilaAtendimentoReaberto",
+            $"Apagado o encerramento ({apagado:dd/MM/yyyy HH:mm}) — "
+            + $"horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    /// <summary>
     /// Volta o cartão UMA coluna: em atendimento → chamado → chegou → aguardando. Existe
     /// porque clicar errado no kanban é rotina — e a alternativa (cancelar e remarcar)
     /// falsearia o histórico.
@@ -727,17 +765,28 @@ public sealed class AgendaService
         // trilha, com o valor: depois do apagamento ele não existe em mais lugar
         // nenhum, e "quem desfez e o que dizia" é a pergunta de qualquer conferência.
         string apagado;
-        // ⚠️ O encerramento é o carimbo MAIS RECENTE, logo o primeiro a sair — voltar
-        // etapa anda um passo por vez (parcela 58), e apagar a entrada na sala de um
-        // atendimento já encerrado deixaria um fim sem começo.
-        if (ag.FimAtendimentoEm is not null)
-        {
-            apagado = $"encerramento do atendimento ({ag.FimAtendimentoEm:dd/MM/yyyy HH:mm})";
-            ag.FimAtendimentoEm = null;
-        }
-        else if (ag.InicioAtendimentoEm is not null)
+        if (ag.InicioAtendimentoEm is not null)
         {
             apagado = $"entrada na sala ({ag.InicioAtendimentoEm:dd/MM/yyyy HH:mm})";
+
+            // ⚠️ O ENCERRAMENTO SAI JUNTO, e não como um passo próprio (corrigido na 2ª
+            // rodada da parcela 74). Voltar etapa promete "volta o cartão UMA coluna", e
+            // FimAtendimentoEm não é coluna nenhuma por decisão da própria parcela — então
+            // gastá-lo num passo separado consumia o clique SEM MOVER o cartão, enquanto as
+            // duas telas afirmavam que ele tinha voltado. Clique que não faz nada e diz que
+            // fez é pior do que botão apagado (parcela 41).
+            //
+            // Sair da sala é o fato: quem não está mais em atendimento não tem fim de
+            // atendimento. Para DESFAZER só o encerramento — o médico que finalizou por
+            // engano e quer o paciente de volta na sala — existe
+            // <see cref="ReabrirAtendimentoAsync"/>, do mesmo jeito que
+            // <see cref="DesfazerChamadaAsync"/> é separado deste método desde a parcela 38.
+            if (ag.FimAtendimentoEm is not null)
+            {
+                apagado += $" e o encerramento ({ag.FimAtendimentoEm:dd/MM/yyyy HH:mm})";
+                ag.FimAtendimentoEm = null;
+            }
+
             ag.InicioAtendimentoEm = null;
         }
         else if (ag.ChamadoEm is not null)

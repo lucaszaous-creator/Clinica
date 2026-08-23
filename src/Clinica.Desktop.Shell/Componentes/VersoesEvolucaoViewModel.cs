@@ -13,6 +13,20 @@ public sealed class LinhaVersaoEvolucao
     public required string Quando { get; init; }
     public required string Motivo { get; init; }
     public required string Queixa { get; init; }
+
+    /// <summary>
+    /// A ANAMNESE da versão, numa frase só (parcela 74, 2ª rodada).
+    ///
+    /// ⚠️ Os quatro campos passaram a ser CONGELADOS na versão anterior nesta mesma parcela —
+    /// e congelá-los sem mostrá-los seria o defeito recorrente do projeto na variante mais
+    /// cara: aqui o leitor que falta é uma PERÍCIA. A janela existe para responder "o que
+    /// este registro dizia antes"; sem esta linha, ela responderia pela metade.
+    ///
+    /// Vazia quando a versão não tem nenhum dos quatro — o que é o caso de toda versão
+    /// gravada ANTES desta parcela, e a ausência é a verdade: o sistema não os guardava.
+    /// </summary>
+    public required string Anamnese { get; init; }
+
     public required string Conduta { get; init; }
     public required string Evolucao { get; init; }
     public required string Orientacoes { get; init; }
@@ -34,6 +48,8 @@ public sealed class LinhaVersaoEvolucao
             ? "Correção sem motivo informado."
             : v.Motivo,
         Queixa = Texto(v.QueixaPrincipal),
+        Anamnese = MontarAnamnese(v.HistoriaDoencaAtual, v.ExameFisico,
+                            v.HipoteseDiagnostica, v.CidSessao),
         Conduta = Texto(v.Conduta),
         Evolucao = Texto(v.TextoEvolucao),
         Orientacoes = Texto(v.Orientacoes),
@@ -52,12 +68,30 @@ public sealed class LinhaVersaoEvolucao
             : $"registrada em {e.CriadoEm:dd/MM/yyyy HH:mm}",
         Motivo = "É o que está valendo no prontuário.",
         Queixa = Texto(e.QueixaPrincipal),
+        Anamnese = MontarAnamnese(e.HistoriaDoencaAtual, e.ExameFisico,
+                            e.HipoteseDiagnostica, e.CidSessao),
         Conduta = Texto(e.Conduta),
         Evolucao = Texto(e.TextoEvolucao),
         Orientacoes = Texto(e.Orientacoes),
         Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
         Vigente = true
     };
+
+    /// <summary>
+    /// Junta os quatro numa frase, PULANDO o que não existe — a mesma razão pela qual a
+    /// linha do crachá é montada no modelo: frase feita de bindings concatenados não sabe
+    /// pular, e sobraria "HDA:  · Exame:  ·" com vãos no meio.
+    /// </summary>
+    private static string MontarAnamnese(string? hda, string? exame, string? hipotese, string? cid)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(hda)) partes.Add($"HDA: {hda.Trim()}");
+        if (!string.IsNullOrWhiteSpace(exame)) partes.Add($"Exame físico: {exame.Trim()}");
+        if (!string.IsNullOrWhiteSpace(hipotese))
+            partes.Add($"Hipótese: {hipotese.Trim()}"
+                       + (string.IsNullOrWhiteSpace(cid) ? string.Empty : $" ({cid.Trim()})"));
+        return string.Join("\n", partes);
+    }
 
     private static string Texto(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? "—" : valor;

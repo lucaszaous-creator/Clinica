@@ -76,7 +76,7 @@ public sealed record CabecalhoClinicoPaciente(
         get
         {
             var partes = new List<string>();
-            if (Idade is { } i) partes.Add($"{i} anos");
+            if (Idade is { } i) partes.Add(i == 1 ? "1 ano" : $"{i} anos");
             partes.Add(Sexo == Sexo.Feminino ? "feminino" : "masculino");
             partes.Add(ConvenioNome);
             if (PrimeiraSessao is { } p) partes.Add($"paciente desde {p:dd/MM/yyyy}");
@@ -98,6 +98,19 @@ public sealed record CabecalhoClinicoPaciente(
 
     public string? DiagnosticosTexto => UltimosDiagnosticos.Count == 0
         ? null : string.Join(" · ", UltimosDiagnosticos);
+
+    /// <summary>
+    /// "Carteirinha 0123456789" — e "· VENCIDA" quando a validade passou.
+    ///
+    /// ⚠️ Existe porque os dois campos eram carregados e NENHUMA tela os lia (achado da
+    /// auditoria da própria parcela): o defeito recorrente do projeto cometido dentro da
+    /// parcela que o descreve. E o número tem uso concreto — quem atende o convênio o dita
+    /// ao telefone; a validade vencida é o balcão que resolve, mas quem está com o paciente
+    /// na sala precisa saber que a guia de hoje pode ser recusada.
+    /// </summary>
+    public string? CarteirinhaTexto => string.IsNullOrWhiteSpace(Carteirinha)
+        ? null
+        : $"Carteirinha {Carteirinha.Trim()}" + (CarteirinhaVencida ? "  ·  VENCIDA" : string.Empty);
 
     /// <summary>Vazio quando não há o que dizer — a região some em vez de mostrar traços.</summary>
     public bool TemContextoClinico

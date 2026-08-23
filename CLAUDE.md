@@ -4906,3 +4906,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `add -A`, e olhar o conteúdo de todo arquivo de prova antes de descartá-lo — foi olhando
   o `ZzProvaTemp` que o defeito da anamnese apareceu, e olhando o `ZzSqlProva` que a rede de
   tradução nasceu.
+
+- **Quem RETIFICA precisa receber tudo o que quem REGISTRA recebe** (parcela 74, 2ª rodada —
+  achado da auditoria adversarial, e é bloqueador). `EvolucaoEnfermagemService.RetificarAsync`
+  não tinha sequer o parâmetro do processo de enfermagem: **corrigir uma vírgula do texto
+  descartava a consulta inteira** — histórico, exame físico, avaliação, diagnósticos e
+  cuidados, as cinco etapas que a COFEN 358/2009 torna obrigatórias. A linha anterior ficava
+  na base (o prontuário não se apaga) mas virava a SUBSTITUÍDA, e a que passa a valer nascia
+  vazia. A tela dizia "Registrado".
+  ⚠️ E a metade da TELA era pior: `Corrigir` copiava hora, texto e intercorrência **da LINHA
+  da lista** — que é um resumo FORMATADO (os sinais vitais vêm como a frase "PA 160/100"). A
+  correção nascia sem a pressão aferida, e o ponto sumia da curva do paciente. Agora ela
+  CARREGA o registro do banco e devolve os números ao compositor.
+  ⚠️ Terceira metade: a chamada passava `hoje` como data. **A correção mantém a DATA DO
+  FATO** — a técnica que corrige na segunda um registro observado no sábado estaria movendo o
+  fato de dia, e a folha do sábado perderia a linha.
+- **O flag que decide a PERGUNTA não é o que decide a GRAVAÇÃO** (parcela 74, 2ª rodada).
+  `SessaoEmBranco` olha só os campos de TEXTO, e com razão: ela existe para decidir se a tela
+  pergunta *"encerrar sem escrever a evolução?"*, e EVA e mapa são MEDIDA, não o registro do
+  que aconteceu. Usá-la também para decidir se GRAVA fazia o "Finalizar atendimento"
+  **descartar em silêncio** a sessão de acupuntura mais comum da casa — EVA antes 8, depois 3,
+  seis pontos no mapa, nenhuma linha de texto. O serviço aceita a sessão só com EVA desde
+  sempre; era a tela que não a mandava. Entrou `TemAlgoParaGravar`, e a lição generaliza:
+  **quando um booleano começa a ser usado numa segunda decisão, releia se ele responde à
+  segunda pergunta** — o nome não avisa.
+- **Voltar etapa que consome o clique sem mover o cartão é botão que não faz nada** (parcela
+  74, 2ª rodada). `VoltarEtapaAsync` promete "volta o cartão UMA coluna", e `FimAtendimentoEm`
+  **não é coluna** por decisão da própria parcela — então gastá-lo num passo próprio fazia o
+  primeiro clique não mudar nada enquanto as duas telas afirmavam que o cartão tinha voltado.
+  O encerramento passou a sair JUNTO com a entrada na sala (sair da sala é o fato: quem não
+  está em atendimento não tem fim de atendimento), e desfazer SÓ o encerramento virou ato
+  próprio — `ReabrirAtendimentoAsync`, com porta na barra —, do mesmo jeito que
+  `DesfazerChamadaAsync` é separado desde a parcela 38.

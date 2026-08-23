@@ -390,11 +390,23 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         }
     }
 
-    /// <summary>A sessão contém o termo em algum dos campos escritos.</summary>
+    /// <summary>
+    /// A sessão contém o termo em algum dos campos escritos.
+    ///
+    /// ⚠️ Os QUATRO da parcela 73 entram aqui (acrescentados na 74, 2ª rodada) — sem eles, a
+    /// busca ficava cega justamente para o que se procura: quem digita "hérnia" está
+    /// procurando a HIPÓTESE, e quem digita "Lasègue" está procurando o EXAME FÍSICO. A
+    /// pergunta que a parcela 37 usou para justificar a busca é literalmente essa ("o que o
+    /// profissional pergunta antes de atender"), e ela passou a ter resposta em campos que
+    /// o filtro não olhava.
+    ///
+    /// O CID entra junto: "M54.5" é o jeito mais curto de achar todas as lombalgias.
+    /// </summary>
     private static bool Casa(Evolucao e, string termo)
     {
         var alvo = Normalizar(string.Join(" ",
-            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes));
+            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
+            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao));
         return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
     }
 

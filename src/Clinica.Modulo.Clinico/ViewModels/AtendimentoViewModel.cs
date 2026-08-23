@@ -862,6 +862,25 @@ public sealed partial class AtendimentoViewModel : ObservableObject
            && string.IsNullOrWhiteSpace(Orientacoes);
 
     /// <summary>
+    /// Há ALGUMA COISA a gravar — texto, EVA, CID ou pontos no mapa.
+    ///
+    /// ⚠️ É uma pergunta DIFERENTE de <see cref="SessaoEmBranco"/>, e confundir as duas foi
+    /// um defeito real (parcela 74, 2ª rodada): aquela decide se a tela PERGUNTA "encerrar
+    /// sem escrever a evolução?", e deixa a EVA e o mapa de fora com razão, porque eles são
+    /// MEDIDA e não o registro do que aconteceu. Usá-la também para decidir se GRAVA fazia a
+    /// sessão de acupuntura mais comum da casa — EVA antes 8, depois 3, seis pontos no mapa e
+    /// nenhuma linha de texto — ser encerrada com <b>tudo descartado em silêncio</b>.
+    ///
+    /// O serviço aceita a sessão só com EVA desde sempre; era a tela que não a mandava.
+    /// </summary>
+    public bool TemAlgoParaGravar
+        => !SessaoEmBranco
+           || EvaAntes is not null
+           || EvaDepois is not null
+           || !string.IsNullOrWhiteSpace(CidSessao)
+           || Mapa?.Pontos.Count > 0;
+
+    /// <summary>
     /// Abre o mapa corporal em JANELA (parcela 37, rodada de leiaute).
     ///
     /// Ele morava numa aba de 530 px ao lado do formulário, e não cabia: as duas figuras

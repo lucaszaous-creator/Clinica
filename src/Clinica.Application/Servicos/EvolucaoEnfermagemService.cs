@@ -128,6 +128,7 @@ public class EvolucaoEnfermagemService
         string motivoRetificacao,
         bool intercorrencia = false,
         SinaisVitais? sinais = null,
+        ProcessoDeEnfermagem? processo = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivoRetificacao))
@@ -146,6 +147,19 @@ public class EvolucaoEnfermagemService
         var evolucao = Montar(
             anterior.PacienteId, data, hora, texto, autor,
             anterior.PrescricaoInternaId, anterior.AgendamentoId, intercorrencia, sinais);
+
+        // ⚠️ O PROCESSO DE ENFERMAGEM VEM JUNTO (corrigido na parcela 74, 2ª rodada).
+        //
+        // Sem este parâmetro, corrigir uma vírgula do texto DESCARTAVA a consulta inteira: o
+        // histórico, o exame físico, a avaliação, os diagnósticos e os cuidados prescritos —
+        // as cinco etapas que a COFEN 358/2009 torna obrigatórias. A linha anterior ficava na
+        // base (o prontuário não se apaga) mas passava a ser a SUBSTITUÍDA, e a que vale
+        // nascia sem nada. A tela dizia "Registrado".
+        //
+        // É a mesma família do defeito da anamnese médica desta parcela, e a lição é a
+        // mesma: quem RETIFICA precisa receber tudo o que quem REGISTRA recebe — senão a
+        // correção vira uma reescrita mutilada.
+        AplicarProcesso(evolucao, processo);
 
         evolucao.RetificaEvolucaoId = anterior.Id;
         evolucao.MotivoRetificacao = motivoRetificacao.Trim();

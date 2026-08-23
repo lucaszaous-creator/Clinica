@@ -150,6 +150,26 @@
                                                     Converter={StaticResource TextoParaVisibilidade},
                                                     FallbackValue=Collapsed}" />
 
+                            <!-- A carteirinha é ditada ao telefone quando se fala com o
+                                 convênio, e a validade vencida avisa que a guia de hoje pode
+                                 ser recusada. Os dois eram carregados e nenhuma tela os lia. -->
+                            <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Visibility="{Binding Cabecalho.CarteirinhaTexto,
+                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Cabecalho.CarteirinhaVencida}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                                <Run Text="{Binding Cabecalho.CarteirinhaTexto, Mode=OneWay}" />
+                            </TextBlock>
+
                             <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
                                        TextWrapping="Wrap" Margin="0,2,0,0" />
                         </StackPanel>
@@ -254,6 +274,15 @@
                                 Command="{Binding FinalizarSessaoCommand}"
                                 IsEnabled="{Binding PodeMoverFila}"
                                 Visibility="{Binding EmAtendimento,
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                        <!-- Finalizou no paciente errado, ou precisou chamá-lo de volta. A
+                             porta é daqui: pedir ao balcão que "volte a etapa" tiraria o
+                             paciente da SALA, que é o contrário do que se quer. -->
+                        <Button Content="Reabrir atendimento" MinWidth="180"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding ReabrirSessaoCommand}"
+                                IsEnabled="{Binding PodeMoverFila}"
+                                Visibility="{Binding SessaoEncerrada,
                                              Converter={StaticResource BoolParaVisibilidade}}" />
                     </StackPanel>
                 </Grid>

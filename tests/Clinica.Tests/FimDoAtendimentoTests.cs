@@ -160,7 +160,7 @@ public class FimDoAtendimentoTests : IDisposable
     // ===== Voltar etapa =====
 
     [Fact]
-    public async Task Voltar_etapa_desfaz_o_ENCERRAMENTO_antes_da_entrada()
+    public async Task Voltar_etapa_MOVE_o_cartao_e_leva_o_encerramento_junto()
     {
         var ag = await NaSalaAsync();
         await _agenda.EncerrarAtendimentoAsync(ag.Id, "medica", Manha.AddMinutes(35));
@@ -168,16 +168,49 @@ public class FimDoAtendimentoTests : IDisposable
         await _agenda.VoltarEtapaAsync(ag.Id, "medica");
 
         var lido = (await _agenda.ObterAsync(ag.Id))!;
-        // Um passo por vez (parcela 58): apagar a entrada de um atendimento já encerrado
-        // deixaria um fim sem começo.
+        // ⚠️ UM clique, UMA coluna. FimAtendimentoEm não é coluna nenhuma, então gastá-lo
+        // num passo próprio consumia o clique SEM mover o cartão enquanto as duas telas
+        // afirmavam que ele tinha voltado. Sair da sala é o fato: quem não está mais em
+        // atendimento não tem fim de atendimento.
+        lido.Etapa.Should().Be(EtapaFila.Chamado);
+        lido.InicioAtendimentoEm.Should().BeNull();
         lido.FimAtendimentoEm.Should().BeNull();
-        lido.InicioAtendimentoEm.Should().NotBeNull();
 
-        // O carimbo apagado vai ESCRITO na trilha, com o valor: depois do apagamento ele
-        // não existe em mais lugar nenhum.
+        // Os dois carimbos apagados vão ESCRITOS na trilha, com os valores.
         var trilha = await _db.Auditoria
             .Where(e => e.Acao == "FilaEtapaVoltada").FirstAsync();
-        trilha.Detalhe.Should().Contain("encerramento do atendimento");
+        trilha.Detalhe.Should().Contain("entrada na sala").And.Contain("encerramento");
+    }
+
+    [Fact]
+    public async Task Reabrir_desfaz_SO_o_encerramento_e_o_paciente_continua_na_sala()
+    {
+        var ag = await NaSalaAsync();
+        await _agenda.EncerrarAtendimentoAsync(ag.Id, "medica", Manha.AddMinutes(35));
+
+        await _agenda.ReabrirAtendimentoAsync(ag.Id, "medica");
+
+        var lido = (await _agenda.ObterAsync(ag.Id))!;
+        // É o caso do profissional que finalizou no paciente errado: ele quer desfazer o
+        // encerramento SEM tirar a pessoa da sala. Por isso é ato próprio, como o
+        // DesfazerChamadaAsync é separado do VoltarEtapaAsync desde a parcela 38.
+        lido.FimAtendimentoEm.Should().BeNull();
+        lido.InicioAtendimentoEm.Should().NotBeNull();
+        lido.Etapa.Should().Be(EtapaFila.EmAtendimento);
+
+        var trilha = await _db.Auditoria
+            .Where(e => e.Acao == "FilaAtendimentoReaberto").FirstAsync();
+        trilha.Detalhe.Should().Contain("Apagado o encerramento");
+    }
+
+    [Fact]
+    public async Task Reabrir_o_que_nao_esta_encerrado_e_recusado()
+    {
+        var ag = await NaSalaAsync();
+
+        var acao = () => _agenda.ReabrirAtendimentoAsync(ag.Id, "medica");
+        await acao.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*não está encerrado*");
     }
 
     [Fact]
