@@ -97,8 +97,12 @@ public sealed class ExportacaoProntuarioService
 
         var cadastro = Cabecalho("PacienteId", "Nome", "Documento", "Nascimento", "Sexo",
             "Telefone", "Convenio", "Carteirinha");
+        // ⚠️ As colunas do ATENDIMENTO (parcela 73) entram AQUI e não numa planilha nova:
+        // elas são da sessão, e separá-las obrigaria quem recebe o prontuário a casar duas
+        // tabelas pelo id para ler uma consulta.
         var sessoes = Cabecalho("PacienteId", "Paciente", "SessaoId", "Data", "Situacao",
-            "EvaAntes", "EvaDepois", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
+            "EvaAntes", "EvaDepois", "QueixaPrincipal", "HistoriaDoencaAtual", "ExameFisico",
+            "HipoteseDiagnostica", "CID", "Conduta", "Evolucao", "Orientacoes",
             "CriadoPor", "MotivoCancelamento");
         var versoes = Cabecalho("PacienteId", "SessaoId", "Versao", "SubstituidaEm",
             "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes");
@@ -142,7 +146,15 @@ public sealed class ExportacaoProntuarioService
         var enfermagem = Cabecalho("PacienteId", "Paciente", "Data", "Hora", "RegistradoEm",
             "PrescricaoNumero", "Texto", "Intercorrencia", "PA", "FC", "FR", "Temperatura",
             "SpO2", "Dor", "Autor", "Conselho", "Retificacao", "MotivoRetificacao",
-            "Situacao", "MotivoCancelamento");
+            "Situacao", "MotivoCancelamento",
+            // O Processo de Enfermagem (parcela 73): o que é TEXTO fica na linha da
+            // evolução; o diagnóstico e o cuidado são LISTAS e vão em planilha própria,
+            // como os itens e as checagens da folha de infusão.
+            "EhConsulta", "Historico", "ExameFisico", "Avaliacao");
+        var diagnosticosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
+            "Ordem", "Codigo", "Titulo", "RelacionadoA", "EvidenciadoPor", "ResultadoEsperado");
+        var cuidadosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
+            "Ordem", "Codigo", "Cuidado", "Frequencia");
 
         foreach (var p in pacientes)
         {
@@ -156,8 +168,10 @@ public sealed class ExportacaoProntuarioService
             {
                 Linha(sessoes, p.Id, p.Nome, e.Id, Data(e.Data),
                     e.Cancelada ? "Cancelada" : "Vigente",
-                    e.EvaAntes, e.EvaDepois, e.QueixaPrincipal, e.Conduta,
-                    e.TextoEvolucao, e.Orientacoes, e.CriadoPor, e.MotivoCancelamento);
+                    e.EvaAntes, e.EvaDepois, e.QueixaPrincipal,
+                    e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
+                    e.Conduta, e.TextoEvolucao, e.Orientacoes,
+                    e.CriadoPor, e.MotivoCancelamento);
 
                 foreach (var v in await _repo.VersoesDaEvolucaoAsync(e.Id, ct))
                     Linha(versoes, p.Id, e.Id, v.Versao,
@@ -231,6 +245,7 @@ public sealed class ExportacaoProntuarioService
             }
 
             foreach (var en in await _repo.EvolucoesEnfermagemDoPacienteAsync(p.Id, int.MaxValue, ct))
+            {
                 Linha(enfermagem, p.Id, p.Nome, Data(en.Data), en.Hora.ToString("HH\\:mm"),
                     en.RegistradoEm.ToString("O", Fixa),
                     en.Prescricao?.Numero, en.Texto, en.Intercorrencia ? "sim" : "não",
@@ -239,7 +254,20 @@ public sealed class ExportacaoProntuarioService
                     en.AutorNome, en.AutorConselho,
                     en.EhRetificacao ? "retifica anterior" : string.Empty,
                     en.MotivoRetificacao,
-                    en.Cancelada ? "Cancelada" : "Válida", en.MotivoCancelamento);
+                    en.Cancelada ? "Cancelada" : "Válida", en.MotivoCancelamento,
+                    en.EhConsulta ? "sim" : "não",
+                    en.Historico, en.ExameFisico, en.Avaliacao);
+
+                foreach (var d in en.Diagnosticos.OrderBy(x => x.Ordem))
+                    Linha(diagnosticosEnf, p.Id, p.Nome, Data(en.Data),
+                        en.Hora.ToString("HH\\:mm"), d.Ordem, d.Codigo, d.Titulo,
+                        d.RelacionadoA, d.EvidenciadoPor, d.ResultadoEsperado);
+
+                foreach (var c in en.Cuidados.OrderBy(x => x.Ordem))
+                    Linha(cuidadosEnf, p.Id, p.Nome, Data(en.Data),
+                        en.Hora.ToString("HH\\:mm"), c.Ordem, c.Codigo, c.Descricao,
+                        c.Frequencia);
+            }
 
             foreach (var d in await _repo.DocumentosDoPacienteAsync(p.Id, ct))
                 Linha(documentos, p.Id, p.Nome, d.Numero,
@@ -264,6 +292,8 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-mapa-corporal.csv", pontosMapa.ToString()),
             new("prontuario-avaliacoes-respostas.csv", respostas.ToString()),
             new("prontuario-enfermagem.csv", enfermagem.ToString()),
+            new("prontuario-enfermagem-diagnosticos.csv", diagnosticosEnf.ToString()),
+            new("prontuario-enfermagem-cuidados.csv", cuidadosEnf.ToString()),
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }

@@ -230,7 +230,22 @@ public sealed class DocumentoClinicoService
             Descricao = e.TemParEva
                 ? $"{e.Data:dd/MM/yyyy} · EVA {e.EvaAntes} → {e.EvaDepois}"
                 : $"{e.Data:dd/MM/yyyy} · EVA não medida",
-            Detalhe = Juntar(e.QueixaPrincipal, e.Conduta, e.TextoEvolucao),
+            // A anamnese e o exame físico da sessão entram no relatório porque é
+            // JUSTAMENTE isso que o outro profissional lê para não recomeçar o raciocínio
+            // do zero — sem eles, o papel diz o que foi feito e não diz por quê.
+            //
+            // ⚠️ A HIPÓTESE entra pelo TEXTO; o CÓDIGO CID, não. É a economia do CID da
+            // parcela 3, e ela vale aqui com mais razão: o relatório circula fora da
+            // clínica, o código é o que se lê num campo de formulário sem ninguém ler a
+            // frase ao lado, e este documento não passa pela autorização expressa que a
+            // receita e o atestado pedem. Quem precisa do código pede o atestado.
+            Detalhe = Juntar(
+                e.QueixaPrincipal,
+                e.HistoriaDoencaAtual,
+                e.ExameFisico,
+                e.HipoteseDiagnostica is { } h ? $"hipótese: {h}" : null,
+                e.Conduta,
+                e.TextoEvolucao),
             Quantidade = e.Profissional?.Rotulo
         }).ToList();
 

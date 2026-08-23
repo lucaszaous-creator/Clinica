@@ -150,6 +150,13 @@ public sealed class TitularDadosService
                              + (e.EvaAntes is { } antes ? $" · dor antes {antes}" : string.Empty)
                              + (e.EvaDepois is { } depois ? $" · dor depois {depois}" : string.Empty));
             Bloco(texto, "queixa", e.QueixaPrincipal);
+            // O registro do atendimento (parcela 73). O art. 18, II é sobre TUDO o que a
+            // clínica guarda — e a hipótese diagnóstica é justamente o que o titular leva
+            // ao próximo serviço.
+            Bloco(texto, "história da doença atual", e.HistoriaDoencaAtual);
+            Bloco(texto, "exame físico", e.ExameFisico);
+            Bloco(texto, "hipótese diagnóstica", e.HipoteseDiagnostica
+                + (string.IsNullOrWhiteSpace(e.CidSessao) ? string.Empty : $" (CID {e.CidSessao})"));
             Bloco(texto, "conduta", e.Conduta);
             Bloco(texto, "evolução", e.TextoEvolucao);
             Bloco(texto, "orientações", e.Orientacoes);
@@ -170,6 +177,22 @@ public sealed class TitularDadosService
                 + (en.Cancelada ? " (CANCELADA)" : string.Empty));
             if (en.SinaisVitaisResumidos is { } sinais) Bloco(texto, "sinais vitais", sinais);
             Bloco(texto, "observação", en.Texto);
+
+            // O Processo de Enfermagem, quando o registro é uma CONSULTA (parcela 73).
+            Bloco(texto, "histórico de enfermagem", en.Historico);
+            Bloco(texto, "exame físico", en.ExameFisico);
+
+            foreach (var d in en.Diagnosticos.OrderBy(x => x.Ordem))
+            {
+                texto.AppendLine($"    diagnóstico de enfermagem: {d.Redacao}");
+                if (!string.IsNullOrWhiteSpace(d.ResultadoEsperado))
+                    texto.AppendLine($"      resultado esperado: {d.ResultadoEsperado}");
+            }
+
+            foreach (var c in en.Cuidados.OrderBy(x => x.Ordem))
+                texto.AppendLine($"    cuidado prescrito: {c.Redacao}");
+
+            Bloco(texto, "avaliação de enfermagem", en.Avaliacao);
             Bloco(texto, "registrado por", en.AutorNome
                 + (string.IsNullOrWhiteSpace(en.AutorConselho) ? "" : $" ({en.AutorConselho})"));
             if (en.Cancelada) Bloco(texto, "motivo do cancelamento", en.MotivoCancelamento);

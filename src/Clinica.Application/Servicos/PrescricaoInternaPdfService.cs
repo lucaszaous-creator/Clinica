@@ -752,6 +752,9 @@ public sealed class PrescricaoInternaPdfService
                     if (!e.Cancelada && e.SinaisVitaisResumidos is { } sinais)
                         linha.Item().Text(sinais).FontSize(8.5f).FontColor(TextoSecundario);
 
+                    if (!e.Cancelada && e.EhConsulta)
+                        ConsultaDeEnfermagem(linha, e);
+
                     if (e.EhRetificacao)
                         linha.Item().Text($"corrige o registro anterior — {e.MotivoRetificacao}")
                             .FontSize(8).FontColor(AmareloForte);
@@ -775,6 +778,84 @@ public sealed class PrescricaoInternaPdfService
                 + "registro no conselho ao lado.")
                 .FontSize(7.5f).FontColor(TextoSecundario);
         });
+    }
+
+    /// <summary>
+    /// AS CINCO ETAPAS do Processo de Enfermagem na via em PAPEL (COFEN 358/2009).
+    ///
+    /// ⚠️ Isto não é enfeite da folha: a Resolução exige que o Processo esteja
+    /// <b>registrado formalmente</b>, e a fiscalização do COREN se faz no PRONTUÁRIO —
+    /// que numa clínica é a via impressa, arquivada. Consulta de enfermagem que só existe
+    /// na tela é consulta que a fiscalização não enxerga, e é a mesma família do defeito
+    /// recorrente do projeto: o dado está gravado e não tem leitor onde ele é cobrado.
+    ///
+    /// A ANOTAÇÃO continua saindo como uma linha só — é a passagem pontual, e ela é a
+    /// maioria. Só o registro que TEM processo ganha o bloco: carimbar as cinco etapas em
+    /// toda observação de sinais vitais encheria a folha de rótulos vazios, e rótulo vazio
+    /// é o que faz alguém parar de ler a folha inteira.
+    ///
+    /// ⚠️ O bloco imprime o que FALTA (<see cref="EvolucaoEnfermagem.EtapasEmFalta"/>) em
+    /// vez de calar. Consulta pela metade impressa como se estivesse completa é a
+    /// <b>garantia aparente</b> que este projeto recusa desde a parcela 3 — e aqui ela
+    /// enganaria justamente quem fiscaliza.
+    /// </summary>
+    private static void ConsultaDeEnfermagem(ColumnDescriptor linha, EvolucaoEnfermagem e)
+    {
+        linha.Item().PaddingTop(4).PaddingLeft(10).BorderLeft(2).BorderColor(Azul)
+            .PaddingLeft(8).Column(sae =>
+            {
+                sae.Item().Text("CONSULTA DE ENFERMAGEM — processo em cinco etapas")
+                    .Bold().FontSize(7.5f).FontColor(Azul);
+
+                Etapa(sae, "1. Histórico", e.Historico);
+                Etapa(sae, "1. Exame físico", e.ExameFisico);
+
+                if (e.Diagnosticos.Count > 0)
+                {
+                    sae.Item().PaddingTop(3).Text("2. Diagnósticos de enfermagem")
+                        .SemiBold().FontSize(8).FontColor(TextoSecundario);
+
+                    foreach (var d in e.Diagnosticos.OrderBy(x => x.Ordem).ThenBy(x => x.Id))
+                    {
+                        sae.Item().Text($"• {d.Redacao}").FontSize(8.5f).FontColor(TextoPrimario);
+
+                        // ETAPA 3 (planejamento) sai COLADA no diagnóstico dela, e não numa
+                        // lista à parte: é contra este resultado que a etapa 5 avalia, e
+                        // separá-los obrigaria quem lê a casar linha com linha.
+                        if (!string.IsNullOrWhiteSpace(d.ResultadoEsperado))
+                            sae.Item().PaddingLeft(10)
+                                .Text($"3. resultado esperado: {d.ResultadoEsperado}")
+                                .FontSize(8).FontColor(TextoSecundario);
+                    }
+                }
+
+                if (e.Cuidados.Count > 0)
+                {
+                    sae.Item().PaddingTop(3).Text("4. Prescrição de enfermagem (cuidados)")
+                        .SemiBold().FontSize(8).FontColor(TextoSecundario);
+
+                    foreach (var c in e.Cuidados.OrderBy(x => x.Ordem).ThenBy(x => x.Id))
+                        sae.Item().Text($"• {c.Redacao}").FontSize(8.5f).FontColor(TextoPrimario);
+                }
+
+                Etapa(sae, "5. Avaliação", e.Avaliacao);
+
+                if (e.EtapasEmFalta.Count > 0)
+                    sae.Item().PaddingTop(3)
+                        .Text($"Registro incompleto — falta: {string.Join(", ", e.EtapasEmFalta)}.")
+                        .FontSize(7.5f).FontColor(AmareloForte);
+            });
+
+        static void Etapa(ColumnDescriptor col, string rotulo, string? texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return;
+
+            col.Item().PaddingTop(3).Text(t =>
+            {
+                t.Span($"{rotulo}: ").SemiBold().FontSize(8).FontColor(TextoSecundario);
+                t.Span(texto.Trim()).FontSize(8.5f).FontColor(TextoPrimario);
+            });
+        }
     }
 
     /// <summary>

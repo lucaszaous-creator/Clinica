@@ -143,6 +143,13 @@ public static class LinhaDoTempoClinica
         var detalhe = string.Join(" · ", new[]
         {
             string.IsNullOrWhiteSpace(e.QueixaPrincipal) ? null : e.QueixaPrincipal,
+            // A HIPÓTESE entra na linha (parcela 73): é a conclusão do profissional, e é
+            // o que a enfermagem precisa saber antes de pendurar qualquer coisa. Sem ela,
+            // a linha dizia o que foi feito e não dizia por quê.
+            string.IsNullOrWhiteSpace(e.HipoteseDiagnostica)
+                ? null
+                : $"hipótese: {e.HipoteseDiagnostica}"
+                  + (string.IsNullOrWhiteSpace(e.CidSessao) ? string.Empty : $" ({e.CidSessao})"),
             string.IsNullOrWhiteSpace(e.Conduta) ? null : $"conduta: {e.Conduta}",
             e.EvaAntes is { } antes && e.EvaDepois is { } depois
                 ? $"EVA {antes} → {depois}"
@@ -188,6 +195,14 @@ public static class LinhaDoTempoClinica
             string.Join(" · ", new[]
             {
                 e.SinaisVitaisResumidos,
+                // A CONSULTA se anuncia na linha (parcela 73): o diagnóstico de enfermagem
+                // é o que o médico não tem noutro lugar, e uma linha que só diz "consulta"
+                // obrigaria a abrir uma por uma para saber qual interessa.
+                e.EhConsulta ? "CONSULTA DE ENFERMAGEM" : null,
+                e.Diagnosticos.Count == 0
+                    ? null
+                    : string.Join("; ", e.Diagnosticos.OrderBy(d => d.Ordem).Select(d => d.Titulo)),
+                e.Cuidados.Count > 0 ? $"{e.Cuidados.Count} cuidado(s) prescrito(s)" : null,
                 e.Prescricao?.Numero is { } numero ? $"folha {numero}" : null,
                 $"registrado {e.RegistradoEm:dd/MM/yyyy HH\\:mm}"
             }.Where(p => !string.IsNullOrWhiteSpace(p))),

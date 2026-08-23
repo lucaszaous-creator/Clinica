@@ -4675,3 +4675,51 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A conta era minha: `sobreviveu = votos.Length > 0 && refutados == 0` põe o achado
   SEM VOTO no balde dos refutados. **Cético que não votou não refutou nada** — e o script
   que trata as duas coisas igual transforma falha de infraestrutura em aprovação silenciosa.
+
+- **"Está muito CRU!" — a parcela 72 entregou QUEM VÊ e não encostou no ATO DE ATENDER**
+  (parcela 73; o mapa completo está em `docs/registro-do-atendimento.md`, e é lá que se
+  atualiza). Foi a oitava reprovação do cliente, e a mais precisa: a parcela anterior deu
+  portas, linha do tempo e permissões, e os dois registros clínicos continuavam sendo **um
+  campo de texto**. O médico não tinha onde escrever história da doença atual, exame físico
+  nem hipótese diagnóstica — os três eixos sem os quais o prontuário registra o que foi feito
+  e não registra **por quê**.
+  ⚠️ **E a metade da enfermagem não era pobreza, era ILEGALIDADE.** A **COFEN 358/2009** torna
+  o Processo de Enfermagem obrigatório e **registrado formalmente** em cinco etapas
+  (histórico, diagnóstico, planejamento, prescrição de enfermagem, avaliação), e a **Lei
+  7.498/1986, art. 11, I, "i"** faz da consulta de enfermagem ato **privativo do Enfermeiro**.
+  Oferecer uma caixa de texto à enfermagem não é oferecer pouco: é **impedir que ela cumpra a
+  Resolução do próprio conselho**.
+  **ANOTAÇÃO × CONSULTA é derivado do CONTEÚDO, nunca um campo de tipo** (`EhConsulta`):
+  campo de tipo teria de ser preenchido, e seria preenchido errado — a técnica marcaria
+  "consulta" por engano e a folha sairia cobrando cinco etapas de uma observação de sinais
+  vitais. Derivado, ele não mente: quem escreveu diagnóstico fez consulta, quem escreveu uma
+  linha fez anotação. E a **consulta incompleta AVISA e não impede** (`EtapasEmFalta`): a
+  etapa 5 só existe depois de o cuidado ter sido prestado, e recusar salvar antes dela faria
+  a enfermeira digitar tudo de novo no fim do turno — **registro clínico que não se consegue
+  salvar é registro que não acontece**. A recusa seria a garantia aparente pelo avesso; o que
+  se recusa é imprimir a consulta pela metade **sem dizer que está pela metade**, e por isso
+  o aviso sai na tela E no papel.
+  **O catálogo é a lista DESTA clínica, e NANDA-I não foi importada** — é licenciada. O que
+  se reusa é a redação em três partes (problema, *relacionado a*, *evidenciado por*), que é
+  método e não texto protegido; sem a terceira parte ninguém consegue avaliar depois se o
+  diagnóstico foi resolvido, e a etapa 5 vira opinião. O `Codigo` é **anulável de propósito**:
+  lista fechada faria a enfermeira parar de diagnosticar o que não está nela, e diagnóstico
+  não escrito é cuidado não prestado. Aplicar **COPIA** — aqui não é desenho, é a Lei
+  13.787/2018.
+  ⚠️ **O item que quase ficou de fora é o PAPEL.** A fiscalização do COREN se faz no
+  PRONTUÁRIO, que numa clínica é a via impressa e arquivada: **consulta de enfermagem que só
+  existe na tela é consulta que a fiscalização não enxerga** — o defeito recorrente do
+  projeto na variante que custa multa. As cinco etapas entraram em
+  `PrescricaoInternaPdfService`, com o que falta escrito ao pé.
+  **Só o registro que TEM processo ganha o bloco**: carimbar as cinco etapas em toda
+  observação encheria a folha de rótulos vazios, e rótulo vazio é o que faz alguém parar de
+  ler a folha inteira. Pela mesma razão o detalhe do médico abre num `Expander` FECHADO: a
+  sessão de seguimento — a maioria absoluta do movimento — se registra em queixa, EVA e
+  conduta, e quatro campos vazios em toda sessão viram paisagem antes do dia em que a
+  anamnese importa.
+  ⚠️ **O CID da hipótese NÃO sai no relatório de evolução** — a economia do CID da parcela 3,
+  com mais razão: o relatório circula fora da clínica, o código é o que se lê num campo de
+  formulário sem ninguém ler a frase ao lado, e este documento não passa pela autorização
+  expressa que a receita e o atestado pedem. E a **hipótese não é a lista de problemas**:
+  `ProblemaPaciente` é o que o paciente TEM, `HipoteseDiagnostica` é o que se pensou NAQUELA
+  sessão — a de terça pode estar errada, e a lista não deve carregá-la.

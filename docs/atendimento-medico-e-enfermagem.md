@@ -7,6 +7,10 @@ quem alcança qual dado, por qual porta, e por quê. Ele é lido junto de
 [`docs/permissoes-por-perfil.md`](permissoes-por-perfil.md) (a tabela de bits por perfil) e
 de [`docs/conformidade-lgpd.md`](conformidade-lgpd.md) (o placar do compromisso).
 
+> **Este documento responde QUEM VÊ.** O CONTEÚDO do ato — a consulta de enfermagem em cinco
+> etapas (COFEN 358/2009) e os três eixos da sessão médica — está no documento irmão,
+> [`docs/registro-do-atendimento.md`](registro-do-atendimento.md) (parcela 73).
+
 ---
 
 ## 1. O pedido, e o que ele revelou
