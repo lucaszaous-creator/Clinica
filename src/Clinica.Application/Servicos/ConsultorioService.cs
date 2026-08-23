@@ -311,10 +311,17 @@ public sealed class ConsultorioService
     /// que idade tem, de que convênio é, desde quando se trata aqui e <b>o que não se pode
     /// esquecer</b>. Todos os dados já existiam; nenhum tinha leitor neste lugar.
     ///
-    /// ⚠️ São QUATRO leituras em paralelo, e não em fila indiana: o banco é remoto e o
-    /// crachá é montado a cada troca de paciente, que num consultório é o gesto mais
-    /// repetido do dia. Em série seriam quatro esperas somadas para desenhar uma linha de
-    /// texto.
+    /// ⚠️ As leituras são SEQUENCIAIS, e a primeira versão desta parcela as fazia em
+    /// paralelo com <c>Task.WhenAll</c> — o que é um DEFEITO, não uma otimização: as quatro
+    /// passam pelo MESMO <c>IClinicaRepositorio</c>, logo pelo mesmo <c>DbContext</c>, e ele
+    /// não aceita duas operações ao mesmo tempo. O crachá estouraria com <i>"a second
+    /// operation was started on this context instance"</i> em toda troca de paciente.
+    ///
+    /// ⚠️ E os testes NÃO pegavam: o SQLite em memória completa a consulta quase
+    /// sincronamente, então as quatro nunca chegavam a se sobrepor. É a mesma família do
+    /// <c>xmin</c> e das datas com fuso — o que só aparece com latência de rede real.
+    /// <c>CabecalhoClinicoTests</c> tem o teste com o interceptor de lentidão justamente
+    /// para fechar esse buraco.
     ///
     /// ⚠️ E as ALERGIAS entram mesmo dadas por RESOLVIDAS — a regra da parcela 37, que
     /// aqui vale mais ainda: "resolvida" numa alergia é quase sempre "não reagiu da última
@@ -325,17 +332,12 @@ public sealed class ConsultorioService
     public async Task<CabecalhoClinicoPaciente?> CabecalhoAsync(
         int pacienteId, CancellationToken ct = default)
     {
-        var tPaciente = _repo.ObterPacienteAsync(pacienteId, ct);
-        var tHistorico = _repo.HistoricoDeSessoesAsync(pacienteId, ct);
-        var tProblemas = _repo.ProblemasDoPacienteAsync(pacienteId, ct: ct);
-        var tEvolucoes = _repo.EvolucoesDoPacienteAsync(pacienteId, ct);
-        await Task.WhenAll(tPaciente, tHistorico, tProblemas, tEvolucoes);
-
-        var p = await tPaciente;
+        var p = await _repo.ObterPacienteAsync(pacienteId, ct);
         if (p is null) return null;
 
-        var (primeira, total) = await tHistorico;
-        var problemas = await tProblemas;
+        var (primeira, total) = await _repo.HistoricoDeSessoesAsync(pacienteId, ct);
+        var problemas = await _repo.ProblemasDoPacienteAsync(pacienteId, ct: ct);
+        var hipoteses = await _repo.HipotesesRecentesAsync(pacienteId, 3, ct);
 
         var alergias = problemas
             .Where(x => x.Natureza == NaturezaProblema.Alergia
@@ -349,21 +351,6 @@ public sealed class ConsultorioService
             .Select(x => string.IsNullOrWhiteSpace(x.Cid)
                 ? x.Descricao
                 : $"{x.Descricao} ({x.Cid})")
-            .ToList();
-
-        // As hipóteses das últimas sessões. TRÊS, e o corte é por leitura, não por
-        // economia: a linha do crachá tem uma linha de altura, e uma lista completa de
-        // hipóteses de um tratamento de quarenta sessões viraria um parágrafo que ninguém
-        // lê — que é o mesmo que não mostrar.
-        //
-        // ⚠️ Elas são DISTINTAS: repetir "lombalgia" nas oito últimas sessões gastaria a
-        // linha inteira dizendo uma coisa só.
-        var diagnosticos = (await tEvolucoes)
-            .Where(e => !e.Cancelada && !string.IsNullOrWhiteSpace(e.HipoteseDiagnostica))
-            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
-            .Select(e => e.HipoteseDiagnostica!.Trim())
-            .Distinct(StringComparer.CurrentCultureIgnoreCase)
-            .Take(3)
             .ToList();
 
         var hoje = DateOnly.FromDateTime(DateTime.Today);
@@ -381,7 +368,7 @@ public sealed class ConsultorioService
             total,
             alergias,
             ativos,
-            diagnosticos);
+            hipoteses);
     }
 
     /// <summary>

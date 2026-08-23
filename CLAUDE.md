@@ -4807,3 +4807,47 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   (invalid token)". Nos `.cs` ela é livre; no XAML, não. O `verificar-suite` pega na hora —
   mas vale saber antes de escrever, porque o estilo de comentário deste projeto usa
   sublinhado em toda seção.
+
+- **Método de repositório SEM chamador em teste é código que ninguém executou** (parcela 74,
+  2ª rodada — auditoria do próprio diff, e os dois primeiros achados derrubariam a tela em
+  produção com 1778 testes, três redes locais e o CI verdes).
+  ⚠️ **Consulta LINQ só se prova EXECUTANDO**, porque a tradução para SQL acontece em
+  runtime. `AnexosDoPacienteAsync` filtrava por `!a.Evolucao.Cancelada`, e `Cancelada` é
+  propriedade DERIVADA (`=> CanceladaEm is not null`), não mapeada: o EF recusa com
+  *"Translation of member 'Cancelada' on entity type 'Evolucao' failed"*. A seção "Exames e
+  anexos" derrubaria a tela no primeiro clique. A regra: **em `Where`/`OrderBy`/`Select`
+  traduzido, use a COLUNA (`CanceladaEm == null`), nunca a derivada** — e todo método novo
+  de repositório nasce com um teste que o EXECUTA, mesmo que trivial.
+- **`Task.WhenAll` sobre o MESMO `IClinicaRepositorio` é um defeito, não uma otimização**
+  (parcela 74, 2ª rodada). As leituras passam pelo mesmo `DbContext`, que **não aceita duas
+  operações ao mesmo tempo**: `CabecalhoAsync` estouraria com *"a second operation was
+  started on this context instance"* em toda troca de paciente.
+  ⚠️ **Os treze testes do crachá passavam**, porque o SQLite em memória completa a consulta
+  quase sincronamente e as quatro nunca chegavam a se sobrepor. É a mesma família do `xmin` e
+  das datas com fuso — **o que só aparece com latência de rede real**. A rede que fechou o
+  buraco é barata e generaliza: um `DbCommandInterceptor` que injeta `Task.Delay` no
+  `ReaderExecutingAsync` (ver `CabecalhoClinicoTests.Cracha_monta_contra_um_banco_LENTO`).
+  **Toda leitura composta nova deveria passar por ele.**
+  ⚠️ E o agravante é de método: eu escrevi um comentário JUSTIFICANDO o paralelismo por
+  performance. **Comentário que explica uma decisão errada a torna invisível para o próximo
+  revisor** — foi por isso que ele sobreviveu à minha primeira leitura do diff.
+- **Carimbo novo da fila entra no bloco que a REMARCAÇÃO limpa** (parcela 74, 2ª rodada). A
+  parcela 69 documentou que "remarcar levava junto os carimbos da fila" e a 74 criou um
+  carimbo novo (`FimAtendimentoEm`) **sem o pôr no bloco**. Um horário remarcado para outro
+  dia nasceria com o selo verde "Encerrado às 09h40" de uma sessão que não aconteceu — e
+  cartão em "Aguardando" dizendo que já terminou é lido pelo balcão como pronto para fechar.
+  **Estado derivado de carimbo de hora tem de ser revisto em TODA escrita que muda o que o
+  carimbo significa** — e "mudou de dia" continua sendo a maior delas.
+- **`DispatcherTimer` ligado no ViewModel mantém viva cada tela já trocada** (parcela 74, 2ª
+  rodada). Quem liga e desliga é a VIEW, no `Loaded`/`Unloaded` — o `MeuDiaView` faz assim
+  desde a parcela 38 **com o motivo escrito no comentário**, e a parcela 74 o repetiu errado.
+  Aqui o estrago era maior: cada workspace abandonado segurava a ViewModel dele **e as SETE
+  sub-ViewModels**, batendo a cada 15 s; num turno de vinte pacientes, vinte deles.
+  ⚠️ E não basta mover o `Start()`: a função que recalcula o estado religa o timer sozinha, e
+  por isso ela precisa de uma guarda de "a tela está montada" (`_naTela`).
+- **Antes de aceitar uma leitura, meça o que ela TRAZ** (parcela 74, 2ª rodada — a lição da
+  parcela 69 pela segunda vez). O crachá lia `EvolucoesDoPacienteAsync` — o prontuário
+  INTEIRO, com o texto de cada evolução, a conduta e as orientações — para extrair **três
+  frases curtas**. Num tratamento de quarenta sessões é meio megabyte a cada troca de
+  paciente, que no consultório é o gesto mais repetido do dia. Virou `HipotesesRecentesAsync`,
+  uma projeção de uma coluna com teto no SQL.

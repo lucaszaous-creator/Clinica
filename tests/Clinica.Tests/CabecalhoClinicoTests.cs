@@ -256,6 +256,55 @@ public class CabecalhoClinicoTests : IDisposable
     public async Task Paciente_inexistente_devolve_nulo_em_vez_de_um_cracha_vazio()
         => (await _consultorio.CabecalhoAsync(9999)).Should().BeNull();
 
+    // ===== A rede que faltava: o banco LENTO =====
+
+    /// <summary>
+    /// O crachá montado contra um banco com LATÊNCIA — que é o que o cliente tem.
+    ///
+    /// ⚠️ Este teste existe porque a primeira versão da parcela 74 lia as quatro consultas em
+    /// <c>Task.WhenAll</c> sobre o MESMO repositório, logo o mesmo <c>DbContext</c> — e ele
+    /// não aceita duas operações ao mesmo tempo. Os treze testes acima passavam: o SQLite em
+    /// memória completa a consulta quase sincronamente, e as quatro nunca chegavam a se
+    /// sobrepor. Em produção o crachá estouraria em TODA troca de paciente, com <i>"a second
+    /// operation was started on this context instance"</i>.
+    ///
+    /// É a mesma família do <c>xmin</c> e das datas com fuso: o que só aparece com latência de
+    /// rede real. O interceptor abaixo é a forma barata de tê-la sem um Postgres.
+    /// </summary>
+    [Fact]
+    public async Task Cracha_monta_contra_um_banco_LENTO_como_o_de_producao()
+    {
+        var comLatencia = new DbContextOptionsBuilder<ClinicaDbContext>()
+            .UseSqlite(_conn)
+            .AddInterceptors(new LentidaoDeRede())
+            .Options;
+        using var db = new ClinicaDbContext(comLatencia);
+        var consultorio = new ConsultorioService(new ClinicaRepositorio(db));
+
+        var id = await CriarAsync(new DateOnly(1980, 3, 15));
+        await ProblemaAsync(id, NaturezaProblema.Alergia, "dipirona", SituacaoProblema.Ativo);
+
+        var c = await consultorio.CabecalhoAsync(id);
+
+        c.Should().NotBeNull();
+        c!.Alergias.Should().ContainSingle();
+    }
+
+    /// <summary>Faz cada consulta demorar de verdade — é o que um banco remoto faz.</summary>
+    private sealed class LentidaoDeRede : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public override async ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>>
+            ReaderExecutingAsync(
+                System.Data.Common.DbCommand command,
+                Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+                Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result,
+                CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(25, cancellationToken);
+            return result;
+        }
+    }
+
     public void Dispose()
     {
         _db.Dispose();

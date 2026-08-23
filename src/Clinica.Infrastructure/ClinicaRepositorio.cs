@@ -467,6 +467,33 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
 
+    public async Task<IReadOnlyList<string>> HipotesesRecentesAsync(
+        int pacienteId, int quantas, CancellationToken ct = default)
+    {
+        // A projeção é o ponto: o SELECT traz UMA coluna, não o prontuário.
+        // ⚠️ `CanceladaEm == null`, nunca `!Cancelada` — a derivada não traduz.
+        var brutas = await _db.Evolucoes.AsNoTracking()
+            .Where(e => e.PacienteId == pacienteId
+                        && e.CanceladaEm == null
+                        && e.HipoteseDiagnostica != null
+                        && e.HipoteseDiagnostica != "")
+            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
+            // Um teto no SQL para não trazer quarenta linhas e jogar fora trinta e sete. É
+            // generoso de propósito: o DISTINCT é por TEXTO e acontece em memória (a
+            // comparação sem diferenciar caixa não tem tradução confiável entre provedores),
+            // então "lombalgia" repetida oito vezes precisa caber aqui dentro.
+            .Take(Math.Max(quantas, 1) * 10)
+            .Select(e => e.HipoteseDiagnostica!)
+            .ToListAsync(ct);
+
+        return brutas
+            .Select(h => h.Trim())
+            .Where(h => h.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Take(quantas)
+            .ToList();
+    }
+
     public async Task<(DateOnly? Primeira, int Total)> HistoricoDeSessoesAsync(
         int pacienteId, CancellationToken ct = default)
     {
@@ -943,9 +970,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoDoPaciente>> AnexosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()
+            // ⚠️ `CanceladaEm == null`, NUNCA `!Evolucao.Cancelada`: `Cancelada` é propriedade
+            // DERIVADA (`=> CanceladaEm is not null`) e não está mapeada, então o EF não a
+            // traduz e a consulta ESTOURA — "Translation of member 'Cancelada' failed".
             .Where(a => a.CanceladoEm == null
                         && a.Evolucao!.PacienteId == pacienteId
-                        && !a.Evolucao.Cancelada)
+                        && a.Evolucao.CanceladaEm == null)
             // O mais recente na frente: o laudo que acabou de chegar é o que se procura.
             .OrderByDescending(a => a.Evolucao!.Data).ThenByDescending(a => a.CriadoEm)
             // A projeção é o ponto: o SELECT não inclui Conteudo.

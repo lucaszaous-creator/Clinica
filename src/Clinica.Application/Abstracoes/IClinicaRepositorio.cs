@@ -223,6 +223,25 @@ public interface IClinicaRepositorio
         int pacienteId, CancellationToken ct = default);
 
     /// <summary>
+    /// As últimas hipóteses diagnósticas do paciente, DISTINTAS e da mais recente para a
+    /// mais antiga (parcela 74).
+    ///
+    /// ⚠️ Existe como consulta PRÓPRIA porque a primeira versão do crachá lia
+    /// <c>EvolucoesDoPacienteAsync</c> — o prontuário INTEIRO, com o texto de cada evolução,
+    /// a conduta e as orientações — para extrair três frases curtas. Num tratamento de
+    /// quarenta sessões isso é meio megabyte trafegado a cada troca de paciente, que no
+    /// consultório é o gesto mais repetido do dia. É a lição da parcela 69 ("Meus pacientes
+    /// fazia 1 + 200 consultas"): antes de aceitar a leitura, meça o que ela TRAZ.
+    ///
+    /// Sessão cancelada fica de fora: ela continua na base (o prontuário não se apaga) e não
+    /// pode voltar como se valesse. O corte em <paramref name="quantas"/> é do CHAMADOR, e o
+    /// DISTINCT vem antes dele — senão "lombalgia" repetida nas oito últimas sessões
+    /// devolveria três linhas iguais.
+    /// </summary>
+    Task<IReadOnlyList<string>> HipotesesRecentesAsync(
+        int pacienteId, int quantas, CancellationToken ct = default);
+
+    /// <summary>
     /// Os atendimentos do paciente num dia, com os códigos — a "capa" que o balcão
     /// confere antes de lançar de novo (parcela 70): número, modalidade, quem lançou e
     /// quais guias já foram baixadas. É o que transforma a pergunta "atendimento

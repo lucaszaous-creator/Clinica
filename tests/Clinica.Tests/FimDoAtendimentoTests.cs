@@ -180,6 +180,37 @@ public class FimDoAtendimentoTests : IDisposable
         trilha.Detalhe.Should().Contain("encerramento do atendimento");
     }
 
+    [Fact]
+    public async Task Remarcar_para_OUTRO_DIA_apaga_o_encerramento()
+    {
+        var ag = await NaSalaAsync();
+        await _agenda.EncerrarAtendimentoAsync(ag.Id, "medica", Manha.AddMinutes(35));
+
+        await _agenda.RemarcarAsync(ag.Id, Manha.AddDays(3), null, operador: "recepcao");
+
+        var lido = (await _agenda.ObterAsync(ag.Id))!;
+        // Sem isto o horário de quinta nasceria com o selo verde "Encerrado às 09h40" de uma
+        // sessão que não aconteceu — e cartão em "Aguardando" dizendo que já terminou é lido
+        // pelo balcão como sessão pronta para fechar. É a lição da parcela 69: TODO carimbo
+        // novo da fila entra no bloco que a remarcação limpa.
+        lido.FimAtendimentoEm.Should().BeNull();
+        lido.AtendimentoEncerrado.Should().BeFalse();
+        lido.Etapa.Should().Be(EtapaFila.Aguardando);
+    }
+
+    [Fact]
+    public async Task Remarcar_no_MESMO_dia_preserva_o_encerramento()
+    {
+        var ag = await NaSalaAsync();
+        await _agenda.EncerrarAtendimentoAsync(ag.Id, "medica", Manha.AddMinutes(35));
+
+        // Mexer em sala/duração/observação é ajuste do horário de hoje — apagar o que já
+        // aconteceu seria destruir o fato pelo caminho errado.
+        await _agenda.RemarcarAsync(ag.Id, Manha.AddMinutes(90), null, operador: "recepcao");
+
+        (await _agenda.ObterAsync(ag.Id))!.FimAtendimentoEm.Should().Be(Manha.AddMinutes(35));
+    }
+
     // ===== A duração =====
 
     [Fact]

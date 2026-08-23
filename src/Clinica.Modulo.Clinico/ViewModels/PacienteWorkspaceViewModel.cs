@@ -53,8 +53,19 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// do carimbo que já está na memória —, então bater a cada 15 s não custa nada e é o
     /// que faz o minuto virar na tela sem parecer travado. É diferente das releituras
     /// silenciosas do balcão, que vão ao banco e por isso batem a cada minuto ou dois.
+    ///
+    /// ⚠️ Quem o liga e desliga é a VIEW (Loaded/Unloaded), como o quadro do "Meu dia" desde
+    /// a parcela 38 — e não é conforto: o shell constrói uma tela nova a cada navegação, e um
+    /// timer ligado mantém viva a ViewModel que o criou, junto com as SETE sub-ViewModels
+    /// dela. Num turno de vinte pacientes seriam vinte workspaces abandonados batendo.
     /// </summary>
     private readonly DispatcherTimer _relogio = new() { Interval = TimeSpan.FromSeconds(15) };
+
+    /// <summary>
+    /// A tela está montada. Sem isto, <see cref="DescreverSessao"/> religaria o relógio de uma
+    /// ViewModel já abandonada na primeira vez que ela recalculasse a frase.
+    /// </summary>
+    private bool _naTela;
 
     private Agendamento? _horario;
 
@@ -291,7 +302,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         else
             SituacaoSessao = "Horário já encerrado no balcão";
 
-        if (EmAtendimento) _relogio.Start(); else _relogio.Stop();
+        if (EmAtendimento && _naTela) _relogio.Start(); else _relogio.Stop();
     }
 
     /// <summary>
@@ -402,5 +413,22 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     {
         MensagemSessao = texto;
         MensagemSessaoEhErro = erro;
+    }
+
+    /// <summary>A View montou. Ver o comentário do <c>_relogio</c>.</summary>
+    public void IniciarRelogio()
+    {
+        _naTela = true;
+        if (EmAtendimento) _relogio.Start();
+    }
+
+    /// <summary>
+    /// A View saiu de cena. O relógio PARA sempre — inclusive com atendimento em curso: a
+    /// tela que voltar constrói uma ViewModel nova e lê o carimbo do banco de novo.
+    /// </summary>
+    public void PararRelogio()
+    {
+        _naTela = false;
+        _relogio.Stop();
     }
 }

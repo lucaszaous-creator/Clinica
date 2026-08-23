@@ -229,6 +229,12 @@ public sealed class AgendaService
             ag.ChegadaEm = null;
             ag.ChamadoEm = null;
             ag.InicioAtendimentoEm = null;
+            // ⚠️ O ENCERRAMENTO vai junto (parcela 74). Sem ele, o horário remarcado nasceria
+            // na quinta com o selo verde "Encerrado às 14h32" de uma sessão que não
+            // aconteceu — e um cartão em "Aguardando" dizendo que já terminou é lido pelo
+            // balcão como sessão pronta para fechar. Cada carimbo novo da fila tem de entrar
+            // NESTE bloco: é a lição da parcela 69, e a parcela 74 a repetiu.
+            ag.FimAtendimentoEm = null;
         }
 
         // GUIA NO AGENDAMENTO (parcela 70): o atendimento acompanha o horário, no MESMO

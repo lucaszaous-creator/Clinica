@@ -165,11 +165,10 @@
                          seguintes — é a razão pela qual este projeto recusa alerta que
                          dispara para todo mundo desde a parcela 26. Aqui ela fica no
                          crachá, ao lado do nome, enquanto o prontuário estiver aberto. -->
-                    <ItemsControl Margin="0,12,0,0"
-                                  Visibility="{Binding Cabecalho.TemContextoClinico,
-                                               Converter={StaticResource BoolParaVisibilidade},
-                                               FallbackValue=Collapsed}">
-                        <StackPanel>
+                    <StackPanel Margin="0,12,0,0"
+                                Visibility="{Binding Cabecalho.TemContextoClinico,
+                                             Converter={StaticResource BoolParaVisibilidade},
+                                             FallbackValue=Collapsed}">
                             <Border Style="{StaticResource AlertaPerigo}" Padding="10,7"
                                     Margin="0,0,0,6"
                                     Visibility="{Binding Cabecalho.AlergiasTexto,
@@ -199,9 +198,8 @@
                                 <Run Text="Últimas hipóteses: " FontWeight="SemiBold"
                                      Foreground="{StaticResource Brush.Texto.Secundario}" />
                                 <Run Text="{Binding Cabecalho.DiagnosticosTexto, Mode=OneWay}" />
-                            </TextBlock>
-                        </StackPanel>
-                    </ItemsControl>
+                        </TextBlock>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
