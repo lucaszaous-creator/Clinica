@@ -4851,3 +4851,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   frases curtas**. Num tratamento de quarenta sessões é meio megabyte a cada troca de
   paciente, que no consultório é o gesto mais repetido do dia. Virou `HipotesesRecentesAsync`,
   uma projeção de uma coluna com teto no SQL.
+
+- **Campo novo de prontuário entra em TRÊS lugares no mesmo commit — e nenhum quebra o
+  build** (parcela 74, 2ª rodada; o defeito é da 73 e passou por tudo). Os quatro campos da
+  sessão médica (`HistoriaDoencaAtual`, `ExameFisico`, `HipoteseDiagnostica`, `CidSessao`)
+  entraram na entidade, na tela, no PDF, na exportação e no art. 18 II — e **não** entraram
+  em `ProntuarioService.SalvarAsync`, que copia campo a campo para a entidade rastreada.
+  ⚠️ **O efeito era o pior possível porque a CRIAÇÃO funcionava**: o objeto é novo, tudo era
+  gravado, a tela mostrava certo. Só a primeira EDIÇÃO — acrescentar uma linha à evolução —
+  apagava a anamnese, o exame físico, a hipótese e o CID. Sem erro, sem aviso. E
+  `GuardarVersao` também não os copiava, então **a versão anterior não os tinha**: o dado
+  sumia para sempre, contra o ponto 2 do compromisso de conformidade e o art. 3º da Lei
+  13.787/2018 (rastreabilidade da retificação).
+  Os três lugares são: **a cópia** do serviço, **o `GuardarVersao`** (com a coluna na
+  `VersaoEvolucao` e a migration) e **a validação de "evolução vazia"** — sem a terceira, a
+  primeira consulta, que é história + achado + hipótese ANTES de haver conduta, seria
+  recusada nomeando campos que o médico preencheu.
+  ⚠️ E há um QUARTO lugar quando existe mais de uma porta de edição: **quem não edita,
+  PRESERVA.** A janela de evolução do BALCÃO não tem esses campos na tela e reenviava nulos —
+  com a cópia corrigida, ela passaria a APAGAR o que o médico escreveu. Ela agora os carrega e
+  os devolve intactos, e eles não viram propriedade pública de propósito: propriedade pública
+  convida um XAML a mostrá-los, e dado clínico do médico não se edita no balcão. É a mesma
+  armadilha que a parcela 68 achou no vínculo com o horário, com a diferença que decide o
+  desenho: `AtendimentoId` nulo é "o chamador não sabe" porque **nenhuma tela oferece
+  desligar**; texto nulo é ambíguo, porque a tela do Consultório oferece LIMPAR — e por isso a
+  saída é preservar no CHAMADOR, não adivinhar no serviço.
+- **Teste que reenvia a ENTIDADE RASTREADA não testa versionamento** (parcela 74, 2ª rodada —
+  falso positivo meu, pego pelo próprio teste). Mutar o objeto que `SalvarAsync` devolveu e
+  reenviá-lo faz `GuardarVersao` copiar o valor **já alterado**, e a versão anterior nasce
+  igual à nova. As duas telas de produção constroem um `new Evolucao`, e o teste tem de fazer
+  o mesmo — senão ele reprova o produto por um defeito que só existe dentro dele.

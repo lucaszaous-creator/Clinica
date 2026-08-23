@@ -26,6 +26,21 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     private readonly int _pacienteId;
     private int? _evolucaoId;
 
+    // ⚠️ OS QUATRO DA PARCELA 73, CARREGADOS E DEVOLVIDOS INTACTOS (parcela 74, 2ª rodada).
+    //
+    // Esta janela é a do BALCÃO e não edita anamnese — ela não tem esses campos na tela. Mas
+    // o serviço grava o que o chamador manda, então reenviar nulos APAGARIA a história da
+    // doença atual, o exame físico, a hipótese e o CID que o médico escreveu no Consultório.
+    // É a mesma armadilha que a parcela 68 encontrou no vínculo com o horário, e a saída é a
+    // mesma: quem não edita, PRESERVA.
+    //
+    // Eles não viram propriedade pública de propósito — propriedade pública convida um XAML
+    // a mostrá-los, e dado clínico do médico não se edita no balcão.
+    private string? _historiaDoencaAtual;
+    private string? _exameFisico;
+    private string? _hipoteseDiagnostica;
+    private string? _cidSessao;
+
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<AnexoResumo> Anexos { get; } = [];
 
@@ -149,6 +164,12 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             TextoEvolucao = evolucao.TextoEvolucao;
             Orientacoes = evolucao.Orientacoes;
 
+            // Guardados para voltarem intactos no Salvar — ver o comentário dos campos.
+            _historiaDoencaAtual = evolucao.HistoriaDoencaAtual;
+            _exameFisico = evolucao.ExameFisico;
+            _hipoteseDiagnostica = evolucao.HipoteseDiagnostica;
+            _cidSessao = evolucao.CidSessao;
+
             await RecarregarAnexosAsync(prontuario);
         }
         catch (Exception ex)
@@ -197,7 +218,12 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
                 QueixaPrincipal = QueixaPrincipal,
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
-                Orientacoes = Orientacoes
+                Orientacoes = Orientacoes,
+                // Devolvidos como vieram: esta janela não os edita.
+                HistoriaDoencaAtual = _historiaDoencaAtual,
+                ExameFisico = _exameFisico,
+                HipoteseDiagnostica = _hipoteseDiagnostica,
+                CidSessao = _cidSessao
             }, SessaoUsuario.Atual.Operador);
 
             _evolucaoId = salva.Id;

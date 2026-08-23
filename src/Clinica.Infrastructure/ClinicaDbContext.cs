@@ -411,6 +411,13 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
+
+            // Os mesmos tetos da Evolucao — a versão guarda o que ela dizia, então o que
+            // cabia lá tem de caber aqui.
+            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
+            e.Property(x => x.CidSessao).HasMaxLength(20);
         });
 
         b.Entity<Evolucao>(e =>

@@ -326,6 +326,22 @@ public class VersaoEvolucao
     public int? EvaAntes { get; set; }
     public int? EvaDepois { get; set; }
     public string? QueixaPrincipal { get; set; }
+
+    // ⚠️ OS QUATRO DA PARCELA 73 (acrescentados na 74, 2ª rodada). Eles nasceram na
+    // Evolucao e NÃO entraram aqui — então corrigir uma vírgula da evolução apagava a
+    // anamnese, o exame físico e a hipótese, e a versão anterior não os tinha: o dado
+    // sumia para sempre, sem rastro. É exatamente o ponto 2 do compromisso de conformidade
+    // ("alterar registro clínico guarda o que ele dizia antes") e o art. 3º da Lei
+    // 13.787/2018 — a rastreabilidade da retificação.
+    //
+    // A lição: CAMPO NOVO DE PRONTUÁRIO ENTRA NA VERSÃO NO MESMO COMMIT. Quem esquece não
+    // quebra nada: o build passa, os testes passam, e a perda só aparece no dia em que
+    // alguém precisar do que foi escrito antes — que é o dia em que ela é irreversível.
+    public string? HistoriaDoencaAtual { get; set; }
+    public string? ExameFisico { get; set; }
+    public string? HipoteseDiagnostica { get; set; }
+    public string? CidSessao { get; set; }
+
     public string? Conduta { get; set; }
     public string? TextoEvolucao { get; set; }
     public string? Orientacoes { get; set; }

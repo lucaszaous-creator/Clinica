@@ -53,10 +53,17 @@ public sealed class ProntuarioService
                 $"A escala de dor vai de {Evolucao.EvaMinima} a {Evolucao.EvaMaxima}.");
 
         // Evolução vazia é ruído no prontuário: alguma coisa tem de ter sido registrada.
+        // ⚠️ Os quatro campos da parcela 73 CONTAM (acrescentados na 74, 2ª rodada). Sem
+        // eles, a consulta em que o médico registrou só a anamnese, o exame físico e a
+        // hipótese — que é o caso normal da PRIMEIRA consulta, antes de haver conduta —
+        // seria recusada como "evolução vazia", e a recusa nomeia campos que ele preencheu.
         var temTexto = !string.IsNullOrWhiteSpace(dados.QueixaPrincipal)
                        || !string.IsNullOrWhiteSpace(dados.Conduta)
                        || !string.IsNullOrWhiteSpace(dados.TextoEvolucao)
-                       || !string.IsNullOrWhiteSpace(dados.Orientacoes);
+                       || !string.IsNullOrWhiteSpace(dados.Orientacoes)
+                       || !string.IsNullOrWhiteSpace(dados.HistoriaDoencaAtual)
+                       || !string.IsNullOrWhiteSpace(dados.ExameFisico)
+                       || !string.IsNullOrWhiteSpace(dados.HipoteseDiagnostica);
         if (!temTexto && dados.EvaAntes is null && dados.EvaDepois is null)
             throw new InvalidOperationException(
                 "Registre ao menos a dor (EVA) ou um dos campos da evolução.");
@@ -106,6 +113,20 @@ public sealed class ProntuarioService
         destino.EvaAntes = dados.EvaAntes;
         destino.EvaDepois = dados.EvaDepois;
         destino.QueixaPrincipal = Limpar(dados.QueixaPrincipal);
+
+        // ⚠️ OS QUATRO DA PARCELA 73. Eles não estavam aqui, e o efeito era o pior possível:
+        // criar a sessão gravava tudo (o objeto é novo), e a primeira EDIÇÃO — acrescentar
+        // uma linha à evolução — apagava a anamnese, o exame físico, a hipótese e o CID. Sem
+        // erro, sem aviso, e sem versão anterior que os guardasse.
+        //
+        // A lição para o próximo campo de prontuário: ele entra em TRÊS lugares no mesmo
+        // commit — a cópia daqui, o GuardarVersao e a validação de "evolução vazia". Nenhum
+        // dos três quebra o build quando é esquecido.
+        destino.HistoriaDoencaAtual = Limpar(dados.HistoriaDoencaAtual);
+        destino.ExameFisico = Limpar(dados.ExameFisico);
+        destino.HipoteseDiagnostica = Limpar(dados.HipoteseDiagnostica);
+        destino.CidSessao = Limpar(dados.CidSessao);
+
         destino.Conduta = Limpar(dados.Conduta);
         destino.TextoEvolucao = Limpar(dados.TextoEvolucao);
         destino.Orientacoes = Limpar(dados.Orientacoes);
@@ -146,6 +167,10 @@ public sealed class ProntuarioService
             EvaAntes = atual.EvaAntes,
             EvaDepois = atual.EvaDepois,
             QueixaPrincipal = atual.QueixaPrincipal,
+            HistoriaDoencaAtual = atual.HistoriaDoencaAtual,
+            ExameFisico = atual.ExameFisico,
+            HipoteseDiagnostica = atual.HipoteseDiagnostica,
+            CidSessao = atual.CidSessao,
             Conduta = atual.Conduta,
             TextoEvolucao = atual.TextoEvolucao,
             Orientacoes = atual.Orientacoes,
