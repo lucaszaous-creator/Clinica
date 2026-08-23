@@ -141,6 +141,9 @@ Nenhum deles quebra o build quando é esquecido:
 
 - **Carimbo de hora novo na fila?** Entra no bloco que a REMARCAÇÃO limpa, e decida se ele é
   COLUNA — se não for, não pode ser gasto como um passo do "voltar etapa".
+- **Seção nova no MEIO de uma lista indexada?** Ela empurra todos os índices abaixo dela, e
+  índice de navegação não quebra build: ele abre a seção ERRADA. (`ModuloClinico.AbaDe` — a
+  checagem 38 passou a cobrar isso depois de a parcela 75 pôr a Anamnese na posição 1.)
 - **Booleano reusado numa segunda decisão?** Releia se ele responde à SEGUNDA pergunta. O nome
   não avisa. (`SessaoEmBranco` decide se a tela PERGUNTA; usá-lo para decidir se GRAVA
   descartava a sessão inteira.)

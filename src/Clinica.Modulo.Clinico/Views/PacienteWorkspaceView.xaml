@@ -318,6 +318,9 @@
                     <TextBlock Text="Atendimento" TextWrapping="Wrap" />
                 </ListBoxItem>
                 <ListBoxItem>
+                    <TextBlock Text="Anamnese" TextWrapping="Wrap" />
+                </ListBoxItem>
+                <ListBoxItem>
                     <TextBlock Text="Histórico de sessões" TextWrapping="Wrap" />
                 </ListBoxItem>
                 <ListBoxItem>
@@ -350,6 +353,9 @@
 
                 <TabItem Header="Atendimento">
                     <views:AtendimentoView DataContext="{Binding Atendimento}" />
+                </TabItem>
+                <TabItem Header="Anamnese">
+                    <views:AnamneseView DataContext="{Binding Anamnese}" />
                 </TabItem>
                 <TabItem Header="Histórico de sessões">
                     <views:ProntuarioClinicoView DataContext="{Binding Prontuario}" />

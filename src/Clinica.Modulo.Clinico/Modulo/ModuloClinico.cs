@@ -231,10 +231,15 @@ public sealed class ModuloClinico : IModuloApp
     /// </summary>
     private static int AbaDe(string chave) => chave switch
     {
-        ChaveProntuario => 1,
-        ChaveEvolucaoDor => 4,
-        ChaveMedidas => 5,
-        ChaveAvaliacoes => 6,
+        // ⚠️ Os números MUDAM sempre que uma seção entra no meio da lista — a Anamnese
+        // entrou em 1 na parcela 75 e empurrou as quatro de baixo. É por isso que o mapa
+        // existe em vez de a chave carregar o índice: a fila do dia e o painel da direção
+        // navegam por STRING, e um índice desatualizado aqui não quebra build nenhum — ele
+        // abre a seção ERRADA, que é a regressão da parcela 37, 4ª rodada.
+        ChaveProntuario => 2,
+        ChaveEvolucaoDor => 5,
+        ChaveMedidas => 6,
+        ChaveAvaliacoes => 7,
         _ => 0
     };
 
@@ -257,6 +262,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<EvolucaoDorViewModel>();
         servicos.AddTransient<MedidasViewModel>();
         servicos.AddTransient<AvaliacoesViewModel>();
+        servicos.AddTransient<AnamneseViewModel>();
         servicos.AddTransient<AnexosPacienteViewModel>();
         servicos.AddTransient<MeusPacientesViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,

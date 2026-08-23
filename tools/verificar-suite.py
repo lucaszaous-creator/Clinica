@@ -2997,6 +2997,95 @@ for _cenario, _corpo, _deve in (
             f"detectou={_detectou}, esperado={_deve}."
         )
 
+# ============================================================================
+# CHECAGEM 38 — o rail de seções e o índice de navegação andam JUNTOS
+#
+# A tela do paciente tem um rail (ListBox de rótulos) e um TabControl (as telas),
+# ligados pelo MESMO `SelectedIndex`. E `ModuloClinico.AbaDe` traduz a chave de
+# navegação de outros módulos num ÍNDICE dessa lista.
+#
+# ⚠️ Três coisas que não quebram build nenhum:
+#   (a) rótulo a mais no rail do que tela no TabControl (ou o contrário) — o clique
+#       abre a tela do vizinho, ou não abre nada;
+#   (b) seção nova no MEIO da lista, que empurra todos os índices abaixo dela e
+#       deixa `AbaDe` apontando para a seção ERRADA;
+#   (c) índice fora da faixa, que o WPF ignora em silêncio.
+#
+# É literalmente a regressão da parcela 37, 4ª rodada (a navegação por string que
+# "retorna false em silêncio"), um nível abaixo: ali a chave não achava destino;
+# aqui ela acha o destino errado. E a parcela 75 acabou de fazer (b) ao pôr a
+# Anamnese na posição 1.
+# ============================================================================
+
+_WORKSPACE = RAIZ / "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml"
+_MODULO_CLINICO = RAIZ / "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs"
+
+
+def _secoes_do_workspace(texto: str) -> tuple[int, int]:
+    """Quantos rótulos o rail tem e quantas telas o TabControl tem."""
+    return (len(re.findall(r"<ListBoxItem\b", texto)),
+            len(re.findall(r"<TabItem\b", texto)))
+
+
+def _indices_de_abade(texto: str) -> list[int]:
+    """Os índices que o mapa de navegação produz (o `_ => 0` de fechamento incluso)."""
+    corpo = re.search(r"AbaDe\(string chave\)\s*=>\s*chave switch\s*\{(.*?)\};",
+                      texto, re.S)
+    if corpo is None:
+        return []
+    return [int(n) for n in re.findall(r"=>\s*(\d+)\s*,?", corpo.group(1))]
+
+
+if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
+    # Comentário XML fora, pela lição da checagem 31: prosa que cita
+    # `<TabItem>` não pode entrar na contagem.
+    _txt_ws = re.sub(r"<!--.*?-->", "", _WORKSPACE.read_text(encoding="utf-8"), flags=re.S)
+    _rotulos, _telas = _secoes_do_workspace(_txt_ws)
+
+    if _rotulos != _telas:
+        erros.append(
+            f"{_WORKSPACE.relative_to(RAIZ)}: o rail tem {_rotulos} rótulo(s) e o "
+            f"TabControl tem {_telas} tela(s). Os dois seguem o MESMO SelectedIndex — "
+            f"a diferença faz o clique abrir a tela do vizinho, sem erro nenhum."
+        )
+
+    _indices = _indices_de_abade(
+        _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8")))
+    for _i in _indices:
+        if _telas and _i >= _telas:
+            erros.append(
+                f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.AbaDe devolve o "
+                f"índice {_i}, e a tela do paciente tem {_telas} seção(ões) (0..{_telas - 1}). "
+                f"Índice fora da faixa o WPF ignora em SILÊNCIO — a chave de navegação de "
+                f"outro módulo deixa de abrir o que promete."
+            )
+
+# --- autoteste da 38 ---
+#
+# Casos SINTÉTICOS, pela lição do autoteste da 37: teste de checagem que depende do
+# arquivo real morre no dia em que alguém arruma o arquivo.
+for _cenario, _xaml, _esperado in (
+    ("rail e telas casam", "<ListBoxItem/><ListBoxItem/><TabItem/><TabItem/>", (2, 2)),
+    ("rótulo a mais", "<ListBoxItem/><ListBoxItem/><TabItem/>", (2, 1)),
+):
+    if _secoes_do_workspace(_xaml) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"contou {_secoes_do_workspace(_xaml)}, esperado {_esperado}."
+        )
+
+for _cenario, _cs, _esperado in (
+    ("mapa lido",
+     "private static int AbaDe(string chave) => chave switch\n{\n"
+     "    ChaveA => 2,\n    ChaveB => 5,\n    _ => 0\n};", [2, 5, 0]),
+    ("sem mapa", "private static int Outra() => 3;", []),
+):
+    if _indices_de_abade(_cs) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"leu {_indices_de_abade(_cs)}, esperado {_esperado}."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

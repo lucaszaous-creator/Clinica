@@ -70,6 +70,16 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     private Agendamento? _horario;
 
     public AtendimentoViewModel Atendimento { get; }
+
+    /// <summary>
+    /// A ANAMNESE do paciente (parcela 75) — o que se pergunta uma vez e se revisa.
+    ///
+    /// Vem logo depois do Atendimento porque é o que se lê ANTES de escrever a sessão: quem
+    /// atende pela primeira vez precisa dos antecedentes na frente, e quem atende pela
+    /// vigésima confere se algo mudou.
+    /// </summary>
+    public AnamneseViewModel Anamnese { get; }
+
     public ProntuarioClinicoViewModel Prontuario { get; }
 
     /// <summary>
@@ -171,6 +181,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         // primeiro clique, folhear custaria uma ida ao banco por página, justamente no
         // momento em que se está com o paciente na frente.
         Atendimento = servicos.GetRequiredService<AtendimentoViewModel>();
+        Anamnese = servicos.GetRequiredService<AnamneseViewModel>();
         Prontuario = servicos.GetRequiredService<ProntuarioClinicoViewModel>();
         Prescricoes = servicos.GetRequiredService<PrescricoesClinicasViewModel>();
         // Dentro do paciente ela não desenha o próprio cabeçalho: o nome já está no
