@@ -261,6 +261,78 @@
                                      TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
                                      VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
 
+                            <!-- ============================================================
+                                 O QUE FALTAVA (parcela 73): a história, o achado e a
+                                 conclusão.
+
+                                 Até aqui a sessão eram QUATRO caixas — queixa, conduta,
+                                 evolução, orientações. O prontuário registrava o que foi
+                                 FEITO e não dizia por quê, e é o "por quê" que sustenta a
+                                 conduta numa auditoria, num pedido de convênio ou numa
+                                 perícia.
+
+                                 ⚠️ Os três são OPCIONAIS, e é o desenho: a sessão curta de
+                                 manutenção continua sendo queixa + conduta. Obrigar quem
+                                 faz vinte sessões por dia a preencher anamnese completa
+                                 faria a clínica escrever "idem" em todas — pior do que o
+                                 campo vazio, porque parece registro.
+                                 ============================================================ -->
+                            <Expander Margin="0,0,0,12"
+                                      IsExpanded="{Binding DetalharAtendimento}"
+                                      Header="Anamnese, exame físico e hipótese diagnóstica">
+                                <StackPanel Margin="0,10,0,0">
+                                    <TextBlock Text="História da doença atual"
+                                               Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding HistoriaDoencaAtual, UpdateSourceTrigger=PropertyChanged}"
+                                             TextWrapping="Wrap" AcceptsReturn="True" MinHeight="64"
+                                             VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
+                                             ToolTip="Desde quando, como começou, o que melhora e o que piora. É o que distingue a primeira consulta do retorno." />
+
+                                    <TextBlock Text="Exame físico" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding ExameFisico, UpdateSourceTrigger=PropertyChanged}"
+                                             TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
+                                             VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
+                                             ToolTip="O que o exame ACHOU — inspeção, palpação, amplitude, força. Separado da conduta de propósito: achado e ato são coisas diferentes." />
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBlock Text="Hipótese diagnóstica"
+                                                       Style="{StaticResource Rotulo}" />
+                                            <TextBox Text="{Binding HipoteseDiagnostica, UpdateSourceTrigger=PropertyChanged}"
+                                                     TextWrapping="Wrap" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                            <TextBlock Text="CID (opcional)" Style="{StaticResource Rotulo}" />
+                                            <TextBox Text="{Binding CidSessao, UpdateSourceTrigger=PropertyChanged}"
+                                                     ToolTip="Opcional de propósito: exigi-lo faria o fisioterapeuta e o acupunturista pararem de preencher a hipótese." />
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Content="Buscar CID…" MinWidth="120"
+                                                VerticalAlignment="Bottom"
+                                                Style="{StaticResource BotaoSecundario}"
+                                                ToolTip="O catálogo é ATALHO com conferência: a descrição ao lado do código é o que pega “M54.4” digitado no lugar de “M54.5”."
+                                                Command="{Binding BuscarCidCommand}" />
+                                    </Grid>
+
+                                    <!-- A descrição do CID é a metade que pega o erro: o
+                                         código digitado errado é tão plausível quanto o
+                                         certo, e nada mais o denuncia (parcela 63). -->
+                                    <TextBlock Text="{Binding DescricaoCid}" TextWrapping="Wrap"
+                                               Style="{StaticResource TextoSuave}"
+                                               Margin="0,-6,0,10"
+                                               Visibility="{Binding DescricaoCid,
+                                                            Converter={StaticResource TextoParaVisibilidade},
+                                                            FallbackValue=Collapsed}" />
+                                </StackPanel>
+                            </Expander>
+
                             <TextBlock Text="Conduta (pontos, técnica, tempo)"
                                        Style="{StaticResource Rotulo}" />
                             <TextBox Text="{Binding Conduta, UpdateSourceTrigger=PropertyChanged}"

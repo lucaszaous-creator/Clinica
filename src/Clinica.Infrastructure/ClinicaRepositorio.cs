@@ -1242,7 +1242,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             // ⚠️ Sem este Include o bloco de enfermagem sai VAZIO no papel, sem erro
             // nenhum: em produção cada operação abre escopo próprio, e o teste que
             // compartilha um DbContext passa pelo relationship fixup do EF (parcela 68).
-            .Include(p => p.EvolucoesEnfermagem)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Diagnosticos)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Cuidados)
             .FirstOrDefaultAsync(p => p.Id == prescricaoId, ct);
 
     public Task<PrescricaoInterna?> ObterPrescricaoInternaPorCodigoAsync(
@@ -1254,7 +1255,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
-            .Include(p => p.EvolucoesEnfermagem)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Diagnosticos)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Cuidados)
             .FirstOrDefaultAsync(p => p.CodigoVerificacao == limpo, ct);
     }
 
@@ -1340,11 +1342,18 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.EvolucoesEnfermagem
             .Include(e => e.Paciente)
             .Include(e => e.AutorUsuario)
+            // As etapas do Processo de Enfermagem (parcela 73). Sem elas a consulta grava e
+            // SOME na releitura — e o teste passa mesmo assim, pelo relationship fixup do
+            // EF num DbContext compartilhado (a lição da parcela 68).
+            .Include(e => e.Diagnosticos)
+            .Include(e => e.Cuidados)
             .FirstOrDefaultAsync(e => e.Id == id, ct);
 
     public async Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaPrescricaoAsync(
         int prescricaoId, CancellationToken ct = default)
         => await _db.EvolucoesEnfermagem
+            .Include(e => e.Diagnosticos)
+            .Include(e => e.Cuidados)
             .Where(e => e.PrescricaoInternaId == prescricaoId)
             .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
             .ToListAsync(ct);
@@ -1357,6 +1366,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             // cada operação abre escopo próprio — e o teste passa mesmo assim, pelo
             // relationship fixup do EF num DbContext compartilhado (parcela 68).
             .Include(e => e.Prescricao)
+            .Include(e => e.Diagnosticos)
+            .Include(e => e.Cuidados)
             .Where(e => e.PacienteId == pacienteId)
             // A mais recente primeiro: é o que se lê ao abrir o prontuário. O limite vai no
             // SQL, nunca depois de materializar — a regra do seletor de pacientes.

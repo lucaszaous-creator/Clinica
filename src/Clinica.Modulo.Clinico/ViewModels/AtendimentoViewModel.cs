@@ -7,6 +7,7 @@ using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -207,6 +208,52 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private int? _evaDepois;
 
     [ObservableProperty] private string? _queixaPrincipal;
+
+    // ---- O registro do ATENDIMENTO (parcela 73) ----
+    //
+    // Até aqui a sessão eram quatro caixas de texto e o par de EVA: o prontuário registrava
+    // o que foi FEITO e não dizia por quê. Os três campos são OPCIONAIS, e a seção nasce
+    // RECOLHIDA — a sessão curta de manutenção continua sendo queixa + conduta, e obrigar
+    // quem faz vinte por dia a preencher anamnese faria a clínica escrever "idem" em todas.
+
+    /// <summary>A seção da anamnese está aberta. Abre sozinha quando a sessão já a tem.</summary>
+    [ObservableProperty] private bool _detalharAtendimento;
+
+    [ObservableProperty] private string? _historiaDoencaAtual;
+    [ObservableProperty] private string? _exameFisico;
+    [ObservableProperty] private string? _hipoteseDiagnostica;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DescricaoCid))]
+    private string? _cidSessao;
+
+    /// <summary>
+    /// A descrição do CID digitado — a metade que PEGA o erro.
+    ///
+    /// "M54.4" no lugar de "M54.5" é tão plausível quanto o certo, e nada mais o denuncia
+    /// (parcela 63). Código fora do catálogo desta clínica não é recusado: o campo aceita o
+    /// que for digitado, e a frase diz que ele não foi reconhecido em vez de calar.
+    /// </summary>
+    public string? DescricaoCid
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(CidSessao)) return null;
+
+            return CatalogoCid.Descrever(CidSessao) is { } descricao
+                ? descricao
+                : "Código fora do catálogo desta clínica — confira antes de gravar.";
+        }
+    }
+
+    /// <summary>Abre a busca do CID — atalho com conferência, nunca lista fechada.</summary>
+    [RelayCommand]
+    private void BuscarCid()
+    {
+        if (BuscaCidWindow.Perguntar(CidSessao) is { } escolhido)
+            CidSessao = escolhido;
+    }
+
     [ObservableProperty] private string? _conduta;
     [ObservableProperty] private string? _textoEvolucao;
     [ObservableProperty] private string? _orientacoes;
@@ -634,9 +681,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         EvaAntes = e.EvaAntes;
         EvaDepois = e.EvaDepois;
         QueixaPrincipal = e.QueixaPrincipal;
+        HistoriaDoencaAtual = e.HistoriaDoencaAtual;
+        ExameFisico = e.ExameFisico;
+        HipoteseDiagnostica = e.HipoteseDiagnostica;
+        CidSessao = e.CidSessao;
         Conduta = e.Conduta;
         TextoEvolucao = e.TextoEvolucao;
         Orientacoes = e.Orientacoes;
+
+        // ⚠️ A seção ABRE quando a sessão já tem o que mostrar. Recolhida sobre conteúdo
+        // escrito, ela esconderia a anamnese de quem voltou para reler — e a pessoa
+        // concluiria que o registro se perdeu.
+        DetalharAtendimento =
+            !string.IsNullOrWhiteSpace(e.HistoriaDoencaAtual)
+            || !string.IsNullOrWhiteSpace(e.ExameFisico)
+            || !string.IsNullOrWhiteSpace(e.HipoteseDiagnostica)
+            || !string.IsNullOrWhiteSpace(e.CidSessao);
     }
 
     /// <summary>
@@ -666,9 +726,14 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         EvaAntes = null;
         EvaDepois = null;
         QueixaPrincipal = null;
+        HistoriaDoencaAtual = null;
+        ExameFisico = null;
+        HipoteseDiagnostica = null;
+        CidSessao = null;
         Conduta = null;
         TextoEvolucao = null;
         Orientacoes = null;
+        DetalharAtendimento = false;
     }
 
     /// <summary>
@@ -724,6 +789,10 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 EvaAntes = EvaAntes,
                 EvaDepois = EvaDepois,
                 QueixaPrincipal = QueixaPrincipal,
+                HistoriaDoencaAtual = HistoriaDoencaAtual,
+                ExameFisico = ExameFisico,
+                HipoteseDiagnostica = HipoteseDiagnostica,
+                CidSessao = CidSessao,
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
                 Orientacoes = Orientacoes

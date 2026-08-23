@@ -84,11 +84,14 @@ public class EvolucaoEnfermagemService
         bool intercorrencia = false,
         SinaisVitais? sinais = null,
         string? alergiaObservada = null,
+        ProcessoDeEnfermagem? processo = null,
         CancellationToken ct = default)
     {
         var evolucao = Montar(
             pacienteId, data, hora, texto, autor,
             prescricaoInternaId, agendamentoId, intercorrencia, sinais);
+
+        AplicarProcesso(evolucao, processo);
 
         await _repo.AdicionarEvolucaoEnfermagemAsync(evolucao, ct);
         await RegistrarAlergiaSePedido(pacienteId, alergiaObservada, autor, ct);
@@ -204,6 +207,60 @@ public class EvolucaoEnfermagemService
 
     // ---- Apoio ----
 
+    /// <summary>
+    /// Copia as etapas do Processo de Enfermagem para o registro.
+    ///
+    /// ⚠️ COPIADAS, e é a regra do protocolo do mapa corporal e do preço por convênio —
+    /// aqui com respaldo legal: a Lei 13.787/2018 pede integridade do que foi registrado, e
+    /// referência viva ao catálogo faria corrigir uma palavra hoje reescrever o que a
+    /// enfermeira registrou no mês passado.
+    ///
+    /// A ORDEM é a que a tela montou: a folha impressa sai na sequência em que ela pensou o
+    /// caso, e reordenar por id daria uma lista que não é a dela.
+    /// </summary>
+    private static void AplicarProcesso(
+        EvolucaoEnfermagem evolucao, ProcessoDeEnfermagem? processo)
+    {
+        if (processo is null) return;
+
+        evolucao.Historico = Limpar(processo.Historico);
+        evolucao.ExameFisico = Limpar(processo.ExameFisico);
+        evolucao.Avaliacao = Limpar(processo.Avaliacao);
+
+        var ordem = 0;
+        foreach (var d in processo.Diagnosticos ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(d.Titulo)) continue;
+
+            evolucao.Diagnosticos.Add(new DiagnosticoEnfermagem
+            {
+                Codigo = Limpar(d.Codigo),
+                Titulo = d.Titulo.Trim(),
+                RelacionadoA = Limpar(d.RelacionadoA),
+                EvidenciadoPor = Limpar(d.EvidenciadoPor),
+                ResultadoEsperado = Limpar(d.ResultadoEsperado),
+                Ordem = ordem++
+            });
+        }
+
+        ordem = 0;
+        foreach (var c in processo.Cuidados ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(c.Descricao)) continue;
+
+            evolucao.Cuidados.Add(new CuidadoEnfermagem
+            {
+                Codigo = Limpar(c.Codigo),
+                Descricao = c.Descricao.Trim(),
+                Frequencia = Limpar(c.Frequencia),
+                Ordem = ordem++
+            });
+        }
+    }
+
+    private static string? Limpar(string? texto)
+        => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
+
     private EvolucaoEnfermagem Montar(
         int pacienteId, DateOnly data, TimeOnly hora, string texto,
         IdentificacaoExecutante autor, int? prescricaoId, int? agendamentoId,
@@ -305,6 +362,29 @@ public class EvolucaoEnfermagemService
 /// chama passa o que aferiu e omite o resto, e acrescentar um oitavo sinal um dia não muda
 /// a assinatura de ninguém.
 /// </summary>
+/// <summary>
+/// As etapas do Processo de Enfermagem que a tela colheu (parcela 73).
+///
+/// ⚠️ Um record só, e não sete parâmetros a mais: a assinatura de
+/// <c>RegistrarAsync</c> já tem dez, e um parâmetro posicional a mais é onde nasce o
+/// defeito do <c>CancelarAsync(id, operador)</c> — argumento caindo na vaga errada porque
+/// os dois são do mesmo tipo, sem estourar nada.
+/// </summary>
+/// <param name="Diagnosticos">
+/// Etapas 2 e 3 — o diagnóstico com o resultado esperado. COPIADOS na colheita: corrigir a
+/// redação do catálogo hoje não reescreve o que foi registrado no mês passado.
+/// </param>
+/// <param name="Cuidados">Etapa 4 — a prescrição de enfermagem, com a frequência de cada um.</param>
+public sealed record ProcessoDeEnfermagem(
+    string? Historico = null,
+    string? ExameFisico = null,
+    string? Avaliacao = null,
+    IReadOnlyList<DiagnosticoEnfermagem>? Diagnosticos = null,
+    IReadOnlyList<CuidadoEnfermagem>? Cuidados = null)
+{
+    public static ProcessoDeEnfermagem Nenhum { get; } = new();
+}
+
 public sealed record SinaisVitais(
     int? PressaoSistolica = null,
     int? PressaoDiastolica = null,

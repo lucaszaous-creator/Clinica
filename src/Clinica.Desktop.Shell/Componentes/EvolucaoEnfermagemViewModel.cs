@@ -5,11 +5,87 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.Shell.Componentes;
+
+/// <summary>
+/// Um DIAGNÓSTICO de enfermagem sendo escrito — as etapas 2 e 3 do Processo (parcela 73).
+///
+/// A redação em três partes é o que o torna um diagnóstico e não um rótulo, e a tela pede
+/// as três: o problema, o <b>relacionado a</b> e o <b>evidenciado por</b>. Sem a terceira,
+/// a etapa 5 não tem contra o que avaliar.
+/// </summary>
+public sealed partial class LinhaDiagnosticoEnfermagem : ObservableObject
+{
+    /// <summary>Do catálogo, quando veio de lá. Nulo = escrito à mão, e isso é legítimo.</summary>
+    public string? Codigo { get; init; }
+
+    [ObservableProperty] private string _titulo = string.Empty;
+    [ObservableProperty] private string _relacionadoA = string.Empty;
+    [ObservableProperty] private string _evidenciadoPor = string.Empty;
+    [ObservableProperty] private string _resultadoEsperado = string.Empty;
+
+    /// <summary>Sugestões do catálogo para o "relacionado a" — atalho, não lista fechada.</summary>
+    public IReadOnlyList<string> CausasSugeridas { get; init; } = [];
+
+    public IReadOnlyList<string> EvidenciasSugeridas { get; init; } = [];
+
+    public bool TemSugestoes => CausasSugeridas.Count > 0 || EvidenciasSugeridas.Count > 0;
+
+    public DiagnosticoEnfermagem Colher() => new()
+    {
+        Codigo = Codigo,
+        Titulo = Titulo.Trim(),
+        RelacionadoA = string.IsNullOrWhiteSpace(RelacionadoA) ? null : RelacionadoA.Trim(),
+        EvidenciadoPor = string.IsNullOrWhiteSpace(EvidenciadoPor) ? null : EvidenciadoPor.Trim(),
+        ResultadoEsperado = string.IsNullOrWhiteSpace(ResultadoEsperado)
+            ? null : ResultadoEsperado.Trim()
+    };
+
+    public static LinhaDiagnosticoEnfermagem Do(DiagnosticoCatalogo c) => new()
+    {
+        Codigo = c.Codigo,
+        Titulo = c.Titulo,
+        ResultadoEsperado = c.ResultadoEsperado,
+        CausasSugeridas = c.CausasComuns,
+        EvidenciasSugeridas = c.EvidenciasComuns
+    };
+}
+
+/// <summary>Um CUIDADO prescrito — a etapa 4. A frequência é parte do cuidado, não detalhe.</summary>
+public sealed partial class LinhaCuidadoEnfermagem : ObservableObject
+{
+    public string? Codigo { get; init; }
+
+    [ObservableProperty] private string _descricao = string.Empty;
+    [ObservableProperty] private string _frequencia = string.Empty;
+
+    /// <summary>
+    /// Veio SUGERIDO por um diagnóstico do catálogo. A tela marca isso na linha para a
+    /// enfermeira saber o que ela escolheu e o que o sistema propôs — proposta que não se
+    /// distingue da decisão é proposta que ninguém confere.
+    /// </summary>
+    public bool Sugerido { get; init; }
+
+    public CuidadoEnfermagem Colher() => new()
+    {
+        Codigo = Codigo,
+        Descricao = Descricao.Trim(),
+        Frequencia = string.IsNullOrWhiteSpace(Frequencia) ? null : Frequencia.Trim()
+    };
+
+    public static LinhaCuidadoEnfermagem Do(CuidadoCatalogo c, bool sugerido) => new()
+    {
+        Codigo = c.Codigo,
+        Descricao = c.Descricao,
+        Frequencia = c.FrequenciaSugerida,
+        Sugerido = sugerido
+    };
+}
 
 /// <summary>Uma linha da evolução de enfermagem, do jeito que ela se lê.</summary>
 public sealed class LinhaEvolucaoEnfermagem
@@ -147,6 +223,154 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string _alergiaObservada = string.Empty;
 
+    // ---- O PROCESSO DE ENFERMAGEM (parcela 73) ----
+    //
+    // ⚠️ A tela abre no modo ANOTAÇÃO, e a consulta completa é UM clique. É a decisão que
+    // o domínio já registra: a técnica que troca um curativo não abre um processo de
+    // enfermagem, e obrigá-la faria a clínica escrever "idem" em cinco campos — pior do
+    // que o campo vazio, porque parece registro.
+
+    /// <summary>As cinco etapas estão à vista. Desligado, a janela é a anotação de sempre.</summary>
+    [ObservableProperty] private bool _consultaCompleta;
+
+    [ObservableProperty] private string _historico = string.Empty;
+    [ObservableProperty] private string _exameFisico = string.Empty;
+    [ObservableProperty] private string _avaliacao = string.Empty;
+
+    public ObservableCollection<LinhaDiagnosticoEnfermagem> Diagnosticos { get; } = new();
+    public ObservableCollection<LinhaCuidadoEnfermagem> Cuidados { get; } = new();
+
+    /// <summary>O catálogo, filtrado pela busca — atalho, e a tela diz que é atalho.</summary>
+    public ObservableCollection<DiagnosticoCatalogo> CatalogoDiagnosticos { get; } = new();
+    public ObservableCollection<CuidadoCatalogo> CatalogoCuidados { get; } = new();
+
+    [ObservableProperty] private string _buscaDiagnostico = string.Empty;
+    [ObservableProperty] private string _buscaCuidado = string.Empty;
+
+    partial void OnBuscaDiagnosticoChanged(string value) => FiltrarDiagnosticos();
+    partial void OnBuscaCuidadoChanged(string value) => FiltrarCuidados();
+
+    /// <summary>
+    /// As etapas que ficaram vazias — a frase que AVISA sem impedir.
+    ///
+    /// A enfermeira que colhe o histórico agora e fecha a avaliação depois da infusão está
+    /// fazendo o processo certo; recusar o registro incompleto a faria escrever tudo de
+    /// memória no fim do dia, que é o que o módulo do Consultório existe para combater.
+    /// </summary>
+    public string? EtapasEmFalta
+    {
+        get
+        {
+            if (!ConsultaCompleta) return null;
+
+            var faltam = new List<string>();
+            if (string.IsNullOrWhiteSpace(Historico)) faltam.Add("histórico");
+            if (Diagnosticos.Count == 0) faltam.Add("diagnóstico");
+            if (Diagnosticos.Count > 0
+                && Diagnosticos.All(d => string.IsNullOrWhiteSpace(d.ResultadoEsperado)))
+                faltam.Add("resultado esperado");
+            if (Cuidados.Count == 0) faltam.Add("prescrição de enfermagem");
+            if (string.IsNullOrWhiteSpace(Avaliacao)) faltam.Add("avaliação");
+
+            return faltam.Count == 0
+                ? null
+                : "Processo de enfermagem incompleto — falta: " + string.Join(", ", faltam)
+                  + ". Você pode registrar assim e completar depois (COFEN 358/2009).";
+        }
+    }
+
+    partial void OnConsultaCompletaChanged(bool value)
+    {
+        if (value && CatalogoDiagnosticos.Count == 0)
+        {
+            FiltrarDiagnosticos();
+            FiltrarCuidados();
+        }
+
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
+    partial void OnHistoricoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
+    partial void OnAvaliacaoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
+
+    private void FiltrarDiagnosticos()
+    {
+        var achados = CatalogoEnfermagem.BuscarDiagnosticos(BuscaDiagnostico).ToList();
+        CatalogoDiagnosticos.Clear();
+        foreach (var d in achados) CatalogoDiagnosticos.Add(d);
+    }
+
+    private void FiltrarCuidados()
+    {
+        var achados = CatalogoEnfermagem.BuscarCuidados(BuscaCuidado).ToList();
+        CatalogoCuidados.Clear();
+        foreach (var c in achados) CatalogoCuidados.Add(c);
+    }
+
+    /// <summary>
+    /// Traz o diagnóstico do catálogo E os cuidados que ele costuma pedir.
+    ///
+    /// ⚠️ Os cuidados entram para a enfermeira DESMARCAR o que não vale, e cada um sai
+    /// marcado como "sugerido" na linha. Aplicar em silêncio produziria uma prescrição de
+    /// enfermagem que ninguém leu — e cuidado prescrito é cuidado que alguém vai ter de
+    /// checar depois.
+    /// </summary>
+    [RelayCommand]
+    private void AdicionarDiagnostico(DiagnosticoCatalogo? escolhido)
+    {
+        if (escolhido is null) return;
+        if (Diagnosticos.Any(d => d.Codigo == escolhido.Codigo)) return;
+
+        Diagnosticos.Add(LinhaDiagnosticoEnfermagem.Do(escolhido));
+
+        foreach (var c in CatalogoEnfermagem.CuidadosDe(escolhido.Codigo))
+            if (!Cuidados.Any(x => x.Codigo == c.Codigo))
+                Cuidados.Add(LinhaCuidadoEnfermagem.Do(c, sugerido: true));
+
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
+    /// <summary>O diagnóstico escrito à MÃO — o catálogo é atalho, não lista fechada.</summary>
+    [RelayCommand]
+    private void NovoDiagnostico()
+    {
+        Diagnosticos.Add(new LinhaDiagnosticoEnfermagem());
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
+    [RelayCommand]
+    private void RemoverDiagnostico(LinhaDiagnosticoEnfermagem? linha)
+    {
+        if (linha is null) return;
+        Diagnosticos.Remove(linha);
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
+    [RelayCommand]
+    private void AdicionarCuidado(CuidadoCatalogo? escolhido)
+    {
+        if (escolhido is null) return;
+        if (Cuidados.Any(c => c.Codigo == escolhido.Codigo)) return;
+
+        Cuidados.Add(LinhaCuidadoEnfermagem.Do(escolhido, sugerido: false));
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
+    [RelayCommand]
+    private void NovoCuidado()
+    {
+        Cuidados.Add(new LinhaCuidadoEnfermagem());
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
+    [RelayCommand]
+    private void RemoverCuidado(LinhaCuidadoEnfermagem? linha)
+    {
+        if (linha is null) return;
+        Cuidados.Remove(linha);
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
+
     /// <summary>Está corrigindo um registro anterior — o rótulo do botão muda e o motivo é pedido.</summary>
     [ObservableProperty] private bool _corrigindo;
 
@@ -270,7 +494,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                     await servico.RegistrarAsync(
                         _pacienteId, hoje, hora, Texto, Executante(),
                         _prescricaoId, _agendamentoId, Intercorrencia, sinais,
-                        string.IsNullOrWhiteSpace(AlergiaObservada) ? null : AlergiaObservada);
+                        string.IsNullOrWhiteSpace(AlergiaObservada) ? null : AlergiaObservada,
+                        ColherProcesso());
             }
 
             var alergia = !string.IsNullOrWhiteSpace(AlergiaObservada);
@@ -362,8 +587,34 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
 
     // ---- Apoio ----
 
+    /// <summary>
+    /// As cinco etapas, como a tela as tem agora. Devolve <c>null</c> no modo anotação —
+    /// e é o que faz o registro curto continuar sendo curto.
+    /// </summary>
+    private ProcessoDeEnfermagem? ColherProcesso()
+        => !ConsultaCompleta
+            ? null
+            : new ProcessoDeEnfermagem(
+                Historico,
+                ExameFisico,
+                Avaliacao,
+                // A ORDEM da tela é a ordem da folha: ela é a sequência em que a
+                // enfermeira pensou o caso, e reordenar daria uma lista que não é a dela.
+                Diagnosticos.Where(d => !string.IsNullOrWhiteSpace(d.Titulo))
+                    .Select(d => d.Colher()).ToList(),
+                Cuidados.Where(c => !string.IsNullOrWhiteSpace(c.Descricao))
+                    .Select(c => c.Colher()).ToList());
+
     private void LimparCompositor()
     {
+        // ⚠️ As etapas saem JUNTO. Sem isto, o próximo registro nasce com os diagnósticos
+        // do anterior — e a janela da sala abre para o paciente da cadeira seguinte.
+        Historico = ExameFisico = Avaliacao = string.Empty;
+        Diagnosticos.Clear();
+        Cuidados.Clear();
+        BuscaDiagnostico = BuscaCuidado = string.Empty;
+        ConsultaCompleta = false;
+
         _retificando = null;
         Corrigindo = false;
         RotuloDoBotao = "Registrar";

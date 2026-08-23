@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="Evolução de enfermagem" Width="900" Height="660"
-        MinWidth="760" MinHeight="560"
+        Title="Evolução de enfermagem" Width="1120" Height="680"
+        MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -113,6 +113,271 @@
                                  ToolTip="Escreva o fármaco. Ele entra na lista de problemas do paciente no mesmo instante, e passa a alertar na PRÓXIMA prescrição." />
                     </StackPanel>
                 </Grid>
+
+                <!-- ============================================================
+                     O PROCESSO DE ENFERMAGEM — as cinco etapas (COFEN 358/2009).
+
+                     ⚠️ A janela abre no modo ANOTAÇÃO, e a consulta é UM clique. A
+                     técnica que troca um curativo e escreve "ferida limpa, sem
+                     exsudato" não abre um processo de enfermagem — obrigá-la faria a
+                     clínica escrever "idem" em cinco campos, que é pior do que o
+                     campo vazio porque PARECE registro.
+                     ============================================================ -->
+                <Separator Margin="0,16,0,12" />
+
+                <CheckBox IsChecked="{Binding ConsultaCompleta}"
+                          Content="Consulta de enfermagem (processo completo — COFEN 358/2009)"
+                          ToolTip="Abre as cinco etapas: histórico, diagnóstico, planejamento, prescrição de enfermagem e avaliação. Sem marcar, o registro é a anotação de passagem." />
+
+                <StackPanel Visibility="{Binding ConsultaCompleta,
+                                         Converter={StaticResource BoolParaVisibilidade}}">
+
+                    <!-- A frase que AVISA sem impedir: quem colhe o histórico agora e
+                         fecha a avaliação depois da infusão está fazendo o processo
+                         certo. O que não pode é a etapa faltar sem ninguém perceber. -->
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                            Visibility="{Binding EtapasEmFalta,
+                                         Converter={StaticResource TextoParaVisibilidade},
+                                         FallbackValue=Collapsed}">
+                        <TextBlock Text="{Binding EtapasEmFalta}" TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- ETAPA 1 — HISTÓRICO E EXAME FÍSICO -->
+                    <TextBlock Text="1 · Histórico de enfermagem (coleta de dados)"
+                               Style="{StaticResource Rotulo}" Margin="0,16,0,0" />
+                    <TextBox Text="{Binding Historico, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"
+                             VerticalScrollBarVisibility="Auto"
+                             ToolTip="O que o paciente relata, o que já usa, hábitos, rede de apoio e o que ele entende do próprio tratamento — a anamnese DE ENFERMAGEM, que a consulta médica não colhe." />
+
+                    <TextBlock Text="Exame físico" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                    <TextBox Text="{Binding ExameFisico, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"
+                             VerticalScrollBarVisibility="Auto"
+                             ToolTip="Céfalo-podal na medida do que a passagem exige: pele, acesso venoso, edema, ausculta." />
+
+                    <!-- ETAPAS 2 e 3 — DIAGNÓSTICO E PLANEJAMENTO -->
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="2 e 3 · Diagnóstico de enfermagem e resultado esperado"
+                                       Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="A redação tem três partes — o problema, o “relacionado a” e o “evidenciado por”. É a terceira que permite avaliar depois se ele foi resolvido." />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Escrever à mão" MinWidth="140"
+                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                Style="{StaticResource BotaoSecundario}"
+                                ToolTip="A lista ao lado é ATALHO, não a lista fechada do que a enfermagem pode diagnosticar."
+                                Command="{Binding NovoDiagnosticoCommand}" />
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- O catálogo: atalho com conferência, o desenho do CID-10 da
+                             parcela 63. Ele NÃO é a NANDA-I (licenciada) — é a lista
+                             desta clínica, e a frase abaixo diz isso. -->
+                        <DockPanel Grid.Column="0" Margin="0,0,12,0">
+                            <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}"
+                                     Text="{Binding BuscaDiagnostico, UpdateSourceTrigger=PropertyChanged}"
+                                     ctrl:Ajudantes.Placeholder="Buscar diagnóstico" />
+                            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource TextoSuave}"
+                                       TextWrapping="Wrap" Margin="0,6,0,0"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="Lista desta clínica — não é a NANDA-I. Use “Escrever à mão” para o que não estiver aqui." />
+                            <ListBox ItemsSource="{Binding CatalogoDiagnosticos}" MaxHeight="180"
+                                     BorderThickness="1" Margin="0,6,0,0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem"
+                                           BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Titulo}"
+                                                       TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="+" MinWidth="30"
+                                                    Style="{StaticResource BotaoPequeno}"
+                                                    ToolTip="Traz o diagnóstico E os cuidados que ele costuma pedir — para você desmarcar o que não vale."
+                                                    Command="{Binding DataContext.AdicionarDiagnosticoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+
+                        <ItemsControl Grid.Column="1" ItemsSource="{Binding Diagnosticos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="12,10">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Grid.Column="0"
+                                                         Text="{Binding Titulo, UpdateSourceTrigger=PropertyChanged}"
+                                                         ctrl:Ajudantes.Placeholder="O problema"
+                                                         FontWeight="SemiBold" />
+                                                <Button Grid.Column="1" Content="Remover" Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Style="{StaticResource BotaoSecundarioPerigo}"
+                                                        Command="{Binding DataContext.RemoverDiagnosticoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+
+                                            <TextBlock Text="relacionado a" Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,2" />
+                                            <TextBox Text="{Binding RelacionadoA, UpdateSourceTrigger=PropertyChanged}"
+                                                     TextWrapping="Wrap"
+                                                     ctrl:Ajudantes.Placeholder="a causa provável — é onde o cuidado age" />
+
+                                            <TextBlock Text="evidenciado por" Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,2" />
+                                            <TextBox Text="{Binding EvidenciadoPor, UpdateSourceTrigger=PropertyChanged}"
+                                                     TextWrapping="Wrap"
+                                                     ctrl:Ajudantes.Placeholder="o achado que sustenta o diagnóstico" />
+
+                                            <TextBlock Text="Resultado esperado (etapa 3 — o planejamento)"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,2" />
+                                            <TextBox Text="{Binding ResultadoEsperado, UpdateSourceTrigger=PropertyChanged}"
+                                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                                     ctrl:Ajudantes.Placeholder="o que se espera alcançar, e em que prazo" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+
+                    <!-- ETAPA 4 — PRESCRIÇÃO DE ENFERMAGEM -->
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="4 · Prescrição de enfermagem"
+                                       Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="O que a ENFERMAGEM prescreve — os cuidados. Não confunda com a folha de infusão, que é prescrição médica e a enfermagem executa. A frequência é parte do cuidado: “verificar o acesso” sem dizer de quanto em quanto tempo é lembrete, não prescrição." />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Escrever à mão" MinWidth="140"
+                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding NovoCuidadoCommand}" />
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <DockPanel Grid.Column="0" Margin="0,0,12,0">
+                            <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}"
+                                     Text="{Binding BuscaCuidado, UpdateSourceTrigger=PropertyChanged}"
+                                     ctrl:Ajudantes.Placeholder="Buscar cuidado" />
+                            <ListBox ItemsSource="{Binding CatalogoCuidados}" MaxHeight="180"
+                                     BorderThickness="1" Margin="0,6,0,0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem"
+                                           BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Descricao}"
+                                                       TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="+" MinWidth="30"
+                                                    Style="{StaticResource BotaoPequeno}"
+                                                    Command="{Binding DataContext.AdicionarCuidadoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+
+                        <ItemsControl Grid.Column="1" ItemsSource="{Binding Cuidados}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                            <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
+                                                     TextWrapping="Wrap"
+                                                     ctrl:Ajudantes.Placeholder="o cuidado" />
+                                            <!-- Proposta que não se distingue da decisão é
+                                                 proposta que ninguém confere. -->
+                                            <TextBlock Text="sugerido pelo diagnóstico — confira e ajuste"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       TextWrapping="Wrap" Margin="0,2,0,0"
+                                                       Visibility="{Binding Sugerido,
+                                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                                        </StackPanel>
+
+                                        <TextBox Grid.Column="1" VerticalAlignment="Top"
+                                                 Text="{Binding Frequencia, UpdateSourceTrigger=PropertyChanged}"
+                                                 ctrl:Ajudantes.Placeholder="frequência" />
+
+                                        <Button Grid.Column="2" Content="Remover" Margin="8,0,0,0"
+                                                VerticalAlignment="Top"
+                                                Style="{StaticResource BotaoSecundarioPerigo}"
+                                                Command="{Binding DataContext.RemoverCuidadoCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+
+                    <!-- ETAPA 5 — AVALIAÇÃO -->
+                    <TextBlock Text="5 · Avaliação de enfermagem"
+                               Style="{StaticResource Rotulo}" Margin="0,18,0,0" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,4"
+                               Text="O que aconteceu com o que foi prescrito. É a etapa que fecha o processo, e a que mais some dos prontuários — sem ela o plano vira uma lista de intenções que ninguém confere." />
+                    <TextBox Text="{Binding Avaliacao, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"
+                             VerticalScrollBarVisibility="Auto" />
+                </StackPanel>
 
                 <!-- Mensagem: quem decide se aparece é o TEXTO; quem decide a cor é a
                      gravidade (a lição das parcelas 62 e 64). -->
