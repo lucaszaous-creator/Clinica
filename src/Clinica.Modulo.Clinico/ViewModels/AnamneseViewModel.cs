@@ -44,8 +44,6 @@ public sealed partial class AnamneseViewModel : ObservableObject
     /// <summary>Descarte de resposta fora de ordem — a regra da parcela 60.</summary>
     private int _geracaoCarga;
 
-    private int? _anamneseId;
-
     public ObservableCollection<LinhaVersaoAnamnese> Versoes { get; } = [];
 
     [ObservableProperty] private bool _carregando;
@@ -134,7 +132,6 @@ public sealed partial class AnamneseViewModel : ObservableObject
 
             if (geracao != _geracaoCarga) return;
 
-            _anamneseId = a?.Id;
             Colhida = a is not null;
 
             if (a is null)
@@ -308,6 +305,5 @@ public sealed partial class AnamneseViewModel : ObservableObject
         AntecedentesPessoais = AntecedentesFamiliares = HabitosDeVida =
             HistoriaObstetrica = RevisaoDeSistemas = Observacoes = string.Empty;
         Versoes.Clear();
-        _anamneseId = null;
     }
 }
