@@ -421,6 +421,18 @@ public interface IClinicaRepositorio
     /// viagens a um banco remoto para desenhar quarenta números. Sessões sem anexo não
     /// aparecem no dicionário; quem lê trata a ausência como zero.
     /// </summary>
+    /// <summary>
+    /// Quantas das sessões dadas TÊM mapa corporal — em UMA consulta.
+    ///
+    /// ⚠️ Existe pela mesma razão do <see cref="ContagemDeAnexosAsync"/> logo abaixo: a
+    /// contagem por natureza da guarda perguntava sessão a sessão, e a tela do Gerente
+    /// varre a clínica inteira paciente a paciente. Numa base de 500 pacientes com 20
+    /// sessões cada, isso era ~20.000 idas a mais a um banco REMOTO para desenhar um
+    /// retrato que se olha algumas vezes por ano.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, bool>> TemMapaAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
+
     Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
         IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
 

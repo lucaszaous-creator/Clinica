@@ -254,14 +254,22 @@ public sealed class TitularDadosService
 
         texto.AppendLine("== ANEXOS E MAPAS CORPORAIS ==");
         var comAnexo = 0;
-        foreach (var e in evolucoes)
+
+        // ⚠️ Canceladas INCLUÍDAS. `_prontuarios.DoPacienteAsync` devolve só as vigentes,
+        // e o laudo anexado a uma sessão cancelada continua sob guarda — a tela de guarda
+        // o conta, e este documento não o listava. Duas respostas para "o que a clínica
+        // tem deste paciente", e a que vai para a mão dele era a menor.
+        var sessoesComCanceladas = await _repo.EvolucoesDoPacienteAsync(pacienteId, true, ct);
+
+        foreach (var e in sessoesComCanceladas)
         {
             foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
             {
                 comAnexo++;
                 texto.AppendLine(
                     $"- {e.Data.ToString("dd/MM/yyyy", Brasil)} · anexo: {a.NomeArquivo} "
-                    + $"({RotulosEnum.De(a.Tipo)}, {a.Tamanho} bytes)");
+                    + $"({RotulosEnum.De(a.Tipo)}, {a.Tamanho} bytes)"
+                    + (e.Cancelada ? " (da sessão CANCELADA, guardada)" : string.Empty));
             }
 
             if (await _repo.ObterMapaDaEvolucaoAsync(e.Id, ct) is { } mapa)
@@ -269,7 +277,8 @@ public sealed class TitularDadosService
                 comAnexo++;
                 texto.AppendLine(
                     $"- {e.Data.ToString("dd/MM/yyyy", Brasil)} · mapa corporal com "
-                    + $"{mapa.Pontos.Count} ponto(s) marcado(s)");
+                    + $"{mapa.Pontos.Count} ponto(s) marcado(s)"
+                    + (e.Cancelada ? " (da sessão CANCELADA, guardado)" : string.Empty));
             }
         }
         if (comAnexo == 0) texto.AppendLine("(nenhum)");

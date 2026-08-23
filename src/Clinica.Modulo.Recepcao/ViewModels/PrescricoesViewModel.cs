@@ -282,7 +282,16 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "assinar documento clínico");
+            // ⚠️ O bit do TIPO que está na linha, não o da porta (a regra da parcela 60).
+            // Com `Prescrever` fixo, as duas barreiras DISCORDAVAM sobre que ato é aquele:
+            // o botão acende por `AcessoParaMexer` — que é `EditarPaciente` na declaração
+            // de comparecimento, `VerProntuario` no relatório de evolução e
+            // `ColherAssinaturaPaciente` no termo —, e o comando exigia `Prescrever`. Em
+            // quatro dos oito tipos isso é o corredor sem saída da parcela 69: a pessoa
+            // atravessa a porta, faz o trabalho e leva a recusa no fim. E havia a fuga
+            // oposta: quem tem `Prescrever` e não tem o bit do tipo passava direto — a
+            // segunda barreira mais FROUXA que a primeira.
+            SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "assinar documento clínico");
 
             var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
@@ -353,6 +362,14 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
+            // ⚠️ A barreira que NÃO EXISTIA (parcela 72). Este comando não tinha `Exigir`
+            // nenhum, e a metade visível (`PodeEnviar`) era estado puro — `Assinado &&
+            // !Cancelado`, sem permissão. Enviar é DADO DE SAÚDE SAINDO para o WhatsApp do
+            // paciente, que é o que uma investigação procura (a lição da parcela 60); e o
+            // `Cancelar` ao lado já guardava com o mesmo bit. Três comandos vizinhos
+            // guardados e um não: o errado é o um.
+            SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "enviar documento clínico");
+
             byte[] pdf;
             Paciente? paciente;
             string? nomeClinica;

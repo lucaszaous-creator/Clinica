@@ -39,6 +39,14 @@
                                     FallbackValue=Collapsed}" />
         </StackPanel>
 
+        <!-- ⚠️ O aviso do COREN vem na ABERTURA, não no clique: a recusa é do serviço, e
+             sem esta faixa a técnica descobre depois de administrar. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                Visibility="{Binding AvisoDoConselho, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <TextBlock Text="{Binding AvisoDoConselho}" TextWrapping="Wrap" />
+        </Border>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding TemAlertas, Converter={StaticResource BoolParaVisibilidade}}">
             <ItemsControl ItemsSource="{Binding Alertas}">

@@ -168,7 +168,30 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH\\:mm");
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
+    public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao)
+                              && TemConselho;
+
+    /// <summary>
+    /// ⚠️ A METADE VISÍVEL da recusa do COREN (parcela 72). O serviço RECUSA checar sem o
+    /// registro no conselho — e é regra certa, porque o número é COPIADO no ato e corrigir
+    /// depois exigiria retificar registro a registro. Mas a recusa chegava no CLIQUE, com
+    /// os botões acesos: a técnica cuja ficha de profissional não está vinculada
+    /// administrava o soro, vinha marcar e levava um erro que ela não pode consertar
+    /// sozinha (o conserto é em Equipe e em Acessos, bits que o perfil dela não tem).
+    ///
+    /// Botão apagado com a frase ao lado é a metade que EXPLICA; a recusa do serviço
+    /// continua sendo a que impede. As duas barreiras, aplicadas a uma regra clínica.
+    /// </summary>
+    public bool TemConselho =>
+        !string.IsNullOrWhiteSpace(SessaoUsuario.Atual.RegistroConselho);
+
+    /// <summary>A frase que aparece na ABERTURA da folha, não no clique.</summary>
+    public string? AvisoDoConselho => TemConselho
+        ? null
+        : "O seu login não tem o registro no conselho (COREN/CRM), e a checagem fica "
+          + "bloqueada: o número é copiado para o prontuário no momento em que você checa. "
+          + "Peça à direção para preencher o registro na ficha do profissional (Equipe) e "
+          + "vincular essa ficha ao seu login (Acessos).";
 
     /// <summary>
     /// Bit próprio da evolução de enfermagem (parcela 71). ⚠️ Sem <c>EmExecucao</c>: a
@@ -176,7 +199,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// não a observação clínica.
     /// </summary>
     public bool PodeRegistrarEnfermagem =>
-        SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
+        SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem) && TemConselho;
 
     /// <summary>Só folha em execução se checa — a encerrada já foi fechada e assinada no papel.</summary>
     public bool PodeMexer => PodeChecar && EmExecucao;

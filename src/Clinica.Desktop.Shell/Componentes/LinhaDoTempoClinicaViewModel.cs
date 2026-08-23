@@ -96,6 +96,9 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     public ObservableCollection<ChipSecaoClinica> Chips { get; } = new();
     public ObservableCollection<RegistroClinicoPaciente> Itens { get; } = new();
 
+    /// <summary>Nenhuma natureza é alcançável por quem está lendo — ver <see cref="MontarChips"/>.</summary>
+    [ObservableProperty] private bool _semAcesso;
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
@@ -171,11 +174,24 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     public bool TemAcaoAbrir => AoAbrir is not null && PodeMexerNaSecao;
     public bool TemAcaoCancelar => AoCancelar is not null && PodeMexerNaSecao;
 
+    /// <summary>
+    /// A seção ainda não foi resolvida contra <see cref="SecaoInicial"/>.
+    ///
+    /// ⚠️ ELA NÃO PODE SER RESOLVIDA NO CONSTRUTOR, e foi assim que a tela da Enfermagem
+    /// nasceu abrindo no chip ERRADO: <c>SecaoInicial</c> é <c>init</c>, e propriedade de
+    /// <i>object initializer</i> é atribuída <b>depois</b> do corpo do construtor. Ler
+    /// <c>SecaoInicial</c> lá dentro devolve sempre o DEFAULT — o que a porta pediu chega
+    /// tarde demais.
+    ///
+    /// O socorro era acidental: <see cref="MontarChips"/> só trocava a seção quando a atual
+    /// não estava visível, então as duas portas que restringem <c>SecoesVisiveis</c>
+    /// funcionavam por tabela — e a Enfermagem, que mostra tudo, abria em "Médica",
+    /// listando as sessões do médico na tela cuja razão de existir é a evolução DELA.
+    /// </summary>
+    private bool _secaoPendente = true;
+
     public LinhaDoTempoClinicaViewModel(IServiceScopeFactory escopos)
-    {
-        _escopos = escopos;
-        Secao = SecaoInicial;
-    }
+        => _escopos = escopos;
 
     partial void OnSecaoChanged(NaturezaRegistroClinico value)
     {
@@ -218,7 +234,25 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
 
         if (pacienteId == 0)
         {
+            // ⚠️ AVANÇA a geração antes de limpar. Sem isto, a leitura do paciente
+            // anterior que ainda está no ar responde DEPOIS do Limpar e republica o
+            // prontuário DELE numa tela que já trocou de pessoa — o defeito da parcela 60
+            // no caminho que parece não ter carga nenhuma.
+            ++_geracaoCarga;
             Limpar();
+            SemAcesso = false;
+            return;
+        }
+
+        // ⚠️ NEM LER NEM DESENHAR (art. 5º, II), no PONTO ÚNICO. Duas das três portas
+        // chamavam CarregarAsync sem conferir o bit antes, contando com o filtro do
+        // montador — mas àquela altura o prontuário inteiro já tinha vindo do banco para a
+        // memória de quem não pode vê-lo, que é metade do que a regra proíbe.
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+        {
+            Limpar();
+            SemAcesso = true;
+            Resumo = "O seu acesso não permite ler o prontuário deste paciente.";
             return;
         }
 
@@ -281,6 +315,7 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
 
     private void Limpar()
     {
+        Carregando = false;
         _porNatureza = new Dictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>();
         Chips.Clear();
         Itens.Clear();
@@ -312,15 +347,33 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
         Chips.Clear();
         foreach (var c in novos) Chips.Add(c);
 
-        // A seção pedida pela porta, quando ela existe para esta pessoa.
-        if (!visiveis.Contains(Secao))
-            Secao = visiveis.Contains(SecaoInicial)
-                ? SecaoInicial
-                : visiveis.FirstOrDefault();
+        // Nenhuma seção visível = esta pessoa não alcança NADA desta lista. É estado
+        // próprio, e não uma seção qualquer: `visiveis.FirstOrDefault()` sobre lista vazia
+        // devolve `SessaoMedica` (valor 0 do enum) — um valor plausível no lugar de um
+        // sinal de ausência —, e a tela então afirmava "sem registro de sessões" para quem
+        // não pode nem saber se elas existem.
+        SemAcesso = visiveis.Count == 0;
+        if (SemAcesso)
+        {
+            Itens.Clear();
+            Resumo = "O seu acesso não permite ler o prontuário deste paciente.";
+            return;
+        }
+
+        // A seção pedida pela PORTA, resolvida aqui — nunca no construtor (ver
+        // `_secaoPendente`). Depois da primeira montagem, só se troca quando a seção
+        // escolhida deixou de existir para esta pessoa.
+        if (_secaoPendente || !visiveis.Contains(Secao))
+        {
+            _secaoPendente = false;
+            Secao = visiveis.Contains(SecaoInicial) ? SecaoInicial : visiveis[0];
+        }
     }
 
     private void Publicar()
     {
+        if (SemAcesso) return;
+
         foreach (var chip in Chips) chip.Marcado = chip.Natureza == Secao;
 
         var lista = _porNatureza.GetValueOrDefault(Secao) ?? [];
@@ -336,8 +389,11 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
         var total = lista.Count;
         var info = CatalogoRegistroClinico.Obter(Secao);
 
+        // "Nenhuma documento emitido registrada" é o que sai quando o gênero mora na frase
+        // e não no catálogo. A frase neutra serve às nove naturezas sem pedir ao catálogo
+        // uma gramática que ele não tem por que carregar.
         Resumo = total == 0
-            ? $"Nenhuma {info.Singular} registrada para este paciente."
+            ? $"Sem registro de {info.Plural} para este paciente."
             : Compacto && total > recorte.Count
                 ? $"{recorte.Count} de {CatalogoRegistroClinico.Contar(Secao, total)}"
                 : CatalogoRegistroClinico.Contar(Secao, total);

@@ -64,10 +64,23 @@
                         <DataTemplate>
                             <Border Padding="0,10" BorderBrush="{StaticResource Brush.Borda}"
                                     BorderThickness="0,0,0,1">
+                                <!-- Cancelado e corrigido FICAM na lista, apagados: registro
+                                     clínico não se apaga, e o que substitui diz por quê. -->
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Opacity" Value="1" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Vigente}" Value="False">
+                                                <Setter Property="Opacity" Value="0.6" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" MinWidth="92" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
@@ -79,11 +92,17 @@
                                              médica não tem hora, e escrever "00:00" seria
                                              inventar o dado que o componente se recusa a
                                              usar para ordenar. -->
-                                        <TextBlock Text="{Binding Hora, StringFormat=HH\\:mm}"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                        <!-- ⚠️ Text E Visibility na MESMA propriedade, que é
+                                             STRING. Amarrar a Visibility ao TimeOnly? fazia
+                                             o TextoParaVisibilidade devolver Collapsed para
+                                             SEMPRE (`value as string` sobre um TimeOnly
+                                             encaixotado é null) — e a hora nunca aparecia,
+                                             nas três portas. -->
+                                        <TextBlock Text="{Binding HoraTexto}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}"
                                                    TextTrimming="CharacterEllipsis"
-                                                   Visibility="{Binding Hora, Converter={StaticResource TextoParaVisibilidade},
+                                                   Visibility="{Binding HoraTexto, Converter={StaticResource TextoParaVisibilidade},
                                                                 FallbackValue=Collapsed}" />
                                         <TextBlock Text="{Binding Rotulo}"
                                                    Style="{StaticResource TextoSuave}"
@@ -117,7 +136,20 @@
                                          encostar no id 42 da enfermagem. Só existem na
                                          seção em que a porta sabe agir — botão aceso que
                                          não faz nada é o defeito da parcela 41. -->
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                    <!-- ⚠️ O SELO de intercorrência é sinal de SEGURANÇA, e
+                                         estava dissolvido no texto do detalhe — mesmo peso
+                                         tipográfico do resumo da queixa. Ele acende só no
+                                         registro VIGENTE: cancelado é registro desdito, e
+                                         alarmar por ele é o alerta que se aprende a
+                                         ignorar. -->
+                                    <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"
+                                            VerticalAlignment="Top" Margin="8,0,0,0"
+                                            Visibility="{Binding EmDestaque,
+                                                         Converter={StaticResource BoolParaVisibilidade}}">
+                                        <TextBlock Text="INTERCORRÊNCIA" />
+                                    </Border>
+
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                 VerticalAlignment="Center" Margin="10,0,0,0">
                                         <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
                                                 Visibility="{Binding DataContext.TemAcaoAbrir,

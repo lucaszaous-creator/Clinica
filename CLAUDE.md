@@ -4611,3 +4611,67 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   escrita (a do Consultório não existe, e é decisão) e a frase divergente do cabeçalho do
   workspace, que dizia "da agenda de HOJE" para qualquer horário enquanto a tela de dentro já
   dizia a DATA desde a parcela 69 — a lição das parcelas 64 e 68 pela sétima vez.
+
+- **Propriedade `init` NÃO existe ainda dentro do construtor** (parcela 72, revisão do
+  próprio diff — o defeito mais caro da rodada, e o mais silencioso). O componente da linha
+  do tempo fazia `Secao = SecaoInicial` no corpo do construtor, e `SecaoInicial` é `init`:
+  o *object initializer* roda **depois** do construtor, então a leitura devolve sempre o
+  DEFAULT. A tela da **Enfermagem** — cuja razão de existir é a evolução de enfermagem —
+  abria marcada em "Médica", listando as sessões do médico; e o comentário do XAML afirmava
+  por escrito que ela "abre no chip Enfermagem".
+  ⚠️ O que fez isso passar foi um **socorro acidental**: a rotina que monta os chips troca a
+  seção quando a atual não está visível, e as duas portas que restringem a lista de seções
+  funcionavam por tabela. Só a porta que mostra TUDO ficava errada — a que mais importava.
+  **Valor que depende de `init` resolve-se na primeira carga, nunca no construtor.**
+
+- **`TextoParaVisibilidade` sobre qualquer coisa que não seja `string` é `Collapsed` para
+  sempre** (parcela 72): o conversor faz `value as string`, e um `TimeOnly?` encaixotado
+  devolve `null`. A HORA da evolução de enfermagem — o dado que a parcela 71 existe para
+  registrar, e cuja leitura clínica é a sequência dentro da sessão (14h20 · 14h50 · 15h10) —
+  **nunca apareceu**, nas três portas. É o defeito do `BooleanToVisibilityConverter` sobre
+  string (parcela 61) pelo AVESSO, e nada falha: XAML bem-formado, binding válido, nenhuma
+  exceção. **Amarre `Text` e `Visibility` na MESMA propriedade, e que ela seja string** —
+  foi por isso que `RegistroClinicoPaciente.HoraTexto` nasceu.
+
+- **Ao substituir uma lista por um componente genérico, liste o que a antiga MOSTRAVA**
+  (parcela 72). A troca perdeu quatro coisas sem que nada quebrasse: o **selo
+  INTERCORRÊNCIA** (que virou texto suave dentro do detalhe, com o mesmo peso do resumo da
+  queixa — e aceso também no registro CANCELADO, que é registro desdito), o **realce do não
+  vigente**, o **`RegistradoEm`** e — o pior — o **autor da sessão**, que passou de
+  `Profissional?.Rotulo` (quem ATENDEU) para `CriadoPor` (quem DIGITOU, nulo em toda sessão
+  anterior ao dia em que o sistema passou a gravá-lo). **A linha continuou existindo e
+  passou a responder outra pergunta**, que é o jeito mais discreto de perder informação.
+
+- **Portão de acesso por NATUREZA tem de ser o PISO quando a natureza tem regra por ITEM**
+  (parcela 72): o catálogo declarava `VerProntuario` para "documento clínico", e o montador
+  aplicava esse portão ANTES do filtro por folha. Isso engolia as duas folhas que a parcela
+  59 decidiu não serem dado de saúde — declaração de comparecimento e termo de consentimento
+  LGPD, ambas `VerFichaPaciente`, que saem do balcão o dia inteiro. **Onde a natureza tem
+  regra por item, quem decide é o item; o portão de fora é só "pode abrir este paciente".**
+
+- **Comando novo que faz DADO DE SAÚDE SAIR nasce com as duas barreiras** (parcela 72): o
+  "Enviar documento pelo WhatsApp" foi portado para a ficha **sem um único `Exigir`**, e a
+  metade visível era estado puro (`Assinado && !Cancelado`). A enfermeira, que tem
+  `VerProntuario` e não tem `Prescrever`, via a receita na lista e o botão ACESO. E o
+  "Assinar" ao lado tinha as duas barreiras **discordando sobre que ato é aquele**: o botão
+  acendia pelo bit do TIPO do papel e o comando exigia `Prescrever` fixo — o corredor sem
+  saída da parcela 69 em quatro dos oito tipos, com a fuga oposta de brinde (quem tem
+  `Prescrever` e não tem o bit do tipo passava direto). **Confira o bit do TIPO que está na
+  linha, não o da porta por onde se entrou** — e procure a mesma ação nos DOIS lados: a
+  cópia da Recepção era a atrasada, e foi dela que o defeito veio.
+
+- **Recusa nova de serviço precisa da metade VISÍVEL, senão ela chega depois do trabalho
+  feito** (parcela 72): o COREN passou a ser obrigatório para checar — regra certa, porque o
+  número é COPIADO no ato e corrigir depois exigiria retificar registro a registro. Mas os
+  botões continuavam acesos: a técnica sem ficha de profissional vinculada administrava o
+  soro, vinha marcar e levava um erro que **ela não pode consertar sozinha** (o conserto é em
+  Equipe e em Acessos, bits que o perfil dela não tem). Agora a folha avisa na ABERTURA e o
+  botão nasce apagado. **Toda recusa de serviço tem um botão que precisa saber dela.**
+
+- **Resultado vazio de workflow é para ser investigado, nunca lido como aprovação** (parcela
+  72 — a lição da parcela 66 cobrada de novo, agora na minha própria ferramenta). A
+  auditoria adversarial devolveu `sobreviventes: []` porque **26 dos 28 agentes falharam no
+  limite semanal** — os achados foram para a lista de "derrubados" com a razão `"sem voto"`.
+  A conta era minha: `sobreviveu = votos.Length > 0 && refutados == 0` põe o achado
+  SEM VOTO no balde dos refutados. **Cético que não votou não refutou nada** — e o script
+  que trata as duas coisas igual transforma falha de infraestrutura em aprovação silenciosa.

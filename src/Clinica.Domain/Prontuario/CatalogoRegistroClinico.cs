@@ -57,10 +57,20 @@ public enum NaturezaRegistroClinico
 /// <param name="Singular">"sessão", "evolução de enfermagem"…</param>
 /// <param name="Plural">Para a contagem: "3 sessões".</param>
 /// <param name="PermissaoVer">
-/// ⚠️ Toda natureza clínica exige <see cref="Permissao.VerProntuario"/> — é dado de saúde
-/// (art. 5º, II). O campo existe declarado, e não implícito, porque é ele que o montador da
-/// linha do tempo consulta: regra de LGPD repetida em três telas é regra que a quarta
-/// esquece, e o erro aparece como uma linha a mais numa lista, que ninguém percebe.
+/// O PISO para alcançar esta natureza — nunca o teto.
+///
+/// Quase toda natureza clínica é dado de saúde (art. 5º, II) e exige
+/// <see cref="Permissao.VerProntuario"/>. O campo existe declarado, e não implícito, porque
+/// é ele que o montador da linha do tempo consulta: regra de LGPD repetida em três telas é
+/// regra que a quarta esquece, e o erro aparece como uma linha a mais numa lista, que
+/// ninguém percebe.
+///
+/// ⚠️ <see cref="NaturezaRegistroClinico.DocumentoClinico"/> é a exceção, e ela é o motivo
+/// de este campo ser PISO: o acesso do documento é do PAPEL, não da natureza — a declaração
+/// de comparecimento e o termo de consentimento LGPD não carregam dado de saúde e saem do
+/// balcão o dia inteiro (parcela 59). Declará-la como <c>VerProntuario</c> fazia o portão
+/// engolir os dois ANTES de o filtro por folha rodar, e quem tem só o cadastro recebia
+/// lista vazia. Onde a natureza tem regra POR ITEM, quem decide é o filtro do item.
 /// </param>
 public sealed record InfoRegistroClinico(
     NaturezaRegistroClinico Natureza,
@@ -78,8 +88,10 @@ public static class CatalogoRegistroClinico
             "evolução de enfermagem", "evoluções de enfermagem", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.PrescricaoInterna,
             "prescrição de infusão", "prescrições de infusão", Permissao.VerProntuario),
+        // ⚠️ PISO, não teto — ver o comentário de InfoRegistroClinico.PermissaoVer. Quem
+        // decide papel a papel é FolhaCatalogo.PermissaoVer, no montador.
         new(NaturezaRegistroClinico.DocumentoClinico,
-            "documento emitido", "documentos emitidos", Permissao.VerProntuario),
+            "documento emitido", "documentos emitidos", Permissao.VerFichaPaciente),
         new(NaturezaRegistroClinico.AvaliacaoClinica,
             "avaliação", "avaliações", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.MedidaClinica,

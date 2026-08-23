@@ -158,13 +158,18 @@ public sealed class GuardaProntuarioService
         // Anexo e mapa pendem da SESSÃO: eles não movem o prazo por si (a sessão já o
         // move, e é a data dela que vale), mas CONTAM — a tela de conformidade responde
         // "o que vocês guardam", e o laudo anexado é justamente o que o auditor procura.
-        var anexos = 0;
-        var mapas = 0;
-        foreach (var s in sessoes)
-        {
-            anexos += (await _repo.AnexosDaEvolucaoAsync(s.Id, ct)).Count;
-            if (await _repo.ObterMapaDaEvolucaoAsync(s.Id, ct) is not null) mapas++;
-        }
+        //
+        // ⚠️ EM LOTE, e não sessão a sessão. A primeira versão fazia DOIS awaits por
+        // sessão, e `ResumoAsync` logo abaixo varre a clínica inteira chamando este
+        // método paciente a paciente: numa base de 500 pacientes com 20 sessões, o retrato
+        // da guarda saltava de ~4.000 para ~24.000 idas ao banco remoto. É a lição de
+        // "Meus pacientes" (parcela 69) cometida no mesmo diff que a citou.
+        var idsDasSessoes = sessoes.Select(s => s.Id).ToList();
+        var anexosPorSessao = await _repo.ContagemDeAnexosAsync(idsDasSessoes, ct);
+        var mapasPorSessao = await _repo.TemMapaAsync(idsDasSessoes, ct);
+
+        var anexos = anexosPorSessao.Values.Sum();
+        var mapas = mapasPorSessao.Count;
 
         var candidatos = new List<(DateOnly Data, string Origem)>();
 

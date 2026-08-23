@@ -355,10 +355,36 @@ public sealed partial class MedidasViewModel : ObservableObject
             .Distinct()
             .ToList();
 
+        // Sem concordância inventada: a ordem das fontes vem dos PONTOS, então "no
+        // enfermagem e na consultório" era o que saía sempre que a primeira aferição fosse
+        // da sala.
         if (fontes.Count > 1)
-            LeituraSerie += " A curva junta o que foi colhido no "
-                            + string.Join(" e na ", fontes) + ".";
+            LeituraSerie += " A curva junta duas procedências: "
+                            + string.Join(" e ", fontes.OrderBy(f => f)) + ".";
+
+        // ⚠️ A CURVA mescla as duas fontes; o HISTÓRICO, o cartão e o CSV logo abaixo
+        // mostram só as colheitas DESTA tela. E é decisão, não esquecimento: a linha do
+        // histórico carrega o `MedidaId` que o botão de cancelar usa, e a aferição da
+        // enfermagem tem id de OUTRA tabela — pendurá-la ali seria exatamente a
+        // ambiguidade de id que a linha do tempo clínica existe para fechar. Ela se
+        // corrige onde foi escrita, na evolução de enfermagem, que retifica com motivo.
+        //
+        // O que não pode é a tela calar: gráfico com doze pontos sobre uma tabela vazia se
+        // lê como defeito. A frase é a mesma regra do projeto — não prometa garantia que o
+        // código não dá.
+        var daEnfermagem = serie.Pontos.Count(p => p.Procedencia == "enfermagem");
+        HistoricoSoDoConsultorio = daEnfermagem > 0
+            ? $"A tabela abaixo lista só as colheitas feitas aqui. As {daEnfermagem} "
+              + "aferição(ões) da ENFERMAGEM aparecem na curva acima e no prontuário — "
+              + "elas se corrigem na evolução de enfermagem, onde foram escritas."
+            : null;
     }
+
+    /// <summary>
+    /// A frase que separa o que a CURVA mostra do que a TABELA mostra — nula quando as
+    /// duas concordam (o caso de todas as medidas que não são a pressão).
+    /// </summary>
+    [ObservableProperty] private string? _historicoSoDoConsultorio;
 
     private static string Formatar(decimal? valor, SerieMedida serie)
         => valor is { } v ? $"{v.ToString("0.#", Cultura)} {serie.Unidade}" : "—";

@@ -378,12 +378,24 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         if (_pacienteId == 0 || _modeloTermoPendente is null) return;
 
-        SessaoUsuario.Atual.Exigir(
-            Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
+        try
+        {
+            // Dentro do try: `Exigir` LANÇA, e fora dele a recusa sobe até a rede do
+            // Dispatcher em vez de virar a frase que a tela já sabe mostrar.
+            SessaoUsuario.Atual.Exigir(
+                Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
 
-        ColetaDeTermo.Abrir(
-            _escopos, _pacienteId, Paciente,
-            _modeloTermoPendente, _documentoTermoPendente);
+            ColetaDeTermo.Abrir(
+                _escopos, _pacienteId, Paciente,
+                _modeloTermoPendente, _documentoTermoPendente);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — termo não pôde ser colhido", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+            return;
+        }
 
         // Recarrega de qualquer forma: abrir a janela já EMITE o termo numerado.
         await RecarregarAsync();
@@ -398,11 +410,21 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         if (_folhaDeHojeId == 0) return;
 
-        SessaoUsuario.Atual.Exigir(
-            Permissao.ChecarPrescricao, "abrir a folha de execução");
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                Permissao.ChecarPrescricao, "abrir a folha de execução");
 
-        var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, _folhaDeHojeId);
-        new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, _folhaDeHojeId);
+            new FolhaExecucaoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — folha de execução não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+            return;
+        }
 
         await RecarregarAsync();
     }

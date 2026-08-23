@@ -6,6 +6,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
@@ -165,6 +167,18 @@
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Colheitas"
                                    Style="{StaticResource H3}" Margin="0,0,0,10" />
+
+                        <!-- ⚠️ A curva mescla consultório e enfermagem; esta tabela lista
+                             só o que foi colhido AQUI, porque a linha carrega o id que o
+                             cancelar usa e o da enfermagem é de outra tabela. Gráfico com
+                             doze pontos sobre uma tabela vazia se lê como defeito — a
+                             frase é o que impede isso. -->
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding HistoricoSoDoConsultorio}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Style="{StaticResource TextoSuave}"
+                                   Visibility="{Binding HistoricoSoDoConsultorio,
+                                                Converter={StaticResource TextoParaVisibilidade},
+                                                FallbackValue=Collapsed}" />
                         <Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Historico}">

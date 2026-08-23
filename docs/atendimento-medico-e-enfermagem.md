@@ -282,7 +282,34 @@ pelo precedente do "Meu dia": sem `Profissional` vinculado, o app **diz** que es
 
 ---
 
-## 11. Como conferir que continua valendo
+## 11. O que a revisão adversarial do próprio diff achou
+
+A parcela foi auditada por duas leituras independentes **depois** de estar verde — 1740
+testes, três redes locais e o CI nos três jobs. Elas acharam onze defeitos, e **nenhum
+quebrava nada**. Vale o registro porque as famílias se repetem:
+
+| Defeito | Por que passou |
+|---|---|
+| `Secao = SecaoInicial` no construtor | Propriedade `init` é atribuída **depois** do corpo do construtor. A tela da Enfermagem abria em "Médica" — e as outras duas portas funcionavam por acidente, porque restringem as seções visíveis |
+| A HORA nunca aparecia | `TextoParaVisibilidade` faz `value as string`; um `TimeOnly?` encaixotado devolve `null` → `Collapsed` para sempre |
+| Selo INTERCORRÊNCIA, realce e `RegistradoEm` perdidos | A troca da lista pelo componente genérico não conferiu o que a antiga MOSTRAVA |
+| Autor virou "quem DIGITOU" | `CriadoPor` no lugar de `Profissional?.Rotulo` — a linha continuou existindo e passou a responder outra pergunta |
+| "Enviar" sem nenhuma barreira | Comando portado sem `Exigir`, com a metade visível em estado puro |
+| "Assinar" com as barreiras discordando | Botão pelo bit do TIPO, comando com `Prescrever` fixo |
+| Portão de natureza engolindo o comparecimento | O `PermissaoVer` do catálogo era teto onde precisava ser piso |
+| Guarda em 1 + N×2 consultas | O laço por sessão, num serviço que a tela varre paciente a paciente |
+| COREN recusado no clique, botão aceso | Recusa nova de serviço sem a metade visível |
+| Art. 18 II sem anexos de sessão cancelada | `DoPacienteAsync` devolve só as vigentes |
+| Curva mesclada, tabela não | A ponte entrou só em `SerieAsync` |
+
+⚠️ **E a auditoria em workflow devolveu `sobreviventes: []`** — não porque nada sobreviveu,
+mas porque 26 dos 28 agentes falharam no limite de uso e nenhum cético votou. O script
+tratava "sem voto" como "refutado". É a lição da parcela 66 cobrada dentro da própria
+ferramenta de achar defeitos: **resultado vazio se investiga, nunca se lê como aprovação.**
+
+---
+
+## 12. Como conferir que continua valendo
 
 ```bash
 # Os testes que fixam este documento

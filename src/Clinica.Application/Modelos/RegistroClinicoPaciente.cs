@@ -34,10 +34,30 @@ public sealed record RegistroClinicoPaciente(
     string? Detalhe,
     string? Autor,
     bool Vigente,
-    string? Marca)
+    string? Marca,
+    bool EmDestaque = false)
 {
     /// <summary>O momento para ordenar DENTRO de uma natureza — meia-noite quando não há hora.</summary>
     public DateTime Momento => Data.ToDateTime(Hora ?? TimeOnly.MinValue);
+
+    /// <summary>
+    /// A hora já formatada, ou NULA quando a natureza não tem hora.
+    ///
+    /// ⚠️ Ela existe porque a tela amarrava a <c>Visibility</c> ao <c>TimeOnly?</c> através
+    /// do <c>TextoParaVisibilidade</c>, e aquele conversor faz <c>value as string</c> — que
+    /// devolve <b>null para qualquer coisa que não seja string</b>, inclusive um
+    /// <c>TimeOnly</c> encaixotado. Resultado: <c>Collapsed</c> para sempre, e a hora
+    /// <b>nunca</b> aparecia. É o defeito do <c>BooleanToVisibilityConverter</c> sobre
+    /// string (parcela 61) pelo avesso, e não falha nada: XAML bem-formado, binding válido,
+    /// nenhuma exceção.
+    ///
+    /// O estrago não era cosmético: a evolução de enfermagem existe para responder <i>"o
+    /// que observei no paciente, e A QUE HORAS"</i>, e a leitura clínica é a sequência
+    /// dentro da sessão (14h20 · 14h50 · 15h10). Sem a hora, três aferições do mesmo dia
+    /// saem indistinguíveis. Com o texto pronto aqui, a tela amarra <c>Text</c> E
+    /// <c>Visibility</c> na MESMA propriedade.
+    /// </summary>
+    public string? HoraTexto => Hora?.ToString("HH\\:mm");
 
     public string Rotulo => CatalogoRegistroClinico.Rotular(Natureza);
 }
@@ -91,13 +111,18 @@ public static class LinhaDoTempoClinica
             acessos, NaturezaRegistroClinico.PrescricaoInterna,
             () => (infusoes ?? []).Select(DeInfusao).ToList());
 
+        // ⚠️ O acesso do DOCUMENTO é o do PAPEL, não o da natureza, e por isso o portão de
+        // natureza aqui é o PISO (`VerFichaPaciente`) e não o teto. A declaração de
+        // comparecimento e o termo de consentimento LGPD não carregam dado de saúde e saem
+        // do balcão o dia inteiro (parcela 59); com o teto (`VerProntuario`), o portão
+        // engolia os dois ANTES de o filtro por folha rodar, e quem tem só o cadastro
+        // recebia lista vazia — o oposto do que a parcela 59 decidiu.
+        //
+        // Quem manda é o `Where`: ele deixa passar exatamente os papéis que ESTA pessoa
+        // alcança, e é a MESMA regra que a ficha e a central usam.
         mapa[NaturezaRegistroClinico.DocumentoClinico] = Permitido(
             acessos, NaturezaRegistroClinico.DocumentoClinico,
             () => (documentos ?? [])
-                // ⚠️ O acesso do DOCUMENTO é o do papel, não o da natureza: a declaração de
-                // comparecimento e o termo de consentimento não carregam dado de saúde e
-                // saem do balcão o dia inteiro (parcela 59). Deixar a natureza decidir por
-                // todos tiraria da recepção dois papéis que ela entrega todo dia.
                 .Where(d => acessos.HasFlag(CentralDocumentosService.AcessoParaVer(d.Tipo)))
                 .Select(DeDocumento)
                 .ToList());
@@ -133,7 +158,12 @@ public static class LinhaDoTempoClinica
             null,
             string.IsNullOrWhiteSpace(e.TextoEvolucao) ? "Sessão registrada" : e.TextoEvolucao,
             string.IsNullOrWhiteSpace(detalhe) ? null : detalhe,
-            e.CriadoPor,
+            // ⚠️ Quem ATENDEU, não quem DIGITOU. A lista que este componente substituiu
+            // mostrava `e.Profissional?.Rotulo`; trocá-la por `CriadoPor` mudava a pergunta
+            // que a linha responde — e `CriadoPor` é o LOGIN, nulo em toda sessão anterior
+            // ao dia em que o sistema passou a gravá-lo. O login fica como caminho de
+            // baixo, para a sessão sem profissional vinculado não sair anônima.
+            e.Profissional?.Rotulo ?? e.CriadoPor,
             !e.Cancelada,
             e.Cancelada ? $"CANCELADA — {e.MotivoCancelamento}" : null);
     }
@@ -158,8 +188,8 @@ public static class LinhaDoTempoClinica
             string.Join(" · ", new[]
             {
                 e.SinaisVitaisResumidos,
-                e.Intercorrencia ? "INTERCORRÊNCIA" : null,
-                e.Prescricao?.Numero is { } numero ? $"folha {numero}" : null
+                e.Prescricao?.Numero is { } numero ? $"folha {numero}" : null,
+                $"registrado {e.RegistradoEm:dd/MM/yyyy HH\\:mm}"
             }.Where(p => !string.IsNullOrWhiteSpace(p))),
             string.IsNullOrWhiteSpace(e.AutorConselho)
                 ? e.AutorNome
@@ -171,7 +201,14 @@ public static class LinhaDoTempoClinica
                     ? "CORRIGIDA — vale o registro seguinte"
                     : e.EhRetificacao
                         ? $"corrige o registro anterior — {e.MotivoRetificacao}"
-                        : null)).ToList();
+                        : null,
+            // ⚠️ O SELO de intercorrência é sinal de SEGURANÇA, e ele estava dissolvido
+            // dentro do `Detalhe` — mesmo peso tipográfico do resumo da queixa, e aceso
+            // também no registro CANCELADO. A lista que este componente substituiu usava
+            // `Intercorrencia && Vigente`: cancelado é registro DESDITO, e alarmar por
+            // ele é o alerta que se aprende a ignorar.
+            EmDestaque: e.Intercorrencia && !e.Cancelada && !substituidas.Contains(e.Id)))
+            .ToList();
     }
 
     private static RegistroClinicoPaciente DeInfusao(PrescricaoInterna p)

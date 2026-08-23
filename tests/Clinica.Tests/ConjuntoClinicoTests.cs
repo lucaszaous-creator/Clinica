@@ -143,7 +143,9 @@ public class ConjuntoClinicoTests : IDisposable
             Inicio = Dia
         });
 
-        // 7. Documento clínico
+        // 7. Documento clínico — DOIS, e a diferença entre eles é o assunto do teste de
+        // acesso: a receita é dado de saúde (`VerProntuario`), a declaração de
+        // comparecimento não é (`VerFichaPaciente`) e sai do balcão o dia inteiro.
         await _repo.AdicionarDocumentoAsync(new DocumentoClinico
         {
             PacienteId = paciente.Id,
@@ -153,6 +155,15 @@ public class ConjuntoClinicoTests : IDisposable
             Data = Dia,
             CodigoVerificacao = "ABC123",
             Corpo = "Dipirona 500mg"
+        });
+        await _repo.AdicionarDocumentoAsync(new DocumentoClinico
+        {
+            PacienteId = paciente.Id,
+            Tipo = TipoDocumentoClinico.Comparecimento,
+            Numero = "2026/0002",
+            Data = Dia,
+            CodigoVerificacao = "DEF456",
+            Corpo = "Esteve na clínica das 9h às 10h."
         });
         await _repo.SalvarAsync();
 
@@ -304,9 +315,15 @@ public class ConjuntoClinicoTests : IDisposable
         semAcesso[NaturezaRegistroClinico.SessaoMedica].Should().BeEmpty();
         semAcesso[NaturezaRegistroClinico.EvolucaoEnfermagem].Should().BeEmpty();
         semAcesso[NaturezaRegistroClinico.PrescricaoInterna].Should().BeEmpty();
-        // A receita é dado de saúde e some junto; o que NÃO some é a declaração de
-        // comparecimento, que a recepção entrega o dia inteiro (parcela 59).
-        semAcesso[NaturezaRegistroClinico.DocumentoClinico].Should().BeEmpty();
+
+        // ⚠️ O DOCUMENTO é a exceção, e é por causa dela que o `PermissaoVer` do catálogo é
+        // PISO e não teto: a receita some (dado de saúde), e a declaração de comparecimento
+        // FICA — ela não carrega dado de saúde e sai do balcão o dia inteiro (parcela 59).
+        // Com o teto, o portão de natureza engolia as duas ANTES de o filtro por folha
+        // rodar, e quem tem só o cadastro recebia lista vazia.
+        var papeis = semAcesso[NaturezaRegistroClinico.DocumentoClinico];
+        papeis.Should().HaveCount(1);
+        papeis[0].Titulo.Should().Contain("2026/0002");
     }
 
     [Fact]

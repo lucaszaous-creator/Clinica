@@ -519,8 +519,14 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- ⚠️ MaxHeight obrigatório: a aba inteira mora num ScrollViewer, e
+                             lá dentro a altura disponível é INFINITA — sem teto, o
+                             ScrollViewer do componente nunca rola, o ItemsControl desenha
+                             as 200 linhas e os CHIPS (a única forma de trocar de seção)
+                             saem da vista. É a 3ª peça da checagem 36, no caso em que não
+                             há corte, só crescimento. -->
                         <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
-                                                      MinHeight="240" />
+                                                      MinHeight="240" MaxHeight="420" />
                     </DockPanel>
                 </Border>
                         </StackPanel>

@@ -946,6 +946,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // Uma consulta para o prontuário inteiro: o agrupamento é do SQL, e o que volta são
     // dois inteiros por sessão COM anexo — as outras nem aparecem.
+    public async Task<IReadOnlyDictionary<int, bool>> TemMapaAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+    {
+        if (evolucaoIds.Count == 0) return new Dictionary<int, bool>();
+
+        var comMapa = await _db.MapasCorporais.AsNoTracking()
+            .Where(m => evolucaoIds.Contains(m.EvolucaoId))
+            .Select(m => m.EvolucaoId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return comMapa.ToDictionary(id => id, _ => true);
+    }
+
     public async Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
         IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
     {

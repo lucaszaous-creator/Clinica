@@ -224,12 +224,12 @@
                                                    FontSize="{StaticResource Fonte.Legenda}"
                                                    Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
 
-                                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"
-                                                   Style="{StaticResource TextoSuave}">
-                                            <Run Text="{Binding Autor, Mode=OneWay}" />
-                                            <Run Text=" · " />
-                                            <Run Text="{Binding Registro, Mode=OneWay}" />
-                                        </TextBlock>
+                                        <!-- A frase montada no VM: o separador é resolvido
+                                             por quem sabe o que existe nela (a folha é nula
+                                             na passagem avulsa, que é a maioria). -->
+                                        <TextBlock Text="{Binding Assinatura}" TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"
+                                                   Style="{StaticResource TextoSuave}" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" Orientation="Horizontal"
