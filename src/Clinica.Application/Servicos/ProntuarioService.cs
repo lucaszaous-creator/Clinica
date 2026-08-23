@@ -63,7 +63,8 @@ public sealed class ProntuarioService
                        || !string.IsNullOrWhiteSpace(dados.Orientacoes)
                        || !string.IsNullOrWhiteSpace(dados.HistoriaDoencaAtual)
                        || !string.IsNullOrWhiteSpace(dados.ExameFisico)
-                       || !string.IsNullOrWhiteSpace(dados.HipoteseDiagnostica);
+                       || !string.IsNullOrWhiteSpace(dados.HipoteseDiagnostica)
+                       || !string.IsNullOrWhiteSpace(dados.PlanoTerapeutico);
         if (!temTexto && dados.EvaAntes is null && dados.EvaDepois is null)
             throw new InvalidOperationException(
                 "Registre ao menos a dor (EVA) ou um dos campos da evolução.");
@@ -130,6 +131,7 @@ public sealed class ProntuarioService
         destino.Conduta = Limpar(dados.Conduta);
         destino.TextoEvolucao = Limpar(dados.TextoEvolucao);
         destino.Orientacoes = Limpar(dados.Orientacoes);
+        destino.PlanoTerapeutico = Limpar(dados.PlanoTerapeutico);
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
@@ -174,6 +176,7 @@ public sealed class ProntuarioService
             Conduta = atual.Conduta,
             TextoEvolucao = atual.TextoEvolucao,
             Orientacoes = atual.Orientacoes,
+            PlanoTerapeutico = atual.PlanoTerapeutico,
             ProfissionalId = atual.ProfissionalId,
             SubstituidaEm = DateTime.Now,
             SubstituidaPor = operador,

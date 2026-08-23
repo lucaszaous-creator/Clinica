@@ -160,6 +160,26 @@ public class Evolucao
     /// <summary>Orientações dadas ao paciente ao final.</summary>
     public string? Orientacoes { get; set; }
 
+    /// <summary>
+    /// O PLANO: o que vem pela frente (parcela 75).
+    ///
+    /// ⚠️ É diferente da <see cref="Conduta"/> e das <see cref="Orientacoes"/>, e a
+    /// distinção não é sutil: a conduta é o que foi FEITO hoje ("6 pontos, eletro 2Hz,
+    /// 20 min"), a orientação é o que o PACIENTE faz em casa ("compressa morna, evitar
+    /// carga"), e o plano é o que a CLÍNICA vai fazer ("10 sessões, 2x/semana, reavaliar a
+    /// EVA em 4 semanas").
+    ///
+    /// Ele existia espremido dentro dos outros dois — e é justamente o que o convênio pede
+    /// no relatório de evolução e o que a direção precisa para saber se o tratamento tem
+    /// fim previsto. Misturado à conduta, some; misturado à orientação, vira recado ao
+    /// paciente.
+    ///
+    /// Campo de UMA linha de propósito: plano é uma frase. Caixa grande convidaria a
+    /// repetir a conduta, e o campo que se preenche com o conteúdo do vizinho é o que faz o
+    /// relatório sair dizendo a mesma coisa três vezes.
+    /// </summary>
+    public string? PlanoTerapeutico { get; set; }
+
     public DateTime CriadoEm { get; set; } = DateTime.Now;
 
     public string? CriadoPor { get; set; }
@@ -345,6 +365,10 @@ public class VersaoEvolucao
     public string? Conduta { get; set; }
     public string? TextoEvolucao { get; set; }
     public string? Orientacoes { get; set; }
+
+    /// <summary>Ver <see cref="Evolucao.PlanoTerapeutico"/>. Lugar 4 da auditoria de linha.</summary>
+    public string? PlanoTerapeutico { get; set; }
+
     public int? ProfissionalId { get; set; }
 
     /// <summary>Quando esta versão foi SUBSTITUÍDA (isto é, o momento da correção).</summary>

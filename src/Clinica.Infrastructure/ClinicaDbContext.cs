@@ -474,6 +474,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.ExameFisico).HasMaxLength(4000);
             e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
             e.Property(x => x.CidSessao).HasMaxLength(20);
+            e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
         });
 
         b.Entity<Evolucao>(e =>
@@ -492,6 +493,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Conduta).HasMaxLength(4000);
             e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");

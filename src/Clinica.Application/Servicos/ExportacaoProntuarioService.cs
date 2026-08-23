@@ -104,9 +104,11 @@ public sealed class ExportacaoProntuarioService
         var sessoes = Cabecalho("PacienteId", "Paciente", "SessaoId", "Data", "Situacao",
             "EvaAntes", "EvaDepois", "QueixaPrincipal", "HistoriaDoencaAtual", "ExameFisico",
             "HipoteseDiagnostica", "CID", "Conduta", "Evolucao", "Orientacoes",
+            "PlanoTerapeutico",
             "CriadoPor", "MotivoCancelamento");
         var versoes = Cabecalho("PacienteId", "SessaoId", "Versao", "SubstituidaEm",
-            "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes");
+            "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
+            "PlanoTerapeutico");
         var avaliacoes = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "Pontuacao", "PontuacaoMaxima", "Unidade", "Faixa", "Situacao");
         var medidas = Cabecalho("PacienteId", "Paciente", "Data", "Tipo", "Valor",
@@ -182,13 +184,14 @@ public sealed class ExportacaoProntuarioService
                     e.Cancelada ? "Cancelada" : "Vigente",
                     e.EvaAntes, e.EvaDepois, e.QueixaPrincipal,
                     e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
-                    e.Conduta, e.TextoEvolucao, e.Orientacoes,
+                    e.Conduta, e.TextoEvolucao, e.Orientacoes, e.PlanoTerapeutico,
                     e.CriadoPor, e.MotivoCancelamento);
 
                 foreach (var v in await _repo.VersoesDaEvolucaoAsync(e.Id, ct))
                     Linha(versoes, p.Id, e.Id, v.Versao,
                         v.SubstituidaEm.ToString("O", Fixa), v.SubstituidaPor, v.Motivo,
-                        v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes);
+                        v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes,
+                        v.PlanoTerapeutico);
 
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
                     Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,

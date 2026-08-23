@@ -259,6 +259,12 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private string? _orientacoes;
 
     /// <summary>
+    /// O PLANO: o que vem pela frente. Ver <c>Evolucao.PlanoTerapeutico</c> para por que ele
+    /// não é a conduta nem a orientação.
+    /// </summary>
+    [ObservableProperty] private string? _planoTerapeutico;
+
+    /// <summary>
     /// O roteiro da sessão que se repete (parcela 63) — a MESMA janela da Recepção, no
     /// shell. Era aqui que ela fazia mais falta: quem escreve dez evoluções por dia é
     /// quem atende, e a sessão de acupuntura tem sempre a mesma forma.
@@ -688,6 +694,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         Conduta = e.Conduta;
         TextoEvolucao = e.TextoEvolucao;
         Orientacoes = e.Orientacoes;
+        PlanoTerapeutico = e.PlanoTerapeutico;
 
         // ⚠️ A seção ABRE quando a sessão já tem o que mostrar. Recolhida sobre conteúdo
         // escrito, ela esconderia a anamnese de quem voltou para reler — e a pessoa
@@ -733,6 +740,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         Conduta = null;
         TextoEvolucao = null;
         Orientacoes = null;
+        PlanoTerapeutico = null;
         DetalharAtendimento = false;
     }
 
@@ -810,7 +818,8 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 CidSessao = CidSessao,
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
-                Orientacoes = Orientacoes
+                Orientacoes = Orientacoes,
+                PlanoTerapeutico = PlanoTerapeutico
             }, SessaoUsuario.Atual.Operador);
 
             EvolucaoId = salva.Id;

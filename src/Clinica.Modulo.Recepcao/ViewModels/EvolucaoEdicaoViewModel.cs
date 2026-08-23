@@ -40,6 +40,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     private string? _exameFisico;
     private string? _hipoteseDiagnostica;
     private string? _cidSessao;
+    private string? _planoTerapeutico;
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<AnexoResumo> Anexos { get; } = [];
@@ -169,6 +170,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             _exameFisico = evolucao.ExameFisico;
             _hipoteseDiagnostica = evolucao.HipoteseDiagnostica;
             _cidSessao = evolucao.CidSessao;
+            _planoTerapeutico = evolucao.PlanoTerapeutico;
 
             await RecarregarAnexosAsync(prontuario);
         }
@@ -223,7 +225,8 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
                 HistoriaDoencaAtual = _historiaDoencaAtual,
                 ExameFisico = _exameFisico,
                 HipoteseDiagnostica = _hipoteseDiagnostica,
-                CidSessao = _cidSessao
+                CidSessao = _cidSessao,
+                PlanoTerapeutico = _planoTerapeutico
             }, SessaoUsuario.Atual.Operador);
 
             _evolucaoId = salva.Id;

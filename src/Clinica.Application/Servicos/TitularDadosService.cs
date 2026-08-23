@@ -161,6 +161,7 @@ public sealed class TitularDadosService
             Bloco(texto, "conduta", e.Conduta);
             Bloco(texto, "evolução", e.TextoEvolucao);
             Bloco(texto, "orientações", e.Orientacoes);
+            Bloco(texto, "plano terapêutico", e.PlanoTerapeutico);
         }
         texto.AppendLine();
 

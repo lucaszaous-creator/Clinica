@@ -406,7 +406,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     {
         var alvo = Normalizar(string.Join(" ",
             e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
-            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao));
+            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
+            e.PlanoTerapeutico));
         return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
     }
 

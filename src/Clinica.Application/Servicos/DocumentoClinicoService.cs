@@ -245,7 +245,13 @@ public sealed class DocumentoClinicoService
                 e.ExameFisico,
                 e.HipoteseDiagnostica is { } h ? $"hipótese: {h}" : null,
                 e.Conduta,
-                e.TextoEvolucao),
+                e.TextoEvolucao,
+                // ⚠️ O PLANO entra no relatório (parcela 75), e é o que o CONVÊNIO mais
+                // procura nele: "10 sessões, 2x/semana, reavaliar em 4 semanas" é a frase
+                // que sustenta a continuidade do tratamento para quem não o acompanhou.
+                // Sem isto, o campo nasceria gravado e o único papel que sai da clínica não
+                // o levaria — o defeito recorrente na variante mais cara.
+                e.PlanoTerapeutico is { } pl ? $"plano: {pl}" : null),
             Quantidade = e.Profissional?.Rotulo
         }).ToList();
 

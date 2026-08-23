@@ -62,7 +62,8 @@ public class AnamneseSobreviveAEdicaoTests : IDisposable
             ExameFisico = "dor à palpação de L4-L5",
             HipoteseDiagnostica = "lombalgia mecânica",
             CidSessao = "M54.5",
-            Conduta = "acupuntura, 20 min"
+            Conduta = "acupuntura, 20 min",
+            PlanoTerapeutico = "10 sessões, 2x/semana, reavaliar EVA em 4 semanas"
         }, "medica");
 
     [Fact]
@@ -205,6 +206,89 @@ public class AnamneseSobreviveAEdicaoTests : IDisposable
         lida.HipoteseDiagnostica.Should().Be("lombalgia mecânica");
         lida.ExameFisico.Should().Be("dor à palpação de L4-L5");
         lida.TextoEvolucao.Should().Be("corrigido pelo balcão");
+    }
+
+    // ===== O PLANO TERAPÊUTICO (parcela 75) =====
+
+    /// <summary>
+    /// O campo novo passa pelos MESMOS oito lugares — e este teste cobre os que o build não
+    /// cobre: a cópia na edição e o congelamento na versão.
+    ///
+    /// Ele nasce nesta suíte de propósito, e não numa nova: ela existe justamente porque a
+    /// parcela 73 acrescentou quatro campos e esqueceu dois desses lugares.
+    /// </summary>
+    [Fact]
+    public async Task O_plano_sobrevive_a_EDICAO_e_vai_para_a_VERSAO()
+    {
+        var pacienteId = await PacienteAsync();
+        var salva = await ComAnamneseAsync(pacienteId);
+        salva.PlanoTerapeutico.Should().StartWith("10 sessões");
+
+        await _servico.SalvarAsync(new Evolucao
+        {
+            Id = salva.Id,
+            PacienteId = pacienteId,
+            Data = salva.Data,
+            QueixaPrincipal = salva.QueixaPrincipal,
+            HistoriaDoencaAtual = salva.HistoriaDoencaAtual,
+            ExameFisico = salva.ExameFisico,
+            HipoteseDiagnostica = salva.HipoteseDiagnostica,
+            CidSessao = salva.CidSessao,
+            Conduta = salva.Conduta,
+            PlanoTerapeutico = "alta em 2 sessões"
+        }, "medica", motivoDaCorrecao: "paciente evoluiu melhor que o esperado");
+
+        var lida = await _db.Evolucoes.AsNoTracking().FirstAsync(e => e.Id == salva.Id);
+        lida.PlanoTerapeutico.Should().Be("alta em 2 sessões");
+
+        var versoes = await _servico.VersoesAsync(salva.Id);
+        versoes[0].PlanoTerapeutico.Should().StartWith("10 sessões");
+    }
+
+    [Fact]
+    public async Task Sessao_SO_com_plano_e_aceita()
+    {
+        var pacienteId = await PacienteAsync();
+
+        // O campo novo alarga a porta da validação de "evolução vazia" (lugar 5): sem isto,
+        // a sessão em que o profissional só ajustou o plano seria recusada nomeando campos
+        // que ele não precisava preencher.
+        var acao = () => _servico.SalvarAsync(new Evolucao
+        {
+            PacienteId = pacienteId,
+            Data = new DateOnly(2026, 8, 23),
+            PlanoTerapeutico = "alta"
+        }, "medica");
+
+        await acao.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task Editar_pela_janela_do_BALCAO_nao_apaga_o_plano()
+    {
+        var pacienteId = await PacienteAsync();
+        var salva = await ComAnamneseAsync(pacienteId);
+
+        // Lugar 6: quem não edita, PRESERVA. A janela do balcão não tem o campo na tela e
+        // carrega/devolve o valor intacto — sem isso, corrigir um horário lá apagaria o
+        // plano que o médico escreveu.
+        await _servico.SalvarAsync(new Evolucao
+        {
+            Id = salva.Id,
+            PacienteId = pacienteId,
+            Data = salva.Data,
+            QueixaPrincipal = salva.QueixaPrincipal,
+            Conduta = salva.Conduta,
+            TextoEvolucao = "corrigido pelo balcão",
+            HistoriaDoencaAtual = salva.HistoriaDoencaAtual,
+            ExameFisico = salva.ExameFisico,
+            HipoteseDiagnostica = salva.HipoteseDiagnostica,
+            CidSessao = salva.CidSessao,
+            PlanoTerapeutico = salva.PlanoTerapeutico
+        }, "recepcao");
+
+        (await _db.Evolucoes.AsNoTracking().FirstAsync(e => e.Id == salva.Id))
+            .PlanoTerapeutico.Should().StartWith("10 sessões");
     }
 
     public void Dispose()

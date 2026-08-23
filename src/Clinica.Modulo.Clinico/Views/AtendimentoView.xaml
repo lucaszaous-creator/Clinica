@@ -347,7 +347,20 @@
                             <TextBlock Text="Orientações ao paciente" Style="{StaticResource Rotulo}" />
                             <TextBox Text="{Binding Orientacoes, UpdateSourceTrigger=PropertyChanged}"
                                      TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
-                                     VerticalScrollBarVisibility="Auto" />
+                                     VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+
+                            <!-- O PLANO é o que a CLÍNICA vai fazer, e não se confunde com a
+                                 conduta (o que foi feito hoje) nem com a orientação (o que o
+                                 paciente faz em casa). É a frase que o convênio procura no
+                                 relatório de evolução.
+
+                                 UMA linha de propósito: caixa grande convidaria a repetir a
+                                 conduta, e campo preenchido com o conteúdo do vizinho faz o
+                                 relatório dizer a mesma coisa três vezes. -->
+                            <TextBlock Text="Plano terapêutico" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding PlanoTerapeutico, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap"
+                                     ToolTip="O que vem pela frente: “10 sessões, 2x/semana, reavaliar a EVA em 4 semanas”. Sai no relatório que o paciente leva ao convênio." />
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
