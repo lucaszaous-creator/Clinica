@@ -4723,3 +4723,87 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   expressa que a receita e o atestado pedem. E a **hipótese não é a lista de problemas**:
   `ProblemaPaciente` é o que o paciente TEM, `HipoteseDiagnostica` é o que se pensou NAQUELA
   sessão — a de terça pode estar errada, e a lista não deve carregá-la.
+
+- **"Estamos anos luz atrás" — o atendimento não era um ESTADO, era um formulário**
+  (parcela 74; o mapa completo está em `docs/registro-do-atendimento.md`, §8 em diante).
+  A cliente mandou o print do prontuário do iClinic. Medidas as duas telas lado a lado, os
+  dois buracos que importam não eram cosméticos, e o primeiro é conceitual: **num prontuário
+  eletrônico o profissional ENTRA no atendimento, o relógio corre e ele FINALIZA.** O nosso
+  era um formulário com "Salvar sessão" no rodapé.
+  ⚠️ **O carimbo do INÍCIO existe desde a parcela 38** (`Agendamento.InicioAtendimentoEm`,
+  para o kanban do balcão) **e nenhuma tela do Consultório o lia.** O defeito recorrente do
+  projeto na variante mais discreta de todas — nada falha, só que o médico não sabe que está
+  há 40 minutos com o mesmo paciente e o balcão não sabe que ele terminou.
+  **Finalizar NÃO conclui, e é a decisão da parcela 61**: concluir são QUATRO fatos do mesmo
+  ato (a guia nasce, o pacote debita, o insumo sai, o dinheiro entra) e três são do balcão.
+  Marcar `Realizado` daqui pularia os três **em silêncio**: o dia fecharia com o caixa sem a
+  sessão, e nada falharia. Por isso `EncerrarAtendimentoAsync` carimba `FimAtendimentoEm` e
+  deixa o `Status` em `Agendado`, e há teste que falha se alguém "simplificar" isso.
+  ⚠️ **A ORDEM entre gravar e carimbar é a hierarquia da parcela 65, não estilo**: grava a
+  sessão PRIMEIRO. Falhando a gravação, o carimbo não acontece — mandar o recado de que o
+  médico terminou enquanto a evolução não existe em lugar nenhum é falha exibida como
+  sucesso. O inverso também vale: gravada a sessão, falhar o carimbo vira AVISO e nunca
+  desfaz o prontuário. É o que fez `SalvarAsync` virar `TentarSalvarAsync` devolvendo `bool`.
+  **E o recado CHEGA**: o cartão da fila do balcão ganha o selo "Encerrado às 14h32" e sobe
+  para a frente da raia. É o par do `ChamadoEm`, que atravessa no sentido contrário — até
+  aqui a recepcionista descobria que o médico tinha terminado quando o paciente aparecia na
+  frente dela, e o cartão ficava em "Em atendimento" meia hora depois de a sala estar vazia,
+  o que faz o quadro do dia mentir sobre quem está ocupado. ⚠️ **É SELO e não raia nova**:
+  uma coluna permanente para um estado que dura minutos é a faixa vazia comendo a tela que o
+  README condena desde a parcela 38 — o que a recepcionista precisa saber não é que existe
+  uma coluna nova, é QUAL cartão está pronto para fechar.
+  **Encerrar com a sessão em branco PERGUNTA, não impede** (registro que não se consegue
+  salvar é registro que não acontece), e **encerrar de novo não reescreve a hora** (`??=`,
+  a razão do "chamar de novo": quem clica duas vezes precisa continuar vendo a hora em que
+  terminou, e o segundo clique esconderia justamente o atendimento demorado).
+- **Três seções do prontuário estavam FORA do paciente** (parcela 74): prescrever exigia
+  **sair do paciente**, ir a um item de menu, escolher a pessoa de novo e voltar. É a porta
+  no lugar errado — o defeito que o projeto já corrigiu doze vezes ENTRE módulos — cometido
+  agora dentro de um app só, e era o que mais separava a tela de um prontuário eletrônico de
+  verdade. Viraram sete seções num **RAIL VERTICAL**, e a escolha não é gosto: o `TabPanel`
+  do WPF **espreme** as abas (o defeito da parcela 50 — "Convê", "Prontu", "Documer") e sete
+  rótulos quebrariam a régua em duas linhas mesmo com `WrapPanel`. `AbaAtual` continua sendo
+  o contrato — as chaves de navegação de outros módulos caem cada uma na sua seção
+  (`ModuloClinico.AbaDe`), e trocar leiaute não pode quebrar navegação (a regressão da
+  parcela 37, 4ª rodada). A tela que vira seção ganha `MostrarCabecalho = false`: dentro do
+  workspace o nome já está no crachá, e o **seletor de busca dela trocaria o
+  `PacienteEmFoco` por baixo das outras seis seções**, que continuariam mostrando o paciente
+  anterior.
+  **"Exames e anexos" muda o EIXO da leitura, e é a lição que generaliza**: os anexos só se
+  alcançavam sessão a sessão, o que responde *"o que tem nesta consulta"*. A pergunta de
+  quem atende é outra — *"eu pedi a ressonância; ela chegou?"* — e ela não se responde
+  abrindo quarenta sessões uma por uma. **Dado com leitor pode estar com a CHAVE errada**, e
+  isso não aparece em teste nenhum.
+- **A alergia é ATRIBUTO DA PESSOA, não alerta do dia** (`CabecalhoClinicoPaciente`, parcela
+  74). O cabeçalho do consultório mostrava iniciais, nome e uma linha de contexto; idade,
+  convênio, desde quando a pessoa se trata ali e as ALERGIAS estavam no banco e não no olho
+  de quem atende. Alerta é faixa que se lê uma vez e se ignora nas quarenta sessões
+  seguintes — é a razão pela qual este projeto recusa alerta que dispara para todo mundo
+  desde a parcela 26. No crachá ela fica ao lado do nome enquanto o prontuário estiver
+  aberto, e **entra mesmo dada por RESOLVIDA** (a regra da parcela 37: "resolvida" numa
+  alergia é quase sempre "não reagiu da última vez"); só o DESCARTE, que exige motivo
+  escrito, a cala.
+  O crachá é também o **primeiro leitor da `HipoteseDiagnostica`** que a parcela 73 criou —
+  sem ele seria mais um campo gravado sem leitor, o defeito recorrente cometido na parcela
+  seguinte à que criou o dado. As últimas hipóteses saem **distintas e no máximo três**:
+  repetir "lombalgia" nas oito últimas sessões gastaria a linha inteira dizendo uma coisa só.
+  A **linha de identificação é montada no MODELO**, não no XAML, porque ela precisa PULAR o
+  que não existe: paciente sem data de nascimento não pode produzir "· anos ·" com um vão no
+  meio, e cadastro novo não tem "desde". Frase feita de bindings concatenados não sabe pular.
+  E o **total de sessões conta só o que ACONTECEU** (`RealizadoEm`): desde a parcela 70 a
+  guia nasce no agendamento, então contar linhas de `Atendimento` somaria as sessões da
+  semana que vem — o crachá diria "24 sessões" a quem teve 18.
+- **`BooleanToVisibilityConverter` sobre um `BitmapImage` é `Collapsed` para sempre**
+  (parcela 74 — defeito meu, pego na revisão do próprio diff antes de sair). É a lição da
+  parcela 61 na terceira variante: o conversor do WPF devolve `Collapsed` para qualquer
+  valor que não seja `bool`, e a foto do paciente é um objeto. **A foto nunca apareceria**,
+  com XAML bem-formado, binding válido, nada lançando e as três redes verdes. Entrou
+  `ObjetoParaVisibilidade` no shell, e ele **não substitui** o `TextoParaVisibilidade`:
+  string vazia não é nula, e usá-lo numa mensagem deixaria a caixa de alerta aberta e vazia
+  depois de a mensagem ser limpa. **A pergunta que decide é "o que significa 'não tem'?"** —
+  para texto é o branco, para objeto é o nulo.
+- **`--` é ilegal DENTRO de comentário XML** (parcela 74): a linha de sublinhado de um
+  cabeçalho de comentário (`----------------`) quebra o XAML inteiro com "not well-formed
+  (invalid token)". Nos `.cs` ela é livre; no XAML, não. O `verificar-suite` pega na hora —
+  mas vale saber antes de escrever, porque o estilo de comentário deste projeto usa
+  sublinhado em toda seção.

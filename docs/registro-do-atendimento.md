@@ -210,3 +210,189 @@ python3 tools/verificar-suite.py
 ⚠️ **Antes de publicar a versão**: a exigência do COREN (parcela 72) **recusa** login de
 enfermagem sem `Profissional` vinculado com `RegistroConselho`. Confira o cadastro da equipe
 de enfermagem antes de subir, ou a sala descobre no primeiro registro do dia.
+
+---
+
+# Parte II — o ATENDIMENTO como sessão (parcela 74)
+
+> **A parcela 73 respondeu O QUE SE ESCREVE. Esta responde COMO SE ATENDE.**
+
+A cliente mandou o print do prontuário do iClinic, com a frase: *"veja como é quando o
+médico/enfermeiro aperta para atender X paciente. Estamos MUITO atrás, muitos anos luz
+atrás mesmo."*
+
+## 8. As duas telas, medidas lado a lado
+
+| iClinic | Nosso, antes desta parcela |
+|---|---|
+| **Finalizar atendimento + duração ao vivo** | **não existia** — formulário com "Salvar sessão" |
+| Histórico de consultas | ✅ aba Prontuário |
+| Tabela de acompanhamento | ✅ três abas (dor, medidas, avaliações) |
+| Atendimento | ✅ |
+| **Prescrições** | ❌ **fora do paciente** — item de menu separado |
+| **Documentos e atestados** | ❌ **fora do paciente** — botão que abre janela |
+| **Imagens e anexos** | ❌ **fora do paciente** — janela por sessão |
+| Foto, idade, convênio, 1ª consulta | 🟡 iniciais + nome + uma linha |
+| Últimos diagnósticos à vista | ❌ |
+| Teleconsultas | ❌ e **fica** — ver §12 |
+
+## 9. O atendimento não era um ESTADO
+
+Num prontuário eletrônico o profissional **entra** no atendimento, o relógio corre e ele
+**finaliza**. É essa diferença que faz a tela dizer, o tempo todo, que há uma pessoa na
+sala e há quanto tempo ela está lá.
+
+⚠️ **O carimbo do início existe desde a parcela 38** — `Agendamento.InicioAtendimentoEm`,
+criado para o kanban do balcão — **e nenhuma tela do Consultório o lia.** É o defeito
+recorrente do projeto na variante mais discreta de todas: nada falha, o dado está gravado,
+e o efeito é apenas que ninguém sabe de nada.
+
+O que entrou: `Agendamento.FimAtendimentoEm` (migration **aditiva**), a barra com o relógio
+ao vivo e os botões **Iniciar** / **Finalizar atendimento**.
+
+### 9.1 Finalizar NÃO é concluir
+
+É a decisão da parcela 61, e ela não se negocia: concluir são **quatro fatos do mesmo ato**
+— a guia nasce, o pacote debita, o insumo sai do estoque, o dinheiro entra no caixa — e
+**três deles são do balcão**. O que o profissional afirma ao finalizar é só *"terminei com
+esta pessoa"*.
+
+> Se alguém um dia fizer o encerramento marcar `Realizado` "para simplificar", os três fatos
+> do balcão deixam de acontecer **em silêncio**: o pacote não debita, o insumo não sai e o
+> caixa fecha sem a sessão. Nada falha — o dia só não bate.
+
+`Encerrar_NAO_conclui_o_atendimento` é a amarra.
+
+### 9.2 A ordem entre gravar e carimbar
+
+Grava a sessão **primeiro**. É a hierarquia da parcela 65 aplicada aqui:
+
+- gravação falhou → **o carimbo não acontece**. Mandar o recado de que o médico terminou
+  enquanto a evolução não existe em lugar nenhum é falha exibida como sucesso;
+- gravação passou e o carimbo falhou → vira **aviso**, e nunca desfaz o prontuário.
+
+Foi isso que fez `SalvarAsync` virar `TentarSalvarAsync` devolvendo `bool`.
+
+### 9.3 O recado chega ao balcão
+
+O cartão da fila ganha o selo **"Encerrado às 14h32"** e sobe para a frente da raia. É o par
+do `ChamadoEm`, que atravessa no sentido contrário desde a parcela 38.
+
+Até aqui a recepcionista descobria que o médico tinha terminado **quando o paciente aparecia
+na frente dela**, e o cartão ficava em "Em atendimento" meia hora depois de a sala estar
+vazia — o quadro do dia mentindo sobre quem está ocupado.
+
+⚠️ **É SELO e não raia nova.** Uma coluna permanente para um estado que dura minutos é a
+faixa vazia comendo a tela que o README condena desde a parcela 38. O que a recepcionista
+precisa saber não é que existe uma coluna nova; é **qual cartão está pronto para fechar**.
+
+### 9.4 As três regras menores
+
+- **Encerrar sem ter começado é recusado** — fim sem começo produziria duração negativa e um
+  cartão que sai da sala sem nunca ter entrado nela.
+- **Encerrar de novo não reescreve a hora** (`??=`) — a razão do "chamar de novo": quem clica
+  duas vezes precisa continuar vendo a hora em que terminou, e o segundo clique esconderia
+  justamente o atendimento demorado. E movimento idempotente **não grava linha de trilha**.
+- **Encerrar com a sessão em branco PERGUNTA, não impede.** O profissional pode escrever
+  depois — registro que não se consegue salvar é registro que não acontece —, e é
+  exatamente a dívida que este app existe para cobrar. A tela nomeia a consequência.
+
+## 10. Três seções estavam FORA do paciente
+
+Prescrever exigia **sair do paciente**, ir a um item de menu, escolher a pessoa de novo e
+voltar. É a porta no lugar errado — o defeito que o projeto já corrigiu doze vezes **entre**
+módulos — cometido agora dentro de um app só.
+
+As sete seções, num **rail vertical**:
+
+| # | Seção | Responde |
+|---|---|---|
+| 0 | Atendimento | o que se escreve agora |
+| 1 | Histórico de sessões | o que já foi feito |
+| 2 | Prescrições e documentos | o que sai no papel |
+| 3 | Exames e anexos | o que chegou de volta |
+| 4 | Evolução da dor | a curva |
+| 5 | Medidas | os números seriados |
+| 6 | Avaliações | as escalas |
+
+⚠️ **Vertical, e não abas**: o `TabPanel` do WPF **espreme** as abas quando julga que a
+régua não cabe — é o defeito da parcela 50, "Convê", "Prontu", "Documer" — e sete rótulos
+quebrariam a régua em duas linhas mesmo com `WrapPanel`.
+
+⚠️ **`AbaAtual` continua sendo o contrato.** As chaves de navegação de outros módulos caem
+cada uma na sua seção (`ModuloClinico.AbaDe`), e trocar leiaute não pode quebrar navegação —
+é literalmente a regressão da parcela 37, 4ª rodada.
+
+⚠️ **A tela que vira seção perde o cabeçalho dela** (`MostrarCabecalho = false`). Não é
+economia de pixel: o nome já está no crachá, e o **seletor de busca dela trocaria o
+`PacienteEmFoco` por baixo das outras seis seções**, que continuariam mostrando o paciente
+anterior. Duas listas de paciente na mesma tela é o mestre-detalhe que este desenho existe
+para acabar.
+
+### 10.1 "Exames e anexos" muda o EIXO, e é a lição que generaliza
+
+Os anexos só se alcançavam **sessão a sessão**, dentro de uma janela aberta de uma linha do
+prontuário. Isso responde *"o que tem nesta consulta"*. A pergunta de quem atende é outra, e
+é a mesma que a parcela 37 já tinha nomeado ao trazer os anexos para o Consultório — **"eu
+pedi a ressonância; ela chegou?"** —, e ela não se responde abrindo quarenta sessões uma por
+uma.
+
+> **Dado com leitor pode estar com a CHAVE errada.** É a variante de EIXO do defeito
+> recorrente, e ela não aparece em teste nenhum: tudo funciona, só que ninguém consegue
+> perguntar o que precisa.
+
+A seção **não anexa**: anexar é ato da sessão, porque o arquivo pertence à consulta em que
+ele foi discutido, e é esse vínculo que põe o laudo ao lado da conduta que ele motivou.
+
+## 11. O crachá clínico
+
+`CabecalhoClinicoPaciente` responde as quatro perguntas que se fazem antes de abrir a boca:
+**idade** (a conduta de um paciente de 78 anos não é a de um de 30), **convênio** (decide o
+que pode ser pedido), **desde quando** e **o que não se pode esquecer**.
+
+⚠️ **A alergia sai do balde de "alertas" e vira atributo da pessoa.** Alerta é faixa que se
+lê uma vez e se ignora nas quarenta sessões seguintes — é a razão pela qual este projeto
+recusa alerta que dispara para todo mundo desde a parcela 26. No crachá ela fica ao lado do
+nome enquanto o prontuário estiver aberto, e **entra mesmo dada por RESOLVIDA** (a regra da
+parcela 37: "resolvida" numa alergia é quase sempre "não reagiu da última vez"). Só o
+descarte, que exige motivo escrito, a cala.
+
+Outras três decisões:
+
+- **Os últimos diagnósticos são o primeiro leitor da `HipoteseDiagnostica`** que a parcela
+  73 criou. Sem eles, ela seria mais um campo gravado sem leitor — o defeito recorrente
+  cometido na parcela seguinte à que criou o dado. Saem **distintos e no máximo três**:
+  repetir "lombalgia" nas oito últimas sessões gastaria a linha inteira dizendo uma coisa só.
+- **A linha de identificação é montada no MODELO**, não no XAML, porque precisa PULAR o que
+  não existe: sem data de nascimento não pode sair "· anos ·" com um vão no meio, e cadastro
+  novo não tem "desde". Frase feita de bindings concatenados não sabe pular.
+- **O total conta só o que ACONTECEU** (`RealizadoEm`): desde a parcela 70 a guia nasce no
+  agendamento, então contar linhas de `Atendimento` somaria as sessões da semana que vem — o
+  crachá diria "24 sessões" a quem teve 18.
+
+## 12. O que NÃO foi feito, e por quê
+
+- **Teleconsultas** — a clínica é presencial. Criar uma aba vazia com nome bonito é
+  exatamente o "amador" que a reprovação apontava, e prometer o que o código não faz é a
+  regra mais antiga do projeto.
+- **Tags no paciente** — o iClinic tem; nós não. Antes de construir, falta saber o que a
+  clínica marcaria com elas: tag sem uso combinado vira campo que ninguém preenche.
+- **Sexta raia no kanban** para o atendimento encerrado — ver §9.3.
+
+## 13. Dois defeitos meus, pegos na revisão do próprio diff
+
+1. **`BooleanToVisibilityConverter` sobre um `BitmapImage` é `Collapsed` para sempre** — a
+   lição da parcela 61 na terceira variante. A foto do paciente **nunca apareceria**, com
+   XAML bem-formado, binding válido, nada lançando e as três redes verdes. Entrou
+   `ObjetoParaVisibilidade`, que **não substitui** o `TextoParaVisibilidade`: string vazia
+   não é nula. A pergunta que decide é *"o que significa 'não tem'?"* — para texto é o
+   branco, para objeto é o nulo.
+2. **`--` é ilegal dentro de comentário XML.** A linha de sublinhado do estilo de comentário
+   deste projeto quebra o XAML inteiro. O `verificar-suite` pega na hora.
+
+## 14. Como conferir que continua valendo
+
+```bash
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~FimDoAtendimento"
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~CabecalhoClinico"
+```
