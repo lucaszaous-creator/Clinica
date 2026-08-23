@@ -110,6 +110,47 @@ public class Evolucao
     /// <summary>O que o paciente relatou nesta sessão.</summary>
     public string? QueixaPrincipal { get; set; }
 
+    // ---- O registro do ATENDIMENTO (parcela 73) ----
+    //
+    // ⚠️ Até aqui a sessão médica eram QUATRO caixas de texto (queixa, conduta, evolução,
+    // orientações) e o par de EVA. Faltava o que um prontuário responde: como a queixa
+    // evoluiu, o que o exame ACHOU, e o que o profissional CONCLUIU. Sem a hipótese, o
+    // prontuário registra o que foi feito e não diz por quê — e é o "por quê" que sustenta
+    // a conduta numa auditoria, num pedido de convênio ou numa perícia.
+    //
+    // Todos NULOS e todos ADITIVOS: a sessão curta de acupuntura continua sendo queixa +
+    // conduta, e obrigar quem faz vinte sessões de manutenção por dia a preencher anamnese
+    // completa faria a clínica escrever "idem" em todas — que é pior do que o campo vazio,
+    // porque parece registro.
+
+    /// <summary>
+    /// A história da doença atual: desde quando, como começou, o que melhora e o que piora.
+    /// É o que distingue a primeira consulta do retorno, e é dela que sai a conduta.
+    /// </summary>
+    public string? HistoriaDoencaAtual { get; set; }
+
+    /// <summary>
+    /// O que o exame ACHOU — inspeção, palpação, amplitude, força, o que for da
+    /// especialidade. Separado da <see cref="Conduta"/> de propósito: achado e ato são
+    /// coisas diferentes, e juntá-los num campo só é o que faz o prontuário parar de
+    /// responder "com base em quê?".
+    /// </summary>
+    public string? ExameFisico { get; set; }
+
+    /// <summary>
+    /// A conclusão do profissional sobre ESTA sessão. Texto livre, porque nem toda
+    /// especialidade fecha diagnóstico em toda consulta.
+    /// </summary>
+    public string? HipoteseDiagnostica { get; set; }
+
+    /// <summary>
+    /// O CID da hipótese, quando há. ⚠️ OPCIONAL, e é decisão: exigi-lo faria o
+    /// fisioterapeuta e o acupunturista pararem de preencher a hipótese — a mesma razão
+    /// pela qual ele é opcional na lista de problemas (parcela 37). O catálogo da parcela
+    /// 63 é ATALHO com conferência, não recusa: o campo aceita o que for digitado.
+    /// </summary>
+    public string? CidSessao { get; set; }
+
     /// <summary>O que foi feito: pontos, técnica, tempo de agulhamento…</summary>
     public string? Conduta { get; set; }
 

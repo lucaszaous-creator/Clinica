@@ -55,6 +55,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemPrescricaoInterna> ItensPrescricaoInterna => Set<ItemPrescricaoInterna>();
     public DbSet<ChecagemPrescricao> ChecagensPrescricao => Set<ChecagemPrescricao>();
     public DbSet<EvolucaoEnfermagem> EvolucoesEnfermagem => Set<EvolucaoEnfermagem>();
+    public DbSet<DiagnosticoEnfermagem> DiagnosticosEnfermagem => Set<DiagnosticoEnfermagem>();
+    public DbSet<CuidadoEnfermagem> CuidadosEnfermagem => Set<CuidadoEnfermagem>();
     public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
     public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
     public DbSet<TracoAssinatura> TracosAssinatura => Set<TracoAssinatura>();
@@ -416,6 +418,12 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.HasKey(x => x.Id);
             e.Property(x => x.QueixaPrincipal).HasMaxLength(1000);
+            // O registro do ATENDIMENTO (parcela 73) — todos anuláveis, todos aditivos: a
+            // sessão curta de manutenção continua sendo queixa + conduta.
+            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
+            e.Property(x => x.CidSessao).HasMaxLength(20);
             e.Property(x => x.Conduta).HasMaxLength(4000);
             e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
@@ -863,6 +871,11 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Texto).IsRequired().HasMaxLength(4000);
+            // As três etapas do Processo de Enfermagem que são TEXTO (parcela 73). Todas
+            // anuláveis: a anotação de passagem continua sendo só o `Texto`.
+            e.Property(x => x.Historico).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.Avaliacao).HasMaxLength(4000);
             e.Property(x => x.AutorNome).IsRequired().HasMaxLength(120);
             e.Property(x => x.AutorConselho).HasMaxLength(60);
             e.Property(x => x.MotivoRetificacao).HasMaxLength(500);
@@ -899,6 +912,46 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.PressaoArterial);
             e.Ignore(x => x.TemSinaisVitais);
             e.Ignore(x => x.SinaisVitaisResumidos);
+            e.Ignore(x => x.EhConsulta);
+            e.Ignore(x => x.EtapasEmFalta);
+        });
+
+        // ---- O Processo de Enfermagem (parcela 73) ----
+        //
+        // ⚠️ CASCADE nas duas, e é a única cascata clínica que este projeto aceita: o
+        // diagnóstico e o cuidado não são registro AUTÔNOMO — eles só existem DENTRO de uma
+        // evolução de enfermagem, como o ponto do mapa corporal dentro da sessão. E a
+        // evolução, essa sim, não se apaga: ela se CANCELA com motivo, e a cascata nunca
+        // dispara. Mantê-las Restrict só impediria o EF de montar o grafo, sem proteger
+        // nada que já não esteja protegido uma camada acima.
+        b.Entity<DiagnosticoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Codigo).HasMaxLength(40);
+            e.Property(x => x.Titulo).IsRequired().HasMaxLength(200);
+            e.Property(x => x.RelacionadoA).HasMaxLength(400);
+            e.Property(x => x.EvidenciadoPor).HasMaxLength(400);
+            e.Property(x => x.ResultadoEsperado).HasMaxLength(600);
+
+            e.HasOne(x => x.Evolucao).WithMany(x => x.Diagnosticos)
+                .HasForeignKey(x => x.EvolucaoEnfermagemId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoEnfermagemId);
+            e.Ignore(x => x.Redacao);
+        });
+
+        b.Entity<CuidadoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Codigo).HasMaxLength(40);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(400);
+            e.Property(x => x.Frequencia).HasMaxLength(120);
+
+            e.HasOne(x => x.Evolucao).WithMany(x => x.Cuidados)
+                .HasForeignKey(x => x.EvolucaoEnfermagemId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoEnfermagemId);
+            e.Ignore(x => x.Redacao);
         });
 
         b.Entity<AssinaturaDocumento>(e =>

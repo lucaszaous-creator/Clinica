@@ -81,6 +81,99 @@ public class EvolucaoEnfermagem
     /// <summary>O que foi observado. Obrigatório — linha sem conteúdo não é registro.</summary>
     public string Texto { get; set; } = string.Empty;
 
+    // ---- A CONSULTA DE ENFERMAGEM: o Processo de Enfermagem (parcela 73) ----
+    //
+    // ⚠️ Até aqui isto era UMA caixa de texto com sinais vitais ao lado, e isso não é uma
+    // consulta de enfermagem — é uma anotação. A COFEN 358/2009 torna o Processo de
+    // Enfermagem OBRIGATÓRIO e o descreve em cinco etapas; a Lei 7.498/1986 (art. 11, I,
+    // "i") faz a consulta de enfermagem privativa do Enfermeiro.
+    //
+    // As cinco etapas, e onde cada uma mora:
+    //   1. Histórico (coleta de dados) ......... <see cref="Historico"/>
+    //   2. Diagnóstico de enfermagem ........... <see cref="Diagnosticos"/>
+    //   3. Planejamento (resultado esperado) ... <see cref="DiagnosticoEnfermagem.ResultadoEsperado"/>
+    //   4. Implementação (prescrição) .......... <see cref="Cuidados"/>
+    //   5. Avaliação ........................... <see cref="Avaliacao"/>
+    //
+    // ⚠️ TODOS NULOS, e isso é o desenho, não uma folga. A ANOTAÇÃO curta continua
+    // existindo: a técnica que troca um curativo e registra "ferida limpa, sem exsudato"
+    // não abre um processo de enfermagem, e obrigá-la faria a clínica escrever "idem" em
+    // cinco campos — que é pior do que o campo vazio, porque parece registro. O que
+    // distingue os dois é o CONTEÚDO: <see cref="EhConsulta"/>.
+
+    /// <summary>
+    /// Etapa 1 — HISTÓRICO DE ENFERMAGEM: a coleta de dados. O que o paciente relata, o que
+    /// ele já usa, o que a família informa, hábitos, condições que importam ao cuidado.
+    ///
+    /// É a anamnese DE ENFERMAGEM, e não a médica: ela pergunta pela capacidade de
+    /// autocuidado, pela rede de apoio e pelo que o paciente entende do próprio tratamento
+    /// — coisas que a consulta médica não colhe e das quais o cuidado depende.
+    /// </summary>
+    public string? Historico { get; set; }
+
+    /// <summary>
+    /// Etapa 1 (segunda metade) — o EXAME FÍSICO de enfermagem, céfalo-podal na medida do
+    /// que a passagem exige: pele, acesso venoso, edema, ausculta, o que for.
+    ///
+    /// Separado do <see cref="Texto"/> porque achado e conduta são coisas diferentes — a
+    /// mesma razão pela qual a sessão médica separou o exame da conduta.
+    /// </summary>
+    public string? ExameFisico { get; set; }
+
+    /// <summary>
+    /// Etapa 5 — AVALIAÇÃO: o que aconteceu com o que foi prescrito. É a etapa que fecha o
+    /// processo, e a que mais some dos prontuários — sem ela, o plano de cuidados vira uma
+    /// lista de intenções que ninguém confere.
+    /// </summary>
+    public string? Avaliacao { get; set; }
+
+    /// <summary>Etapa 2 e 3 — os diagnósticos de enfermagem, com o resultado esperado de cada um.</summary>
+    public List<DiagnosticoEnfermagem> Diagnosticos { get; set; } = new();
+
+    /// <summary>Etapa 4 — a PRESCRIÇÃO DE ENFERMAGEM: os cuidados, com a frequência de cada um.</summary>
+    public List<CuidadoEnfermagem> Cuidados { get; set; } = new();
+
+    /// <summary>
+    /// Este registro é uma CONSULTA DE ENFERMAGEM, e não uma anotação de passagem.
+    ///
+    /// ⚠️ É derivado do conteúdo, e não uma coluna: um sinalizador gravado viraria mentira
+    /// no dia em que alguém apagasse os diagnósticos de uma consulta, e um valor novo de
+    /// enum quebraria a leitura do app que ainda não atualizou (a mina da parcela 67).
+    /// O que define a consulta é ela ter as etapas — que é o que a COFEN 358/2009 cobra.
+    /// </summary>
+    public bool EhConsulta =>
+        Diagnosticos.Count > 0
+        || Cuidados.Count > 0
+        || !string.IsNullOrWhiteSpace(Historico)
+        || !string.IsNullOrWhiteSpace(ExameFisico);
+
+    /// <summary>
+    /// As etapas do Processo de Enfermagem que ficaram VAZIAS nesta consulta.
+    ///
+    /// ⚠️ Ela AVISA, não impede — e essa é a decisão. A enfermeira que colhe o histórico
+    /// hoje e fecha a avaliação depois da infusão está fazendo o processo certo; recusar o
+    /// registro incompleto faria ela esperar o fim do dia para escrever tudo de memória,
+    /// que é exatamente o que o módulo do Consultório existe para combater. O que não pode
+    /// é a etapa faltar SEM NINGUÉM PERCEBER.
+    /// </summary>
+    public IReadOnlyList<string> EtapasEmFalta
+    {
+        get
+        {
+            if (!EhConsulta) return [];
+
+            var faltam = new List<string>();
+            if (string.IsNullOrWhiteSpace(Historico)) faltam.Add("histórico (coleta de dados)");
+            if (Diagnosticos.Count == 0) faltam.Add("diagnóstico de enfermagem");
+            if (Diagnosticos.Count > 0
+                && Diagnosticos.All(d => string.IsNullOrWhiteSpace(d.ResultadoEsperado)))
+                faltam.Add("planejamento (resultado esperado)");
+            if (Cuidados.Count == 0) faltam.Add("prescrição de enfermagem");
+            if (string.IsNullOrWhiteSpace(Avaliacao)) faltam.Add("avaliação");
+            return faltam;
+        }
+    }
+
     /// <summary>
     /// Marca a evolução que descreve algo fora do esperado (reação, queda de pressão,
     /// extravasamento). É o único campo que a MÁQUINA lê do que aconteceu: ele acende o
