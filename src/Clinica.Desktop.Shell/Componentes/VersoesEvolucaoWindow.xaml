@@ -83,7 +83,11 @@
                                     <TextBlock Text="{Binding Evolucao}" TextWrapping="Wrap" Margin="0,0,0,6" />
 
                                     <TextBlock Text="Orientações" Style="{StaticResource Rotulo}" />
-                                    <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap"
+                                               Margin="0,0,0,6" />
+
+                                    <TextBlock Text="Plano terapêutico" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Plano}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

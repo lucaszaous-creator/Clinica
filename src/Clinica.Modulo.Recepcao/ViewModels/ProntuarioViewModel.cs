@@ -165,7 +165,13 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     private static bool Casa(Evolucao e, string termo)
     {
         var alvo = Normalizar(string.Join(" ",
-            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes));
+            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
+            // ⚠️ Os cinco campos das parcelas 73 e 75. A busca do CONSULTÓRIO foi atualizada
+            // e esta ficou para trás — duas telas respondendo à mesma pergunta sobre o mesmo
+            // dado, e a que ninguém releu é a que mente (a lição das parcelas 64 e 68). Quem
+            // digita "hérnia" procura a hipótese; quem digita "Lasègue", o exame físico.
+            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
+            e.PlanoTerapeutico));
         return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
     }
 

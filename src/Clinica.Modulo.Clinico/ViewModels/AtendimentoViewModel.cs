@@ -868,7 +868,12 @@ public sealed partial class AtendimentoViewModel : ObservableObject
            && string.IsNullOrWhiteSpace(HistoriaDoencaAtual)
            && string.IsNullOrWhiteSpace(ExameFisico)
            && string.IsNullOrWhiteSpace(HipoteseDiagnostica)
-           && string.IsNullOrWhiteSpace(Orientacoes);
+           && string.IsNullOrWhiteSpace(Orientacoes)
+           // ⚠️ O PLANO conta (parcela 75). Esquecê-lo aqui fazia o "Finalizar atendimento"
+           // DESCARTAR em silêncio a sessão em que o profissional só ajustou o plano — o
+           // mesmo defeito que esta parcela corrigiu horas antes, recometido por acrescentar
+           // um campo e não reler quem lê a lista.
+           && string.IsNullOrWhiteSpace(PlanoTerapeutico);
 
     /// <summary>
     /// Há ALGUMA COISA a gravar — texto, EVA, CID ou pontos no mapa.

@@ -142,8 +142,18 @@ Nenhum deles quebra o build quando é esquecido:
 - **Carimbo de hora novo na fila?** Entra no bloco que a REMARCAÇÃO limpa, e decida se ele é
   COLUNA — se não for, não pode ser gasto como um passo do "voltar etapa".
 - **Seção nova no MEIO de uma lista indexada?** Ela empurra todos os índices abaixo dela, e
-  índice de navegação não quebra build: ele abre a seção ERRADA. (`ModuloClinico.AbaDe` — a
-  checagem 38 passou a cobrar isso depois de a parcela 75 pôr a Anamnese na posição 1.)
+  índice de navegação não quebra build: ele abre a seção ERRADA. A saída não é lembrar — é
+  **trocar o contrato de ÍNDICE por NOME** e casar a lista do C# com os rótulos da tela
+  posição por posição (`ModuloClinico.SecoesDoPaciente` + checagem 38).
+- **RAIZ CLÍNICA nova entra em `PacienteTemRegistroClinicoAsync` no MESMO commit.** A FK dela
+  é cascata; sem a linha, a ficha cujo único registro é aquela natureza continua REMOVÍVEL e a
+  exclusão a leva por arrasto — a cascata da parcela 60, com o teste verde ao lado. A parcela
+  75 acrescentou a oitava raiz e esqueceu a linha, com o comentário do próprio método
+  descrevendo o cenário logo acima.
+- **Checagem nova promete só o que ENTREGA.** A 38 nasceu com um cabeçalho de três casos e
+  detectava dois — o mesmo defeito de "garantia aparente" que este projeto recusa desde a
+  parcela 3, cometido numa ferramenta. Ou o cabeçalho encolhe, ou a checagem cresce; aqui ela
+  cresceu, e o que a tornou possível foi mudar o contrato de índice para nome.
 - **Booleano reusado numa segunda decisão?** Releia se ele responde à SEGUNDA pergunta. O nome
   não avisa. (`SessaoEmBranco` decide se a tela PERGUNTA; usá-lo para decidir se GRAVA
   descartava a sessão inteira.)

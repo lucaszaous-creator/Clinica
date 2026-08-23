@@ -3007,8 +3007,9 @@ for _cenario, _corpo, _deve in (
 # ⚠️ Três coisas que não quebram build nenhum:
 #   (a) rótulo a mais no rail do que tela no TabControl (ou o contrário) — o clique
 #       abre a tela do vizinho, ou não abre nada;
-#   (b) seção nova no MEIO da lista, que empurra todos os índices abaixo dela e
-#       deixa `AbaDe` apontando para a seção ERRADA;
+#   (b) seção nova no MEIO da lista, que empurra os índices abaixo dela — pego desde a
+#       2ª rodada da parcela 75, quando o mapa deixou de ser por índice e passou a ser por
+#       NOME: a lista do C# e os rótulos do rail são casados POSIÇÃO POR POSIÇÃO;
 #   (c) índice fora da faixa, que o WPF ignora em silêncio.
 #
 # É literalmente a regressão da parcela 37, 4ª rodada (a navegação por string que
@@ -3027,13 +3028,26 @@ def _secoes_do_workspace(texto: str) -> tuple[int, int]:
             len(re.findall(r"<TabItem\b", texto)))
 
 
-def _indices_de_abade(texto: str) -> list[int]:
-    """Os índices que o mapa de navegação produz (o `_ => 0` de fechamento incluso)."""
-    corpo = re.search(r"AbaDe\(string chave\)\s*=>\s*chave switch\s*\{(.*?)\};",
-                      texto, re.S)
+def _rotulos_do_rail(texto: str) -> list[str]:
+    """Os rótulos do rail, NA ORDEM — é a régua com que o índice de navegação é resolvido."""
+    return re.findall(
+        r"<ListBoxItem>\s*<TextBlock\s+Text=\"([^\"]+)\"", texto)
+
+
+def _secoes_declaradas(texto: str) -> list[str]:
+    """A lista `SecoesDoPaciente` do ModuloClinico, na ordem."""
+    corpo = re.search(r"SecoesDoPaciente\s*=\s*\[(.*?)\];", texto, re.S)
     if corpo is None:
         return []
-    return [int(n) for n in re.findall(r"=>\s*(\d+)\s*,?", corpo.group(1))]
+    return re.findall(r"\"([^\"]+)\"", corpo.group(1))
+
+
+def _nomes_de_abade(texto: str) -> list[str]:
+    """Os NOMES de seção que o mapa de navegação produz."""
+    corpo = re.search(r"AbaDe\(string chave\)(.*?)\n    \}", texto, re.S)
+    if corpo is None:
+        return []
+    return re.findall(r"=>\s*\"([^\"]+)\"", corpo.group(1))
 
 
 if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
@@ -3049,15 +3063,30 @@ if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
             f"a diferença faz o clique abrir a tela do vizinho, sem erro nenhum."
         )
 
-    _indices = _indices_de_abade(
-        _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8")))
-    for _i in _indices:
-        if _telas and _i >= _telas:
+    _txt_mod = _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8"))
+    _declaradas = _secoes_declaradas(_txt_mod)
+    _rail = _rotulos_do_rail(_txt_ws)
+
+    # ⚠️ O CASO (b), que a primeira versão desta checagem PROMETIA e não pegava: a lista de
+    # seções do C# e os rótulos do rail têm de bater POSIÇÃO POR POSIÇÃO. É isso que faz
+    # inserir uma seção no meio ser impossível de esquecer — e foi por isso que o mapa de
+    # navegação deixou de ser por índice e passou a ser por NOME.
+    if _declaradas and _rail and _declaradas != _rail:
+        erros.append(
+            f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.SecoesDoPaciente e o rail de "
+            f"{_WORKSPACE.name} divergem.\n"
+            f"      C#:   {_declaradas}\n"
+            f"      XAML: {_rail}\n"
+            f"      O índice de navegação sai da lista do C#; o rótulo que o usuário lê sai do "
+            f"XAML. Divergentes, a chave de outro módulo abre a seção ERRADA — sem erro nenhum."
+        )
+
+    for _nome in _nomes_de_abade(_txt_mod):
+        if _declaradas and _nome not in _declaradas:
             erros.append(
-                f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.AbaDe devolve o "
-                f"índice {_i}, e a tela do paciente tem {_telas} seção(ões) (0..{_telas - 1}). "
-                f"Índice fora da faixa o WPF ignora em SILÊNCIO — a chave de navegação de "
-                f"outro módulo deixa de abrir o que promete."
+                f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.AbaDe aponta para a seção "
+                f"“{_nome}”, que não está em SecoesDoPaciente. A navegação cai na primeira "
+                f"seção em silêncio."
             )
 
 # --- autoteste da 38 ---
@@ -3075,15 +3104,27 @@ for _cenario, _xaml, _esperado in (
         )
 
 for _cenario, _cs, _esperado in (
-    ("mapa lido",
-     "private static int AbaDe(string chave) => chave switch\n{\n"
-     "    ChaveA => 2,\n    ChaveB => 5,\n    _ => 0\n};", [2, 5, 0]),
-    ("sem mapa", "private static int Outra() => 3;", []),
+    ("seções declaradas",
+     'public static readonly IReadOnlyList<string> SecoesDoPaciente =\n'
+     '    [\n        "Um",\n        "Dois"\n    ];', ["Um", "Dois"]),
+    ("sem lista", "public static int Outra() => 3;", []),
 ):
-    if _indices_de_abade(_cs) != _esperado:
+    if _secoes_declaradas(_cs) != _esperado:
         erros.append(
             f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
-            f"leu {_indices_de_abade(_cs)}, esperado {_esperado}."
+            f"leu {_secoes_declaradas(_cs)}, esperado {_esperado}."
+        )
+
+for _cenario, _xaml, _esperado in (
+    ("rótulos do rail",
+     '<ListBoxItem>\n  <TextBlock Text="Um" TextWrapping="Wrap" />\n</ListBoxItem>\n'
+     '<ListBoxItem>\n  <TextBlock Text="Dois" TextWrapping="Wrap" />\n</ListBoxItem>',
+     ["Um", "Dois"]),
+):
+    if _rotulos_do_rail(_xaml) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"leu {_rotulos_do_rail(_xaml)}, esperado {_esperado}."
         )
 
 # ---------------------------------------------------------------------- saída

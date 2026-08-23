@@ -213,8 +213,15 @@ public sealed partial class AnamneseViewModel : ObservableObject
             // ⚠️ O motivo é pedido SÓ na revisão, e é OPCIONAL — a razão da
             // VersaoEvolucao.Motivo: exigir justificativa a cada revisão produziria trinta
             // "atualização" por semana, que é rastro com aparência de controle.
+            // ⚠️ O estado é capturado ANTES de gravar: o CarregarAsync logo abaixo põe
+            // `Colhida` em true, e ler a propriedade depois dele fazia a PRIMEIRA colheita
+            // responder "Anamnese revisada — o que ela dizia antes está guardado abaixo" com
+            // o histórico vazio ao lado. Frase que promete um histórico que não existe manda
+            // a pessoa procurar o que nunca houve.
+            var jaExistia = Colhida;
+
             string? motivo = null;
-            if (Colhida)
+            if (jaExistia)
                 motivo = _dialogo.PerguntarTexto(
                     "Revisar a anamnese",
                     "O que ela dizia antes fica guardado e recuperável. Se quiser, diga o "
@@ -237,7 +244,7 @@ public sealed partial class AnamneseViewModel : ObservableObject
             Editando = false;
             await CarregarAsync();
 
-            Mensagem = Colhida
+            Mensagem = jaExistia
                 ? "Anamnese revisada. O que ela dizia antes está guardado abaixo."
                 : "Anamnese colhida.";
             MensagemEhErro = false;

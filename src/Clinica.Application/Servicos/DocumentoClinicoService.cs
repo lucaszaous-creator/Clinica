@@ -312,10 +312,28 @@ public sealed class DocumentoClinicoService
     }
 
     /// <summary>
-    /// Anamnese. Vem preenchida com o que o sistema já sabe (a primeira sessão do
-    /// prontuário) e sai com LINHAS para o que ele não guarda — antecedentes,
-    /// medicações, hábitos. Imprimir só o que existe daria uma folha quase vazia; o
-    /// papel serve para a entrevista acontecer.
+    /// Anamnese. Vem preenchida com o que o sistema já sabe e sai com LINHAS para o resto —
+    /// o papel serve para a entrevista acontecer.
+    ///
+    /// ⚠️ O QUE O SISTEMA SABE MUDOU DUAS VEZES, e o comentário desta função ficou para trás
+    /// nas duas (corrigido na parcela 75, 2ª rodada):
+    /// <list type="bullet">
+    ///   <item>a parcela 73 deu à sessão <c>HistoriaDoencaAtual</c>, <c>ExameFisico</c> e
+    ///   <c>HipoteseDiagnostica</c> próprios, e este montador continuava lendo a HDA do
+    ///   <c>TextoEvolucao</c> — o campo ao lado;</item>
+    ///   <item>a parcela 75 criou a <see cref="AnamnesePaciente"/> com antecedentes
+    ///   pessoais, familiares e hábitos, e a folha continuava imprimindo LINHA EM BRANCO
+    ///   para os três, dizendo por escrito que "o sistema não guarda".</item>
+    /// </list>
+    ///
+    /// Folha em branco sobre dado que existe é pior do que folha em branco: ela faz a
+    /// entrevista repetir a pergunta que já foi feita, e o paciente concluir que ninguém
+    /// leu o que ele contou da última vez.
+    ///
+    /// ⚠️ ALERGIAS e MEDICAÇÕES continuam em LINHA de propósito. Elas moram na lista de
+    /// problemas, que é uma lista — imprimi-la aqui daria uma segunda cópia do que já sai
+    /// no relatório, e a que ninguém lembraria de conferir contra a lista viva é justamente
+    /// a que o alerta de prescrição lê.
     /// </summary>
     public async Task<DocumentoClinico> EmitirAnamneseAsync(
         int pacienteId, int? profissionalId = null, string? operador = null,
@@ -323,11 +341,19 @@ public sealed class DocumentoClinicoService
     {
         var evolucoes = await _prontuario.DoPacienteAsync(pacienteId, ct);
         var primeira = evolucoes.OrderBy(e => e.Data).ThenBy(e => e.Id).FirstOrDefault();
+        var anamnese = await _repo.AnamneseDoPacienteAsync(pacienteId, ct);
 
         var preenchido = new Dictionary<string, string?>
         {
             ["Queixa principal"] = primeira?.QueixaPrincipal,
-            ["História da doença atual"] = primeira?.TextoEvolucao,
+            // A HDA tem campo PRÓPRIO desde a parcela 73; ler o TextoEvolucao punha a
+            // evolução da sessão no lugar da história da doença — dois campos diferentes.
+            ["História da doença atual"] = primeira?.HistoriaDoencaAtual ?? primeira?.TextoEvolucao,
+            ["Antecedentes pessoais e cirúrgicos"] = anamnese?.AntecedentesPessoais,
+            ["Hábitos (sono, atividade física, alimentação)"] = anamnese?.HabitosDeVida,
+            ["Antecedentes familiares"] = anamnese?.AntecedentesFamiliares,
+            ["Exame físico"] = primeira?.ExameFisico,
+            ["Hipótese diagnóstica"] = primeira?.HipoteseDiagnostica,
             ["Conduta inicial"] = primeira?.Conduta
         };
 

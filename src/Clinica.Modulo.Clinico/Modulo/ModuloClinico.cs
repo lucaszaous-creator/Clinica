@@ -217,31 +217,54 @@ public sealed class ModuloClinico : IModuloApp
     ];
 
     /// <summary>
+    /// As SEÇÕES da tela do paciente, na ordem em que o rail as desenha.
+    ///
+    /// ⚠️ Ela existe para o mapa de navegação parar de ser por ÍNDICE. Enquanto
+    /// <c>AbaDe</c> devolvia um número escrito à mão, pôr uma seção no MEIO da lista
+    /// empurrava todos os de baixo — e índice desatualizado não quebra build nenhum: ele
+    /// abre a seção ERRADA. Foi o que a parcela 75 fez ao inserir a Anamnese em 1.
+    ///
+    /// Agora a chave aponta para o NOME e o índice sai daqui. Reordenar continua exigindo
+    /// mexer nesta lista, mas mexer nela é ÓBVIO — e a checagem 38 casa esta lista com os
+    /// rótulos do rail, posição por posição, de modo que XAML e C# não podem divergir em
+    /// silêncio.
+    /// </summary>
+    public static readonly IReadOnlyList<string> SecoesDoPaciente =
+    [
+        "Atendimento",
+        "Anamnese",
+        "Histórico de sessões",
+        "Prescrições e documentos",
+        "Exames e anexos",
+        "Evolução da dor",
+        "Medidas",
+        "Avaliações"
+    ];
+
+    /// <summary>
     /// Em que seção da tela do paciente cada chave clínica cai.
     ///
-    /// ⚠️ Os números mudaram na parcela 74, quando "Prescrições e documentos" e "Exames e
-    /// anexos" entraram no meio da lista — e é por isso que o mapa existe em vez de as
-    /// chaves carregarem o índice: renomear ou reordenar seção não pode quebrar a
-    /// navegação que a fila do dia e o painel da direção fazem por STRING.
+    /// O mapa é por NOME (ver <see cref="SecoesDoPaciente"/>); o índice é derivado. Chave
+    /// que não estiver aqui cai na primeira seção, que é o Atendimento.
     ///
     /// <c>ChavePrescricoes</c> continua de FORA de propósito: ela é um item de menu de
     /// verdade, e quem entra por ali não tem paciente em foco — mandá-la para a seção
-    /// abriria a tela do paciente em branco pedindo que se escolhesse alguém, que é
-    /// exatamente o que o workspace existe para não fazer.
+    /// abriria a tela do paciente em branco pedindo que se escolhesse alguém.
     /// </summary>
-    private static int AbaDe(string chave) => chave switch
+    private static int AbaDe(string chave)
     {
-        // ⚠️ Os números MUDAM sempre que uma seção entra no meio da lista — a Anamnese
-        // entrou em 1 na parcela 75 e empurrou as quatro de baixo. É por isso que o mapa
-        // existe em vez de a chave carregar o índice: a fila do dia e o painel da direção
-        // navegam por STRING, e um índice desatualizado aqui não quebra build nenhum — ele
-        // abre a seção ERRADA, que é a regressão da parcela 37, 4ª rodada.
-        ChaveProntuario => 2,
-        ChaveEvolucaoDor => 5,
-        ChaveMedidas => 6,
-        ChaveAvaliacoes => 7,
-        _ => 0
-    };
+        var nome = chave switch
+        {
+            ChaveProntuario => "Histórico de sessões",
+            ChaveEvolucaoDor => "Evolução da dor",
+            ChaveMedidas => "Medidas",
+            ChaveAvaliacoes => "Avaliações",
+            _ => "Atendimento"
+        };
+
+        var i = SecoesDoPaciente.ToList().IndexOf(nome);
+        return i < 0 ? 0 : i;
+    }
 
     public void Registrar(IServiceCollection servicos)
     {

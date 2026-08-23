@@ -412,7 +412,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            || await _db.DocumentosClinicos.AnyAsync(d => d.PacienteId == pacienteId, ct)
            || await _db.PrescricoesInternas.AnyAsync(p => p.PacienteId == pacienteId, ct)
            || await _db.ProblemasPaciente.AnyAsync(p => p.PacienteId == pacienteId, ct)
-           || await _db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == pacienteId, ct);
+           || await _db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == pacienteId, ct)
+           // ⚠️ A ANAMNESE é a OITAVA raiz (parcela 75), e a FK dela é CASCATA: sem esta
+           // linha, a ficha cujo único registro clínico é a anamnese continuaria REMOVÍVEL,
+           // e a exclusão levaria por arrasto os antecedentes E as versões deles. É
+           // literalmente o cenário que o comentário acima descreve — cometido na parcela
+           // seguinte à que o escreveu.
+           || await _db.Anamneses.AnyAsync(a => a.PacienteId == pacienteId, ct);
 
     // ---- Retrato do paciente ----
 

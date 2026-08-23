@@ -30,6 +30,12 @@ public sealed class LinhaVersaoEvolucao
     public required string Conduta { get; init; }
     public required string Evolucao { get; init; }
     public required string Orientacoes { get; init; }
+
+    /// <summary>
+    /// O PLANO da versão (parcela 75). Congelar sem mostrar é o defeito recorrente com uma
+    /// PERÍCIA como leitor faltando — a mesma razão da Anamnese logo acima.
+    /// </summary>
+    public required string Plano { get; init; }
     public required string Eva { get; init; }
 
     /// <summary>A versão VIGENTE, desenhada em destaque no topo da lista.</summary>
@@ -53,6 +59,7 @@ public sealed class LinhaVersaoEvolucao
         Conduta = Texto(v.Conduta),
         Evolucao = Texto(v.TextoEvolucao),
         Orientacoes = Texto(v.Orientacoes),
+        Plano = Texto(v.PlanoTerapeutico),
         Eva = v.EvaAntes is null && v.EvaDepois is null
             ? "EVA não medida"
             : $"EVA {v.EvaAntes?.ToString() ?? "—"} → {v.EvaDepois?.ToString() ?? "—"}",
@@ -73,6 +80,7 @@ public sealed class LinhaVersaoEvolucao
         Conduta = Texto(e.Conduta),
         Evolucao = Texto(e.TextoEvolucao),
         Orientacoes = Texto(e.Orientacoes),
+        Plano = Texto(e.PlanoTerapeutico),
         Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
         Vigente = true
     };

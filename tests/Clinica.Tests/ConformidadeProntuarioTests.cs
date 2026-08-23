@@ -514,6 +514,37 @@ public class ConformidadeProntuarioTests : IDisposable
         leiaMe.Should().Contain("20 anos");
     }
 
+    /// <summary>
+    /// ⚠️ A ANAMNESE é raiz clínica, e a FK dela é CASCATA.
+    ///
+    /// Sem esta linha em <c>PacienteTemRegistroClinicoAsync</c>, a ficha cujo único registro
+    /// clínico é a anamnese continuaria REMOVÍVEL, e a exclusão levaria por arrasto os
+    /// antecedentes E as versões deles — que é exatamente a cascata que a parcela 60 achou no
+    /// botão de excluir paciente, com o teste verde ao lado.
+    ///
+    /// A lição que este teste fixa: <b>raiz clínica nova entra nesta lista no MESMO commit</b>.
+    /// Ela não quebra build quando é esquecida.
+    /// </summary>
+    [Fact]
+    public async Task Paciente_com_ANAMNESE_nao_pode_ser_removido()
+    {
+        var p = new Paciente
+        {
+            Nome = "Marisa",
+            Convenio = Clinica.Domain.Convenio.UnimedIntercambio,
+            Sexo = Clinica.Domain.Sexo.Feminino
+        };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+
+        await new AnamneseService(_repo).SalvarAsync(p.Id, new AnamnesePaciente
+        {
+            AntecedentesPessoais = "Apendicectomia em 2015."
+        }, "dra.ana");
+
+        (await _repo.PacienteTemRegistroClinicoAsync(p.Id)).Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _db.Dispose();
