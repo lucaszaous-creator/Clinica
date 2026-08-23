@@ -396,3 +396,127 @@ Outras três decisões:
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~FimDoAtendimento"
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~CabecalhoClinico"
 ```
+
+---
+
+# Parte III — a ANAMNESE, e o plano (parcela 75)
+
+> A parcela 73 respondeu **o que se escreve**. A 74, **como se atende**.
+> Esta responde **quem é esta pessoa**, e **o que vem pela frente**.
+
+A cliente disse que o módulo clínico continuava cru para atendimento comparado ao iClinic —
+*"eles dão mais opções no atendimento de campos e outros"*.
+
+## 15. O buraco medido não era "mais campos na sessão"
+
+Era que **a anamnese do PACIENTE não tinha onde morar**.
+
+| | responde | onde estava |
+|---|---|---|
+| História da doença atual (parcela 73) | o EPISÓDIO — muda a cada queixa nova | na sessão ✓ |
+| Antecedentes, família, hábitos | a PESSOA — vale para o tratamento inteiro | **em lugar nenhum** |
+
+⚠️ Repetir isso em toda sessão foi medido e **recusado**: além de o profissional escrever
+"idem" — pior que o campo vazio, porque parece registro —, a pergunta que ele faz na consulta
+12 é *"o que eu já sei sobre este paciente?"*, e a resposta não pode depender de abrir a
+sessão 1 e ler.
+
+### 15.1 Por que não é o `ProblemaPaciente`
+
+Aquele é uma **LISTA** e está certo para o que é item: "apendicectomia 2015", "alergia a
+dipirona", "losartana 50mg". Esta é **NARRATIVA**, e há coisas que não viram item sem perder o
+sentido — a história familiar, o padrão de sono, o contexto social. As duas convivem: **a
+lista alerta, o texto explica.**
+
+⚠️ **ALERGIA continua SÓ na lista de problemas**, e isso é decisão. Ela é o único dado clínico
+que acende alerta em quatro telas e **RECUSA a assinatura de uma prescrição** (parcela 40). Um
+campo de texto "alergias" aqui seria uma segunda verdade sobre a mesma coisa — e a que ninguém
+lembraria de atualizar é justamente a que o alerta lê.
+
+### 15.2 O que ela herda do prontuário
+
+- **Não se apaga** — guarda de 20 anos (Lei 13.787/2018).
+- **Alterar guarda o que ela dizia antes** (`VersaoAnamnese`): corrigir *"nega tabagismo"*
+  para *"tabagista"* não pode apagar a informação de que a pessoa **havia negado** — que é
+  exatamente o que uma perícia procura.
+- **Anamnese em BRANCO é recusada.** Sem isso, um clique no Salvar criaria a linha, carimbaria
+  "revisada hoje" e faria a ficha **afirmar** que ela foi colhida.
+
+### 15.3 O que a TELA decide, e o serviço não
+
+- **Abre em modo de LEITURA.** É escrita uma vez e lida dezenas; seis caixas editáveis o tempo
+  todo convidam à edição acidental de um registro que **versiona a cada gravação**.
+- **O botão diz o ATO** ("Colher" × "Revisar"), porque a trilha os separa.
+- **O motivo da revisão é OPCIONAL** — exigi-lo produziria trinta "atualização" por semana.
+- **A coluna da direita mostra o que ela já disse.** Versionar sem mostrar seria o defeito
+  recorrente com uma **perícia** como leitor faltando.
+- **A idade dela aparece**: anamnese de três anos não está errada, está VELHA — e as duas
+  coisas se tratam diferente.
+
+## 16. O plano terapêutico
+
+Três coisas que pareciam uma:
+
+| | |
+|---|---|
+| **Conduta** | o que foi FEITO hoje — "6 pontos, eletro 2Hz, 20 min" |
+| **Orientações** | o que o PACIENTE faz em casa — "compressa morna, evitar carga" |
+| **Plano** | o que a CLÍNICA vai fazer — "10 sessões, 2x/semana, reavaliar a EVA em 4 semanas" |
+
+Misturado à conduta, some; misturado à orientação, vira recado ao paciente. E é **a frase que
+o convênio procura no relatório de evolução** — por isso ele entrou no relatório no mesmo
+commit: sem isso nasceria gravado e o único papel que sai da clínica não o levaria.
+
+Campo de **uma linha** de propósito: caixa grande convidaria a repetir a conduta, e campo
+preenchido com o conteúdo do vizinho faz o relatório dizer a mesma coisa três vezes.
+
+## 17. A checagem 38 — o rail e o índice de navegação
+
+Pôr a Anamnese na posição 1 **empurrou os quatro índices de baixo** em `ModuloClinico.AbaDe`,
+que é o contrato pelo qual a fila do dia e o painel da direção navegam.
+
+⚠️ Nada disso quebra build: índice desatualizado abre a **seção errada**, e índice fora da
+faixa o WPF ignora **em silêncio**. É a regressão da parcela 37 (4ª rodada) um nível abaixo —
+ali a chave não achava destino; aqui ela acha o destino errado.
+
+A checagem cobra rail e `TabControl` com o mesmo número de itens, e todo índice dentro da
+faixa. Autotestada com casos sintéticos e **provada contra os dois defeitos reais** antes de
+entrar.
+
+## 18. O que a disciplina pegou, na própria escrita
+
+Esta foi a primeira parcela sob a regra de **auditoria de linha** (`CLAUDE.md`, no topo). Ela
+rendeu na primeira hora:
+
+1. `ConjuntoClinicoTests` **reprovou cinco testes** no instante em que a natureza nova nasceu
+   sem leitor — os quatro leitores foram cobertos no mesmo commit;
+2. `IsReadOnly="{Binding Editando, Converter=BooleanToVisibility}"` — um `Visibility` numa
+   propriedade `bool`, que o WPF trata como **falso sempre**: os campos ficariam editáveis o
+   tempo todo, **sem erro nenhum**;
+3. um conversor `InverterBooleano` que não existe;
+4. `TextBlock` de dado do banco sem trimming (pego pelo `verificar-suite`);
+5. `_anamneseId` gravado e nunca lido — campo morto, a regra 5 da lista cometida na parcela
+   que a escreveu.
+
+E **duas suspeitas minhas refutadas conferindo**, não deduzindo: a seção registra acesso sim
+(pela janela de silêncio por origem do workspace), e `EstadoDaTela.Ativo` definido por `Style`
+é seguro — a lição da parcela 58 é sobre a `Visibility`, que o controle atribui localmente.
+
+## 19. O que NÃO foi feito, e por quê
+
+- **Sinais vitais inline na sessão.** A coleta já tem porta na seção Medidas, e painel aberto
+  para ato pontual é o que o `README` condena. O que falta ali é **VER** os últimos sinais
+  enquanto se escreve — que é leitura, não campo.
+- **Varrer texto livre na anonimização.** A anamnese pode conter o nome de familiares, e o
+  art. 18 VI não o limpa — mas o texto das evoluções também não é limpo, e a decisão
+  documentada é remover os campos de identificação e deixar o histórico sem dono
+  identificável. Mudar isso é decisão de produto, não conserto.
+
+## 20. Como conferir que continua valendo
+
+```bash
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~AnamneseDoPaciente"
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~AnamneseSobrevive"
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ConjuntoClinico"
+python3 tools/verificar-suite.py    # a checagem 38, com autoteste
+```
