@@ -52,6 +52,25 @@ public sealed partial class CartaoFila : ObservableObject
     [ObservableProperty]
     private bool _temTermoPendente;
 
+    /// <summary>
+    /// O PROFISSIONAL já encerrou o atendimento e o paciente está indo ao balcão
+    /// (parcela 74) — o recado que faltava no sentido consultório → balcão.
+    ///
+    /// ⚠️ Ele NÃO cria uma sexta raia. O cartão continua em "Em atendimento" e ganha um
+    /// SELO: uma coluna permanente para um estado que dura minutos é a faixa vazia comendo
+    /// a tela que o README condena desde a parcela 38, e o que a recepcionista precisa
+    /// saber não é que existe uma coluna nova — é QUAL cartão está pronto para fechar.
+    ///
+    /// O cartão também sobe para a frente dos irmãos, pela mesma razão do "chamado há N
+    /// min": quem já saiu da sala é o próximo a ser atendido no balcão.
+    /// </summary>
+    [ObservableProperty]
+    private bool _atendimentoEncerrado;
+
+    /// <summary>"Encerrado às 14h32" — a hora, não só o fato.</summary>
+    [ObservableProperty]
+    private string _encerradoEm = string.Empty;
+
     /// <summary>Tempo de espera formatado ("12 min"). Vazio antes do check-in.</summary>
     [ObservableProperty]
     private string _espera = string.Empty;
@@ -466,11 +485,23 @@ public sealed partial class FilaViewModel : ObservableObject
                     Lancamento = DescreverLancamento(a),
                     TemGuiaPendente = comPendencia.Contains(a.PacienteId),
                     TemTermoPendente = termos.TryGetValue(a.PacienteId, out var doPaciente)
-                                       && doPaciente.Any(t => t.Pendente)
+                                       && doPaciente.Any(t => t.Pendente),
+                    AtendimentoEncerrado = a.AtendimentoEncerrado,
+                    EncerradoEm = a.FimAtendimentoEm is { } fim
+                        ? $"Encerrado às {fim:HH\\:mm}"
+                        : string.Empty
                 };
 
                 Coluna(a.Etapa).Add(cartao);
             }
+
+            // Quem já SAIU da sala vai para a frente da raia "Em atendimento": é o único
+            // cartão dali que pede ação do balcão agora, e numa tarde cheia ele ficaria em
+            // quinto lugar entre pessoas que ainda estão sendo atendidas. Move preserva a
+            // ordem relativa e não passa por Clear — a lista já está publicada.
+            foreach (var c in EmAtendimento.Where(c => c.AtendimentoEncerrado)
+                                           .Reverse().ToList())
+                EmAtendimento.Move(EmAtendimento.IndexOf(c), 0);
 
             AtualizarEsperas();
             // As cinco coleções mudaram: o quadro precisa reavaliar se está vazio e se

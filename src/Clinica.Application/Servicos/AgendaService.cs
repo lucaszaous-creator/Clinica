@@ -657,6 +657,53 @@ public sealed class AgendaService
     }
 
     /// <summary>
+    /// O PROFISSIONAL terminou com o paciente (parcela 74) — ele sai da sala e vai ao
+    /// balcão.
+    ///
+    /// ⚠️ Isto não conclui o atendimento, e a diferença é a decisão da parcela 61:
+    /// concluir são QUATRO fatos do mesmo ato e três são do balcão (o pacote debita, o
+    /// insumo sai, o dinheiro entra). O que aqui se afirma é só <i>"terminei"</i>, e o
+    /// <c>Status</c> continua <c>Agendado</c> de propósito — marcá-lo <c>Realizado</c>
+    /// daqui pularia os três fatos e faria o dia fechar com o caixa sem a sessão.
+    ///
+    /// É o par do <see cref="ChamarAsync"/>: aquele leva o recado do consultório ao
+    /// balcão para o paciente ENTRAR, este leva o recado de que ele está SAINDO. Sem o
+    /// segundo, a recepcionista só descobre que o médico terminou quando o paciente
+    /// aparece na frente dela — e o cartão fica em "Em atendimento" por meia hora depois
+    /// de a sala estar vazia, o que faz o quadro do dia mentir sobre quem está ocupado.
+    ///
+    /// Encerrar de novo NÃO reescreve o carimbo (<c>??=</c>), pela razão do
+    /// <see cref="ChamarAsync"/>: quem clica duas vezes precisa continuar vendo a HORA em
+    /// que terminou, e o segundo clique esconderia justamente o atendimento demorado.
+    /// </summary>
+    public async Task<Agendamento> EncerrarAtendimentoAsync(
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+
+        if (ag.Status != StatusAgendamento.Agendado)
+            throw new InvalidOperationException(
+                "Este horário já foi encerrado.");
+
+        // Encerrar sem ter começado inventaria uma sessão de duração negativa e um
+        // cartão que sai da sala sem nunca ter entrado nela.
+        if (ag.InicioAtendimentoEm is null)
+            throw new InvalidOperationException(
+                "O atendimento ainda não começou — o paciente não entrou na sala.");
+
+        var mudou = ag.FimAtendimentoEm is null;
+        ag.FimAtendimentoEm ??= quando ?? DateTime.Now;
+
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaAtendimentoEncerrado",
+            $"Atendimento encerrado às {ag.FimAtendimentoEm:HH:mm} "
+            + $"(durou {ag.DuracaoDoAtendimento(ag.FimAtendimentoEm!.Value)} min) — "
+            + $"horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    /// <summary>
     /// Volta o cartão UMA coluna: em atendimento → chamado → chegou → aguardando. Existe
     /// porque clicar errado no kanban é rotina — e a alternativa (cancelar e remarcar)
     /// falsearia o histórico.
@@ -674,7 +721,15 @@ public sealed class AgendaService
         // trilha, com o valor: depois do apagamento ele não existe em mais lugar
         // nenhum, e "quem desfez e o que dizia" é a pergunta de qualquer conferência.
         string apagado;
-        if (ag.InicioAtendimentoEm is not null)
+        // ⚠️ O encerramento é o carimbo MAIS RECENTE, logo o primeiro a sair — voltar
+        // etapa anda um passo por vez (parcela 58), e apagar a entrada na sala de um
+        // atendimento já encerrado deixaria um fim sem começo.
+        if (ag.FimAtendimentoEm is not null)
+        {
+            apagado = $"encerramento do atendimento ({ag.FimAtendimentoEm:dd/MM/yyyy HH:mm})";
+            ag.FimAtendimentoEm = null;
+        }
+        else if (ag.InicioAtendimentoEm is not null)
         {
             apagado = $"entrada na sala ({ag.InicioAtendimentoEm:dd/MM/yyyy HH:mm})";
             ag.InicioAtendimentoEm = null;

@@ -467,6 +467,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
 
+    public async Task<(DateOnly? Primeira, int Total)> HistoricoDeSessoesAsync(
+        int pacienteId, CancellationToken ct = default)
+    {
+        // Uma ida ao banco, duas respostas. GroupBy sobre uma chave constante é o jeito de
+        // pedir MIN e COUNT juntos sem trazer uma linha sequer de Atendimento — a mesma
+        // razão das leituras em lote do projeto: a tela abre a cada troca de paciente e o
+        // banco é remoto.
+        var r = await _db.Atendimentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId && a.RealizadoEm != null)
+            .GroupBy(_ => 1)
+            .Select(g => new { Primeira = (DateOnly?)g.Min(a => a.Data), Total = g.Count() })
+            .FirstOrDefaultAsync(ct);
+
+        return r is null ? (null, 0) : (r.Primeira, r.Total);
+    }
+
     public async Task<IReadOnlyList<Atendimento>> AtendimentosDoPacienteNoDiaAsync(
         int pacienteId, DateOnly dia, CancellationToken ct = default)
         => await _db.Atendimentos.AsNoTracking()
@@ -923,6 +939,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.AnexosProntuario
             .Include(a => a.Evolucao)
             .FirstOrDefaultAsync(a => a.Id == anexoId, ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoDoPaciente>> AnexosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.AnexosProntuario.AsNoTracking()
+            .Where(a => a.CanceladoEm == null
+                        && a.Evolucao!.PacienteId == pacienteId
+                        && !a.Evolucao.Cancelada)
+            // O mais recente na frente: o laudo que acabou de chegar é o que se procura.
+            .OrderByDescending(a => a.Evolucao!.Data).ThenByDescending(a => a.CriadoEm)
+            // A projeção é o ponto: o SELECT não inclui Conteudo.
+            .Select(a => new Clinica.Application.Modelos.AnexoDoPaciente(
+                a.Id, a.EvolucaoId, a.Evolucao!.Data, a.NomeArquivo, a.Tipo,
+                a.TipoConteudo, a.Tamanho, a.Descricao, a.CriadoEm))
+            .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default)

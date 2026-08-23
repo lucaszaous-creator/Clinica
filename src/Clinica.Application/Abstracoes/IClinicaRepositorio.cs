@@ -209,6 +209,20 @@ public interface IClinicaRepositorio
     Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     /// <summary>
+    /// Desde quando esta pessoa se trata aqui, e quantas sessões ela já teve — em UMA
+    /// consulta, sem trazer os atendimentos (parcela 74).
+    ///
+    /// ⚠️ Conta só o que ACONTECEU (<c>RealizadoEm</c>), nunca o que está marcado: desde a
+    /// parcela 70 a guia nasce no agendamento, então contar linhas de <c>Atendimento</c>
+    /// somaria as sessões de semana que vem — e o crachá diria "24 sessões" a quem teve 18.
+    ///
+    /// Devolve <c>(null, 0)</c> para quem nunca foi atendido, e a tela escreve isso como
+    /// cadastro novo em vez de mostrar uma data vazia.
+    /// </summary>
+    Task<(DateOnly? Primeira, int Total)> HistoricoDeSessoesAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
     /// Os atendimentos do paciente num dia, com os códigos — a "capa" que o balcão
     /// confere antes de lançar de novo (parcela 70): número, modalidade, quem lançou e
     /// quais guias já foram baixadas. É o que transforma a pergunta "atendimento
@@ -403,6 +417,22 @@ public interface IClinicaRepositorio
 
     /// <summary>Anexo com a evolução carregada (entidade rastreada, para cancelar).</summary>
     Task<AnexoProntuario?> ObterAnexoAsync(int anexoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// TODOS os anexos vigentes do paciente, com a data da sessão — em UMA consulta e sem
+    /// os bytes (parcela 74).
+    ///
+    /// ⚠️ O eixo muda de propósito: a leitura por sessão responde "o que tem nesta
+    /// consulta" e a pergunta de quem atende é "o exame que eu pedi chegou?". Perguntar
+    /// sessão a sessão daria uma ida ao banco por linha do prontuário — o mesmo motivo do
+    /// <see cref="ContagemDeAnexosAsync"/>.
+    ///
+    /// Anexo CANCELADO fica de fora aqui, e é diferente da regra do prontuário: o registro
+    /// continua na base e a exportação o alcança; o que esta lista responde é "o que está
+    /// valendo agora", que é a pergunta de quem vai olhar o laudo.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.AnexoDoPaciente>> AnexosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
 
     /// <summary>Anexos de uma evolução, por projeção — sem os bytes (corte no SQL).</summary>
     Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(

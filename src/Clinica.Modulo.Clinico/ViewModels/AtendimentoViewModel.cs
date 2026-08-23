@@ -764,7 +764,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SalvarAsync()
+    private Task SalvarAsync() => TentarSalvarAsync();
+
+    /// <summary>
+    /// Grava a sessão e DIZ se conseguiu.
+    ///
+    /// ⚠️ O <c>bool</c> existe por causa do "Finalizar atendimento" (parcela 74): encerrar
+    /// é salvar a sessão E carimbar o fim, e a ORDEM entre os dois não é estilo — se a
+    /// gravação falhar, o carimbo não pode acontecer, senão o balcão recebe o recado de
+    /// que o médico terminou enquanto a evolução do paciente não existe em lugar nenhum.
+    /// É a hierarquia da parcela 65 aplicada aqui: o fato que a clínica não pode perder
+    /// vem primeiro, e o que veio depois nunca o desfaz.
+    ///
+    /// O comando continua existindo e continua sendo o Salvar de sempre — quem chama este
+    /// método é só quem precisa saber o desfecho.
+    /// </summary>
+    public async Task<bool> TentarSalvarAsync()
     {
         try
         {
@@ -818,14 +833,33 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             MensagemEhErro = false;
 
             await CarregarAsync();
+            return true;
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Consultório — sessão não pôde ser salva", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
+            return false;
         }
     }
+
+    /// <summary>
+    /// A sessão está EM BRANCO — nada do que o profissional escreveria foi escrito.
+    ///
+    /// Serve ao "Finalizar atendimento": encerrar sem registro é legítimo (o médico pode
+    /// escrever depois) e é exatamente a dívida que este app existe para cobrar, então a
+    /// tela PERGUNTA em vez de impedir ou de calar. A EVA e o mapa não entram: eles são
+    /// medida, não registro do que aconteceu.
+    /// </summary>
+    public bool SessaoEmBranco
+        => string.IsNullOrWhiteSpace(QueixaPrincipal)
+           && string.IsNullOrWhiteSpace(Conduta)
+           && string.IsNullOrWhiteSpace(TextoEvolucao)
+           && string.IsNullOrWhiteSpace(HistoriaDoencaAtual)
+           && string.IsNullOrWhiteSpace(ExameFisico)
+           && string.IsNullOrWhiteSpace(HipoteseDiagnostica)
+           && string.IsNullOrWhiteSpace(Orientacoes);
 
     /// <summary>
     /// Abre o mapa corporal em JANELA (parcela 37, rodada de leiaute).

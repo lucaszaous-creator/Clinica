@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 
@@ -302,6 +303,99 @@ public sealed class ConsultorioService
             .Where(a => a.PacienteId == pacienteId)
             .OrderBy(a => a.DataHora)
             .ToList();
+
+    /// <summary>
+    /// O CRACHÁ CLÍNICO da pessoa que está na sala (parcela 74).
+    ///
+    /// Ele responde, de relance, as quatro perguntas que se fazem antes de abrir a boca:
+    /// que idade tem, de que convênio é, desde quando se trata aqui e <b>o que não se pode
+    /// esquecer</b>. Todos os dados já existiam; nenhum tinha leitor neste lugar.
+    ///
+    /// ⚠️ São QUATRO leituras em paralelo, e não em fila indiana: o banco é remoto e o
+    /// crachá é montado a cada troca de paciente, que num consultório é o gesto mais
+    /// repetido do dia. Em série seriam quatro esperas somadas para desenhar uma linha de
+    /// texto.
+    ///
+    /// ⚠️ E as ALERGIAS entram mesmo dadas por RESOLVIDAS — a regra da parcela 37, que
+    /// aqui vale mais ainda: "resolvida" numa alergia é quase sempre "não reagiu da última
+    /// vez", e o dia em que reagir é o dia em que o crachá teria valido. Só o DESCARTE a
+    /// cala, porque descartar exige motivo escrito e é a afirmação de que o registro
+    /// estava errado.
+    /// </summary>
+    public async Task<CabecalhoClinicoPaciente?> CabecalhoAsync(
+        int pacienteId, CancellationToken ct = default)
+    {
+        var tPaciente = _repo.ObterPacienteAsync(pacienteId, ct);
+        var tHistorico = _repo.HistoricoDeSessoesAsync(pacienteId, ct);
+        var tProblemas = _repo.ProblemasDoPacienteAsync(pacienteId, ct: ct);
+        var tEvolucoes = _repo.EvolucoesDoPacienteAsync(pacienteId, ct);
+        await Task.WhenAll(tPaciente, tHistorico, tProblemas, tEvolucoes);
+
+        var p = await tPaciente;
+        if (p is null) return null;
+
+        var (primeira, total) = await tHistorico;
+        var problemas = await tProblemas;
+
+        var alergias = problemas
+            .Where(x => x.Natureza == NaturezaProblema.Alergia
+                        && x.Situacao != SituacaoProblema.Descartado)
+            .Select(x => x.Descricao)
+            .ToList();
+
+        var ativos = problemas
+            .Where(x => x.Natureza != NaturezaProblema.Alergia
+                        && x.Situacao == SituacaoProblema.Ativo)
+            .Select(x => string.IsNullOrWhiteSpace(x.Cid)
+                ? x.Descricao
+                : $"{x.Descricao} ({x.Cid})")
+            .ToList();
+
+        // As hipóteses das últimas sessões. TRÊS, e o corte é por leitura, não por
+        // economia: a linha do crachá tem uma linha de altura, e uma lista completa de
+        // hipóteses de um tratamento de quarenta sessões viraria um parágrafo que ninguém
+        // lê — que é o mesmo que não mostrar.
+        //
+        // ⚠️ Elas são DISTINTAS: repetir "lombalgia" nas oito últimas sessões gastaria a
+        // linha inteira dizendo uma coisa só.
+        var diagnosticos = (await tEvolucoes)
+            .Where(e => !e.Cancelada && !string.IsNullOrWhiteSpace(e.HipoteseDiagnostica))
+            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
+            .Select(e => e.HipoteseDiagnostica!.Trim())
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Take(3)
+            .ToList();
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        return new CabecalhoClinicoPaciente(
+            p.Id,
+            p.Nome,
+            p.FotoMiniatura,
+            IdadeEm(p.DataNascimento, hoje),
+            p.Sexo,
+            CatalogoConvenios.Nome(p.ConvenioCodigo, p.Convenio),
+            p.Carteirinha,
+            p.ValidadeCarteirinha is { } v && v < hoje,
+            primeira,
+            total,
+            alergias,
+            ativos,
+            diagnosticos);
+    }
+
+    /// <summary>
+    /// Anos COMPLETOS. A conta pelo ano subtraído erra metade do ano de todo mundo, e num
+    /// crachá clínico a idade errada muda conduta — a dose pediátrica e a geriátrica não
+    /// são a mesma.
+    /// </summary>
+    private static int? IdadeEm(DateOnly? nascimento, DateOnly hoje)
+    {
+        if (nascimento is not { } n || n > hoje) return null;
+        var anos = hoje.Year - n.Year;
+        if (hoje < n.AddYears(anos)) anos--;
+        return anos;
+    }
 
     /// <summary>
     /// As sessões de cada paciente por dia — o universo que disputa as evoluções avulsas.

@@ -216,13 +216,25 @@ public sealed class ModuloClinico : IModuloApp
         }
     ];
 
-    /// <summary>Em que aba da tela do paciente cada chave clínica cai.</summary>
+    /// <summary>
+    /// Em que seção da tela do paciente cada chave clínica cai.
+    ///
+    /// ⚠️ Os números mudaram na parcela 74, quando "Prescrições e documentos" e "Exames e
+    /// anexos" entraram no meio da lista — e é por isso que o mapa existe em vez de as
+    /// chaves carregarem o índice: renomear ou reordenar seção não pode quebrar a
+    /// navegação que a fila do dia e o painel da direção fazem por STRING.
+    ///
+    /// <c>ChavePrescricoes</c> continua de FORA de propósito: ela é um item de menu de
+    /// verdade, e quem entra por ali não tem paciente em foco — mandá-la para a seção
+    /// abriria a tela do paciente em branco pedindo que se escolhesse alguém, que é
+    /// exatamente o que o workspace existe para não fazer.
+    /// </summary>
     private static int AbaDe(string chave) => chave switch
     {
         ChaveProntuario => 1,
-        ChaveEvolucaoDor => 2,
-        ChaveMedidas => 3,
-        ChaveAvaliacoes => 4,
+        ChaveEvolucaoDor => 4,
+        ChaveMedidas => 5,
+        ChaveAvaliacoes => 6,
         _ => 0
     };
 
@@ -245,6 +257,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<EvolucaoDorViewModel>();
         servicos.AddTransient<MedidasViewModel>();
         servicos.AddTransient<AvaliacoesViewModel>();
+        servicos.AddTransient<AnexosPacienteViewModel>();
         servicos.AddTransient<MeusPacientesViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
         // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e

@@ -153,6 +153,18 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
     public SeletorPacienteViewModel Seletor { get; }
 
+    /// <summary>
+    /// Desenhar o cabeçalho próprio (título, subtítulo, nome do paciente e a busca).
+    ///
+    /// ⚠️ Falso quando a tela é uma SEÇÃO do paciente (parcela 74). Não é economia de
+    /// pixel: dentro do workspace o nome já está no crachá — repeti-lo é a repetição que a
+    /// parcela 37 tirou de seis telas — e, pior, o seletor de busca trocaria o
+    /// <c>PacienteEmFoco</c> do posto por baixo das outras sete seções, que continuariam
+    /// mostrando o paciente anterior. Duas listas de paciente na mesma tela é exatamente o
+    /// mestre-detalhe que este desenho existe para acabar.
+    /// </summary>
+    public bool MostrarCabecalho { get; set; } = true;
+
     public ObservableCollection<LinhaDocumentoClinico> Documentos { get; } = [];
 
     [ObservableProperty] private bool _carregando;
