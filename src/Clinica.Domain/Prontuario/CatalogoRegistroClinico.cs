@@ -50,7 +50,17 @@ public enum NaturezaRegistroClinico
     Anexo,
 
     /// <summary>Os pontos marcados na figura, o registro gráfico do que foi feito.</summary>
-    MapaCorporal
+    MapaCorporal,
+
+    /// <summary>
+    /// A anamnese do PACIENTE: antecedentes, história familiar, hábitos (parcela 75).
+    ///
+    /// É a única natureza que existe UMA vez por pessoa em vez de uma por fato — e por isso
+    /// a contagem dela é 0 ou 1. Entra no catálogo mesmo assim, porque a pergunta que o
+    /// catálogo responde não é "quantos fatos há", é "que naturezas de registro clínico este
+    /// paciente tem" — e uma anamnese esquecida na exportação sai como prontuário incompleto.
+    /// </summary>
+    Anamnese
 }
 
 /// <summary>O que o sistema sabe sobre uma natureza: como se chama e quem pode lê-la.</summary>
@@ -101,7 +111,9 @@ public static class CatalogoRegistroClinico
         new(NaturezaRegistroClinico.Anexo,
             "anexo", "anexos", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.MapaCorporal,
-            "mapa corporal", "mapas corporais", Permissao.VerProntuario)
+            "mapa corporal", "mapas corporais", Permissao.VerProntuario),
+        new(NaturezaRegistroClinico.Anamnese,
+            "anamnese", "anamneses", Permissao.VerProntuario)
     ];
 
     /// <summary>Todas as naturezas, na ordem em que se lê o prontuário.</summary>

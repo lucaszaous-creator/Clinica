@@ -69,6 +69,103 @@ Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/rele
 os cinco apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
 muda**) e publica na mesma release; os apps instalados se auto-atualizam.
 
+## ⛔ AUDITORIA DE LINHA — conferir ENQUANTO escreve, não depois
+
+**Regra de processo, decidida em 23/08/2026 pela direção.** Uma auditoria adversarial de oito
+lentes sobre as parcelas 72–74 devolveu **38 candidatos e 13 defeitos reais, quatro deles
+bloqueadores** — num código com 1778 testes verdes, três redes locais verdes e CI verde. Todos
+teriam sido baratos de evitar e foram caros de achar.
+
+**Portanto: cada linha acrescentada, mudada ou removida passa pela lista abaixo NO MOMENTO em
+que é escrita.** Não é para rodar agentes depois procurando o que ficou para trás — é para não
+deixar rastro. Quando um item da lista pegar algo, **escreva a lição aqui embaixo**; foi assim
+que esta lista nasceu.
+
+⚠️ **A pergunta que abre toda conferência é sempre a mesma:** *isto quebra alguma coisa, ou
+apenas deixa de fazer o que promete?* Os quatro bloqueadores de 23/08 eram todos do segundo
+tipo — nada falhava.
+
+### 1. Campo novo de PRONTUÁRIO — os oito lugares
+
+Nenhum deles quebra o build quando é esquecido:
+
+1. a entidade + o mapeamento no `ClinicaDbContext` (`DateTime` **exige**
+   `HasColumnType("timestamp without time zone")` — o Npgsql recusa `Kind=Local`);
+2. migration **aditiva** (confira o `defaultValue` de coluna não-anulável: o EF põe o padrão
+   da LINGUAGEM, e quase nunca é o que as linhas já gravadas valem);
+3. **a cópia do serviço** — `SalvarAsync` copia campo a campo; o que não estiver na lista é
+   apagado na primeira EDIÇÃO, e a CRIAÇÃO funciona, o que esconde o defeito;
+4. **o versionamento** (`GuardarVersao` + a coluna na entidade de versão) — sem ele a
+   correção apaga o anterior sem rastro, contra o art. 3º da Lei 13.787/2018;
+5. **a validação de "registro vazio"** — senão o caso legítimo (a primeira consulta é
+   história + achado + hipótese ANTES de haver conduta) é recusado nomeando campos que a
+   pessoa preencheu;
+6. **TODAS as portas de edição** — *quem não edita, PRESERVA*: a janela que não tem o campo na
+   tela precisa carregá-lo e devolvê-lo intacto, senão ela o apaga;
+7. **o PDF, a exportação, o art. 18 II e a guarda** (ponto 8 do compromisso de conformidade);
+8. **a busca do prontuário** e o `CatalogoRegistroClinico`.
+
+### 2. Método de repositório novo
+
+- **Nasce com um teste que o EXECUTA**, mesmo trivial. Consulta LINQ só se prova executando:
+  a tradução acontece em RUNTIME, e método sem chamador em teste é **código que ninguém rodou**.
+- **Nunca use propriedade DERIVADA** (`=> X is not null`) dentro de `Where`/`OrderBy`/`Select`
+  traduzido — use a COLUNA. O EF recusa em runtime.
+- **Entra em `TraducaoNoNpgsqlTests`** se usar navegação, agregação ou função: os testes rodam
+  em SQLite e a clínica roda Postgres, e o suporte a tradução DIFERE.
+- **Meça o que a consulta TRAZ.** Ler o prontuário inteiro para extrair três frases é meio
+  megabyte por troca de paciente.
+
+### 3. Leitura composta
+
+- **SEQUENCIAL, nunca `Task.WhenAll` sobre o mesmo `IClinicaRepositorio`** — é o mesmo
+  `DbContext`, e ele não aceita duas operações ao mesmo tempo. **O SQLite dos testes esconde**:
+  ele responde quase sincronamente e as consultas nunca se sobrepõem.
+- Leitura composta nova ganha um teste com o **interceptor de lentidão**
+  (`CabecalhoClinicoTests.LentidaoDeRede`).
+
+### 4. ViewModel e tela
+
+- **Carga async** disparada por tecla/clique/timer/troca-de-paciente: **contador de geração**.
+- **Entre o `Clear()` e o último `Add` não pode haver `await`.**
+- **Timer**: quem liga e desliga é a VIEW, no `Loaded`/`Unloaded`. No ViewModel ele mantém viva
+  cada tela já trocada — e leva as sub-ViewModels junto.
+- **Comando que grava**: as DUAS barreiras (`IsEnabled` explica, `Exigir`/`ExigirAlgum` impede).
+- **Conversor**: confira o TIPO. `BooleanToVisibilityConverter` devolve `Collapsed` para tudo
+  o que não é `bool`; texto pede `TextoParaVisibilidade`, objeto pede `ObjetoParaVisibilidade`.
+- **Tela de vida longa não recebe serviço `Scoped` no construtor** — abre escopo por operação.
+  ⚠️ A checagem 37 olha o CONSTRUTOR: `GetRequiredService<X>()` DENTRO dele escapa dela.
+- **`--` é ilegal dentro de comentário XML** (a linha de sublinhado do estilo da casa).
+
+### 5. Perguntas que só o autor pode responder
+
+- **Carimbo de hora novo na fila?** Entra no bloco que a REMARCAÇÃO limpa, e decida se ele é
+  COLUNA — se não for, não pode ser gasto como um passo do "voltar etapa".
+- **Booleano reusado numa segunda decisão?** Releia se ele responde à SEGUNDA pergunta. O nome
+  não avisa. (`SessaoEmBranco` decide se a tela PERGUNTA; usá-lo para decidir se GRAVA
+  descartava a sessão inteira.)
+- **Escreveu um serviço que RETIFICA?** Ele recebe **tudo** o que o que REGISTRA recebe —
+  senão a correção vira uma reescrita mutilada.
+- **Escreveu um comentário justificando uma decisão?** Confira se o código FAZ o que ele diz.
+  Comentário que explica uma decisão errada a torna invisível para o próximo revisor.
+- **A tela nova mostra tudo o que o modelo carrega?** Campo calculado sem leitor é o defeito
+  recorrente do projeto.
+
+### 6. Antes de todo commit
+
+```bash
+git status --porcelain --untracked-files=all   # nenhum arquivo de prova pode entrar
+python3 tools/compilar-sombra.py
+python3 tools/verificar-suite.py
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
+```
+
+⚠️ **Rode a suíte contra a árvore que VAI SER COMMITADA.** Em 23/08 ela ficou verde porque um
+arquivo estava no COMMIT e tinha sido apagado do DISCO — e era justamente o que reprovava.
+
+⚠️ **Arquivo de prova temporário: LEIA antes de descartar.** Os dois que vazaram naquele dia
+renderam — um revelou o defeito da anamnese, o outro virou a rede de tradução.
+
 ## Arquitetura
 
 Camadas clássicas, todas em `src/`:

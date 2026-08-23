@@ -967,6 +967,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Evolucao)
             .FirstOrDefaultAsync(a => a.Id == anexoId, ct);
 
+    // ---- Anamnese do paciente (parcela 75) ----
+
+    public Task<AnamnesePaciente?> AnamneseDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        // RASTREADA de propósito: o SalvarAsync a edita. E com as versões, porque é a
+        // contagem delas que numera a próxima.
+        => _db.Anamneses
+            .Include(a => a.Versoes)
+            .FirstOrDefaultAsync(a => a.PacienteId == pacienteId, ct);
+
+    public async Task AdicionarAnamneseAsync(
+        AnamnesePaciente anamnese, CancellationToken ct = default)
+        => await _db.Anamneses.AddAsync(anamnese, ct);
+
+    public async Task<IReadOnlyList<VersaoAnamnese>> VersoesDaAnamneseAsync(
+        int anamneseId, CancellationToken ct = default)
+        => await _db.VersoesAnamnese.AsNoTracking()
+            .Where(v => v.AnamnesePacienteId == anamneseId)
+            .OrderBy(v => v.Versao)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoDoPaciente>> AnexosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()

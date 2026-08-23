@@ -507,6 +507,23 @@ public interface IClinicaRepositorio
 
     Task<ProblemaPaciente?> ObterProblemaAsync(int problemaId, CancellationToken ct = default);
 
+    // ---- Anamnese do paciente (parcela 75) ----
+
+    /// <summary>
+    /// A anamnese do paciente COM as versões carregadas, ou null quando nunca foi colhida.
+    ///
+    /// ⚠️ As versões vêm no Include porque o SalvarAsync conta <c>Versoes.Count</c> para
+    /// numerar a próxima — sem elas a contagem seria SEMPRE zero e toda correção nasceria
+    /// como "versão 1", sobrescrevendo a numeração em silêncio.
+    /// </summary>
+    Task<AnamnesePaciente?> AnamneseDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    Task AdicionarAnamneseAsync(AnamnesePaciente anamnese, CancellationToken ct = default);
+
+    /// <summary>O que a anamnese já disse, da mais antiga para a mais nova.</summary>
+    Task<IReadOnlyList<VersaoAnamnese>> VersoesDaAnamneseAsync(
+        int anamneseId, CancellationToken ct = default);
+
     /// <summary>
     /// Lista de problemas do paciente. Os ativos primeiro, porque é o que se lê antes de
     /// atender; dentro de cada situação, o mais recente na frente.

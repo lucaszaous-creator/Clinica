@@ -80,7 +80,8 @@ public sealed class ExportacaoProntuarioService
             [NaturezaRegistroClinico.MedidaClinica] = "prontuario-medidas.csv",
             [NaturezaRegistroClinico.ProblemaPaciente] = "prontuario-problemas.csv",
             [NaturezaRegistroClinico.Anexo] = "prontuario-anexos.csv",
-            [NaturezaRegistroClinico.MapaCorporal] = "prontuario-mapa-corporal.csv"
+            [NaturezaRegistroClinico.MapaCorporal] = "prontuario-mapa-corporal.csv",
+            [NaturezaRegistroClinico.Anamnese] = "prontuario-anamnese.csv"
         };
 
     /// <summary>
@@ -135,6 +136,17 @@ public sealed class ExportacaoProntuarioService
         // Coordenadas normalizadas (0 a 1) sobre a figura, como foram gravadas.
         var pontosMapa = Cabecalho("PacienteId", "SessaoId", "Face", "Ordem", "Numero",
             "X", "Y", "Tecnica", "Observacao");
+        // A ANAMNESE do paciente (parcela 75). Entra pela regra 8 do compromisso: entidade
+        // clínica nova entra na exportação, senão a clínica entrega ao próximo fornecedor um
+        // prontuário sem os antecedentes — e antecedente que não viaja é antecedente que o
+        // próximo médico vai reperguntar, ou pior, presumir ausente.
+        //
+        // As VERSÕES vão junto: a retificação rastreável (art. 3º da Lei 13.787/2018) só
+        // continua rastreável se o que foi substituído acompanhar o que vale.
+        var anamnese = Cabecalho("PacienteId", "Paciente", "Versao", "Situacao",
+            "AntecedentesPessoais", "AntecedentesFamiliares", "HabitosDeVida",
+            "HistoriaObstetrica", "RevisaoDeSistemas", "Observacoes",
+            "Quando", "Por", "MotivoDaCorrecao");
         // As RESPOSTAS item a item das escalas: o escore ia e o que o paciente respondeu
         // ficava — e é a resposta (o item 9 do PHQ-9, por exemplo) que carrega o alerta.
         var respostas = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
@@ -217,6 +229,22 @@ public sealed class ExportacaoProntuarioService
                     m.ValorSecundario?.ToString("0.##", Fixa), m.Unidade, m.FaixaNome,
                     m.Cancelada ? "Cancelada" : "Vigente");
 
+            if (await _repo.AnamneseDoPacienteAsync(p.Id, ct) is { } an)
+            {
+                // A VIGENTE primeiro, depois o que ela já disse — a ordem em que se lê.
+                Linha(anamnese, p.Id, p.Nome, an.Versoes.Count + 1, "Vigente",
+                    an.AntecedentesPessoais, an.AntecedentesFamiliares, an.HabitosDeVida,
+                    an.HistoriaObstetrica, an.RevisaoDeSistemas, an.Observacoes,
+                    an.UltimaRevisao.ToString("O", Fixa),
+                    an.AtualizadaPor ?? an.CriadaPor, null);
+
+                foreach (var v in an.Versoes.OrderBy(v => v.Versao))
+                    Linha(anamnese, p.Id, p.Nome, v.Versao, "Substituída",
+                        v.AntecedentesPessoais, v.AntecedentesFamiliares, v.HabitosDeVida,
+                        v.HistoriaObstetrica, v.RevisaoDeSistemas, v.Observacoes,
+                        v.SubstituidaEm.ToString("O", Fixa), v.SubstituidaPor, v.Motivo);
+            }
+
             foreach (var pr in await _repo.PrescricoesInternasDoPacienteAsync(p.Id, int.MaxValue, ct))
             {
                 Linha(prescricoes, p.Id, p.Nome, pr.Numero, Data(pr.Data),
@@ -290,6 +318,7 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-prescricoes-checagens.csv", checagens.ToString()),
             new("prontuario-problemas.csv", problemas.ToString()),
             new("prontuario-mapa-corporal.csv", pontosMapa.ToString()),
+            new("prontuario-anamnese.csv", anamnese.ToString()),
             new("prontuario-avaliacoes-respostas.csv", respostas.ToString()),
             new("prontuario-enfermagem.csv", enfermagem.ToString()),
             new("prontuario-enfermagem-diagnosticos.csv", diagnosticosEnf.ToString()),

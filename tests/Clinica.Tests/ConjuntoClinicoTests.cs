@@ -198,6 +198,14 @@ public class ConjuntoClinicoTests : IDisposable
             "Paciente tolerou bem a infusão.", Tecnica,
             prescricaoInternaId: folha.Id);
 
+        // A ANAMNESE do paciente (parcela 75) — a natureza que existe UMA vez por pessoa.
+        await new AnamneseService(_repo).SalvarAsync(paciente.Id, new AnamnesePaciente
+        {
+            AntecedentesPessoais = "Apendicectomia em 2015.",
+            AntecedentesFamiliares = "Mãe hipertensa.",
+            HabitosDeVida = "Nega tabagismo. Sedentária."
+        }, "dra.ana");
+
         return paciente.Id;
     }
 

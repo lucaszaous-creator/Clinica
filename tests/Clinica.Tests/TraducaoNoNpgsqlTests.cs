@@ -93,6 +93,21 @@ public class TraducaoNoNpgsqlTests
         sql.Should().NotContain("\"Conteudo\"");
     }
 
+    [Fact]
+    public void Anamnese_do_paciente_traduz_COM_as_versoes()
+    {
+        using var db = Postgres();
+
+        var sql = db.Anamneses
+            .Include(a => a.Versoes)
+            .Where(a => a.PacienteId == 1)
+            .ToQueryString();
+
+        // O Include é obrigatório: é a CONTAGEM das versões que numera a próxima. Sem ele a
+        // contagem seria sempre zero e toda correção nasceria como "versão 1".
+        sql.Should().Contain("VersoesAnamnese");
+    }
+
     /// <summary>
     /// ⚠️ O AUTOTESTE DA REDE — ela precisa ter dentes.
     ///

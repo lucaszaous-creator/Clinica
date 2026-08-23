@@ -36,6 +36,8 @@ public class ClinicaDbContext : DbContext
     /// torna a retificação rastreável, como a Lei 13.787/2018 (art. 3º) exige.
     /// </summary>
     public DbSet<VersaoEvolucao> VersoesEvolucao => Set<VersaoEvolucao>();
+    public DbSet<AnamnesePaciente> Anamneses => Set<AnamnesePaciente>();
+    public DbSet<VersaoAnamnese> VersoesAnamnese => Set<VersaoAnamnese>();
 
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
@@ -407,6 +409,60 @@ public class ClinicaDbContext : DbContext
         // A versão guardada de uma evolução corrigida (parcela 52). O bloco existe
         // só por causa da data: sem ele, SubstituidaEm cai no padrão do Npgsql
         // ("with time zone") e a CORREÇÃO de uma evolução estoura no Postgres.
+        // A ANAMNESE do paciente (parcela 75) — uma por paciente, versionada.
+        b.Entity<AnamnesePaciente>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            // Hora de PAREDE: o Npgsql RECUSA DateTime com Kind=Local em coluna "with time
+            // zone", e o padrão do provedor é COM fuso — esquecer isto não quebra nada até
+            // alguém gravar em produção (a lição da parcela 67).
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadaEm).HasColumnType("timestamp without time zone");
+
+            e.Property(x => x.AntecedentesPessoais).HasMaxLength(4000);
+            e.Property(x => x.AntecedentesFamiliares).HasMaxLength(4000);
+            e.Property(x => x.HabitosDeVida).HasMaxLength(4000);
+            e.Property(x => x.HistoriaObstetrica).HasMaxLength(4000);
+            e.Property(x => x.RevisaoDeSistemas).HasMaxLength(4000);
+            e.Property(x => x.Observacoes).HasMaxLength(4000);
+            e.Property(x => x.CriadaPor).HasMaxLength(120);
+            e.Property(x => x.AtualizadaPor).HasMaxLength(120);
+
+            // UMA anamnese por paciente. Duas dariam duas verdades sobre a mesma pessoa, e a
+            // tela escolheria uma sem dizer qual.
+            e.HasIndex(x => x.PacienteId).IsUnique();
+
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Cascade);
+
+            // Cascata SÓ da anamnese para as versões dela: são o mesmo registro visto no
+            // tempo, e uma versão órfã não tem sentido nem leitor.
+            e.HasMany(x => x.Versoes).WithOne(v => v.Anamnese)
+                .HasForeignKey(v => v.AnamnesePacienteId).OnDelete(DeleteBehavior.Cascade);
+
+            e.Ignore(x => x.EstaVazia);
+            e.Ignore(x => x.UltimaRevisao);
+        });
+
+        b.Entity<VersaoAnamnese>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
+
+            // Os mesmos tetos da anamnese — a versão guarda o que ela dizia.
+            e.Property(x => x.AntecedentesPessoais).HasMaxLength(4000);
+            e.Property(x => x.AntecedentesFamiliares).HasMaxLength(4000);
+            e.Property(x => x.HabitosDeVida).HasMaxLength(4000);
+            e.Property(x => x.HistoriaObstetrica).HasMaxLength(4000);
+            e.Property(x => x.RevisaoDeSistemas).HasMaxLength(4000);
+            e.Property(x => x.Observacoes).HasMaxLength(4000);
+            e.Property(x => x.SubstituidaPor).HasMaxLength(120);
+            e.Property(x => x.Motivo).HasMaxLength(500);
+
+            e.HasIndex(x => x.AnamnesePacienteId);
+        });
+
         b.Entity<VersaoEvolucao>(e =>
         {
             e.HasKey(x => x.Id);

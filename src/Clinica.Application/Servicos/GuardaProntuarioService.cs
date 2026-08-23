@@ -171,6 +171,12 @@ public sealed class GuardaProntuarioService
         var anexos = anexosPorSessao.Values.Sum();
         var mapas = mapasPorSessao.Count;
 
+        // A ANAMNESE do paciente (parcela 75). Ela é a única natureza que existe UMA vez por
+        // pessoa em vez de uma por fato, e entra pela regra 8 do compromisso: entidade
+        // clínica nova entra na guarda, senão o prazo de 20 anos é calculado pelo registro
+        // errado e a tela de conformidade conta menos do que a clínica de fato tem.
+        var anamnese = await _repo.AnamneseDoPacienteAsync(pacienteId, ct);
+
         var candidatos = new List<(DateOnly Data, string Origem)>();
 
         foreach (var s in sessoes) candidatos.Add((s.Data, "sessão"));
@@ -187,6 +193,11 @@ public sealed class GuardaProntuarioService
         // dia do registro quando não há (problema sem início ainda é fato anotado).
         foreach (var pb in problemas)
             candidatos.Add((pb.Inicio ?? DateOnly.FromDateTime(pb.CriadoEm), "problema anotado"));
+        // ⚠️ A anamnese entra pela ÚLTIMA REVISÃO, não pela colheita: o prazo conta do último
+        // registro de qualquer natureza, e revisar a anamnese É um registro. Usar a data de
+        // criação faria uma anamnese revisada ontem contar como se fosse de dez anos atrás.
+        if (anamnese is not null)
+            candidatos.Add((DateOnly.FromDateTime(anamnese.UltimaRevisao), "anamnese"));
 
         var ultimo = candidatos.Count == 0
             ? default((DateOnly Data, string Origem)?)
@@ -205,7 +216,11 @@ public sealed class GuardaProntuarioService
             [NaturezaRegistroClinico.MedidaClinica] = medidas.Count,
             [NaturezaRegistroClinico.ProblemaPaciente] = problemas.Count,
             [NaturezaRegistroClinico.Anexo] = anexos,
-            [NaturezaRegistroClinico.MapaCorporal] = mapas
+            [NaturezaRegistroClinico.MapaCorporal] = mapas,
+            // 0 ou 1: é a natureza que existe uma vez por PESSOA. A contagem entra assim
+            // mesmo porque a pergunta do catálogo é "que naturezas este paciente tem", e
+            // anamnese ausente da lista se leria como paciente sem antecedentes.
+            [NaturezaRegistroClinico.Anamnese] = anamnese is null ? 0 : 1
         };
 
         return new SituacaoGuarda(

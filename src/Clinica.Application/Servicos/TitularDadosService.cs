@@ -80,7 +80,8 @@ public sealed class TitularDadosService
             [NaturezaRegistroClinico.MedidaClinica] = "== MEDIDAS ==",
             [NaturezaRegistroClinico.ProblemaPaciente] = "== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==",
             [NaturezaRegistroClinico.Anexo] = "== ANEXOS E MAPAS CORPORAIS ==",
-            [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS =="
+            [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS ==",
+            [NaturezaRegistroClinico.Anamnese] = "== ANAMNESE =="
         };
 
     /// <summary>
@@ -261,6 +262,43 @@ public sealed class TitularDadosService
                 + (m.Cancelada ? " (CANCELADA)" : string.Empty));
         texto.AppendLine();
 
+        // A ANAMNESE (parcela 75) — antecedentes, história familiar, hábitos. Entra pelo
+        // mesmo argumento da lista de problemas logo abaixo: sem ela o titular leva um
+        // documento que não diz nada sobre o que a clínica sabe do PASSADO dele, e o próximo
+        // serviço reperguntaria tudo — quando reperguntar for possível.
+        //
+        // ⚠️ As VERSÕES vão junto. O art. 18 II é sobre o que a clínica GUARDA, e ela guarda
+        // o que a anamnese dizia antes de cada correção — omiti-las entregaria menos do que
+        // existe, que é o defeito que este documento já corrigiu duas vezes.
+        texto.AppendLine("== ANAMNESE ==");
+        if (await _repo.AnamneseDoPacienteAsync(pacienteId, ct) is not { } an)
+        {
+            texto.AppendLine("(não colhida)");
+        }
+        else
+        {
+            texto.AppendLine($"Última revisão: {an.UltimaRevisao.ToString("dd/MM/yyyy HH:mm", Brasil)}"
+                             + (string.IsNullOrWhiteSpace(an.AtualizadaPor ?? an.CriadaPor)
+                                 ? string.Empty
+                                 : $" por {an.AtualizadaPor ?? an.CriadaPor}"));
+            EscreverAnamnese(texto, an.AntecedentesPessoais, an.AntecedentesFamiliares,
+                an.HabitosDeVida, an.HistoriaObstetrica, an.RevisaoDeSistemas, an.Observacoes);
+
+            foreach (var v in an.Versoes.OrderBy(v => v.Versao))
+            {
+                texto.AppendLine();
+                texto.AppendLine($"-- versão anterior {v.Versao}, substituída em "
+                                 + v.SubstituidaEm.ToString("dd/MM/yyyy HH:mm", Brasil)
+                                 + (string.IsNullOrWhiteSpace(v.SubstituidaPor)
+                                     ? string.Empty : $" por {v.SubstituidaPor}")
+                                 + (string.IsNullOrWhiteSpace(v.Motivo)
+                                     ? string.Empty : $" — motivo: {v.Motivo}"));
+                EscreverAnamnese(texto, v.AntecedentesPessoais, v.AntecedentesFamiliares,
+                    v.HabitosDeVida, v.HistoriaObstetrica, v.RevisaoDeSistemas, v.Observacoes);
+            }
+        }
+        texto.AppendLine();
+
         // ⚠️ A LISTA DE PROBLEMAS é onde moram as ALERGIAS. Um documento de art. 18 sem
         // ela entrega ao titular — e ao próximo serviço que o atender — um paciente "sem
         // alergia nenhuma". É a mesma lacuna que a exportação do fornecedor já corrigiu.
@@ -406,5 +444,26 @@ public sealed class TitularDadosService
     {
         if (string.IsNullOrWhiteSpace(valor)) return;
         texto.AppendLine($"    {rotulo}: {valor.Trim()}");
+    }
+
+    /// <summary>
+    /// Escreve os seis campos, PULANDO o que não existe — rótulo sobre o vazio se leria como
+    /// "o paciente não tem antecedentes", que é o contrário de "não perguntamos".
+    /// </summary>
+    private static void EscreverAnamnese(
+        System.Text.StringBuilder texto, string? pessoais, string? familiares,
+        string? habitos, string? obstetrica, string? sistemas, string? observacoes)
+    {
+        void Campo(string rotulo, string? valor)
+        {
+            if (!string.IsNullOrWhiteSpace(valor)) texto.AppendLine($"- {rotulo}: {valor.Trim()}");
+        }
+
+        Campo("Antecedentes pessoais", pessoais);
+        Campo("Antecedentes familiares", familiares);
+        Campo("Hábitos de vida", habitos);
+        Campo("História obstétrica", obstetrica);
+        Campo("Interrogatório sintomatológico", sistemas);
+        Campo("Observações", observacoes);
     }
 }
