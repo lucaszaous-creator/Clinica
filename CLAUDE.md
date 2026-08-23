@@ -4881,3 +4881,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   reenviá-lo faz `GuardarVersao` copiar o valor **já alterado**, e a versão anterior nasce
   igual à nova. As duas telas de produção constroem um `new Evolucao`, e o teste tem de fazer
   o mesmo — senão ele reprova o produto por um defeito que só existe dentro dele.
+
+- **`ToQueryString()` contra o Npgsql é a rede que faltava para tradução de consulta**
+  (`TraducaoNoNpgsqlTests`, parcela 74, 2ª rodada). A tradução de LINQ para SQL acontece em
+  **RUNTIME** e é **específica do provedor** — o que o SQLite dos testes aceita pode não
+  existir no Postgres da clínica. `ToQueryString()` COMPILA a consulta contra o provedor real
+  e devolve o SQL **sem abrir conexão nenhuma**: a cadeia pode apontar para um banco que não
+  existe. Se a expressão não for traduzível, lança ali, no `dotnet test`, meses antes de a
+  clínica esbarrar. **Consulta nova que use navegação, agregação ou função entra nessa
+  suíte** — e ela também confere que a projeção NÃO traz a coluna cara (foi assim que o
+  `Conteudo` do anexo ficou fixado fora do SELECT).
+  ⚠️ Ela tem **autoteste**, pela regra da checagem 34: um caso que escreve a consulta como
+  estava ANTES da correção e afirma que a compilação REPROVA. Rede que não prova ter dentes
+  nasce cega.
+- **`git add -A` commita o que você não revisou — e a suíte local pode rodar contra uma
+  ÁRVORE DIFERENTE do commit** (parcela 74, 2ª rodada; o CI reprovou por isso). Dois arquivos
+  de prova temporários (`ZzProvaTemp`, `ZzSqlProva`) vazaram para commits meus. O primeiro
+  derrubou o CI — e reprovava **pelo motivo certo**, porque era a única coisa no repositório
+  que enxergava o defeito da anamnese.
+  ⚠️ O detalhe que ensina é por que a rodada local ficou **verde**: o arquivo estava no
+  COMMIT e tinha sido apagado do DISCO antes de eu rodar a suíte. 1787 testes verdes contra
+  uma árvore que não era a que eu havia commitado. É uma variante nova de "verde não quer
+  dizer funciona", e o hábito que a fecha é ler `git status --porcelain` **antes** do
+  `add -A`, e olhar o conteúdo de todo arquivo de prova antes de descartá-lo — foi olhando
+  o `ZzProvaTemp` que o defeito da anamnese apareceu, e olhando o `ZzSqlProva` que a rede de
+  tradução nasceu.
