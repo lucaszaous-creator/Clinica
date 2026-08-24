@@ -5524,3 +5524,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   criar uma tela, a lista de conferência inclui reler a REGRA DE LEIAUTE com a tela
   desenhada na frente, região por região: barra (só ações?), avisos (uma superfície?),
   mensagem (perto do clique?), vazios (um por pergunta, na região certa?).
+
+- **FILHO ANCORADO QUE NÃO CABE É DECEPADO — e o que ficava fora da dobra era o botão de
+  SALVAR** (parcela 79, 2ª rodada — o cliente mandou o print da consulta COFEN cortada na
+  borda da janela de Evolução de enfermagem). A janela tinha 680 px fixos e o compositor
+  era `DockPanel.Dock="Bottom"`, uma PILHA que, com a consulta aberta, pedia ~850 px
+  (campos fixos ~300 + banner + `TabControl Height="320"` + mensagem + botões). O
+  DockPanel **não encolhe filho ancorado**: ele arranja no que sobra e o excesso é
+  decepado na borda — as abas pela metade E os botões Fechar/Registrar fora da tela. No
+  monitor de 768 px do balcão, **a consulta de enfermagem completa não podia ser SALVA**.
+  É a irmã da checagem 36 (lá a pilha era `StackPanel` numa página; aqui, filho ancorado
+  numa janela fixa), e o `Height="320"` era um remendo da parcela 77 que devolvia a linha
+  do tempo à tela — somado aos vizinhos, continuava passando da janela.
+  As decisões da correção, e cada uma é uma regra velha aplicada:
+  (a) **rodapé da JANELA, ancorado e declarado ANTES do miolo** (parcela 47) — mensagem ao
+  lado dos botões que a escrevem;
+  (b) **escrever à ESQUERDA, reler à DIREITA** — o MESMO desenho do Atendimento do médico;
+  dois desenhos para a mesma pergunta no mesmo sistema é a reclamação da parcela 47, e a
+  linha do tempo deixou de disputar ALTURA com o formulário: passou a disputar LARGURA;
+  (c) **as abas são o filho que PREENCHE, com piso BAIXO** (`MinHeight="100"`): quem
+  protege do corte é o preenchimento elástico — o DockPanel dá às abas exatamente o que
+  sobra —, e um piso alto seria o `Height="320"` de volta, só que menor. Janela maior =
+  abas maiores; janela mínima = abas apertadas com rolagem interna, e NUNCA corte;
+  (d) **o teto do campo de texto é parte da conta** (`MaxHeight="72"` no "observado"): sem
+  ele, o texto crescendo comeria a coluna e sobraria menos que o piso das abas.
+  ⚠️ E a checagem 15 pegou a primeira tentativa em segundos — Height=720 + barra de título
+  passa dos 728 úteis do balcão. **Quando a resposta a "não cabe" for "aumente a janela",
+  a rede do teto é quem diz até onde**: 690 + barra = 721 ≤ 728.
+  A regra que fica: **pilha dentro de filho ancorado de janela FIXA é a checagem 36 sem a
+  checagem** — ao ancorar um bloco que cresce com um checkbox, o elemento que cresce vira o
+  filho que PREENCHE (com piso baixo), nunca uma altura fixa somada a vizinhos.

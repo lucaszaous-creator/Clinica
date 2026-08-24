@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="Evolução de enfermagem" Width="1120" Height="680"
-        MinWidth="900" MinHeight="560"
+        Title="Evolução de enfermagem" Width="1140" Height="690"
+        MinWidth="1000" MinHeight="670"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -28,14 +28,71 @@
                        Text="{Binding Contexto}" />
         </StackPanel>
 
-        <!-- ===================== O COMPOSITOR =====================
-             UMA superfície, não uma pilha de caixas. Fica embaixo porque o que se LÊ é a
-             linha do tempo acima; o que se FAZ de vez em quando é escrever. -->
-        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+        <!-- ===================== RODAPÉ DA JANELA =====================
+             Ancorado, e declarado ANTES do miolo (parcela 47 — senão o miolo come a
+             barra). Ele morava no FIM da pilha do compositor: com a consulta COFEN
+             aberta, a pilha pedia ~850 px numa janela de 680 e o DockPanel decepava na
+             borda — o Registrar ficava INALCANÇÁVEL no monitor de 768 px do balcão
+             (o print da parcela 79). A mensagem fica AO LADO dos botões que a escrevem;
+             quem decide se aparece é o texto, quem decide a cor é a gravidade. -->
+        <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Cancelar correção" MinWidth="150"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        Visibility="{Binding Corrigindo, Converter={StaticResource BoolParaVisibilidade}}"
+                        Command="{Binding CancelarCorrecaoCommand}" />
+                <Button Content="Fechar" IsCancel="True" MinWidth="100" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}" />
+                <Button Content="{Binding RotuloDoBotao}" Margin="8,0,0,0" MinWidth="160"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding PodeRegistrar}"
+                        ToolTip="Grava no prontuário do paciente, com a sua identificação e o registro no conselho."
+                        Command="{Binding RegistrarCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Escrever à ESQUERDA, reler à DIREITA — o MESMO desenho do Atendimento do
+             médico (dois desenhos para a mesma pergunta no mesmo sistema é a reclamação
+             da parcela 47). O compositor era ANCORADO EMBAIXO como pilha: com a consulta
+             COFEN aberta ele pedia mais do que a janela tem, e o DockPanel decepava tudo
+             abaixo da dobra (parcela 79). Em coluna, as ABAS são o filho que ESTICA — a
+             janela maior dá espaço às abas, e a menor nunca corta botão. -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.5*" MinWidth="560" />
+                <ColumnDefinition Width="*" MinWidth="340" />
+            </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0"
                 Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Medio}" Padding="14">
-            <StackPanel>
+            <DockPanel>
+
+                <StackPanel DockPanel.Dock="Top">
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -54,7 +111,7 @@
                         <TextBlock Text="O que foi observado" Style="{StaticResource Rotulo}" />
                         <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
                                  TextWrapping="Wrap" AcceptsReturn="True"
-                                 MinHeight="56" MaxHeight="90"
+                                 MinHeight="56" MaxHeight="72"
                                  VerticalScrollBarVisibility="Auto" />
                     </StackPanel>
                 </Grid>
@@ -129,13 +186,15 @@
                           Content="Consulta de enfermagem (processo completo — COFEN 358/2009)"
                           ToolTip="Abre as cinco etapas: histórico, diagnóstico, planejamento, prescrição de enfermagem e avaliação. Sem marcar, o registro é a anotação de passagem." />
 
-                <StackPanel Visibility="{Binding ConsultaCompleta,
-                                         Converter={StaticResource BoolParaVisibilidade}}">
+                </StackPanel>
+
+                <DockPanel Visibility="{Binding ConsultaCompleta,
+                                        Converter={StaticResource BoolParaVisibilidade}}">
 
                     <!-- A frase que AVISA sem impedir: quem colhe o histórico agora e
                          fecha a avaliação depois da infusão está fazendo o processo
                          certo. O que não pode é a etapa faltar sem ninguém perceber. -->
-                    <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                    <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
                             Visibility="{Binding EtapasEmFalta,
                                          Converter={StaticResource TextoParaVisibilidade},
                                          FallbackValue=Collapsed}">
@@ -160,10 +219,13 @@
                          falta. Um segundo indicador seria uma segunda resposta para a
                          mesma pergunta — um estado vazio por pergunta (parcela 37).
 
-                         Altura fixa: é ela que devolve a linha do tempo à janela. Cada
-                         aba rola por dentro.
+                         ⚠️ SEM altura fixa (parcela 79): o `Height="320"` somado aos
+                         campos fixos passava da janela, e o DockPanel decepava as abas e
+                         os botões na borda — foi o print do cliente. As abas são o filho
+                         que PREENCHE a coluna; o piso é o MinHeight, garantido pelo
+                         MinHeight da janela; cada aba rola por dentro.
                          ============================================================ -->
-                    <TabControl Height="320" Margin="0,14,0,0">
+                    <TabControl MinHeight="100" Margin="0,14,0,0">
                         <TabItem Header="1 · Histórico">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="0,6,0,0">
@@ -469,49 +531,15 @@
                         </TabItem>
 
                     </TabControl>
-                </StackPanel>
-
-                <!-- Mensagem: quem decide se aparece é o TEXTO; quem decide a cor é a
-                     gravidade (a lição das parcelas 62 e 64). -->
-                <Border Margin="0,12,0,0"
-                        Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                                     FallbackValue=Collapsed}">
-                    <Border.Style>
-                        <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                </Border>
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                    <Button Content="Cancelar correção" MinWidth="150"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            Visibility="{Binding Corrigindo, Converter={StaticResource BoolParaVisibilidade}}"
-                            Command="{Binding CancelarCorrecaoCommand}" />
-                    <Button Content="Fechar" IsCancel="True" MinWidth="100" Margin="8,0,0,0"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}" />
-                    <Button Content="{Binding RotuloDoBotao}" Margin="8,0,0,0" MinWidth="160"
-                            VerticalAlignment="Center"
-                            IsEnabled="{Binding PodeRegistrar}"
-                            ToolTip="Grava no prontuário do paciente, com a sua identificação e o registro no conselho."
-                            Command="{Binding RegistrarCommand}" />
-                </StackPanel>
-            </StackPanel>
+                </DockPanel>
+            </DockPanel>
         </Border>
 
         <!-- ===================== A LINHA DO TEMPO =====================
-             É o que se VÊ: a PA de vinte minutos atrás decide se ela reduz o gotejamento.
-             Grid por fora para hospedar a sobreposição do EstadoDaTela como ÚLTIMO filho
-             (a lição da parcela 50). -->
-        <Grid>
+             É o que se VÊ enquanto se escreve: a PA de vinte minutos atrás decide se ela
+             reduz o gotejamento. Grid por fora para hospedar a sobreposição do
+             EstadoDaTela como ÚLTIMO filho (a lição da parcela 50). -->
+        <Grid Grid.Column="1" Margin="16,0,0,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Registros}">
                     <ItemsControl.ItemTemplate>
@@ -627,6 +655,7 @@
                                Titulo="Nenhum registro ainda"
                                Descricao="Escreva abaixo o que você observou no paciente — a hora é a do fato, não a de agora."
                                TextoCarregando="Buscando os registros…" />
+        </Grid>
         </Grid>
     </DockPanel>
 </Window>
