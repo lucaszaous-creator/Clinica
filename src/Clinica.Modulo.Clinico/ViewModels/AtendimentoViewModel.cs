@@ -1219,11 +1219,4 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         }
     }
 
-    /// <summary>Abre a curva de dor deste paciente sem perder o foco do posto.</summary>
-    [RelayCommand]
-    private void VerEvolucaoDaDor() => NavegacaoSuite.Ir(ModuloClinico.ChaveEvolucaoDor);
-
-    /// <summary>Abre as escalas deste paciente.</summary>
-    [RelayCommand]
-    private void VerAvaliacoes() => NavegacaoSuite.Ir(ModuloClinico.ChaveAvaliacoes);
 }

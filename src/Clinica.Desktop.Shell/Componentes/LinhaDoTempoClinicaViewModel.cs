@@ -99,6 +99,15 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     /// <summary>Nenhuma natureza é alcançável por quem está lendo — ver <see cref="MontarChips"/>.</summary>
     [ObservableProperty] private bool _semAcesso;
 
+    /// <summary>
+    /// Metade que DESLIGA a sobreposição de vazio quando não há acesso: ali quem explica
+    /// é o resumo ("o seu acesso não permite…"), e "Nada registrado" por cima dele seria
+    /// mentira com cara de estado vazio.
+    /// </summary>
+    public bool ComAcesso => !SemAcesso;
+
+    partial void OnSemAcessoChanged(bool value) => OnPropertyChanged(nameof(ComAcesso));
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
@@ -387,13 +396,12 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
         foreach (var r in recorte) Itens.Add(r);
 
         var total = lista.Count;
-        var info = CatalogoRegistroClinico.Obter(Secao);
 
-        // "Nenhuma documento emitido registrada" é o que sai quando o gênero mora na frase
-        // e não no catálogo. A frase neutra serve às nove naturezas sem pedir ao catálogo
-        // uma gramática que ele não tem por que carregar.
+        // ⚠️ Vazio NÃO escreve resumo: quem responde "não há nada" é o EstadoDaTela da
+        // lista — duas respostas para a mesma pergunta saíam desenhadas uma por cima da
+        // outra (o print da parcela 79). "Um estado vazio por pergunta" (parcela 37).
         Resumo = total == 0
-            ? $"Sem registro de {info.Plural} para este paciente."
+            ? string.Empty
             : Compacto && total > recorte.Count
                 ? $"{recorte.Count} de {CatalogoRegistroClinico.Contar(Secao, total)}"
                 : CatalogoRegistroClinico.Contar(Secao, total);

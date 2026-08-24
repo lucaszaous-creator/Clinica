@@ -5485,3 +5485,42 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   chegaram a rodar (o EF para na primeira que falha). Atualizado o app, a fila continua de
   onde parou. **Não peça à clínica para mexer no banco antes de conferir se o erro foi
   transacional** — o conserto costuma ser mais caro que a falha.
+
+- **A RODADA DOS PRINTS DO CONSULTÓRIO: quatro defeitos de leiaute, e três eram regras já
+  escritas que a tela nova não seguiu** (parcela 79 — o cliente mandou quatro prints e a
+  pergunta "você não quer que eu apresente isso a cliente, ou quer?"). Nenhum quebrava
+  build; todos se viam no primeiro olhar. O que cada um ensina:
+  (a) **Cinco botões numa StackPanel horizontal estouram a linha — e dois deles eram o RAIL
+  disfarçado de botão.** "Evolução da dor" e "Avaliações" existiam como botões da barra E
+  como itens do rail ao lado: duas portas com o mesmo nome fazem a pessoa procurar a
+  diferença que não existe, e foram os 240 px deles que empurraram o "Ficha do atendimento"
+  para fora da tela. **Só AÇÃO mora na barra; navegação é do rail** — e os dois comandos
+  órfãos foram removidos (código morto que duplica a navegação, parcela 63).
+  (b) **A pilha de faixas voltou no app onde a regra nasceu.** Alertas clínicos,
+  administrativos e a faixa do termo eram `Alerta*` empilhados com moldura própria, mais o
+  botão avulso do termo flutuando sozinho — a pilha que o README proíbe. Viraram UMA
+  superfície com uma linha por aviso (traço de 3 px, o padrão da parcela 47), o termo com a
+  porta NA linha, e a região inteira some quando não há aviso. O peso segue a **gravidade**,
+  não a categoria.
+  (c) **A mensagem da tela morava numa faixa no TOPO e quem mais a escreve é o Salvar, no
+  RODAPÉ.** A recusa da ficha aparecia como banner rosa de largura inteira, longe do clique
+  (a lição da parcela 65). Ela desceu para o lugar da dica do rodapé — mesmo lugar, fundo
+  opaco, cor pela gravidade.
+  (d) ⚠️ **O `EstadoDaTela` do componente cobria o componente INTEIRO — e o RESUMO era a
+  segunda resposta para o mesmo vazio.** Na `LinhaDoTempoClinicaView`, a sobreposição
+  cobria chips e resumo, e o resumo em seção vazia escrevia "Sem registro de …" — as duas
+  respostas saíam desenhadas UMA POR CIMA DA OUTRA (o texto atravessando o ícone, no
+  print). As regras violadas eram três, todas deste arquivo: a sobreposição pertence à
+  REGIÃO cujo vazio ela explica (58/64/68), um estado vazio por pergunta (37) — e vazio
+  agora NÃO escreve resumo. `Ativo` desliga a sobreposição no caso SEM ACESSO, onde quem
+  explica é o resumo.
+  (e) **Três Cards empilhados na aba Histórico viraram uma superfície** (problemas ·
+  enfermagem · sessões, separadas por rótulo + `Separator`); e em Medidas, **a régua
+  PRIMEIRA/ATUAL/VARIAÇÃO some sem série** — três traços "—" sobre a frase "nenhuma
+  colheita" eram duas respostas para a mesma pergunta, e régua vazia se lê como tela
+  quebrada.
+  A lição de método: **tela nova herda as regras deste arquivo por LEITURA, não por
+  osmose** — as quatro violações eram de regras já escritas e pagas em outras telas. Ao
+  criar uma tela, a lista de conferência inclui reler a REGRA DE LEIAUTE com a tela
+  desenhada na frente, região por região: barra (só ações?), avisos (uma superfície?),
+  mensagem (perto do clique?), vazios (um por pergunta, na região certa?).

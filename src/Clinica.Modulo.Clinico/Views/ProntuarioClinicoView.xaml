@@ -29,8 +29,14 @@
                  Fica ACIMA das sessões de propósito: é o que se lê antes de atender,
                  e o histórico é longo. Alergia e uso contínuo aparecem marcados,
                  porque uma linha entre quinze não é alerta. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
+            <!-- ============ UMA SUPERFÍCIE, três regiões ============
+                 (parcela 79 — o print do cliente). Eram TRÊS Cards com moldura empilhados
+                 — problemas, enfermagem, sessões —, a colcha de retalhos que o README
+                 proíbe. Uma superfície só; a separação interna é rótulo + Separator. -->
+            <Border Style="{StaticResource Card}">
+                <DockPanel>
+
+                <StackPanel DockPanel.Dock="Top">
                     <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -184,7 +190,9 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
-            </Border>
+
+                <Separator DockPanel.Dock="Top" Margin="0,12"
+                           Background="{StaticResource Brush.Borda}" />
 
             <!-- ============ ENFERMAGEM E INFUSÕES (parcela 72) ============
                  O que a ENFERMAGEM registrou e o que foi INFUNDIDO neste paciente — as
@@ -198,8 +206,7 @@
                  decisão: ela tem busca no texto, contagem de anexos, marca de correção e os
                  botões da linha. Trocá-la pela genérica tiraria capacidade de quem a usa
                  todo dia. O componente entra aqui para o que faltava. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                <DockPanel>
+                <DockPanel DockPanel.Dock="Top">
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="Enfermagem e infusões" Style="{StaticResource H3}"
                                    Margin="0" />
@@ -208,9 +215,11 @@
                     </StackPanel>
 
                     <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
-                                                  MinHeight="180" MaxHeight="320" />
+                                                  MinHeight="160" MaxHeight="300" />
                 </DockPanel>
-            </Border>
+
+                <Separator DockPanel.Dock="Top" Margin="0,12"
+                           Background="{StaticResource Brush.Borda}" />
 
             <!-- ============ BUSCA NAS SESSÕES ============ -->
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
@@ -222,9 +231,6 @@
                            FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" />
             </StackPanel>
 
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}"
-                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Sessoes}">
@@ -320,6 +326,7 @@
                                        Titulo="Nenhuma sessão encontrada"
                                        Descricao="Ou este paciente ainda não tem sessão escrita, ou a busca não achou o termo digitado — o texto acima da lista diz qual dos dois." />
                 </Grid>
+                </DockPanel>
             </Border>
     </DockPanel>
 </UserControl>

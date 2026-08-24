@@ -58,6 +58,7 @@
                        Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
                                     FallbackValue=Collapsed}" />
 
+            <Grid>
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Itens}">
                     <ItemsControl.ItemTemplate>
@@ -174,16 +175,25 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
-        </DockPanel>
 
-        <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica, e é o ÚLTIMO filho
-             do Grid (o WPF desenha na ordem do XAML) — a lição das parcelas 50 e 58. -->
-        <ctrl:EstadoDaTela Itens="{Binding Itens}"
-                           Carregando="{Binding Carregando}"
-                           NaoVerificado="{Binding NaoVerificado}"
-                           Glifo="&#xE81C;"
-                           Titulo="Nada registrado nesta seção"
-                           Descricao="Escolha outra seção acima — cada chip mostra quantos registros há."
-                           TextoCarregando="Lendo o prontuário…" />
+            <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica — e a região é a
+                 LISTA, não o componente inteiro: cobrindo o Grid de fora, ela era desenhada
+                 por cima dos chips e do resumo, e o texto de um atravessava o ícone do
+                 outro (o print do cliente, parcela 79). Último filho do Grid, porque o WPF
+                 desenha na ordem do XAML (parcelas 50 e 58).
+
+                 `Ativo` desliga a sobreposição quando não há ACESSO: ali quem explica é o
+                 resumo ("o seu acesso não permite…"), e "Nada registrado" por cima dele
+                 seria mentira com cara de estado vazio. -->
+            <ctrl:EstadoDaTela Itens="{Binding Itens}"
+                               Ativo="{Binding ComAcesso}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE81C;"
+                               Titulo="Nada registrado nesta seção"
+                               Descricao="Escolha outra seção acima — cada chip mostra quantos registros há."
+                               TextoCarregando="Lendo o prontuário…" />
+            </Grid>
+        </DockPanel>
     </Grid>
 </UserControl>

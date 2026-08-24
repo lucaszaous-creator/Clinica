@@ -8,6 +8,45 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+
+        <!-- Uma LINHA de aviso: cor no traço de 3 px, texto ao lado (o padrão da parcela
+             47). O peso e a cor seguem a GRAVIDADE — vermelho/negrito é o que muda a
+             conduta agora; âmbar é o que se resolve no balcão depois. -->
+        <DataTemplate x:Key="LinhaAviso">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" CornerRadius="2">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background"
+                                    Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Grave}" Value="True">
+                                    <Setter Property="Background"
+                                            Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding Texto}" Margin="10,0,0,0"
+                           TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="Normal" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Grave}" Value="True">
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
@@ -20,151 +59,23 @@
              cabeçalho da tela, uma vez, acima das abas. -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
                 HorizontalAlignment="Right" Margin="0,0,0,14">
-            <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding AbrirMapaCommand}" MinWidth="130"
-                IsEnabled="{Binding TemPaciente}" />
-            <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0"
-                MinWidth="150"
-                IsEnabled="{Binding PodeEmitirDocumento}" />
-            <Button Content="Evolução da dor" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding VerEvolucaoDaDorCommand}" Margin="8,0,0,0"
-                MinWidth="130" />
-            <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0"
-                MinWidth="110" />
 
-            <!-- A FICHA que o paciente leva embora (parcela 78). O relatório existe desde a
-                 parcela 3, com a marca da clínica e o código de conferência, e os dois
-                 únicos chamadores dele estavam na RECEPÇÃO: quem escreve a sessão pedia ao
-                 balcão para imprimi-la. Aqui ela sai recortada NA DATA desta sessão — sem
-                 isso, um paciente de quarenta sessões recebia quarenta. -->
-            <Button Content="Ficha do atendimento" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding ImprimirFichaCommand}" Margin="8,0,0,0"
-                MinWidth="160"
-                IsEnabled="{Binding PodeImprimirFicha}"
-                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
-        </StackPanel>
+            <!-- ⚠️ Só AÇÕES aqui — navegação é do rail. "Evolução da dor" e "Avaliações"
+                 eram botões E itens do rail ao lado: duas portas com o mesmo nome fazem a
+                 pessoa procurar a diferença que não existe, e cinco botões estouravam a
+                 linha (parcela 79, o print do cliente). -->
 
-            <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
-                 visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
-            <Border DockPanel.Dock="Top" Margin="0,0,0,12"
-                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                                 FallbackValue=Collapsed}">
-                <Border.Style>
-                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-            </Border>
-
-            <!-- Alergia e uso contínuo: o que se resolve ANTES de prescrever. Fica
-                 acima e separado do administrativo, que se resolve no balcão depois. -->
-            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding AlertasClinicos}"
-                          Margin="0,0,0,10">
-                <ItemsControl.Style>
-                    <Style TargetType="ItemsControl">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding AlertasClinicos.Count}" Value="0">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ItemsControl.Style>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Margin="0,0,0,6">
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Grave}" Value="True">
-                                            <Setter Property="Background"
-                                                    Value="{StaticResource Brush.Erro.Suave}" />
-                                            <Setter Property="BorderBrush"
-                                                    Value="{StaticResource Brush.Erro}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
-                                       FontWeight="SemiBold" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Alertas}"
-                          Margin="0,0,0,10">
-                <ItemsControl.Style>
-                    <Style TargetType="ItemsControl">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding Alertas.Count}" Value="0">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ItemsControl.Style>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Margin="0,0,0,6">
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Grave}" Value="True">
-                                            <Setter Property="Background"
-                                                    Value="{StaticResource Brush.Erro.Suave}" />
-                                            <Setter Property="BorderBrush"
-                                                    Value="{StaticResource Brush.Erro}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <!-- A PORTA do termo (parcela 66, 2ª rodada). O alerta acima já dizia "falta o
-                 termo assinado" com o paciente NA SALA, e não havia como colher neste app:
-                 o médico teria de descer ao balcão. Alerta sem porta no mesmo app é pior
-                 que alerta nenhum — ele ensina a pessoa a ignorá-lo (parcela 48). É a MESMA
-                 janela do balcão, não uma cópia. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,10"
-                    Visibility="{Binding TemTermoPendente, Converter={StaticResource BoolParaVisibilidade}}">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="Colher assinatura…"
-                            Style="{StaticResource BotaoSecundario}" MinWidth="170"
-                            Margin="12,0,0,0" VerticalAlignment="Center"
-                            IsEnabled="{Binding PodeColherTermo}"
-                            Command="{Binding ColherTermoCommand}" />
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                               Text="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui." />
-                </DockPanel>
-            </Border>
-
-            <!-- A porta AVULSA (parcela 66, 3ª rodada): o paciente que veio TIRAR DÚVIDAS,
-                 semanas antes do procedimento, é justamente quem lê o termo com calma. O
-                 termo vale a partir da assinatura, então não há por que esperar o dia. -->
-            <Button DockPanel.Dock="Top" Content="Colher termo do procedimento…"
-                    HorizontalAlignment="Left" Margin="0,0,0,10" MinWidth="240"
+            <!-- A porta AVULSA do termo (parcela 66, 3ª rodada): o paciente que veio TIRAR
+                 DÚVIDAS, semanas antes, é justamente quem lê com calma. Some quando há
+                 pendência — a linha de aviso abaixo traz o botão, e dois botões para o
+                 mesmo ato fazem a pessoa procurar a diferença entre eles. -->
+            <Button Content="Colher termo…" MinWidth="130"
                     ToolTip="Colher a assinatura de um termo agora, mesmo sem procedimento marcado para hoje"
                     Command="{Binding ColherTermoCommand}">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
                         <Setter Property="Visibility" Value="Visible" />
                         <Style.Triggers>
-                            <!-- Some quando há pendência: a faixa acima já traz o botão, e
-                                 dois botões para o mesmo ato na mesma tela fazem a pessoa
-                                 procurar a diferença entre eles. -->
                             <DataTrigger Binding="{Binding TemTermoPendente}" Value="True">
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
@@ -176,6 +87,81 @@
                 </Button.Style>
             </Button>
 
+            <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding AbrirMapaCommand}" MinWidth="130" Margin="8,0,0,0"
+                IsEnabled="{Binding TemPaciente}" />
+            <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0"
+                MinWidth="150"
+                IsEnabled="{Binding PodeEmitirDocumento}" />
+
+            <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA DATA desta
+                 sessão — sem o recorte, um paciente de quarenta sessões recebia quarenta. -->
+            <Button Content="Ficha do atendimento" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding ImprimirFichaCommand}" Margin="8,0,0,0"
+                MinWidth="160"
+                IsEnabled="{Binding PodeImprimirFicha}"
+                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
+        </StackPanel>
+
+            <!-- ============ AVISOS: UMA superfície, uma LINHA por aviso ============
+                 (parcela 79 — o print do cliente). Eram faixas `Alerta*` empilhadas, cada
+                 uma com 40 px de moldura própria, mais o botão do termo flutuando sozinho:
+                 a pilha que o README proíbe, no app onde a regra nasceu. O padrão é o do
+                 Novo atendimento (parcela 47): cor no traço de 3 px à esquerda, clínico
+                 antes do administrativo, e a REGIÃO INTEIRA some quando não há aviso.
+                 O peso segue a GRAVIDADE (vermelho/negrito no grave), não a categoria. -->
+            <Border DockPanel.Dock="Top" Margin="0,0,0,12" Padding="12,9"
+                    Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Medio}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding AlertasClinicos.Count}" Value="0" />
+                                    <Condition Binding="{Binding Alertas.Count}" Value="0" />
+                                    <Condition Binding="{Binding TemTermoPendente}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <!-- Alergia e uso contínuo primeiro: resolvem-se ANTES de prescrever;
+                         o administrativo se resolve no balcão depois. -->
+                    <ItemsControl ItemsSource="{Binding AlertasClinicos}"
+                                  ItemTemplate="{StaticResource LinhaAviso}" />
+                    <ItemsControl ItemsSource="{Binding Alertas}"
+                                  ItemTemplate="{StaticResource LinhaAviso}" />
+
+                    <!-- A PORTA do termo na própria linha (parcelas 48 e 66): alerta sem
+                         porta no mesmo app ensina a pessoa a ignorá-lo. É a MESMA janela
+                         do balcão, não uma cópia. -->
+                    <Grid Margin="0,3"
+                          Visibility="{Binding TemTermoPendente, Converter={StaticResource BoolParaVisibilidade}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" CornerRadius="2"
+                                Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                        <TextBlock Grid.Column="1" Margin="10,0,12,0" TextWrapping="Wrap"
+                                   VerticalAlignment="Center" FontWeight="SemiBold"
+                                   Text="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui." />
+                        <Button Grid.Column="2" Content="Colher assinatura…"
+                                Style="{StaticResource BotaoSecundario}" MinWidth="160"
+                                VerticalAlignment="Center"
+                                IsEnabled="{Binding PodeColherTermo}"
+                                Command="{Binding ColherTermoCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- Rodapé fora do scroll: o Salvar não some quando a evolução fica longa.
                  UM primário na tela — o resto é secundário, senão nada é primário. -->
             <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
@@ -184,12 +170,34 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
-                               Margin="0,0,12,0"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               Text="A EVA vale em par: registre o depois ao terminar a sessão." />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- A MENSAGEM mora AQUI, no lugar da dica, e não numa faixa no topo
+                         (parcela 79): quem mais a escreve é o Salvar, que está ao lado — e
+                         a faixa lá em cima aparecia longe do clique e empurrava o
+                         formulário (a lição da parcela 65: ninguém tenta três vezes se a
+                         mensagem chegou). Quem decide se APARECE é o texto; quem decide a
+                         COR é a gravidade (parcela 62). Quando presente, ela cobre a dica —
+                         mesmo lugar, fundo opaco. -->
+                    <Grid Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   Text="A EVA vale em par: registre o depois ao terminar a sessão." />
+                        <Border Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                             FallbackValue=Collapsed}">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                        </Border>
+                    </Grid>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="Repetir última conduta"
                                 Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding RepetirUltimaCommand}"

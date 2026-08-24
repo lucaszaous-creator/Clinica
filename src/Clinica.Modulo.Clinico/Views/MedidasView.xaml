@@ -113,9 +113,15 @@
                         </Grid>
 
                         <!-- As três leituras juntas, à esquerda: espalhá-las por mil
-                             pixels transformava três números em três traços perdidos. -->
+                             pixels transformava três números em três traços perdidos.
+                             ⚠️ E SEM série elas SOMEM (parcela 79): três traços "—" sobre
+                             uma frase que já diz "nenhuma colheita" eram duas respostas
+                             para a mesma pergunta — a régua vazia se lê como tela quebrada,
+                             não como paciente sem medida. A mesma regra do gráfico abaixo. -->
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
-                                    Margin="0,0,0,10">
+                                    Margin="0,0,0,10"
+                                    Visibility="{Binding TemSerie,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
                             <StackPanel Margin="0,0,28,0">
                                 <TextBlock Text="PRIMEIRA" Style="{StaticResource CardKpi.Rotulo}" />
                                 <TextBlock Text="{Binding Primeiro}" TextWrapping="Wrap"
