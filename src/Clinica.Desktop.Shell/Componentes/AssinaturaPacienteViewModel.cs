@@ -52,6 +52,12 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     /// </summary>
     private readonly AcessoProntuarioService? _acessos;
 
+    /// <summary>
+    /// A lista de problemas — a MORADA da alergia (parcela 80). Opcional pelo mesmo
+    /// motivo do <see cref="_acessos"/>; sem ele a região de alergia não aparece.
+    /// </summary>
+    private readonly ProblemaPacienteService? _problemas;
+
     public AssinaturaPacienteViewModel(
         DocumentoClinicoService documentos,
         AssinaturaDoPacienteService assinaturas,
@@ -62,13 +68,15 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         int? documentoExistenteId = null,
         int? profissionalId = null,
         AcessoProntuarioService? acessos = null,
-        ParametrosService? parametros = null)
+        ParametrosService? parametros = null,
+        ProblemaPacienteService? problemas = null)
     {
         _documentos = documentos;
         _assinaturas = assinaturas;
         _dialogo = dialogo;
         _acessos = acessos;
         _parametros = parametros;
+        _problemas = problemas;
         _pacienteId = pacienteId;
         _modeloId = modeloId;
         _profissionalId = profissionalId;
@@ -150,6 +158,135 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     /// </summary>
     public bool PodeColher => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
 
+    // ==================== Alergia — o destaque antes da assinatura (parcela 80) ====================
+    //
+    // Pedido da clínica: "antes da assinatura um ponto de destaque grande pra documentar
+    // alergia... que a técnica possa relatar ali... porque dali o paciente já tem que sair
+    // com uma pulseira de alergia".
+    //
+    // ⚠️ O que se registra aqui NÃO é um campo do termo: vai para a LISTA DE PROBLEMAS
+    // (`NaturezaProblema.Alergia`), que é a morada única da alergia — é ela que acende os
+    // alertas nas quatro telas e RECUSA a assinatura de uma prescrição. Um texto guardado
+    // no termo seria uma segunda verdade, e a que ninguém lembraria de atualizar é
+    // justamente a que o alerta lê (a regra da parcela 75).
+    //
+    // Pela mesma razão, a alergia NÃO entra no conteúdo selado nem na tela do paciente:
+    // o selo cobre o que o PACIENTE declarou e assinou; a alergia é registro clínico de
+    // quem a colheu, com a trilha própria da lista de problemas.
+
+    /// <summary>As alergias do paciente, formatadas. Alergia alerta MESMO dada por
+    /// resolvida (parcela 37) — só o descarte a cala, e o filtro é o mesmo do
+    /// <c>AlertasAsync</c>.</summary>
+    public ObservableCollection<string> Alergias { get; } = [];
+
+    /// <summary>Dado de saúde (art. 5º, II): quem não pode ler o prontuário não vê a
+    /// região — anunciá-la contaria que existem alergias (a regra da parcela 59).</summary>
+    public bool PodeVerAlergias =>
+        _problemas is not null && SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>Escreve quem escreve registro clínico: o médico (prontuário) ou a
+    /// técnica (o precedente da evolução de enfermagem, parcela 71).</summary>
+    public bool PodeRegistrarAlergia => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem);
+
+    [ObservableProperty] private string _novaAlergia = string.Empty;
+
+    /// <summary>Terceiro estado (a regra de sempre): a leitura falhou, e "sem alergia" e
+    /// "não deu para conferir" são respostas diferentes — a segunda manda PERGUNTAR.</summary>
+    [ObservableProperty] private bool _alergiasNaoConferidas;
+
+    public bool TemAlergia => Alergias.Count > 0;
+
+    /// <summary>Conferido e vazio — é o que dispara a frase "pergunte ao paciente".</summary>
+    public bool SemAlergiaConferida => !TemAlergia && !AlergiasNaoConferidas;
+
+    private void AvisarAlergiasMudaram()
+    {
+        OnPropertyChanged(nameof(TemAlergia));
+        OnPropertyChanged(nameof(SemAlergiaConferida));
+    }
+
+    partial void OnAlergiasNaoConferidasChanged(bool value)
+        => OnPropertyChanged(nameof(SemAlergiaConferida));
+
+    private static string FormatarAlergia(ProblemaPaciente p)
+        => p.EstaAtivo
+            ? p.Descricao
+            // "Resolvida" numa alergia é quase sempre "não reagiu da última vez" — o
+            // aviso continua, com a ressalva escrita (parcela 37).
+            : $"{p.Descricao} (dada por resolvida — o alerta continua)";
+
+    private async Task CarregarAlergiasAsync()
+    {
+        if (!PodeVerAlergias) return;
+
+        try
+        {
+            var alertas = await _problemas!.AlertasAsync(_pacienteId);
+            Alergias.Clear();
+            foreach (var a in alertas.Where(p => p.Natureza == NaturezaProblema.Alergia))
+                Alergias.Add(FormatarAlergia(a));
+            AlergiasNaoConferidas = false;
+        }
+        catch (Exception ex)
+        {
+            // Banco lento não trava o paciente na frente do balcão — mas a região diz
+            // que NÃO conferiu, porque região vazia por falha se lê como "sem alergia".
+            AlergiasNaoConferidas = true;
+            Application.Diagnostico.Registrar(
+                "Assinatura do paciente — alergias não puderam ser conferidas", ex);
+        }
+
+        AvisarAlergiasMudaram();
+    }
+
+    /// <summary>
+    /// Registra na LISTA DE PROBLEMAS o que o paciente relatou agora. Não depende do
+    /// desfecho do termo: a alergia é verdadeira mesmo que ele acabe recusando assinar.
+    /// </summary>
+    [RelayCommand]
+    private async Task RegistrarAlergiaAsync()
+    {
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem,
+            "registrar a alergia na lista de problemas");
+
+        if (_problemas is null) return;
+
+        if (string.IsNullOrWhiteSpace(NovaAlergia))
+        {
+            MensagemEhErro = true;
+            Mensagem = "Escreva a que o paciente é alérgico (ex.: dipirona) antes de registrar.";
+            return;
+        }
+
+        try
+        {
+            await _problemas.SalvarAsync(new ProblemaPaciente
+            {
+                PacienteId = _pacienteId,
+                Natureza = NaturezaProblema.Alergia,
+                Descricao = NovaAlergia.Trim(),
+                ProfissionalId = _profissionalId
+            }, SessaoUsuario.Atual.Operador);
+
+            Alergias.Add(NovaAlergia.Trim());
+            NovaAlergia = string.Empty;
+            AvisarAlergiasMudaram();
+
+            MensagemEhErro = false;
+            Mensagem = "Alergia registrada na lista de problemas — ela passa a alertar em toda "
+                     + "prescrição deste paciente. Coloque a pulseira de alergia antes do procedimento.";
+        }
+        catch (Exception ex)
+        {
+            MensagemEhErro = true;
+            Mensagem = ex.Message;
+            Application.Diagnostico.Registrar(
+                "Assinatura do paciente — alergia não pôde ser registrada", ex);
+        }
+    }
+
     /// <summary>
     /// O botão de confirmar acende quando há traço, documento conferido e permissão. Cada
     /// uma das três tem a recusa escrita no comando — botão apagado que não diz por quê é
@@ -226,6 +363,8 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
                 linha.PropertyChanged += AoMudarDeclaracao;
                 Declaracoes.Add(linha);
             }
+
+            await CarregarAlergiasAsync();
 
             TelaDoPaciente = await ResolverTelaDoPacienteAsync();
 

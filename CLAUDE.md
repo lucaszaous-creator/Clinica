@@ -5554,3 +5554,39 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A regra que fica: **pilha dentro de filho ancorado de janela FIXA é a checagem 36 sem a
   checagem** — ao ancorar um bloco que cresce com um checkbox, o elemento que cresce vira o
   filho que PREENCHE (com piso baixo), nunca uma altura fixa somada a vizinhos.
+
+- **A ALERGIA NO TERMO DO BSV: o destaque vermelho antes da assinatura, e por que ele NÃO
+  é um campo do termo** (parcela 80 — pedido da cliente: *"antes da assinatura um ponto de
+  destaque grande pra documentar alergia... em vermelho, que chame atenção, que a técnica
+  possa relatar ali também... porque dali o paciente já tem que sair com uma pulseira de
+  alergia"*). A janela de coleta (`AssinaturaPacienteWindow`, ponto único das quatro
+  portas) ganhou uma região VERMELHA entre as declarações e a área de assinar — antes da
+  assinatura porque a pergunta tem HORA: depois de assinado o paciente levanta, e ele tem
+  de levantar COM a pulseira.
+  As decisões, e cada uma é uma regra da casa aplicada:
+  (a) **O que a técnica relata ali vai para a LISTA DE PROBLEMAS** (`NaturezaProblema.
+  Alergia`, via `ProblemaPacienteService.SalvarAsync` — validação, auditoria e gravação
+  atômica). A alergia tem morada ÚNICA (parcela 75): é a lista que acende os alertas nas
+  quatro telas e RECUSA a assinatura de prescrição — um texto guardado no termo seria uma
+  segunda verdade, e a que ninguém lembraria de atualizar é justamente a que o alerta lê.
+  É também o que faz a pulseira valer além do papel: o alerta segue o paciente em toda
+  prescrição futura.
+  (b) **A região mostra as alergias JÁ registradas** (o filtro do `AlertasAsync`: alergia
+  alerta MESMO dada por resolvida; só o descarte cala) e **a instrução operacional** em
+  negrito vermelho quando há alguma: "ele sai daqui com a PULSEIRA DE ALERGIA no braço".
+  Vazia e conferida, ela manda PERGUNTAR — a região existe para forçar a pergunta, não
+  para decorar.
+  (c) **Falha de leitura é terceiro estado**, nunca região vazia: "sem alergia" e "não deu
+  para conferir" são respostas diferentes, e a segunda manda perguntar e registrar.
+  (d) **Leitura sob `VerProntuario`** (dado de saúde, art. 5º, II — quem não pode ler não
+  vê a região: anunciá-la contaria que existem alergias, a regra da parcela 59); **escrita
+  sob `EditarProntuario` OU `RegistrarEvolucaoEnfermagem`** (`ExigirAlgum` — o precedente
+  da evolução de enfermagem: a técnica escreve alergia pelo bit dela). O perfil Enfermagem
+  tem os dois lados; a recepcionista não vê nem escreve.
+  (e) **O registro não depende do desfecho do termo**: a alergia é verdadeira mesmo que o
+  paciente recuse assinar — botão próprio, gravação imediata, confirmação que já manda
+  colocar a pulseira.
+  (f) **Nada entra no conteúdo SELADO nem na tela do paciente**: o selo cobre o que o
+  paciente declarou e assinou; a alergia é registro clínico de quem a colheu, com a trilha
+  própria da lista de problemas. Mexer no selo seria mexer na evidência por causa de um
+  destaque de tela.
