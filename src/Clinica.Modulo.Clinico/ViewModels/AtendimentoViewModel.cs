@@ -207,7 +207,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private int? _evaAntes;
     [ObservableProperty] private int? _evaDepois;
 
-    [ObservableProperty] private string? _queixaPrincipal;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SubjetivoPreenchido))]
+    private string? _queixaPrincipal;
 
     // ---- O registro do ATENDIMENTO (parcela 73) ----
     //
@@ -216,15 +218,56 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     // RECOLHIDA — a sessão curta de manutenção continua sendo queixa + conduta, e obrigar
     // quem faz vinte por dia a preencher anamnese faria a clínica escrever "idem" em todas.
 
-    /// <summary>A seção da anamnese está aberta. Abre sozinha quando a sessão já a tem.</summary>
-    [ObservableProperty] private bool _detalharAtendimento;
+    // ==================== As quatro abas da sessão (parcela 77) ====================
+    //
+    // A ficha era UMA coluna de rolagem com nove campos: quem escrevia perdia o começo de
+    // vista ao chegar no fim, e a seção da parcela 73 tinha virado um Expander RECOLHIDO —
+    // isto é, metade do registro clínico escondida atrás de um clique que ninguém dá.
+    //
+    // A divisão é o S-O-A-P, que é como todo prontuário do mundo se organiza e — não por
+    // acaso — é a mesma forma das cinco etapas da COFEN do lado da enfermagem: o que a
+    // pessoa DIZ, o que se ACHA nela, o que isso É, e o que se vai FAZER.
+    //
+    // ⚠️ Sub-aba ESCONDE campo, e esconder campo de prontuário é como se escreve menos sem
+    // perceber. É por isso que cada aba anuncia se TEM conteúdo: o ponto no rótulo é visível
+    // de qualquer aba, e é ele que denuncia o "Subjetivo" vazio de quem foi direto ao Plano.
+    // Sem esse indicador a reorganização seria uma troca de leiaute que piora o registro.
 
-    [ObservableProperty] private string? _historiaDoencaAtual;
-    [ObservableProperty] private string? _exameFisico;
-    [ObservableProperty] private string? _hipoteseDiagnostica;
+    /// <summary>O que a pessoa DIZ — queixa e história da doença atual.</summary>
+    public bool SubjetivoPreenchido =>
+        !string.IsNullOrWhiteSpace(QueixaPrincipal)
+        || !string.IsNullOrWhiteSpace(HistoriaDoencaAtual);
+
+    /// <summary>O que se ACHOU nela — o exame físico. (Os sinais vitais são leitura.)</summary>
+    public bool ObjetivoPreenchido => !string.IsNullOrWhiteSpace(ExameFisico);
+
+    /// <summary>O que isso É — hipótese e CID.</summary>
+    public bool AvaliacaoPreenchida =>
+        !string.IsNullOrWhiteSpace(HipoteseDiagnostica)
+        || !string.IsNullOrWhiteSpace(CidSessao);
+
+    /// <summary>O que se vai FAZER — conduta, evolução, orientações e plano.</summary>
+    public bool PlanoPreenchido =>
+        !string.IsNullOrWhiteSpace(Conduta)
+        || !string.IsNullOrWhiteSpace(TextoEvolucao)
+        || !string.IsNullOrWhiteSpace(Orientacoes)
+        || !string.IsNullOrWhiteSpace(PlanoTerapeutico);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SubjetivoPreenchido))]
+    private string? _historiaDoencaAtual;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ObjetivoPreenchido))]
+    private string? _exameFisico;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AvaliacaoPreenchida))]
+    private string? _hipoteseDiagnostica;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DescricaoCid))]
+    [NotifyPropertyChangedFor(nameof(AvaliacaoPreenchida))]
     private string? _cidSessao;
 
     /// <summary>
@@ -254,15 +297,25 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             CidSessao = escolhido;
     }
 
-    [ObservableProperty] private string? _conduta;
-    [ObservableProperty] private string? _textoEvolucao;
-    [ObservableProperty] private string? _orientacoes;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private string? _conduta;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private string? _textoEvolucao;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private string? _orientacoes;
 
     /// <summary>
     /// O PLANO: o que vem pela frente. Ver <c>Evolucao.PlanoTerapeutico</c> para por que ele
     /// não é a conduta nem a orientação.
     /// </summary>
-    [ObservableProperty] private string? _planoTerapeutico;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private string? _planoTerapeutico;
 
     /// <summary>
     /// Os sinais vitais que a ENFERMAGEM aferiu no dia desta sessão — leitura, nunca coleta.
@@ -778,14 +831,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         Orientacoes = e.Orientacoes;
         PlanoTerapeutico = e.PlanoTerapeutico;
 
-        // ⚠️ A seção ABRE quando a sessão já tem o que mostrar. Recolhida sobre conteúdo
-        // escrito, ela esconderia a anamnese de quem voltou para reler — e a pessoa
-        // concluiria que o registro se perdeu.
-        DetalharAtendimento =
-            !string.IsNullOrWhiteSpace(e.HistoriaDoencaAtual)
-            || !string.IsNullOrWhiteSpace(e.ExameFisico)
-            || !string.IsNullOrWhiteSpace(e.HipoteseDiagnostica)
-            || !string.IsNullOrWhiteSpace(e.CidSessao);
+        // ⚠️ Nada mais precisa ser "aberto": as quatro abas mostram sozinhas quais têm
+        // conteúdo, pelo ponto no rótulo. O Expander recolhido escondia metade do registro
+        // clínico de quem voltava para reler — e a pessoa concluía que ele se perdeu.
     }
 
     /// <summary>
@@ -823,7 +871,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         TextoEvolucao = null;
         Orientacoes = null;
         PlanoTerapeutico = null;
-        DetalharAtendimento = false;
     }
 
     /// <summary>

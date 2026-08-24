@@ -5242,3 +5242,38 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ao escrever CADA trecho, e o diff inteiro se relê UMA vez antes do commit.** São conferências
   diferentes — a primeira olha a linha, a segunda olha o que sobrou. Nenhuma das duas é rodada
   de agentes, e as duas cabem em minutos.
+
+- **As duas fichas eram UMA rolagem só, e a do médico escondia metade do registro atrás de
+  um Expander recolhido** (parcela 77 — a direção pediu reorganização de abas e sub-abas nas
+  fichas de atendimento). As duas viraram **sub-abas**, e a forma não foi inventada:
+  **S-O-A-P** do lado do médico (o que a pessoa DIZ, o que se ACHA nela, o que isso É, o que
+  se vai FAZER) e as **cinco etapas numeradas da COFEN 358/2009** do lado da enfermagem. Não
+  por acaso são a mesma forma — e ver as duas fichas com a mesma estrutura é o que faz o
+  prontuário parecer um só sistema.
+  ⚠️ **Sub-aba ESCONDE campo, e campo escondido de prontuário é como se escreve menos sem
+  perceber.** É a única objeção séria à reorganização, e ela precisa de resposta no desenho,
+  não de boa vontade: cada aba do médico anuncia se TEM conteúdo, com um ponto no rótulo que
+  se vê de qualquer aba. É ele que denuncia o "Subjetivo" vazio de quem foi direto ao Plano.
+  Sem esse indicador, dividir em abas seria trocar leiaute por registro mais pobre.
+  ⚠️ **E a ficha da enfermagem NÃO ganhou o ponto — de propósito.** Ali já existe a faixa
+  `EtapasEmFalta`, que NOMEIA a etapa que falta. Um segundo indicador seria uma segunda
+  resposta para a mesma pergunta: **um estado vazio por pergunta** (parcela 37). A regra é
+  "resolva a objeção", não "aplique o mesmo widget nos dois lados".
+  ⚠️ **A altura fixa do `TabControl` da enfermagem conserta um defeito, não é estética.**
+  Marcar "Consulta de enfermagem" abria as cinco etapas dentro de um `StackPanel` sem teto,
+  numa janela de altura FIXA: o compositor crescia e espremia a **linha do tempo** — que é
+  justamente o que se lê ANTES de escrever — até ela sumir. Cada aba rola por dentro.
+  ⚠️ **O Expander recolhido era pior que a rolagem.** Os cinco campos da parcela 73 nasciam
+  escondidos atrás de um clique que ninguém dá — metade do registro clínico invisível por
+  padrão. Aba vazia se vê; seção recolhida, não.
+
+- **A checagem 24 acusava `Text` LITERAL por causa de um binding no vizinho** (parcela 77):
+  ela procurava a palavra "Binding" **na tag inteira**, então um `<TextBlock Text="●"
+  Visibility="{Binding ...}" />` — o indicador das abas da sessão — era reclamado como "texto
+  do banco sem quebra". A regra dela é "texto do BANCO tem tamanho imprevisível"; um literal
+  o programador mede ao escrever, tenha ele binding no `Visibility`, no `Foreground` ou em
+  nada. Passou a olhar o atributo `Text`, com autoteste nos dois sentidos.
+  A lição vale para toda checagem futura: **quando ela reclamar do que está certo, o defeito
+  é dela.** Silenciar o aviso acrescentando o atributo pedido é o caminho fácil e é o que
+  ensina a próxima pessoa a ignorá-la — e checagem que se ignora para de pegar o defeito de
+  verdade.

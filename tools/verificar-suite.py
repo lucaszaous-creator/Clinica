@@ -1671,6 +1671,47 @@ LIMPOS = (
 )
 
 
+_TEXT_DO_TEXTBLOCK = re.compile(r'\bText\s*=\s*"((?:[^"]|\n)*?)"', re.S)
+
+
+def _texto_amarrado(tag: str) -> bool:
+    """O `Text` DESTE TextBlock vem de um `{Binding}`?
+
+    ⚠️ Olha o atributo `Text`, e não a tag inteira. A primeira versão procurava "Binding"
+    em qualquer lugar da abertura, e por isso acusava um `Text` LITERAL só porque a mesma
+    tag tinha `Visibility="{Binding ...}"` ao lado — o indicador "●" das abas da sessão
+    (parcela 77) foi o caso que a revelou. A regra é "texto do BANCO tem tamanho
+    imprevisível"; um literal o programador mede ao escrever, tenha ele binding no
+    Visibility, no Foreground ou em nada.
+
+    Checagem que reclama do que está certo é checagem que alguém desliga — e aí ela para
+    de pegar o defeito de verdade.
+    """
+    m = _TEXT_DO_TEXTBLOCK.search(tag)
+    return m is not None and "{Binding" in m.group(1)
+
+
+# --- autoteste do `_texto_amarrado` (checagem 24) ---
+#
+# Os dois sentidos no mesmo lugar, pela lição da parcela 66: o sentido que você deixar de
+# fora é o que a próxima pessoa vai cometer. O 2º caso é o que a primeira versão errava.
+for _cenario, _tag, _esperado in (
+    ("Text do banco", '<TextBlock Text="{Binding Nome}" />', True),
+    ("Text literal com binding no Visibility",
+     '<TextBlock Text="&#x25CF;" Visibility="{Binding Tem, Converter={StaticResource C}}" />',
+     False),
+    ("Text literal puro", '<TextBlock Text="Subjetivo" />', False),
+    ("binding de Text quebrado em duas linhas",
+     '<TextBlock Text="{Binding Mensagem,\n    Converter={StaticResource C}}" />', True),
+    ("sem Text nenhum", '<TextBlock Style="{StaticResource X}" />', False),
+):
+    if _texto_amarrado(_tag) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 24 mudou de resposta ({_cenario}) — "
+            f"leu {_texto_amarrado(_tag)}, esperado {_esperado}."
+        )
+
+
 def _estilos_que_ja_resolvem() -> set[str]:
     """
     Os estilos de TextBlock que já tratam o estouro no PRÓPRIO estilo.
@@ -1737,7 +1778,7 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
 
     for achado in TEXTBLOCK_ABERTURA.finditer(corpo):
         tag = achado.group(0)
-        if "Binding" in tag and "TextWrapping" not in tag and "TextTrimming" not in tag:
+        if _texto_amarrado(tag) and "TextWrapping" not in tag and "TextTrimming" not in tag:
             suspeitos.append((achado.start(), tag))
 
     for achado in TEXTBLOCK_COM_FILHOS.finditer(corpo):
