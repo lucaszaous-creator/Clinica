@@ -321,6 +321,31 @@ public class EvolucaoEnfermagem
         }
     }
 
+    /// <summary>
+    /// As evoluções VIGENTES de uma lista: fora as canceladas, e fora as que já foram
+    /// retificadas por outra.
+    ///
+    /// ⚠️ Pública e estática porque a regra tem DOIS leitores — a curva de pressão
+    /// (<c>MedidaClinicaService</c>) e os sinais vitais que a tela de atendimento mostra ao
+    /// médico. Duas definições de "qual registro vale" divergem na primeira correção, e a
+    /// que ninguém lembra de ajustar é a que passa a responder com um número DESDITO.
+    ///
+    /// A lista chega da mais recente para a mais antiga e sai na mesma ordem: quem ordena é
+    /// o SQL do repositório, e reordenar aqui daria uma segunda resposta para "a última".
+    /// </summary>
+    public static IEnumerable<EvolucaoEnfermagem> Vigentes(
+        IEnumerable<EvolucaoEnfermagem> todas)
+    {
+        var lista = todas as IReadOnlyCollection<EvolucaoEnfermagem> ?? todas.ToList();
+
+        var substituidas = lista
+            .Where(e => e.RetificaEvolucaoId is not null)
+            .Select(e => e.RetificaEvolucaoId!.Value)
+            .ToHashSet();
+
+        return lista.Where(e => !e.Cancelada && !substituidas.Contains(e.Id));
+    }
+
     /// <summary>"120x80", ou nulo quando a pressão não foi aferida.</summary>
     public string? PressaoArterial => PressaoSistolica is { } s && PressaoDiastolica is { } d
         ? $"{s}x{d}"

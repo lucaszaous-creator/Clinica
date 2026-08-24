@@ -29,6 +29,15 @@
                     IsEnabled="{Binding PodeMexer}" />
         </StackPanel>
 
+        <!-- O que este modelo traz e ESTA tela não vai aplicar. Some quando não há o que
+             dizer: aviso que aparece sempre é aviso que ninguém lê. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Style="{StaticResource AlertaAviso}"
+                Visibility="{Binding AvisoDoModelo, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <TextBlock Text="{Binding AvisoDoModelo}" TextWrapping="Wrap" />
+        </Border>
+
         <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. -->
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
                 Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},

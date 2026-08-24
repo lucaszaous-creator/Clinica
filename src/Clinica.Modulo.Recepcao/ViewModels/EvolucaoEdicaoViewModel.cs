@@ -80,7 +80,13 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
         var vm = new ModelosEvolucaoViewModel(
             _escopos,
             Profissional?.Id ?? SessaoUsuario.Atual.ProfissionalId,
-            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes));
+            // ⚠️ `sessaoCompleta: false` — esta janela mostra QUATRO campos. Os cinco da
+            // consulta (história, exame físico, hipótese, CID e plano) ela PRESERVA sem
+            // exibir, e por isso não os oferece nem os aplica: gravar aqui um texto que a
+            // pessoa não viu é escrever no prontuário às cegas. A janela DIZ isso quando o
+            // modelo escolhido os traz, em vez de descartá-los calada.
+            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes),
+            sessaoCompleta: false);
 
         var janela = new ModelosEvolucaoWindow(vm)
         {

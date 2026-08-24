@@ -265,6 +265,26 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private string? _planoTerapeutico;
 
     /// <summary>
+    /// Os sinais vitais que a ENFERMAGEM aferiu no dia desta sessão — leitura, nunca coleta.
+    ///
+    /// A clínica disse que todo paciente passa pela enfermagem: a PA e a temperatura são
+    /// colhidas minutos antes, e até a parcela 76 quem prescreve escrevia a sessão sem elas
+    /// na frente. Colher AQUI daria dois lugares para gravar a mesma aferição.
+    ///
+    /// ⚠️ Três estados, e os três são escritos: aferido (com a procedência ao lado), NÃO
+    /// aferido naquele dia, e não foi possível conferir. Deixar em branco quando a leitura
+    /// falha faria "ninguém mediu" e "o banco não respondeu" ficarem idênticos — e num campo
+    /// de sinais vitais essa confusão é do tipo que muda conduta.
+    /// </summary>
+    [ObservableProperty] private string _sinaisVitaisTexto = string.Empty;
+
+    /// <summary>"às 09:12, por Joana Técnica (COREN-SP 999999)". Vazio quando não há aferição.</summary>
+    [ObservableProperty] private string _sinaisVitaisProcedencia = string.Empty;
+
+    /// <summary>Há aferição de verdade — o que separa o número do recado de que não há número.</summary>
+    [ObservableProperty] private bool _sinaisVitaisAferidos;
+
+    /// <summary>
     /// O roteiro da sessão que se repete (parcela 63) — a MESMA janela da Recepção, no
     /// shell. Era aqui que ela fazia mais falta: quem escreve dez evoluções por dia é
     /// quem atende, e a sessão de acupuntura tem sempre a mesma forma.
@@ -279,7 +299,10 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         var vm = new ModelosEvolucaoViewModel(
             _escopos,
             SessaoUsuario.Atual.ProfissionalId,
-            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes));
+            new ModeloAplicado(
+                QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes,
+                HistoriaDoencaAtual, ExameFisico, HipoteseDiagnostica,
+                CidSessao, PlanoTerapeutico));
 
         var janela = new ModelosEvolucaoWindow(vm)
         {
@@ -294,6 +317,15 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(m.Conduta)) Conduta = m.Conduta;
         if (!string.IsNullOrWhiteSpace(m.TextoEvolucao)) TextoEvolucao = m.TextoEvolucao;
         if (!string.IsNullOrWhiteSpace(m.Orientacoes)) Orientacoes = m.Orientacoes;
+
+        // Esta tela edita os NOVE campos, então ela aplica os nove — é o que faz o roteiro
+        // valer a pena depois das parcelas 73 e 75. Mesma regra do bloco acima: preenche o
+        // que está vazio, nunca zera o que o profissional acabou de escrever.
+        if (!string.IsNullOrWhiteSpace(m.HistoriaDoencaAtual)) HistoriaDoencaAtual = m.HistoriaDoencaAtual;
+        if (!string.IsNullOrWhiteSpace(m.ExameFisico)) ExameFisico = m.ExameFisico;
+        if (!string.IsNullOrWhiteSpace(m.HipoteseDiagnostica)) HipoteseDiagnostica = m.HipoteseDiagnostica;
+        if (!string.IsNullOrWhiteSpace(m.CidSessao)) CidSessao = m.CidSessao;
+        if (!string.IsNullOrWhiteSpace(m.PlanoTerapeutico)) PlanoTerapeutico = m.PlanoTerapeutico;
     }
 
     /// <summary>De onde veio a sessão: chamada do dia, ou escolhida na busca.</summary>
@@ -480,6 +512,15 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             await CarregarAlertasAsync(scope.ServiceProvider, geracao);
             if (geracao != _geracaoCarga) return;
 
+            // A data é a da SESSÃO que está na tela, nunca hoje: a dívida de prontuário e a
+            // Minha semana abrem horários de dias passados, e a aferição de hoje ao lado da
+            // sessão de terça diria que aquela PA foi medida nesta consulta.
+            await CarregarSinaisVitaisAsync(
+                scope.ServiceProvider,
+                doHorario?.Data ?? _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today),
+                geracao);
+            if (geracao != _geracaoCarga) return;
+
             // O mapa vem depois de resolvida a evolução do horário: ele precisa saber
             // se está editando uma sessão já escrita (e então carrega os pontos dela) ou
             // começando uma nova.
@@ -510,6 +551,47 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
             if (geracao == _geracaoCarga) Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Lê os sinais vitais da enfermagem para o dia desta sessão.
+    ///
+    /// Falha SOZINHA, pela mesma razão dos alertas: quem está na sala é o paciente, e uma
+    /// leitura de enfermagem que não respondeu não pode impedir a consulta de abrir. Mas
+    /// também não passa calada — vira o terceiro estado na tela, e vai para o log.
+    /// </summary>
+    private async Task CarregarSinaisVitaisAsync(
+        IServiceProvider provedor, DateOnly dataDaSessao, int geracao)
+    {
+        try
+        {
+            var vitais = await provedor.GetRequiredService<ConsultorioService>()
+                .SinaisVitaisDaSessaoAsync(PacienteId, dataDaSessao);
+
+            if (geracao != _geracaoCarga) return;
+
+            if (vitais is null)
+            {
+                SinaisVitaisAferidos = false;
+                SinaisVitaisProcedencia = string.Empty;
+                SinaisVitaisTexto = "Sem aferição da enfermagem neste dia.";
+                return;
+            }
+
+            SinaisVitaisAferidos = true;
+            SinaisVitaisTexto = vitais.Resumo;
+            SinaisVitaisProcedencia = vitais.Procedencia;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+
+            SinaisVitaisAferidos = false;
+            SinaisVitaisProcedencia = string.Empty;
+            SinaisVitaisTexto = "Não foi possível conferir os sinais vitais da enfermagem.";
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — sinais vitais da enfermagem não puderam ser lidos", ex);
         }
     }
 

@@ -185,6 +185,71 @@ public class ModeloEvolucaoTests : IDisposable
         modelos.Should().ContainSingle().Which.Conduta.Should().Be("segunda versão");
     }
 
+    // ==================== Os nove campos (parcela 76) ====================
+
+    /// <summary>
+    /// ⚠️ O teste que o lugar 3 da auditoria de linha pede: <c>SalvarModeloAsync</c> copia
+    /// CAMPO A CAMPO quando o nome já existe, e o que ficar de fora da lista é APAGADO ao
+    /// regravar. A criação continua funcionando, que é o que esconde o defeito — foi assim
+    /// que o modelo ficou com quatro campos enquanto a evolução passou a ter nove.
+    ///
+    /// Ele FALHA se alguém acrescentar um campo ao modelo e esquecer a cópia.
+    /// </summary>
+    [Fact]
+    public async Task Regravar_pelo_nome_preserva_os_cinco_campos_da_consulta()
+    {
+        await _prontuario.SalvarModeloAsync(new ModeloEvolucao
+        {
+            Nome = "Sessão padrão",
+            Conduta = "primeira versão",
+            HistoriaDoencaAtual = "lombalgia há 6 meses",
+            ExameFisico = "Lasègue negativo",
+            HipoteseDiagnostica = "lombalgia mecânica",
+            CidSessao = "M54.5",
+            PlanoTerapeutico = "10 sessões, reavaliar na 5ª"
+        }, "ana");
+
+        await _prontuario.SalvarModeloAsync(new ModeloEvolucao
+        {
+            Nome = "Sessão padrão",
+            Conduta = "segunda versão",
+            HistoriaDoencaAtual = "lombalgia há 8 meses",
+            ExameFisico = "Lasègue negativo",
+            HipoteseDiagnostica = "lombalgia mecânica",
+            CidSessao = "M54.5",
+            PlanoTerapeutico = "10 sessões, reavaliar na 5ª"
+        }, "ana");
+
+        var m = (await _prontuario.ModelosAsync()).Should().ContainSingle().Subject;
+
+        m.Conduta.Should().Be("segunda versão");
+        m.HistoriaDoencaAtual.Should().Be("lombalgia há 8 meses",
+            "o que não entrar na cópia campo a campo é apagado ao regravar");
+        m.ExameFisico.Should().Be("Lasègue negativo");
+        m.HipoteseDiagnostica.Should().Be("lombalgia mecânica");
+        m.CidSessao.Should().Be("M54.5");
+        m.PlanoTerapeutico.Should().Be("10 sessões, reavaliar na 5ª");
+    }
+
+    /// <summary>
+    /// Modelo só com os campos NOVOS não é modelo vazio. Sem os cinco em
+    /// <c>TemConteudo</c>, um roteiro de exame físico e plano seria recusado na gravação
+    /// dizendo que não tem nenhuma linha preenchida — com cinco linhas preenchidas.
+    /// </summary>
+    [Fact]
+    public async Task Modelo_so_com_exame_e_plano_e_aceito()
+    {
+        await _prontuario.SalvarModeloAsync(new ModeloEvolucao
+        {
+            Nome = "Só o exame",
+            ExameFisico = "Inspeção: sem alterações. Palpação: dor em L4-L5.",
+            PlanoTerapeutico = "Reavaliar em 4 semanas."
+        }, "ana");
+
+        (await _prontuario.ModelosAsync()).Should().ContainSingle()
+            .Which.ExameFisico.Should().Contain("L4-L5");
+    }
+
     // ==================== As recusas ====================
 
     /// <summary>

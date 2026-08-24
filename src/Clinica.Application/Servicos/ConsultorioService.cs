@@ -329,6 +329,38 @@ public sealed class ConsultorioService
     /// cala, porque descartar exige motivo escrito e é a afirmação de que o registro
     /// estava errado.
     /// </summary>
+    /// <summary>
+    /// Os sinais vitais que a enfermagem aferiu NO DIA desta sessão. Nulo quando não houve
+    /// aferição naquele dia.
+    ///
+    /// ⚠️ É o dia da SESSÃO, nunca hoje: a dívida de prontuário e a semana abrem horários
+    /// de dias passados, e mostrar a aferição de hoje ao lado da sessão de terça diria que
+    /// aquela PA foi medida na consulta que está sendo escrita.
+    ///
+    /// ⚠️ Só o dia da sessão, e é decisão: aferição antiga tem casa — a curva de PA da tela
+    /// de Medidas, que já junta as da enfermagem com a procedência escrita em cada ponto.
+    /// Trazê-la para o cabeçalho da consulta seria pôr um número de três semanas atrás onde
+    /// se lê "os sinais deste paciente agora".
+    ///
+    /// A mais TARDIA do dia é a que vale: quando a técnica afere na chegada e de novo depois
+    /// da medicação, quem prescreve precisa do estado mais recente.
+    /// </summary>
+    public async Task<SinaisVitaisDaSessao?> SinaisVitaisDaSessaoAsync(
+        int pacienteId, DateOnly data, CancellationToken ct = default)
+    {
+        var evolucoes = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, 60, ct);
+
+        var doDia = EvolucaoEnfermagem.Vigentes(evolucoes)
+            .Where(e => e.Data == data && e.TemSinaisVitais)
+            .OrderByDescending(e => e.Hora)
+            .FirstOrDefault();
+
+        return doDia?.SinaisVitaisResumidos is not { } resumo
+            ? null
+            : new SinaisVitaisDaSessao(
+                resumo, doDia.Hora, doDia.AutorNome, doDia.AutorConselho);
+    }
+
     public async Task<CabecalhoClinicoPaciente?> CabecalhoAsync(
         int pacienteId, CancellationToken ct = default)
     {

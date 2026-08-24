@@ -56,6 +56,31 @@ public class ModeloEvolucao
 
     public string? Orientacoes { get; set; }
 
+    /// <summary>
+    /// Os cinco campos que a evolução ganhou nas parcelas 73 e 75.
+    ///
+    /// ⚠️ O modelo nasceu na parcela 63 com QUATRO campos, e ficou com quatro quando a
+    /// sessão passou a ter nove. O efeito é o pior possível para quem usa: o roteiro
+    /// preenche menos da metade da consulta, e os campos NOVOS — que existem para o
+    /// registro ficar mais completo — viram digitação a mais em vez de menos.
+    ///
+    /// A lição para a próxima: <b>campo novo de evolução entra no MODELO</b>. É o nono
+    /// lugar da lista dos oito, e ele não quebra nada quando é esquecido.
+    ///
+    /// O CID entra junto de propósito: numa clínica que trata lombalgia crônica é o campo
+    /// mais repetido e mais padronizado de todos. Ele é VISÍVEL na tela de atendimento, e
+    /// aplicar é ato explícito de quem assina a sessão — não é preenchimento automático.
+    /// </summary>
+    public string? HistoriaDoencaAtual { get; set; }
+
+    public string? ExameFisico { get; set; }
+
+    public string? HipoteseDiagnostica { get; set; }
+
+    public string? CidSessao { get; set; }
+
+    public string? PlanoTerapeutico { get; set; }
+
     public bool Ativo { get; set; } = true;
 
     public int Ordem { get; set; }
@@ -77,7 +102,13 @@ public class ModeloEvolucao
         !string.IsNullOrWhiteSpace(QueixaPrincipal)
         || !string.IsNullOrWhiteSpace(Conduta)
         || !string.IsNullOrWhiteSpace(TextoEvolucao)
-        || !string.IsNullOrWhiteSpace(Orientacoes);
+        || !string.IsNullOrWhiteSpace(Orientacoes)
+        // Sem estes cinco, um modelo só de exame físico e plano seria RECUSADO como vazio.
+        || !string.IsNullOrWhiteSpace(HistoriaDoencaAtual)
+        || !string.IsNullOrWhiteSpace(ExameFisico)
+        || !string.IsNullOrWhiteSpace(HipoteseDiagnostica)
+        || !string.IsNullOrWhiteSpace(CidSessao)
+        || !string.IsNullOrWhiteSpace(PlanoTerapeutico);
 }
 
 public class Evolucao

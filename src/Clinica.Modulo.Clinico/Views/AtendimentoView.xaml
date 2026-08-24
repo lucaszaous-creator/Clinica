@@ -288,6 +288,43 @@
                                              VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
                                              ToolTip="Desde quando, como começou, o que melhora e o que piora. É o que distingue a primeira consulta do retorno." />
 
+                                    <!-- SINAIS VITAIS DA ENFERMAGEM — LEITURA, nunca coleta.
+                                         Fica colado ao exame físico porque é o número que o
+                                         achado do dia usa. A PROCEDÊNCIA ao lado é o que
+                                         separa "eu medi" de "a técnica mediu às 9h12" — sem
+                                         ela o número parece do próprio exame.
+                                         Sem faixa, sem alerta e sem cor de gravidade: quem
+                                         interpreta PA é quem atende, e pintar de vermelho
+                                         aqui seria o sistema opinando sobre conduta. -->
+                                    <Border Margin="0,0,0,12" Padding="10,8" CornerRadius="6"
+                                            Background="{StaticResource Brush.LinhaAlt}">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding SinaisVitaisTexto}"
+                                                       TextWrapping="Wrap">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground"
+                                                                Value="{StaticResource Brush.Texto.Secundario}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SinaisVitaisAferidos}"
+                                                                         Value="True">
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                                <Setter Property="Foreground"
+                                                                        Value="{StaticResource Brush.Texto.Primario}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding SinaisVitaisProcedencia}"
+                                                       TextWrapping="Wrap" Margin="0,2,0,0"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       Visibility="{Binding SinaisVitaisProcedencia,
+                                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                                    FallbackValue=Collapsed}" />
+                                        </StackPanel>
+                                    </Border>
+
                                     <TextBlock Text="Exame físico" Style="{StaticResource Rotulo}" />
                                     <TextBox Text="{Binding ExameFisico, UpdateSourceTrigger=PropertyChanged}"
                                              TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"

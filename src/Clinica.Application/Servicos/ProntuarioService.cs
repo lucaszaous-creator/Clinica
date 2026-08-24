@@ -288,6 +288,14 @@ public sealed class ProntuarioService
             existente.Conduta = modelo.Conduta;
             existente.TextoEvolucao = modelo.TextoEvolucao;
             existente.Orientacoes = modelo.Orientacoes;
+            // ⚠️ Cópia campo a campo: o que não estiver nesta lista é APAGADO ao regravar um
+            // modelo de mesmo nome — e a CRIAÇÃO continua funcionando, que é o que esconde o
+            // defeito (lugar 3 da auditoria de linha).
+            existente.HistoriaDoencaAtual = modelo.HistoriaDoencaAtual;
+            existente.ExameFisico = modelo.ExameFisico;
+            existente.HipoteseDiagnostica = modelo.HipoteseDiagnostica;
+            existente.CidSessao = modelo.CidSessao;
+            existente.PlanoTerapeutico = modelo.PlanoTerapeutico;
             existente.Ordem = modelo.Ordem;
             existente.Ativo = true;
             existente.AtualizadoEm = DateTime.Now;

@@ -239,14 +239,10 @@ public sealed class MedidaClinicaService
     {
         var evolucoes = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
 
-        var substituidas = evolucoes
-            .Where(e => e.RetificaEvolucaoId is not null)
-            .Select(e => e.RetificaEvolucaoId!.Value)
-            .ToHashSet();
-
-        foreach (var e in evolucoes)
+        // Quem decide o que vale é `EvolucaoEnfermagem.Vigentes` — a MESMA função que a
+        // tela de atendimento usa para mostrar os sinais vitais ao médico.
+        foreach (var e in EvolucaoEnfermagem.Vigentes(evolucoes))
         {
-            if (e.Cancelada || substituidas.Contains(e.Id)) continue;
             if (e.PressaoSistolica is not { } sistolica) continue;
             if (e.PressaoDiastolica is not { } diastolica) continue;
 

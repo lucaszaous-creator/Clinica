@@ -5139,3 +5139,43 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `AnamneseView.xaml` que denunciou. **Confira o SHA do `HEAD` contra o remoto (`git fetch` e
   comparar), nunca só o `git status`** — e desconfie de toda leitura de arquivo que responda
   "não existe" para algo que você acabou de escrever.
+
+- **O roteiro preenchia MENOS DA METADE da consulta, e os sinais vitais paravam na
+  enfermagem** (parcela 76 — a direção pediu enriquecimento do módulo clínico para os dois
+  lados, médico e enfermagem). Os dois achados são o mesmo defeito recorrente do projeto em
+  duas variantes, e nenhum quebrava nada.
+  ⚠️ **(a) `ModeloEvolucao` nasceu na parcela 63 com QUATRO campos e a evolução passou a ter
+  NOVE nas parcelas 73 e 75.** Quem montava "sessão de acupuntura — lombar" recebia quatro
+  campos prontos e **redigitava os outros cinco toda sessão** — de modo que os campos novos,
+  que existem para o registro ficar mais completo, viravam digitação a mais em vez de menos.
+  A lição vai para a lista dos oito lugares como o **nono**: *campo novo de evolução entra no
+  MODELO*. E o teste que a fixa é o do lugar 3 — `SalvarModeloAsync` **copia campo a campo**
+  quando o nome já existe, então o que ficar de fora da lista some ao REGRAVAR enquanto a
+  criação continua funcionando, que é o que esconde o defeito.
+  ⚠️ **O modelo aplica o que a tela MOSTRA.** A janela de evolução da RECEPÇÃO edita quatro
+  campos e PRESERVA os cinco da consulta sem exibi-los; aplicar ali os cinco gravaria no
+  prontuário um texto que a pessoa não viu e não pode conferir — a garantia aparente que
+  este projeto recusa desde a parcela 3. Então ela não os aplica **e DIZ isso** quando o
+  modelo escolhido os traz: aplicar cinco de nove campos em silêncio é meio sucesso
+  apresentado como sucesso.
+  ⚠️ **(b) A clínica disse que TODO paciente passa pela enfermagem** — a PA, a FC e a
+  temperatura são colhidas minutos antes da consulta —, `SinaisVitais` era gravado desde a
+  parcela 71, e `AtendimentoViewModel` **não tinha uma única referência a ele**. Quem
+  prescreve escrevia a sessão sem os números na frente, ou saía da tela para procurá-los.
+  A tela mostra **LEITURA, nunca coleta**: colher ali daria dois lugares para gravar a mesma
+  aferição. E são **três estados escritos** — aferido (com a procedência ao lado), não
+  aferido naquele dia, e não foi possível conferir —, porque num campo de sinais vitais
+  confundir "ninguém mediu" com "o banco não respondeu" é do tipo que muda conduta.
+  A **procedência** ao lado do número (`às 09:12, por Joana (COREN-SP 999999)`) é o que
+  separa "eu medi" de "a técnica mediu"; sem ela o número parece do próprio exame físico.
+  ⚠️ **E a regra de QUAL REGISTRO VALE virou uma função só.** `EvolucaoEnfermagem.Vigentes`
+  (canceladas fora, retificadas fora) já existia escrita à mão dentro do
+  `MedidaClinicaService`, e a tela nova precisava da mesma resposta. Duas definições de "o
+  registro que vale" divergem na primeira correção — e a que ninguém lembra de ajustar
+  passa a responder com um número **DESDITO**, que muda conduta e é indistinguível do
+  certo. É a asserção que carrega `SinaisVitaisNoAtendimentoTests`.
+  A **data é a da SESSÃO, nunca hoje** (a dívida de prontuário e a Minha semana abrem
+  horários de dias passados), e a aferição de **outro dia não entra**: ela já tem casa — a
+  curva de PA da tela de Medidas, que junta as da enfermagem com a procedência em cada
+  ponto. Trazê-la para o cabeçalho da consulta seria pôr um número de três semanas atrás
+  onde se lê "os sinais deste paciente agora".
