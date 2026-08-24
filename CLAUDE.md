@@ -5312,3 +5312,27 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   próxima punção consulta), a trilha de auditoria e a exportação do titular (art. 18 II).
   **É a segunda vez em duas parcelas.** A conferência que pega isto não é a lista percorrida
   linha a linha — é a releitura do diff INTEIRO perguntando "o que aqui não tem quem leia?".
+
+- **O painel das últimas sessões mostrava 4 dos 12 campos — e o que faltava era a razão da
+  consulta de hoje** (parcela 77, 3ª rodada — a direção perguntou se, ao abrir o atendimento
+  de um paciente que retorna, o profissional vê a sessão passada). **Vê**: as três últimas
+  ficam ABERTAS ao lado do formulário desde que a tela nasceu, com a linha do tempo de
+  enfermagem e infusões abaixo, e a aba "Histórico de sessões" com o prontuário inteiro. O
+  desenho estava certo; o CONTEÚDO tinha envelhecido.
+  ⚠️ `LinhaSessaoAnterior` nasceu com quatro campos e a sessão passou a ter doze (parcelas
+  73, 75 e 77). Ficava cega para a hipótese, o CID, o plano, o encaminhamento e — o que mais
+  dói — o **retorno sugerido**: o profissional escrevia "voltar em 7 dias para reavaliar a
+  EVA", o paciente voltava, e a tela **não dizia**. E a `Evolucao`, que é o texto mais
+  escrito do sistema, estava no modelo e **não estava no XAML** desde que o painel existe —
+  dado calculado sem leitor no lugar onde ele mais importa.
+  A lição, que é a mesma da parcela 76 num SEGUNDO leitor: **campo novo de evolução entra
+  também em quem MOSTRA a sessão anterior.** Ela vai para a lista dos oito lugares junto com
+  o modelo — os dois são leitores que não quebram nada quando são esquecidos.
+  ⚠️ **E a composição mudou de casa**: saiu da ViewModel para a `Application`
+  (`ResumoSessaoAnterior`). Ela tem decisões — a hipótese com o CID entre parênteses, o CID
+  sozinho quando é só ele, a linha que SOME quando não há o que dizer — e decisão que mora
+  em projeto WPF não é alcançada pelo `dotnet test`. É a lição da grade da semana (parcela
+  69) aplicada de novo, e é o que permitiu os nove testes que agora a fixam.
+  O **retorno é o único campo do painel que a tela NÃO corta**: os outros saem com
+  reticências e a dica mostra o texto inteiro, porque a coluna tem ~350 px e três sessões, e
+  o texto completo está a uma aba de distância. Ele não, porque é curto e é a resposta.

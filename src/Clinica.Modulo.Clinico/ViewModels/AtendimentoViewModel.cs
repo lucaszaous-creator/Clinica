@@ -29,25 +29,6 @@ public sealed class LinhaAlertaClinico
 }
 
 /// <summary>Uma sessão anterior, do jeito que o consultório precisa relê-la: inteira.</summary>
-public sealed class LinhaSessaoAnterior
-{
-    public required int EvolucaoId { get; init; }
-    public required string Data { get; init; }
-    public required string Eva { get; init; }
-    public required string Queixa { get; init; }
-    public required string Conduta { get; init; }
-    public required string Evolucao { get; init; }
-
-    public static LinhaSessaoAnterior De(Evolucao e) => new()
-    {
-        EvolucaoId = e.Id,
-        Data = e.Data.ToString("dd/MM/yyyy"),
-        Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
-        Queixa = string.IsNullOrWhiteSpace(e.QueixaPrincipal) ? "—" : e.QueixaPrincipal!,
-        Conduta = string.IsNullOrWhiteSpace(e.Conduta) ? "—" : e.Conduta!,
-        Evolucao = string.IsNullOrWhiteSpace(e.TextoEvolucao) ? "—" : e.TextoEvolucao!
-    };
-}
 
 /// <summary>
 /// A tela do ATENDIMENTO — onde a sessão é escrita enquanto o paciente ainda está na sala.
@@ -88,7 +69,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private MapaCorporalViewModel? _mapa;
 
-    public ObservableCollection<LinhaSessaoAnterior> Anteriores { get; } = [];
+    public ObservableCollection<ResumoSessaoAnterior> Anteriores { get; } = [];
 
     /// <summary>
     /// O que os OUTROS módulos sabem sobre este paciente e que importa com ele na sala
@@ -581,7 +562,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             else Limpar(_foco.DataDoHorario);
 
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
-                Anteriores.Add(LinhaSessaoAnterior.De(e));
+                Anteriores.Add(ResumoSessaoAnterior.De(e));
 
             await CarregarAlertasAsync(scope.ServiceProvider, geracao);
             if (geracao != _geracaoCarga) return;

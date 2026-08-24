@@ -556,13 +556,80 @@
                                                                FontSize="{StaticResource Fonte.Legenda}"
                                                                Foreground="{StaticResource Brush.Texto.Secundario}" />
                                                 </Grid>
-                                                <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap"
+                                                <!-- ⚠️ O RETORNO vem PRIMEIRO e não se
+                                                     corta: ele é a resposta para "por que
+                                                     este paciente está aqui hoje", e era o
+                                                     campo que o painel não mostrava. Os
+                                                     demais saem cortados — o texto inteiro
+                                                     está na aba "Histórico de sessões", que
+                                                     é onde se lê com calma. -->
+                                                <TextBlock Text="{Binding Retorno}" TextWrapping="Wrap"
+                                                           Margin="0,6,0,0" FontWeight="SemiBold"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Acento}"
+                                                           Visibility="{Binding Retorno,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+
+                                                <TextBlock Text="{Binding Queixa}"
+                                                           TextTrimming="CharacterEllipsis"
                                                            Margin="0,6,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           ToolTip="{Binding Queixa}"
+                                                           Visibility="{Binding Queixa,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+
+                                                <TextBlock Text="{Binding Hipotese}"
+                                                           TextTrimming="CharacterEllipsis"
                                                            Margin="0,4,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}" />
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           ToolTip="{Binding Hipotese}"
+                                                           Visibility="{Binding Hipotese,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+
+                                                <TextBlock Text="{Binding Conduta}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           ToolTip="{Binding Conduta}"
+                                                           Visibility="{Binding Conduta,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+
+                                                <!-- A EVOLUÇÃO estava no modelo e NÃO na
+                                                     tela desde que o painel nasceu: dado
+                                                     calculado sem leitor, no lugar onde
+                                                     ele é o texto mais escrito do sistema. -->
+                                                <TextBlock Text="{Binding Evolucao}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           ToolTip="{Binding Evolucao}"
+                                                           Visibility="{Binding Evolucao,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+
+                                                <TextBlock Text="{Binding Plano}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           ToolTip="{Binding Plano}"
+                                                           Visibility="{Binding Plano,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+
+                                                <TextBlock Text="{Binding Encaminhamento}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           ToolTip="{Binding Encaminhamento}"
+                                                           Visibility="{Binding Encaminhamento,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
                                                 <Separator Margin="0,12,0,0"
                                                            Background="{StaticResource Brush.Borda}" />
                                             </StackPanel>
