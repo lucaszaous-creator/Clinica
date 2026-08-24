@@ -5713,3 +5713,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   conexão" era plausível e errada, a mesma família da mensagem que manda trocar a
   connection string por um 42P01 (parcela 79). A frase virou "o envio não saiu", que é o
   que de fato se sabe.
+
+- **A CENTRAL DE DOCUMENTOS ENTERRAVA A PRÓPRIA LISTA — 700 px de cartões de emitir e "o
+  que já saiu" abaixo da dobra** (parcela 82, 3ª rodada — o cliente: *"esse layout me
+  irrita... não dá pra ver os itens em 'o que já saiu'"*). Os 11 cartões de emissão
+  tinham **248×222 px fixos** cada (título + descrição + pendência + botão, com ar de
+  sobra) e, somados à faixa lateral de 320 px com TRÊS caixas empilhadas
+  (Paciente/Período/Conferir), a lista de emitidos — justamente a porta da 2ª via —
+  começava fora da tela. A tela respondia três perguntas com o peso invertido: o que se
+  FAZ às vezes (emitir, conferir) ocupava tudo; o que se CONSULTA (a lista) não aparecia.
+  O redesenho, só XAML, zero mudança de comportamento:
+  (a) **cartão virou FICHA compacta** (232×118): o que se lê no RELANCE fica — nome da
+  folha e O QUE FALTA (a regra da parcela 24: o requisito se descobre antes de errar) —,
+  a descrição longa foi para a DICA, e o botão ancora embaixo (fileira com botões na
+  mesma altura se lê como conjunto). ~700 px viraram ~260;
+  (b) **a faixa lateral ficou com UMA caixa** (Paciente — contexto real de sete folhas);
+  (c) **Período foi para o cabeçalho da lista que ele recorta** (na lateral parecia
+  configuração da página) e **Conferir pelo código virou uma linha ali** — caixa
+  permanente de 200 px para ato ocasional é o proibido do README;
+  (d) a barra do cabeçalho é **WrapPanel como filho que PREENCHE** (dock Top = largura
+  finita → dobra em tela estreita; a checagem 32 continua de olho).
+  Duas conferências que a mudança exigiu e valem de lição: **os textos que apontam lugar
+  ("escolha o paciente AO LADO", "usa o período escolhido ABAIXO") foram conferidos contra
+  o leiaute novo** — os dois continuavam verdadeiros, mas texto espacial é o primeiro a
+  mentir numa reforma; e **"as NOVE folhas" do subtítulo eram onze** — número escrito em
+  prosa apodrece a cada folha nova, e saiu.
