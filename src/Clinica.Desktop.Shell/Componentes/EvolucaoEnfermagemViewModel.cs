@@ -65,6 +65,16 @@ public sealed partial class LinhaCuidadoEnfermagem : ObservableObject
     [ObservableProperty] private string _frequencia = string.Empty;
 
     /// <summary>
+    /// "Se necessário" — o cuidado só se executa quando a condição acontece ("se dor > 5").
+    ///
+    /// ⚠️ Sem esta caixinha o campo do domínio não teria PORTA, e a regra que ele existe
+    /// para sustentar — SOS não conta como pendência — nunca valeria: todo cuidado
+    /// condicional apareceria eternamente aguardando no quadro da sala, e o contador que
+    /// diz o que falta fazer passaria a apontar para nada.
+    /// </summary>
+    [ObservableProperty] private bool _seNecessario;
+
+    /// <summary>
     /// Veio SUGERIDO por um diagnóstico do catálogo. A tela marca isso na linha para a
     /// enfermeira saber o que ela escolheu e o que o sistema propôs — proposta que não se
     /// distingue da decisão é proposta que ninguém confere.
@@ -75,7 +85,8 @@ public sealed partial class LinhaCuidadoEnfermagem : ObservableObject
     {
         Codigo = Codigo,
         Descricao = Descricao.Trim(),
-        Frequencia = string.IsNullOrWhiteSpace(Frequencia) ? null : Frequencia.Trim()
+        Frequencia = string.IsNullOrWhiteSpace(Frequencia) ? null : Frequencia.Trim(),
+        SeNecessario = SeNecessario
     };
 
     public static LinhaCuidadoEnfermagem Do(CuidadoCatalogo c, bool sugerido) => new()
@@ -600,7 +611,10 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                 {
                     Codigo = c.Codigo,
                     Descricao = c.Descricao,
-                    Frequencia = c.Frequencia ?? string.Empty
+                    Frequencia = c.Frequencia ?? string.Empty,
+                    // Sem esta linha, retificar a evolução DESLIGARIA o "se necessário" de
+                    // todo cuidado condicional, em silêncio.
+                    SeNecessario = c.SeNecessario
                 });
 
             ConsultaCompleta = original.EhConsulta;

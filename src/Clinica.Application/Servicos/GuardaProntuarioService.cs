@@ -199,6 +199,19 @@ public sealed class GuardaProntuarioService
         if (anamnese is not null)
             candidatos.Add((DateOnly.FromDateTime(anamnese.UltimaRevisao), "anamnese"));
 
+        // ⚠️ A EXECUÇÃO do cuidado (etapa 4 da COFEN, parcela 76) move o prazo, e move
+        // DEPOIS da evolução que a prescreveu: um plano escrito em janeiro é executado por
+        // semanas, e contar só a data da prescrição daria um prazo calculado pelo registro
+        // ERRADO — o defeito que o comentário de cima nomeia. É UMA consulta em lote com os
+        // ids que já estão em memória, e não uma por cuidado.
+        var idsDeCuidados = enfermagem.SelectMany(e => e.Cuidados.Select(c => c.Id)).ToList();
+        if (idsDeCuidados.Count > 0)
+        {
+            var execucoes = await _repo.ChecagensDosCuidadosAsync(idsDeCuidados, ct);
+            if (execucoes.Count > 0)
+                candidatos.Add((execucoes.Max(x => x.Data), "execução de cuidado"));
+        }
+
         var ultimo = candidatos.Count == 0
             ? default((DateOnly Data, string Origem)?)
             : candidatos.OrderByDescending(c => c.Data).First();

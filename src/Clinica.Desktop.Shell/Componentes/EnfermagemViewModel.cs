@@ -46,6 +46,28 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// mesmo <c>SelectedItem</c> se limpam mutuamente, porque a que não contém o item escolhido
 /// devolve <c>null</c> pelo binding (a armadilha da parcela 37).
 /// </summary>
+/// <summary>
+/// Uma linha do PLANO DE CUIDADOS do dia — a etapa 4 da COFEN na tela de quem executa
+/// (parcela 76).
+/// </summary>
+public sealed class LinhaCuidadoDoDia
+{
+    public required int CuidadoId { get; init; }
+
+    /// <summary>"Curativo em MID — a cada 12h".</summary>
+    public required string Redacao { get; init; }
+
+    /// <summary>O que já foi registrado HOJE, uma linha por execução. Vazio quando nada.</summary>
+    public required string Registro { get; init; }
+
+    /// <summary>"aguardando", "se necessário" ou vazio — o selo que resume a linha.</summary>
+    public required string Selo { get; init; }
+
+    public required bool Pendente { get; init; }
+
+    public bool TemRegistro => !string.IsNullOrWhiteSpace(Registro);
+}
+
 public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 {
     private readonly IServiceScopeFactory _escopos;
@@ -158,6 +180,34 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
 
     public bool PodeAbrirFolha => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
+
+    // ==================== O plano de cuidados do dia (parcela 76) ====================
+
+    /// <summary>
+    /// Os cuidados prescritos que este paciente tem hoje, com o que já foi registrado.
+    ///
+    /// ⚠️ É a PORTA da etapa 4 da COFEN. Sem ela o serviço que registra a execução seria
+    /// mais uma capacidade sem porta — o defeito recorrente do projeto —, e a enfermeira
+    /// continuaria escrevendo "curativo a cada 12h" num plano que ninguém marca.
+    /// </summary>
+    public ObservableCollection<LinhaCuidadoDoDia> Cuidados { get; } = [];
+
+    [ObservableProperty] private string _resumoDoPlano = string.Empty;
+
+    /// <summary>A leitura do plano FALHOU — o terceiro estado. "Sem plano" e "não consegui
+    /// ler o plano" não podem ficar idênticos numa tela que diz o que falta fazer.</summary>
+    [ObservableProperty] private bool _planoNaoVerificado;
+
+    /// <summary>
+    /// Hora sugerida para o registro. SUGESTÃO — o campo é de quem executou: a técnica faz
+    /// o curativo às 14h e digita às 14h20, e é a hora do FATO que vai para a folha.
+    /// </summary>
+    [ObservableProperty] private string _horaDoCuidado = DateTime.Now.ToString("HH\\:mm");
+
+    /// <summary>Metade visível; a que impede é o <c>Exigir</c> no comando. O MESMO bit da
+    /// folha de infusão: checar a execução é o mesmo ato e a mesma responsabilidade — um
+    /// bit novo nasceria desligado para quem já faz isso hoje.</summary>
+    public bool PodeChecarCuidado => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
 
     public EnfermagemViewModel(IServiceScopeFactory escopos, IDialogoService dialogo)
     {
@@ -478,6 +528,9 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
             // A leitura acima também alimenta o CONTEXTO: a última aferição é o dado que a
             // comparação de daqui a vinte minutos usa, e o valor isolado quase não diz nada.
             await CarregarContextoAsync(servicos, pacienteId, lista, geracao);
+            if (geracao != _geracaoCarga) return;
+
+            await CarregarPlanoAsync(servicos, pacienteId, geracao);
         }
         catch (Exception ex)
         {
@@ -487,6 +540,149 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
             MensagemEhErro = true;
         }
     }
+
+    /// <summary>
+    /// O plano de cuidados de HOJE.
+    ///
+    /// Falha SOZINHA, pela mesma razão do contexto: o assunto da tela é a evolução, e uma
+    /// leitura de plano que não respondeu não pode impedir a enfermeira de registrar a
+    /// passagem. Mas também não passa calada — vira o terceiro estado e vai para o log.
+    /// </summary>
+    private async Task CarregarPlanoAsync(
+        IServiceProvider servicos, int pacienteId, int geracao)
+    {
+        try
+        {
+            PlanoNaoVerificado = false;
+
+            var plano = await servicos.GetRequiredService<ChecagemCuidadoService>()
+                .PlanoDoDiaAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
+
+            if (geracao != _geracaoCarga) return;
+
+            // ⚠️ Monta em lista LOCAL e só então publica: entre o `Clear()` e o último
+            // `Add` não pode haver await, senão duas cargas se intercalam na coleção.
+            var linhas = plano is null
+                ? []
+                : plano.Cuidados.Select(Montar).ToList();
+
+            Cuidados.Clear();
+            foreach (var l in linhas) Cuidados.Add(l);
+
+            ResumoDoPlano = plano is null
+                ? "Nenhum plano de cuidados prescrito para este paciente."
+                : $"{plano.Cuidados.Count} cuidado(s) prescrito(s) em "
+                  + $"{plano.PrescritoEm:dd/MM/yyyy} por {plano.PrescritoPor} — "
+                  + (plano.Pendentes == 0
+                      ? "tudo registrado hoje."
+                      : $"{plano.Pendentes} aguardando registro hoje.");
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+
+            Cuidados.Clear();
+            PlanoNaoVerificado = true;
+            ResumoDoPlano = "Não foi possível ler o plano de cuidados.";
+            Diagnostico.Registrar("Enfermagem — plano de cuidados não pôde ser lido", ex);
+        }
+    }
+
+    private static LinhaCuidadoDoDia Montar(CuidadoDoDia c) => new()
+    {
+        CuidadoId = c.CuidadoId,
+        Redacao = c.Redacao,
+        Registro = string.Join("\n", c.Checagens.Select(x =>
+            x.Linha + (string.IsNullOrWhiteSpace(x.Justificativa)
+                ? string.Empty
+                : $" \u2014 {x.Justificativa}"))),
+        Pendente = c.Pendente,
+        // O "se necessário" tem selo PRÓPRIO, e não o de pendente: ele não é trabalho
+        // atrasado, é a condição que não aconteceu.
+        Selo = c.Pendente ? "aguardando"
+             : c.SeNecessario && c.Checagens.Count == 0 ? "se necessário"
+             : string.Empty
+    };
+
+    [RelayCommand]
+    private Task MarcarFeitoAsync(LinhaCuidadoDoDia? linha)
+        => RegistrarCuidadoAsync(linha, SituacaoChecagem.Realizado);
+
+    [RelayCommand]
+    private Task MarcarNaoFeitoAsync(LinhaCuidadoDoDia? linha)
+        => RegistrarCuidadoAsync(linha, SituacaoChecagem.NaoRealizado);
+
+    /// <summary>
+    /// Registra a execução de um cuidado.
+    ///
+    /// ⚠️ A hora vem do CAMPO, nunca do relógio: a técnica executa às 14h e digita às
+    /// 14h20, e a folha tem de dizer 14h. O relógio vai ao lado, em `RegistradoEm`, e a
+    /// diferença entre os dois é o que uma auditoria de enfermagem procura.
+    /// </summary>
+    private async Task RegistrarCuidadoAsync(
+        LinhaCuidadoDoDia? linha, SituacaoChecagem situacao)
+    {
+        // Guarda sobre PARÂMETRO: vindo de botão de linha ela nunca dispara — é a exceção
+        // que a checagem 21 reconhece.
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                Permissao.ChecarPrescricao, "registrar a execução de um cuidado");
+
+            if (!TimeOnly.TryParse(HoraDoCuidado, out var hora))
+            {
+                Mensagem = $"Hora inválida (\"{HoraDoCuidado}\"). Escreva no formato 14:30 — "
+                         + "é o horário em que o cuidado foi executado, não o de agora.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            string? justificativa = null;
+            if (situacao == SituacaoChecagem.NaoRealizado)
+            {
+                justificativa = _dialogo.PerguntarTexto(
+                    "Por que não foi realizado?",
+                    $"{linha.Redacao}\n\n"
+                    + "Ex.: paciente ausente, recusou, material em falta, condição não ocorreu.");
+
+                // Sem justificativa não se grava — e o serviço recusaria de qualquer forma.
+                // Perguntar aqui é o que evita transformar a regra num erro na cara da técnica.
+                if (string.IsNullOrWhiteSpace(justificativa)) return;
+            }
+
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ChecagemCuidadoService>()
+                .ChecarAsync(
+                    linha.CuidadoId, situacao, DateOnly.FromDateTime(DateTime.Today), hora,
+                    Executante(), justificativa);
+
+            Mensagem = situacao == SituacaoChecagem.Realizado
+                ? $"Registrado: {linha.Redacao} \u2014 {hora:HH\\:mm}."
+                : $"Registrado como NÃO realizado: {linha.Redacao} \u2014 {hora:HH\\:mm}.";
+            MensagemEhErro = false;
+
+            await RecarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — execução do cuidado não pôde ser registrada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Quem está executando sai do LOGIN, nunca de um campo digitado: é o vínculo com a
+    /// pessoa que dá valor ao registro, e o COREN é copiado no ato.
+    /// </summary>
+    private static IdentificacaoExecutante Executante() => new(
+        UsuarioId: SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+        Nome: SessaoUsuario.Atual.Autenticado
+            ? SessaoUsuario.Atual.Nome
+            : SessaoUsuario.Atual.Operador,
+        Conselho: SessaoUsuario.Atual.RegistroConselho);
 
     /// <summary>
     /// A linha de contexto e as duas portas condicionais.

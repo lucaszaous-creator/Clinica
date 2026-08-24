@@ -1445,6 +1445,41 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
             .ToListAsync(ct);
 
+    // ---- A execução do CUIDADO (etapa 4 da COFEN, parcela 76) ----
+
+    public async Task AdicionarChecagemCuidadoAsync(
+        ChecagemCuidado checagem, CancellationToken ct = default)
+        => await _db.ChecagensCuidado.AddAsync(checagem, ct);
+
+    public Task<CuidadoEnfermagem?> ObterCuidadoEnfermagemAsync(
+        int cuidadoId, CancellationToken ct = default)
+        // A evolução vem junto: é dela que saem o PACIENTE e o cancelamento, e sem o
+        // Include ela chega NULA em produção, onde cada operação abre escopo próprio — o
+        // teste passaria pelo relationship fixup do EF (a lição da parcela 68).
+        => _db.CuidadosEnfermagem
+            .Include(c => c.Evolucao)
+            .FirstOrDefaultAsync(c => c.Id == cuidadoId, ct);
+
+    public Task<ChecagemCuidado?> ObterChecagemCuidadoAsync(
+        int checagemId, CancellationToken ct = default)
+        => _db.ChecagensCuidado
+            .Include(c => c.Cuidado).ThenInclude(c => c!.Evolucao)
+            .FirstOrDefaultAsync(c => c.Id == checagemId, ct);
+
+    public async Task<IReadOnlyList<ChecagemCuidado>> ChecagensDosCuidadosAsync(
+        IReadOnlyCollection<int> cuidadoIds, CancellationToken ct = default)
+    {
+        if (cuidadoIds.Count == 0) return [];
+
+        return await _db.ChecagensCuidado
+            .AsNoTracking()
+            .Where(c => cuidadoIds.Contains(c.CuidadoEnfermagemId))
+            // Cronológica: a folha se lê de cima para baixo, e dentro do dia a HORA é o
+            // que separa o curativo da manhã do da tarde.
+            .OrderBy(c => c.Data).ThenBy(c => c.HoraRealizacao).ThenBy(c => c.Id)
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDoPacienteAsync(
         int pacienteId, int limite = 200, CancellationToken ct = default)
         => await _db.EvolucoesEnfermagem

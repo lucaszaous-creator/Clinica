@@ -5179,3 +5179,40 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   curva de PA da tela de Medidas, que junta as da enfermagem com a procedência em cada
   ponto. Trazê-la para o cabeçalho da consulta seria pôr um número de três semanas atrás
   onde se lê "os sinais deste paciente agora".
+
+- **A enfermeira prescrevia o cuidado e nada registrava que ele foi FEITO** (parcela 76,
+  segunda metade — a etapa 4 da COFEN 358/2009). A Resolução divide o Processo de
+  Enfermagem em CINCO etapas, e o sistema cobria as três primeiras (histórico, diagnóstico,
+  resultado esperado) e a quarta **só como texto**: escrevia-se "curativo a cada 12h" e a
+  execução não existia em lugar nenhum. Implementação sem registro é intenção — e cuidado
+  que não se registra é, para qualquer fiscalização, cuidado que não aconteceu.
+  **Tudo o que o serviço faz já tinha sido pago caro na parcela 42** e foi reusado tal e
+  qual: hora **INFORMADA** com o relógio ao lado, hora futura **recusada**, não realizado
+  **exige justificativa**, nada se apaga (**retifica-se** em linha nova), e quem checa é
+  quem fez **login**, com o COREN copiado no ato. O bit é o MESMO (`ChecarPrescricao`):
+  checar a execução é o mesmo ato e a mesma responsabilidade, e um bit novo nasceria
+  desligado justamente para quem já faz isso hoje.
+  ⚠️ **A regra que NÃO se copia, e é a asserção que carrega a suíte**: na folha de infusão
+  "item já checado não se edita" — o item é de administração ÚNICA. O cuidado tem
+  FREQUÊNCIA e é executado de novo a cada turno; copiar aquela guarda impediria a segunda
+  troca de curativo do dia, e a técnica registraria a primeira e desistiria da segunda.
+  ⚠️ **`SeNecessario` é BOOLEANO, não adivinhado do texto da frequência.** Cuidado
+  condicional sem registro não é trabalho atrasado — é a condição que não ocorreu —, e
+  contá-lo deixaria todo plano com um SOS eternamente pendente, com o contador da sala
+  apontando para nada (a sutileza que a folha de infusão já documentava). Ler "se dor > 5"
+  com regex daria um palpite que erra nos dois sentidos sobre um campo que é texto livre
+  por desenho. E o campo nasceu **com porta no mesmo commit** — caixinha na linha do
+  cuidado —, senão a regra que ele sustenta nunca valeria.
+  ⚠️ **Retificar a evolução tinha de devolver o `SeNecessario`.** A linha que recarrega os
+  cuidados para a correção copia campo a campo, e sem ela a retificação DESLIGARIA o "se
+  necessário" de todo cuidado condicional, em silêncio — a regra "quem não edita, PRESERVA"
+  aplicada ao que EDITA.
+  ⚠️ **E a regra 8 do compromisso foi cumprida no mesmo commit**: a execução entra na
+  EXPORTAÇÃO (planilha própria, com a retificada marcada — exportar o cuidado prescrito sem
+  o que foi executado dá um prontuário que diz o que se mandou fazer e cala sobre o que foi
+  feito) e na GUARDA, onde ela **move o prazo** — um plano escrito em janeiro é executado
+  por semanas, e contar só a prescrição daria o prazo calculado pelo registro errado.
+  ⚠️ O nome do cuidado, na exportação, sai do que **já está em memória** e nunca de
+  `x.Cuidado`: a leitura é `AsNoTracking` sem `Include`, a navegação viria NULA em produção
+  e a coluna sairia "#123" — enquanto o teste passaria pelo relationship fixup do EF. É a
+  lição da parcela 68, e ela foi pega **na escrita** desta vez, não numa auditoria depois.

@@ -192,6 +192,97 @@
                 </StackPanel>
             </Grid>
 
+            <!-- PLANO DE CUIDADOS DE HOJE — a etapa 4 da COFEN 358/2009 (parcela 76).
+                 A enfermeira prescreve o cuidado na evolução ("curativo a cada 12h") e
+                 quem executa marca aqui. Sem esta porta o plano era texto que ninguém
+                 marcava — e cuidado que não se registra é, para qualquer fiscalização,
+                 cuidado que não aconteceu.
+
+                 A HORA é um campo, não o relógio: a técnica faz o curativo às 14h e digita
+                 às 14h20, e é a hora do FATO que vai para a folha. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="PLANO DE CUIDADOS DE HOJE"
+                                       Style="{StaticResource Rotulo}" Margin="0,0,0,2" />
+                            <TextBlock Text="{Binding ResumoDoPlano}" TextWrapping="Wrap"
+                                       Style="{StaticResource TextoSuave}" Margin="0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="Hora" Style="{StaticResource TextoSuave}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBox Text="{Binding HoraDoCuidado, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="70" VerticalAlignment="Center"
+                                     IsEnabled="{Binding PodeChecarCuidado}"
+                                     ToolTip="A hora em que o cuidado foi executado — não a de agora." />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Teto na lista que cresce com o DADO: sem ele, um plano de doze
+                         cuidados empurra a linha do tempo para fora da tela. -->
+                    <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Cuidados}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Redacao}"
+                                                           TextWrapping="Wrap" FontWeight="SemiBold" />
+                                                <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Visibility="{Binding Selo,
+                                                                     Converter={StaticResource TextoParaVisibilidade},
+                                                                     FallbackValue=Collapsed}">
+                                                    <TextBlock Text="{Binding Selo}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Registro}" TextWrapping="Wrap"
+                                                       Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                                       Visibility="{Binding Registro,
+                                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                                    FallbackValue=Collapsed}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Feito" Margin="0,0,6,0"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    IsEnabled="{Binding DataContext.PodeChecarCuidado,
+                                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Command="{Binding DataContext.MarcarFeitoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Não feito"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    IsEnabled="{Binding DataContext.PodeChecarCuidado,
+                                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    ToolTip="A “rodela” do papel: o horário circulado, com a justificativa escrita."
+                                                    Command="{Binding DataContext.MarcarNaoFeitoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
             <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
                     Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                                  FallbackValue=Collapsed}">

@@ -717,6 +717,26 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDoPacienteAsync(
         int pacienteId, int limite = 200, CancellationToken ct = default);
 
+    // ---- A execução do CUIDADO (etapa 4 da COFEN, parcela 76) ----
+    //
+    // NÃO existe RemoverChecagemCuidadoAsync: a execução é registro clínico, e ela se
+    // corrige RETIFICANDO — linha nova apontando a anterior, que fica.
+
+    Task AdicionarChecagemCuidadoAsync(ChecagemCuidado checagem, CancellationToken ct = default);
+
+    /// <summary>O cuidado com a evolução dele — é dela que sai o paciente e o cancelamento.</summary>
+    Task<CuidadoEnfermagem?> ObterCuidadoEnfermagemAsync(int cuidadoId, CancellationToken ct = default);
+
+    Task<ChecagemCuidado?> ObterChecagemCuidadoAsync(int checagemId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As checagens de um conjunto de cuidados. Em LOTE porque o quadro do dia mostra o
+    /// plano inteiro: uma consulta por cuidado daria dez idas a um banco remoto para
+    /// desenhar uma tela.
+    /// </summary>
+    Task<IReadOnlyList<ChecagemCuidado>> ChecagensDosCuidadosAsync(
+        IReadOnlyCollection<int> cuidadoIds, CancellationToken ct = default);
+
     /// <summary>Próximo sequencial do ano para numerar a prescrição (<c>PRE 2026/0001</c>).</summary>
     Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default);
 

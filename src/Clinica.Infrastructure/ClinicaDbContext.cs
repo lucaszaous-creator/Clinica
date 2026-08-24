@@ -59,6 +59,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<EvolucaoEnfermagem> EvolucoesEnfermagem => Set<EvolucaoEnfermagem>();
     public DbSet<DiagnosticoEnfermagem> DiagnosticosEnfermagem => Set<DiagnosticoEnfermagem>();
     public DbSet<CuidadoEnfermagem> CuidadosEnfermagem => Set<CuidadoEnfermagem>();
+    public DbSet<ChecagemCuidado> ChecagensCuidado => Set<ChecagemCuidado>();
     public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
     public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
     public DbSet<TracoAssinatura> TracosAssinatura => Set<TracoAssinatura>();
@@ -1019,6 +1020,38 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.EvolucaoEnfermagemId);
             e.Ignore(x => x.Redacao);
+        });
+
+        b.Entity<ChecagemCuidado>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Justificativa).HasMaxLength(600);
+            e.Property(x => x.Observacao).HasMaxLength(1000);
+            e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.ExecutanteConselho).HasMaxLength(40);
+            e.Property(x => x.MotivoRetificacao).HasMaxLength(600);
+            // O Npgsql RECUSA Kind=Local em coluna COM fuso, e o padrão do provedor é COM.
+            // Esquecer esta linha não quebra nada até alguém gravar em produção.
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Cuidado).WithMany(x => x.Checagens)
+                .HasForeignKey(x => x.CuidadoEnfermagemId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.ExecutanteUsuario).WithMany()
+                .HasForeignKey(x => x.ExecutanteUsuarioId).OnDelete(DeleteBehavior.SetNull);
+
+            // Retificação aponta a anterior. RESTRICT: apagar a linha corrigida quebraria a
+            // cadeia que prova o que a folha dizia antes.
+            e.HasOne(x => x.RetificaChecagem).WithMany()
+                .HasForeignKey(x => x.RetificaChecagemId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.CuidadoEnfermagemId, x.Data });
+
+            e.Ignore(x => x.EhRetificacao);
+            e.Ignore(x => x.Realizado);
+            e.Ignore(x => x.AtrasoDoRegistro);
+            e.Ignore(x => x.Linha);
         });
 
         b.Entity<AssinaturaDocumento>(e =>

@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<PrescricaoInternaService>();
         services.AddScoped<ChecagemPrescricaoService>();
         services.AddScoped<EvolucaoEnfermagemService>();
+        services.AddScoped<ChecagemCuidadoService>();
         services.AddScoped<PrescricaoInternaPdfService>();
         services.AddScoped<AssinaturaDePrescricaoService>();
         services.AddScoped<AssinaturaDeDocumentoClinicoService>();

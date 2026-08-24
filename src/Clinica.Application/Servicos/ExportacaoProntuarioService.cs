@@ -168,7 +168,14 @@ public sealed class ExportacaoProntuarioService
         var diagnosticosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
             "Ordem", "Codigo", "Titulo", "RelacionadoA", "EvidenciadoPor", "ResultadoEsperado");
         var cuidadosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
-            "Ordem", "Codigo", "Cuidado", "Frequencia");
+            "Ordem", "Codigo", "Cuidado", "Frequencia", "SeNecessario");
+        // ⚠️ A EXECUÇÃO do cuidado (etapa 4 da COFEN, parcela 76) entra pela regra 8 do
+        // compromisso de conformidade. Exportar o cuidado PRESCRITO sem o que foi
+        // executado dá um prontuário que diz o que se mandou fazer e cala sobre o que foi
+        // feito — que é justamente a pergunta de quem audita enfermagem.
+        var execucoesEnf = Cabecalho("PacienteId", "Paciente", "Cuidado", "Data", "Hora",
+            "Situacao", "Justificativa", "Observacao", "Executante", "Conselho",
+            "RegistradoEm", "Retifica", "MotivoRetificacao");
 
         foreach (var p in pacientes)
         {
@@ -275,7 +282,10 @@ public sealed class ExportacaoProntuarioService
                 }
             }
 
-            foreach (var en in await _repo.EvolucoesEnfermagemDoPacienteAsync(p.Id, int.MaxValue, ct))
+            var enfermagemDoPaciente =
+                await _repo.EvolucoesEnfermagemDoPacienteAsync(p.Id, int.MaxValue, ct);
+
+            foreach (var en in enfermagemDoPaciente)
             {
                 Linha(enfermagem, p.Id, p.Nome, Data(en.Data), en.Hora.ToString("HH\\:mm"),
                     en.RegistradoEm.ToString("O", Fixa),
@@ -297,8 +307,30 @@ public sealed class ExportacaoProntuarioService
                 foreach (var c in en.Cuidados.OrderBy(x => x.Ordem))
                     Linha(cuidadosEnf, p.Id, p.Nome, Data(en.Data),
                         en.Hora.ToString("HH\\:mm"), c.Ordem, c.Codigo, c.Descricao,
-                        c.Frequencia);
+                        c.Frequencia, c.SeNecessario ? "sim" : "não");
             }
+
+            // EM LOTE, com os ids que já estão em memória: uma consulta por cuidado daria
+            // dezenas de idas ao banco por paciente — a lição da guarda (parcela 69).
+            // A RETIFICADA entra também, marcada: o prontuário exportado mostra o que a
+            // folha dizia antes, que é o que torna a correção rastreável (art. 3º da Lei
+            // 13.787/2018).
+            // ⚠️ O nome do cuidado sai do que JÁ ESTÁ EM MEMÓRIA, nunca de `x.Cuidado`:
+            // `ChecagensDosCuidadosAsync` é `AsNoTracking` e não faz `Include` — a
+            // navegação chegaria NULA em produção e a coluna sairia com "#123", enquanto o
+            // teste passaria pelo relationship fixup do EF (a lição da parcela 68).
+            var nomeDoCuidado = enfermagemDoPaciente
+                .SelectMany(en => en.Cuidados)
+                .ToDictionary(c => c.Id, c => c.Redacao);
+
+            foreach (var x in await _repo.ChecagensDosCuidadosAsync(nomeDoCuidado.Keys.ToList(), ct))
+                Linha(execucoesEnf, p.Id, p.Nome,
+                    nomeDoCuidado.GetValueOrDefault(x.CuidadoEnfermagemId, "(cuidado removido)"),
+                    Data(x.Data), x.HoraRealizacao.ToString("HH\\:mm"),
+                    x.Realizado ? "Realizado" : "Não realizado",
+                    x.Justificativa, x.Observacao, x.ExecutanteNome, x.ExecutanteConselho,
+                    x.RegistradoEm.ToString("dd/MM/yyyy HH\\:mm"),
+                    x.EhRetificacao ? "sim" : "não", x.MotivoRetificacao);
 
             foreach (var d in await _repo.DocumentosDoPacienteAsync(p.Id, ct))
                 Linha(documentos, p.Id, p.Nome, d.Numero,
@@ -326,6 +358,7 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-enfermagem.csv", enfermagem.ToString()),
             new("prontuario-enfermagem-diagnosticos.csv", diagnosticosEnf.ToString()),
             new("prontuario-enfermagem-cuidados.csv", cuidadosEnf.ToString()),
+            new("prontuario-enfermagem-execucoes.csv", execucoesEnf.ToString()),
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }

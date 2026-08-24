@@ -352,9 +352,18 @@
                                                                     Converter={StaticResource BoolParaVisibilidade}}" />
                                         </StackPanel>
 
-                                        <TextBox Grid.Column="1" VerticalAlignment="Top"
-                                                 Text="{Binding Frequencia, UpdateSourceTrigger=PropertyChanged}"
-                                                 ctrl:Ajudantes.Placeholder="frequência" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                            <TextBox Text="{Binding Frequencia, UpdateSourceTrigger=PropertyChanged}"
+                                                     ctrl:Ajudantes.Placeholder="frequência" />
+                                            <!-- O SOS do plano. Cuidado condicional sem
+                                                 registro não é trabalho atrasado — é a
+                                                 condição que não aconteceu —, e é esta
+                                                 caixinha que o tira da conta de pendências
+                                                 da sala. -->
+                                            <CheckBox Content="se necessário" Margin="0,6,0,0"
+                                                      IsChecked="{Binding SeNecessario}"
+                                                      ToolTip="Só se executa quando a condição acontece. Não entra na conta de cuidados aguardando registro." />
+                                        </StackPanel>
 
                                         <Button Grid.Column="2" Content="Remover" Margin="8,0,0,0"
                                                 VerticalAlignment="Top"
