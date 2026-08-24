@@ -1,29 +1,40 @@
 /**
- * O Worker do TERMO PELO WHATSAPP — a página onde o paciente lê, responde e assina no
- * próprio celular (parcela 81). Roteiro de instalação e a decisão inteira em
- * docs/termo-pelo-whatsapp.md; rota no Cloudflare: dominio/t/* (as receitas ficam em /r/*,
- * com o worker-validar-iti.js).
+ * O WORKER DA CLÍNICA — as DUAS funções do domínio público num arquivo só:
  *
- * O DESENHO EM TRÊS LINHAS
- * ------------------------
- * O desktop publica t/xx/TOKEN.json (o pedido: texto do termo + declarações, minimizado).
- * Este Worker serve a página no GET e grava t/xx/TOKEN.resposta.json no POST — WRITE-ONCE:
- * a primeira assinatura é A assinatura, e segunda gravação é recusada.
- * O desktop lê a resposta, a técnica confere e conclui — o Worker nunca sela nada.
+ *   /t/TOKEN   → o TERMO PELO WHATSAPP (parcela 81): a página onde o paciente lê,
+ *                responde e assina no celular. Decisão em docs/termo-pelo-whatsapp.md.
+ *   (resto)    → as RECEITAS: o PDF no navegador e o contrato de QR do validador
+ *                gov.br (parcela 68). Roteiro em docs/validar-pelo-qr-code.md.
  *
- * ⚠️ ESTE WORKER NÃO TOCA BANCO NENHUM. Ele enxerga um binding R2 (variável BALDE) e só o
- * prefixo t/. Vazamento da borda expõe no máximo os pedidos em aberto — nunca credencial
- * do Postgres da clínica. É a decisão estrutural do documento; não a "melhore" ligando o
- * banco aqui.
+ * ⚠️ POR QUE UM WORKER SÓ (parcela 82 — descoberto no primeiro teste da clínica):
+ * o endereço público configurado no sistema é o hostname deste worker no workers.dev
+ * (ex.: divine-bush-1075.….workers.dev), e no workers.dev O HOSTNAME É O WORKER —
+ * não existe rota por caminho entre dois workers. Dois arquivos separados só
+ * funcionariam com domínio PRÓPRIO (o CNAME da parcela 53). Enquanto o domínio for o
+ * workers.dev, é este arquivo, colado NO WORKER CUJO HOSTNAME ESTÁ CONFIGURADO em
+ * Gerente → Configurações → Publicação — e mesmo com domínio próprio ele continua
+ * valendo, com uma única rota dominio/*.
  *
- * INSTALAÇÃO (uma vez, no painel do Cloudflare)
- * ---------------------------------------------
- * 1. Workers & Pages → Create Worker → cole este arquivo.
- * 2. Settings → Bindings → R2 bucket: nome BALDE apontando o MESMO balde da publicação.
- * 3. Workers Routes no domínio da clínica: dominio/t/* → este worker.
- * O botão "Enviar pelo WhatsApp" do sistema só depende do endereço público já configurado
- * em Gerente → Configurações → Publicação.
+ * INSTALAÇÃO
+ * ----------
+ * 1. Workers & Pages → o worker do endereço configurado (o das receitas) → Edit code →
+ *    substitua TUDO por este arquivo → Save and deploy.
+ * 2. Bindings: o R2 do balde da publicação com o nome BUCKET (o que já existe lá).
+ * 3. Nada mais: /t/* passa a responder no mesmo hostname que o app já usa.
+ *
+ * ⚠️ ESTE WORKER NÃO TOCA BANCO NENHUM — só o balde. Vazamento da borda expõe no
+ * máximo o que está publicado; nunca uma credencial do Postgres da clínica.
  */
+
+// ==================== Receitas + validador gov.br ====================
+
+const FORMATO_VALIDADOR = "application/validador-iti+json";
+
+/** Compara códigos ignorando caixa, hífen e espaço — "ab3k7 9xq2m" confere com "AB3K7-9XQ2M". */
+const normalizar = (texto) => (texto ?? "").replace(/[^0-9a-z]/gi, "").toUpperCase();
+
+
+// ==================== O termo pelo WhatsApp ====================
 
 const CABECALHOS_PAGINA = {
   "content-type": "text/html; charset=utf-8",
@@ -40,8 +51,75 @@ const TOKEN_VALIDO = /^[A-Z2-9]{26}$/;
 const caminhoPedido = (token) => `t/${token.slice(0, 2)}/${token}.json`;
 const caminhoResposta = (token) => `t/${token.slice(0, 2)}/${token}.resposta.json`;
 
+
+// ==================== O despacho ====================
+
 export default {
   async fetch(request, env) {
+    const partes = new URL(request.url).pathname.split("/").filter(Boolean);
+    return partes[0] === "t"
+      ? atenderTermo(request, env)
+      : atenderReceita(request, env);
+  },
+};
+
+async function atenderReceita(request, env) {
+    const url = new URL(request.url);
+
+    // O validador acrescenta "/?" ao endereço do QR, então o caminho chega com uma barra
+    // sobrando no fim: /r/AB/TOKEN.pdf/ . Sem esta limpeza, nada seria encontrado.
+    const chave = url.pathname.replace(/\/+$/, "").replace(/^\/+/, "");
+
+    if (request.method === "OPTIONS")
+      return new Response(null, { headers: cors() });
+
+    // ---- O contrato do validador ----
+    //
+    // ⚠️ O "+" de "validador-iti+json" vira ESPAÇO quando a query é decodificada — é o
+    // padrão de URL (application/x-www-form-urlencoded), não um defeito do Cloudflare.
+    // Sem a volta do replace, o formato chegaria como "application/validador-iti json",
+    // nunca casaria, e o Worker devolveria o PDF onde o validador espera o JSON — o
+    // fluxo inteiro falharia em silêncio, com tudo configurado certo.
+    const formato = (url.searchParams.get("_format") ?? "").replace(" ", "+");
+    if (formato === FORMATO_VALIDADOR) {
+      const objeto = await env.BUCKET.head(chave);
+      if (!objeto) return new Response(null, { status: 404, headers: cors() });
+
+      const esperado = normalizar(objeto.customMetadata?.codigo);
+      const informado = normalizar(url.searchParams.get("_secretCode"));
+
+      // Código informado e errado: 401, como o guia manda. Vazio passa (ver cabeçalho).
+      // Objeto antigo sem metadado também passa: ele foi publicado antes de o app gravar
+      // o código, e recusá-lo deixaria toda receita já impressa fora do fluxo.
+      if (informado.length > 0 && esperado.length > 0 && informado !== esperado)
+        return new Response(null, { status: 401, headers: cors() });
+
+      return new Response(
+        JSON.stringify({
+          version: "1.0.0",
+          prescription: { signatureFiles: [{ url: `${url.origin}/${chave}` }] },
+        }),
+        { headers: { "content-type": FORMATO_VALIDADOR, ...cors() } });
+    }
+
+    // ---- Fora do contrato: entrega o PDF, como o domínio sempre entregou ----
+    const objeto = await env.BUCKET.get(chave);
+    if (!objeto)
+      return new Response("Documento não encontrado ou fora do ar.", {
+        status: 404, headers: cors() });
+
+    return new Response(objeto.body, {
+      headers: {
+        "content-type": objeto.httpMetadata?.contentType ?? "application/pdf",
+        "content-disposition": 'inline; filename="documento.pdf"',
+        // O validador busca o PDF a partir da página dele (outra origem): sem CORS a
+        // busca falha DEPOIS do código certo, que é o pior lugar para falhar.
+        ...cors(),
+      },
+    });
+}
+
+async function atenderTermo(request, env) {
     const url = new URL(request.url);
     const partes = url.pathname.split("/").filter(Boolean); // ["t", TOKEN]
     const token = (partes[1] ?? "").toUpperCase();
@@ -49,7 +127,7 @@ export default {
     if (partes[0] !== "t" || !TOKEN_VALIDO.test(token))
       return pagina(404, "Endereço incompleto", "Confira o link recebido no WhatsApp.");
 
-    const objetoPedido = await env.BALDE.get(caminhoPedido(token));
+    const objetoPedido = await env.BUCKET.get(caminhoPedido(token));
     if (!objetoPedido)
       return pagina(
         404, "Este link não existe mais",
@@ -63,7 +141,7 @@ export default {
       return pagina(410, "Este link venceu",
         "O link vale por 24 horas. Peça um novo na recepção — leva um minuto.");
 
-    const jaRespondido = await env.BALDE.head(caminhoResposta(token));
+    const jaRespondido = await env.BUCKET.head(caminhoResposta(token));
 
     if (request.method === "GET") {
       if (jaRespondido)
@@ -107,7 +185,7 @@ export default {
         aparelho: (request.headers.get("user-agent") ?? "").slice(0, 200),
       });
 
-      await env.BALDE.put(caminhoResposta(token), resposta, {
+      await env.BUCKET.put(caminhoResposta(token), resposta, {
         httpMetadata: { contentType: "application/json; charset=utf-8" },
       });
 
@@ -115,8 +193,12 @@ export default {
     }
 
     return json(405, { erro: "Método não suportado." });
-  },
-};
+}
+
+const cors = () => ({
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, HEAD, OPTIONS",
+});
 
 const json = (status, corpo) =>
   new Response(JSON.stringify(corpo), {

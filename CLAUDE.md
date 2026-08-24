@@ -5673,3 +5673,27 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   (`tools/worker-termo-whatsapp.js`, rota `dominio/t/*`) precisa ser publicado no
   Cloudflare para o botão fazer sentido — o botão só APARECE quando o endereço público da
   publicação está configurado.
+
+- **NO `workers.dev` O HOSTNAME É O WORKER — e o desenho de "dois workers, duas rotas"
+  morreu no primeiro teste da clínica** (parcela 82; o cliente mandou o print: o link do
+  termo respondia "Documento não encontrado ou fora do ar", a frase do worker das
+  RECEITAS). O link do termo é `{endereço público}/t/{token}`, e o endereço público
+  configurado é o hostname `workers.dev` do worker das receitas: rota por caminho entre
+  dois workers **só existe com domínio próprio** — no `workers.dev` a requisição vai
+  inteira para o worker dono do hostname, e o segundo worker (criado certinho pelo
+  cliente) nunca recebeu nada. O erro foi MEU desenho presumir o CNAME da parcela 53 numa
+  clínica que publica pelo `workers.dev`.
+  A correção segue a regra da casa: **um arquivo só** (`tools/worker-clinica.js`), com as
+  duas funções despachadas pelo caminho (`/t/*` → termo; resto → receitas/validador),
+  colado no worker cujo hostname está configurado, usando o binding `BUCKET` que já existe.
+  Dois arquivos eram também DUAS CÓPIAS de infraestrutura para o mesmo domínio — a segunda
+  definição que diverge na primeira correção. Os dois arquivos antigos foram REMOVIDOS.
+  ⚠️ **Registrado, não resolvido**: o endereço selado nos QRs das receitas já impressas é
+  o `workers.dev` — renomear aquele worker (ou a conta) mata os QRs no ar, que é
+  exatamente o risco que a parcela 53 documentou ao exigir domínio próprio. Migrar para um
+  CNAME da clínica é decisão para quando a direção quiser: o worker unificado atende os
+  dois mundos sem mudar nada no app.
+  A lição de método: **quando a instalação depende de infraestrutura do CLIENTE (domínio,
+  DNS, conta), o roteiro tem de ser escrito para a infraestrutura que ele TEM, não para a
+  que o desenho gostaria** — e a primeira pergunta do roteiro devia ter sido "o endereço
+  público de vocês é um domínio próprio ou um workers.dev?".

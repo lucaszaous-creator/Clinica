@@ -41,7 +41,8 @@ inclusive as publicadas antes do metadado (o Worker aceita objeto sem código).
 ## Roteiro de instalação (uma vez, ~15 minutos)
 
 1. **Cloudflare → Workers & Pages → Create Worker.** Cole o conteúdo de
-   `tools/worker-validar-iti.js`. Salve e implante.
+   `tools/worker-clinica.js` (o arquivo ÚNICO do domínio — receitas/validador e o termo
+   pelo WhatsApp juntos; parcela 82).
 2. **Settings → Bindings → R2 bucket**: vincule o balde da publicação com o nome
    `BUCKET` (exatamente assim — é o nome que o script usa).
 3. **Domínio**: no Worker, *Settings → Domains & Routes → Add route*:

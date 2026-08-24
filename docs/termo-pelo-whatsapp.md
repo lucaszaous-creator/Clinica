@@ -100,17 +100,22 @@ confere a identidade e clica Confirmar. Selar sem ninguém olhar transformaria q
 resposta tecnicamente válida num termo assinado, e o papel deste fluxo é tirar o custo do
 pad, não a pessoa do circuito.
 
-## 5. As rotas no Cloudflare
+## 5. O Worker no Cloudflare — UM arquivo, e por quê
 
-Dois Workers no mesmo domínio, rotas separadas:
+⚠️ **Corrigido no primeiro teste da clínica (parcela 82).** O desenho original previa dois
+Workers com rotas por caminho (`/r/*` e `/t/*`) — o que só existe com domínio PRÓPRIO. O
+endereço público configurado no sistema é o hostname de UM worker no `workers.dev`, e no
+`workers.dev` **o hostname É o worker**: não há rota por caminho entre dois. O link do
+termo (`{endereço}/t/{token}`) caía no worker das receitas, que respondia "Documento não
+encontrado".
 
-| Rota | Worker | Função |
-|---|---|---|
-| `dominio/r/*` | `worker-validar-iti.js` | Receitas: PDF no navegador, JSON para o validador |
-| `dominio/t/*` | `worker-termo-whatsapp.js` | Termo: página de leitura/assinatura + recepção da resposta |
+O arquivo é um só — **`tools/worker-clinica.js`** — com as duas funções despachadas pelo
+caminho (`/t/*` → termo; resto → receitas/validador). Ele é colado **no worker cujo
+hostname está configurado** em Gerente → Configurações → Publicação, usando o binding
+`BUCKET` que já existe lá. Um segundo worker criado por engano pode ser apagado.
 
-O binding R2 do worker do termo deve apontar o MESMO balde da publicação, e o Worker só
-lê/escreve sob `t/`.
+Com domínio próprio no futuro, o mesmo arquivo atende com uma única rota `dominio/*` —
+nada muda no app nem nos QRs já impressos.
 
 ## 6. O que fica para depois (dito, não prometido)
 
