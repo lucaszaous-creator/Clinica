@@ -51,12 +51,16 @@ public partial class AssinaturaPacienteWindow : Window
         vm.Fechou += AoFechar;
         vm.TermoCarregado += AoCarregarTermo;
         vm.DeclaracaoRespondida += AoResponderDeclaracao;
+        vm.PropertyChanged += AoMudarPropriedadeDoVm;
 
         Closed += (_, _) =>
         {
             vm.Fechou -= AoFechar;
             vm.TermoCarregado -= AoCarregarTermo;
             vm.DeclaracaoRespondida -= AoResponderDeclaracao;
+            vm.PropertyChanged -= AoMudarPropriedadeDoVm;
+            // Vigia órfã seguiria consultando o balde com a janela fechada.
+            vm.PararVigia();
             FecharPainelDoPaciente();
         };
 
@@ -109,7 +113,7 @@ public partial class AssinaturaPacienteWindow : Window
             // A área desta janela some: com duas telas, quem assina é o paciente na dele.
             // Deixar as duas ativas permitiria a recepcionista assinar pelo paciente sem
             // querer — e o termo diria que ele assinou.
-            AreaDeAssinaturaLocal.Visibility = Visibility.Collapsed;
+            AtualizarAreaLocal();
             AvisoTelaDoPaciente.Visibility = Visibility.Visible;
         }
         catch (Exception ex)
@@ -120,7 +124,7 @@ public partial class AssinaturaPacienteWindow : Window
                 "Assinatura do paciente — tela do paciente não pôde ser aberta", ex);
 
             _painel = null;
-            AreaDeAssinaturaLocal.Visibility = Visibility.Visible;
+            AtualizarAreaLocal();
             AvisoTelaDoPaciente.Visibility = Visibility.Collapsed;
         }
     }
@@ -167,6 +171,22 @@ public partial class AssinaturaPacienteWindow : Window
         DicaAssine.Visibility = Visibility.Collapsed;
     }
 
+    /// <summary>
+    /// O DONO ÚNICO da visibilidade da área local (parcela 58: estilo com gatilho morre
+    /// no primeiro valor local). Ela some em DOIS casos: há um monitor virado para o
+    /// paciente, ou o traço chegou do CELULAR — nos dois, deixar a área ativa permitiria
+    /// rabiscar por cima do que o paciente assinou.
+    /// </summary>
+    private void AtualizarAreaLocal()
+        => AreaDeAssinaturaLocal.Visibility =
+            _painel is null && !_vm.TemTracoRemoto ? Visibility.Visible : Visibility.Collapsed;
+
+    private void AoMudarPropriedadeDoVm(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AssinaturaPacienteViewModel.TemTracoRemoto))
+            AtualizarAreaLocal();
+    }
+
     private void AoLimparTraco(object sender, RoutedEventArgs e)
     {
         // Com duas telas, quem tem o traço é a tela dele — apagar daqui apaga lá.
@@ -183,6 +203,16 @@ public partial class AssinaturaPacienteWindow : Window
 
     private async void AoConfirmar(object sender, RoutedEventArgs e)
     {
+        // O traço do CELULAR tem precedência (parcela 81): ele já existe em bytes, a área
+        // local está oculta, e exportar o InkCanvas vazio no lugar dele confirmaria um
+        // termo em branco por cima do que o paciente assinou.
+        if (_vm.TemTracoRemoto)
+        {
+            await _vm.ConfirmarAsync(
+                _vm.TracoRemotoPng!, _vm.TracoRemotoLargura, _vm.TracoRemotoAltura);
+            return;
+        }
+
         var assinouNoPainel = _painel is { } painel && painel.TemTraco;
         var assinouAqui = _painel is null && AreaAssinatura.Strokes.Count > 0;
 

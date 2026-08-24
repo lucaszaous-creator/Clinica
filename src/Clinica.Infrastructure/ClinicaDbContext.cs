@@ -60,6 +60,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<DiagnosticoEnfermagem> DiagnosticosEnfermagem => Set<DiagnosticoEnfermagem>();
     public DbSet<CuidadoEnfermagem> CuidadosEnfermagem => Set<CuidadoEnfermagem>();
     public DbSet<ChecagemCuidado> ChecagensCuidado => Set<ChecagemCuidado>();
+    public DbSet<ColetaRemotaTermo> ColetasRemotasTermo => Set<ColetaRemotaTermo>();
     public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
     public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
     public DbSet<TracoAssinatura> TracosAssinatura => Set<TracoAssinatura>();
@@ -1037,6 +1038,35 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.EvolucaoEnfermagemId);
             e.Ignore(x => x.Redacao);
+        });
+
+        b.Entity<ColetaRemotaTermo>(e =>
+        {
+            e.ToTable("ColetasRemotasTermo");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Token).IsRequired().HasMaxLength(40);
+            e.Property(x => x.TelefoneDestino).IsRequired().HasMaxLength(30);
+            e.Property(x => x.EnviadaPor).IsRequired().HasMaxLength(120);
+            e.Property(x => x.EvidenciaResposta).HasMaxLength(600);
+            e.Property(x => x.CanceladaPor).HasMaxLength(120);
+
+            // O Npgsql RECUSA Kind=Local em coluna COM fuso, e o padrão do provedor é COM
+            // (a lição da parcela 67 — DatasSemFusoTests cobra do modelo inteiro).
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ExpiraEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RespondidaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ConcluidaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Documento).WithMany()
+                .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);
+
+            // Token único: é a chave do circuito com a borda, e dois envios com o mesmo
+            // token fariam a resposta de um cair no outro.
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => x.DocumentoClinicoId);
+
+            e.Ignore(x => x.EmAberto);
         });
 
         b.Entity<ChecagemCuidado>(e =>

@@ -5622,3 +5622,54 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   pelo código** — o serviço estava certo, o banco estava certo, e a frase na tela fabricou
   o dado errado. Ao criar campo que grava em lista de outra natureza, a pergunta do rótulo
   tem de ser a pergunta da LISTA ("a quê?"), nunca a do contexto ("o que houve?").
+
+- **O TERMO PELO WHATSAPP: o paciente assina no PRÓPRIO celular, na sala de espera**
+  (parcela 81 — o pedido da cliente: *"a gente envia, ele lê, assina, envia e já cai no
+  nosso banco... o médico/enfermeiro/secretária abre o termo e envia via WhatsApp para o
+  paciente assinar/ler enquanto espera"*. O mapa completo está em
+  **`docs/termo-pelo-whatsapp.md`**, e é lá que se atualiza). O cenário derruba a objeção
+  que a parcela 66 tinha ao link: o paciente está NA CLÍNICA, no dia — o jejum continua
+  sendo sobre o presente, e a identidade se confere no check-in.
+  O desenho em uma linha: o desktop publica um PEDIDO minimizado no balde
+  (`t/{token}`, o token de 2^127 das receitas), abre o wa.me com o link, e fica LENDO o
+  balde à espera da RESPOSTA que o Worker grava; a resposta volta à janela da técnica, que
+  confere e conclui pelo MESMO `ColherAsync` do balcão. As decisões que não são óbvias:
+  (a) **O Worker NUNCA toca o banco** — só um binding R2 no prefixo `t/`. Vazamento da
+  borda expõe no máximo os pedidos em aberto, nunca credencial do Postgres. Foi a escolha
+  estrutural contra "Worker consulta o Neon", que seria mais direto e poria a chave do
+  banco da clínica na borda.
+  (b) **O pedido é MINIMIZADO e há teste fixando** (nem o SOBRENOME sai): cada campo a
+  mais ali é dado de saúde a mais no ar. A mensagem do WhatsApp também — notificação
+  aparece em tela bloqueada.
+  (c) **A resposta nunca sela sozinha**: quem conclui é a técnica, vendo o traço e as
+  respostas, com o documento conferido obrigatório como sempre. O papel do fluxo é tirar o
+  custo do pad, não a pessoa do circuito. **O selo não mudou** — mudá-lo invalidaria a
+  conferência dos termos já assinados.
+  (d) **Write-once na borda** (segunda gravação recusada) e, do lado de cá, traço inválido
+  manda CANCELAR E REENVIAR — não há segunda chance no mesmo token, de propósito.
+  (e) **Expira em 24h FIXAS** (o link é para a sala de espera); a limpeza é tripla —
+  concluir apaga, a varredura do Gerente apaga, e o Worker recusa vencido pela data DE
+  DENTRO do pedido. `EnviarAsync` é idempotente (o 2º clique reaproveita o token em
+  aberto: o paciente pode já estar com o link na mão) e o vencido é cancelado COM registro
+  — a linha `ColetasRemotasTermo` não se apaga nunca: ela é a evidência do canal
+  (telefone da ficha, quem enviou, IP/aparelho/hora da resposta).
+  As armadilhas da casa que a implementação REENCONTROU, e pagou na hora:
+  ⚠️ **A Visibility da área local de assinatura tem UM dono** — o code-behind já a
+  atribuía por código (modo duas telas), e o gatilho de estilo que escrevi primeiro
+  morreria no primeiro valor local (parcela 58). Virou `AtualizarAreaLocal()` no
+  code-behind, com as DUAS condições (painel do paciente OU traço remoto).
+  ⚠️ **A vigia de 5s e o Confirmar compartilham o DbContext do escopo da janela** — sem
+  porteiro, o clique no instante da batida estoura "a second operation was started on this
+  context" (parcela 69). `SemaphoreSlim(1,1)` na frente de TODA operação de serviço da
+  janela.
+  ⚠️ **O teste verde não provava o `Include`**: o serviço lê `documento.Itens` e o teste
+  passa por relationship fixup mesmo sem Include (parcela 68) — conferido no repositório
+  que `ObterDocumentoAsync` traz os itens, senão a página sairia SEM AS PERGUNTAS, calada.
+  ⚠️ **O STJ escapa acento por padrão** (`Simpático`): para artefato lido por gente e
+  pelo nosso próprio Worker, `UnsafeRelaxedJsonEscaping` — e o teste confere por VALORES
+  parseados, não por substring cega.
+  O que fica dito e não prometido: envio automático (WhatsApp Business) não existe — é o
+  wa.me de um clique; assinar em casa dias antes continua fora (o jejum nunca); e o Worker
+  (`tools/worker-termo-whatsapp.js`, rota `dominio/t/*`) precisa ser publicado no
+  Cloudflare para o botão fazer sentido — o botão só APARECE quando o endereço público da
+  publicação está configurado.

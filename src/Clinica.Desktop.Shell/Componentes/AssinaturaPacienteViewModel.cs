@@ -58,6 +58,9 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     /// </summary>
     private readonly ProblemaPacienteService? _problemas;
 
+    /// <summary>O link pelo WhatsApp (parcela 81). Opcional; sem ele o botão não existe.</summary>
+    private readonly ColetaRemotaTermoService? _coletaRemota;
+
     public AssinaturaPacienteViewModel(
         DocumentoClinicoService documentos,
         AssinaturaDoPacienteService assinaturas,
@@ -69,7 +72,8 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         int? profissionalId = null,
         AcessoProntuarioService? acessos = null,
         ParametrosService? parametros = null,
-        ProblemaPacienteService? problemas = null)
+        ProblemaPacienteService? problemas = null,
+        ColetaRemotaTermoService? coletaRemota = null)
     {
         _documentos = documentos;
         _assinaturas = assinaturas;
@@ -77,6 +81,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         _acessos = acessos;
         _parametros = parametros;
         _problemas = problemas;
+        _coletaRemota = coletaRemota;
         _pacienteId = pacienteId;
         _modeloId = modeloId;
         _profissionalId = profissionalId;
@@ -157,6 +162,189 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     /// desabilitar é enfeite, porque a tecla de atalho passa direto.
     /// </summary>
     public bool PodeColher => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
+
+    // ==================== O link pelo WhatsApp (parcela 81) ====================
+    //
+    // O paciente lê e assina NO PRÓPRIO CELULAR, na sala de espera; a resposta volta pelo
+    // balde e cai NESTA janela, que percebe sozinha (vigia de 5 s). A resposta nunca sela
+    // nada por conta própria: a técnica confere a identidade e clica Confirmar — o papel
+    // do fluxo é tirar o custo do pad, não a pessoa do circuito. A decisão inteira está
+    // em docs/termo-pelo-whatsapp.md.
+
+    private CancellationTokenSource? _vigia;
+
+    /// <summary>
+    /// O PORTEIRO do contexto (parcela 69: DbContext não aceita duas operações ao mesmo
+    /// tempo). A vigia bate a cada 5 s nos MESMOS serviços do escopo desta janela; sem o
+    /// porteiro, um Confirmar no instante da batida estoura "a second operation was
+    /// started on this context" na cara da técnica.
+    /// </summary>
+    private readonly SemaphoreSlim _portaDoContexto = new(1, 1);
+
+    /// <summary>O botão só EXISTE quando há para onde apontar o link (endereço público
+    /// configurado) e o termo ainda aguarda assinatura — botão que leva a recusa certa
+    /// é pior do que botão nenhum (parcela 41).</summary>
+    [ObservableProperty] private bool _envioRemotoDisponivel;
+
+    [ObservableProperty] private bool _aguardandoCelular;
+
+    /// <summary>O traço que chegou do celular. O WPF converte byte[] em imagem sozinho
+    /// no Image.Source — é assim que a técnica VÊ o que vai confirmar.</summary>
+    [ObservableProperty] private byte[]? _tracoRemotoPng;
+
+    public int TracoRemotoLargura { get; private set; }
+    public int TracoRemotoAltura { get; private set; }
+
+    public bool TemTracoRemoto => TracoRemotoPng is not null;
+
+    partial void OnTracoRemotoPngChanged(byte[]? value)
+        => OnPropertyChanged(nameof(TemTracoRemoto));
+
+    [RelayCommand]
+    private async Task EnviarPeloCelularAsync()
+    {
+        SessaoUsuario.Atual.Exigir(
+            Permissao.ColherAssinaturaPaciente, "enviar o termo para o celular do paciente");
+
+        if (_coletaRemota is null || _documento is null) return;
+
+        await _portaDoContexto.WaitAsync();
+        try
+        {
+            var envio = await _coletaRemota.EnviarAsync(_documento.Id, Testemunha);
+
+            var erro = Whatsapp.Abrir(envio.Telefone, PacienteNome, envio.Mensagem);
+            if (erro is not null)
+            {
+                // O WhatsApp não abriu (telefone inválido, máquina sem navegador): o
+                // pedido não pode ficar publicado sem ninguém com o link na mão.
+                await _coletaRemota.CancelarAsync(_documento.Id, Testemunha);
+                MensagemEhErro = true;
+                Mensagem = erro;
+                return;
+            }
+
+            AguardandoCelular = true;
+            MensagemEhErro = false;
+            Mensagem = $"Link enviado para {envio.Telefone} — esta janela percebe sozinha "
+                     + "quando o paciente assinar. O link vale por 24 horas.";
+            IniciarVigia();
+        }
+        catch (Exception ex)
+        {
+            MensagemEhErro = true;
+            Mensagem = ex.Message;
+            Application.Diagnostico.Registrar("Termo pelo WhatsApp — envio", ex);
+        }
+        finally
+        {
+            _portaDoContexto.Release();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CancelarEnvioCelularAsync()
+    {
+        SessaoUsuario.Atual.Exigir(
+            Permissao.ColherAssinaturaPaciente, "cancelar o envio do termo");
+
+        if (_coletaRemota is null || _documento is null) return;
+
+        PararVigia();
+        AguardandoCelular = false;
+
+        await _portaDoContexto.WaitAsync();
+        try
+        {
+            var limpou = await _coletaRemota.CancelarAsync(_documento.Id, Testemunha);
+            MensagemEhErro = !limpou;
+            Mensagem = limpou
+                ? "Envio cancelado — o link saiu do ar. A coleta continua aqui na janela."
+                : "Envio cancelado, mas o link pode NÃO ter saído do ar (o armazenamento "
+                  + "não respondeu). Veja a pasta de logs e avise o suporte.";
+        }
+        catch (Exception ex)
+        {
+            MensagemEhErro = true;
+            Mensagem = ex.Message;
+            Application.Diagnostico.Registrar("Termo pelo WhatsApp — cancelamento", ex);
+        }
+        finally
+        {
+            _portaDoContexto.Release();
+        }
+    }
+
+    private void IniciarVigia()
+    {
+        PararVigia();
+        var cts = new CancellationTokenSource();
+        _vigia = cts;
+        _ = VigiarAsync(cts.Token);
+    }
+
+    /// <summary>A janela chama ao FECHAR — vigia órfã seguiria consultando o balde.</summary>
+    public void PararVigia()
+    {
+        _vigia?.Cancel();
+        _vigia = null;
+    }
+
+    private async Task VigiarAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), ct);
+
+                RespostaRemotaTermo? resposta;
+                await _portaDoContexto.WaitAsync(ct);
+                try
+                {
+                    resposta = await _coletaRemota!.ColherRespostaAsync(_documento!.Id, ct);
+                }
+                finally
+                {
+                    _portaDoContexto.Release();
+                }
+
+                if (resposta is null) continue;
+
+                AplicarRespostaRemota(resposta);
+                return;
+            }
+        }
+        catch (OperationCanceledException) { /* a janela fechou ou o envio foi cancelado */ }
+        catch (Exception ex)
+        {
+            // Traço inválido, balde fora do ar: a espera PARA e a frase diz o caminho —
+            // vigia que segue rodando por cima de um erro repetiria a mensagem a cada 5 s.
+            AguardandoCelular = false;
+            MensagemEhErro = true;
+            Mensagem = ex.Message;
+            Application.Diagnostico.Registrar("Termo pelo WhatsApp — vigia da resposta", ex);
+        }
+    }
+
+    private void AplicarRespostaRemota(RespostaRemotaTermo resposta)
+    {
+        // As respostas são AS DO PACIENTE — é ele quem responde no celular, e é isso que
+        // o selo vai cobrir. A tela mostra como ele respondeu.
+        foreach (var d in Declaracoes)
+            if (resposta.Respostas.TryGetValue(d.Ordem, out var valor))
+                d.Resposta = valor;
+
+        TracoRemotoLargura = resposta.Largura;
+        TracoRemotoAltura = resposta.Altura;
+        TracoRemotoPng = resposta.TracoPng;
+        TemTraco = true;
+        AguardandoCelular = false;
+
+        MensagemEhErro = false;
+        Mensagem = $"Assinatura recebida do celular ({resposta.TelefoneDestino}). Confira a "
+                 + "identidade do paciente, preencha o documento conferido e clique Confirmar.";
+    }
 
     // ==================== Alergia — o destaque antes da assinatura (parcela 80) ====================
     //
@@ -366,6 +554,41 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
 
             await CarregarAlergiasAsync();
 
+            // O envio pelo WhatsApp só se OFERECE quando há para onde apontar o link — o
+            // mesmo endereço público da publicação de receitas. Sem configuração o botão
+            // não existe (em vez de existir e recusar), e falha de leitura vira botão
+            // ausente com log, nunca janela que não abre.
+            try
+            {
+                EnvioRemotoDisponivel =
+                    _coletaRemota is not null && _parametros is not null
+                    && _documento.AguardaAssinaturaDoPaciente
+                    && await _parametros.ObterUrlPublicacaoAsync() is not null;
+            }
+            catch (Exception ex)
+            {
+                EnvioRemotoDisponivel = false;
+                Application.Diagnostico.Registrar(
+                    "Termo pelo WhatsApp — configuração não pôde ser lida", ex);
+            }
+
+            // O paciente pode ter assinado no celular com esta janela FECHADA (envio de
+            // ontem, janela reaberta): uma leitura única recupera a resposta que já está
+            // no balde — sem ela, a técnica reenviaria um link para quem já assinou.
+            if (EnvioRemotoDisponivel)
+            {
+                try
+                {
+                    if (await _coletaRemota!.ColherRespostaAsync(_documento.Id) is { } prontas)
+                        AplicarRespostaRemota(prontas);
+                }
+                catch (Exception ex)
+                {
+                    Application.Diagnostico.Registrar(
+                        "Termo pelo WhatsApp — resposta pendente não pôde ser lida", ex);
+                }
+            }
+
             TelaDoPaciente = await ResolverTelaDoPacienteAsync();
 
             // Depois de tudo montado: quem escuta abre a tela do paciente, e ela mostra o
@@ -443,6 +666,11 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         Mensagem = string.Empty;
         MensagemEhErro = false;
 
+        // A vigia para AQUI, antes de qualquer serviço — e o porteiro segura a vez até a
+        // batida em voo (se houver) soltar o contexto.
+        PararVigia();
+        await _portaDoContexto.WaitAsync();
+
         try
         {
             var respostas = Declaracoes.ToDictionary(d => d.Ordem, d => d.Resposta);
@@ -450,6 +678,21 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
             await _assinaturas.ColherAsync(
                 _documento.Id, tracoPng, largura, altura, respostas,
                 DocumentoConferido, Testemunha);
+
+            // O circuito remoto fecha DEPOIS do selo: conclui a coleta e tira o link do
+            // ar. Falha na remoção não desfaz o selo — mas nunca passa calada (dado de
+            // saúde no ar é a falha grave deste fluxo): vira aviso na cara de quem colheu.
+            if (TemTracoRemoto && _coletaRemota is not null)
+            {
+                PararVigia();
+                var limpou = await _coletaRemota.ConcluirAsync(_documento.Id, Testemunha);
+                if (!limpou)
+                    _dialogo.Aviso(
+                        "O link não saiu do ar",
+                        "O termo foi assinado e gravado, mas o link do WhatsApp não pôde "
+                        + "ser removido do armazenamento. Ele vence sozinho em 24 horas — "
+                        + "mesmo assim, avise o suporte (a causa está na pasta de logs).");
+            }
 
             Concluido = true;
             Fechou?.Invoke();
@@ -464,6 +707,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         }
         finally
         {
+            _portaDoContexto.Release();
             Carregando = false;
         }
     }

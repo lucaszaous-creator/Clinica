@@ -76,6 +76,12 @@ public partial class App : System.Windows.Application
             await escopo.ServiceProvider
                 .GetRequiredService<PublicacaoDocumentoService>()
                 .ExpirarVencidosAsync();
+
+            // Os links de TERMO (parcela 81) vencem em horas, não dias — mesma varredura,
+            // mesma razão: o objeto não fica no balde depois de morto.
+            await escopo.ServiceProvider
+                .GetRequiredService<ColetaRemotaTermoService>()
+                .LimparVencidasAsync();
         }
         catch (Exception ex)
         {

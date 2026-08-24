@@ -626,6 +626,18 @@ public interface IClinicaRepositorio
     /// Documentos com link no ar cuja janela de publicação já venceu (parcela 53). É o que
     /// a expiração varre para tirá-los do ar.
     /// </summary>
+    // ---- Coleta remota do termo (o link pelo WhatsApp — parcela 81) ----
+
+    Task AdicionarColetaRemotaAsync(ColetaRemotaTermo coleta, CancellationToken ct = default);
+
+    /// <summary>A coleta EM ABERTO (nem concluída nem cancelada) mais recente do documento.</summary>
+    Task<ColetaRemotaTermo?> ColetaRemotaAbertaDoDocumentoAsync(
+        int documentoId, CancellationToken ct = default);
+
+    /// <summary>As coletas em aberto já vencidas — a varredura de limpeza.</summary>
+    Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasVencidasAsync(
+        DateTime agora, CancellationToken ct = default);
+
     Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default);
 

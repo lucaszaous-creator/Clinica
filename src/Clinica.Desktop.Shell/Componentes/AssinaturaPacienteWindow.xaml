@@ -229,10 +229,82 @@
                                         VerticalAlignment="Bottom" Click="AoLimparTraco" />
                             </Grid>
 
+                            <!-- ===== 3-remoto. O LINK PELO WHATSAPP (parcela 81) =====
+                                 O paciente lê e assina no PRÓPRIO celular, na sala de
+                                 espera; esta janela percebe sozinha quando a assinatura
+                                 chega. O botão só EXISTE quando o endereço público está
+                                 configurado — botão que leva à recusa certa é pior que
+                                 botão nenhum (parcela 41). Decisão inteira em
+                                 docs/termo-pelo-whatsapp.md. -->
+                            <StackPanel Visibility="{Binding EnvioRemotoDisponivel,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                <DockPanel Margin="0,10,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Enviar para o celular…"
+                                            MinWidth="180" Margin="12,0,0,0"
+                                            VerticalAlignment="Center"
+                                            ToolTip="Abre o WhatsApp com o link do termo pronto. O paciente lê, responde e assina no próprio celular; a assinatura cai nesta janela."
+                                            Command="{Binding EnviarPeloCelularCommand}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AguardandoCelular}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding TemTracoRemoto}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+
+                                    <Button DockPanel.Dock="Right" Content="Cancelar envio"
+                                            MinWidth="140" Margin="12,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource BotaoSecundarioPerigo}"
+                                            Visibility="{Binding AguardandoCelular,
+                                                         Converter={StaticResource BoolParaVisibilidade}}"
+                                            Command="{Binding CancelarEnvioCelularCommand}" />
+
+                                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                               Style="{StaticResource TextoSuave}"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Text="Sem tela de assinatura no balcão? O paciente pode ler e assinar no próprio celular, pelo WhatsApp." />
+                                </DockPanel>
+
+                                <Border Style="{StaticResource AlertaInfo}" Margin="0,8,0,0"
+                                        Visibility="{Binding AguardandoCelular,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                    <TextBlock TextWrapping="Wrap"
+                                               Text="O termo foi para o WhatsApp do paciente. Esta janela percebe sozinha quando ele assinar — dá para deixá-la aberta e seguir o atendimento." />
+                                </Border>
+
+                                <!-- A técnica VÊ o que vai confirmar: o traço que chegou do
+                                     celular, com a origem escrita. O WPF converte byte[] em
+                                     imagem sozinho no Image.Source. -->
+                                <Border Margin="0,8,0,0" BorderThickness="1" CornerRadius="6"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        Background="{StaticResource Brush.Superficie}" Padding="12,10"
+                                        Visibility="{Binding TemTracoRemoto,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Assinatura recebida do celular do paciente:"
+                                                   Style="{StaticResource Rotulo}" />
+                                        <Image Source="{Binding TracoRemotoPng}" MaxHeight="140"
+                                               HorizontalAlignment="Left" Margin="0,6,0,0"
+                                               Stretch="Uniform" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
                             <!-- ===== 3a. UMA TELA: o paciente assina AQUI =====
                                  Some quando há um monitor virado para ele. Deixar as duas
                                  áreas ativas permitiria a recepcionista assinar pelo
                                  paciente sem querer — e o termo diria que ele assinou. -->
+                            <!-- ⚠️ A Visibility desta área tem UM dono: o code-behind
+                                 (AtualizarAreaLocal). Estilo com gatilho aqui morreria no
+                                 primeiro valor local atribuído por código — parcela 58. -->
                             <StackPanel x:Name="AreaDeAssinaturaLocal">
                                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0,10,0,0"
                                            TextWrapping="Wrap"

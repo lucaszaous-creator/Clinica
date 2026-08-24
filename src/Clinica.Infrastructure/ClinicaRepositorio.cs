@@ -1281,6 +1281,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // Sem os itens: a lista da ficha mostra número, tipo e data — o corpo só é lido
     // quando alguém abre ou reimprime um documento específico.
+    // ---- Coleta remota do termo (parcela 81) ----
+
+    public async Task AdicionarColetaRemotaAsync(
+        ColetaRemotaTermo coleta, CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo.AddAsync(coleta, ct);
+
+    public async Task<ColetaRemotaTermo?> ColetaRemotaAbertaDoDocumentoAsync(
+        int documentoId, CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo
+            .Where(c => c.DocumentoClinicoId == documentoId
+                        && c.ConcluidaEm == null && c.CanceladaEm == null)
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasVencidasAsync(
+        DateTime agora, CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo
+            .Where(c => c.ConcluidaEm == null && c.CanceladaEm == null && c.ExpiraEm < agora)
+            .OrderBy(c => c.Id)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default)
         => await _db.DocumentosClinicos
