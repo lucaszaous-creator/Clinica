@@ -5216,3 +5216,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `x.Cuidado`: a leitura é `AsNoTracking` sem `Include`, a navegação viria NULA em produção
   e a coluna sairia "#123" — enquanto o teste passaria pelo relationship fixup do EF. É a
   lição da parcela 68, e ela foi pega **na escrita** desta vez, não numa auditoria depois.
+
+- **A conferência na escrita pega muito, e a RELEITURA do próprio diff ainda pega três**
+  (parcela 76, 3ª rodada — a direção perguntou se eu havia conferido durante a escrita). A
+  resposta honesta: a lista pegou seis coisas enquanto eu escrevia (a cópia campo a campo do
+  `SalvarModeloAsync`, o `x.Cuidado` que viria nulo em produção, o `SeNecessario` que a
+  retificação desligaria, a checagem 24 no selo, o `defaultValue` da coluna nova, o
+  `timestamp without time zone`) — **e reler o diff inteiro depois de verde ainda achou mais
+  três, todos meus e todos da mesma família.**
+  ⚠️ **`PlanoNaoVerificado` gravado e sem LEITOR.** Eu escrevi a propriedade, documentei-a
+  como "o terceiro estado" e nenhum XAML a lia. O texto do resumo salvava a situação por
+  acidente; o booleano era enfeite. **Booleano de estado que ninguém lê não é estado — é uma
+  atribuição.**
+  ⚠️ **Um comentário prometendo o que o código não fazia.** `RetificarAsync` diz "a folha
+  mostra as duas", e o quadro do dia filtrava as corrigidas ANTES de chegar à tela: sumia da
+  vista justamente o registro retificado, que é o que uma auditoria de enfermagem procura. É
+  o defeito da parcela 67 na área onde ele custa mais. A separação certa é a que ficou:
+  `Checagens` leva TODAS as do dia (a corrigida marcada) e `Vigentes` é quem decide o que
+  VALE — filtrar na leitura misturava as duas perguntas numa lista só.
+  ⚠️ **`HistoricoDoCuidadoAsync` com chamador só no TESTE** — capacidade sem porta nascida
+  no mesmo commit que a documenta. Removido: a exportação já leva o histórico inteiro, e o
+  teste passou a ler pelo repositório, que é o caminho que a produção usa. **Método que só o
+  teste chama é método que o teste inventou.**
+  A lição de método, e ela não contradiz a regra da AUDITORIA DE LINHA: **a lista se percorre
+  ao escrever CADA trecho, e o diff inteiro se relê UMA vez antes do commit.** São conferências
+  diferentes — a primeira olha a linha, a segunda olha o que sobrou. Nenhuma das duas é rodada
+  de agentes, e as duas cabem em minutos.

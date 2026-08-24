@@ -202,14 +202,19 @@ public class ExecucaoDoCuidadoTests : IDisposable
             errada.Id, SituacaoChecagem.Realizado, Hoje, new TimeOnly(10, 0), Tecnica,
             motivo: "digitei 9h, o curativo foi às 10h");
 
-        var todas = await _servico.HistoricoDoCuidadoAsync(curativo);
+        var todas = await _repo.ChecagensDosCuidadosAsync([curativo]);
         todas.Should().HaveCount(2, "nada se apaga: a anterior fica, marcada");
 
-        var plano = await _servico.PlanoDoDiaAsync(pacienteId, Hoje);
-        plano!.Cuidados.Single(c => c.CuidadoId == curativo)
-            .Checagens.Should().ContainSingle()
-            .Which.HoraRealizacao.Should().Be(new TimeOnly(10, 0),
-                "a retificada sai do quadro do dia — no papel ela continua, marcada");
+        var linha = (await _servico.PlanoDoDiaAsync(pacienteId, Hoje))!
+            .Cuidados.Single(c => c.CuidadoId == curativo);
+
+        // ⚠️ A corrigida APARECE, marcada — filtrá-la da tela apagaria da vista justamente
+        // o registro que foi retificado, que é o que uma auditoria procura.
+        linha.Checagens.Should().HaveCount(2);
+
+        // ...e só a nova VALE: é sobre as vigentes que a conta é feita.
+        linha.Vigentes.Should().ContainSingle()
+            .Which.HoraRealizacao.Should().Be(new TimeOnly(10, 0));
     }
 
     [Fact]

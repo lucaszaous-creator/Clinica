@@ -64,8 +64,6 @@ public sealed class LinhaCuidadoDoDia
     public required string Selo { get; init; }
 
     public required bool Pendente { get; init; }
-
-    public bool TemRegistro => !string.IsNullOrWhiteSpace(Registro);
 }
 
 public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
@@ -592,17 +590,27 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         CuidadoId = c.CuidadoId,
         Redacao = c.Redacao,
-        Registro = string.Join("\n", c.Checagens.Select(x =>
-            x.Linha + (string.IsNullOrWhiteSpace(x.Justificativa)
-                ? string.Empty
-                : $" \u2014 {x.Justificativa}"))),
+        // ⚠️ A CORRIGIDA aparece marcada, nunca sumindo. O comentário de `RetificarAsync`
+        // promete que "a folha mostra as duas", e promessa que o código não cumpre é o
+        // defeito da parcela 67 — aqui ela seria pior que em outro lugar, porque apagar da
+        // vista o registro que foi corrigido é exatamente o gesto que a auditoria de
+        // enfermagem procura.
+        Registro = string.Join("\n", c.Checagens.Select(Descrever)),
         Pendente = c.Pendente,
         // O "se necessário" tem selo PRÓPRIO, e não o de pendente: ele não é trabalho
         // atrasado, é a condição que não aconteceu.
         Selo = c.Pendente ? "aguardando"
-             : c.SeNecessario && c.Checagens.Count == 0 ? "se necessário"
+             : c.SeNecessario && c.Vigentes.Count == 0 ? "se necessário"
              : string.Empty
     };
+
+    private static string Descrever(ChecagemCuidado x)
+    {
+        var texto = x.Linha;
+        if (!string.IsNullOrWhiteSpace(x.Justificativa)) texto += $" \u2014 {x.Justificativa}";
+        if (x.EhRetificacao) texto += $" \u2014 corrige o anterior: {x.MotivoRetificacao}";
+        return texto;
+    }
 
     [RelayCommand]
     private Task MarcarFeitoAsync(LinhaCuidadoDoDia? linha)

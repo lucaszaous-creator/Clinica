@@ -4,12 +4,23 @@ using Clinica.Domain.Entities;
 namespace Clinica.Application.Servicos;
 
 /// <summary>Um cuidado do plano, com o que foi registrado dele NAQUELE dia.</summary>
-/// <param name="Checagens">Só as VIGENTES, em ordem de hora. A retificada fica na base.</param>
+/// <param name="Checagens">
+/// TODAS as execuções do dia, em ordem de hora — inclusive as que já foram CORRIGIDAS.
+///
+/// ⚠️ A corrigida entra de propósito: ela aparece marcada, nunca sumindo. Filtrá-la aqui
+/// apagaria da vista justamente o registro que foi retificado, que é o que uma auditoria
+/// de enfermagem procura — e contradiria o que <c>RetificarAsync</c> promete por escrito.
+/// Quem decide o que VALE é <see cref="Vigentes"/>, e é sobre ele que a conta é feita.
+/// </param>
 public sealed record CuidadoDoDia(
     int CuidadoId, string Redacao, bool SeNecessario,
     IReadOnlyList<ChecagemCuidado> Checagens)
 {
-    public bool Realizado => Checagens.Any(c => c.Realizado);
+    /// <summary>As que valem — sem as substituídas por uma correção.</summary>
+    public IReadOnlyList<ChecagemCuidado> Vigentes =>
+        ChecagemCuidado.Vigentes(Checagens).ToList();
+
+    public bool Realizado => Vigentes.Any(c => c.Realizado);
 
     /// <summary>
     /// Cobra uma palavra da técnica. O <b>se necessário</b> fica de fora, e é a única
@@ -19,7 +30,7 @@ public sealed record CuidadoDoDia(
     /// nada. Na LINHA ele continua aparecendo sem registro, porque ali a informação é sobre
     /// aquele cuidado e não sobre o que resta do dia.
     /// </summary>
-    public bool Pendente => !SeNecessario && Checagens.Count == 0;
+    public bool Pendente => !SeNecessario && Vigentes.Count == 0;
 }
 
 /// <summary>O plano de cuidados de um paciente visto por um DIA.</summary>
@@ -29,7 +40,7 @@ public sealed record PlanoDeCuidadosDoDia(
 {
     public int Pendentes => Cuidados.Count(c => c.Pendente);
 
-    public int Registrados => Cuidados.Count(c => c.Checagens.Count > 0);
+    public int Registrados => Cuidados.Count(c => c.Vigentes.Count > 0);
 }
 
 /// <summary>
@@ -96,7 +107,11 @@ public sealed class ChecagemCuidadoService
         var ids = vigente.Cuidados.Select(c => c.Id).ToList();
         var checagens = await _repo.ChecagensDosCuidadosAsync(ids, ct);
 
-        var doDia = ChecagemCuidado.Vigentes(checagens)
+        // ⚠️ Sem `Vigentes` aqui: a corrigida vai para a tela MARCADA. Quem separa o que
+        // vale do que foi desdito é `CuidadoDoDia.Vigentes`, sobre a lista já do dia — e
+        // filtrar antes tiraria o registro corrigido da vista, que é o oposto do que a
+        // retificação existe para garantir.
+        var doDia = checagens
             .Where(c => c.Data == data)
             .ToLookup(c => c.CuidadoEnfermagemId);
 
@@ -110,11 +125,6 @@ public sealed class ChecagemCuidadoService
         return new PlanoDeCuidadosDoDia(
             data, vigente.Id, vigente.Data, vigente.AutorNome, linhas);
     }
-
-    /// <summary>Todas as execuções de um cuidado, para a folha e para a conferência.</summary>
-    public async Task<IReadOnlyList<ChecagemCuidado>> HistoricoDoCuidadoAsync(
-        int cuidadoId, CancellationToken ct = default)
-        => (await _repo.ChecagensDosCuidadosAsync([cuidadoId], ct)).ToList();
 
     // ==================== Escrita ====================
 

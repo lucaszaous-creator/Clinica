@@ -211,8 +211,25 @@
                         <StackPanel Grid.Column="0" Margin="0,0,16,0">
                             <TextBlock Text="PLANO DE CUIDADOS DE HOJE"
                                        Style="{StaticResource Rotulo}" Margin="0,0,0,2" />
-                            <TextBlock Text="{Binding ResumoDoPlano}" TextWrapping="Wrap"
-                                       Style="{StaticResource TextoSuave}" Margin="0" />
+                            <!-- O terceiro estado precisa se VER: "não há plano" e "não
+                                 consegui ler o plano" dizem coisas opostas numa tela que
+                                 existe para dizer o que falta fazer, e um booleano gravado
+                                 sem leitor não é estado nenhum. -->
+                            <TextBlock Text="{Binding ResumoDoPlano}" TextWrapping="Wrap" Margin="0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock"
+                                           BasedOn="{StaticResource TextoSuave}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PlanoNaoVerificado}"
+                                                         Value="True">
+                                                <Setter Property="Foreground"
+                                                        Value="{StaticResource Brush.Erro}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal"
