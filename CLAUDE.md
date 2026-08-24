@@ -5738,3 +5738,23 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   o leiaute novo** — os dois continuavam verdadeiros, mas texto espacial é o primeiro a
   mentir numa reforma; e **"as NOVE folhas" do subtítulo eram onze** — número escrito em
   prosa apodrece a cada folha nova, e saiu.
+
+- **A CENTRAL DE DOCUMENTOS EM DUAS ABAS — e a correção anterior tinha parado no meio**
+  (parcela 82, 3ª rodada — o cliente: *"Ainda está totalmente amador! Por que o 'O que já
+  saiu' não vira uma sub-aba dentro de Documentos?"*). A rodada anterior tinha encolhido
+  os cartões e desmontado a faixa de três caixas — e DEIXOU a tela como duas caixas
+  empilhadas com lateral permanente: mexeu no tamanho das peças sem responder a pergunta
+  da regra de leiaute, **"quantas perguntas esta tela responde?"**. São DUAS ("emitir um
+  papel novo" e "achar o que já saiu"), e pergunta a mais é ABA (parcela 55: item que
+  cobre mais de um assunto usa sub-abas), não caixa menor.
+  O que a separação destravou de graça: **a lista ganhou a largura inteira** — o seletor
+  de paciente é contexto da EMISSÃO (sete das nove folhas são de alguém) e foi para a aba
+  dela; a lista recorta por PERÍODO, não por paciente (conferido no ViewModel:
+  `EmitidasAsync(inicio, fim, acessos)` — a lateral nunca a filtrou). E o H3 "O que já
+  saiu" dentro da aba homônima saiu — rótulo da região é a própria aba; o que fica é o
+  RESUMO, que diz o recorte.
+  A lição, e ela é sobre o MEU processo: **quando o cliente reprova uma tela, a correção
+  começa pelas três perguntas da regra de leiaute, não pelo tamanho das peças.** Encolher
+  cartão, compactar barra e mover caixinha são refinamentos DA resposta errada quando a
+  pergunta estrutural ("isto é uma tela ou duas?") ainda não foi feita — e foi preciso o
+  cliente apontar a aba pelo nome para ela ser feita.

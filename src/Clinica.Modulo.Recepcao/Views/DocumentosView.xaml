@@ -24,15 +24,25 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ===== Coluna direita: SÓ o paciente =====
-             (parcela 82 — o cliente reprovou a tela). Eram TRÊS caixas empilhadas numa
-             faixa permanente de 320 px. O paciente fica: ele é CONTEXTO de sete das nove
-             folhas. O período foi para o cabeçalho da lista que ele recorta, e o conferir
-             pelo código virou uma linha lá também — caixa permanente para ato ocasional é
-             o que o README proíbe. -->
-        <Border DockPanel.Dock="Right" Width="280" Margin="16,0,0,0"
-                Style="{StaticResource Card}" VerticalAlignment="Top">
-            <StackPanel>
+        <!-- ============ DUAS PERGUNTAS, DUAS ABAS ============
+             (parcela 82, 2ª rodada — o cliente: "por que O que já saiu não vira uma
+             sub-aba?"). A tela respondia duas perguntas empilhadas — "emitir um papel
+             novo" e "achar o que já saiu" — com as fichas de emitir comendo o alto da
+             lista para sempre. É a regra de leiaute aplicada como a parcela 55 manda:
+             item que cobre mais de um assunto usa SUB-ABAS. De quebra, a lista ganhou a
+             LARGURA INTEIRA: o seletor de paciente é contexto da EMISSÃO (sete das nove
+             folhas são de alguém) e foi para a aba dela — a lista recorta por período,
+             não por paciente. -->
+        <TabControl Margin="0,4,0,0">
+
+            <TabItem Header="Emitir">
+                <DockPanel Margin="0,12,0,0">
+
+                    <!-- Só o paciente na lateral, e SÓ nesta aba: ele é a pré-condição
+                         das folhas ao lado, não da página. -->
+                    <Border DockPanel.Dock="Right" Width="280" Margin="16,0,0,0"
+                            Style="{StaticResource Card}" VerticalAlignment="Top">
+                        <StackPanel>
                 <TextBlock Text="Paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                            FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
@@ -49,20 +59,11 @@
                          MaxHeight="260" Margin="0,6,0,0"
                          BorderThickness="0" Background="Transparent" />
             </StackPanel>
-        </Border>
+                    </Border>
 
-        <!-- ===== As nove folhas + o que já saiu ===== -->
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,12">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Emitir uma folha"
-                               Style="{StaticResource H3}" Margin="0,0,0,10" />
-
+                    <!-- As fichas pedem a altura que precisam e rolam quando não couber:
+                         pilha mais alta que a janela sem rolagem é o corte da checagem 36. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Folhas}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -128,21 +129,20 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    </ScrollViewer>
                 </DockPanel>
-            </Border>
+            </TabItem>
 
-            <Border Grid.Row="1" Style="{StaticResource Card}">
+            <TabItem Header="O que já saiu">
                 <!-- O Grid hospeda a SOBREPOSIÇÃO: o estado vazio explica o vazio DESTA
-                     região, não o da página (a lição das parcelas 58 e 64). E é UM estado
-                     vazio por pergunta — a faixa que repetia a mesma frase saiu. -->
-                <Grid>
+                     região (parcelas 58 e 64). -->
+                <Grid Margin="0,12,0,0">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBlock Text="O que já saiu" Style="{StaticResource H3}"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center" />
-                    </Grid>
+                    <!-- O rótulo da REGIÃO é a própria aba; o que fica é o RESUMO,
+                         que diz o recorte ("12 documento(s) de 01/08 a 24/08"). -->
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}"
+                               Style="{StaticResource TextoSuave}" Margin="0,0,0,8"
+                               HorizontalAlignment="Left" />
 
                     <!-- A barra da LISTA (parcela 82): o período mora junto do que ele
                          recorta — na faixa lateral ele parecia configuração da página — e
@@ -344,8 +344,8 @@
                                    Titulo="Nenhum documento emitido"
                                    Descricao="Documento cancelado aparece marcado, nunca sumindo." />
                 </Grid>
-            </Border>
-        </Grid>
+            </TabItem>
+        </TabControl>
     </DockPanel>
     </Grid>
 </UserControl>
