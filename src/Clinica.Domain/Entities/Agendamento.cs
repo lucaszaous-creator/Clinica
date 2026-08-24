@@ -262,12 +262,27 @@ public class Agendamento
     /// tempo alguém ficou sentado sem ser atendido. O minuto entre "pode entrar" e a
     /// pessoa levantar da cadeira não é fila — e contá-lo pioraria o indicador por algo
     /// que a recepção não tem como acelerar.
+    ///
+    /// A espera ABERTA (sem chamada nem entrada) só corre para quem ainda está na fila —
+    /// horário em aberto, no dia da própria chegada. Falta e cancelamento não CONCLUEM a
+    /// espera, DESFAZEM a medida (ninguém carimbou quando a pessoa desistiu), e num dia
+    /// já passado o relógio de <paramref name="agora"/> mediria dias, não fila: era esse
+    /// o par que levava a espera média do painel a milhares de minutos (fila da parcela
+    /// 69, item 3) — quem chegou e virou FALTA continuava "esperando" até hoje.
     /// </summary>
     public int? EsperaMinutos(DateTime agora)
     {
         if (ChegadaEm is null) return null;
-        var fim = ChamadoEm ?? InicioAtendimentoEm ?? agora;
-        var minutos = (int)Math.Round((fim - ChegadaEm.Value).TotalMinutes);
+
+        var fim = ChamadoEm ?? InicioAtendimentoEm;
+        if (fim is null)
+        {
+            if (Status != StatusAgendamento.Agendado
+                || agora.Date != ChegadaEm.Value.Date) return null;
+            fim = agora;
+        }
+
+        var minutos = (int)Math.Round((fim.Value - ChegadaEm.Value).TotalMinutes);
         return minutos < 0 ? 0 : minutos;
     }
 

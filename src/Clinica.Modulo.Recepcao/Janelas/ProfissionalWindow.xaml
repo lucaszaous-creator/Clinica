@@ -103,7 +103,7 @@
             </StackPanel>
         </Grid>
 
-        <CheckBox Content="Ativo (aparece na agenda)" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
+        <CheckBox Content="Ativo (recebe horários novos; os já marcados seguem na agenda, marcados como de inativo)" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
                    Text="Desativar preserva toda a agenda passada — é o caminho certo para quem saiu da clínica." />

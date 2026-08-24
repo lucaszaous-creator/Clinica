@@ -3995,7 +3995,10 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   saiu da fila: foram corrigidos na mesma parcela, e a checagem 37 fecha o assunto. Quatro
   outros saíram na rodada "todas as notas em 8" do Consultório, mais abaixo: a autoria da
   fila, as observações que não chegavam, a evolução avulsa cobrindo duas sessões e o
-  Atender sem conferir `VerProntuario`.)
+  Atender sem conferir `VerProntuario`. O 6 saiu na parcela 70, junto da unificação. Os
+  itens **3, 4 e 7** foram pagos na parcela 85 — ver a lição abaixo; restam o **1** e o
+  **5** (a transação única + trilha do `ConfirmarPresencaAsync`, que exigem Postgres de
+  verdade) e o **2**, que espera a decisão de leiaute do cliente.)
 
 - **A VARREDURA DA RECEPÇÃO DEPOIS DA AGENDA — três achados, nenhum bloqueador, e todos
   da mesma família** (parcela 69, continuação). Com a Agenda fechada, a pergunta virou
@@ -5786,3 +5789,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do termo diz onde. O teste que fixava o rascunho virou o que fixa as ÂNCORAS do texto
   aprovado (o jejum "6 (seis) horas", os imunobiológicos da seção 7, a remissão ao
   TCLE) — para uma edição futura no código não devolver o texto genérico em silêncio.
+
+- **Os três da fila da parcela 69 que não dependiam de ninguém: espera de falta, bloqueio
+  invadido e a coluna do desativado** (parcela 85). Nenhum quebrava nada; cada um tem uma
+  regra que generaliza:
+  (a) **Espera ABERTA só corre para quem ainda está na FILA.** `EsperaMinutos` completava
+  com `agora` sempre que faltava a chamada — então quem chegou e virou FALTA "esperava"
+  até hoje, e a média do painel ia a milhares de minutos num dia passado. A regra que
+  ficou no domínio: falta e cancelamento não CONCLUEM a espera, DESFAZEM a medida
+  (ninguém carimbou quando a pessoa desistiu — medir até `agora` é ficção), e espera
+  aberta não atravessa o dia da chegada. A já MEDIDA (chegada → chamada) sobrevive ao
+  desfecho: o fato aconteceu. **Métrica com relógio em aberto precisa dizer QUANDO o
+  relógio para de valer** — e "quando o caso sai da fila" é quase sempre a resposta.
+  (b) **A folga da BUSCA tem de cobrir o que o filtro fino decide.** `MarcadosDentroAsync`
+  já usava `ColideCom` (sobreposição correta) — mas a consulta do repositório filtrava
+  por `DataHora >= inicio`, então a sessão das 13h30 que invade o bloqueio das 14h nunca
+  CHEGAVA ao `ColideCom`. Filtro fino certo depois de busca grossa errada é o filtro
+  certo rodando sobre a lista errada — e não aparece em teste nenhum que só marque
+  sessões DENTRO do período. A folga é a meia-noite do dia (sessão não atravessa o dia).
+  (c) **Coluna por recurso ATIVO esconde o horário do recurso DESATIVADO.** A grade do
+  dia montava colunas só para profissionais/salas ativos; o horário de quem foi
+  desativado sumia com o cabeçalho contando-o, o vão ficava clicável e a recepção marcava
+  por cima. O dono inativo com horário ganha coluna própria "(inativo)" — nunca cai em
+  "Sem profissional", porque o horário TEM dono e atribuí-lo a ninguém esconderia quem
+  precisa ser remarcado. As caixas "Ativo (aparece na agenda)" da tela de equipe
+  prometiam o contrário do que acontecia e foram reescritas: **quando um sinalizador
+  ganha efeito novo, o texto da caixinha que o liga entra no mesmo commit.** E o resumo
+  passou a contar COLUNAS, não salas ativas — número do cabeçalho que não bate com o
+  desenho da grade foi exatamente o que denunciou o defeito.

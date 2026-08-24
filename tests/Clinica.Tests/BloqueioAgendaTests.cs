@@ -168,6 +168,40 @@ public class BloqueioAgendaTests : IDisposable
         (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().ContainSingle();
     }
 
+    /// <summary>
+    /// A sessão que COMEÇA antes do bloqueio e o INVADE conta como marcada dentro dele
+    /// (fila da parcela 69, item 4): a consulta do repositório filtra por DataHora, e a
+    /// sessão das 13h30 de uma hora nunca chegava ao <c>ColideCom</c> de um bloqueio das
+    /// 14h — a recepção fechava a tarde e ninguém avisava o paciente das 13h30.
+    /// </summary>
+    [Fact]
+    public async Task Sessao_que_comeca_antes_do_bloqueio_e_o_invade_aparece_como_marcada_dentro()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var profissionalId = await CriarProfissionalAsync();
+
+        // A da manhã termina ANTES do bloqueio: a folga da busca (o dia inteiro) não
+        // pode transformá-la em falso conflito.
+        await _agenda.AgendarAsync(
+            pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null,
+            profissionalId: profissionalId, duracaoMinutos: 50);
+
+        var invasora = await _agenda.AgendarAsync(
+            pacienteId, Manha.Date.AddHours(13).AddMinutes(30),
+            ModalidadeAtendimento.AcupunturaComEletro, null,
+            profissionalId: profissionalId, duracaoMinutos: 60);
+
+        // Fecha a tarde a partir das 14h — a sessão das 13h30 termina 14h30, dentro dela.
+        var resultado = await _bloqueios.CriarAsync(
+            Manha.Date.AddHours(14), Manha.Date.AddHours(18), "Reunião",
+            profissionalId: profissionalId);
+
+        resultado.TemConflito.Should().BeTrue(
+            "a sessão invade o período fechado, e sumir com ela da lista é fechar a "
+            + "agenda sem avisar o paciente");
+        resultado.JaMarcados.Should().ContainSingle().Which.Id.Should().Be(invasora.Id);
+    }
+
     [Fact]
     public async Task Bloqueio_sem_motivo_e_recusado()
     {

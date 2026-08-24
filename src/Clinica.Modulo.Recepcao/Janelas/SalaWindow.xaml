@@ -40,7 +40,7 @@
             </StackPanel>
         </Grid>
 
-        <CheckBox Content="Ativa (aparece na agenda)" IsChecked="{Binding Ativa}" Margin="0,12,0,0" />
+        <CheckBox Content="Ativa (recebe horários novos; os já marcados seguem na agenda, marcados como de inativa)" IsChecked="{Binding Ativa}" Margin="0,12,0,0" />
 
         <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
         <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
