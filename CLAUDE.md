@@ -5697,3 +5697,19 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   DNS, conta), o roteiro tem de ser escrito para a infraestrutura que ele TEM, não para a
   que o desenho gostaria** — e a primeira pergunta do roteiro devia ter sido "o endereço
   público de vocês é um domínio próprio ou um workers.dev?".
+
+- **O CSP ESCRITO À MÃO BLOQUEOU O PRÓPRIO POST DA PÁGINA — e o erro culpava a internet
+  do paciente** (parcela 82, 2ª rodada — no teste da clínica, o Enviar da página do termo
+  morria com "Sem conexão"; o console dizia a verdade: `violates Content Security Policy
+  "default-src 'none'"... 'connect-src' was not explicitly set`). Eu escrevi
+  `default-src 'none'` por rigor e esqueci que a página faz exatamente UMA chamada — o
+  POST da assinatura para a própria origem. Sem `connect-src 'self'`, o navegador recusa
+  o fetch ANTES de ele sair, o `catch` de rede o apanha, e a frase que eu escolhi mandava
+  o paciente conferir o Wi-Fi por um bloqueio meu.
+  Duas regras que ficam: **CSP restritivo lista as chamadas que a página FAZ** — escrever
+  `'none'` e ir liberando é o caminho certo, mas o checklist é percorrer cada `fetch`,
+  `img`, `style` e `script` da página, e esta tinha um fetch que o autor do CSP era eu
+  mesmo; e **mensagem de erro de rede não pode afirmar a causa que não conferiu** — "sem
+  conexão" era plausível e errada, a mesma família da mensagem que manda trocar a
+  connection string por um 42P01 (parcela 79). A frase virou "o envio não saiu", que é o
+  que de fato se sabe.

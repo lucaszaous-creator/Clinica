@@ -42,8 +42,13 @@ const CABECALHOS_PAGINA = {
   "cache-control": "no-store",
   "x-robots-tag": "noindex, nofollow",
   "referrer-policy": "no-referrer",
+  // ⚠️ `connect-src 'self'` é o que deixa a página fazer o PRÓPRIO POST da assinatura:
+  // sem ele, `default-src 'none'` bloqueia o fetch da própria origem, e o envio morria
+  // com "sem conexão" — o CSP escrito à mão tem de listar as chamadas que a página faz,
+  // e esta página faz exatamente UMA (parcela 82, achado no teste da clínica).
   "content-security-policy":
-    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:",
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
+    + "img-src data:; connect-src 'self'",
 };
 
 const TOKEN_VALIDO = /^[A-Z2-9]{26}$/;
@@ -332,7 +337,8 @@ const paginaDoTermo = (pedido, token) => {
       document.body.innerHTML = '<div class="caixa"><div class="cartao"><h1>Assinatura enviada ✓</h1>' +
         '<p class="corpo">Obrigado! A equipe já recebeu — pode devolver a atenção a ela.</p></div></div>';
     } catch {
-      aviso.textContent = "Sem conexão — confira a internet e tente de novo.";
+      aviso.textContent =
+        "O envio não saiu — confira a internet e tente de novo. Se persistir, avise a recepção.";
       botao.disabled = false; botao.textContent = "Enviar assinatura";
     }
   };
