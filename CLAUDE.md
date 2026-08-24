@@ -5454,3 +5454,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **técnica desconhecida mantém a marcação** (vira "Outra técnica"), pela regra do conversor
   tolerante da parcela 67: o ato aconteceu, e sumir com ele apagaria do papel algo que foi
   praticado.
+
+- **O NOME DA TABELA SAI DO `DbSet`, NUNCA DA CLASSE — e migration aqui é escrita à mão**
+  (parcela 79 — a clínica mandou o print: *"Não foi possível conectar ao banco de dados:
+  42P01: relation `UsuariosSistema` does not exist"*, ao abrir o Consultório). A FK da
+  tabela nova da parcela 76 apontava `principalTable: "UsuariosSistema"`, o nome da CLASSE;
+  a tabela chama-se **`Usuarios`**, porque quem a nomeia é o `DbSet<UsuarioSistema>
+  Usuarios`. `dotnet ef` acertaria sozinho — e não há `dotnet ef` neste ambiente, então a
+  migration é digitada, e este é o único lugar do repositório onde o nome de uma tabela é
+  digitado à mão.
+  ⚠️ **O estrago não é a tabela que falta: é o que o usuário lê.** O erro estoura no
+  `MigrateAsync` da ABERTURA, e o `SuiteApp` o apresenta como *"não foi possível conectar ao
+  banco — deseja informar outra conexão?"*, que manda a clínica caçar a connection string,
+  trocar a que estava certa e (se disser Sim) apagar a configuração da suíte. **Erro de
+  schema exibido como erro de conexão é diagnóstico errado impresso na cara de quem não tem
+  como saber** — é a mesma família da mensagem "See the inner exception" da parcela 67, com
+  o agravante de a frase sugerir uma ação que piora o estado.
+  ⚠️ **NENHUMA das redes podia pegar, e a razão é estrutural**: o C# compila (é string), o
+  `compilar-sombra` não lê migration, e **os testes não executam migration nenhuma** — o
+  SQLite deles monta o schema pelo MODELO, com `EnsureCreated`. É a terceira vez que este
+  buraco aparece com outra roupa (o `xmin` da concorrência otimista, as datas com fuso da
+  parcela 67): **"só o Postgres pega" quer dizer "só a clínica pega".** Virou a **checagem
+  41**, que cruza todo `principalTable:`/`table:` das migrations contra as tabelas que
+  alguma migration CRIA ou RENOMEIA — medida antes de decidir: 68 tabelas, ~80 migrations,
+  **uma** ocorrência, que era o defeito. Autotestada contra o caso real e contra cinco
+  legítimos (inclusive a tabela criada no próprio arquivo e a renomeada).
+  **O banco da clínica não ficou quebrado**, e isso é do Postgres, não nosso: DDL é
+  transacional e o EF envolve cada migration numa transação — a `20260824020000` inteira
+  voltou atrás, sem gravar a linha no `__EFMigrationsHistory`. As duas seguintes nem
+  chegaram a rodar (o EF para na primeira que falha). Atualizado o app, a fila continua de
+  onde parou. **Não peça à clínica para mexer no banco antes de conferir se o erro foi
+  transacional** — o conserto costuma ser mais caro que a falha.

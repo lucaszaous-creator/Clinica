@@ -59,10 +59,18 @@ namespace Clinica.Infrastructure.Migrations
                         column: x => x.CuidadoEnfermagemId,
                         principalTable: "CuidadosEnfermagem", principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    // ⚠️ A tabela é "Usuarios", NÃO "UsuariosSistema": o nome da tabela sai
+                    // do DbSet (`DbSet<UsuarioSistema> Usuarios`), e não do nome da CLASSE.
+                    // Escrever o nome da classe aqui derrubou a abertura de todos os apps
+                    // na clínica — 42P01 no meio do MigrateAsync, apresentado como "não foi
+                    // possível conectar ao banco". `dotnet ef` acertaria sozinho; migration
+                    // escrita à mão, não — e nenhum teste a executa (o SQLite dos testes
+                    // monta o schema pelo MODELO, com EnsureCreated). A checagem 41 do
+                    // verificar-suite passou a cobrar isto.
                     table.ForeignKey(
-                        name: "FK_ChecagensCuidado_UsuariosSistema_ExecutanteUsuarioId",
+                        name: "FK_ChecagensCuidado_Usuarios_ExecutanteUsuarioId",
                         column: x => x.ExecutanteUsuarioId,
-                        principalTable: "UsuariosSistema", principalColumn: "Id",
+                        principalTable: "Usuarios", principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                     // RESTRICT: apagar a linha corrigida quebraria a cadeia que prova o que a
                     // folha dizia ANTES da retificação.

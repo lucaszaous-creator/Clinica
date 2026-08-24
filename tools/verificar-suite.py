@@ -3432,6 +3432,93 @@ for _cenario, _xaml, _esperado in (
             f"leu {_estilos_sem_basedon(_xaml)}, esperado {_esperado}."
         )
 
+# --------------------------------------------------------------- checagem 41
+#
+# NOME DE TABELA em migration escrita à mão. O nome da tabela sai do **DbSet**
+# (`DbSet<UsuarioSistema> Usuarios` → tabela `Usuarios`), e não do nome da CLASSE — e a
+# migration é o único lugar do repositório onde ele é digitado à mão, porque não há
+# `dotnet ef` neste ambiente.
+#
+# Escrever `principalTable: "UsuariosSistema"` derrubou a ABERTURA de todos os apps na
+# clínica: 42P01 no meio do `MigrateAsync`, apresentado ao usuário como "não foi possível
+# conectar ao banco de dados" — que manda a clínica caçar a connection string, um problema
+# que não existe.
+#
+# ⚠️ NENHUMA rede pegava, e a razão é estrutural: o C# compila (é string), o
+# `compilar-sombra` não lê migration, e **os 1874 testes não executam migration nenhuma** —
+# o SQLite deles monta o schema pelo MODELO, com `EnsureCreated`. É a mesma família do
+# `xmin` e das datas com fuso: só o Postgres pega, e "só o Postgres" quer dizer "só a
+# clínica".
+#
+# Ruído medido ANTES de decidir (a lição da parcela 64): 68 tabelas e ~80 migrations, UMA
+# ocorrência — a que quebrou. Zero falso positivo.
+
+_TABELA_CRIADA = re.compile(r'CreateTable\(\s*name:\s*"([^"]+)"')
+_TABELA_RENOMEADA = re.compile(r'RenameTable\([^)]*?newName:\s*"([^"]+)"', re.S)
+_TABELA_REFERIDA = re.compile(r'(?:principalTable|table):\s*"([^"]+)"')
+
+
+def _tabelas_fantasma(fontes: dict[str, str]) -> list[tuple[str, str]]:
+    """(arquivo, tabela) das referências a tabela que migration nenhuma cria.
+
+    Recebe o CONJUNTO das migrations porque a resposta depende delas todas: a tabela
+    referida aqui costuma ter sido criada anos atrás, noutro arquivo. A varredura e o
+    autoteste chamam esta mesma função — a regra da parcela 67.
+    """
+    existentes: set[str] = set()
+    for texto in fontes.values():
+        existentes.update(m.group(1) for m in _TABELA_CRIADA.finditer(texto))
+        existentes.update(m.group(1) for m in _TABELA_RENOMEADA.finditer(texto))
+
+    achados: list[tuple[str, str]] = []
+    for arquivo, texto in sorted(fontes.items()):
+        limpo = _sem_comentarios(texto)
+        for tabela in sorted({m.group(1) for m in _TABELA_REFERIDA.finditer(limpo)}):
+            if tabela not in existentes:
+                achados.append((arquivo, tabela))
+    return achados
+
+
+_MIGRATIONS = RAIZ / "src" / "Clinica.Infrastructure" / "Migrations"
+_fontes_migration = {
+    a.name: a.read_text(encoding="utf-8")
+    for a in sorted(_MIGRATIONS.glob("*.cs"))
+    if ".Designer." not in a.name and "Snapshot" not in a.name
+}
+
+for _arq, _tabela in _tabelas_fantasma(_fontes_migration):
+    erros.append(
+        f"Migrations/{_arq}: referencia a tabela \"{_tabela}\", que migration nenhuma cria. "
+        f"O nome da tabela sai do DbSet do ClinicaDbContext, não do nome da classe — "
+        f"confira lá. Isto NÃO falha em teste (o SQLite monta o schema pelo modelo): "
+        f"falha no MigrateAsync da abertura, na clínica, como 42P01."
+    )
+
+# --- autoteste da 41 ---
+_CRIA = 'migrationBuilder.CreateTable(\n    name: "Usuarios",'
+for _cenario, _fontes, _esperado in (
+    ("nome da CLASSE em vez do DbSet (o caso real)",
+     {"a.cs": _CRIA, "b.cs": 'principalTable: "UsuariosSistema", principalColumn: "Id"'},
+     [("b.cs", "UsuariosSistema")]),
+    ("nome certo",
+     {"a.cs": _CRIA, "b.cs": 'principalTable: "Usuarios", principalColumn: "Id"'}, []),
+    ("tabela criada no MESMO arquivo que a referencia",
+     {"a.cs": 'migrationBuilder.CreateTable(\n    name: "Nova",\n table: "Nova"'}, []),
+    ("AddColumn na tabela de sempre",
+     {"a.cs": _CRIA, "b.cs": 'migrationBuilder.AddColumn<bool>(\n name: "X", table: "Usuarios"'}, []),
+    ("tabela RENOMEADA passa a existir",
+     {"a.cs": 'migrationBuilder.RenameTable(name: "Velha", newName: "Nova");',
+      "b.cs": 'table: "Nova"'}, []),
+    ("comentário citando o nome errado não dispara",
+     {"a.cs": _CRIA, "b.cs": '// não escreva principalTable: "UsuariosSistema" aqui'}, []),
+):
+    _lido = _tabelas_fantasma(_fontes)
+    if _lido != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 41 mudou de resposta ({_cenario}) — "
+            f"leu {_lido}, esperado {_esperado}."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
