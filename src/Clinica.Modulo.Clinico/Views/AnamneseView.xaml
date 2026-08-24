@@ -140,7 +140,13 @@
                                        Titulo="Anamnese ainda não colhida"
                                        Descricao="Antecedentes, história familiar e hábitos ainda não foram registrados para este paciente. Use o botão acima — o que você escrever vale para o tratamento inteiro.">
                         <ctrl:EstadoDaTela.Style>
-                            <Style TargetType="ctrl:EstadoDaTela">
+                            <!-- ⚠️ O BasedOn NÃO é decoração: o `Template` do EstadoDaTela
+                                 mora no estilo IMPLÍCITO do design system (Feedback.xaml) e
+                                 não há `themes/generic.xaml` em projeto nenhum. Estilo local
+                                 sem BasedOn SUBSTITUI o implícito, e o controle fica vivo
+                                 desenhando NADA — some o vazio e some o "não verificado". -->
+                            <Style TargetType="ctrl:EstadoDaTela"
+                                   BasedOn="{StaticResource {x:Type ctrl:EstadoDaTela}}">
                                 <Setter Property="Ativo" Value="True" />
                                 <Style.Triggers>
                                     <!-- Editando, a sobreposição SAI: ela cobriria justamente

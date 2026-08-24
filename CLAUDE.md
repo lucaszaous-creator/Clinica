@@ -135,6 +135,14 @@ Nenhum deles quebra o build quando é esquecido:
   o que não é `bool`; texto pede `TextoParaVisibilidade`, objeto pede `ObjetoParaVisibilidade`.
 - **Tela de vida longa não recebe serviço `Scoped` no construtor** — abre escopo por operação.
   ⚠️ A checagem 37 olha o CONSTRUTOR: `GetRequiredService<X>()` DENTRO dele escapa dela.
+- **`<Style>` local num controle da casa vai SEMPRE com `BasedOn="{StaticResource {x:Type
+  ctrl:X}}"`.** Não há `themes/generic.xaml` em projeto nenhum: o `Template` mora no estilo
+  IMPLÍCITO do design system, e estilo local sem `BasedOn` o SUBSTITUI. O controle continua
+  vivo, com as propriedades certas, desenhando **nada** — e nenhuma rede pega.
+- **Diálogo de texto: Cancelar não é resposta em branco.** `PerguntarTexto` devolve `null`
+  quando a pessoa DESISTE; pergunta que anuncia o campo como opcional passa
+  `obrigatorio: false` e o chamador testa `is null`. Sem isso a única saída de quem não
+  quer escrever é o Cancelar — e ele grava. (Checagem 39.)
 - **`--` é ilegal dentro de comentário XML** (a linha de sublinhado do estilo da casa).
 
 ### 5. Perguntas que só o autor pode responder
@@ -5048,3 +5056,70 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   está em atendimento não tem fim de atendimento), e desfazer SÓ o encerramento virou ato
   próprio — `ReabrirAtendimentoAsync`, com porta na barra —, do mesmo jeito que
   `DesfazerChamadaAsync` é separado desde a parcela 38.
+
+- **Estilo local sem `BasedOn` apaga o controle inteiro, e o diálogo rotulado "desisti" era o
+  que GRAVAVA** (parcela 75, 2ª rodada — a auditoria adversarial que ainda estava rodando
+  quando a primeira foi dada por fechada; as 70 rodadas de refutação dela morreram por limite
+  de sessão, então **nenhum achado chegou contestado** e todos tiveram de ser reconferidos à
+  mão). Três defeitos, e os três da mesma família: **nada falha, nada avisa, e quem descobre é
+  quem abre a tela.**
+  ⚠️ **(a) `<Style TargetType="ctrl:EstadoDaTela">` local, sem `BasedOn`.** O `Template` do
+  controle mora no estilo IMPLÍCITO do design system (`Feedback.xaml`) e **não existe
+  `themes/generic.xaml` em projeto nenhum** — então o `DefaultStyleKeyProperty.OverrideMetadata`
+  não tem tema de onde cair. Estilo explícito no elemento SUBSTITUI o implícito, e o que sobra
+  é um controle vivo, com `Ativo`, `Titulo` e `Descricao` corretos, desenhando **nada**. Some o
+  estado vazio E some o terceiro estado — a tela de uma leitura que FALHOU fica idêntica à de
+  um paciente sem antecedentes, que é exatamente a confusão que o `NaoVerificado` existe para
+  impedir. **As dez ocorrências equivalentes do repositório trazem o `BasedOn`; a minha era a
+  única sem.** Padrão que dez arquivos seguem e um não é sinal de que o um está errado.
+  ⚠️ **(b) `PromptWindow` só aceita texto OBRIGATÓRIO — e duas perguntas prometiam o
+  contrário.** A janela recusa o vazio com um erro em vermelho ("Escreva o motivo para
+  continuar"), e está certa: quase toda pergunta dela é o motivo de um cancelamento. O defeito
+  nasce quando a PERGUNTA anuncia o campo como opcional — *"Se quiser, diga o que mudou
+  (opcional)"* na revisão da anamnese e *"Deixe em branco para usar o nome do paciente"* no
+  recibo do caixa. A pessoa clica Confirmar, leva o erro, e a **única saída que lhe resta é o
+  Cancelar** — que o chamador lia como "siga". Nos dois casos isso GRAVAVA: uma revisão de
+  prontuário com versão e auditoria (não se desfaz) e um recibo numerado por ano (desfeito só
+  com cancelamento e motivo escrito). **A porta rotulada "desisti" era a que efetivava o ato.**
+  A correção mora no COMPONENTE — `obrigatorio: true` por padrão, e com `false` a janela aceita
+  o vazio e devolve `string.Empty`, o que separa "desisti" (`null`) de "siga, sem texto". Nos
+  DOIS design systems, para as cópias não divergirem (o débito permanente da parcela 7); e a
+  frase de erro deixou de dizer "motivo", porque a mesma janela pergunta nome do recibo, agente
+  da alergia e quantidade contada.
+  ⚠️ **(c) A checagem 39 nasceu acusando a correção que estava certa.** Ela cobra as duas
+  metades juntas (a pergunta opcional passa `obrigatorio: false`; quem passa `false` distingue o
+  `null`) — e disparou no código recém-corrigido, porque a janela de busca da guarda era medida
+  em CARACTERES e `_sem_comentarios` **apaga o comentário com espaços, preservando as
+  posições**: o bloco de cinco linhas que explicava a correção empurrou o `if (motivo is null)`
+  para fora da janela. É literalmente o tropeço da parcela 41, cometido de novo dentro da rede
+  que existe para não deixar rastro. O autoteste sintético não o pegava porque não tinha
+  comentário no meio — **caso de teste sem o ruído do mundo real é caso de teste que aprova a
+  checagem cega.** Agora o branco é colapsado antes de medir, e há autoteste com oito linhas de
+  comentário entre a chamada e a guarda.
+
+- **Relógio INJETADO com vazamento: o carimbo que a auditoria compara escapou dele** (parcela
+  75, 2ª rodada — `Registro_atrasado_de_ontem_e_legitimo` falhou às 00h21, com 1816 outros
+  testes verdes). `EvolucaoEnfermagemService` recebe `Func<DateTime> agora` e o fixture do teste
+  o **congela ao meio-dia**, com o comentário dizendo por quê: *"senão o teste vira loteria
+  perto da meia-noite"*. E `RegistradoEm = DateTime.Now` ignorava o relógio injetado — logo o
+  atraso de um registro de "ontem às 16h" era medido contra a hora REAL da máquina: 20h quando
+  a suíte roda de tarde, **8h quando ela roda depois da meia-noite**, e a asserção pedia mais de
+  12h. O teste falha todo dia entre 00h e 04h e passou meses porque nenhuma rodada caiu nessa
+  faixa. É a mesma aritmética do `TrimEnd('0')` da parcela 67: **teste que depende do relógio
+  não é teste, é sorteio** — só que aqui o dado tem 24 faces e seis delas são ruins.
+  ⚠️ **O mais revelador é onde o defeito NÃO está**: `ChecagemPrescricaoService` (parcela 42),
+  que inventou o relógio injetado neste projeto, faz `RegistradoEm = _agora()` desde sempre e
+  tem escrito ao lado quais usos de `DateTime.Now` ficaram de fora **de propósito**. A cópia
+  posterior — a evolução de enfermagem, parcela 71 — herdou a ideia e perdeu a metade que a
+  torna testável. **Ao copiar um mecanismo de um serviço para outro, copie a REGRA junto: o par
+  `Momento` × `RegistradoEm` é o que a auditoria compara, e um lado medido por outro relógio não
+  é um par.**
+
+- **"Árvore limpa" não prova que a árvore é a que você empurrou** (parcela 75, 2ª rodada — o
+  contêiner reiniciou duas vezes no meio da conferência). `git status` respondeu *"nothing to
+  commit, working tree clean"* e *"up to date with origin/…"* sobre um clone recriado num commit
+  **oito parcelas atrás**: a referência `origin/…` local também tinha voltado, então os dois
+  lados concordavam — e concordavam sobre a coisa errada. Foi um `find` que não achou
+  `AnamneseView.xaml` que denunciou. **Confira o SHA do `HEAD` contra o remoto (`git fetch` e
+  comparar), nunca só o `git status`** — e desconfie de toda leitura de arquivo que responda
+  "não existe" para algo que você acabou de escrever.

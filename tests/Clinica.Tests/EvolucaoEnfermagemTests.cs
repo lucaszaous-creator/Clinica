@@ -63,9 +63,10 @@ public class EvolucaoEnfermagemTests : IDisposable
             "Paciente admitido, acesso em MSD, sem queixas.", Tecnica);
 
         e.Hora.Should().Be(new TimeOnly(9, 20), "é a hora em que a técnica observou");
-        e.RegistradoEm.Should().BeCloseTo(DateTime.Now, TimeSpan.FromMinutes(1),
+        e.RegistradoEm.Should().Be(MeioDia,
             "o relógio fica AO LADO, e a diferença entre os dois é o que uma auditoria "
-            + "de enfermagem procura");
+            + "de enfermagem procura — e é o relógio INJETADO, senão a asserção mede a "
+            + "hora da máquina que roda o teste");
         e.AutorNome.Should().Be("Joana Técnica");
         e.AutorConselho.Should().Be("COREN-SP 999999",
             "evolução de enfermagem sem o registro no conselho não é evolução de enfermagem");

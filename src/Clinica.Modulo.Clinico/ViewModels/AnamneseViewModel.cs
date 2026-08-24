@@ -222,11 +222,21 @@ public sealed partial class AnamneseViewModel : ObservableObject
 
             string? motivo = null;
             if (jaExistia)
+            {
                 motivo = _dialogo.PerguntarTexto(
                     "Revisar a anamnese",
                     "O que ela dizia antes fica guardado e recuperável. Se quiser, diga o "
                     + "que mudou (opcional):",
-                    string.Empty);
+                    string.Empty,
+                    obrigatorio: false);
+
+                // ⚠️ Cancelar é "desisti", e o que se grava aqui é PRONTUÁRIO: a revisão cria
+                // uma VersaoAnamnese, carimba quem revisou e grava auditoria — não se desfaz.
+                // `null` vem SÓ do Cancelar/Esc; a resposta em branco volta como string vazia,
+                // que é o "revisar sem dizer por quê" que a própria pergunta oferece (motivo
+                // obrigatório a cada Salvar produziria trinta "ajuste" por dia — parcela 52).
+                if (motivo is null) return;
+            }
 
             using var escopo = _escopos.CreateScope();
             var servico = escopo.ServiceProvider.GetRequiredService<AnamneseService>();

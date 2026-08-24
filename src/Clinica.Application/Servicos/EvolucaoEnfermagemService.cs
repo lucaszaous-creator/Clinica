@@ -202,7 +202,7 @@ public class EvolucaoEnfermagemService
             throw new InvalidOperationException(
                 $"Este registro já foi cancelado em {evolucao.CanceladaEm:dd/MM/yyyy}.");
 
-        evolucao.CanceladaEm = DateTime.Now;
+        evolucao.CanceladaEm = _agora();
         evolucao.MotivoCancelamento = motivo.Trim();
         evolucao.CanceladaPor = operador;
 
@@ -304,7 +304,13 @@ public class EvolucaoEnfermagemService
             AutorUsuarioId = autor.UsuarioId,
             AutorNome = autor.Nome,
             AutorConselho = autor.Conselho,
-            RegistradoEm = DateTime.Now
+            // ⚠️ `_agora()`, nunca `DateTime.Now`: este carimbo é a METADE do par que a
+            // auditoria de enfermagem compara (o Momento do fato × o relógio de quem
+            // digitou). O relógio já era injetado para a recusa de hora futura, e este
+            // campo tinha escapado dele — o que deixava o atraso medido contra a hora
+            // REAL da máquina e tornava o teste do registro atrasado uma loteria da
+            // hora do dia (ele falhava entre a meia-noite e as 4h).
+            RegistradoEm = _agora()
         };
 
         if (sinais is { } v)
@@ -352,9 +358,9 @@ public class EvolucaoEnfermagemService
             Natureza = NaturezaProblema.Alergia,
             Descricao = alergia.Trim(),
             Situacao = SituacaoProblema.Ativo,
-            Inicio = DateOnly.FromDateTime(DateTime.Today),
+            Inicio = DateOnly.FromDateTime(_agora()),
             Observacoes = "Registrada pela enfermagem ao observar reação durante o atendimento.",
-            CriadoEm = DateTime.Now,
+            CriadoEm = _agora(),
             CriadoPor = autor.Nome
         }, ct);
     }
