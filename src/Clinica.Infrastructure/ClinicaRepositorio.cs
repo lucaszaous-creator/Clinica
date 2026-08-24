@@ -1210,6 +1210,18 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(m => m.Pontos)
             .FirstOrDefaultAsync(m => m.EvolucaoId == evolucaoId, ct);
 
+    public async Task<IReadOnlyList<MapaCorporal>> MapasDasEvolucoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+    {
+        if (evolucaoIds.Count == 0) return [];
+
+        return await _db.MapasCorporais
+            .AsNoTracking()
+            .Include(m => m.Pontos)
+            .Where(m => evolucaoIds.Contains(m.EvolucaoId))
+            .ToListAsync(ct);
+    }
+
     public async Task AdicionarMapaAsync(MapaCorporal mapa, CancellationToken ct = default)
         => await _db.MapasCorporais.AddAsync(mapa, ct);
 

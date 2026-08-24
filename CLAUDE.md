@@ -5393,3 +5393,64 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   de quem imprimiu. E o `IsEnabled` do botão cobre as **duas** pré-condições que a guarda
   impede (paciente em foco E `VerProntuario`), senão quem não tem o bit clica e leva a recusa
   depois.
+
+- **A FICHA DESENHADA: o mapa corporal e a curva da dor no papel** (parcela 79 — a direção
+  pediu a ficha "animada com mapas corporais e outros, estilizado mas sem fluflu"). O mapa
+  existe desde a parcela 3 e **nunca saiu impresso**: a sessão de acupuntura — a
+  especialidade da casa — era relatada por texto, e onde a agulha entrou só se via na tela
+  de quem marcou. As decisões, e por que cada uma:
+  ⚠️ **A silhueta SUBIU PARA O DOMÍNIO, e não foi desenhada de novo.** Ela era um
+  `GeometryGroup` no XAML do `MapaCorporalControl` — e o comentário no topo daquele arquivo
+  já dizia por que copiá-la é proibido: *"copiar a figura teria criado duas versões do mesmo
+  desenho — e a segunda correção de silhueta já sairia divergente"*. Pôr o mapa no papel ia
+  criar essa segunda cópia, agora **atravessando camadas**, que é onde ninguém as lê lado a
+  lado. Divergir aqui não estoura nada: produz um papel em que a agulha está num lugar do
+  corpo e a tela mostra outro. Agora `SilhuetaCorporal.Formas` é a lista, o WPF monta o
+  `GeometryGroup` dela e o PDF monta um SVG — e o **220×460 também virou uma definição só**
+  (a const da tela lê a do domínio, e o Canvas não tem mais os números no XAML): os três
+  TÊM de concordar, porque é dividindo por eles que o clique vira fração, e divergir espalha
+  as marcações **em silêncio**.
+  ⚠️ **O desenho é COPIADO na emissão** (`ItemDocumento.Desenho`, migration aditiva), nunca
+  lido do prontuário na hora de imprimir. É a regra mais antiga do `DocumentoClinico` — a
+  segunda via tem de sair idêntica à que o paciente levou —, e a sessão pode ser corrigida
+  depois. Aqui ela não é desenho, é a Lei 13.787/2018.
+  ⚠️ **E foi um `new` que quase engoliu tudo:** `EmitirAsync` copia o item **campo a campo**,
+  e o `Desenho` era montado certo pelo relatório e sumia ali. O **lugar 3 da auditoria de
+  linha**, na emissão do documento — a ficha saía sem mapa nenhum, sem erro em lugar nenhum.
+  Quem o pegou foi o teste que abre o PDF, não a leitura do código.
+  **A curva da dor** (`GraficoDaDor`, na Application) não repete a frase do corpo: mostra o
+  que a frase não cabe — se a queda foi contínua, se houve recaída, se o alívio de cada
+  sessão **dura** até a seguinte (daí serem DUAS linhas, antes e depois; só a de depois
+  diria que o paciente melhorou, só a de antes esconderia o efeito da sessão). **O eixo
+  ancora em 0 e 10** porque é a escala publicada da EVA — ajustá-lo aos dados faria uma
+  queda de 8 para 7 parecer um despencar. **Duas sessões no mínimo**: uma é linha de base, e
+  um ponto solto num eixo prometeria uma evolução que o registro não tem.
+  **Três armadilhas de leiaute do QuestPDF, e as três só a folha montada mostra:**
+  (a) **`AspectRatio` é largura/altura**, e invertê-lo pediu uma curva de 1633 pt de altura
+  — o QuestPDF então **RECUSA o documento inteiro**, não desenha torto;
+  (b) **elemento com largura FIXA maior que a área útil derruba a folha**: os 520 pt do
+  sistema de coordenadas do gráfico contra ~510 pt de A4 com as margens da casa. Quem tem
+  tamanho próprio pede proporção, não pontos;
+  (c) **`ShowEntire` sobre bloco que cresce com o dado é uma bomba**: envolvendo a legenda,
+  uma sessão no teto do mapa (80 pontos) pediria mais que uma página e a ficha **deixaria de
+  imprimir**. Ele cobre o título e as figuras — altura conhecida — e a legenda corre solta.
+  E o título entra JUNTO das figuras: a data sozinha no pé da página, com o corpo na folha
+  seguinte, é um rótulo que não diz de que sessão ele é.
+  ⚠️ **A lição de método é a da parcela 68, e ela se pagou três vezes nesta rodada:
+  RENDERIZAR É DE GRAÇA.** `pdftoppm` desenha a folha, e foi só olhando que apareceram o
+  título órfão, a página e meia em branco (uma figura de 130 pt fazia caber UM mapa por
+  página; 112 pt fazem caber dois) e o vão morto ao lado do corpo, que virou o **resumo por
+  técnica** — a leitura que o `TecnicaPonto` existe para permitir desde a parcela 3 ("o que
+  dá para contar depois sem ler prontuário") e que nenhuma folha mostrava. **Teste que prova
+  que o arquivo FECHA não prova que a folha MOSTRA**: o teste que carrega esta parcela gera
+  o MESMO documento com e sem o desenho gravado e compara os operadores de caminho dentro
+  dos fluxos de página.
+  Detalhes que o código não conta sozinho: o SVG é escrito em cultura **INVARIANTE**
+  (`cx="110,5"` em pt-BR é atributo inválido — o círculo some, ou a figura inteira não
+  desenha, e nada avisa); a legenda numera **1..n na ordem**, não pelo `Ordem` cru, que fica
+  com buracos depois de uma remoção e faria o leitor procurar os pontos 3 e 4 que não
+  existem; **ponto estragado descarta só ele** — uma ficha que se recusa a imprimir por um
+  campo mal gravado é pior do que uma com um ponto a menos, com o paciente esperando; e
+  **técnica desconhecida mantém a marcação** (vira "Outra técnica"), pela regra do conversor
+  tolerante da parcela 67: o ato aconteceu, e sumir com ele apagaria do papel algo que foi
+  praticado.

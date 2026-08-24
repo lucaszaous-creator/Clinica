@@ -18,25 +18,11 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
 
         <!-- ===== Silhueta =====
-             Um só desenho, usado nas duas figuras (frente e costas). As coordenadas são
-             ABSOLUTAS dentro de uma tela de 220x460 e o Path não estica: é isso que faz
-             o clique valer, porque a tela converte o pixel clicado em fração (0 a 1)
-             dividindo pelo mesmo 220x460 que o ViewModel guarda. Esticar a figura
-             quebraria essa conta. Os mesmos números estão em PontoMapaItem. -->
-        <GeometryGroup x:Key="Silhueta.Corpo" FillRule="Nonzero">
-            <EllipseGeometry Center="110,40" RadiusX="27" RadiusY="32" />
-            <RectangleGeometry Rect="99,66,22,18" />
-            <RectangleGeometry Rect="58,80,104,120" RadiusX="22" RadiusY="22" />
-            <RectangleGeometry Rect="66,192,88,76" RadiusX="16" RadiusY="16" />
-            <RectangleGeometry Rect="36,92,22,150" RadiusX="11" RadiusY="11" />
-            <RectangleGeometry Rect="162,92,22,150" RadiusX="11" RadiusY="11" />
-            <EllipseGeometry Center="47,252" RadiusX="12" RadiusY="14" />
-            <EllipseGeometry Center="173,252" RadiusX="12" RadiusY="14" />
-            <RectangleGeometry Rect="68,260,38,172" RadiusX="16" RadiusY="16" />
-            <RectangleGeometry Rect="114,260,38,172" RadiusX="16" RadiusY="16" />
-            <EllipseGeometry Center="87,436" RadiusX="19" RadiusY="12" />
-            <EllipseGeometry Center="133,436" RadiusX="19" RadiusY="12" />
-        </GeometryGroup>
+             O DESENHO NÃO MORA MAIS AQUI (parcela 79): ele é `SilhuetaCorporal`, no
+             domínio, e esta tela o monta no code-behind. A ficha do atendimento passou a
+             imprimir o mapa, e desenhar a figura de novo no PDF teria criado a segunda
+             versão do mesmo corpo — exatamente o que este componente subiu para o shell
+             para evitar, agora atravessando camadas, onde ninguém as lê lado a lado. -->
 
         <!-- Bolinha numerada. Não recebe clique (IsHitTestVisible no ItemsControl):
              assim marcar funciona em qualquer lugar da figura, inclusive em cima de um
@@ -210,15 +196,14 @@
                     <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                             CornerRadius="{StaticResource Raio.Medio}"
                             Background="{StaticResource Brush.Superficie}">
-                        <Canvas x:Name="TelaFrente" Width="220" Height="460"
+                        <Canvas x:Name="TelaFrente"
                                 Background="Transparent" ClipToBounds="True"
                                 MouseLeftButtonDown="TelaFrente_Clique">
-                            <Path Data="{StaticResource Silhueta.Corpo}"
+                            <Path x:Name="CorpoFrente"
                                   Fill="{StaticResource Brush.Acento.Tint}"
                                   Stroke="{StaticResource Brush.Borda.Hover}"
                                   StrokeThickness="1" />
-                            <ItemsControl ItemsSource="{Binding PontosFrente}"
-                                          Width="220" Height="460"
+                            <ItemsControl x:Name="PontosFrente" ItemsSource="{Binding PontosFrente}"
                                           IsHitTestVisible="False"
                                           ItemTemplate="{StaticResource MarcadorPonto}"
                                           ItemContainerStyle="{StaticResource PosicaoDoPonto}">
@@ -239,19 +224,18 @@
                     <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                             CornerRadius="{StaticResource Raio.Medio}"
                             Background="{StaticResource Brush.Superficie}">
-                        <Canvas x:Name="TelaCostas" Width="220" Height="460"
+                        <Canvas x:Name="TelaCostas"
                                 Background="Transparent" ClipToBounds="True"
                                 MouseLeftButtonDown="TelaCostas_Clique">
-                            <Path Data="{StaticResource Silhueta.Corpo}"
+                            <Path x:Name="CorpoCostas"
                                   Fill="{StaticResource Brush.Acento.Tint}"
                                   Stroke="{StaticResource Brush.Borda.Hover}"
                                   StrokeThickness="1" />
                             <!-- A linha da coluna é o que diferencia a figura de costas. -->
-                            <Line X1="110" Y1="86" X2="110" Y2="262"
+                            <Line x:Name="Coluna"
                                   Stroke="{StaticResource Brush.Borda.Hover}"
                                   StrokeThickness="1" StrokeDashArray="3 3" />
-                            <ItemsControl ItemsSource="{Binding PontosCostas}"
-                                          Width="220" Height="460"
+                            <ItemsControl x:Name="PontosCostas" ItemsSource="{Binding PontosCostas}"
                                           IsHitTestVisible="False"
                                           ItemTemplate="{StaticResource MarcadorPonto}"
                                           ItemContainerStyle="{StaticResource PosicaoDoPonto}">

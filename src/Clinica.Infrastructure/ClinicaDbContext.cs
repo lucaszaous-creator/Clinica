@@ -833,6 +833,10 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
             e.Property(x => x.Detalhe).HasMaxLength(1000);
             e.Property(x => x.Quantidade).HasMaxLength(60);
+            // 80 pontos (o teto de `MapaCorporal.MaximoPontos`) com nome longo passam de
+            // 2000; o campo não tem teto declarado de propósito — recortar o desenho
+            // silenciosamente tiraria marcações do papel sem ninguém saber quais.
+            e.Property(x => x.Desenho);
 
             e.HasOne(x => x.Documento).WithMany(x => x.Itens)
                 .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);

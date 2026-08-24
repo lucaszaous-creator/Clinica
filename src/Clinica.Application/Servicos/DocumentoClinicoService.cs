@@ -127,7 +127,12 @@ public sealed class DocumentoClinicoService
                 Ordem = ordem++,
                 Descricao = i.Descricao.Trim(),
                 Detalhe = Limpar(i.Detalhe),
-                Quantidade = Limpar(i.Quantidade)
+                Quantidade = Limpar(i.Quantidade),
+                // ⚠️ A CÓPIA É CAMPO A CAMPO, e o que não estiver nesta lista é DESCARTADO
+                // em silêncio — o lugar 3 da auditoria de linha, aqui na emissão. O
+                // `Desenho` era montado certo pelo relatório e sumia neste `new`: a ficha
+                // saía sem mapa nenhum, com o desenho gravado no objeto que ninguém guardou.
+                Desenho = i.Desenho
             });
 
         await _repo.AdicionarDocumentoAsync(documento, ct);
@@ -238,6 +243,13 @@ public sealed class DocumentoClinicoService
 
         var comPar = evolucoes.Where(e => e.TemParEva).ToList();
 
+        // O MAPA CORPORAL de cada sessão, numa consulta só (parcela 79). Ele é COPIADO
+        // para dentro do documento aqui, e não lido na impressão: a segunda via tem de
+        // sair idêntica à que o paciente levou, e a sessão pode ser corrigida depois.
+        var mapas = (await _repo.MapasDasEvolucoesAsync(
+                evolucoes.Select(e => e.Id).ToList(), ct))
+            .ToDictionary(m => m.EvolucaoId);
+
         var primeira = Menor(evolucoes.FirstOrDefault()?.Data, enfermagem.FirstOrDefault()?.Data);
         var ultima = Maior(evolucoes.LastOrDefault()?.Data, enfermagem.LastOrDefault()?.Data);
 
@@ -306,7 +318,9 @@ public sealed class DocumentoClinicoService
                           : $" ({e.RetornoSugeridoNota})")
                     : null,
                 e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null),
-            Quantidade = e.Profissional?.Rotulo
+            Quantidade = e.Profissional?.Rotulo,
+            // A EVA e as marcações do mapa, na forma que o PDF desenha.
+            Desenho = DesenhoDaSessao.De(e, mapas.GetValueOrDefault(e.Id)).Serializar()
         })).ToList();
 
         // Os registros de ENFERMAGEM entram como itens datados, na MESMA linha do tempo

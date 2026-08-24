@@ -108,6 +108,26 @@ public class TraducaoNoNpgsqlTests
         sql.Should().Contain("VersoesAnamnese");
     }
 
+    [Fact]
+    public void Mapas_das_evolucoes_em_LOTE_traduzem()
+    {
+        using var db = Postgres();
+
+        // O `Contains` sobre a lista de ids é o que evita um laço com `await` dentro: sem
+        // ele, um relatório de quarenta sessões faria quarenta idas ao banco REMOTO para
+        // montar uma folha só. Ele traduz no SQLite; a pergunta é se traduz no Npgsql.
+        int[] ids = [1, 2, 3];
+
+        var sql = db.MapasCorporais.AsNoTracking()
+            .Include(m => m.Pontos)
+            .Where(m => ids.Contains(m.EvolucaoId))
+            .ToQueryString();
+
+        sql.Should().Contain("PontosMapa",
+            "sem o Include os pontos vêm vazios em produção — e o teste passa mesmo assim, "
+            + "pelo relationship fixup do EF num DbContext compartilhado (parcela 68)");
+    }
+
     /// <summary>
     /// ⚠️ O AUTOTESTE DA REDE — ela precisa ter dentes.
     ///

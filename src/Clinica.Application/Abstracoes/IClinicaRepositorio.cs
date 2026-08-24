@@ -579,6 +579,20 @@ public interface IClinicaRepositorio
     /// <summary>Mapa da sessão, com os pontos carregados e RASTREADO (a edição substitui os pontos).</summary>
     Task<MapaCorporal?> ObterMapaDaEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os mapas de VÁRIAS sessões de uma vez, para o relatório que desenha o período
+    /// inteiro (parcela 79).
+    ///
+    /// ⚠️ Existe para não haver um laço com <c>await</c> dentro: o relatório sem recorte
+    /// pega o histórico completo, e um tratamento de quarenta sessões faria quarenta idas
+    /// a um banco REMOTO para montar uma folha só. É a lição da carteira do consultório
+    /// (parcela 74), aplicada antes de o laço ser escrito.
+    ///
+    /// Não rastreado: aqui só se LÊ para copiar o desenho para dentro do documento.
+    /// </summary>
+    Task<IReadOnlyList<MapaCorporal>> MapasDasEvolucoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
+
     Task AdicionarMapaAsync(MapaCorporal mapa, CancellationToken ct = default);
 
     /// <summary>Apaga os pontos de um mapa. Editar o mapa é regravar o conjunto inteiro.</summary>

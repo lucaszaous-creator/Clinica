@@ -1,3 +1,4 @@
+using System.Globalization;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Assinatura;
 using Clinica.Application.Modelos;
@@ -44,6 +45,23 @@ public sealed class DocumentosClinicosPdfService
     private const string VerdeForte = "#15803D";
     private const string VermelhoForte = "#B91C1C";
     private const string VermelhoSuave = "#FEE2E2";
+
+    /// <summary>A dor ANTES da sessão, na curva. Quente para se distinguir do azul da marca
+    /// sem virar alarme — a linha de cima não é um erro, é o ponto de partida.</summary>
+    private const string LaranjaDor = "#B45309";
+
+    /// <summary>O corpo da silhueta, no mesmo tom frio do resto da folha.</summary>
+    private const string FundoFigura = "#EEF2F7";
+
+    /// <summary>
+    /// A silhueta impressa. 130 pt contra os 220 px da tela: a figura NÃO se deforma porque
+    /// os pontos são fração dela (0 a 1) — é a mesma conta dos dois lados, e é por isso que
+    /// as coordenadas nunca foram guardadas em pixel.
+    /// </summary>
+    /// ⚠️ 112 pt, e o número tem consequência de LEIAUTE: a 130 pt o bloco de uma sessão
+    /// passava de 300 pt e só cabia UM por página — um relatório de quatro sessões saía com
+    /// duas folhas quase em branco. A 112 pt cabem dois.
+    private const float LarguraDaFigura = 112;
 
     // ---- Geometria da folha, e por que ela é CONSTANTE ----
     //
@@ -291,7 +309,9 @@ public sealed class DocumentosClinicosPdfService
                             break;
 
                         case TipoDocumentoClinico.RelatorioEvolucao:
+                            CurvaDaDor(col, itens);
                             TabelaSessoes(col, itens);
+                            MapasDasSessoes(col, itens);
                             break;
 
                         case TipoDocumentoClinico.Consentimento:
@@ -619,6 +639,145 @@ public sealed class DocumentosClinicosPdfService
             }
         });
     }
+
+    /// <summary>
+    /// A CURVA DA DOR (parcela 79) — o que a frase do corpo não cabe.
+    ///
+    /// Só aparece com duas sessões medidas para cima: com uma não há curva, e um ponto
+    /// solto num eixo prometeria uma evolução que o registro não tem.
+    /// </summary>
+    private static void CurvaDaDor(ColumnDescriptor col, IReadOnlyList<ItemDocumento> itens)
+    {
+        var medidas = itens
+            .Select(i => (Item: i, Desenho: DesenhoDaSessao.Ler(i.Desenho)))
+            .Where(x => x.Desenho.EvaAntes is not null && x.Desenho.EvaDepois is not null)
+            .Select(x => new MedidaDaDor(
+                DataDaLinha(x.Item.Descricao), x.Desenho.EvaAntes!.Value, x.Desenho.EvaDepois!.Value))
+            .ToList();
+
+        if (!GraficoDaDor.VaiDesenhar(medidas)) return;
+
+        col.Item().ShowEntire().Background(FundoSuave).Border(1).BorderColor(Borda)
+            .Padding(10).Column(c =>
+            {
+                c.Item().Text("A dor ao longo do tratamento")
+                    .Bold().FontSize(10.5f).FontColor(AzulEscuro);
+
+                c.Item().PaddingTop(2).Text(t =>
+                {
+                    t.DefaultTextStyle(x => x.FontSize(8.5f).FontColor(TextoSecundario));
+                    t.Span("Escala visual analógica (EVA), de 0 a 10.  ");
+                    t.Span("- - -  antes da sessão").FontColor(LaranjaDor);
+                    t.Span("      ");
+                    t.Span("——  depois da sessão").FontColor(Azul);
+                });
+
+                // ⚠️ A curva OCUPA a largura disponível e guarda a proporção, em vez de
+                // pedir os 520 pt do seu sistema de coordenadas: a área útil do A4 com as
+                // margens da casa é ~510 pt, e a folha com um pedido maior que o espaço
+                // não sai torta — ela NÃO SAI (o QuestPDF recusa o leiaute inteiro).
+                c.Item().PaddingTop(6)
+                    .AspectRatio((float)(GraficoDaDor.Largura / GraficoDaDor.Altura))
+                    .Svg(GraficoDaDor.Svg(medidas, LaranjaDor, Azul, Borda));
+            });
+    }
+
+    /// <summary>
+    /// O MAPA CORPORAL das sessões (parcela 79) — onde as agulhas foram aplicadas.
+    ///
+    /// ⚠️ Os pontos vêm do que foi COPIADO para o documento na emissão, nunca do prontuário
+    /// vivo: a segunda via tem de sair idêntica à que o paciente levou.
+    ///
+    /// A face SEM marcação não é desenhada. A sessão em que só se agulhou as costas
+    /// mostraria uma frente limpa do mesmo tamanho da outra, e metade do espaço da folha
+    /// diria "nada aqui" — numa página onde a figura é a informação mais cara em área.
+    /// </summary>
+    private static void MapasDasSessoes(ColumnDescriptor col, IReadOnlyList<ItemDocumento> itens)
+    {
+        var comMapa = itens
+            .Select(i => (Item: i, Desenho: DesenhoDaSessao.Ler(i.Desenho)))
+            .Where(x => x.Desenho.PontosOuVazio.Count > 0)
+            .ToList();
+
+        if (comMapa.Count == 0) return;
+
+        col.Item().PaddingTop(4).Text("Mapa corporal")
+            .Bold().FontSize(11).FontColor(AzulEscuro);
+
+        foreach (var (item, desenho) in comMapa)
+        {
+            var frente = desenho.PontosOuVazio.Where(p => p.Face == FaceCorpo.Frente).ToList();
+            var costas = desenho.PontosOuVazio.Where(p => p.Face == FaceCorpo.Costas).ToList();
+
+            col.Item().PaddingTop(6).BorderBottom(1).BorderColor(Borda)
+                .PaddingBottom(8).Column(c =>
+                {
+                    // ⚠️ O ShowEntire cobre o TÍTULO e as figuras, e as duas coisas juntas
+                    // são o ponto: a data sozinha no pé da página, com o corpo na folha
+                    // seguinte, é um rótulo que não diz de que sessão ele é.
+                    //
+                    // E cobre SÓ isso, que tem altura conhecida e sempre cabe numa página.
+                    // Envolvendo a legenda também, uma sessão no teto do mapa (80 pontos)
+                    // pediria mais que uma folha — e aí nada fica torto: o QuestPDF RECUSA o
+                    // documento inteiro, e a ficha deixa de imprimir por causa de uma sessão
+                    // cheia.
+                    c.Item().ShowEntire().Column(bloco =>
+                    {
+                        bloco.Item().Text(item.Descricao).SemiBold().FontSize(9.5f);
+
+                        bloco.Item().PaddingTop(4).Row(row =>
+                        {
+                            if (frente.Count > 0) FiguraDaFace(row, "Frente", frente, coluna: false);
+                            if (costas.Count > 0) FiguraDaFace(row, "Costas", costas, coluna: true);
+
+                            row.RelativeItem().PaddingLeft(12).PaddingTop(12).Column(resumo =>
+                            {
+                                resumo.Item().Text($"{desenho.PontosOuVazio.Count} ponto(s) nesta sessão")
+                                    .SemiBold().FontSize(9).FontColor(TextoSecundario);
+
+                                foreach (var (tecnica, quantidade) in desenho.ResumoPorTecnica())
+                                    resumo.Item().PaddingTop(2)
+                                        .Text($"{quantidade} × {tecnica}").FontSize(9);
+                            });
+                        });
+                    });
+
+                    // A legenda corre em LINHA e não uma por ponto: ela acompanha a figura,
+                    // quebra sozinha quando a sessão é cheia e não deixa meia folha em
+                    // branco ao lado do corpo quando são três marcações.
+                    c.Item().PaddingTop(6).Text(string.Join("   ",
+                            desenho.PontosOuVazio.OrderBy(p => p.Numero).Select(p => p.Legenda)))
+                        .FontSize(8.5f).FontColor(TextoSecundario);
+                });
+        }
+    }
+
+    private static void FiguraDaFace(
+        RowDescriptor row, string rotulo, IReadOnlyList<PontoDaSessao> pontos, bool coluna)
+        => row.ConstantItem(LarguraDaFigura + 8).Column(c =>
+        {
+            c.Item().AlignCenter().Text(rotulo).FontSize(8).FontColor(TextoSecundario);
+            c.Item().PaddingTop(2).AlignCenter()
+                .Width(LarguraDaFigura, Unit.Point)
+                .Svg(SilhuetaCorporal.Svg(
+                    pontos.Select(p => new PontoDesenhado(p.X, p.Y, p.Numero)),
+                    coluna, FundoFigura, Borda, Azul));
+        });
+
+    /// <summary>
+    /// A data que abre a linha da sessão ("12/08/2026 · EVA 8 → 4").
+    ///
+    /// ⚠️ Ela é lida do texto porque é ali que ela está — <see cref="ItemDocumento"/> guarda
+    /// a linha pronta, e o documento é imutável depois de emitido. Não dando para ler, a
+    /// curva cai para a data do PERÍODO em vez de sumir: o eixo perde a precisão do dia e
+    /// continua mostrando a evolução, que é o que o gráfico existe para dizer.
+    /// </summary>
+    private static DateOnly DataDaLinha(string descricao)
+        => DateOnly.TryParseExact(
+            descricao.Length >= 10 ? descricao[..10] : descricao,
+            "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var data)
+            ? data
+            : DateOnly.FromDateTime(DateTime.Today);
 
     /// <summary>Termo de consentimento: uma finalidade por linha, com quadrado para assinalar.</summary>
     private static void ListaFinalidades(ColumnDescriptor col, IReadOnlyList<ItemDocumento> itens)
