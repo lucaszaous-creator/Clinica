@@ -164,10 +164,20 @@
                               ToolTip="Marque quando algo saiu do esperado (reação, queda de pressão, extravasamento). É o que acende o selo na fila e chega ao médico na tela de atendimento." />
 
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Reação a registrar como alergia (opcional)"
+                        <!-- ⚠️ O rótulo pergunta o AGENTE, não a reação (parcela 80 — o
+                             campo se chamava "Reação a registrar como alergia" e a técnica
+                             escreveu "Pressão caiu": a REAÇÃO, que foi parar na lista de
+                             problemas como alergia e saiu impressa na folha como se o
+                             paciente fosse alérgico a "pressão caiu"). A porta da rodela
+                             sempre perguntou certo ("Alergia a quê? Escreva só o agente");
+                             esta perguntava errado — o mesmo ato com duas perguntas é a
+                             lição da parcela 64. A reação em si pertence ao texto da
+                             passagem, com "Foi uma intercorrência" marcado ao lado. -->
+                        <TextBlock Text="Alergia observada — a quê? (opcional)"
                                    Style="{StaticResource TextoSuave}" />
                         <TextBox Text="{Binding AlergiaObservada, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="Escreva o fármaco. Ele entra na lista de problemas do paciente no mesmo instante, e passa a alertar na PRÓXIMA prescrição." />
+                                 ctrl:Ajudantes.Placeholder="só o agente (ex.: dipirona)"
+                                 ToolTip="Escreva só o AGENTE (ex.: dipirona) — é esta palavra que a conferência procura nas próximas prescrições. A reação em si (pressão caiu, náusea) vai no texto da passagem, com &quot;Foi uma intercorrência&quot; marcado." />
                     </StackPanel>
                 </Grid>
 

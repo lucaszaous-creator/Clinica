@@ -5590,3 +5590,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   paciente declarou e assinou; a alergia é registro clínico de quem a colheu, com a trilha
   própria da lista de problemas. Mexer no selo seria mexer na evidência por causa de um
   destaque de tela.
+
+- **"PRESSÃO CAIU" SAIU COMO ALERGIA — e a causa era o RÓTULO de um campo** (parcela 80,
+  2ª rodada — a médica viu a folha de execução listar "• Dipirona • Pressão caiu" sob
+  ALERGIAS REGISTRADAS e mandou separar as intercorrências). A auditoria do dado achou a
+  porta exata: a janela de Evolução de enfermagem tinha o campo **"Reação a registrar como
+  alergia"** — que pergunta a REAÇÃO — e o serviço grava o texto como o ALÉRGENO na lista
+  de problemas. A técnica escreveu "Pressão caiu" (a reação, exatamente o que o rótulo
+  pediu) e o sistema passou a afirmar, em toda tela e papel, que o paciente é alérgico a
+  "pressão caiu". A porta da RODELA sempre perguntou certo ("Alergia a quê? Escreva só o
+  agente — ex.: Dipirona"), e foi por ela que a Dipirona entrou certa: **o mesmo ato com
+  duas perguntas é a lição da parcela 64, na variante em que a diferença não é a regra, é
+  a FRASE** — e a frase errada fabrica dado clínico errado com cara de certo.
+  As correções:
+  (a) **O rótulo pergunta o AGENTE** ("Alergia observada — a quê?", placeholder "só o
+  agente (ex.: dipirona)"), e o tooltip manda a reação para onde ela mora: o texto da
+  passagem com "Foi uma intercorrência" marcado. O placeholder do termo (parcela 80)
+  ganhou o mesmo aperto — "o que o paciente relatou" convidava narrativa.
+  (b) **A folha de execução ganhou a caixa INTERCORRÊNCIAS DESTA EXECUÇÃO, separada da de
+  alergias.** São dois fatos de naturezas diferentes, cada um com a sua morada: alergia é
+  atributo do PACIENTE (lista de problemas — vale para sempre); intercorrência é EVENTO
+  desta execução (evolução de enfermagem com o selo). A leitura é pública e pura
+  (`IntercorrenciasDaExecucao`): vigentes com o selo; cancelada e substituída são registro
+  desdito; texto dramático sem o selo não conta. "Nenhuma registrada nesta execução" é
+  AFIRMAÇÃO impressa, não linha omitida — quem audita precisa ler que não houve.
+  (c) **O dado errado que já existe não se conserta por código**: "Pressão caiu" está na
+  lista de problemas como alergia, e a porta desenhada para isso é o DESCARTE com motivo
+  (o único que cala o alerta) — a clínica descarta com "registrada como alergia por
+  engano; era intercorrência, e está no registro da passagem".
+  A lição que fica: **campo que alimenta registro clínico se audita pelo RÓTULO, não só
+  pelo código** — o serviço estava certo, o banco estava certo, e a frase na tela fabricou
+  o dado errado. Ao criar campo que grava em lista de outra natureza, a pergunta do rótulo
+  tem de ser a pergunta da LISTA ("a quê?"), nunca a do contexto ("o que houve?").

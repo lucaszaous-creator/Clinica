@@ -190,7 +190,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center"
                                          Text="{Binding NovaAlergia, UpdateSourceTrigger=PropertyChanged}"
-                                         ctrl:Ajudantes.Placeholder="O que o paciente relatou agora (ex.: dipirona)" />
+                                         ctrl:Ajudantes.Placeholder="Alérgico a quê? Só o agente (ex.: dipirona)" />
                                 <Button Grid.Column="1" Content="Registrar alergia" MinWidth="150"
                                         VerticalAlignment="Center"
                                         Style="{StaticResource BotaoSecundarioPerigo}"

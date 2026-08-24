@@ -232,6 +232,7 @@ public sealed class PrescricaoInternaPdfService
                     VinculoComAPrescricao(col, prescricao);
                     IdentificacaoDoPaciente(col, prescricao);
                     BlocoDeAlergias(col, alergias);
+                    BlocoDeIntercorrencias(col, prescricao);
 
                     TabelaDaExecucao(col, itens);
                     // ⚠️ A ordem não é estética: a tabela e as duas caixas seguintes falam
@@ -707,6 +708,73 @@ public sealed class PrescricaoInternaPdfService
     /// <see cref="Retificacoes"/>: imprimir só o valor final faria a via em papel esconder
     /// o que a trilha guarda.
     /// </summary>
+    /// <summary>
+    /// As INTERCORRÊNCIAS desta execução, vigentes: canceladas e substituídas ficam de
+    /// fora — registro desdito não alarma (a regra do selo da linha do tempo, parcela 72).
+    ///
+    /// PÚBLICO e puro para o teste alcançar: a folha é a via de auditoria de enfermagem,
+    /// e a regra de "o que conta como intercorrência" não pode morar só dentro do desenho.
+    /// </summary>
+    public static IReadOnlyList<EvolucaoEnfermagem> IntercorrenciasDaExecucao(
+        PrescricaoInterna prescricao)
+    {
+        var registros = prescricao.EvolucoesEnfermagem;
+        var substituidos = registros
+            .Where(e => e.RetificaEvolucaoId is not null)
+            .Select(e => e.RetificaEvolucaoId!.Value)
+            .ToHashSet();
+
+        return registros
+            .Where(e => e.Intercorrencia && !e.Cancelada && !substituidos.Contains(e.Id))
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
+            .ToList();
+    }
+
+    /// <summary>
+    /// A caixa de INTERCORRÊNCIAS — separada da de alergias (parcela 80; a médica viu
+    /// "Pressão caiu" listado como alergia e mandou separar).
+    ///
+    /// São dois FATOS de naturezas diferentes, cada um com a sua morada: alergia é
+    /// atributo do PACIENTE (lista de problemas — vale para sempre e para toda
+    /// prescrição); intercorrência é um EVENTO desta execução (evolução de enfermagem com
+    /// o selo). Misturá-los na mesma caixa é o que fazia a reação virar "alergia" no
+    /// papel. A lista detalhada de evoluções continua abaixo, em ordem de hora — esta
+    /// caixa é o resumo de segurança do topo, o par da caixa de alergias.
+    ///
+    /// "Nenhuma registrada" é AFIRMAÇÃO, não ausência: quem audita a execução precisa
+    /// ler que não houve — sumir com a linha deixaria a dúvida "não houve ou não
+    /// registraram?".
+    /// </summary>
+    private static void BlocoDeIntercorrencias(ColumnDescriptor col, PrescricaoInterna prescricao)
+    {
+        var intercorrencias = IntercorrenciasDaExecucao(prescricao);
+
+        if (intercorrencias.Count == 0)
+        {
+            col.Item().Text(t =>
+            {
+                t.Span("Intercorrências  ").Bold().FontSize(8.5f).FontColor(TextoSecundario);
+                t.Span("nenhuma registrada nesta execução.")
+                    .FontSize(8.5f).FontColor(TextoSecundario);
+            });
+            return;
+        }
+
+        col.Item().Background(AmareloSuave).Border(1).BorderColor(AmareloForte)
+            .Padding(10).Column(c =>
+            {
+                c.Item().Text("INTERCORRÊNCIAS DESTA EXECUÇÃO")
+                    .Bold().FontSize(9).FontColor(AmareloForte);
+                foreach (var e in intercorrencias)
+                    c.Item().PaddingTop(2).Text(t =>
+                    {
+                        t.Span($"{e.Hora:HH\\:mm}  ").SemiBold().FontSize(10).FontColor(AmareloForte);
+                        t.Span(e.Texto).FontSize(10).FontColor(AmareloForte);
+                        t.Span($"  ({e.AutorNome})").FontSize(8.5f).FontColor(TextoSecundario);
+                    });
+            });
+    }
+
     private static void EvolucoesDeEnfermagem(ColumnDescriptor col, PrescricaoInterna prescricao)
     {
         var registros = prescricao.EvolucoesEnfermagem
