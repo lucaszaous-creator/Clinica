@@ -588,8 +588,9 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     }
 
     /// <summary>
-    /// Os dois rascunhos do BSV, do jeito que o botão do Gerente os cria — e a razão de
+    /// Os dois termos do BSV, do jeito que o botão do Gerente os cria — e a razão de
     /// serem DOIS: as validades são opostas, e é isso que a leitura tem de refletir.
+    /// O TCLE se assina UMA vez e fica na ficha; o termo da sessão, a CADA sessão.
     /// </summary>
     [Fact]
     public async Task Os_dois_termos_do_BSV_convivem_com_validades_opostas()
@@ -598,7 +599,7 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         var ontem = Hoje.AddDays(-1);
 
         var consentimento = ModelosTermoBsv.Consentimento();
-        var declaracao = ModelosTermoBsv.DeclaracaoDoDia();
+        var declaracao = ModelosTermoBsv.TermoDaSessao();
         _db.ModelosDocumento.AddRange(consentimento, declaracao);
         await _db.SaveChangesAsync();
 
@@ -626,8 +627,8 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
             + "com calma na véspera");
 
         situacoes.Single(s => s.ModeloId == declaracao.Id).Assinado.Should().BeFalse(
-            "\"ESTOU em jejum\" assinado ontem é uma afirmação sobre o futuro; a declaração "
-            + "do dia não se herda");
+            "\"fui reavaliado(a) NESTA data\" assinado ontem é uma afirmação sobre o "
+            + "futuro; o termo da sessão não se herda");
     }
 
     /// <summary>
@@ -660,23 +661,36 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     }
 
     /// <summary>
-    /// O rascunho DIZ que é rascunho, e diz no nome — que é o que aparece na lista da tela,
-    /// no seletor da coleta avulsa e na linha da exigência. Quem for amarrar a modalidade lê
-    /// o aviso no caminho; um campo à parte ficaria só na tela de edição.
+    /// Os termos do BSV carregam o texto APROVADO pela clínica (o advogado dela o redigiu,
+    /// ago/2026) — a marca "(rascunho — revisar)" morreu junto com o rascunho: mantê-la num
+    /// texto aprovado mandaria o responsável técnico revisar o que ele já assinou embaixo.
+    /// O teste fixa as âncoras do conteúdo do advogado, para uma edição futura no código
+    /// não devolver o texto genérico em silêncio.
     /// </summary>
     [Fact]
-    public void Os_termos_do_BSV_nascem_marcados_como_rascunho()
+    public void Os_termos_do_BSV_carregam_o_texto_aprovado_pela_clinica()
     {
-        foreach (var modelo in new[]
-                 { ModelosTermoBsv.Consentimento(), ModelosTermoBsv.DeclaracaoDoDia() })
+        var consentimento = ModelosTermoBsv.Consentimento();
+        var sessao = ModelosTermoBsv.TermoDaSessao();
+
+        foreach (var modelo in new[] { consentimento, sessao })
         {
-            modelo.Nome.Should().Contain(ModelosTermoBsv.MarcaRascunho);
+            modelo.Nome.ToLowerInvariant().Should().NotContain("rascunho",
+                "o texto é o aprovado pela clínica — chamar de rascunho mandaria revisar "
+                + "o que já foi aprovado");
+            modelo.Corpo.Should().NotContain("RASCUNHO");
             modelo.Tipo.Should().Be(TipoDocumentoClinico.TermoProcedimento);
-            modelo.Corpo.Should().Contain("RASCUNHO",
-                "o texto tem de mandar o responsável técnico revisar ANTES do primeiro uso — "
-                + "termo de fábrica é o que o sistema aplica sem ninguém ler");
             modelo.Itens.Should().NotBeEmpty("um termo sem declaração não pergunta nada");
         }
+
+        // As âncoras do texto do advogado: o jejum com os prazos dela (que saiu da
+        // declaração do dia e virou orientação do TCLE), a lista de vias de medicamento da
+        // seção 7, e o termo da sessão remetendo ao TCLE já assinado.
+        consentimento.Corpo.Should().Contain("6 (seis) horas")
+            .And.Contain("2 (duas) a 3 (três) horas")
+            .And.Contain("imunobiológicos");
+        sessao.Corpo.Should().Contain("TCLE",
+            "o termo da sessão confirma o TCLE assinado antes — é o elo entre os dois");
     }
 
     /// <summary>
@@ -687,15 +701,19 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     ///
     /// (a) declaração cujo "Não" é NORMAL (havia um "estou acompanhado, se a clínica
     ///     exigir") faz metade dos pacientes acender vermelho — e alerta que dispara para
-    ///     todo mundo é alerta que ninguém lê, sendo o próximo a ser ignorado o do jejum;
+    ///     todo mundo é alerta que ninguém lê;
     /// (b) declaração NEGATIVA ("não tive febre") torna a resposta ambígua: "Não" vira
     ///     dupla negação, que o paciente lê errado e a equipe também.
+    ///
+    /// A regra sobreviveu à troca do rascunho pelo texto do advogado: as listas de "☐"
+    /// dele viraram estas declarações, e a redação delas continua sendo nossa
+    /// responsabilidade de FORMA — o "Não" tem de continuar significando problema.
     /// </summary>
     [Fact]
-    public void As_declaracoes_do_rascunho_sao_afirmativas_e_incondicionais()
+    public void As_declaracoes_dos_termos_do_BSV_sao_afirmativas_e_incondicionais()
     {
         var itens = ModelosTermoBsv.Consentimento().Itens
-            .Concat(ModelosTermoBsv.DeclaracaoDoDia().Itens)
+            .Concat(ModelosTermoBsv.TermoDaSessao().Itens)
             .ToList();
 
         foreach (var item in itens)
@@ -721,7 +739,7 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     public void O_detalhe_das_declaracoes_fala_com_o_PACIENTE()
     {
         var detalhes = ModelosTermoBsv.Consentimento().Itens
-            .Concat(ModelosTermoBsv.DeclaracaoDoDia().Itens)
+            .Concat(ModelosTermoBsv.TermoDaSessao().Itens)
             .Select(i => i.Detalhe)
             .Where(d => !string.IsNullOrWhiteSpace(d))
             .Select(d => d!.ToLowerInvariant())
@@ -753,7 +771,7 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
 
         // 2ª tentativa: refaz tudo do começo, como o segundo clique faz.
         var consentimento = await _documentos.SalvarModeloAsync(ModelosTermoBsv.Consentimento());
-        var declaracao = await _documentos.SalvarModeloAsync(ModelosTermoBsv.DeclaracaoDoDia());
+        var declaracao = await _documentos.SalvarModeloAsync(ModelosTermoBsv.TermoDaSessao());
 
         consentimento.Id.Should().Be(parcial.Id,
             "mesmo nome sobrescreve — refazer não pode criar um segundo consentimento");

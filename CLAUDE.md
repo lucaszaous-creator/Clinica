@@ -5758,3 +5758,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   cartão, compactar barra e mover caixinha são refinamentos DA resposta errada quando a
   pergunta estrutural ("isto é uma tela ou duas?") ainda não foi feita — e foi preciso o
   cliente apontar a aba pelo nome para ela ser feita.
+
+- **Quando o texto APROVADO chega, o botão do rascunho vira SUBSTITUIÇÃO — a recusa "já
+  existe" viraria beco sem saída no exato momento em que o texto certo chegou** (parcela
+  84 — o advogado da cliente mandou os dois termos do BSV por escrito, e ela pediu para o
+  conteúdo entrar no lugar do rascunho da parcela 67). `ModelosTermoBsv` agora carrega o
+  texto dela: o **TCLE** (assinado UMA vez, fica na ficha — `SoValeNoDiaDoProcedimento:
+  false`) e o **Termo da sessão** (assinado a CADA sessão: "fui reavaliado NESTA data"
+  não se herda — `: true`). A marca "(rascunho — revisar)" morreu COM o rascunho:
+  mantê-la num texto aprovado mandaria o responsável técnico revisar o que ele já
+  assinou embaixo. E a guarda "o BSV já exige termo" — certa quando o clique repetido só
+  podia ser engano — deixaria a clínica SEM caminho para adotar o texto novo: virou
+  `ConfirmarPerigo` que lista o que está amarrado, DESLIGA (`AlternarAsync`, nunca
+  apaga — os termos assinados guardam o texto lido, porque aplicar COPIA) e amarra o par
+  novo; só as exigências ATIVAS entram na pergunta, porque `ExigenciasAsync` devolve
+  também as desligadas e desligada não está "em uso".
+  A transcrição papel→sistema é adaptação de FORMA, não de conteúdo, e as regras: os
+  blocos de IDENTIFICAÇÃO/ASSINATURAS com linhas em branco saem (a folha emitida imprime
+  isso e a assinatura é colhida na tela); **lacuna impressa ("____", Diagnóstico, CID)
+  vira remissão ao prontuário** — modelo é texto FIXO copiado na emissão, e lacuna
+  sairia em branco para sempre; as listas de "☐" viram as declarações Sim/Não (que é o
+  que elas são no papel), mantidas AFIRMATIVAS e incondicionais mesmo vindas do
+  advogado — a redação das declarações é responsabilidade nossa de FORMA, porque o "Não"
+  aceso no balcão precisa continuar significando problema; e **seção que é ato da EQUIPE
+  (avaliação médica, dados da sessão, intercorrências, alta) não entra no papel que o
+  PACIENTE assina** — cada uma já tem registro próprio com autoria e trilha, e o corpo
+  do termo diz onde. O teste que fixava o rascunho virou o que fixa as ÂNCORAS do texto
+  aprovado (o jejum "6 (seis) horas", os imunobiológicos da seção 7, a remissão ao
+  TCLE) — para uma edição futura no código não devolver o texto genérico em silêncio.
