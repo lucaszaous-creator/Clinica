@@ -184,6 +184,14 @@
                                          FallbackValue=Collapsed}"
                             Command="{Binding ColherTermoCommand}" />
 
+                    <!-- A ficha que o paciente leva embora (parcela 78). Até aqui a
+                         enfermagem não tinha papel nenhum fora da folha de infusão. -->
+                    <Button Content="Ficha do atendimento" MinWidth="170" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeVerProntuario}"
+                            ToolTip="Emite o papel do que aconteceu HOJE com este paciente — a passagem da enfermagem e a sessão do dia —, com a marca da clínica e o código de conferência."
+                            Command="{Binding ImprimirFichaCommand}" />
                     <Button Content="Escrever evolução" MinWidth="180"
                             VerticalAlignment="Center"
                             IsEnabled="{Binding PodeRegistrar}"

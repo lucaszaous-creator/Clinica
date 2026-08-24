@@ -5336,3 +5336,60 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   O **retorno é o único campo do painel que a tela NÃO corta**: os outros saem com
   reticências e a dica mostra o texto inteiro, porque a coluna tem ~350 px e três sessões, e
   o texto completo está a uma aba de distância. Ele não, porque é curto e é a resposta.
+
+- **A FICHA DO ATENDIMENTO: o motor existia, faltava a PORTA — e faltava a ENFERMAGEM
+  inteira** (parcela 78 — a direção pediu um PDF do atendimento, com a logo e no padrão dos
+  papéis que já saem, para o médico e a enfermeira entregarem ao paciente). A resposta
+  honesta era **temos o motor e falta a porta**: o relatório de evolução é um
+  `DocumentoClinico` desde a parcela 3, com a marca da clínica, numeração por ano, código de
+  conferência, PDF pelo `DocumentosClinicosPdfService` e assinatura ICP-Brasil — e os **dois
+  únicos chamadores dele estavam na RECEPÇÃO** (`FichaPacienteViewModel` e
+  `DocumentosViewModel`). Quem acabou de escrever a sessão pedia ao balcão para imprimi-la.
+  É o defeito recorrente do projeto na variante "a porta está no módulo de quem não usa",
+  agora com o agravante de o papel ser justamente o que se entrega **com o paciente ainda na
+  sala**.
+  As três metades que faltavam, e o que cada uma decide:
+  (a) **O RECORTE.** Os dois chamadores emitem sem `inicio`/`fim`, isto é, o histórico
+  INTEIRO — para entregar "o atendimento de hoje", um paciente de quarenta sessões recebia
+  quarenta. A porta nova emite recortada **na data DESTA sessão** (a do médico) e em **hoje**
+  (a da enfermagem). O relatório sem recorte continua existindo e é outro papel: é o do
+  convênio.
+  (b) **A ENFERMAGEM não tinha papel NENHUM.** A passagem só saía impressa dentro da folha
+  de infusão, ou seja, quando havia folha: a técnica que colhe sinais vitais, troca o
+  curativo e registra a consulta de enfermagem completa — as cinco etapas da COFEN 358/2009 —
+  não tinha o que entregar a ninguém. Ela entra no **MESMO documento**, e não num tipo novo:
+  o paciente veio uma vez, e o que aconteceu com ele é um fato só; dois papéis obrigariam a
+  clínica a entregar dois e o convênio a casar duas numerações. Só as **vigentes** —
+  cancelada ou já retificada é registro desdito, e ele fica no prontuário, não no papel que
+  sai da clínica. Quem assina cada linha é quem a fez, **com o COREN**.
+  ⚠️ (c) **A LINHA DO TEMPO era uma promessa não cumprida.** O comentário das escalas
+  garante, desde a parcela 36, que elas entram "na MESMA linha do tempo das sessões" — e
+  elas eram **anexadas depois de todas**: o papel saía com as sessões, depois os escores,
+  depois a enfermagem. Quem lê comparava o escore de agosto com a sessão de junho. Agora
+  cada item carrega a DATA e a lista é ordenada na emissão (`OrderBy` do LINQ é ESTÁVEL, e é
+  isso que mantém sessão → enfermagem → escala na ordem em que o dia aconteceu). É o defeito
+  da parcela 67 — comentário que descreve um comportamento e não o realiza — num arquivo que
+  eu estava editando por outro motivo.
+  ⚠️ **`evolucoes[0]` ESTOURAVA numa ficha só de enfermagem**, e essa ficha passou a existir
+  nesta parcela: o período do documento saía da primeira evolução MÉDICA. Agora sai do que de
+  fato entrou no papel (`Menor`/`Maior` das duas listas), e a frase da EVA **só existe quando
+  há sessão médica** — numa ficha de enfermagem, "nenhuma sessão tem a EVA medida" seria uma
+  afirmação sobre um registro que não se propôs a medi-la.
+  ⚠️ **O DIAGNÓSTICO e os CUIDADOS quase ficaram de fora, e o comentário que eu mesmo
+  escrevi foi quem denunciou.** A primeira versão levava ao papel o texto, os sinais vitais,
+  o acesso venoso e as etapas 1 e 5 — com um comentário dizendo "as etapas do processo entram
+  quando FORAM escritas". As etapas **2, 3 e 4** não entravam, e são elas que fazem a consulta
+  de enfermagem ser uma consulta: sem elas o papel diz "consulta de enfermagem" e mostra um
+  texto livre, que é exatamente o que a clínica tinha antes de a etapa existir. As duas
+  listas já vinham carregadas da consulta do repositório — era dado gravado sem leitor no
+  único papel que sai da clínica. A regra de leitura vale para o próprio diff: **quando
+  terminar de escrever um comentário, confira se o código abaixo dele faz o que ele diz.**
+  **Emitir é FATO, então a ficha sai depois de SALVAR.** O papel é numerado, fica na lista do
+  paciente e não se apaga — cancela-se com motivo; imprimir o que ainda não está no prontuário
+  entregaria ao paciente uma versão que o prontuário não tem. ⚠️ A pergunta da guarda é
+  `TemAlgoParaGravar`, **nunca** `!SessaoEmBranco`: confundir as duas é o defeito da parcela
+  74, e aqui ele faria a sessão de acupuntura mais comum da casa — EVA 8→3, seis pontos no
+  mapa, nenhuma linha de texto — **sair impressa dizendo "EVA não medida"** com o 8→3 na tela
+  de quem imprimiu. E o `IsEnabled` do botão cobre as **duas** pré-condições que a guarda
+  impede (paciente em foco E `VerProntuario`), senão quem não tem o bit clica e leva a recusa
+  depois.

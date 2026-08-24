@@ -540,6 +540,65 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     }
 
     /// <summary>
+    /// A FICHA DO ATENDIMENTO da enfermagem — o papel que o paciente leva embora
+    /// (parcela 78).
+    ///
+    /// ⚠️ Até aqui a enfermagem não tinha papel NENHUM: a passagem só saía impressa dentro
+    /// da folha de infusão, isto é, quando havia folha. A técnica que colhe sinais vitais,
+    /// troca o curativo e registra a consulta de enfermagem completa — as cinco etapas da
+    /// COFEN — não tinha o que entregar a ninguém.
+    ///
+    /// É o MESMO documento do médico, recortado no dia: o paciente veio uma vez, e o que
+    /// aconteceu com ele é um fato só. Dois papéis obrigariam a clínica a entregar dois e o
+    /// convênio a casar duas numerações.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImprimirFichaAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "imprimir a ficha do atendimento");
+
+        if (_pacienteId == 0) return;
+
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+            byte[] pdf;
+            string numero;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servicos = scope.ServiceProvider;
+
+                var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
+                    .EmitirRelatorioEvolucaoAsync(
+                        _pacienteId, SessaoUsuario.Atual.ProfissionalId,
+                        inicio: hoje, fim: hoje,
+                        operador: SessaoUsuario.Atual.Operador);
+
+                numero = documento.Numero;
+
+                pdf = await servicos.GetRequiredService<DocumentosClinicosPdfService>()
+                    .GerarAsync(
+                        documento.Id,
+                        await servicos.GetRequiredService<ParametrosService>()
+                            .ObterPrestadorAsync());
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));
+
+            Mensagem = erro ?? $"Ficha {numero} emitida — ela fica na lista de documentos do paciente.";
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — ficha do atendimento não pôde ser emitida", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
     /// O plano de cuidados de HOJE.
     ///
     /// Falha SOZINHA, pela mesma razão do contexto: o assunto da tela é a evolução, e uma

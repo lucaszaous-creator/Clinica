@@ -383,6 +383,86 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(m.PlanoTerapeutico)) PlanoTerapeutico = m.PlanoTerapeutico;
     }
 
+    /// <summary>
+    /// A FICHA DO ATENDIMENTO — o papel que o paciente leva embora (parcela 78).
+    ///
+    /// O buraco
+    /// --------
+    /// O relatório de evolução existe desde a parcela 3, com a marca da clínica, numeração
+    /// por ano, código de conferência e assinatura ICP-Brasil — e os DOIS únicos chamadores
+    /// dele estavam na RECEPÇÃO. Quem acabou de escrever a sessão não tinha por onde
+    /// imprimi-la: precisava pedir ao balcão. É o defeito recorrente do projeto na variante
+    /// "a porta está no módulo de quem não usa".
+    ///
+    /// ⚠️ E os dois chamadores emitem o histórico INTEIRO — sem período. Para entregar "o
+    /// atendimento de hoje", um paciente de quarenta sessões recebia quarenta. Aqui o
+    /// recorte é a DATA DESTA SESSÃO, que é o que a pergunta pede.
+    ///
+    /// Emitir é um FATO: o papel é numerado, fica na lista do paciente e não se apaga —
+    /// cancela-se com motivo. Por isso a ficha sai depois de SALVAR, e a tela avisa quando
+    /// há texto não gravado: imprimir o que ainda não está no prontuário entregaria ao
+    /// paciente uma versão que o prontuário não tem.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImprimirFichaAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "imprimir a ficha do atendimento");
+
+        if (PacienteId == 0) return;
+
+        // ⚠️ A pergunta é `TemAlgoParaGravar`, NUNCA `!SessaoEmBranco` — confundir as duas
+        // é o defeito da parcela 74: a sessão de acupuntura mais comum da casa (EVA 8→3,
+        // seis pontos no mapa, nenhuma linha de texto) está "em branco" para efeito de
+        // encerrar e tem MUITO o que gravar. Com a pergunta errada, ela sairia impressa
+        // dizendo "EVA não medida" com o 8→3 na tela de quem imprimiu.
+        if (TemAlgoParaGravar && EvolucaoId == 0)
+        {
+            Mensagem = "Salve a sessão antes de imprimir a ficha — o papel sai do que está "
+                     + "gravado no prontuário, e o que você digitou ainda não está.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            var dia = DateOnly.FromDateTime(Data);
+
+            byte[] pdf;
+            string numero;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servicos = scope.ServiceProvider;
+
+                var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
+                    .EmitirRelatorioEvolucaoAsync(
+                        PacienteId, SessaoUsuario.Atual.ProfissionalId,
+                        inicio: dia, fim: dia,
+                        operador: SessaoUsuario.Atual.Operador);
+
+                numero = documento.Numero;
+
+                pdf = await servicos.GetRequiredService<DocumentosClinicosPdfService>()
+                    .GerarAsync(
+                        documento.Id,
+                        await servicos.GetRequiredService<ParametrosService>()
+                            .ObterPrestadorAsync());
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));
+
+            Mensagem = erro ?? $"Ficha {numero} emitida — ela fica na lista de documentos do paciente.";
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — ficha do atendimento não pôde ser emitida", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     /// <summary>De onde veio a sessão: chamada do dia, ou escolhida na busca.</summary>
     [ObservableProperty] private string _origem = string.Empty;
 
@@ -405,10 +485,19 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// </summary>
     public bool PodeEmitirDocumento => TemPaciente && PodeEditarProntuario;
 
+    /// <summary>
+    /// A ficha do atendimento pede <see cref="Permissao.VerProntuario"/> — ela IMPRIME o
+    /// prontuário, não o escreve. O botão apagado tem de explicar as DUAS pré-condições
+    /// que a guarda impede: sem isso, quem não tem o bit clica e leva a recusa depois.
+    /// </summary>
+    public bool PodeImprimirFicha =>
+        TemPaciente && SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
     partial void OnSemPacienteChanged(bool value)
     {
         OnPropertyChanged(nameof(TemPaciente));
         OnPropertyChanged(nameof(PodeEmitirDocumento));
+        OnPropertyChanged(nameof(PodeImprimirFicha));
     }
 
     /// <summary>Valores da escala, para os dois seletores de dor.</summary>

@@ -33,6 +33,17 @@
             <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
                 Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0"
                 MinWidth="110" />
+
+            <!-- A FICHA que o paciente leva embora (parcela 78). O relatório existe desde a
+                 parcela 3, com a marca da clínica e o código de conferência, e os dois
+                 únicos chamadores dele estavam na RECEPÇÃO: quem escreve a sessão pedia ao
+                 balcão para imprimi-la. Aqui ela sai recortada NA DATA desta sessão — sem
+                 isso, um paciente de quarenta sessões recebia quarenta. -->
+            <Button Content="Ficha do atendimento" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding ImprimirFichaCommand}" Margin="8,0,0,0"
+                MinWidth="160"
+                IsEnabled="{Binding PodeImprimirFicha}"
+                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
         </StackPanel>
 
             <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
