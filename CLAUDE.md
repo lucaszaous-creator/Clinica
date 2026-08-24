@@ -69,21 +69,37 @@ Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/rele
 os cinco apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
 muda**) e publica na mesma release; os apps instalados se auto-atualizam.
 
-## ⛔ AUDITORIA DE LINHA — conferir ENQUANTO escreve, não depois
+## ⛔ AUDITORIA DE LINHA — a conferência é NA ESCRITA, e não existe rodada depois
 
-**Regra de processo, decidida em 23/08/2026 pela direção.** Uma auditoria adversarial de oito
-lentes sobre as parcelas 72–74 devolveu **38 candidatos e 13 defeitos reais, quatro deles
-bloqueadores** — num código com 1778 testes verdes, três redes locais verdes e CI verde. Todos
-teriam sido baratos de evitar e foram caros de achar.
+**Regra de processo, decidida em 23/08/2026 e reafirmada pela direção em 24/08/2026.**
+
+⛔ **É PROIBIDO rodar auditoria adversarial — agentes, workflow, varredura de lentes — sobre
+código que você mesmo acabou de escrever.** Não é opcional nem "por segurança". Rodada
+posterior é o SINTOMA de que a conferência não foi feita na hora, e ela custa: a de 23/08
+gastou **12,7 milhões de tokens e 98 minutos** para achar o que a lista abaixo pega em
+segundos, no teclado — e a metade das refutações dela nem chegou a rodar, o que obrigou a
+reconferir tudo à mão de qualquer forma. **Quem escreve confere enquanto escreve; quem
+termina, termina certo.**
+
+O que a lista substituiu: aquela auditoria devolveu 38 candidatos e 13 defeitos reais, quatro
+deles bloqueadores, num código com 1778 testes verdes, três redes locais verdes e CI verde.
+**Todos teriam sido baratos de evitar.** A lista abaixo é o resumo de cada um deles — ela
+existe para a próxima rodada não precisar acontecer.
 
 **Portanto: cada linha acrescentada, mudada ou removida passa pela lista abaixo NO MOMENTO em
-que é escrita.** Não é para rodar agentes depois procurando o que ficou para trás — é para não
-deixar rastro. Quando um item da lista pegar algo, **escreva a lição aqui embaixo**; foi assim
-que esta lista nasceu.
+que é escrita** — antes de salvar o arquivo, não depois de fechar a parcela. Quando um item
+pegar algo, **escreva a lição aqui embaixo**; foi assim que esta lista nasceu, e é assim que
+ela deixa de precisar de agente nenhum.
 
 ⚠️ **A pergunta que abre toda conferência é sempre a mesma:** *isto quebra alguma coisa, ou
 apenas deixa de fazer o que promete?* Os quatro bloqueadores de 23/08 eram todos do segundo
-tipo — nada falhava.
+tipo — nada falhava, e é exatamente por isso que nenhuma rede os pegava.
+
+⚠️ **A única coisa que se roda DEPOIS é a seção 6** — as três redes e os testes: são
+determinísticos, custam minutos e não precisam de agente nenhum. Percorrida a lista e verdes
+as redes, o trabalho está terminado. Defeito que ainda assim escapar vira **lição aqui** e,
+quando o ruído medido permitir, **uma checagem nova no `verificar-suite`** — é assim que a
+conferência fica automática, e não repetindo a rodada que esta regra existe para aposentar.
 
 ### 1. Campo novo de PRONTUÁRIO — os oito lugares
 
