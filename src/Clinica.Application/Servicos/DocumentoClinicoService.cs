@@ -251,7 +251,18 @@ public sealed class DocumentoClinicoService
                 // que sustenta a continuidade do tratamento para quem não o acompanhou.
                 // Sem isto, o campo nasceria gravado e o único papel que sai da clínica não
                 // o levaria — o defeito recorrente na variante mais cara.
-                e.PlanoTerapeutico is { } pl ? $"plano: {pl}" : null),
+                e.PlanoTerapeutico is { } pl ? $"plano: {pl}" : null,
+                // O RETORNO e o ENCAMINHAMENTO (parcela 77) pela mesma razão do plano: o
+                // relatório é o papel que o paciente leva ao convênio e ao outro
+                // profissional, e "reavaliar em 7 dias" e "encaminhado à psiquiatria" são
+                // exatamente o que quem não acompanhou o tratamento precisa ler.
+                e.RetornoSugeridoEm is { } rs
+                    ? $"retorno sugerido: {rs:dd/MM/yyyy}"
+                      + (string.IsNullOrWhiteSpace(e.RetornoSugeridoNota)
+                          ? string.Empty
+                          : $" ({e.RetornoSugeridoNota})")
+                    : null,
+                e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null),
             Quantidade = e.Profissional?.Rotulo
         }).ToList();
 

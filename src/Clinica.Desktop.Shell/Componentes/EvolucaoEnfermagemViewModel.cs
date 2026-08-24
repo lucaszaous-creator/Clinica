@@ -150,7 +150,13 @@ public sealed class LinhaEvolucaoEnfermagem
             Hora = e.Hora.ToString("HH\\:mm"),
             Data = mostrarData ? e.Data.ToString("dd/MM/yyyy") : string.Empty,
             Texto = e.Texto,
-            SinaisVitais = e.SinaisVitaisResumidos,
+            // Os sinais e o ACESSO na mesma linha: quem lê a passagem anterior precisa
+            // dos dois — o acesso é o achado que a próxima punção consulta.
+            SinaisVitais = e.AcessoResumo is { } acesso
+                ? (e.SinaisVitaisResumidos is { } sv
+                    ? $"{sv} \u00B7 acesso: {acesso}"
+                    : $"acesso: {acesso}")
+                : e.SinaisVitaisResumidos,
             Autor = string.IsNullOrWhiteSpace(e.AutorConselho)
                 ? e.AutorNome
                 : $"{e.AutorNome} · {e.AutorConselho}",
@@ -234,6 +240,20 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     [ObservableProperty] private string _temperatura = string.Empty;
     [ObservableProperty] private string _saturacao = string.Empty;
     [ObservableProperty] private string _dor = string.Empty;
+
+    // ==================== O ACESSO VENOSO (parcela 77) ====================
+    //
+    // A dica do exame físico desta mesma janela manda avaliar "pele, ACESSO VENOSO, edema"
+    // — em texto corrido. Estruturado, ele responde a pergunta que a técnica faz antes de
+    // puncionar de novo: há quantos dias está esse acesso? A prática troca cateter
+    // periférico por TEMPO, e tempo não se conta lendo parágrafo.
+
+    [ObservableProperty] private string _acessoLocal = string.Empty;
+    [ObservableProperty] private string _acessoCalibre = string.Empty;
+
+    /// <summary>Quando foi puncionado. Pode ser de ANTES desta passagem: quem assume o
+    /// plantão registra o acesso que outra puncionou anteontem.</summary>
+    [ObservableProperty] private DateTime? _acessoPuncionadoEm;
 
     /// <summary>
     /// A reação observada vira ALERGIA na lista de problemas, no mesmo SaveChanges — e é
@@ -487,6 +507,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             }
 
             var sinais = LerSinaisVitais();
+            var acesso = LerAcesso();
 
             string? motivo = null;
             if (Corrigindo)
@@ -513,13 +534,13 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                     // junto: sem ele, corrigir uma vírgula descartava a consulta inteira.
                     await servico.RetificarAsync(
                         alvo, _dataCorrigida ?? hoje, hora, Texto, Executante(), motivo!,
-                        Intercorrencia, sinais, ColherProcesso());
+                        Intercorrencia, sinais, ColherProcesso(), acesso);
                 else
                     await servico.RegistrarAsync(
                         _pacienteId, hoje, hora, Texto, Executante(),
                         _prescricaoId, _agendamentoId, Intercorrencia, sinais,
                         string.IsNullOrWhiteSpace(AlergiaObservada) ? null : AlergiaObservada,
-                        ColherProcesso());
+                        ColherProcesso(), acesso);
             }
 
             var alergia = !string.IsNullOrWhiteSpace(AlergiaObservada);
@@ -588,6 +609,12 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                 System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
             Saturacao = Texto2(original.SaturacaoOxigenio);
             Dor = Texto2(original.Dor);
+
+            // O acesso volta junto: correção que o perde faria a versão corrigida afirmar
+            // que o paciente não tinha acesso venoso.
+            AcessoLocal = original.AcessoLocal ?? string.Empty;
+            AcessoCalibre = original.AcessoCalibre ?? string.Empty;
+            AcessoPuncionadoEm = original.AcessoPuncionadoEm?.ToDateTime(TimeOnly.MinValue);
 
             // E as cinco etapas, quando o registro era uma CONSULTA.
             Historico = original.Historico ?? string.Empty;
@@ -721,6 +748,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         AlergiaObservada = string.Empty;
         Sistolica = Diastolica = Cardiaca = Respiratoria = string.Empty;
         Temperatura = Saturacao = Dor = string.Empty;
+        AcessoLocal = AcessoCalibre = string.Empty;
+        AcessoPuncionadoEm = null;
         Hora = DateTime.Now.ToString("HH:mm");
     }
 
@@ -731,6 +760,23 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             Inteiro(Respiratoria), Decimal(Temperatura), Inteiro(Saturacao), Inteiro(Dor));
 
         return sinais == new SinaisVitais() ? null : sinais;
+    }
+
+    /// <summary>
+    /// O acesso descrito nesta passagem, ou nulo quando nada foi dito dele.
+    ///
+    /// ⚠️ Nulo é "não foi avaliado", e não "não há acesso" — são coisas diferentes e a
+    /// segunda se escreve no texto da passagem. Gravar campo vazio como se fosse a
+    /// afirmação de ausência é inventar um achado que ninguém fez.
+    /// </summary>
+    private AcessoVenoso? LerAcesso()
+    {
+        var acesso = new AcessoVenoso(
+            string.IsNullOrWhiteSpace(AcessoLocal) ? null : AcessoLocal.Trim(),
+            string.IsNullOrWhiteSpace(AcessoCalibre) ? null : AcessoCalibre.Trim(),
+            AcessoPuncionadoEm is { } d ? DateOnly.FromDateTime(d) : null);
+
+        return acesso == new AcessoVenoso() ? null : acesso;
     }
 
     private static int? Inteiro(string texto)

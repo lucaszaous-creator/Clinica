@@ -64,7 +64,12 @@ public sealed class ProntuarioService
                        || !string.IsNullOrWhiteSpace(dados.HistoriaDoencaAtual)
                        || !string.IsNullOrWhiteSpace(dados.ExameFisico)
                        || !string.IsNullOrWhiteSpace(dados.HipoteseDiagnostica)
-                       || !string.IsNullOrWhiteSpace(dados.PlanoTerapeutico);
+                       || !string.IsNullOrWhiteSpace(dados.PlanoTerapeutico)
+                       // A sessão que só decide o retorno ou o encaminhamento É uma
+                       // sessão: são afirmações clínicas, não metadados.
+                       || dados.RetornoSugeridoEm is not null
+                       || !string.IsNullOrWhiteSpace(dados.RetornoSugeridoNota)
+                       || !string.IsNullOrWhiteSpace(dados.Encaminhamento);
         if (!temTexto && dados.EvaAntes is null && dados.EvaDepois is null)
             throw new InvalidOperationException(
                 "Registre ao menos a dor (EVA) ou um dos campos da evolução.");
@@ -132,6 +137,9 @@ public sealed class ProntuarioService
         destino.TextoEvolucao = Limpar(dados.TextoEvolucao);
         destino.Orientacoes = Limpar(dados.Orientacoes);
         destino.PlanoTerapeutico = Limpar(dados.PlanoTerapeutico);
+        destino.RetornoSugeridoEm = dados.RetornoSugeridoEm;
+        destino.RetornoSugeridoNota = Limpar(dados.RetornoSugeridoNota);
+        destino.Encaminhamento = Limpar(dados.Encaminhamento);
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
@@ -177,6 +185,11 @@ public sealed class ProntuarioService
             TextoEvolucao = atual.TextoEvolucao,
             Orientacoes = atual.Orientacoes,
             PlanoTerapeutico = atual.PlanoTerapeutico,
+            // Sem estas três, corrigir a sessão apagaria o retorno e o encaminhamento
+            // ANTERIORES sem rastro — contra o art. 3º da Lei 13.787/2018.
+            RetornoSugeridoEm = atual.RetornoSugeridoEm,
+            RetornoSugeridoNota = atual.RetornoSugeridoNota,
+            Encaminhamento = atual.Encaminhamento,
             ProfissionalId = atual.ProfissionalId,
             SubstituidaEm = DateTime.Now,
             SubstituidaPor = operador,

@@ -178,6 +178,7 @@ public sealed class TitularDadosService
                 + (en.Intercorrencia ? " · INTERCORRÊNCIA" : string.Empty)
                 + (en.Cancelada ? " (CANCELADA)" : string.Empty));
             if (en.SinaisVitaisResumidos is { } sinais) Bloco(texto, "sinais vitais", sinais);
+            if (en.AcessoResumo is { } acesso) Bloco(texto, "acesso venoso", acesso);
             Bloco(texto, "observação", en.Texto);
 
             // O Processo de Enfermagem, quando o registro é uma CONSULTA (parcela 73).

@@ -476,6 +476,8 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
             e.Property(x => x.CidSessao).HasMaxLength(20);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
+            e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);
+            e.Property(x => x.Encaminhamento).HasMaxLength(600);
         });
 
         b.Entity<Evolucao>(e =>
@@ -495,6 +497,10 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
+            // O retorno e o encaminhamento (parcela 77). A DATA não precisa de teto, e
+            // o `DateOnly` vira `date` e não `timestamp` — o fuso não a alcança.
+            e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);
+            e.Property(x => x.Encaminhamento).HasMaxLength(600);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
@@ -950,6 +956,10 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
             e.Property(x => x.CanceladaPor).HasMaxLength(120);
             e.Property(x => x.Temperatura).HasPrecision(4, 1);
+            // O acesso venoso (parcela 77). `AcessoPuncionadoEm` é `DateOnly` -> `date`,
+            // então o fuso não a alcança.
+            e.Property(x => x.AcessoLocal).HasMaxLength(120);
+            e.Property(x => x.AcessoCalibre).HasMaxLength(20);
             // ⚠️ Parcela 67: sem isto o Npgsql RECUSA gravar (Kind=Local numa coluna com
             // fuso) e o SQLite dos testes não pega. DatasSemFusoTests cobra.
             e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
@@ -977,6 +987,9 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.EhRetificacao);
             e.Ignore(x => x.Momento);
             e.Ignore(x => x.AtrasoDoRegistro);
+            e.Ignore(x => x.TemAcesso);
+            e.Ignore(x => x.DiasDeAcesso);
+            e.Ignore(x => x.AcessoResumo);
             e.Ignore(x => x.PressaoArterial);
             e.Ignore(x => x.TemSinaisVitais);
             e.Ignore(x => x.SinaisVitaisResumidos);

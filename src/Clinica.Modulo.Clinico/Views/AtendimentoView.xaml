@@ -466,8 +466,51 @@
                                         <TextBlock Text="Plano terapêutico"
                                                    Style="{StaticResource Rotulo}" />
                                         <TextBox Text="{Binding PlanoTerapeutico, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap"
+                                                 TextWrapping="Wrap" Margin="0,0,0,12"
                                                  ToolTip="O que vem pela frente: “10 sessões, 2x/semana, reavaliar a EVA em 4 semanas”. Sai no relatório que o paciente leva ao convênio." />
+
+                                        <!-- RETORNO SUGERIDO (parcela 77): o plano já dizia
+                                             "reavaliar em 4 semanas" em texto livre, e nada
+                                             podia agir sobre a frase. A DATA separa o que se
+                                             lê do que se conta.
+
+                                             ⚠️ Não marca horário nenhum: quem marca é a
+                                             recepção, com o paciente na frente. Materializar
+                                             a sugestão como agendamento é o cartão fantasma
+                                             que a parcela 58 arrancou do 2º código. -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="170" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                <TextBlock Text="Retorno sugerido"
+                                                           Style="{StaticResource Rotulo}" />
+                                                <DatePicker SelectedDate="{Binding RetornoSugeridoEm}"
+                                                            ToolTip="A data que ESTA consulta sugere para a próxima. Não marca horário — quem marca é a recepção." />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="Por que voltar"
+                                                           Style="{StaticResource Rotulo}" />
+                                                <TextBox Text="{Binding RetornoSugeridoNota, UpdateSourceTrigger=PropertyChanged}"
+                                                         TextWrapping="Wrap"
+                                                         ToolTip="“Reavaliar a EVA”, “trazer o resultado da ressonância”." />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- ENCAMINHAMENTO: a clínica tem cinco
+                                             especialidades no mesmo prédio, e mandar o
+                                             paciente de uma para a outra era conversa de
+                                             corredor — não ficava no prontuário, e quem
+                                             recebia não sabia o que o outro pensou. -->
+                                        <TextBlock Text="Encaminhamento"
+                                                   Style="{StaticResource Rotulo}" />
+                                        <TextBox Text="{Binding Encaminhamento, UpdateSourceTrigger=PropertyChanged}"
+                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 ToolTip="Para quem, e por quê — dentro da casa (“psiquiatria daqui, para avaliar humor”) ou fora dela. Sai no relatório de evolução." />
                                     </StackPanel>
                                 </ScrollViewer>
                             </TabItem>

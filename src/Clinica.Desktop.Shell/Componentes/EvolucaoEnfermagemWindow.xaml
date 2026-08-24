@@ -175,6 +175,40 @@
                                          VerticalScrollBarVisibility="Auto"
                                          ToolTip="O que o paciente relata, o que já usa, hábitos, rede de apoio e o que ele entende do próprio tratamento — a anamnese DE ENFERMAGEM, que a consulta médica não colhe." />
 
+                                <!-- O ACESSO VENOSO (parcela 77). A dica do exame físico
+                                     logo abaixo manda avaliar "pele, ACESSO VENOSO, edema"
+                                     — em texto corrido, de onde não se conta HÁ QUANTOS
+                                     DIAS ele está. A prática de enfermagem troca cateter
+                                     periférico por TEMPO.
+
+                                     A punção pode ser de ANTES desta passagem: quem assume
+                                     o plantão registra o acesso que outra puncionou
+                                     anteontem. -->
+                                <TextBlock Text="Acesso venoso (quando há)"
+                                           Style="{StaticResource Rotulo}" Margin="0,14,0,0" />
+                                <Grid Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="170" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBox Grid.Column="0" Margin="0,0,8,0"
+                                             Text="{Binding AcessoLocal, UpdateSourceTrigger=PropertyChanged}"
+                                             ctrl:Ajudantes.Placeholder="local (ex.: MSD, antecubital)" />
+
+                                    <TextBox Grid.Column="1" Margin="0,0,8,0"
+                                             Text="{Binding AcessoCalibre, UpdateSourceTrigger=PropertyChanged}"
+                                             ctrl:Ajudantes.Placeholder="calibre" />
+
+                                    <DatePicker Grid.Column="2"
+                                                SelectedDate="{Binding AcessoPuncionadoEm}"
+                                                ToolTip="Quando foi puncionado — pode ser antes desta passagem." />
+                                </Grid>
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,4"
+                                           Text="Em branco quer dizer “não avaliado”, e não “não há acesso” — se não há, escreva no texto da passagem." />
+
                                 <TextBlock Text="Exame físico" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
                                 <TextBox Text="{Binding ExameFisico, UpdateSourceTrigger=PropertyChanged}"
                                          AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70"

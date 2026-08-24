@@ -104,11 +104,11 @@ public sealed class ExportacaoProntuarioService
         var sessoes = Cabecalho("PacienteId", "Paciente", "SessaoId", "Data", "Situacao",
             "EvaAntes", "EvaDepois", "QueixaPrincipal", "HistoriaDoencaAtual", "ExameFisico",
             "HipoteseDiagnostica", "CID", "Conduta", "Evolucao", "Orientacoes",
-            "PlanoTerapeutico",
+            "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento",
             "CriadoPor", "MotivoCancelamento");
         var versoes = Cabecalho("PacienteId", "SessaoId", "Versao", "SubstituidaEm",
             "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
-            "PlanoTerapeutico");
+            "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento");
         var avaliacoes = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "Pontuacao", "PontuacaoMaxima", "Unidade", "Faixa", "Situacao");
         var medidas = Cabecalho("PacienteId", "Paciente", "Data", "Tipo", "Valor",
@@ -164,7 +164,10 @@ public sealed class ExportacaoProntuarioService
             // O Processo de Enfermagem (parcela 73): o que é TEXTO fica na linha da
             // evolução; o diagnóstico e o cuidado são LISTAS e vão em planilha própria,
             // como os itens e as checagens da folha de infusão.
-            "EhConsulta", "Historico", "ExameFisico", "Avaliacao");
+            "EhConsulta", "Historico", "ExameFisico", "Avaliacao",
+            // O acesso venoso (parcela 77): numa clínica de infusão é o achado que a
+            // próxima punção consulta, e ele não se conta lendo parágrafo.
+            "AcessoLocal", "AcessoCalibre", "AcessoPuncionadoEm");
         var diagnosticosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
             "Ordem", "Codigo", "Titulo", "RelacionadoA", "EvidenciadoPor", "ResultadoEsperado");
         var cuidadosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
@@ -192,13 +195,17 @@ public sealed class ExportacaoProntuarioService
                     e.EvaAntes, e.EvaDepois, e.QueixaPrincipal,
                     e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
                     e.Conduta, e.TextoEvolucao, e.Orientacoes, e.PlanoTerapeutico,
+                    e.RetornoSugeridoEm is { } r ? Data(r) : null,
+                    e.RetornoSugeridoNota, e.Encaminhamento,
                     e.CriadoPor, e.MotivoCancelamento);
 
                 foreach (var v in await _repo.VersoesDaEvolucaoAsync(e.Id, ct))
                     Linha(versoes, p.Id, e.Id, v.Versao,
                         v.SubstituidaEm.ToString("O", Fixa), v.SubstituidaPor, v.Motivo,
                         v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes,
-                        v.PlanoTerapeutico);
+                        v.PlanoTerapeutico,
+                        v.RetornoSugeridoEm is { } rv ? Data(rv) : null,
+                        v.RetornoSugeridoNota, v.Encaminhamento);
 
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
                     Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,
@@ -297,7 +304,9 @@ public sealed class ExportacaoProntuarioService
                     en.MotivoRetificacao,
                     en.Cancelada ? "Cancelada" : "Válida", en.MotivoCancelamento,
                     en.EhConsulta ? "sim" : "não",
-                    en.Historico, en.ExameFisico, en.Avaliacao);
+                    en.Historico, en.ExameFisico, en.Avaliacao,
+                    en.AcessoLocal, en.AcessoCalibre,
+                    en.AcessoPuncionadoEm is { } a ? Data(a) : null);
 
                 foreach (var d in en.Diagnosticos.OrderBy(x => x.Ordem))
                     Linha(diagnosticosEnf, p.Id, p.Nome, Data(en.Data),

@@ -251,7 +251,10 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         !string.IsNullOrWhiteSpace(Conduta)
         || !string.IsNullOrWhiteSpace(TextoEvolucao)
         || !string.IsNullOrWhiteSpace(Orientacoes)
-        || !string.IsNullOrWhiteSpace(PlanoTerapeutico);
+        || !string.IsNullOrWhiteSpace(PlanoTerapeutico)
+        || RetornoSugeridoEm is not null
+        || !string.IsNullOrWhiteSpace(RetornoSugeridoNota)
+        || !string.IsNullOrWhiteSpace(Encaminhamento);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SubjetivoPreenchido))]
@@ -316,6 +319,24 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _planoTerapeutico;
+
+    /// <summary>
+    /// QUANDO reavaliar. `DateTime?` porque é o que o `DatePicker` amarra; o domínio guarda
+    /// `DateOnly`, e a conversão acontece na borda.
+    ///
+    /// ⚠️ Não vira agendamento nenhum — ver <c>Evolucao.RetornoSugeridoEm</c>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private DateTime? _retornoSugeridoEm;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private string? _retornoSugeridoNota;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
+    private string? _encaminhamento;
 
     /// <summary>
     /// Os sinais vitais que a ENFERMAGEM aferiu no dia desta sessão — leitura, nunca coleta.
@@ -830,6 +851,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         TextoEvolucao = e.TextoEvolucao;
         Orientacoes = e.Orientacoes;
         PlanoTerapeutico = e.PlanoTerapeutico;
+        RetornoSugeridoEm = e.RetornoSugeridoEm?.ToDateTime(TimeOnly.MinValue);
+        RetornoSugeridoNota = e.RetornoSugeridoNota;
+        Encaminhamento = e.Encaminhamento;
 
         // ⚠️ Nada mais precisa ser "aberto": as quatro abas mostram sozinhas quais têm
         // conteúdo, pelo ponto no rótulo. O Expander recolhido escondia metade do registro
@@ -871,6 +895,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         TextoEvolucao = null;
         Orientacoes = null;
         PlanoTerapeutico = null;
+        RetornoSugeridoEm = null;
+        RetornoSugeridoNota = null;
+        Encaminhamento = null;
     }
 
     /// <summary>
@@ -948,7 +975,12 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
                 Orientacoes = Orientacoes,
-                PlanoTerapeutico = PlanoTerapeutico
+                PlanoTerapeutico = PlanoTerapeutico,
+                RetornoSugeridoEm = RetornoSugeridoEm is { } r
+                    ? DateOnly.FromDateTime(r)
+                    : null,
+                RetornoSugeridoNota = RetornoSugeridoNota,
+                Encaminhamento = Encaminhamento
             }, SessaoUsuario.Atual.Operador);
 
             EvolucaoId = salva.Id;
@@ -1002,7 +1034,13 @@ public sealed partial class AtendimentoViewModel : ObservableObject
            // DESCARTAR em silêncio a sessão em que o profissional só ajustou o plano — o
            // mesmo defeito que esta parcela corrigiu horas antes, recometido por acrescentar
            // um campo e não reler quem lê a lista.
-           && string.IsNullOrWhiteSpace(PlanoTerapeutico);
+           && string.IsNullOrWhiteSpace(PlanoTerapeutico)
+           // ⚠️ A MESMA lista do `temTexto` do serviço: a sessão que só decide o
+           // retorno é uma sessão, e sem estas três linhas o "Finalizar" a descartaria
+           // em SILÊNCIO — o defeito que a parcela 76 corrigiu com o plano.
+           && RetornoSugeridoEm is null
+           && string.IsNullOrWhiteSpace(RetornoSugeridoNota)
+           && string.IsNullOrWhiteSpace(Encaminhamento);
 
     /// <summary>
     /// Há ALGUMA COISA a gravar — texto, EVA, CID ou pontos no mapa.

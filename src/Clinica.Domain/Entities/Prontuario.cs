@@ -211,6 +211,38 @@ public class Evolucao
     /// </summary>
     public string? PlanoTerapeutico { get; set; }
 
+    /// <summary>
+    /// QUANDO reavaliar — a data que a consulta de hoje sugere para a próxima (parcela 77).
+    ///
+    /// ⚠️ Não é agendamento, e não vira horário nenhum: materializar a sugestão como
+    /// `Agendamento` é exatamente o defeito que a parcela 58 arrancou do 2º código — um
+    /// cartão fantasma na fila do balcão e na agenda de quem atende, com botões que
+    /// fabricam guia para uma sessão que ninguém deu. Aqui é AFIRMAÇÃO CLÍNICA: "reavaliar
+    /// em 7 dias". Quem marca horário é a recepção, com o paciente na frente.
+    ///
+    /// O `PlanoTerapeutico` já dizia isso em texto livre ("reavaliar a EVA em 4 semanas") e
+    /// nada podia agir sobre a frase. A data separa o que se lê do que se conta.
+    ///
+    /// ⚠️ E NÃO entra no `ModeloEvolucao` — o nono lugar da lista (parcela 76) tem exceção
+    /// declarada aqui: retorno e encaminhamento são decisões DESTA consulta, não roteiro. Um
+    /// modelo que trouxesse "encaminhar para psiquiatria" preencheria sozinho, em toda
+    /// sessão, uma afirmação sobre um paciente que ninguém leu.
+    /// </summary>
+    public DateOnly? RetornoSugeridoEm { get; set; }
+
+    /// <summary>Por que voltar nessa data ("reavaliar a EVA", "trazer o exame").</summary>
+    public string? RetornoSugeridoNota { get; set; }
+
+    /// <summary>
+    /// Para quem este paciente está sendo mandado — dentro da casa ou fora dela.
+    ///
+    /// A clínica tem cinco especialidades no mesmo prédio e o encaminhamento entre elas era
+    /// conversa de corredor: não ficava no prontuário, e quem recebia não tinha como saber o
+    /// que o outro pensou. Texto livre de propósito — o destino tanto pode ser "psiquiatria
+    /// daqui" quanto "ortopedista do convênio".
+    /// </summary>
+    public string? Encaminhamento { get; set; }
+
     public DateTime CriadoEm { get; set; } = DateTime.Now;
 
     public string? CriadoPor { get; set; }
@@ -361,6 +393,55 @@ public class AnexoProntuario
 /// A versão vigente é a própria <see cref="Evolucao"/>, e não se duplica aqui — duas
 /// cópias do texto atual dariam duas verdades sobre o mesmo registro.
 /// </summary>
+/// <summary>
+/// A BUSCA no prontuário — a definição ÚNICA de "esta sessão contém o termo" (parcela 77).
+///
+/// ⚠️ Ela existia DUAS vezes, uma em cada tela que responde à mesma pergunta: a do
+/// Consultório e a da Recepção. E as duas já haviam divergido — o comentário da segunda
+/// dizia, por escrito, que a primeira tinha sido atualizada e ela "ficou para trás". Duas
+/// definições da mesma regra divergem na primeira correção, e a que ninguém lembra de
+/// ajustar é a que passa a responder uma lista INCOMPLETA — indistinguível de "não há nada
+/// escrito sobre isso", que é a pior resposta possível para uma busca de prontuário.
+/// </summary>
+public static class BuscaNoProntuario
+{
+    /// <summary>
+    /// A sessão contém o termo em algum dos campos escritos. Sem acento e sem caixa: quem
+    /// digita escreve "lombalgia" e o prontuário diz "Lombalgia", e uma busca que erra por
+    /// isso é uma busca que ninguém usa duas vezes.
+    ///
+    /// ⚠️ Campo NOVO de evolução entra aqui — é mais um dos lugares da lista. Campo que a
+    /// busca não varre é campo que o profissional não reencontra, e o encaminhamento é
+    /// justamente o que se procura seis meses depois ("para quem eu mandei esta paciente?").
+    /// O CID entra junto: "M54.5" é o jeito mais curto de achar todas as lombalgias.
+    /// </summary>
+    public static bool Casa(Evolucao e, string termo)
+    {
+        var alvo = Normalizar(string.Join(" ",
+            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
+            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
+            e.PlanoTerapeutico, e.RetornoSugeridoNota, e.Encaminhamento));
+
+        return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
+    }
+
+    /// <summary>Minúsculas e sem acento — o que faz "Lasègue" achar "lasegue".</summary>
+    private static string Normalizar(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var limpo = new System.Text.StringBuilder(decomposto.Length);
+
+        foreach (var c in decomposto)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+                limpo.Append(char.ToLowerInvariant(c));
+
+        return limpo.ToString();
+    }
+}
+
 public class VersaoEvolucao
 {
     public int Id { get; set; }
@@ -399,6 +480,38 @@ public class VersaoEvolucao
 
     /// <summary>Ver <see cref="Evolucao.PlanoTerapeutico"/>. Lugar 4 da auditoria de linha.</summary>
     public string? PlanoTerapeutico { get; set; }
+
+    /// <summary>
+    /// QUANDO reavaliar — a data que a consulta de hoje sugere para a próxima (parcela 77).
+    ///
+    /// ⚠️ Não é agendamento, e não vira horário nenhum: materializar a sugestão como
+    /// `Agendamento` é exatamente o defeito que a parcela 58 arrancou do 2º código — um
+    /// cartão fantasma na fila do balcão e na agenda de quem atende, com botões que
+    /// fabricam guia para uma sessão que ninguém deu. Aqui é AFIRMAÇÃO CLÍNICA: "reavaliar
+    /// em 7 dias". Quem marca horário é a recepção, com o paciente na frente.
+    ///
+    /// O `PlanoTerapeutico` já dizia isso em texto livre ("reavaliar a EVA em 4 semanas") e
+    /// nada podia agir sobre a frase. A data separa o que se lê do que se conta.
+    ///
+    /// ⚠️ E NÃO entra no `ModeloEvolucao` — o nono lugar da lista (parcela 76) tem exceção
+    /// declarada aqui: retorno e encaminhamento são decisões DESTA consulta, não roteiro. Um
+    /// modelo que trouxesse "encaminhar para psiquiatria" preencheria sozinho, em toda
+    /// sessão, uma afirmação sobre um paciente que ninguém leu.
+    /// </summary>
+    public DateOnly? RetornoSugeridoEm { get; set; }
+
+    /// <summary>Por que voltar nessa data ("reavaliar a EVA", "trazer o exame").</summary>
+    public string? RetornoSugeridoNota { get; set; }
+
+    /// <summary>
+    /// Para quem este paciente está sendo mandado — dentro da casa ou fora dela.
+    ///
+    /// A clínica tem cinco especialidades no mesmo prédio e o encaminhamento entre elas era
+    /// conversa de corredor: não ficava no prontuário, e quem recebia não tinha como saber o
+    /// que o outro pensou. Texto livre de propósito — o destino tanto pode ser "psiquiatria
+    /// daqui" quanto "ortopedista do convênio".
+    /// </summary>
+    public string? Encaminhamento { get; set; }
 
     public int? ProfissionalId { get; set; }
 

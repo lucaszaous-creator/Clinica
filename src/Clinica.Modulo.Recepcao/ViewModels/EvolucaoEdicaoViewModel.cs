@@ -41,6 +41,9 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     private string? _hipoteseDiagnostica;
     private string? _cidSessao;
     private string? _planoTerapeutico;
+    private DateOnly? _retornoSugeridoEm;
+    private string? _retornoSugeridoNota;
+    private string? _encaminhamento;
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<AnexoResumo> Anexos { get; } = [];
@@ -177,6 +180,9 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             _hipoteseDiagnostica = evolucao.HipoteseDiagnostica;
             _cidSessao = evolucao.CidSessao;
             _planoTerapeutico = evolucao.PlanoTerapeutico;
+            _retornoSugeridoEm = evolucao.RetornoSugeridoEm;
+            _retornoSugeridoNota = evolucao.RetornoSugeridoNota;
+            _encaminhamento = evolucao.Encaminhamento;
 
             await RecarregarAnexosAsync(prontuario);
         }
@@ -232,7 +238,13 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
                 ExameFisico = _exameFisico,
                 HipoteseDiagnostica = _hipoteseDiagnostica,
                 CidSessao = _cidSessao,
-                PlanoTerapeutico = _planoTerapeutico
+                PlanoTerapeutico = _planoTerapeutico,
+                // QUEM NÃO EDITA, PRESERVA: esta janela não mostra o retorno nem o
+                // encaminhamento, e devolvê-los intactos é o que impede a edição pelo
+                // balcão de APAGAR a decisão que o profissional tomou.
+                RetornoSugeridoEm = _retornoSugeridoEm,
+                RetornoSugeridoNota = _retornoSugeridoNota,
+                Encaminhamento = _encaminhamento
             }, SessaoUsuario.Atual.Operador);
 
             _evolucaoId = salva.Id;

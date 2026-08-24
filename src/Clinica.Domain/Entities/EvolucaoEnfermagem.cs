@@ -321,6 +321,62 @@ public class EvolucaoEnfermagem
         }
     }
 
+    // ==================== O ACESSO VENOSO (parcela 77) ====================
+    //
+    // A clínica tem sala de infusão, e a dica do exame físico desta mesma janela manda
+    // avaliar "pele, ACESSO VENOSO, edema, ausculta" — em texto corrido. Estruturado, ele
+    // responde a pergunta que a técnica faz antes de puncionar de novo: há quantos dias
+    // está esse acesso? A prática de enfermagem troca cateter periférico por tempo, e o
+    // tempo não se conta lendo parágrafo.
+    //
+    // ⚠️ Três campos na EVOLUÇÃO, e não uma entidade: o acesso é um ACHADO da passagem,
+    // como a PA — quem o descreve é quem o viu naquele momento. Uma entidade "acesso" com
+    // ciclo de vida próprio precisaria de retirada, troca e motivo, e nada disso foi
+    // pedido: seria construir a exceção que ninguém vai exercer.
+
+    /// <summary>Onde está o acesso ("MSD, antecubital"). Nulo = não há acesso, ou não foi
+    /// avaliado — e a tela diz qual dos dois.</summary>
+    public string? AcessoLocal { get; set; }
+
+    /// <summary>O calibre do cateter ("20G", "22G").</summary>
+    public string? AcessoCalibre { get; set; }
+
+    /// <summary>
+    /// Quando foi puncionado. É a DATA do fato, informada — a técnica que assume o plantão
+    /// registra o acesso que outra puncionou anteontem.
+    /// </summary>
+    public DateOnly? AcessoPuncionadoEm { get; set; }
+
+    /// <summary>Há um acesso descrito nesta passagem.</summary>
+    public bool TemAcesso => !string.IsNullOrWhiteSpace(AcessoLocal);
+
+    /// <summary>
+    /// Há quantos dias o acesso está no paciente, na data desta passagem. Nulo quando não
+    /// se sabe a punção — e nulo é diferente de zero, como em todo indicador do projeto:
+    /// zero diria "puncionado hoje", que é uma afirmação que ninguém fez.
+    /// </summary>
+    public int? DiasDeAcesso => AcessoPuncionadoEm is { } p
+        ? Math.Max(0, Data.DayNumber - p.DayNumber)
+        : null;
+
+    /// <summary>"MSD, antecubital · 20G · puncionado há 3 dias".</summary>
+    public string? AcessoResumo
+    {
+        get
+        {
+            if (!TemAcesso) return null;
+
+            var partes = new List<string> { AcessoLocal!.Trim() };
+            if (!string.IsNullOrWhiteSpace(AcessoCalibre)) partes.Add(AcessoCalibre!.Trim());
+            if (DiasDeAcesso is { } d)
+                partes.Add(d == 0 ? "puncionado hoje"
+                         : d == 1 ? "puncionado ontem"
+                         : $"puncionado há {d} dias");
+
+            return string.Join(" \u00B7 ", partes);
+        }
+    }
+
     /// <summary>
     /// As evoluções VIGENTES de uma lista: fora as canceladas, e fora as que já foram
     /// retificadas por outra.

@@ -403,28 +403,10 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// O CID entra junto: "M54.5" é o jeito mais curto de achar todas as lombalgias.
     /// </summary>
     private static bool Casa(Evolucao e, string termo)
-    {
-        var alvo = Normalizar(string.Join(" ",
-            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
-            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
-            e.PlanoTerapeutico));
-        return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
-    }
+        // UMA definição, no domínio: esta busca existia duas vezes — uma por tela —
+        // e as duas já tinham divergido uma vez (parcela 77).
+        => BuscaNoProntuario.Casa(e, termo);
 
-    private static string Normalizar(string? texto)
-    {
-        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
-
-        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
-        var limpo = new System.Text.StringBuilder(decomposto.Length);
-
-        foreach (var c in decomposto)
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
-                != System.Globalization.UnicodeCategory.NonSpacingMark)
-                limpo.Append(char.ToLowerInvariant(c));
-
-        return limpo.ToString();
-    }
 
     // ---------------------------------------------------------------- anexos
 

@@ -85,11 +85,12 @@ public class EvolucaoEnfermagemService
         SinaisVitais? sinais = null,
         string? alergiaObservada = null,
         ProcessoDeEnfermagem? processo = null,
+        AcessoVenoso? acesso = null,
         CancellationToken ct = default)
     {
         var evolucao = Montar(
             pacienteId, data, hora, texto, autor,
-            prescricaoInternaId, agendamentoId, intercorrencia, sinais);
+            prescricaoInternaId, agendamentoId, intercorrencia, sinais, acesso);
 
         AplicarProcesso(evolucao, processo);
 
@@ -129,6 +130,9 @@ public class EvolucaoEnfermagemService
         bool intercorrencia = false,
         SinaisVitais? sinais = null,
         ProcessoDeEnfermagem? processo = null,
+        // ⚠️ O que RETIFICA recebe tudo o que o que REGISTRA recebe — senão a correção
+        // vira uma reescrita mutilada, e o acesso venoso desaparece da versão corrigida.
+        AcessoVenoso? acesso = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivoRetificacao))
@@ -146,7 +150,11 @@ public class EvolucaoEnfermagemService
 
         var evolucao = Montar(
             anterior.PacienteId, data, hora, texto, autor,
-            anterior.PrescricaoInternaId, anterior.AgendamentoId, intercorrencia, sinais);
+            anterior.PrescricaoInternaId, anterior.AgendamentoId, intercorrencia, sinais,
+            // O acesso vem junto pela mesma razão do processo: correção que perde metade
+            // do registro é reescrita mutilada, e a versão corrigida passaria a dizer que
+            // o paciente não tinha acesso venoso.
+            acesso);
 
         // ⚠️ O PROCESSO DE ENFERMAGEM VEM JUNTO (corrigido na parcela 74, 2ª rodada).
         //
@@ -278,7 +286,7 @@ public class EvolucaoEnfermagemService
     private EvolucaoEnfermagem Montar(
         int pacienteId, DateOnly data, TimeOnly hora, string texto,
         IdentificacaoExecutante autor, int? prescricaoId, int? agendamentoId,
-        bool intercorrencia, SinaisVitais? sinais)
+        bool intercorrencia, SinaisVitais? sinais, AcessoVenoso? acesso = null)
     {
         if (string.IsNullOrWhiteSpace(texto))
             throw new InvalidOperationException(
@@ -301,6 +309,9 @@ public class EvolucaoEnfermagemService
             Hora = hora,
             Texto = texto.Trim(),
             Intercorrencia = intercorrencia,
+            AcessoLocal = Limpar(acesso?.Local),
+            AcessoCalibre = Limpar(acesso?.Calibre),
+            AcessoPuncionadoEm = acesso?.PuncionadoEm,
             AutorUsuarioId = autor.UsuarioId,
             AutorNome = autor.Nome,
             AutorConselho = autor.Conselho,
@@ -370,6 +381,7 @@ public class EvolucaoEnfermagemService
         var texto = $"{e.Data:dd/MM/yyyy} às {e.Hora:HH\\:mm}";
         if (e.Intercorrencia) texto += " · INTERCORRÊNCIA";
         if (e.SinaisVitaisResumidos is { } sinais) texto += $" · {sinais}";
+        if (e.AcessoResumo is { } acesso) texto += $" · acesso: {acesso}";
         return texto + $" · por {e.AutorNome}"
              + (string.IsNullOrWhiteSpace(e.AutorConselho) ? "" : $" ({e.AutorConselho})");
     }
@@ -404,6 +416,18 @@ public sealed record ProcessoDeEnfermagem(
 {
     public static ProcessoDeEnfermagem Nenhum { get; } = new();
 }
+
+/// <summary>
+/// O ACESSO VENOSO desta passagem (parcela 77) — um achado, como os sinais vitais.
+///
+/// Existe porque a clínica tem sala de infusão e a dica do exame físico manda avaliar
+/// "pele, ACESSO VENOSO, edema": estruturado, ele responde a pergunta que a técnica faz
+/// antes de puncionar de novo — há quantos dias está esse acesso?
+/// </summary>
+public sealed record AcessoVenoso(
+    string? Local = null,
+    string? Calibre = null,
+    DateOnly? PuncionadoEm = null);
 
 public sealed record SinaisVitais(
     int? PressaoSistolica = null,

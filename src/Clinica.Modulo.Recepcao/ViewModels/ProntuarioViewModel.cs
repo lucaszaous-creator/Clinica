@@ -163,32 +163,10 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     /// que erra por isso é uma busca que ninguém usa duas vezes.
     /// </summary>
     private static bool Casa(Evolucao e, string termo)
-    {
-        var alvo = Normalizar(string.Join(" ",
-            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
-            // ⚠️ Os cinco campos das parcelas 73 e 75. A busca do CONSULTÓRIO foi atualizada
-            // e esta ficou para trás — duas telas respondendo à mesma pergunta sobre o mesmo
-            // dado, e a que ninguém releu é a que mente (a lição das parcelas 64 e 68). Quem
-            // digita "hérnia" procura a hipótese; quem digita "Lasègue", o exame físico.
-            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
-            e.PlanoTerapeutico));
-        return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
-    }
+        // UMA definição, no domínio: esta busca existia duas vezes — uma por tela —
+        // e as duas já tinham divergido uma vez (parcela 77).
+        => BuscaNoProntuario.Casa(e, termo);
 
-    private static string Normalizar(string? texto)
-    {
-        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
-
-        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
-        var limpo = new System.Text.StringBuilder(decomposto.Length);
-
-        foreach (var c in decomposto)
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
-                != System.Globalization.UnicodeCategory.NonSpacingMark)
-                limpo.Append(char.ToLowerInvariant(c));
-
-        return limpo.ToString();
-    }
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 

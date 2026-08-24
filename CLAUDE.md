@@ -5277,3 +5277,38 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   é dela.** Silenciar o aviso acrescentando o atributo pedido é o caminho fácil e é o que
   ensina a próxima pessoa a ignorá-la — e checagem que se ignora para de pegar o defeito de
   verdade.
+
+- **Os itens novos das duas fichas, e o lugar por onde um campo de prontuário some sem
+  quebrar nada** (parcela 77, 2ª parte). **Médico**: `RetornoSugeridoEm` + nota e
+  `Encaminhamento`. **Enfermagem**: o `AcessoVenoso` (local, calibre, punção).
+  ⚠️ **O retorno NÃO vira agendamento**, e a regra é a mesma que a parcela 58 arrancou do
+  2º código: materializar a sugestão como `Agendamento` põe na fila do balcão e na agenda de
+  quem atende um cartão fantasma com botões que fabricam guia. Aqui é AFIRMAÇÃO CLÍNICA —
+  "reavaliar em 7 dias" —, e quem marca horário é a recepção, com o paciente na frente.
+  ⚠️ **E ele NÃO entra no `ModeloEvolucao`**, com a exceção declarada na entidade: o nono
+  lugar da lista (parcela 76) vale para o que é ROTEIRO, e retorno e encaminhamento são
+  decisões DESTA consulta. Um modelo que trouxesse "encaminhar para psiquiatria"
+  preencheria sozinho, em toda sessão, uma afirmação sobre um paciente que ninguém leu.
+  ⚠️ **O acesso venoso é três campos na EVOLUÇÃO, e não uma entidade.** Ele é um ACHADO da
+  passagem, como a PA: quem o descreve é quem o viu naquele momento. Uma entidade "acesso"
+  com ciclo de vida próprio precisaria de retirada, troca e motivo — nada disso foi pedido,
+  e seria construir a exceção que ninguém vai exercer. E **em branco quer dizer "não
+  avaliado", nunca "não há acesso"**: gravar o vazio como afirmação de ausência é inventar
+  um achado que ninguém fez.
+
+- **A busca no prontuário existia DUAS vezes, e as duas já tinham divergido** (parcela 77).
+  `Casa(Evolucao, termo)` estava copiada na tela do Consultório e na da Recepção — e o
+  comentário da segunda dizia, **por escrito**, que a primeira tinha sido atualizada e ela
+  "ficou para trás". Consertaram uma vez e a cópia ficou; acrescentar campo agora as faria
+  divergir de novo. Virou `BuscaNoProntuario.Casa`, no domínio.
+  ⚠️ O que torna esta duplicata pior que as outras: divergência aqui não vira erro, vira
+  **lista incompleta** — indistinguível de "não há nada escrito sobre isso", que é a pior
+  resposta possível para uma busca de prontuário.
+
+- **Três derivadas nascidas sem leitor, no commit seguinte ao que documentou isso**
+  (parcela 77): `AcessoResumo`, `TemAcesso` e `DiasDeAcesso` existiam calculadas e nenhuma
+  tela as mostrava — estruturar o acesso serve exatamente para LER, e a releitura do diff
+  as pegou antes do commit. Ganharam três leitores: a linha da passagem (é o achado que a
+  próxima punção consulta), a trilha de auditoria e a exportação do titular (art. 18 II).
+  **É a segunda vez em duas parcelas.** A conferência que pega isto não é a lista percorrida
+  linha a linha — é a releitura do diff INTEIRO perguntando "o que aqui não tem quem leia?".
