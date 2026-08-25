@@ -483,7 +483,30 @@ public class PrescricaoInternaTests : IDisposable
         trilha.Should().Contain(e =>
             e.Acao == "PrescricaoExecucaoEncerrada"
             && e.Detalhe!.Contains("Joana Técnica")
-            && e.Detalhe.Contains("via impressa"));
+            && e.Detalhe.Contains("aguardando a assinatura eletrônica"));
+    }
+
+    /// <summary>
+    /// A trilha diz QUAL regime a folha seguiu, e o teste declara o regime em vez de contar
+    /// com o padrão: desde 20/08/2026 a folha nasce pedindo a assinatura eletrônica, e um
+    /// teste que dependesse do padrão passaria a medir a escolha errada sem avisar.
+    /// </summary>
+    [Fact]
+    public async Task Encerrar_folha_do_regime_do_papel_diz_isso_na_trilha()
+    {
+        var prescricao = await AssinadaAsync();
+
+        var carregada = await Carregar(prescricao.Id);
+        carregada.ExigeAssinaturaEletronicaDaExecucao = false;
+        await _repo.SalvarAsync();
+
+        await _checagens.ChecarAsync(
+            carregada.Itens[0].Id, SituacaoChecagem.Realizado, Agora(), Tecnica);
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
+
+        (await _repo.EventosAuditoriaAsync()).Should().Contain(e =>
+            e.Acao == "PrescricaoExecucaoEncerrada"
+            && e.Detalhe!.Contains("via impressa"));
     }
 
     // ==================== O circuito de volta ====================

@@ -217,21 +217,14 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
             NomePaciente = situacao.PacienteNome;
             SituacaoPaciente = situacao.Descrever(DateOnly.FromDateTime(DateTime.Today));
 
-            // As canceladas aparecem CONTADAS à parte: elas estão sob guarda, e escondê-las
-            // aqui contradiria a razão de terem deixado de ser apagadas.
+            // ⚠️ A frase sai do CATÁLOGO (parcela 72), e não de uma lista de campos escrita
+            // aqui. Enquanto ela foi escrita à mão, a tela contava CINCO naturezas e o
+            // prazo de 20 anos era calculado sobre SETE — a evolução de enfermagem e os
+            // problemas moviam a data e não apareciam. Contagem incompleta numa tela de
+            // conformidade é pior do que contagem nenhuma: ela parece conferida.
+            // As canceladas aparecem CONTADAS à parte, dentro da mesma frase.
             DetalhePaciente =
-                $"{situacao.Sessoes} sessão(ões) vigente(s)"
-                + (situacao.SessoesCanceladas > 0
-                    ? $" · {situacao.SessoesCanceladas} cancelada(s), guardada(s)"
-                    : string.Empty)
-                + $" · {situacao.Avaliacoes} avaliação(ões)"
-                + $" · {situacao.Medidas} medida(s)"
-                + $" · {situacao.Documentos} documento(s)"
-                // A folha de infusão entrou na guarda na parcela 52 e ficou de fora DESTA
-                // frase: a tela contava cinco naturezas de registro e o prazo de 20 anos
-                // era calculado sobre seis. Contagem incompleta numa tela de conformidade
-                // é pior do que contagem nenhuma — ela parece conferida.
-                + $" · {situacao.Prescricoes} prescrição(ões)"
+                situacao.DescreverContagens()
                 + (situacao.UltimoRegistro is { } data
                     ? $" — último registro em {data:dd/MM/yyyy}"
                       + (situacao.Origem is { } o ? $" ({o})" : string.Empty)

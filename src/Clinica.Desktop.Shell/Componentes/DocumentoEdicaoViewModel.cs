@@ -359,12 +359,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [RelayCommand]
     private void BuscarCid()
     {
-        var janela = new BuscaCidWindow(new BuscaCidViewModel(Cid))
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() == true && janela.Escolhido is { } codigo) Cid = codigo;
+        if (BuscaCidWindow.Perguntar(Cid) is { } codigo) Cid = codigo;
     }
 
     partial void OnCidChanged(string? value)

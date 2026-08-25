@@ -262,14 +262,16 @@ public class DocumentosClinicosTests : IDisposable
     }
 
     [Fact]
-    public async Task Relatorio_sem_nenhuma_sessao_no_periodo_e_recusado()
+    public async Task Relatorio_sem_nenhum_registro_no_periodo_e_recusado()
     {
         var pacienteId = await CriarPacienteAsync();
 
         var emitir = () => _documentos.EmitirRelatorioEvolucaoAsync(pacienteId);
 
+        // A recusa deixou de falar em "sessão" na parcela 78: a enfermagem passou a
+        // contar, e prontuário só com passagem de enfermagem produz ficha.
         await emitir.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Não há sessão registrada*");
+            .WithMessage("*Não há registro no prontuário*");
     }
 
     [Fact]

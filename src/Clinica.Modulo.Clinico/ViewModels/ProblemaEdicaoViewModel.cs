@@ -66,12 +66,7 @@ public sealed partial class ProblemaEdicaoViewModel : ObservableObject
     [RelayCommand]
     private void BuscarCid()
     {
-        var janela = new BuscaCidWindow(new BuscaCidViewModel(Cid))
-        {
-            Owner = JanelaDona.Atual()
-        };
-
-        if (janela.ShowDialog() == true && janela.Escolhido is { } codigo) Cid = codigo;
+        if (BuscaCidWindow.Perguntar(Cid) is { } codigo) Cid = codigo;
     }
     [ObservableProperty] private DateTime? _inicio;
     [ObservableProperty] private string? _observacoes;

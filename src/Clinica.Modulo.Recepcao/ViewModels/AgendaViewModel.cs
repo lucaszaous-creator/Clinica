@@ -479,6 +479,19 @@ public sealed partial class AgendaViewModel : ObservableObject
                     Colunas.Add(MontarColuna(
                         null, s.Nome, dia, doDia.Where(a => a.SalaId == s.Id), salaId: s.Id));
 
+                // Sala DESATIVADA com horário marcado ganha coluna, marcada como inativa
+                // (fila da parcela 69, item 7): a coluna só era montada para as ativas, e
+                // o horário de uma sala recém-desativada sumia da grade — com o cabeçalho
+                // contando ele. Não cai em "Sem sala": o horário TEM sala.
+                var ativas = salas.Select(s => s.Id).ToHashSet();
+                foreach (var grupo in doDia
+                             .Where(a => a.SalaId is int id && !ativas.Contains(id))
+                             .GroupBy(a => a.SalaId!.Value)
+                             .OrderBy(g => g.First().Sala?.Nome))
+                    Colunas.Add(MontarColuna(
+                        null, $"{grupo.First().Sala?.Nome ?? "Sala removida"} (inativa)",
+                        dia, grupo, salaId: grupo.Key));
+
                 // "Sem sala" é o caso NORMAL nesta clínica, não resíduo: metade dos
                 // horários não informa sala, e escondê-los faria a grade por sala parecer
                 // um dia vazio. Ela só some quando de fato não há nenhum.
@@ -486,8 +499,11 @@ public sealed partial class AgendaViewModel : ObservableObject
                 if (semSala.Count > 0)
                     Colunas.Add(MontarColuna(null, "Sem sala", dia, semSala));
 
+                // "coluna(s)", como na grade por profissional: contar só as salas ATIVAS
+                // faria o resumo dizer 3 com a grade desenhando 4 — a coluna da inativa e
+                // a de "Sem sala" existem e se contam.
                 Resumo = $"{doDia.Count(a => a.OcupaAgenda)} horário(s) no dia · "
-                         + $"{salas.Count} sala(s)";
+                         + $"{Colunas.Count} coluna(s)";
 
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
@@ -508,6 +524,26 @@ public sealed partial class AgendaViewModel : ObservableObject
             foreach (var p in visiveis)
                 Colunas.Add(MontarColuna(
                     p.Id, p.Rotulo, dia, doDia.Where(a => a.ProfissionalId == p.Id)));
+
+            // Profissional DESATIVADO com horário marcado ganha coluna, marcada como
+            // inativa (fila da parcela 69, item 7): a coluna só era montada para os
+            // ATIVOS, então o cabeçalho dizia "12 horário(s)" e a grade desenhava 11 — o
+            // vão ficava clicável e a recepção marcava outra pessoa por cima, com o
+            // paciente seguindo na Fila e na folha impressa do dia. Não cai em "Sem
+            // profissional": o horário TEM dono, e atribuí-lo a ninguém esconderia
+            // justamente quem precisa ser remarcado.
+            if (visiveis.Count == profissionais.Count)
+            {
+                var ativos = profissionais.Select(p => p.Id).ToHashSet();
+                foreach (var grupo in doDia
+                             .Where(a => a.ProfissionalId is int id && !ativos.Contains(id))
+                             .GroupBy(a => a.ProfissionalId!.Value)
+                             .OrderBy(g => g.First().Profissional?.Rotulo))
+                    Colunas.Add(MontarColuna(
+                        grupo.Key,
+                        $"{grupo.First().Profissional?.Rotulo ?? "Profissional removido"} (inativo)",
+                        dia, grupo));
+            }
 
             // "Sem profissional" só aparece quando existe: é resíduo da agenda antiga
             // (e do faturamento, que marca sem informar quem atende), não uma pessoa.

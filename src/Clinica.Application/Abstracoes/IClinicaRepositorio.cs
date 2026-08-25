@@ -209,6 +209,39 @@ public interface IClinicaRepositorio
     Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     /// <summary>
+    /// Desde quando esta pessoa se trata aqui, e quantas sessões ela já teve — em UMA
+    /// consulta, sem trazer os atendimentos (parcela 74).
+    ///
+    /// ⚠️ Conta só o que ACONTECEU (<c>RealizadoEm</c>), nunca o que está marcado: desde a
+    /// parcela 70 a guia nasce no agendamento, então contar linhas de <c>Atendimento</c>
+    /// somaria as sessões de semana que vem — e o crachá diria "24 sessões" a quem teve 18.
+    ///
+    /// Devolve <c>(null, 0)</c> para quem nunca foi atendido, e a tela escreve isso como
+    /// cadastro novo em vez de mostrar uma data vazia.
+    /// </summary>
+    Task<(DateOnly? Primeira, int Total)> HistoricoDeSessoesAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As últimas hipóteses diagnósticas do paciente, DISTINTAS e da mais recente para a
+    /// mais antiga (parcela 74).
+    ///
+    /// ⚠️ Existe como consulta PRÓPRIA porque a primeira versão do crachá lia
+    /// <c>EvolucoesDoPacienteAsync</c> — o prontuário INTEIRO, com o texto de cada evolução,
+    /// a conduta e as orientações — para extrair três frases curtas. Num tratamento de
+    /// quarenta sessões isso é meio megabyte trafegado a cada troca de paciente, que no
+    /// consultório é o gesto mais repetido do dia. É a lição da parcela 69 ("Meus pacientes
+    /// fazia 1 + 200 consultas"): antes de aceitar a leitura, meça o que ela TRAZ.
+    ///
+    /// Sessão cancelada fica de fora: ela continua na base (o prontuário não se apaga) e não
+    /// pode voltar como se valesse. O corte em <paramref name="quantas"/> é do CHAMADOR, e o
+    /// DISTINCT vem antes dele — senão "lombalgia" repetida nas oito últimas sessões
+    /// devolveria três linhas iguais.
+    /// </summary>
+    Task<IReadOnlyList<string>> HipotesesRecentesAsync(
+        int pacienteId, int quantas, CancellationToken ct = default);
+
+    /// <summary>
     /// Os atendimentos do paciente num dia, com os códigos — a "capa" que o balcão
     /// confere antes de lançar de novo (parcela 70): número, modalidade, quem lançou e
     /// quais guias já foram baixadas. É o que transforma a pergunta "atendimento
@@ -404,6 +437,22 @@ public interface IClinicaRepositorio
     /// <summary>Anexo com a evolução carregada (entidade rastreada, para cancelar).</summary>
     Task<AnexoProntuario?> ObterAnexoAsync(int anexoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// TODOS os anexos vigentes do paciente, com a data da sessão — em UMA consulta e sem
+    /// os bytes (parcela 74).
+    ///
+    /// ⚠️ O eixo muda de propósito: a leitura por sessão responde "o que tem nesta
+    /// consulta" e a pergunta de quem atende é "o exame que eu pedi chegou?". Perguntar
+    /// sessão a sessão daria uma ida ao banco por linha do prontuário — o mesmo motivo do
+    /// <see cref="ContagemDeAnexosAsync"/>.
+    ///
+    /// Anexo CANCELADO fica de fora aqui, e é diferente da regra do prontuário: o registro
+    /// continua na base e a exportação o alcança; o que esta lista responde é "o que está
+    /// valendo agora", que é a pergunta de quem vai olhar o laudo.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.AnexoDoPaciente>> AnexosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
     /// <summary>Anexos de uma evolução, por projeção — sem os bytes (corte no SQL).</summary>
     Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default);
@@ -421,6 +470,18 @@ public interface IClinicaRepositorio
     /// viagens a um banco remoto para desenhar quarenta números. Sessões sem anexo não
     /// aparecem no dicionário; quem lê trata a ausência como zero.
     /// </summary>
+    /// <summary>
+    /// Quantas das sessões dadas TÊM mapa corporal — em UMA consulta.
+    ///
+    /// ⚠️ Existe pela mesma razão do <see cref="ContagemDeAnexosAsync"/> logo abaixo: a
+    /// contagem por natureza da guarda perguntava sessão a sessão, e a tela do Gerente
+    /// varre a clínica inteira paciente a paciente. Numa base de 500 pacientes com 20
+    /// sessões cada, isso era ~20.000 idas a mais a um banco REMOTO para desenhar um
+    /// retrato que se olha algumas vezes por ano.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, bool>> TemMapaAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
+
     Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
         IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
 
@@ -445,6 +506,23 @@ public interface IClinicaRepositorio
     Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default);
 
     Task<ProblemaPaciente?> ObterProblemaAsync(int problemaId, CancellationToken ct = default);
+
+    // ---- Anamnese do paciente (parcela 75) ----
+
+    /// <summary>
+    /// A anamnese do paciente COM as versões carregadas, ou null quando nunca foi colhida.
+    ///
+    /// ⚠️ As versões vêm no Include porque o SalvarAsync conta <c>Versoes.Count</c> para
+    /// numerar a próxima — sem elas a contagem seria SEMPRE zero e toda correção nasceria
+    /// como "versão 1", sobrescrevendo a numeração em silêncio.
+    /// </summary>
+    Task<AnamnesePaciente?> AnamneseDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    Task AdicionarAnamneseAsync(AnamnesePaciente anamnese, CancellationToken ct = default);
+
+    /// <summary>O que a anamnese já disse, da mais antiga para a mais nova.</summary>
+    Task<IReadOnlyList<VersaoAnamnese>> VersoesDaAnamneseAsync(
+        int anamneseId, CancellationToken ct = default);
 
     /// <summary>
     /// Lista de problemas do paciente. Os ativos primeiro, porque é o que se lê antes de
@@ -501,6 +579,20 @@ public interface IClinicaRepositorio
     /// <summary>Mapa da sessão, com os pontos carregados e RASTREADO (a edição substitui os pontos).</summary>
     Task<MapaCorporal?> ObterMapaDaEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os mapas de VÁRIAS sessões de uma vez, para o relatório que desenha o período
+    /// inteiro (parcela 79).
+    ///
+    /// ⚠️ Existe para não haver um laço com <c>await</c> dentro: o relatório sem recorte
+    /// pega o histórico completo, e um tratamento de quarenta sessões faria quarenta idas
+    /// a um banco REMOTO para montar uma folha só. É a lição da carteira do consultório
+    /// (parcela 74), aplicada antes de o laço ser escrito.
+    ///
+    /// Não rastreado: aqui só se LÊ para copiar o desenho para dentro do documento.
+    /// </summary>
+    Task<IReadOnlyList<MapaCorporal>> MapasDasEvolucoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
+
     Task AdicionarMapaAsync(MapaCorporal mapa, CancellationToken ct = default);
 
     /// <summary>Apaga os pontos de um mapa. Editar o mapa é regravar o conjunto inteiro.</summary>
@@ -534,6 +626,18 @@ public interface IClinicaRepositorio
     /// Documentos com link no ar cuja janela de publicação já venceu (parcela 53). É o que
     /// a expiração varre para tirá-los do ar.
     /// </summary>
+    // ---- Coleta remota do termo (o link pelo WhatsApp — parcela 81) ----
+
+    Task AdicionarColetaRemotaAsync(ColetaRemotaTermo coleta, CancellationToken ct = default);
+
+    /// <summary>A coleta EM ABERTO (nem concluída nem cancelada) mais recente do documento.</summary>
+    Task<ColetaRemotaTermo?> ColetaRemotaAbertaDoDocumentoAsync(
+        int documentoId, CancellationToken ct = default);
+
+    /// <summary>As coletas em aberto já vencidas — a varredura de limpeza.</summary>
+    Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasVencidasAsync(
+        DateTime agora, CancellationToken ct = default);
+
     Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default);
 
@@ -614,6 +718,50 @@ public interface IClinicaRepositorio
 
     Task AdicionarChecagemPrescricaoAsync(
         ChecagemPrescricao checagem, CancellationToken ct = default);
+
+    // ---- Evolução de enfermagem (parcela 71) ----
+    //
+    // NÃO existe RemoverEvolucaoEnfermagemAsync, pela razão escrita mais acima: é registro
+    // clínico e a Lei 13.787/2018 manda guardá-lo. Corrige-se retificando (linha nova) e
+    // cancela-se com motivo, pelo EvolucaoEnfermagemService.
+
+    Task AdicionarEvolucaoEnfermagemAsync(
+        EvolucaoEnfermagem evolucao, CancellationToken ct = default);
+
+    Task<EvolucaoEnfermagem?> ObterEvolucaoEnfermagemAsync(
+        int id, CancellationToken ct = default);
+
+    /// <summary>As evoluções escritas durante uma folha de infusão, em ordem de hora.</summary>
+    Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaPrescricaoAsync(
+        int prescricaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A linha do tempo do PACIENTE — o que a enfermagem observou nele, da mais recente
+    /// para a mais antiga. Traz as canceladas e as retificadas: elas aparecem MARCADAS na
+    /// tela e no papel, nunca sumindo.
+    /// </summary>
+    Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDoPacienteAsync(
+        int pacienteId, int limite = 200, CancellationToken ct = default);
+
+    // ---- A execução do CUIDADO (etapa 4 da COFEN, parcela 76) ----
+    //
+    // NÃO existe RemoverChecagemCuidadoAsync: a execução é registro clínico, e ela se
+    // corrige RETIFICANDO — linha nova apontando a anterior, que fica.
+
+    Task AdicionarChecagemCuidadoAsync(ChecagemCuidado checagem, CancellationToken ct = default);
+
+    /// <summary>O cuidado com a evolução dele — é dela que sai o paciente e o cancelamento.</summary>
+    Task<CuidadoEnfermagem?> ObterCuidadoEnfermagemAsync(int cuidadoId, CancellationToken ct = default);
+
+    Task<ChecagemCuidado?> ObterChecagemCuidadoAsync(int checagemId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As checagens de um conjunto de cuidados. Em LOTE porque o quadro do dia mostra o
+    /// plano inteiro: uma consulta por cuidado daria dez idas a um banco remoto para
+    /// desenhar uma tela.
+    /// </summary>
+    Task<IReadOnlyList<ChecagemCuidado>> ChecagensDosCuidadosAsync(
+        IReadOnlyCollection<int> cuidadoIds, CancellationToken ct = default);
 
     /// <summary>Próximo sequencial do ano para numerar a prescrição (<c>PRE 2026/0001</c>).</summary>
     Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default);

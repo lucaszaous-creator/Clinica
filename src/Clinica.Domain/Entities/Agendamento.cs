@@ -162,6 +162,50 @@ public class Agendamento
     /// <summary>O paciente entrou na sala — começo da sessão.</summary>
     public DateTime? InicioAtendimentoEm { get; set; }
 
+    /// <summary>
+    /// O PROFISSIONAL encerrou o atendimento clínico (parcela 74) — o paciente saiu da
+    /// sala e está indo ao balcão.
+    ///
+    /// ⚠️ Isto NÃO é a conclusão do atendimento. Concluir são QUATRO fatos do mesmo ato
+    /// (a guia nasce, o pacote debita, o insumo sai, o dinheiro entra) e três deles são do
+    /// balcão — a decisão da parcela 61, que continua valendo. O que este carimbo diz é
+    /// só: <i>"terminei com esta pessoa"</i>. Ele é o recado que faltava no sentido
+    /// consultório → balcão, o par do <see cref="ChamadoEm"/>, que atravessa no sentido
+    /// contrário: até aqui a recepcionista descobria que o médico tinha terminado quando o
+    /// paciente aparecia na frente dela.
+    ///
+    /// ⚠️ E ele NÃO cria uma sexta raia no kanban. O cartão continua em
+    /// <see cref="EtapaFila.EmAtendimento"/> e ganha um SELO — uma raia permanente para um
+    /// estado que dura minutos é a faixa vazia comendo a tela que o README condena desde a
+    /// parcela 38. O que a recepcionista precisa saber não é que existe uma coluna nova, é
+    /// QUAL cartão está pronto para fechar.
+    /// </summary>
+    public DateTime? FimAtendimentoEm { get; set; }
+
+    /// <summary>
+    /// O profissional terminou e o balcão ainda não fechou a sessão. É o que acende o selo
+    /// no cartão da fila e o que o põe na frente dos irmãos: quem já saiu da sala é o
+    /// próximo a ser atendido no balcão.
+    /// </summary>
+    public bool AtendimentoEncerrado
+        => FimAtendimentoEm is not null && Status == StatusAgendamento.Agendado;
+
+    /// <summary>
+    /// Quantos minutos o atendimento durou (ou dura, se ainda está em curso). Null quando
+    /// o paciente não entrou na sala — e null é a resposta certa, não zero: "não começou"
+    /// e "começou agora" são coisas diferentes, e zero apareceria como um atendimento
+    /// relâmpago no relatório de quem mede duração.
+    /// </summary>
+    public int? DuracaoDoAtendimento(DateTime agora)
+    {
+        if (InicioAtendimentoEm is null) return null;
+        var fim = FimAtendimentoEm ?? agora;
+        // Relógio que anda para trás (fuso, acerto de hora) não pode produzir duração
+        // negativa numa tela que o médico olha o tempo todo.
+        var minutos = (int)Math.Round((fim - InicioAtendimentoEm.Value).TotalMinutes);
+        return minutos < 0 ? 0 : minutos;
+    }
+
     /// <summary>Duração padrão da clínica quando ninguém informou nada.</summary>
     public const int DuracaoPadraoMinutos = 30;
 
@@ -218,12 +262,27 @@ public class Agendamento
     /// tempo alguém ficou sentado sem ser atendido. O minuto entre "pode entrar" e a
     /// pessoa levantar da cadeira não é fila — e contá-lo pioraria o indicador por algo
     /// que a recepção não tem como acelerar.
+    ///
+    /// A espera ABERTA (sem chamada nem entrada) só corre para quem ainda está na fila —
+    /// horário em aberto, no dia da própria chegada. Falta e cancelamento não CONCLUEM a
+    /// espera, DESFAZEM a medida (ninguém carimbou quando a pessoa desistiu), e num dia
+    /// já passado o relógio de <paramref name="agora"/> mediria dias, não fila: era esse
+    /// o par que levava a espera média do painel a milhares de minutos (fila da parcela
+    /// 69, item 3) — quem chegou e virou FALTA continuava "esperando" até hoje.
     /// </summary>
     public int? EsperaMinutos(DateTime agora)
     {
         if (ChegadaEm is null) return null;
-        var fim = ChamadoEm ?? InicioAtendimentoEm ?? agora;
-        var minutos = (int)Math.Round((fim - ChegadaEm.Value).TotalMinutes);
+
+        var fim = ChamadoEm ?? InicioAtendimentoEm;
+        if (fim is null)
+        {
+            if (Status != StatusAgendamento.Agendado
+                || agora.Date != ChegadaEm.Value.Date) return null;
+            fim = agora;
+        }
+
+        var minutos = (int)Math.Round((fim.Value - ChegadaEm.Value).TotalMinutes);
         return minutos < 0 ? 0 : minutos;
     }
 

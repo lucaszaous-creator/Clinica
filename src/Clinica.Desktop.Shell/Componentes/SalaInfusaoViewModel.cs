@@ -14,6 +14,10 @@ namespace Clinica.Desktop.Shell.Componentes;
 public sealed class LinhaSalaInfusao
 {
     public required int PrescricaoId { get; init; }
+
+    /// <summary>O paciente, para abrir a evolução de enfermagem (parcela 71).</summary>
+    public required int PacienteId { get; init; }
+
     public required string Paciente { get; init; }
     public required string Numero { get; init; }
     public required string Hora { get; init; }
@@ -44,6 +48,7 @@ public sealed class LinhaSalaInfusao
     public static LinhaSalaInfusao De(PrescricaoInterna p, DateOnly hoje) => new()
     {
         PrescricaoId = p.Id,
+        PacienteId = p.PacienteId,
         Paciente = p.Paciente?.Nome ?? "—",
         Numero = p.Numero,
         Dia = p.Data == hoje ? string.Empty : p.Data.ToString("dd/MM"),
@@ -109,6 +114,13 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
+
+    /// <summary>
+    /// Bit PRÓPRIO, e não o da checagem: checar é afirmar que aquilo entrou no paciente;
+    /// evoluir é descrever o que se observou nele. Dois atos de peso diferente.
+    /// </summary>
+    public bool PodeRegistrarEnfermagem =>
+        SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
 
     public SalaInfusaoViewModel(IServiceScopeFactory escopos, IDialogoService dialogo)
     {
@@ -228,6 +240,33 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
     {
         if (linha is null) return;
         await AbrirFolhaAsync(linha.PrescricaoId);
+    }
+
+    /// <summary>
+    /// A EVOLUÇÃO DE ENFERMAGEM da passagem (parcela 71) — o que foi observado NO PACIENTE,
+    /// que é coisa diferente do que foi administrado nele.
+    ///
+    /// ⚠️ Abre da LINHA e não de dentro da folha, e por três razões: a folha encerrada
+    /// apaga a janela dela inteira (o botão nasceria morto no caso que justifica a
+    /// feature), a folha é MODAL (registrar uma reação na cadeira 3 com a folha da cadeira
+    /// 1 aberta custaria dez gestos) e a folha já tem um campo de hora com outro
+    /// significado.
+    /// </summary>
+    [RelayCommand]
+    private async Task AnotarAsync(LinhaSalaInfusao? linha)
+    {
+        if (linha is null) return;
+
+        // As duas barreiras: o IsEnabled do botão explica, este impede.
+        SessaoUsuario.Atual.Exigir(
+            Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
+
+        EvolucaoEnfermagemWindow.Abrir(
+            _escopos, _dialogo, linha.PacienteId, linha.Paciente,
+            linha.PrescricaoId, linha.Numero);
+
+        // A anotação pode ter acendido o selo de intercorrência na fila.
+        await CarregarAsync();
     }
 
     /// <summary>

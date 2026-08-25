@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 
@@ -302,6 +303,118 @@ public sealed class ConsultorioService
             .Where(a => a.PacienteId == pacienteId)
             .OrderBy(a => a.DataHora)
             .ToList();
+
+    /// <summary>
+    /// O CRACHÁ CLÍNICO da pessoa que está na sala (parcela 74).
+    ///
+    /// Ele responde, de relance, as quatro perguntas que se fazem antes de abrir a boca:
+    /// que idade tem, de que convênio é, desde quando se trata aqui e <b>o que não se pode
+    /// esquecer</b>. Todos os dados já existiam; nenhum tinha leitor neste lugar.
+    ///
+    /// ⚠️ As leituras são SEQUENCIAIS, e a primeira versão desta parcela as fazia em
+    /// paralelo com <c>Task.WhenAll</c> — o que é um DEFEITO, não uma otimização: as quatro
+    /// passam pelo MESMO <c>IClinicaRepositorio</c>, logo pelo mesmo <c>DbContext</c>, e ele
+    /// não aceita duas operações ao mesmo tempo. O crachá estouraria com <i>"a second
+    /// operation was started on this context instance"</i> em toda troca de paciente.
+    ///
+    /// ⚠️ E os testes NÃO pegavam: o SQLite em memória completa a consulta quase
+    /// sincronamente, então as quatro nunca chegavam a se sobrepor. É a mesma família do
+    /// <c>xmin</c> e das datas com fuso — o que só aparece com latência de rede real.
+    /// <c>CabecalhoClinicoTests</c> tem o teste com o interceptor de lentidão justamente
+    /// para fechar esse buraco.
+    ///
+    /// ⚠️ E as ALERGIAS entram mesmo dadas por RESOLVIDAS — a regra da parcela 37, que
+    /// aqui vale mais ainda: "resolvida" numa alergia é quase sempre "não reagiu da última
+    /// vez", e o dia em que reagir é o dia em que o crachá teria valido. Só o DESCARTE a
+    /// cala, porque descartar exige motivo escrito e é a afirmação de que o registro
+    /// estava errado.
+    /// </summary>
+    /// <summary>
+    /// Os sinais vitais que a enfermagem aferiu NO DIA desta sessão. Nulo quando não houve
+    /// aferição naquele dia.
+    ///
+    /// ⚠️ É o dia da SESSÃO, nunca hoje: a dívida de prontuário e a semana abrem horários
+    /// de dias passados, e mostrar a aferição de hoje ao lado da sessão de terça diria que
+    /// aquela PA foi medida na consulta que está sendo escrita.
+    ///
+    /// ⚠️ Só o dia da sessão, e é decisão: aferição antiga tem casa — a curva de PA da tela
+    /// de Medidas, que já junta as da enfermagem com a procedência escrita em cada ponto.
+    /// Trazê-la para o cabeçalho da consulta seria pôr um número de três semanas atrás onde
+    /// se lê "os sinais deste paciente agora".
+    ///
+    /// A mais TARDIA do dia é a que vale: quando a técnica afere na chegada e de novo depois
+    /// da medicação, quem prescreve precisa do estado mais recente.
+    /// </summary>
+    public async Task<SinaisVitaisDaSessao?> SinaisVitaisDaSessaoAsync(
+        int pacienteId, DateOnly data, CancellationToken ct = default)
+    {
+        var evolucoes = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, 60, ct);
+
+        var doDia = EvolucaoEnfermagem.Vigentes(evolucoes)
+            .Where(e => e.Data == data && e.TemSinaisVitais)
+            .OrderByDescending(e => e.Hora)
+            .FirstOrDefault();
+
+        return doDia?.SinaisVitaisResumidos is not { } resumo
+            ? null
+            : new SinaisVitaisDaSessao(
+                resumo, doDia.Hora, doDia.AutorNome, doDia.AutorConselho);
+    }
+
+    public async Task<CabecalhoClinicoPaciente?> CabecalhoAsync(
+        int pacienteId, CancellationToken ct = default)
+    {
+        var p = await _repo.ObterPacienteAsync(pacienteId, ct);
+        if (p is null) return null;
+
+        var (primeira, total) = await _repo.HistoricoDeSessoesAsync(pacienteId, ct);
+        var problemas = await _repo.ProblemasDoPacienteAsync(pacienteId, ct: ct);
+        var hipoteses = await _repo.HipotesesRecentesAsync(pacienteId, 3, ct);
+
+        var alergias = problemas
+            .Where(x => x.Natureza == NaturezaProblema.Alergia
+                        && x.Situacao != SituacaoProblema.Descartado)
+            .Select(x => x.Descricao)
+            .ToList();
+
+        var ativos = problemas
+            .Where(x => x.Natureza != NaturezaProblema.Alergia
+                        && x.Situacao == SituacaoProblema.Ativo)
+            .Select(x => string.IsNullOrWhiteSpace(x.Cid)
+                ? x.Descricao
+                : $"{x.Descricao} ({x.Cid})")
+            .ToList();
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        return new CabecalhoClinicoPaciente(
+            p.Id,
+            p.Nome,
+            p.FotoMiniatura,
+            IdadeEm(p.DataNascimento, hoje),
+            p.Sexo,
+            CatalogoConvenios.Nome(p.ConvenioCodigo, p.Convenio),
+            p.Carteirinha,
+            p.ValidadeCarteirinha is { } v && v < hoje,
+            primeira,
+            total,
+            alergias,
+            ativos,
+            hipoteses);
+    }
+
+    /// <summary>
+    /// Anos COMPLETOS. A conta pelo ano subtraído erra metade do ano de todo mundo, e num
+    /// crachá clínico a idade errada muda conduta — a dose pediátrica e a geriátrica não
+    /// são a mesma.
+    /// </summary>
+    private static int? IdadeEm(DateOnly? nascimento, DateOnly hoje)
+    {
+        if (nascimento is not { } n || n > hoje) return null;
+        var anos = hoje.Year - n.Year;
+        if (hoje < n.AddYears(anos)) anos--;
+        return anos;
+    }
 
     /// <summary>
     /// As sessões de cada paciente por dia — o universo que disputa as evoluções avulsas.

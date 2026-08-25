@@ -6,6 +6,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
@@ -14,7 +16,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <TextBlock Text="Documentos" Style="{StaticResource H1}" Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="As nove folhas que a clínica emite, num lugar só. Todo documento é numerado por ano, sai com código de conferência e NÃO se apaga — cancela-se com motivo e emite-se outro. O conteúdo é gravado na emissão, então a segunda via sai idêntica à que o paciente levou." />
+                       Text="Todas as folhas que a clínica emite, num lugar só — numeradas por ano, com código de conferência. Documento NÃO se apaga: cancela-se com motivo, e a segunda via sai idêntica à emitida." />
         </StackPanel>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
@@ -22,105 +24,46 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ===== Coluna direita: paciente + período ===== -->
-        <ScrollViewer DockPanel.Dock="Right" Width="320" Margin="16,0,0,0"
-                      VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Sete das nove folhas são de alguém. Escolha aqui antes de emitir." />
+        <!-- ============ DUAS PERGUNTAS, DUAS ABAS ============
+             (parcela 82, 2ª rodada — o cliente: "por que O que já saiu não vira uma
+             sub-aba?"). A tela respondia duas perguntas empilhadas — "emitir um papel
+             novo" e "achar o que já saiu" — com as fichas de emitir comendo o alto da
+             lista para sempre. É a regra de leiaute aplicada como a parcela 55 manda:
+             item que cobre mais de um assunto usa SUB-ABAS. De quebra, a lista ganhou a
+             LARGURA INTEIRA: o seletor de paciente é contexto da EMISSÃO (sete das nove
+             folhas são de alguém) e foi para a aba dela — a lista recorta por período,
+             não por paciente. -->
+        <TabControl Margin="0,4,0,0">
 
-                        <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="80" />
-                        <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,4,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}" />
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                                 SelectedItem="{Binding Seletor.Selecionado}"
-                                 ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                                 MaxHeight="220" Margin="0,6,0,0"
-                                 BorderThickness="0" Background="Transparent" />
-                    </StackPanel>
-                </Border>
+            <TabItem Header="Emitir">
+                <DockPanel Margin="0,12,0,0">
 
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Período" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Recorta a lista do que já saiu e é o período do fechamento." />
+                    <!-- Só o paciente na lateral, e SÓ nesta aba: ele é a pré-condição
+                         das folhas ao lado, não da página. -->
+                    <Border DockPanel.Dock="Right" Width="280" Margin="16,0,0,0"
+                            Style="{StaticResource Card}" VerticalAlignment="Top">
+                        <StackPanel>
+                <TextBlock Text="Paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                           Text="Sete das nove folhas são de alguém. Escolha aqui antes de emitir." />
 
-                        <TextBlock Text="De" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                        <DatePicker SelectedDate="{Binding Inicio}" />
-                        <TextBlock Text="Até" Style="{StaticResource Rotulo}" Margin="0,8,0,4" />
-                        <DatePicker SelectedDate="{Binding Fim}" />
-
-                        <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
-                                HorizontalAlignment="Left" Margin="0,12,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Conferir o papel pelo código impresso (parcela 25) ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Conferir um papel" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Todo documento sai com um código no rodapé — é o que este sistema oferece no lugar do certificado ICP-Brasil. Digite o código do papel que está na sua frente." />
-
-                        <TextBox Text="{Binding Codigo, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="40" />
-
-                        <Button Content="Conferir" Command="{Binding ConferirCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
-                                HorizontalAlignment="Left" Margin="0,10,0,0" />
-
-                        <TextBlock Text="{Binding Conferido}" TextWrapping="Wrap" Margin="0,10,0,0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Conferido}" Value="{x:Null}">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                        <!-- Cancelado e "não existe" são as duas respostas
-                                             que precisam saltar aos olhos: nas duas, o
-                                             papel na mão não vale o que parece valer. -->
-                                        <DataTrigger Binding="{Binding ConferidoCancelado}" Value="True">
-                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <Button Content="Segunda via" Command="{Binding ReimprimirConferidoCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
-                                HorizontalAlignment="Left" Margin="0,10,0,0"
-                                Visibility="{Binding TemConferido,
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
-                    </StackPanel>
-                </Border>
+                <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                         MaxLength="80" />
+                <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,4,0,0"
+                           FontSize="{StaticResource Fonte.Legenda}" />
+                <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                         SelectedItem="{Binding Seletor.Selecionado}"
+                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                         MaxHeight="260" Margin="0,6,0,0"
+                         BorderThickness="0" Background="Transparent" />
             </StackPanel>
-        </ScrollViewer>
+                    </Border>
 
-        <!-- ===== As nove folhas + o que já saiu ===== -->
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,12">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Emitir uma folha"
-                               Style="{StaticResource H3}" Margin="0,0,0,10" />
-
+                    <!-- As fichas pedem a altura que precisam e rolam quando não couber:
+                         pilha mais alta que a janela sem rolagem é o corte da checagem 36. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Folhas}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -129,68 +72,137 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <!-- Cartão em WrapPanel usa Height, não MinHeight (parcela 47):
-                                     com altura pedida por cada filho, um rótulo que quebra em
-                                     duas linhas deixa a fileira com a base serrilhada. E altura
-                                     fixa anda junto de teto no texto (parcela 50), senão ela
-                                     decepa o que não coube. -->
-                                <Border Width="248" Height="222" Margin="0,0,10,10" Padding="12"
+                                <!-- FICHA COMPACTA (parcela 82 — os cartões de 248×222
+                                     somavam ~700 px e enterravam a lista "o que já saiu"
+                                     abaixo da dobra). O que se LÊ no relance fica: o nome
+                                     da folha e O QUE FALTA (a regra da parcela 24 — o
+                                     requisito se descobre ANTES de errar). A descrição
+                                     longa mora na DICA. Height fixo + teto nos textos
+                                     andam juntos (parcelas 47 e 50). -->
+                                <Border Width="232" Height="118" Margin="0,0,10,10" Padding="12,10"
                                         CornerRadius="{StaticResource Raio.Medio}"
                                         BorderThickness="1"
                                         BorderBrush="{StaticResource Brush.Borda}"
                                         Background="{StaticResource Brush.Superficie}">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Grupo}"
-                                                   Style="{StaticResource CardKpi.Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                   MaxHeight="20" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                   FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap"
-                                                   Margin="0,2,0,4"
-                                                   MaxHeight="40" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Descricao}"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   TextWrapping="Wrap" Height="52"
-                                                   TextTrimming="CharacterEllipsis" />
-
-                                        <!-- Diz o que FALTA em vez de deixar o botão aceso
-                                             e só depois avisar: descobrir o requisito
-                                             errando é o que faz a pessoa desistir. -->
-                                        <TextBlock Text="{Binding Pendencia}"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   TextWrapping="Wrap" Margin="0,6,0,0"
-                                                   MaxHeight="34" TextTrimming="CharacterEllipsis"
-                                                   FontStyle="Italic" />
-
-                                        <Button Content="{Binding AcaoRotulo}"
+                                    <Border.ToolTip>
+                                        <StackPanel MaxWidth="360">
+                                            <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
+                                                       Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap"
+                                                       FontStyle="Italic" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Border.ToolTip>
+                                    <DockPanel>
+                                        <!-- O botão ancora embaixo: fileira de fichas com os
+                                             botões na MESMA altura é o que faz a região se
+                                             ler como um conjunto, não como uma colcha. -->
+                                        <Button DockPanel.Dock="Bottom" Content="{Binding AcaoRotulo}"
                                                 Command="{Binding DataContext.GerarCommand,
                                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}"
                                                 IsEnabled="{Binding PodeGerar}"
                                                 Style="{StaticResource BotaoPequeno}"
-                                                HorizontalAlignment="Left" MinWidth="120"
-                                                Margin="0,10,0,0" />
-                                    </StackPanel>
+                                                HorizontalAlignment="Left" MinWidth="110" />
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Grupo}"
+                                                       Style="{StaticResource CardKpi.Rotulo}"
+                                                       HorizontalAlignment="Left"
+                                                       MaxHeight="16" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" Margin="0,2,0,0"
+                                                       MaxHeight="38" TextTrimming="CharacterEllipsis" />
+                                            <!-- O que FALTA, quando falta — some quando não
+                                                 há pendência, em vez de reservar a linha. -->
+                                            <TextBlock Text="{Binding Pendencia}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       FontStyle="Italic" Margin="0,2,0,0"
+                                                       MaxHeight="16" TextTrimming="CharacterEllipsis"
+                                                       Visibility="{Binding Pendencia,
+                                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                                    FallbackValue=Collapsed}" />
+                                        </StackPanel>
+                                    </DockPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    </ScrollViewer>
                 </DockPanel>
-            </Border>
+            </TabItem>
 
-            <Border Grid.Row="1" Style="{StaticResource Card}">
+            <TabItem Header="O que já saiu">
                 <!-- O Grid hospeda a SOBREPOSIÇÃO: o estado vazio explica o vazio DESTA
-                     região, não o da página (a lição das parcelas 58 e 64). E é UM estado
-                     vazio por pergunta — a faixa que repetia a mesma frase saiu. -->
-                <Grid>
+                     região (parcelas 58 e 64). -->
+                <Grid Margin="0,12,0,0">
                 <DockPanel>
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <TextBlock Text="O que já saiu" Style="{StaticResource H3}"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center" />
-                    </Grid>
+                    <!-- O rótulo da REGIÃO é a própria aba; o que fica é o RESUMO,
+                         que diz o recorte ("12 documento(s) de 01/08 a 24/08"). -->
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}"
+                               Style="{StaticResource TextoSuave}" Margin="0,0,0,8"
+                               HorizontalAlignment="Left" />
+
+                    <!-- A barra da LISTA (parcela 82): o período mora junto do que ele
+                         recorta — na faixa lateral ele parecia configuração da página — e
+                         o conferir pelo código virou uma linha aqui, em vez de uma caixa
+                         permanente de 200 px para um ato ocasional. O WrapPanel é o filho
+                         que PREENCHE (parcela 58): em tela estreita a linha dobra em vez
+                         de empurrar o vizinho para fora. -->
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,18,8">
+                            <TextBlock Text="De" Style="{StaticResource Rotulo}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <DatePicker SelectedDate="{Binding Inicio}" Width="130"
+                                        VerticalAlignment="Center" />
+                            <TextBlock Text="Até" Style="{StaticResource Rotulo}"
+                                       VerticalAlignment="Center" Margin="10,0,6,0" />
+                            <DatePicker SelectedDate="{Binding Fim}" Width="130"
+                                        VerticalAlignment="Center" />
+                            <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="100"
+                                    VerticalAlignment="Center" Margin="10,0,0,0"
+                                    ToolTip="Recorta a lista abaixo — e é o período do Fechamento do período." />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Conferir pelo código" Style="{StaticResource Rotulo}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"
+                                       ToolTip="Todo documento sai com um código no rodapé — é o que este sistema oferece no lugar do certificado ICP-Brasil. Digite o código do papel que está na sua frente." />
+                            <TextBox Text="{Binding Codigo, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="40" Width="150" VerticalAlignment="Center" />
+                            <Button Content="Conferir" Command="{Binding ConferirCommand}"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="90"
+                                    VerticalAlignment="Center" Margin="8,0,0,0" />
+                            <Button Content="Segunda via" Command="{Binding ReimprimirConferidoCommand}"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="110"
+                                    VerticalAlignment="Center" Margin="8,0,0,0"
+                                    Visibility="{Binding TemConferido,
+                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <!-- O resultado da conferência, na linha de quem conferiu. Cancelado e
+                         "não existe" saltam aos olhos: nas duas respostas, o papel na mão
+                         não vale o que parece valer. -->
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding Conferido}"
+                               TextWrapping="Wrap" Margin="0,0,0,8">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Conferido}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding ConferidoCancelado}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
                         <Grid.ColumnDefinitions>
@@ -332,8 +344,8 @@
                                    Titulo="Nenhum documento emitido"
                                    Descricao="Documento cancelado aparece marcado, nunca sumindo." />
                 </Grid>
-            </Border>
-        </Grid>
+            </TabItem>
+        </TabControl>
     </DockPanel>
     </Grid>
 </UserControl>

@@ -232,21 +232,31 @@ public sealed class PrescricaoInternaPdfService
                     VinculoComAPrescricao(col, prescricao);
                     IdentificacaoDoPaciente(col, prescricao);
                     BlocoDeAlergias(col, alergias);
+                    BlocoDeIntercorrencias(col, prescricao);
 
                     TabelaDaExecucao(col, itens);
+                    // ⚠️ A ordem não é estética: a tabela e as duas caixas seguintes falam
+                    // de ITENS; a evolução de enfermagem fala do PACIENTE, e é a leitura
+                    // clínica da sessão.
+                    EvolucoesDeEnfermagem(col, prescricao);
                     Justificativas(col, itens);
                     Retificacoes(col, itens);
                 });
 
-                // No regime de sempre a assinatura é NULA e o rodapé imprime a linha para
-                // a enfermeira assinar à mão. Na folha com a 2ª assinatura, quem manda no
-                // rodapé é a assinatura da EXECUÇÃO (na reimpressão nunca se chega aqui —
-                // os bytes selados são devolvidos guardados — mas o vínculo fica certo).
-                Rodape(page, prescricao, prescricao.AssinaturaDaExecucao,
+                // ⚠️ ESTE ARQUIVO NUNCA É ASSINADO. O registro é montado NA HORA a cada
+                // impressão (ele muda a cada item checado), e por isso a assinatura entra
+                // aqui como NULA: passar a da execução fazia o rodapé AFIRMAR uma
+                // assinatura qualificada num PDF sem /ByteRange, sem PKCS#7 e sem carimbo —
+                // e ainda engolia a linha de caneta, deixando a folha sem prova nenhuma de
+                // autoria. Um comentário antigo aqui supunha que a reimpressão devolvia
+                // bytes selados; ela nunca devolveu, porque o registro não é guardado.
+                Rodape(page, prescricao, assinatura: null,
                     nomeLinha: NomeDoExecutante(prescricao) ?? "Enfermagem responsável",
                     registroLinha: ConselhoDoExecutante(prescricao),
                     papel: "Enfermagem",
-                    paraAssinaturaEletronica: paraAssinaturaEletronica);
+                    paraAssinaturaEletronica: paraAssinaturaEletronica,
+                    reservarSegundoCarimbo: false,
+                    assinaturaNoutraFolha: AvisoDoRegistroDeExecucao(prescricao));
             });
         }).GeneratePdf();
     }
@@ -686,6 +696,237 @@ public sealed class PrescricaoInternaPdfService
     }
 
     /// <summary>
+    /// A EVOLUÇÃO DE ENFERMAGEM da sessão (parcela 71) — o que foi observado NO PACIENTE
+    /// enquanto a folha corria.
+    ///
+    /// ⚠️ <c>RegistradoEm</c> sai IMPRESSO ao lado da hora informada, e aqui pesa mais que
+    /// na checagem: a checagem herda a data da folha, e esta carrega <c>Data</c> E
+    /// <c>Hora</c> escolhidas por quem escreveu. Uma observação digitada três dias depois
+    /// sairia como se tivesse sido escrita às 14h20 daquele dia.
+    ///
+    /// Canceladas e retificadas aparecem MARCADAS, nunca sumindo — a regra de
+    /// <see cref="Retificacoes"/>: imprimir só o valor final faria a via em papel esconder
+    /// o que a trilha guarda.
+    /// </summary>
+    /// <summary>
+    /// As INTERCORRÊNCIAS desta execução, vigentes: canceladas e substituídas ficam de
+    /// fora — registro desdito não alarma (a regra do selo da linha do tempo, parcela 72).
+    ///
+    /// PÚBLICO e puro para o teste alcançar: a folha é a via de auditoria de enfermagem,
+    /// e a regra de "o que conta como intercorrência" não pode morar só dentro do desenho.
+    /// </summary>
+    public static IReadOnlyList<EvolucaoEnfermagem> IntercorrenciasDaExecucao(
+        PrescricaoInterna prescricao)
+    {
+        var registros = prescricao.EvolucoesEnfermagem;
+        var substituidos = registros
+            .Where(e => e.RetificaEvolucaoId is not null)
+            .Select(e => e.RetificaEvolucaoId!.Value)
+            .ToHashSet();
+
+        return registros
+            .Where(e => e.Intercorrencia && !e.Cancelada && !substituidos.Contains(e.Id))
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
+            .ToList();
+    }
+
+    /// <summary>
+    /// A caixa de INTERCORRÊNCIAS — separada da de alergias (parcela 80; a médica viu
+    /// "Pressão caiu" listado como alergia e mandou separar).
+    ///
+    /// São dois FATOS de naturezas diferentes, cada um com a sua morada: alergia é
+    /// atributo do PACIENTE (lista de problemas — vale para sempre e para toda
+    /// prescrição); intercorrência é um EVENTO desta execução (evolução de enfermagem com
+    /// o selo). Misturá-los na mesma caixa é o que fazia a reação virar "alergia" no
+    /// papel. A lista detalhada de evoluções continua abaixo, em ordem de hora — esta
+    /// caixa é o resumo de segurança do topo, o par da caixa de alergias.
+    ///
+    /// "Nenhuma registrada" é AFIRMAÇÃO, não ausência: quem audita a execução precisa
+    /// ler que não houve — sumir com a linha deixaria a dúvida "não houve ou não
+    /// registraram?".
+    /// </summary>
+    private static void BlocoDeIntercorrencias(ColumnDescriptor col, PrescricaoInterna prescricao)
+    {
+        var intercorrencias = IntercorrenciasDaExecucao(prescricao);
+
+        if (intercorrencias.Count == 0)
+        {
+            col.Item().Text(t =>
+            {
+                t.Span("Intercorrências  ").Bold().FontSize(8.5f).FontColor(TextoSecundario);
+                t.Span("nenhuma registrada nesta execução.")
+                    .FontSize(8.5f).FontColor(TextoSecundario);
+            });
+            return;
+        }
+
+        col.Item().Background(AmareloSuave).Border(1).BorderColor(AmareloForte)
+            .Padding(10).Column(c =>
+            {
+                c.Item().Text("INTERCORRÊNCIAS DESTA EXECUÇÃO")
+                    .Bold().FontSize(9).FontColor(AmareloForte);
+                foreach (var e in intercorrencias)
+                    c.Item().PaddingTop(2).Text(t =>
+                    {
+                        t.Span($"{e.Hora:HH\\:mm}  ").SemiBold().FontSize(10).FontColor(AmareloForte);
+                        t.Span(e.Texto).FontSize(10).FontColor(AmareloForte);
+                        t.Span($"  ({e.AutorNome})").FontSize(8.5f).FontColor(TextoSecundario);
+                    });
+            });
+    }
+
+    private static void EvolucoesDeEnfermagem(ColumnDescriptor col, PrescricaoInterna prescricao)
+    {
+        var registros = prescricao.EvolucoesEnfermagem
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
+            .ToList();
+
+        if (registros.Count == 0) return;
+
+        // ⚠️ Quem foi CORRIGIDO precisa aparecer corrigido. Sem isto, o registro
+        // substituído sai idêntico a um vigente, e a via em papel mostra as duas versões
+        // sem dizer qual vale — que é pior do que mostrar só a final.
+        var substituidos = registros
+            .Where(e => e.RetificaEvolucaoId is not null)
+            .Select(e => e.RetificaEvolucaoId!.Value)
+            .ToHashSet();
+
+        col.Item().Border(1).BorderColor(Borda).Padding(10).Column(c =>
+        {
+            c.Item().Text("Evolução de enfermagem").Bold().FontSize(8.5f).FontColor(TextoSecundario);
+
+            foreach (var e in registros)
+            {
+                var substituido = substituidos.Contains(e.Id);
+                var destaque = e.Intercorrencia && !e.Cancelada && !substituido;
+
+                c.Item().PaddingTop(5).Column(linha =>
+                {
+                    linha.Item().Text(t =>
+                    {
+                        t.Span($"{e.Hora:HH\\:mm}  ").SemiBold().FontSize(9.5f)
+                            .FontColor(destaque ? AmareloForte
+                                : e.Cancelada || substituido ? TextoSecundario : TextoPrimario);
+
+                        t.Span(e.Cancelada ? $"REGISTRO CANCELADO — {e.MotivoCancelamento}" : e.Texto)
+                            .FontSize(9.5f)
+                            .FontColor(destaque ? AmareloForte
+                                : e.Cancelada || substituido ? TextoSecundario : TextoPrimario);
+
+                        if (destaque)
+                            t.Span("   [INTERCORRÊNCIA]").Bold().FontSize(8).FontColor(AmareloForte);
+                    });
+
+                    if (!e.Cancelada && e.SinaisVitaisResumidos is { } sinais)
+                        linha.Item().Text(sinais).FontSize(8.5f).FontColor(TextoSecundario);
+
+                    if (!e.Cancelada && e.EhConsulta)
+                        ConsultaDeEnfermagem(linha, e);
+
+                    if (e.EhRetificacao)
+                        linha.Item().Text($"corrige o registro anterior — {e.MotivoRetificacao}")
+                            .FontSize(8).FontColor(AmareloForte);
+
+                    if (substituido)
+                        linha.Item().Text("CORRIGIDO — vale o registro seguinte")
+                            .Bold().FontSize(8).FontColor(AmareloForte);
+
+                    linha.Item().Text(
+                        Juntar(e.AutorNome, e.AutorConselho)
+                        + $" · registrado {e.RegistradoEm:dd/MM/yyyy HH\\:mm}")
+                        .FontSize(8).FontColor(TextoSecundario);
+                });
+            }
+
+            // Ponto 9 do compromisso: o papel não promete o que não tem. A assinatura
+            // eletrônica da enfermagem, quando existe, cobre a PRESCRIÇÃO — não estas
+            // linhas, que são registro do prontuário assinado pelo login de quem escreveu.
+            c.Item().PaddingTop(6).Text(
+                "Registro do prontuário — a autoria é o login de quem escreveu, com o "
+                + "registro no conselho ao lado.")
+                .FontSize(7.5f).FontColor(TextoSecundario);
+        });
+    }
+
+    /// <summary>
+    /// AS CINCO ETAPAS do Processo de Enfermagem na via em PAPEL (COFEN 358/2009).
+    ///
+    /// ⚠️ Isto não é enfeite da folha: a Resolução exige que o Processo esteja
+    /// <b>registrado formalmente</b>, e a fiscalização do COREN se faz no PRONTUÁRIO —
+    /// que numa clínica é a via impressa, arquivada. Consulta de enfermagem que só existe
+    /// na tela é consulta que a fiscalização não enxerga, e é a mesma família do defeito
+    /// recorrente do projeto: o dado está gravado e não tem leitor onde ele é cobrado.
+    ///
+    /// A ANOTAÇÃO continua saindo como uma linha só — é a passagem pontual, e ela é a
+    /// maioria. Só o registro que TEM processo ganha o bloco: carimbar as cinco etapas em
+    /// toda observação de sinais vitais encheria a folha de rótulos vazios, e rótulo vazio
+    /// é o que faz alguém parar de ler a folha inteira.
+    ///
+    /// ⚠️ O bloco imprime o que FALTA (<see cref="EvolucaoEnfermagem.EtapasEmFalta"/>) em
+    /// vez de calar. Consulta pela metade impressa como se estivesse completa é a
+    /// <b>garantia aparente</b> que este projeto recusa desde a parcela 3 — e aqui ela
+    /// enganaria justamente quem fiscaliza.
+    /// </summary>
+    private static void ConsultaDeEnfermagem(ColumnDescriptor linha, EvolucaoEnfermagem e)
+    {
+        linha.Item().PaddingTop(4).PaddingLeft(10).BorderLeft(2).BorderColor(Azul)
+            .PaddingLeft(8).Column(sae =>
+            {
+                sae.Item().Text("CONSULTA DE ENFERMAGEM — processo em cinco etapas")
+                    .Bold().FontSize(7.5f).FontColor(Azul);
+
+                Etapa(sae, "1. Histórico", e.Historico);
+                Etapa(sae, "1. Exame físico", e.ExameFisico);
+
+                if (e.Diagnosticos.Count > 0)
+                {
+                    sae.Item().PaddingTop(3).Text("2. Diagnósticos de enfermagem")
+                        .SemiBold().FontSize(8).FontColor(TextoSecundario);
+
+                    foreach (var d in e.Diagnosticos.OrderBy(x => x.Ordem).ThenBy(x => x.Id))
+                    {
+                        sae.Item().Text($"• {d.Redacao}").FontSize(8.5f).FontColor(TextoPrimario);
+
+                        // ETAPA 3 (planejamento) sai COLADA no diagnóstico dela, e não numa
+                        // lista à parte: é contra este resultado que a etapa 5 avalia, e
+                        // separá-los obrigaria quem lê a casar linha com linha.
+                        if (!string.IsNullOrWhiteSpace(d.ResultadoEsperado))
+                            sae.Item().PaddingLeft(10)
+                                .Text($"3. resultado esperado: {d.ResultadoEsperado}")
+                                .FontSize(8).FontColor(TextoSecundario);
+                    }
+                }
+
+                if (e.Cuidados.Count > 0)
+                {
+                    sae.Item().PaddingTop(3).Text("4. Prescrição de enfermagem (cuidados)")
+                        .SemiBold().FontSize(8).FontColor(TextoSecundario);
+
+                    foreach (var c in e.Cuidados.OrderBy(x => x.Ordem).ThenBy(x => x.Id))
+                        sae.Item().Text($"• {c.Redacao}").FontSize(8.5f).FontColor(TextoPrimario);
+                }
+
+                Etapa(sae, "5. Avaliação", e.Avaliacao);
+
+                if (e.EtapasEmFalta.Count > 0)
+                    sae.Item().PaddingTop(3)
+                        .Text($"Registro incompleto — falta: {string.Join(", ", e.EtapasEmFalta)}.")
+                        .FontSize(7.5f).FontColor(AmareloForte);
+            });
+
+        static void Etapa(ColumnDescriptor col, string rotulo, string? texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto)) return;
+
+            col.Item().PaddingTop(3).Text(t =>
+            {
+                t.Span($"{rotulo}: ").SemiBold().FontSize(8).FontColor(TextoSecundario);
+                t.Span(texto.Trim()).FontSize(8.5f).FontColor(TextoPrimario);
+            });
+        }
+    }
+
+    /// <summary>
     /// O elo entre as duas folhas: o registro de execução aponta para a prescrição que
     /// executa, com o hash da assinatura dela.
     ///
@@ -728,14 +969,32 @@ public sealed class PrescricaoInternaPdfService
     /// digital: a via em papel circula pela sala, e quem a pega precisa poder assinar
     /// nela. Não são caminhos concorrentes — são o mesmo documento em dois suportes.
     /// </summary>
+    /// <param name="assinaturaNoutraFolha">
+    /// A frase para a folha que <b>não</b> carrega assinatura nenhuma, mas cuja autoria
+    /// eletrônica existe em OUTRO arquivo — o caso do registro de execução, que é montado
+    /// na hora e aponta para a prescrição selada.
+    ///
+    /// ⚠️ Ela existe porque o rodapé chegou a AFIRMAR a assinatura da execução num arquivo
+    /// que não tinha nenhuma: sem <c>/ByteRange</c>, sem PKCS#7, sem carimbo. E, ao
+    /// afirmá-la, engolia a linha de caneta — a folha saía sem carimbo digital e sem onde
+    /// assinar à mão, isto é, sem prova de autoria alguma. É a garantia aparente que este
+    /// projeto recusa desde a parcela 3, e foi a clínica que a viu antes de nós.
+    /// </param>
+    /// <param name="reservarSegundoCarimbo">
+    /// Só a PRESCRIÇÃO recebe dois carimbos. Reservar o segundo espaço no registro deixaria
+    /// dois retângulos vazios numa folha que não vai receber carimbo nenhum.
+    /// </param>
     private static void Rodape(
         PageDescriptor page, PrescricaoInterna prescricao, AssinaturaDocumento? assinatura,
         string nomeLinha, string? registroLinha, string papel,
-        bool paraAssinaturaEletronica = false)
+        bool paraAssinaturaEletronica = false,
+        string? assinaturaNoutraFolha = null,
+        bool? reservarSegundoCarimbo = null)
     {
         // A folha só reserva o 2º espaço quando ELA pede a assinatura da execução: numa
         // folha do regime do papel, um retângulo vazio à direita seria espaço morto.
-        var duasAssinaturas = prescricao.ExigeAssinaturaEletronicaDaExecucao;
+        var duasAssinaturas =
+            reservarSegundoCarimbo ?? prescricao.ExigeAssinaturaEletronicaDaExecucao;
 
         page.Footer().Height(AlturaRodape).Column(col =>
         {
@@ -748,7 +1007,11 @@ public sealed class PrescricaoInternaPdfService
                 // convidaria a assinar à mão uma folha que se assina no sistema.)
                 row.ConstantItem(duasAssinaturas ? LarguraCarimboDuplo : LarguraCarimbo).Column(c =>
                 {
-                    if (assinatura is not null || paraAssinaturaEletronica) return;
+                    // Autoria eletrônica noutro arquivo: ela JÁ assinou, e pedir a caneta
+                    // aqui faria a mesma execução ser assinada duas vezes por meios
+                    // diferentes — a frase do rodapé diz onde a assinatura está.
+                    if (assinatura is not null || paraAssinaturaEletronica
+                        || assinaturaNoutraFolha is not null) return;
 
                     c.Item().PaddingTop(30).LineHorizontal(1).LineColor(TextoSecundario);
                     c.Item().PaddingTop(3).Text("Assinatura e carimbo")
@@ -796,14 +1059,15 @@ public sealed class PrescricaoInternaPdfService
                     // A folha que vai ser selada não pode sair dizendo "vale a manuscrita":
                     // esses bytes ficam guardados para sempre, e a segunda via mentiria
                     // sobre a própria garantia que carrega.
-                    c.Item().Text(paraAssinaturaEletronica && assinatura is null
+                    c.Item().Text(assinaturaNoutraFolha
+                            ?? (paraAssinaturaEletronica && assinatura is null
                             // O código LOCALIZA a folha no sistema; quem prova
                             // integridade é a assinatura, conferida no arquivo. Dizer que
                             // o código "confere integridade" era prometer garantia que ele
                             // não dá — a regra mais antiga do projeto (parcela 3).
                             ? "Assinado eletronicamente — o carimbo acima identifica o "
                               + "signatário; o código abaixo localiza esta folha no sistema."
-                            : FraseDoNivel(assinatura))
+                            : FraseDoNivel(assinatura)))
                         .FontSize(7.5f).FontColor(TextoSecundario);
                 });
 
@@ -825,6 +1089,28 @@ public sealed class PrescricaoInternaPdfService
     /// assinou, e escrever isso é a diferença entre um documento honesto e um que promete
     /// precisão que não tem.
     /// </summary>
+    /// <summary>
+    /// A frase do rodapé do REGISTRO DE EXECUÇÃO quando a execução já foi assinada
+    /// eletronicamente — noutro arquivo. Devolve nulo quando não há o que apontar (regime
+    /// do papel, ou execução ainda não assinada), e aí o rodapé imprime a linha de caneta.
+    ///
+    /// ⚠️ Mora aqui, público, porque é a decisão que a clínica pegou errada: o rodapé
+    /// AFIRMAVA "assinado digitalmente com certificado ICP-Brasil (assinatura qualificada)"
+    /// num PDF montado na hora, sem <c>/ByteRange</c>, sem PKCS#7 e sem carimbo — e ainda
+    /// engolia a linha de caneta, deixando a folha sem prova nenhuma de autoria. Dentro do
+    /// desenho do PDF nenhum teste alcançava isso: o QuestPDF embute a fonte em subconjunto
+    /// e escreve o texto como IDs de glifo, então nem o texto do arquivo se lê de volta.
+    /// </summary>
+    public static string? AvisoDoRegistroDeExecucao(PrescricaoInterna prescricao)
+    {
+        if (prescricao.AssinaturaDaExecucao is not { } daExecucao) return null;
+
+        return "Espelho eletrônico — este arquivo NÃO é assinado. A assinatura eletrônica "
+             + $"desta execução está na folha {prescricao.Numero}, assinada por "
+             + $"{daExecucao.NomeAssinante} em {daExecucao.AssinadoEm:dd/MM/yyyy HH\\:mm} "
+             + "(ICP-Brasil).";
+    }
+
     public static string FraseDoNivel(AssinaturaDocumento? assinatura)
     {
         if (assinatura is null)

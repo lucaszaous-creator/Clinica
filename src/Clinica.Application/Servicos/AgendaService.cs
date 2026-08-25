@@ -230,6 +230,12 @@ public sealed class AgendaService
             ag.ChegadaEm = null;
             ag.ChamadoEm = null;
             ag.InicioAtendimentoEm = null;
+            // ⚠️ O ENCERRAMENTO vai junto (parcela 74). Sem ele, o horário remarcado nasceria
+            // na quinta com o selo verde "Encerrado às 14h32" de uma sessão que não
+            // aconteceu — e um cartão em "Aguardando" dizendo que já terminou é lido pelo
+            // balcão como sessão pronta para fechar. Cada carimbo novo da fila tem de entrar
+            // NESTE bloco: é a lição da parcela 69, e a parcela 74 a repetiu.
+            ag.FimAtendimentoEm = null;
         }
 
         // GUIA NO AGENDAMENTO (parcela 70): o atendimento acompanha o horário, no MESMO
@@ -668,6 +674,91 @@ public sealed class AgendaService
     }
 
     /// <summary>
+    /// O PROFISSIONAL terminou com o paciente (parcela 74) — ele sai da sala e vai ao
+    /// balcão.
+    ///
+    /// ⚠️ Isto não conclui o atendimento, e a diferença é a decisão da parcela 61:
+    /// concluir são QUATRO fatos do mesmo ato e três são do balcão (o pacote debita, o
+    /// insumo sai, o dinheiro entra). O que aqui se afirma é só <i>"terminei"</i>, e o
+    /// <c>Status</c> continua <c>Agendado</c> de propósito — marcá-lo <c>Realizado</c>
+    /// daqui pularia os três fatos e faria o dia fechar com o caixa sem a sessão.
+    ///
+    /// É o par do <see cref="ChamarAsync"/>: aquele leva o recado do consultório ao
+    /// balcão para o paciente ENTRAR, este leva o recado de que ele está SAINDO. Sem o
+    /// segundo, a recepcionista só descobre que o médico terminou quando o paciente
+    /// aparece na frente dela — e o cartão fica em "Em atendimento" por meia hora depois
+    /// de a sala estar vazia, o que faz o quadro do dia mentir sobre quem está ocupado.
+    ///
+    /// Encerrar de novo NÃO reescreve o carimbo (<c>??=</c>), pela razão do
+    /// <see cref="ChamarAsync"/>: quem clica duas vezes precisa continuar vendo a HORA em
+    /// que terminou, e o segundo clique esconderia justamente o atendimento demorado.
+    /// </summary>
+    public async Task<Agendamento> EncerrarAtendimentoAsync(
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+
+        if (ag.Status != StatusAgendamento.Agendado)
+            throw new InvalidOperationException(
+                "Este horário já foi encerrado.");
+
+        // Encerrar sem ter começado inventaria uma sessão de duração negativa e um
+        // cartão que sai da sala sem nunca ter entrado nela.
+        if (ag.InicioAtendimentoEm is null)
+            throw new InvalidOperationException(
+                "O atendimento ainda não começou — o paciente não entrou na sala.");
+
+        var mudou = ag.FimAtendimentoEm is null;
+        ag.FimAtendimentoEm ??= quando ?? DateTime.Now;
+
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaAtendimentoEncerrado",
+            $"Atendimento encerrado às {ag.FimAtendimentoEm:HH:mm} "
+            + $"(durou {ag.DuracaoDoAtendimento(ag.FimAtendimentoEm!.Value)} min) — "
+            + $"horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    /// <summary>
+    /// DESFAZ o encerramento: o paciente volta a estar em atendimento (parcela 74, 2ª
+    /// rodada).
+    ///
+    /// Existe separado do <see cref="VoltarEtapaAsync"/> pela mesma razão que
+    /// <see cref="DesfazerChamadaAsync"/> existe desde a parcela 38: são atos diferentes.
+    /// Voltar etapa tira o paciente da SALA; isto diz apenas <i>"eu não tinha terminado"</i>
+    /// — o caso do profissional que clicou em Finalizar no paciente errado, ou que precisou
+    /// chamar a pessoa de volta.
+    ///
+    /// O carimbo apagado vai ESCRITO na trilha, com o valor: depois do apagamento ele não
+    /// existe em mais lugar nenhum, e "quem desfez e o que dizia" é a pergunta de qualquer
+    /// conferência.
+    /// </summary>
+    public async Task<Agendamento> ReabrirAtendimentoAsync(
+        int agendamentoId, string operador, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+
+        if (ag.Status != StatusAgendamento.Agendado)
+            throw new InvalidOperationException(
+                "Este horário já foi encerrado no balcão.");
+
+        if (ag.FimAtendimentoEm is null)
+            throw new InvalidOperationException(
+                "Este atendimento não está encerrado.");
+
+        var apagado = ag.FimAtendimentoEm;
+        ag.FimAtendimentoEm = null;
+
+        await AuditarFilaAsync(ag, operador, "FilaAtendimentoReaberto",
+            $"Apagado o encerramento ({apagado:dd/MM/yyyy HH:mm}) — "
+            + $"horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    /// <summary>
     /// Volta o cartão UMA coluna: em atendimento → chamado → chegou → aguardando. Existe
     /// porque clicar errado no kanban é rotina — e a alternativa (cancelar e remarcar)
     /// falsearia o histórico.
@@ -688,6 +779,25 @@ public sealed class AgendaService
         if (ag.InicioAtendimentoEm is not null)
         {
             apagado = $"entrada na sala ({ag.InicioAtendimentoEm:dd/MM/yyyy HH:mm})";
+
+            // ⚠️ O ENCERRAMENTO SAI JUNTO, e não como um passo próprio (corrigido na 2ª
+            // rodada da parcela 74). Voltar etapa promete "volta o cartão UMA coluna", e
+            // FimAtendimentoEm não é coluna nenhuma por decisão da própria parcela — então
+            // gastá-lo num passo separado consumia o clique SEM MOVER o cartão, enquanto as
+            // duas telas afirmavam que ele tinha voltado. Clique que não faz nada e diz que
+            // fez é pior do que botão apagado (parcela 41).
+            //
+            // Sair da sala é o fato: quem não está mais em atendimento não tem fim de
+            // atendimento. Para DESFAZER só o encerramento — o médico que finalizou por
+            // engano e quer o paciente de volta na sala — existe
+            // <see cref="ReabrirAtendimentoAsync"/>, do mesmo jeito que
+            // <see cref="DesfazerChamadaAsync"/> é separado deste método desde a parcela 38.
+            if (ag.FimAtendimentoEm is not null)
+            {
+                apagado += $" e o encerramento ({ag.FimAtendimentoEm:dd/MM/yyyy HH:mm})";
+                ag.FimAtendimentoEm = null;
+            }
+
             ag.InicioAtendimentoEm = null;
         }
         else if (ag.ChamadoEm is not null)

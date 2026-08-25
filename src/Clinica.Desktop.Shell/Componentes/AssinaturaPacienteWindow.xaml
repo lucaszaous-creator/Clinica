@@ -127,6 +127,84 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ============ ALERGIA — o destaque ANTES da assinatura ============
+                         (parcela 80 — pedido da clínica: "um ponto de destaque grande pra
+                         documentar alergia... em vermelho... que a técnica possa relatar
+                         ali... porque dali o paciente já tem que sair com uma pulseira").
+                         A pergunta tem HORA: depois de assinado o paciente levanta — por
+                         isso a região vem antes da área de assinar, vermelha, e não some.
+                         O que se registra vai para a LISTA DE PROBLEMAS (a morada única da
+                         alergia — é ela que alerta nas quatro telas e recusa assinatura de
+                         prescrição); um campo do termo seria uma segunda verdade. Quem não
+                         pode ler prontuário não vê a região (anunciá-la contaria que
+                         existem alergias — parcela 59). -->
+                    <Border Margin="0,12,0,0" Padding="14" BorderThickness="2"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            BorderBrush="{StaticResource Brush.Erro}"
+                            Background="{StaticResource Brush.Erro.Suave}"
+                            Visibility="{Binding PodeVerAlergias,
+                                         Converter={StaticResource BoolParaVisibilidade}}">
+                        <StackPanel>
+                            <TextBlock Text="ALERGIAS — pergunte ANTES de o paciente assinar"
+                                       FontWeight="Bold" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.H3}"
+                                       Foreground="{StaticResource Brush.Erro}" />
+
+                            <!-- Terceiro estado: "sem alergia" e "não deu para conferir"
+                                 são respostas diferentes — a segunda manda perguntar. -->
+                            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.Erro}"
+                                       Text="Não foi possível conferir a lista de problemas agora — pergunte ao paciente e registre abaixo."
+                                       Visibility="{Binding AlergiasNaoConferidas,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+
+                            <ItemsControl ItemsSource="{Binding Alergias}" Margin="0,6,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                                   FontWeight="Bold" Margin="0,2"
+                                                   FontSize="{StaticResource Fonte.H3}"
+                                                   Foreground="{StaticResource Brush.Erro}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Nenhuma alergia registrada até aqui — pergunte ao paciente antes de colher a assinatura."
+                                       Visibility="{Binding SemAlergiaConferida,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+
+                            <!-- A instrução OPERACIONAL — é para isto que a região existe. -->
+                            <TextBlock FontWeight="Bold" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Foreground="{StaticResource Brush.Erro}"
+                                       Text="PACIENTE COM ALERGIA — ele sai daqui com a PULSEIRA DE ALERGIA no braço."
+                                       Visibility="{Binding TemAlergia,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+
+                            <Grid Margin="0,10,0,0"
+                                  Visibility="{Binding PodeRegistrarAlergia,
+                                               Converter={StaticResource BoolParaVisibilidade}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center"
+                                         Text="{Binding NovaAlergia, UpdateSourceTrigger=PropertyChanged}"
+                                         ctrl:Ajudantes.Placeholder="Alérgico a quê? Só o agente (ex.: dipirona)" />
+                                <Button Grid.Column="1" Content="Registrar alergia" MinWidth="150"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource BotaoSecundarioPerigo}"
+                                        Command="{Binding RegistrarAlergiaCommand}" />
+                            </Grid>
+
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       Margin="0,6,0,0" FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="O registro vai para a lista de problemas do paciente — é ela que alerta o médico e a enfermagem em toda prescrição, hoje e nas próximas vezes."
+                                       Visibility="{Binding PodeRegistrarAlergia,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                        </StackPanel>
+                    </Border>
+
                     <!-- ===== 3. A ASSINATURA ===== -->
                     <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                         <StackPanel>
@@ -151,10 +229,82 @@
                                         VerticalAlignment="Bottom" Click="AoLimparTraco" />
                             </Grid>
 
+                            <!-- ===== 3-remoto. O LINK PELO WHATSAPP (parcela 81) =====
+                                 O paciente lê e assina no PRÓPRIO celular, na sala de
+                                 espera; esta janela percebe sozinha quando a assinatura
+                                 chega. O botão só EXISTE quando o endereço público está
+                                 configurado — botão que leva à recusa certa é pior que
+                                 botão nenhum (parcela 41). Decisão inteira em
+                                 docs/termo-pelo-whatsapp.md. -->
+                            <StackPanel Visibility="{Binding EnvioRemotoDisponivel,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                <DockPanel Margin="0,10,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Enviar para o celular…"
+                                            MinWidth="180" Margin="12,0,0,0"
+                                            VerticalAlignment="Center"
+                                            ToolTip="Abre o WhatsApp com o link do termo pronto. O paciente lê, responde e assina no próprio celular; a assinatura cai nesta janela."
+                                            Command="{Binding EnviarPeloCelularCommand}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AguardandoCelular}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding TemTracoRemoto}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+
+                                    <Button DockPanel.Dock="Right" Content="Cancelar envio"
+                                            MinWidth="140" Margin="12,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource BotaoSecundarioPerigo}"
+                                            Visibility="{Binding AguardandoCelular,
+                                                         Converter={StaticResource BoolParaVisibilidade}}"
+                                            Command="{Binding CancelarEnvioCelularCommand}" />
+
+                                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                               Style="{StaticResource TextoSuave}"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Text="Sem tela de assinatura no balcão? O paciente pode ler e assinar no próprio celular, pelo WhatsApp." />
+                                </DockPanel>
+
+                                <Border Style="{StaticResource AlertaInfo}" Margin="0,8,0,0"
+                                        Visibility="{Binding AguardandoCelular,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                    <TextBlock TextWrapping="Wrap"
+                                               Text="O termo foi para o WhatsApp do paciente. Esta janela percebe sozinha quando ele assinar — dá para deixá-la aberta e seguir o atendimento." />
+                                </Border>
+
+                                <!-- A técnica VÊ o que vai confirmar: o traço que chegou do
+                                     celular, com a origem escrita. O WPF converte byte[] em
+                                     imagem sozinho no Image.Source. -->
+                                <Border Margin="0,8,0,0" BorderThickness="1" CornerRadius="6"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        Background="{StaticResource Brush.Superficie}" Padding="12,10"
+                                        Visibility="{Binding TemTracoRemoto,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Assinatura recebida do celular do paciente:"
+                                                   Style="{StaticResource Rotulo}" />
+                                        <Image Source="{Binding TracoRemotoPng}" MaxHeight="140"
+                                               HorizontalAlignment="Left" Margin="0,6,0,0"
+                                               Stretch="Uniform" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
                             <!-- ===== 3a. UMA TELA: o paciente assina AQUI =====
                                  Some quando há um monitor virado para ele. Deixar as duas
                                  áreas ativas permitiria a recepcionista assinar pelo
                                  paciente sem querer — e o termo diria que ele assinou. -->
+                            <!-- ⚠️ A Visibility desta área tem UM dono: o code-behind
+                                 (AtualizarAreaLocal). Estilo com gatilho aqui morreria no
+                                 primeiro valor local atribuído por código — parcela 58. -->
                             <StackPanel x:Name="AreaDeAssinaturaLocal">
                                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0,10,0,0"
                                            TextWrapping="Wrap"

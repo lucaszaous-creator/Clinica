@@ -56,6 +56,31 @@ public class ModeloEvolucao
 
     public string? Orientacoes { get; set; }
 
+    /// <summary>
+    /// Os cinco campos que a evolução ganhou nas parcelas 73 e 75.
+    ///
+    /// ⚠️ O modelo nasceu na parcela 63 com QUATRO campos, e ficou com quatro quando a
+    /// sessão passou a ter nove. O efeito é o pior possível para quem usa: o roteiro
+    /// preenche menos da metade da consulta, e os campos NOVOS — que existem para o
+    /// registro ficar mais completo — viram digitação a mais em vez de menos.
+    ///
+    /// A lição para a próxima: <b>campo novo de evolução entra no MODELO</b>. É o nono
+    /// lugar da lista dos oito, e ele não quebra nada quando é esquecido.
+    ///
+    /// O CID entra junto de propósito: numa clínica que trata lombalgia crônica é o campo
+    /// mais repetido e mais padronizado de todos. Ele é VISÍVEL na tela de atendimento, e
+    /// aplicar é ato explícito de quem assina a sessão — não é preenchimento automático.
+    /// </summary>
+    public string? HistoriaDoencaAtual { get; set; }
+
+    public string? ExameFisico { get; set; }
+
+    public string? HipoteseDiagnostica { get; set; }
+
+    public string? CidSessao { get; set; }
+
+    public string? PlanoTerapeutico { get; set; }
+
     public bool Ativo { get; set; } = true;
 
     public int Ordem { get; set; }
@@ -77,7 +102,13 @@ public class ModeloEvolucao
         !string.IsNullOrWhiteSpace(QueixaPrincipal)
         || !string.IsNullOrWhiteSpace(Conduta)
         || !string.IsNullOrWhiteSpace(TextoEvolucao)
-        || !string.IsNullOrWhiteSpace(Orientacoes);
+        || !string.IsNullOrWhiteSpace(Orientacoes)
+        // Sem estes cinco, um modelo só de exame físico e plano seria RECUSADO como vazio.
+        || !string.IsNullOrWhiteSpace(HistoriaDoencaAtual)
+        || !string.IsNullOrWhiteSpace(ExameFisico)
+        || !string.IsNullOrWhiteSpace(HipoteseDiagnostica)
+        || !string.IsNullOrWhiteSpace(CidSessao)
+        || !string.IsNullOrWhiteSpace(PlanoTerapeutico);
 }
 
 public class Evolucao
@@ -110,6 +141,47 @@ public class Evolucao
     /// <summary>O que o paciente relatou nesta sessão.</summary>
     public string? QueixaPrincipal { get; set; }
 
+    // ---- O registro do ATENDIMENTO (parcela 73) ----
+    //
+    // ⚠️ Até aqui a sessão médica eram QUATRO caixas de texto (queixa, conduta, evolução,
+    // orientações) e o par de EVA. Faltava o que um prontuário responde: como a queixa
+    // evoluiu, o que o exame ACHOU, e o que o profissional CONCLUIU. Sem a hipótese, o
+    // prontuário registra o que foi feito e não diz por quê — e é o "por quê" que sustenta
+    // a conduta numa auditoria, num pedido de convênio ou numa perícia.
+    //
+    // Todos NULOS e todos ADITIVOS: a sessão curta de acupuntura continua sendo queixa +
+    // conduta, e obrigar quem faz vinte sessões de manutenção por dia a preencher anamnese
+    // completa faria a clínica escrever "idem" em todas — que é pior do que o campo vazio,
+    // porque parece registro.
+
+    /// <summary>
+    /// A história da doença atual: desde quando, como começou, o que melhora e o que piora.
+    /// É o que distingue a primeira consulta do retorno, e é dela que sai a conduta.
+    /// </summary>
+    public string? HistoriaDoencaAtual { get; set; }
+
+    /// <summary>
+    /// O que o exame ACHOU — inspeção, palpação, amplitude, força, o que for da
+    /// especialidade. Separado da <see cref="Conduta"/> de propósito: achado e ato são
+    /// coisas diferentes, e juntá-los num campo só é o que faz o prontuário parar de
+    /// responder "com base em quê?".
+    /// </summary>
+    public string? ExameFisico { get; set; }
+
+    /// <summary>
+    /// A conclusão do profissional sobre ESTA sessão. Texto livre, porque nem toda
+    /// especialidade fecha diagnóstico em toda consulta.
+    /// </summary>
+    public string? HipoteseDiagnostica { get; set; }
+
+    /// <summary>
+    /// O CID da hipótese, quando há. ⚠️ OPCIONAL, e é decisão: exigi-lo faria o
+    /// fisioterapeuta e o acupunturista pararem de preencher a hipótese — a mesma razão
+    /// pela qual ele é opcional na lista de problemas (parcela 37). O catálogo da parcela
+    /// 63 é ATALHO com conferência, não recusa: o campo aceita o que for digitado.
+    /// </summary>
+    public string? CidSessao { get; set; }
+
     /// <summary>O que foi feito: pontos, técnica, tempo de agulhamento…</summary>
     public string? Conduta { get; set; }
 
@@ -118,6 +190,58 @@ public class Evolucao
 
     /// <summary>Orientações dadas ao paciente ao final.</summary>
     public string? Orientacoes { get; set; }
+
+    /// <summary>
+    /// O PLANO: o que vem pela frente (parcela 75).
+    ///
+    /// ⚠️ É diferente da <see cref="Conduta"/> e das <see cref="Orientacoes"/>, e a
+    /// distinção não é sutil: a conduta é o que foi FEITO hoje ("6 pontos, eletro 2Hz,
+    /// 20 min"), a orientação é o que o PACIENTE faz em casa ("compressa morna, evitar
+    /// carga"), e o plano é o que a CLÍNICA vai fazer ("10 sessões, 2x/semana, reavaliar a
+    /// EVA em 4 semanas").
+    ///
+    /// Ele existia espremido dentro dos outros dois — e é justamente o que o convênio pede
+    /// no relatório de evolução e o que a direção precisa para saber se o tratamento tem
+    /// fim previsto. Misturado à conduta, some; misturado à orientação, vira recado ao
+    /// paciente.
+    ///
+    /// Campo de UMA linha de propósito: plano é uma frase. Caixa grande convidaria a
+    /// repetir a conduta, e o campo que se preenche com o conteúdo do vizinho é o que faz o
+    /// relatório sair dizendo a mesma coisa três vezes.
+    /// </summary>
+    public string? PlanoTerapeutico { get; set; }
+
+    /// <summary>
+    /// QUANDO reavaliar — a data que a consulta de hoje sugere para a próxima (parcela 77).
+    ///
+    /// ⚠️ Não é agendamento, e não vira horário nenhum: materializar a sugestão como
+    /// `Agendamento` é exatamente o defeito que a parcela 58 arrancou do 2º código — um
+    /// cartão fantasma na fila do balcão e na agenda de quem atende, com botões que
+    /// fabricam guia para uma sessão que ninguém deu. Aqui é AFIRMAÇÃO CLÍNICA: "reavaliar
+    /// em 7 dias". Quem marca horário é a recepção, com o paciente na frente.
+    ///
+    /// O `PlanoTerapeutico` já dizia isso em texto livre ("reavaliar a EVA em 4 semanas") e
+    /// nada podia agir sobre a frase. A data separa o que se lê do que se conta.
+    ///
+    /// ⚠️ E NÃO entra no `ModeloEvolucao` — o nono lugar da lista (parcela 76) tem exceção
+    /// declarada aqui: retorno e encaminhamento são decisões DESTA consulta, não roteiro. Um
+    /// modelo que trouxesse "encaminhar para psiquiatria" preencheria sozinho, em toda
+    /// sessão, uma afirmação sobre um paciente que ninguém leu.
+    /// </summary>
+    public DateOnly? RetornoSugeridoEm { get; set; }
+
+    /// <summary>Por que voltar nessa data ("reavaliar a EVA", "trazer o exame").</summary>
+    public string? RetornoSugeridoNota { get; set; }
+
+    /// <summary>
+    /// Para quem este paciente está sendo mandado — dentro da casa ou fora dela.
+    ///
+    /// A clínica tem cinco especialidades no mesmo prédio e o encaminhamento entre elas era
+    /// conversa de corredor: não ficava no prontuário, e quem recebia não tinha como saber o
+    /// que o outro pensou. Texto livre de propósito — o destino tanto pode ser "psiquiatria
+    /// daqui" quanto "ortopedista do convênio".
+    /// </summary>
+    public string? Encaminhamento { get; set; }
 
     public DateTime CriadoEm { get; set; } = DateTime.Now;
 
@@ -269,6 +393,55 @@ public class AnexoProntuario
 /// A versão vigente é a própria <see cref="Evolucao"/>, e não se duplica aqui — duas
 /// cópias do texto atual dariam duas verdades sobre o mesmo registro.
 /// </summary>
+/// <summary>
+/// A BUSCA no prontuário — a definição ÚNICA de "esta sessão contém o termo" (parcela 77).
+///
+/// ⚠️ Ela existia DUAS vezes, uma em cada tela que responde à mesma pergunta: a do
+/// Consultório e a da Recepção. E as duas já haviam divergido — o comentário da segunda
+/// dizia, por escrito, que a primeira tinha sido atualizada e ela "ficou para trás". Duas
+/// definições da mesma regra divergem na primeira correção, e a que ninguém lembra de
+/// ajustar é a que passa a responder uma lista INCOMPLETA — indistinguível de "não há nada
+/// escrito sobre isso", que é a pior resposta possível para uma busca de prontuário.
+/// </summary>
+public static class BuscaNoProntuario
+{
+    /// <summary>
+    /// A sessão contém o termo em algum dos campos escritos. Sem acento e sem caixa: quem
+    /// digita escreve "lombalgia" e o prontuário diz "Lombalgia", e uma busca que erra por
+    /// isso é uma busca que ninguém usa duas vezes.
+    ///
+    /// ⚠️ Campo NOVO de evolução entra aqui — é mais um dos lugares da lista. Campo que a
+    /// busca não varre é campo que o profissional não reencontra, e o encaminhamento é
+    /// justamente o que se procura seis meses depois ("para quem eu mandei esta paciente?").
+    /// O CID entra junto: "M54.5" é o jeito mais curto de achar todas as lombalgias.
+    /// </summary>
+    public static bool Casa(Evolucao e, string termo)
+    {
+        var alvo = Normalizar(string.Join(" ",
+            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes,
+            e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
+            e.PlanoTerapeutico, e.RetornoSugeridoNota, e.Encaminhamento));
+
+        return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
+    }
+
+    /// <summary>Minúsculas e sem acento — o que faz "Lasègue" achar "lasegue".</summary>
+    private static string Normalizar(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var limpo = new System.Text.StringBuilder(decomposto.Length);
+
+        foreach (var c in decomposto)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+                limpo.Append(char.ToLowerInvariant(c));
+
+        return limpo.ToString();
+    }
+}
+
 public class VersaoEvolucao
 {
     public int Id { get; set; }
@@ -285,9 +458,61 @@ public class VersaoEvolucao
     public int? EvaAntes { get; set; }
     public int? EvaDepois { get; set; }
     public string? QueixaPrincipal { get; set; }
+
+    // ⚠️ OS QUATRO DA PARCELA 73 (acrescentados na 74, 2ª rodada). Eles nasceram na
+    // Evolucao e NÃO entraram aqui — então corrigir uma vírgula da evolução apagava a
+    // anamnese, o exame físico e a hipótese, e a versão anterior não os tinha: o dado
+    // sumia para sempre, sem rastro. É exatamente o ponto 2 do compromisso de conformidade
+    // ("alterar registro clínico guarda o que ele dizia antes") e o art. 3º da Lei
+    // 13.787/2018 — a rastreabilidade da retificação.
+    //
+    // A lição: CAMPO NOVO DE PRONTUÁRIO ENTRA NA VERSÃO NO MESMO COMMIT. Quem esquece não
+    // quebra nada: o build passa, os testes passam, e a perda só aparece no dia em que
+    // alguém precisar do que foi escrito antes — que é o dia em que ela é irreversível.
+    public string? HistoriaDoencaAtual { get; set; }
+    public string? ExameFisico { get; set; }
+    public string? HipoteseDiagnostica { get; set; }
+    public string? CidSessao { get; set; }
+
     public string? Conduta { get; set; }
     public string? TextoEvolucao { get; set; }
     public string? Orientacoes { get; set; }
+
+    /// <summary>Ver <see cref="Evolucao.PlanoTerapeutico"/>. Lugar 4 da auditoria de linha.</summary>
+    public string? PlanoTerapeutico { get; set; }
+
+    /// <summary>
+    /// QUANDO reavaliar — a data que a consulta de hoje sugere para a próxima (parcela 77).
+    ///
+    /// ⚠️ Não é agendamento, e não vira horário nenhum: materializar a sugestão como
+    /// `Agendamento` é exatamente o defeito que a parcela 58 arrancou do 2º código — um
+    /// cartão fantasma na fila do balcão e na agenda de quem atende, com botões que
+    /// fabricam guia para uma sessão que ninguém deu. Aqui é AFIRMAÇÃO CLÍNICA: "reavaliar
+    /// em 7 dias". Quem marca horário é a recepção, com o paciente na frente.
+    ///
+    /// O `PlanoTerapeutico` já dizia isso em texto livre ("reavaliar a EVA em 4 semanas") e
+    /// nada podia agir sobre a frase. A data separa o que se lê do que se conta.
+    ///
+    /// ⚠️ E NÃO entra no `ModeloEvolucao` — o nono lugar da lista (parcela 76) tem exceção
+    /// declarada aqui: retorno e encaminhamento são decisões DESTA consulta, não roteiro. Um
+    /// modelo que trouxesse "encaminhar para psiquiatria" preencheria sozinho, em toda
+    /// sessão, uma afirmação sobre um paciente que ninguém leu.
+    /// </summary>
+    public DateOnly? RetornoSugeridoEm { get; set; }
+
+    /// <summary>Por que voltar nessa data ("reavaliar a EVA", "trazer o exame").</summary>
+    public string? RetornoSugeridoNota { get; set; }
+
+    /// <summary>
+    /// Para quem este paciente está sendo mandado — dentro da casa ou fora dela.
+    ///
+    /// A clínica tem cinco especialidades no mesmo prédio e o encaminhamento entre elas era
+    /// conversa de corredor: não ficava no prontuário, e quem recebia não tinha como saber o
+    /// que o outro pensou. Texto livre de propósito — o destino tanto pode ser "psiquiatria
+    /// daqui" quanto "ortopedista do convênio".
+    /// </summary>
+    public string? Encaminhamento { get; set; }
+
     public int? ProfissionalId { get; set; }
 
     /// <summary>Quando esta versão foi SUBSTITUÍDA (isto é, o momento da correção).</summary>

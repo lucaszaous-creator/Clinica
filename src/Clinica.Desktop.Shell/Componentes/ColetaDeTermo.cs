@@ -66,7 +66,9 @@ public static class ColetaDeTermo
             documentoId,
             profissionalId,
             servicos.GetRequiredService<AcessoProntuarioService>(),
-            servicos.GetRequiredService<ParametrosService>());
+            servicos.GetRequiredService<ParametrosService>(),
+            servicos.GetRequiredService<ProblemaPacienteService>(),
+            servicos.GetRequiredService<ColetaRemotaTermoService>());
 
         new AssinaturaPacienteWindow(vm) { Owner = Dono() }.ShowDialog();
 

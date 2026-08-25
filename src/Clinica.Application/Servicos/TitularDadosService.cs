@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text;
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -56,6 +58,31 @@ public sealed class TitularDadosService
         _prontuarios = prontuarios;
         _documentos = documentos;
     }
+
+    /// <summary>
+    /// ⚠️ A SEÇÃO de cada natureza clínica (parcela 72) — a declaração que
+    /// <c>ConjuntoClinicoTests</c> confere gravando um registro de cada e exigindo que
+    /// ele apareça NO TEXTO.
+    ///
+    /// Ela nasce porque este documento cobria TRÊS naturezas de nove: quem recebe infusão
+    /// semanal, faz PHQ-9 e é pesado toda consulta levava, como resposta ao art. 18, II,
+    /// um papel que não dizia uma palavra sobre nada disso — e ele é a prova de que a
+    /// clínica atendeu ao pedido.
+    /// </summary>
+    public static IReadOnlyDictionary<NaturezaRegistroClinico, string> SecaoPorNatureza { get; } =
+        new Dictionary<NaturezaRegistroClinico, string>
+        {
+            [NaturezaRegistroClinico.SessaoMedica] = "== EVOLUÇÕES CLÍNICAS ==",
+            [NaturezaRegistroClinico.EvolucaoEnfermagem] = "== EVOLUÇÕES DE ENFERMAGEM ==",
+            [NaturezaRegistroClinico.PrescricaoInterna] = "== PRESCRIÇÕES DE INFUSÃO ==",
+            [NaturezaRegistroClinico.DocumentoClinico] = "== DOCUMENTOS EMITIDOS ==",
+            [NaturezaRegistroClinico.AvaliacaoClinica] = "== AVALIAÇÕES E ESCALAS ==",
+            [NaturezaRegistroClinico.MedidaClinica] = "== MEDIDAS ==",
+            [NaturezaRegistroClinico.ProblemaPaciente] = "== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==",
+            [NaturezaRegistroClinico.Anexo] = "== ANEXOS E MAPAS CORPORAIS ==",
+            [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS ==",
+            [NaturezaRegistroClinico.Anamnese] = "== ANAMNESE =="
+        };
 
     /// <summary>
     /// Tudo o que a clínica guarda sobre o paciente, num texto que ele leva embora.
@@ -124,10 +151,200 @@ public sealed class TitularDadosService
                              + (e.EvaAntes is { } antes ? $" · dor antes {antes}" : string.Empty)
                              + (e.EvaDepois is { } depois ? $" · dor depois {depois}" : string.Empty));
             Bloco(texto, "queixa", e.QueixaPrincipal);
+            // O registro do atendimento (parcela 73). O art. 18, II é sobre TUDO o que a
+            // clínica guarda — e a hipótese diagnóstica é justamente o que o titular leva
+            // ao próximo serviço.
+            Bloco(texto, "história da doença atual", e.HistoriaDoencaAtual);
+            Bloco(texto, "exame físico", e.ExameFisico);
+            Bloco(texto, "hipótese diagnóstica", e.HipoteseDiagnostica
+                + (string.IsNullOrWhiteSpace(e.CidSessao) ? string.Empty : $" (CID {e.CidSessao})"));
             Bloco(texto, "conduta", e.Conduta);
             Bloco(texto, "evolução", e.TextoEvolucao);
             Bloco(texto, "orientações", e.Orientacoes);
+            Bloco(texto, "plano terapêutico", e.PlanoTerapeutico);
         }
+        texto.AppendLine();
+
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). O art. 18 II é sobre TUDO o que a clínica
+        // guarda do titular — e um paciente que só passa pela enfermagem receberia, sem
+        // esta seção, um documento que diz que a clínica não tem registro clínico dele.
+        texto.AppendLine("== EVOLUÇÕES DE ENFERMAGEM ==");
+        var enfermagem = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        if (enfermagem.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var en in enfermagem.OrderBy(e => e.Data).ThenBy(e => e.Hora))
+        {
+            texto.AppendLine(
+                $"- {en.Data.ToString("dd/MM/yyyy", Brasil)} às {en.Hora:HH\\:mm}"
+                + (en.Intercorrencia ? " · INTERCORRÊNCIA" : string.Empty)
+                + (en.Cancelada ? " (CANCELADA)" : string.Empty));
+            if (en.SinaisVitaisResumidos is { } sinais) Bloco(texto, "sinais vitais", sinais);
+            if (en.AcessoResumo is { } acesso) Bloco(texto, "acesso venoso", acesso);
+            Bloco(texto, "observação", en.Texto);
+
+            // O Processo de Enfermagem, quando o registro é uma CONSULTA (parcela 73).
+            Bloco(texto, "histórico de enfermagem", en.Historico);
+            Bloco(texto, "exame físico", en.ExameFisico);
+
+            foreach (var d in en.Diagnosticos.OrderBy(x => x.Ordem))
+            {
+                texto.AppendLine($"    diagnóstico de enfermagem: {d.Redacao}");
+                if (!string.IsNullOrWhiteSpace(d.ResultadoEsperado))
+                    texto.AppendLine($"      resultado esperado: {d.ResultadoEsperado}");
+            }
+
+            foreach (var c in en.Cuidados.OrderBy(x => x.Ordem))
+                texto.AppendLine($"    cuidado prescrito: {c.Redacao}");
+
+            Bloco(texto, "avaliação de enfermagem", en.Avaliacao);
+            Bloco(texto, "registrado por", en.AutorNome
+                + (string.IsNullOrWhiteSpace(en.AutorConselho) ? "" : $" ({en.AutorConselho})"));
+            if (en.Cancelada) Bloco(texto, "motivo do cancelamento", en.MotivoCancelamento);
+        }
+        texto.AppendLine();
+
+        // ⚠️ AS SEIS SEÇÕES QUE FALTAVAM (parcela 72). O art. 18, II é sobre TUDO o que a
+        // clínica guarda do titular, e este documento cobria três naturezas de nove: quem
+        // recebe uma infusão semanal, faz PHQ-9 no consultório e é pesado toda consulta
+        // levava um papel que não dizia uma palavra sobre nada disso — e ele é a prova de
+        // que a clínica atendeu ao pedido. Agora a lista de naturezas é UMA
+        // (CatalogoRegistroClinico), e a próxima entidade clínica entra por ela.
+        texto.AppendLine("== PRESCRIÇÕES DE INFUSÃO ==");
+        var infusoes = await _repo.PrescricoesInternasDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        if (infusoes.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var pr in infusoes.OrderBy(p => p.Data).ThenBy(p => p.Hora))
+        {
+            texto.AppendLine(
+                $"- {pr.Data.ToString("dd/MM/yyyy", Brasil)} às {pr.Hora:HH\\:mm} · folha nº {pr.Numero}"
+                + (pr.Cancelada ? " (CANCELADA)" : string.Empty));
+            Bloco(texto, "indicação", pr.Indicacao);
+            Bloco(texto, "prescrita por", pr.Profissional?.Rotulo);
+
+            // A EXECUÇÃO junto: é o que entrou no paciente, a que horas e por quem — a
+            // parte que o titular tem mais razão de querer levar embora.
+            foreach (var item in pr.Itens.OrderBy(i => i.Ordem))
+            {
+                var checagem = item.ChecagemVigente;
+                texto.AppendLine(
+                    $"    {item.Ordem}. {item.TextoCompleto}"
+                    + (item.Suspenso ? " (suspenso pelo prescritor)" : string.Empty)
+                    + (checagem is null
+                        ? " — sem registro de execução"
+                        : $" — {(checagem.Situacao == SituacaoChecagem.Realizado ? "realizado" : "NÃO realizado")}"
+                          + $" às {checagem.HoraRealizacao:HH\\:mm} por {checagem.ExecutanteNome}"
+                          + (string.IsNullOrWhiteSpace(checagem.Justificativa)
+                              ? string.Empty
+                              : $" ({checagem.Justificativa})")));
+            }
+        }
+        texto.AppendLine();
+
+        texto.AppendLine("== AVALIAÇÕES E ESCALAS ==");
+        var avaliacoes = await _repo.AvaliacoesDoPacienteAsync(
+            pacienteId, null, incluirCanceladas: true, ct);
+        if (avaliacoes.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var a in avaliacoes.OrderBy(a => a.Data))
+            texto.AppendLine(
+                $"- {a.Data.ToString("dd/MM/yyyy", Brasil)} · {a.InstrumentoNome}: "
+                + $"{a.Pontuacao} de {a.PontuacaoMaxima}"
+                + (string.IsNullOrWhiteSpace(a.FaixaNome) ? string.Empty : $" · {a.FaixaNome}")
+                + (a.Cancelada ? " (CANCELADA)" : string.Empty));
+        texto.AppendLine();
+
+        texto.AppendLine("== MEDIDAS ==");
+        var medidas = await _repo.MedidasDoPacienteAsync(
+            pacienteId, null, incluirCanceladas: true, ct);
+        if (medidas.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var m in medidas.OrderBy(m => m.Data))
+            texto.AppendLine(
+                $"- {m.Data.ToString("dd/MM/yyyy", Brasil)} · {m.TipoNome}: "
+                + $"{m.Valor.ToString("0.##", Brasil)}"
+                + (m.ValorSecundario is { } segundo ? $"/{segundo.ToString("0.##", Brasil)}" : string.Empty)
+                + $" {m.Unidade}"
+                + (string.IsNullOrWhiteSpace(m.FaixaNome) ? string.Empty : $" · {m.FaixaNome}")
+                + (m.Cancelada ? " (CANCELADA)" : string.Empty));
+        texto.AppendLine();
+
+        // A ANAMNESE (parcela 75) — antecedentes, história familiar, hábitos. Entra pelo
+        // mesmo argumento da lista de problemas logo abaixo: sem ela o titular leva um
+        // documento que não diz nada sobre o que a clínica sabe do PASSADO dele, e o próximo
+        // serviço reperguntaria tudo — quando reperguntar for possível.
+        //
+        // ⚠️ As VERSÕES vão junto. O art. 18 II é sobre o que a clínica GUARDA, e ela guarda
+        // o que a anamnese dizia antes de cada correção — omiti-las entregaria menos do que
+        // existe, que é o defeito que este documento já corrigiu duas vezes.
+        texto.AppendLine("== ANAMNESE ==");
+        if (await _repo.AnamneseDoPacienteAsync(pacienteId, ct) is not { } an)
+        {
+            texto.AppendLine("(não colhida)");
+        }
+        else
+        {
+            texto.AppendLine($"Última revisão: {an.UltimaRevisao.ToString("dd/MM/yyyy HH:mm", Brasil)}"
+                             + (string.IsNullOrWhiteSpace(an.AtualizadaPor ?? an.CriadaPor)
+                                 ? string.Empty
+                                 : $" por {an.AtualizadaPor ?? an.CriadaPor}"));
+            EscreverAnamnese(texto, an.AntecedentesPessoais, an.AntecedentesFamiliares,
+                an.HabitosDeVida, an.HistoriaObstetrica, an.RevisaoDeSistemas, an.Observacoes);
+
+            foreach (var v in an.Versoes.OrderBy(v => v.Versao))
+            {
+                texto.AppendLine();
+                texto.AppendLine($"-- versão anterior {v.Versao}, substituída em "
+                                 + v.SubstituidaEm.ToString("dd/MM/yyyy HH:mm", Brasil)
+                                 + (string.IsNullOrWhiteSpace(v.SubstituidaPor)
+                                     ? string.Empty : $" por {v.SubstituidaPor}")
+                                 + (string.IsNullOrWhiteSpace(v.Motivo)
+                                     ? string.Empty : $" — motivo: {v.Motivo}"));
+                EscreverAnamnese(texto, v.AntecedentesPessoais, v.AntecedentesFamiliares,
+                    v.HabitosDeVida, v.HistoriaObstetrica, v.RevisaoDeSistemas, v.Observacoes);
+            }
+        }
+        texto.AppendLine();
+
+        // ⚠️ A LISTA DE PROBLEMAS é onde moram as ALERGIAS. Um documento de art. 18 sem
+        // ela entrega ao titular — e ao próximo serviço que o atender — um paciente "sem
+        // alergia nenhuma". É a mesma lacuna que a exportação do fornecedor já corrigiu.
+        texto.AppendLine("== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==");
+        var problemas = await _repo.ProblemasDoPacienteAsync(pacienteId, somenteAtivos: false, ct);
+        if (problemas.Count == 0) texto.AppendLine("(nenhum)");
+        foreach (var pb in problemas.OrderBy(p => p.Inicio ?? DateOnly.FromDateTime(p.CriadoEm)))
+            texto.AppendLine(
+                $"- {RotulosEnum.De(pb.Natureza)}: {pb.Descricao}"
+                + (string.IsNullOrWhiteSpace(pb.Cid) ? string.Empty : $" (CID {pb.Cid})")
+                + $" · {RotulosEnum.De(pb.Situacao)}"
+                + (pb.Inicio is { } inicio ? $" · desde {inicio.ToString("dd/MM/yyyy", Brasil)}" : string.Empty));
+        texto.AppendLine();
+
+        texto.AppendLine("== ANEXOS E MAPAS CORPORAIS ==");
+        var comAnexo = 0;
+
+        // ⚠️ Canceladas INCLUÍDAS. `_prontuarios.DoPacienteAsync` devolve só as vigentes,
+        // e o laudo anexado a uma sessão cancelada continua sob guarda — a tela de guarda
+        // o conta, e este documento não o listava. Duas respostas para "o que a clínica
+        // tem deste paciente", e a que vai para a mão dele era a menor.
+        var sessoesComCanceladas = await _repo.EvolucoesDoPacienteAsync(pacienteId, true, ct);
+
+        foreach (var e in sessoesComCanceladas)
+        {
+            foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
+            {
+                comAnexo++;
+                texto.AppendLine(
+                    $"- {e.Data.ToString("dd/MM/yyyy", Brasil)} · anexo: {a.NomeArquivo} "
+                    + $"({RotulosEnum.De(a.Tipo)}, {a.Tamanho} bytes)"
+                    + (e.Cancelada ? " (da sessão CANCELADA, guardada)" : string.Empty));
+            }
+
+            if (await _repo.ObterMapaDaEvolucaoAsync(e.Id, ct) is { } mapa)
+            {
+                comAnexo++;
+                texto.AppendLine(
+                    $"- {e.Data.ToString("dd/MM/yyyy", Brasil)} · mapa corporal com "
+                    + $"{mapa.Pontos.Count} ponto(s) marcado(s)"
+                    + (e.Cancelada ? " (da sessão CANCELADA, guardado)" : string.Empty));
+            }
+        }
+        if (comAnexo == 0) texto.AppendLine("(nenhum)");
         texto.AppendLine();
 
         texto.AppendLine("== DOCUMENTOS EMITIDOS ==");
@@ -229,5 +446,26 @@ public sealed class TitularDadosService
     {
         if (string.IsNullOrWhiteSpace(valor)) return;
         texto.AppendLine($"    {rotulo}: {valor.Trim()}");
+    }
+
+    /// <summary>
+    /// Escreve os seis campos, PULANDO o que não existe — rótulo sobre o vazio se leria como
+    /// "o paciente não tem antecedentes", que é o contrário de "não perguntamos".
+    /// </summary>
+    private static void EscreverAnamnese(
+        System.Text.StringBuilder texto, string? pessoais, string? familiares,
+        string? habitos, string? obstetrica, string? sistemas, string? observacoes)
+    {
+        void Campo(string rotulo, string? valor)
+        {
+            if (!string.IsNullOrWhiteSpace(valor)) texto.AppendLine($"- {rotulo}: {valor.Trim()}");
+        }
+
+        Campo("Antecedentes pessoais", pessoais);
+        Campo("Antecedentes familiares", familiares);
+        Campo("Hábitos de vida", habitos);
+        Campo("História obstétrica", obstetrica);
+        Campo("Interrogatório sintomatológico", sistemas);
+        Campo("Observações", observacoes);
     }
 }

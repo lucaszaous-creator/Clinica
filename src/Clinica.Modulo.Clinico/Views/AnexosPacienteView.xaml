@@ -1,0 +1,91 @@
+<UserControl x:Class="Clinica.Clinico.Views.AnexosPacienteView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="0,4,0,0">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Exames e anexos" Style="{StaticResource H3}" Margin="0,0,0,2" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                       Text="Tudo o que foi anexado ao prontuário desta pessoa, do mais recente para o mais antigo. Para anexar um arquivo novo, abra a sessão no Prontuário — o arquivo pertence à consulta em que ele foi discutido." />
+            <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                       Margin="0,6,0,0"
+                       Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
+                                    FallbackValue=Collapsed}" />
+        </StackPanel>
+
+        <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a gravidade. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica, e é o ÚLTIMO
+                 filho do Grid — na raiz da página ela cobriria o cabeçalho (parcela 58). -->
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Anexos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock Text="{Binding NomeArquivo}"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Contexto}"
+                                                   Style="{StaticResource TextoSuave}"
+                                                   Margin="0,2,0,0" />
+                                        <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
+                                                   Style="{StaticResource TextoSuave}"
+                                                   Margin="0,2,0,0"
+                                                   Visibility="{Binding Descricao,
+                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                FallbackValue=Collapsed}" />
+                                    </StackPanel>
+
+                                    <Button Grid.Column="1" Content="Salvar…" MinWidth="100"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource BotaoPequeno}"
+                                            Command="{Binding DataContext.BaixarCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <ctrl:EstadoDaTela Itens="{Binding Anexos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE8A5;"
+                                   TextoCarregando="Lendo os anexos…"
+                                   Titulo="Nenhum arquivo anexado"
+                                   Descricao="Laudos, imagens e exames anexados às sessões aparecem aqui. Para anexar, abra a sessão no Prontuário." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

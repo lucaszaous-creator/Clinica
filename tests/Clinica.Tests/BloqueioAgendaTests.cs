@@ -169,25 +169,37 @@ public class BloqueioAgendaTests : IDisposable
     }
 
     /// <summary>
-    /// A sessão que COMEÇA antes do bloqueio e o invade (11h30–12h30 × bloqueio a partir
-    /// das 12h) tem de aparecer em "quem já estava marcado" — item 4 da fila da parcela
-    /// 69: o `ColideCom` estava certo e a consulta-base filtrava `DataHora >= início`,
-    /// então essa sessão nunca chegava ao filtro.
+    /// A sessão que COMEÇA antes do bloqueio e o INVADE conta como marcada dentro dele
+    /// (fila da parcela 69, item 4): a consulta do repositório filtra por DataHora, e a
+    /// sessão das 13h30 de uma hora nunca chegava ao <c>ColideCom</c> de um bloqueio das
+    /// 14h — a recepção fechava a tarde e ninguém avisava o paciente das 13h30.
     /// </summary>
     [Fact]
-    public async Task Sessao_que_comeca_antes_do_bloqueio_e_invade_aparece_nos_marcados()
+    public async Task Sessao_que_comeca_antes_do_bloqueio_e_o_invade_aparece_como_marcada_dentro()
     {
         var pacienteId = await CriarPacienteAsync();
+        var profissionalId = await CriarProfissionalAsync();
 
-        var invade = await _agenda.AgendarAsync(
-            pacienteId, Manha.Date.AddHours(11).AddMinutes(30),
-            ModalidadeAtendimento.AcupunturaComEletro, null, duracaoMinutos: 60);
+        // A da manhã termina ANTES do bloqueio: a folga da busca (o dia inteiro) não
+        // pode transformá-la em falso conflito.
+        await _agenda.AgendarAsync(
+            pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null,
+            profissionalId: profissionalId, duracaoMinutos: 50);
 
+        var invasora = await _agenda.AgendarAsync(
+            pacienteId, Manha.Date.AddHours(13).AddMinutes(30),
+            ModalidadeAtendimento.AcupunturaComEletro, null,
+            profissionalId: profissionalId, duracaoMinutos: 60);
+
+        // Fecha a tarde a partir das 14h — a sessão das 13h30 termina 14h30, dentro dela.
         var resultado = await _bloqueios.CriarAsync(
-            Manha.Date.AddHours(12), Manha.Date.AddHours(18), "Reunião da equipe");
+            Manha.Date.AddHours(14), Manha.Date.AddHours(18), "Reunião",
+            profissionalId: profissionalId);
 
-        resultado.JaMarcados.Should().ContainSingle()
-            .Which.Id.Should().Be(invade.Id);
+        resultado.TemConflito.Should().BeTrue(
+            "a sessão invade o período fechado, e sumir com ela da lista é fechar a "
+            + "agenda sem avisar o paciente");
+        resultado.JaMarcados.Should().ContainSingle().Which.Id.Should().Be(invasora.Id);
     }
 
     [Fact]

@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<BloqueioAgendaService>();
         services.AddScoped<PainelRecepcaoService>();
         services.AddScoped<ProntuarioService>();
+        services.AddScoped<AnamneseService>();
         services.AddScoped<MapaCorporalService>();
         // Consultório (parcela 36): o dia de quem atende e as escalas por especialidade.
         services.AddScoped<ConsultorioService>();
@@ -35,6 +36,7 @@ public static class DependencyInjection
         // Parcela 37: as medidas seriadas e a lista de problemas do prontuário.
         services.AddScoped<MedidaClinicaService>();
         services.AddScoped<ProblemaPacienteService>();
+        services.AddScoped<ColetaRemotaTermoService>();
         // Conferência clínica da prescrição (parcela 40): alergia registrada × item escrito.
         services.AddScoped<PrescricaoService>();
         // Prescrição de execução interna, checagem de enfermagem e assinatura ICP-Brasil
@@ -43,6 +45,8 @@ public static class DependencyInjection
         // qualquer leitor de PDF (só os testes o constroem com a exigência desligada).
         services.AddScoped<PrescricaoInternaService>();
         services.AddScoped<ChecagemPrescricaoService>();
+        services.AddScoped<EvolucaoEnfermagemService>();
+        services.AddScoped<ChecagemCuidadoService>();
         services.AddScoped<PrescricaoInternaPdfService>();
         services.AddScoped<AssinaturaDePrescricaoService>();
         services.AddScoped<AssinaturaDeDocumentoClinicoService>();

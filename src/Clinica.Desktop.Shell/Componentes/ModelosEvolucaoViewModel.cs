@@ -25,13 +25,36 @@ public sealed class LinhaModeloEvolucao
     public required string? Conduta { get; init; }
     public required string? TextoEvolucao { get; init; }
     public required string? Orientacoes { get; init; }
+
+    /// <summary>Os cinco campos que a evolução ganhou nas parcelas 73 e 75.</summary>
+    public required string? HistoriaDoencaAtual { get; init; }
+    public required string? ExameFisico { get; init; }
+    public required string? HipoteseDiagnostica { get; init; }
+    public required string? CidSessao { get; init; }
+    public required string? PlanoTerapeutico { get; init; }
+
+    /// <summary>
+    /// O modelo traz conteúdo nos cinco campos da consulta. DERIVADO dos valores, nunca
+    /// gravado ao lado: dois lugares dizendo a mesma coisa divergem na primeira correção.
+    ///
+    /// Serve para avisar o que NÃO será aplicado quando a tela de destino não os edita.
+    /// </summary>
+    public bool TemCamposDaConsulta =>
+        !string.IsNullOrWhiteSpace(HistoriaDoencaAtual)
+        || !string.IsNullOrWhiteSpace(ExameFisico)
+        || !string.IsNullOrWhiteSpace(HipoteseDiagnostica)
+        || !string.IsNullOrWhiteSpace(CidSessao)
+        || !string.IsNullOrWhiteSpace(PlanoTerapeutico);
 }
 
 /// <summary>
 /// O que a janela devolve para a tela de evolução. Nulo = a pessoa fechou sem aplicar.
 /// </summary>
 public sealed record ModeloAplicado(
-    string? QueixaPrincipal, string? Conduta, string? TextoEvolucao, string? Orientacoes);
+    string? QueixaPrincipal, string? Conduta, string? TextoEvolucao, string? Orientacoes,
+    string? HistoriaDoencaAtual = null, string? ExameFisico = null,
+    string? HipoteseDiagnostica = null, string? CidSessao = null,
+    string? PlanoTerapeutico = null);
 
 /// <summary>
 /// MODELOS DE EVOLUÇÃO (parcela 63) — o roteiro da sessão que se repete.
@@ -108,15 +131,41 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
     /// <summary>Dispara quando a pessoa aplica — a janela fecha.</summary>
     public event Action? Aplicou;
 
+    /// <summary>
+    /// A tela de destino edita os NOVE campos da sessão.
+    ///
+    /// ⚠️ Falso na janela de evolução da RECEPÇÃO, que mostra quatro: aplicar ali os cinco
+    /// campos da consulta gravaria no prontuário um texto que a pessoa não viu e não pode
+    /// conferir — a "garantia aparente" que este projeto recusa desde a parcela 3. Então
+    /// eles NÃO são aplicados lá; e o que não se faz, se DIZ (ver <see cref="AvisoDoModelo"/>),
+    /// senão aplicar cinco de nove campos é meio sucesso apresentado como sucesso.
+    /// </summary>
+    private readonly bool _sessaoCompleta;
+
     public ModelosEvolucaoViewModel(
-        IServiceScopeFactory escopos, int? profissionalId, ModeloAplicado sessaoAtual)
+        IServiceScopeFactory escopos, int? profissionalId, ModeloAplicado sessaoAtual,
+        bool sessaoCompleta = true)
     {
         _escopos = escopos;
         _profissionalId = profissionalId;
         _sessaoAtual = sessaoAtual;
+        _sessaoCompleta = sessaoCompleta;
 
         _ = CarregarAsync();
     }
+
+    /// <summary>
+    /// O que este modelo traz e esta tela NÃO vai aplicar. Vazio quando não há o que dizer —
+    /// aviso que aparece sempre é aviso que ninguém lê.
+    /// </summary>
+    [ObservableProperty] private string _avisoDoModelo = string.Empty;
+
+    partial void OnSelecionadoChanged(LinhaModeloEvolucao? value)
+        => AvisoDoModelo = !_sessaoCompleta && value is { TemCamposDaConsulta: true }
+            ? "Este modelo também traz história da doença atual, exame físico, hipótese, "
+              + "CID e plano terapêutico. Esta tela não edita esses campos, então eles não "
+              + "serão aplicados aqui — use a tela de Atendimento do Consultório."
+            : string.Empty;
 
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): salvar e apagar recarregam, e duas
@@ -176,7 +225,12 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
         QueixaPrincipal = m.QueixaPrincipal,
         Conduta = m.Conduta,
         TextoEvolucao = m.TextoEvolucao,
-        Orientacoes = m.Orientacoes
+        Orientacoes = m.Orientacoes,
+        HistoriaDoencaAtual = m.HistoriaDoencaAtual,
+        ExameFisico = m.ExameFisico,
+        HipoteseDiagnostica = m.HipoteseDiagnostica,
+        CidSessao = m.CidSessao,
+        PlanoTerapeutico = m.PlanoTerapeutico
     };
 
     /// <summary>
@@ -186,7 +240,14 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
     /// </summary>
     private static string Previa(ModeloEvolucao m)
     {
-        var texto = new[] { m.Conduta, m.TextoEvolucao, m.QueixaPrincipal, m.Orientacoes }
+        var texto = new[]
+            {
+                m.Conduta, m.TextoEvolucao, m.QueixaPrincipal, m.Orientacoes,
+                // Os cinco no FIM da cadeia: um modelo só de exame físico e plano prevê-se
+                // por eles em vez de aparecer na lista como uma linha em branco.
+                m.PlanoTerapeutico, m.ExameFisico, m.HistoriaDoencaAtual,
+                m.HipoteseDiagnostica, m.CidSessao
+            }
             .FirstOrDefault(t => !string.IsNullOrWhiteSpace(t))?.Trim() ?? string.Empty;
 
         return texto.Length <= 120 ? texto : texto[..120] + "…";
@@ -210,7 +271,9 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "aplicar modelo de evolução");
 
         Resultado = new ModeloAplicado(
-            m.QueixaPrincipal, m.Conduta, m.TextoEvolucao, m.Orientacoes);
+            m.QueixaPrincipal, m.Conduta, m.TextoEvolucao, m.Orientacoes,
+            m.HistoriaDoencaAtual, m.ExameFisico, m.HipoteseDiagnostica,
+            m.CidSessao, m.PlanoTerapeutico);
 
         Aplicou?.Invoke();
     }
@@ -259,7 +322,12 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
                 QueixaPrincipal = _sessaoAtual.QueixaPrincipal,
                 Conduta = _sessaoAtual.Conduta,
                 TextoEvolucao = _sessaoAtual.TextoEvolucao,
-                Orientacoes = _sessaoAtual.Orientacoes
+                Orientacoes = _sessaoAtual.Orientacoes,
+                HistoriaDoencaAtual = _sessaoAtual.HistoriaDoencaAtual,
+                ExameFisico = _sessaoAtual.ExameFisico,
+                HipoteseDiagnostica = _sessaoAtual.HipoteseDiagnostica,
+                CidSessao = _sessaoAtual.CidSessao,
+                PlanoTerapeutico = _sessaoAtual.PlanoTerapeutico
             }, SessaoUsuario.Atual.Operador);
 
             NomeNovo = string.Empty;

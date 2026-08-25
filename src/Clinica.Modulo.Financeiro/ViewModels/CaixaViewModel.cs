@@ -414,7 +414,14 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         var destinatario = _dialogo.PerguntarTexto(
             "Recibo",
-            "Para quem é o recibo? Deixe em branco para usar o nome do paciente do lançamento.");
+            "Para quem é o recibo? Deixe em branco para usar o nome do paciente do lançamento.",
+            obrigatorio: false);
+
+        // ⚠️ Cancelar é "não quero o recibo". Antes de `obrigatorio: false` ele era a ÚNICA
+        // saída para o "deixe em branco" que a pergunta oferece — a janela recusava o vazio
+        // com "Escreva o motivo para continuar" —, e o recibo saía assim mesmo, numerado por
+        // ano, para ser desfeito só com cancelamento e motivo escrito.
+        if (destinatario is null) return;
 
         try
         {

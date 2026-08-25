@@ -8,6 +8,7 @@
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </Window.Resources>
 
@@ -62,6 +63,19 @@
                                     <TextBlock Text="Queixa" Style="{StaticResource Rotulo}" />
                                     <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap" Margin="0,0,0,6" />
 
+                                    <!-- A anamnese SÓ aparece quando a versão a tem: versão
+                                         gravada antes da parcela 74 não a guardava, e um
+                                         rótulo sobre o vazio se leria como "o médico não
+                                         escreveu" em vez de "o sistema não guardava". -->
+                                    <StackPanel Visibility="{Binding Anamnese,
+                                                Converter={StaticResource TextoParaVisibilidade},
+                                                FallbackValue=Collapsed}">
+                                        <TextBlock Text="Anamnese, exame e hipótese"
+                                                   Style="{StaticResource Rotulo}" />
+                                        <TextBlock Text="{Binding Anamnese}" TextWrapping="Wrap"
+                                                   Margin="0,0,0,6" />
+                                    </StackPanel>
+
                                     <TextBlock Text="Conduta" Style="{StaticResource Rotulo}" />
                                     <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap" Margin="0,0,0,6" />
 
@@ -69,7 +83,11 @@
                                     <TextBlock Text="{Binding Evolucao}" TextWrapping="Wrap" Margin="0,0,0,6" />
 
                                     <TextBlock Text="Orientações" Style="{StaticResource Rotulo}" />
-                                    <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap"
+                                               Margin="0,0,0,6" />
+
+                                    <TextBlock Text="Plano terapêutico" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Plano}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

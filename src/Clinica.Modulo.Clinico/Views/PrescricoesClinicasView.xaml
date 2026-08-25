@@ -9,7 +9,20 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24,20,24,24">
+    <DockPanel>
+        <DockPanel.Style>
+            <Style TargetType="DockPanel">
+                <!-- Como TELA (item de menu) ela tem a margem da página; como SEÇÃO do
+                     paciente, o workspace já deu a margem e repeti-la afastaria o
+                     conteúdo do crachá logo acima. -->
+                <Setter Property="Margin" Value="24,20,24,24" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding MostrarCabecalho}" Value="False">
+                        <Setter Property="Margin" Value="0,4,0,0" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </DockPanel.Style>
 
         <!-- Cabeçalho: quem, e o que se pode emitir. Os quatro tipos são BOTÕES porque no
              consultório a decisão vem antes do clique — ninguém pensa "vou emitir um
@@ -20,7 +33,9 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+            <StackPanel Grid.Column="0" Margin="0,0,16,0"
+                        Visibility="{Binding MostrarCabecalho,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
                 <TextBlock Text="Prescrições" Style="{StaticResource H1}" Margin="0,0,0,2" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
                            Text="Receita, atestado, comparecimento e pedido de exame — emitidos por quem atende." />
@@ -36,7 +51,9 @@
                 <!-- A busca é ATALHO: o caminho normal é o paciente que já está em foco.
                      A lista de resultados só aparece depois de digitar — caixa de
                      resultados vazia permanente é o defeito que a regra de leiaute proíbe. -->
-                <StackPanel Width="320" HorizontalAlignment="Right">
+                <StackPanel Width="320" HorizontalAlignment="Right"
+                            Visibility="{Binding MostrarCabecalho,
+                                         Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBox Style="{StaticResource CampoPesquisa}"
                              Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                              ctrl:Ajudantes.Placeholder="Buscar outro paciente" />

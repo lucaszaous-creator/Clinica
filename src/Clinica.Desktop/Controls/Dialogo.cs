@@ -19,10 +19,18 @@ public interface IDialogoService
     void Aviso(string titulo, string mensagem);
 
     /// <summary>
-    /// Pede um texto obrigatório (motivo, justificativa, senha provisória). Retorna null
-    /// se o usuário desistir — o chamador não deve seguir com a ação nesse caso.
+    /// Pede um texto ao usuário (motivo, justificativa, senha provisória). Retorna
+    /// <c>null</c> quando ele DESISTE (Cancelar/Esc) — e nesse caso o chamador não deve
+    /// seguir com a ação.
+    ///
+    /// ⚠️ Com <paramref name="obrigatorio"/> em <c>false</c> a janela aceita resposta em
+    /// branco e devolve <see cref="string.Empty"/>: é isso que separa "desisti" de "siga,
+    /// sem texto". Pergunta que anuncia o campo como opcional PRECISA passar <c>false</c> —
+    /// senão a janela recusa o vazio e sobra ao usuário o Cancelar, que quer dizer o
+    /// contrário do que o chamador vai entender.
     /// </summary>
-    string? PerguntarTexto(string titulo, string pergunta, string? textoInicial = null);
+    string? PerguntarTexto(string titulo, string pergunta, string? textoInicial = null,
+                           bool obrigatorio = true);
 }
 
 public sealed class DialogoService : IDialogoService
@@ -38,9 +46,10 @@ public sealed class DialogoService : IDialogoService
     public void Aviso(string titulo, string mensagem) =>
         MessageBox.Show(mensagem, titulo, MessageBoxButton.OK, MessageBoxImage.Information);
 
-    public string? PerguntarTexto(string titulo, string pergunta, string? textoInicial = null)
+    public string? PerguntarTexto(string titulo, string pergunta, string? textoInicial = null,
+                                 bool obrigatorio = true)
     {
-        var janela = new PromptWindow(titulo, pergunta, textoInicial)
+        var janela = new PromptWindow(titulo, pergunta, textoInicial, obrigatorio)
         {
             // Qualificado: dentro de Clinica.*, "Application" é o namespace Clinica.Application.
             Owner = System.Windows.Application.Current?.MainWindow

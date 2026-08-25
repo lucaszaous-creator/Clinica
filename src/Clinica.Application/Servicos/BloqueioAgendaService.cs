@@ -219,15 +219,17 @@ public sealed class BloqueioAgendaService
     /// <summary>
     /// Quem já está marcado dentro do período fechado. É a pergunta que a recepção faz
     /// no segundo seguinte ao cadastro: "e quem já estava marcado?".
+    ///
+    /// ⚠️ A busca começa na MEIA-NOITE do dia do bloqueio, não no início dele: a consulta
+    /// do repositório filtra por <c>DataHora</c>, e a sessão das 13h30 que INVADE um
+    /// bloqueio de "14h em diante" começa antes dele — filtrar do início do bloqueio a
+    /// deixava de fora, e quem decide sobreposição é o <c>ColideCom</c> logo abaixo, que
+    /// nunca chegava a vê-la (fila da parcela 69, item 4). Sessão não atravessa a
+    /// meia-noite, então o dia inteiro é a folga suficiente e barata.
     /// </summary>
     public async Task<IReadOnlyList<Agendamento>> MarcadosDentroAsync(
         BloqueioAgenda bloqueio, CancellationToken ct = default)
     {
-        // A consulta-base abre no COMEÇO DO DIA, não no início do bloqueio: a sessão de
-        // 11h30–12h30 colide com um bloqueio de 12h–18h e nunca chegaria ao `ColideCom`
-        // se o SQL filtrasse `DataHora >= 12h` (o filtro certo estava sobre a consulta
-        // errada — item 4 da fila da parcela 69). Sessão não atravessa a meia-noite, e o
-        // excedente do dia é barato: quem decide é a sobreposição logo abaixo.
         var doPeriodo = await _repo.AgendamentosNoPeriodoAsync(bloqueio.Inicio.Date, bloqueio.Fim, ct);
 
         return doPeriodo

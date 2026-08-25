@@ -202,10 +202,70 @@ public sealed class MedidaClinicaService
         var pontos = medidas
             .OrderBy(m => m.Data).ThenBy(m => m.Id)
             .Select(m => new PontoMedida(
-                m.Data, m.Valor, m.ValorSecundario, m.FaixaNome, m.FaixaGravidade))
+                m.Data, m.Valor, m.ValorSecundario, m.FaixaNome, m.FaixaGravidade,
+                Procedencia: "consultório"))
             .ToList();
 
+        // ⚠️ A PRESSÃO ARTERIAL vem de DUAS fontes (parcela 72), e é a única do catálogo
+        // assim. A PA é declarada com faixas publicadas desde a parcela 37 e a série
+        // nascia vazia e continuava vazia — porque a única porta de ESCRITA de
+        // `MedidaClinica` está no app do MÉDICO, enquanto a PA de verdade é aferida na
+        // ENFERMAGEM, toda sessão, e vai para `EvolucaoEnfermagem`. Curva vazia se lê como
+        // "este paciente nunca teve a pressão aferida", que é falso.
+        //
+        // A ponte é de LEITURA, e não de escrita: destravar a colheita de `MedidaClinica`
+        // pela enfermagem daria DOIS lugares para gravar a mesma aferição, sem nada na
+        // tela dizendo qual — e a decisão de onde ela mora já está tomada (com HORA, que
+        // `MedidaClinica` não tem).
+        if (tipo.Codigo == CatalogoMedidas.PressaoArterial)
+            pontos = await MesclarPressaoDaEnfermagemAsync(pacienteId, tipo, pontos, ct);
+
         return new SerieMedida(tipo.Codigo, tipo.Nome, tipo.Unidade, pontos);
+    }
+
+    /// <summary>
+    /// Junta à curva de PA os sinais vitais aferidos na enfermagem, com a procedência
+    /// escrita em cada ponto.
+    ///
+    /// ⚠️ A FAIXA é resolvida pela MESMA definição do catálogo, e não copiada de lugar
+    /// nenhum: a evolução de enfermagem grava os números crus (não há campo de faixa nela),
+    /// e inventar uma segunda leitura de "pressão normal" daria duas respostas para a mesma
+    /// aferição — o defeito que este projeto documenta desde a primeira parcela.
+    ///
+    /// Cancelada e retificada NÃO entram: registro desdito não é aferição.
+    /// </summary>
+    private async Task<List<PontoMedida>> MesclarPressaoDaEnfermagemAsync(
+        int pacienteId, TipoMedida tipo, List<PontoMedida> pontos, CancellationToken ct)
+    {
+        var evolucoes = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
+
+        // Quem decide o que vale é `EvolucaoEnfermagem.Vigentes` — a MESMA função que a
+        // tela de atendimento usa para mostrar os sinais vitais ao médico.
+        foreach (var e in EvolucaoEnfermagem.Vigentes(evolucoes))
+        {
+            if (e.PressaoSistolica is not { } sistolica) continue;
+            if (e.PressaoDiastolica is not { } diastolica) continue;
+
+            // A faixa da PA olha a SISTÓLICA (a nota do catálogo diz isso com todas as
+            // letras) e não depende de sexo — o segundo argumento é o sexo, não a
+            // diastólica.
+            var faixa = tipo.FaixaDe(sistolica, null);
+
+            pontos.Add(new PontoMedida(
+                e.Data, sistolica, diastolica,
+                faixa?.Nome, faixa?.Gravidade ?? GravidadeFaixa.Normal,
+                Derivado: false,
+                Procedencia: "enfermagem",
+                Hora: e.Hora));
+        }
+
+        // Cronológica de novo: a enfermagem entra no meio da série do consultório. Dentro
+        // do mesmo dia, a HORA desempata — é o que separa a aferição de antes da consulta
+        // da de meia hora depois da bomba.
+        return pontos
+            .OrderBy(p => p.Data)
+            .ThenBy(p => p.Hora ?? TimeOnly.MinValue)
+            .ToList();
     }
 
     /// <summary>

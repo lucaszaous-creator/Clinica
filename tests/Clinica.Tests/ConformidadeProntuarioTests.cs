@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -109,7 +110,7 @@ public class ConformidadeProntuarioTests : IDisposable
 
         var situacao = await _guarda.DoPacienteAsync(paciente);
 
-        situacao.Sessoes.Should().Be(0);
+        situacao.De(NaturezaRegistroClinico.SessaoMedica).Should().Be(0);
         situacao.SessoesCanceladas.Should().Be(1);
         situacao.UltimoRegistro.Should().Be(Dia, "cancelada é registro guardado, não registro inexistente");
         situacao.TotalDeRegistros.Should().Be(1);
@@ -138,7 +139,11 @@ public class ConformidadeProntuarioTests : IDisposable
         var proibidos = new[]
         {
             "RemoverEvolucaoAsync", "RemoverAnexoAsync",
-            "RemoverMedidaAsync", "RemoverAvaliacaoAsync"
+            "RemoverMedidaAsync", "RemoverAvaliacaoAsync",
+            // ⚠️ Entra AQUI no mesmo commit em que a entidade nasce. A rede casa por LISTA
+            // DE NOMES, e um método novo que ela não conhece a faria responder "está limpo"
+            // — o ponto cego que a parcela 60 pagou caro para descobrir.
+            "RemoverEvolucaoEnfermagemAsync"
         };
 
         var metodos = typeof(Clinica.Application.Abstracoes.IClinicaRepositorio)
@@ -167,6 +172,31 @@ public class ConformidadeProntuarioTests : IDisposable
 
         (await _db.Pacientes.AnyAsync(p => p.Id == pacienteId)).Should().BeTrue();
         (await _db.Evolucoes.AnyAsync(e => e.PacienteId == pacienteId)).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// ⚠️ A sétima raiz clínica (parcela 71). Sem ela na conta de
+    /// <c>PacienteTemRegistroClinicoAsync</c>, a ficha cujo ÚNICO registro é uma evolução
+    /// de enfermagem continuaria REMOVÍVEL — e a exclusão a levaria por arrasto, com o
+    /// teste da lista de métodos proibidos verde ao lado. É literalmente o buraco que a
+    /// parcela 60 achou no botão de excluir paciente, um ano depois de ele existir.
+    /// </summary>
+    [Fact]
+    public async Task Excluir_paciente_que_so_tem_evolucao_de_ENFERMAGEM_e_RECUSADO()
+    {
+        var pacienteId = await CriarPacienteAsync("Só Enfermagem");
+
+        await new Clinica.Application.Servicos.EvolucaoEnfermagemService(_repo).RegistrarAsync(
+            pacienteId, Dia, new TimeOnly(9, 0), "Curativo trocado.",
+            new Clinica.Application.Servicos.IdentificacaoExecutante(
+                null, "Joana Técnica", "COREN-SP 999999"));
+
+        var recusa = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => new PacienteService(_repo).RemoverAsync(pacienteId));
+
+        recusa.Message.Should().Contain("20 anos");
+        (await _db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == pacienteId))
+            .Should().BeTrue();
     }
 
     [Fact]
@@ -355,7 +385,7 @@ public class ConformidadeProntuarioTests : IDisposable
 
         var situacao = await _guarda.DoPacienteAsync(paciente);
 
-        situacao.Prescricoes.Should().Be(1);
+        situacao.De(NaturezaRegistroClinico.PrescricaoInterna).Should().Be(1);
         situacao.UltimoRegistro.Should().Be(new DateOnly(2026, 8, 3),
             "a folha diz o que entrou no paciente — ignorá-la calcularia o prazo pelo "
             + "registro errado, e para MENOS");
@@ -482,6 +512,37 @@ public class ConformidadeProntuarioTests : IDisposable
 
         leiaMe.Should().Contain("BYTES", "prometer que o CSV traz os laudos seria mentir sobre a entrega");
         leiaMe.Should().Contain("20 anos");
+    }
+
+    /// <summary>
+    /// ⚠️ A ANAMNESE é raiz clínica, e a FK dela é CASCATA.
+    ///
+    /// Sem esta linha em <c>PacienteTemRegistroClinicoAsync</c>, a ficha cujo único registro
+    /// clínico é a anamnese continuaria REMOVÍVEL, e a exclusão levaria por arrasto os
+    /// antecedentes E as versões deles — que é exatamente a cascata que a parcela 60 achou no
+    /// botão de excluir paciente, com o teste verde ao lado.
+    ///
+    /// A lição que este teste fixa: <b>raiz clínica nova entra nesta lista no MESMO commit</b>.
+    /// Ela não quebra build quando é esquecida.
+    /// </summary>
+    [Fact]
+    public async Task Paciente_com_ANAMNESE_nao_pode_ser_removido()
+    {
+        var p = new Paciente
+        {
+            Nome = "Marisa",
+            Convenio = Clinica.Domain.Convenio.UnimedIntercambio,
+            Sexo = Clinica.Domain.Sexo.Feminino
+        };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+
+        await new AnamneseService(_repo).SalvarAsync(p.Id, new AnamnesePaciente
+        {
+            AntecedentesPessoais = "Apendicectomia em 2015."
+        }, "dra.ana");
+
+        (await _repo.PacienteTemRegistroClinicoAsync(p.Id)).Should().BeTrue();
     }
 
     public void Dispose()

@@ -7,6 +7,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -197,6 +198,20 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         OnPropertyChanged(nameof(PodeNovoProblema));
     }
 
+    /// <summary>
+    /// ENFERMAGEM E INFUSÕES (parcela 72) — o mesmo componente da ficha e da tela da
+    /// Enfermagem, limitado às duas naturezas que faltavam aqui.
+    ///
+    /// ⚠️ A lista de SESSÕES desta tela NÃO foi substituída por ele: ela tem busca no
+    /// texto, contagem de anexos, marca de correção e os botões da linha. Trocá-la pela
+    /// genérica tiraria capacidade de quem a usa todo dia.
+    ///
+    /// ⚠️ Sem ações: o médico LÊ o que a enfermagem escreveu e não corrige (o registro é
+    /// assinado com o COREN dela), e a folha se mexe na sala, com o bit
+    /// <c>ChecarPrescricao</c>. Botão aceso que não faz nada é o defeito da parcela 41.
+    /// </summary>
+    public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
+
     public ProntuarioClinicoViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar,
         IDialogoService dialogo, PacienteEmFoco foco)
@@ -205,6 +220,17 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         _snackbar = snackbar;
         _dialogo = dialogo;
         _foco = foco;
+
+        LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
+        {
+            MostrarDocumentos = false,
+            SecoesVisiveis =
+            [
+                NaturezaRegistroClinico.EvolucaoEnfermagem,
+                NaturezaRegistroClinico.PrescricaoInterna
+            ],
+            SecaoInicial = NaturezaRegistroClinico.EvolucaoEnfermagem
+        };
 
         if (_foco.Definido) _ = CarregarAsync();
     }
@@ -246,8 +272,13 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         if (SemPaciente)
         {
             Paciente = string.Empty;
+            await LinhaDoTempo.CarregarAsync(0);
             return;
         }
+
+        // O componente tem contador de geração próprio e filtro de acesso por natureza —
+        // ele não depende de nada desta carga.
+        _ = LinhaDoTempo.CarregarAsync(PacienteId);
 
         try
         {
@@ -359,28 +390,23 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         }
     }
 
-    /// <summary>A sessão contém o termo em algum dos campos escritos.</summary>
+    /// <summary>
+    /// A sessão contém o termo em algum dos campos escritos.
+    ///
+    /// ⚠️ Os QUATRO da parcela 73 entram aqui (acrescentados na 74, 2ª rodada) — sem eles, a
+    /// busca ficava cega justamente para o que se procura: quem digita "hérnia" está
+    /// procurando a HIPÓTESE, e quem digita "Lasègue" está procurando o EXAME FÍSICO. A
+    /// pergunta que a parcela 37 usou para justificar a busca é literalmente essa ("o que o
+    /// profissional pergunta antes de atender"), e ela passou a ter resposta em campos que
+    /// o filtro não olhava.
+    ///
+    /// O CID entra junto: "M54.5" é o jeito mais curto de achar todas as lombalgias.
+    /// </summary>
     private static bool Casa(Evolucao e, string termo)
-    {
-        var alvo = Normalizar(string.Join(" ",
-            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes));
-        return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
-    }
+        // UMA definição, no domínio: esta busca existia duas vezes — uma por tela —
+        // e as duas já tinham divergido uma vez (parcela 77).
+        => BuscaNoProntuario.Casa(e, termo);
 
-    private static string Normalizar(string? texto)
-    {
-        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
-
-        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
-        var limpo = new System.Text.StringBuilder(decomposto.Length);
-
-        foreach (var c in decomposto)
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
-                != System.Globalization.UnicodeCategory.NonSpacingMark)
-                limpo.Append(char.ToLowerInvariant(c));
-
-        return limpo.ToString();
-    }
 
     // ---------------------------------------------------------------- anexos
 
@@ -423,6 +449,13 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
         try
         {
+            // ⚠️ A barreira que faltava (parcela 72): esta janela abre LAUDO — dado de
+            // saúde —, e o comando não conferia bit nenhum. As ações de DENTRO dela
+            // (anexar, retirar, baixar) já exigem o bit certo desde as parcelas 37 e 60;
+            // a porta, não. É a guarda de LEITURA sobre um caminho de leitura, e a tela
+            // diz por que recusou em vez de abrir vazia.
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "ver anexos do prontuário");
+
             var vm = new AnexosSessaoViewModel(
                 _escopos, linha.EvolucaoId, $"Sessão de {linha.Data} — {Paciente}",
                 PacienteId);

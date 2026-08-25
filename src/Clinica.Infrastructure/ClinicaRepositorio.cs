@@ -409,14 +409,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     }
 
     public async Task<bool> PacienteTemRegistroClinicoAsync(int pacienteId, CancellationToken ct = default)
-        // Seis raízes bastam: anexo e mapa pendem da evolução; resposta, da avaliação;
-        // checagem, da prescrição — se a raiz não existe, o dependente tampouco.
+        // SETE raízes: anexo e mapa pendem da evolução; resposta, da avaliação; checagem,
+        // da prescrição — se a raiz não existe, o dependente tampouco.
+        //
+        // ⚠️ A evolução de ENFERMAGEM é raiz própria (parcela 71) e não pende da
+        // prescrição: ela existe sem folha (curativo, observação, triagem). Sem esta linha,
+        // a ficha cujo único registro clínico é uma evolução de enfermagem continuaria
+        // REMOVÍVEL, e a exclusão a levaria por arrasto — que é exatamente a cascata que a
+        // parcela 60 achou no botão de excluir paciente, com o teste verde ao lado.
         => await _db.Evolucoes.AnyAsync(e => e.PacienteId == pacienteId, ct)
            || await _db.AvaliacoesClinicas.AnyAsync(a => a.PacienteId == pacienteId, ct)
            || await _db.MedidasClinicas.AnyAsync(m => m.PacienteId == pacienteId, ct)
            || await _db.DocumentosClinicos.AnyAsync(d => d.PacienteId == pacienteId, ct)
            || await _db.PrescricoesInternas.AnyAsync(p => p.PacienteId == pacienteId, ct)
-           || await _db.ProblemasPaciente.AnyAsync(p => p.PacienteId == pacienteId, ct);
+           || await _db.ProblemasPaciente.AnyAsync(p => p.PacienteId == pacienteId, ct)
+           || await _db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == pacienteId, ct)
+           // ⚠️ A ANAMNESE é a OITAVA raiz (parcela 75), e a FK dela é CASCATA: sem esta
+           // linha, a ficha cujo único registro clínico é a anamnese continuaria REMOVÍVEL,
+           // e a exclusão levaria por arrasto os antecedentes E as versões deles. É
+           // literalmente o cenário que o comentário acima descreve — cometido na parcela
+           // seguinte à que o escreveu.
+           || await _db.Anamneses.AnyAsync(a => a.PacienteId == pacienteId, ct);
 
     // ---- Retrato do paciente ----
 
@@ -470,6 +483,49 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
+
+    public async Task<IReadOnlyList<string>> HipotesesRecentesAsync(
+        int pacienteId, int quantas, CancellationToken ct = default)
+    {
+        // A projeção é o ponto: o SELECT traz UMA coluna, não o prontuário.
+        // ⚠️ `CanceladaEm == null`, nunca `!Cancelada` — a derivada não traduz.
+        var brutas = await _db.Evolucoes.AsNoTracking()
+            .Where(e => e.PacienteId == pacienteId
+                        && e.CanceladaEm == null
+                        && e.HipoteseDiagnostica != null
+                        && e.HipoteseDiagnostica != "")
+            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
+            // Um teto no SQL para não trazer quarenta linhas e jogar fora trinta e sete. É
+            // generoso de propósito: o DISTINCT é por TEXTO e acontece em memória (a
+            // comparação sem diferenciar caixa não tem tradução confiável entre provedores),
+            // então "lombalgia" repetida oito vezes precisa caber aqui dentro.
+            .Take(Math.Max(quantas, 1) * 10)
+            .Select(e => e.HipoteseDiagnostica!)
+            .ToListAsync(ct);
+
+        return brutas
+            .Select(h => h.Trim())
+            .Where(h => h.Length > 0)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .Take(quantas)
+            .ToList();
+    }
+
+    public async Task<(DateOnly? Primeira, int Total)> HistoricoDeSessoesAsync(
+        int pacienteId, CancellationToken ct = default)
+    {
+        // Uma ida ao banco, duas respostas. GroupBy sobre uma chave constante é o jeito de
+        // pedir MIN e COUNT juntos sem trazer uma linha sequer de Atendimento — a mesma
+        // razão das leituras em lote do projeto: a tela abre a cada troca de paciente e o
+        // banco é remoto.
+        var r = await _db.Atendimentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId && a.RealizadoEm != null)
+            .GroupBy(_ => 1)
+            .Select(g => new { Primeira = (DateOnly?)g.Min(a => a.Data), Total = g.Count() })
+            .FirstOrDefaultAsync(ct);
+
+        return r is null ? (null, 0) : (r.Primeira, r.Total);
+    }
 
     public async Task<IReadOnlyList<Atendimento>> AtendimentosDoPacienteNoDiaAsync(
         int pacienteId, DateOnly dia, CancellationToken ct = default)
@@ -928,6 +984,44 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Evolucao)
             .FirstOrDefaultAsync(a => a.Id == anexoId, ct);
 
+    // ---- Anamnese do paciente (parcela 75) ----
+
+    public Task<AnamnesePaciente?> AnamneseDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        // RASTREADA de propósito: o SalvarAsync a edita. E com as versões, porque é a
+        // contagem delas que numera a próxima.
+        => _db.Anamneses
+            .Include(a => a.Versoes)
+            .FirstOrDefaultAsync(a => a.PacienteId == pacienteId, ct);
+
+    public async Task AdicionarAnamneseAsync(
+        AnamnesePaciente anamnese, CancellationToken ct = default)
+        => await _db.Anamneses.AddAsync(anamnese, ct);
+
+    public async Task<IReadOnlyList<VersaoAnamnese>> VersoesDaAnamneseAsync(
+        int anamneseId, CancellationToken ct = default)
+        => await _db.VersoesAnamnese.AsNoTracking()
+            .Where(v => v.AnamnesePacienteId == anamneseId)
+            .OrderBy(v => v.Versao)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoDoPaciente>> AnexosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.AnexosProntuario.AsNoTracking()
+            // ⚠️ `CanceladaEm == null`, NUNCA `!Evolucao.Cancelada`: `Cancelada` é propriedade
+            // DERIVADA (`=> CanceladaEm is not null`) e não está mapeada, então o EF não a
+            // traduz e a consulta ESTOURA — "Translation of member 'Cancelada' failed".
+            .Where(a => a.CanceladoEm == null
+                        && a.Evolucao!.PacienteId == pacienteId
+                        && a.Evolucao.CanceladaEm == null)
+            // O mais recente na frente: o laudo que acabou de chegar é o que se procura.
+            .OrderByDescending(a => a.Evolucao!.Data).ThenByDescending(a => a.CriadoEm)
+            // A projeção é o ponto: o SELECT não inclui Conteudo.
+            .Select(a => new Clinica.Application.Modelos.AnexoDoPaciente(
+                a.Id, a.EvolucaoId, a.Evolucao!.Data, a.NomeArquivo, a.Tipo,
+                a.TipoConteudo, a.Tamanho, a.Descricao, a.CriadoEm))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()
@@ -950,6 +1044,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // Uma consulta para o prontuário inteiro: o agrupamento é do SQL, e o que volta são
     // dois inteiros por sessão COM anexo — as outras nem aparecem.
+    public async Task<IReadOnlyDictionary<int, bool>> TemMapaAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+    {
+        if (evolucaoIds.Count == 0) return new Dictionary<int, bool>();
+
+        var comMapa = await _db.MapasCorporais.AsNoTracking()
+            .Where(m => evolucaoIds.Contains(m.EvolucaoId))
+            .Select(m => m.EvolucaoId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return comMapa.ToDictionary(id => id, _ => true);
+    }
+
     public async Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
         IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
     {
@@ -1113,6 +1221,18 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(m => m.Pontos)
             .FirstOrDefaultAsync(m => m.EvolucaoId == evolucaoId, ct);
 
+    public async Task<IReadOnlyList<MapaCorporal>> MapasDasEvolucoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+    {
+        if (evolucaoIds.Count == 0) return [];
+
+        return await _db.MapasCorporais
+            .AsNoTracking()
+            .Include(m => m.Pontos)
+            .Where(m => evolucaoIds.Contains(m.EvolucaoId))
+            .ToListAsync(ct);
+    }
+
     public async Task AdicionarMapaAsync(MapaCorporal mapa, CancellationToken ct = default)
         => await _db.MapasCorporais.AddAsync(mapa, ct);
 
@@ -1172,6 +1292,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // Sem os itens: a lista da ficha mostra número, tipo e data — o corpo só é lido
     // quando alguém abre ou reimprime um documento específico.
+    // ---- Coleta remota do termo (parcela 81) ----
+
+    public async Task AdicionarColetaRemotaAsync(
+        ColetaRemotaTermo coleta, CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo.AddAsync(coleta, ct);
+
+    public async Task<ColetaRemotaTermo?> ColetaRemotaAbertaDoDocumentoAsync(
+        int documentoId, CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo
+            .Where(c => c.DocumentoClinicoId == documentoId
+                        && c.ConcluidaEm == null && c.CanceladaEm == null)
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasVencidasAsync(
+        DateTime agora, CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo
+            .Where(c => c.ConcluidaEm == null && c.CanceladaEm == null && c.ExpiraEm < agora)
+            .OrderBy(c => c.Id)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default)
         => await _db.DocumentosClinicos
@@ -1229,6 +1370,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
+            // ⚠️ Sem este Include o bloco de enfermagem sai VAZIO no papel, sem erro
+            // nenhum: em produção cada operação abre escopo próprio, e o teste que
+            // compartilha um DbContext passa pelo relationship fixup do EF (parcela 68).
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Diagnosticos)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Cuidados)
             .FirstOrDefaultAsync(p => p.Id == prescricaoId, ct);
 
     public Task<PrescricaoInterna?> ObterPrescricaoInternaPorCodigoAsync(
@@ -1240,6 +1386,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Diagnosticos)
+            .Include(p => p.EvolucoesEnfermagem).ThenInclude(e => e.Cuidados)
             .FirstOrDefaultAsync(p => p.CodigoVerificacao == limpo, ct);
     }
 
@@ -1313,6 +1461,85 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarChecagemPrescricaoAsync(
         ChecagemPrescricao checagem, CancellationToken ct = default)
         => await _db.ChecagensPrescricao.AddAsync(checagem, ct);
+
+    // ---- Evolução de enfermagem (parcela 71) ----
+
+    public async Task AdicionarEvolucaoEnfermagemAsync(
+        EvolucaoEnfermagem evolucao, CancellationToken ct = default)
+        => await _db.EvolucoesEnfermagem.AddAsync(evolucao, ct);
+
+    public Task<EvolucaoEnfermagem?> ObterEvolucaoEnfermagemAsync(
+        int id, CancellationToken ct = default)
+        => _db.EvolucoesEnfermagem
+            .Include(e => e.Paciente)
+            .Include(e => e.AutorUsuario)
+            // As etapas do Processo de Enfermagem (parcela 73). Sem elas a consulta grava e
+            // SOME na releitura — e o teste passa mesmo assim, pelo relationship fixup do
+            // EF num DbContext compartilhado (a lição da parcela 68).
+            .Include(e => e.Diagnosticos)
+            .Include(e => e.Cuidados)
+            .FirstOrDefaultAsync(e => e.Id == id, ct);
+
+    public async Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaPrescricaoAsync(
+        int prescricaoId, CancellationToken ct = default)
+        => await _db.EvolucoesEnfermagem
+            .Include(e => e.Diagnosticos)
+            .Include(e => e.Cuidados)
+            .Where(e => e.PrescricaoInternaId == prescricaoId)
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
+            .ToListAsync(ct);
+
+    // ---- A execução do CUIDADO (etapa 4 da COFEN, parcela 76) ----
+
+    public async Task AdicionarChecagemCuidadoAsync(
+        ChecagemCuidado checagem, CancellationToken ct = default)
+        => await _db.ChecagensCuidado.AddAsync(checagem, ct);
+
+    public Task<CuidadoEnfermagem?> ObterCuidadoEnfermagemAsync(
+        int cuidadoId, CancellationToken ct = default)
+        // A evolução vem junto: é dela que saem o PACIENTE e o cancelamento, e sem o
+        // Include ela chega NULA em produção, onde cada operação abre escopo próprio — o
+        // teste passaria pelo relationship fixup do EF (a lição da parcela 68).
+        => _db.CuidadosEnfermagem
+            .Include(c => c.Evolucao)
+            .FirstOrDefaultAsync(c => c.Id == cuidadoId, ct);
+
+    public Task<ChecagemCuidado?> ObterChecagemCuidadoAsync(
+        int checagemId, CancellationToken ct = default)
+        => _db.ChecagensCuidado
+            .Include(c => c.Cuidado).ThenInclude(c => c!.Evolucao)
+            .FirstOrDefaultAsync(c => c.Id == checagemId, ct);
+
+    public async Task<IReadOnlyList<ChecagemCuidado>> ChecagensDosCuidadosAsync(
+        IReadOnlyCollection<int> cuidadoIds, CancellationToken ct = default)
+    {
+        if (cuidadoIds.Count == 0) return [];
+
+        return await _db.ChecagensCuidado
+            .AsNoTracking()
+            .Where(c => cuidadoIds.Contains(c.CuidadoEnfermagemId))
+            // Cronológica: a folha se lê de cima para baixo, e dentro do dia a HORA é o
+            // que separa o curativo da manhã do da tarde.
+            .OrderBy(c => c.Data).ThenBy(c => c.HoraRealizacao).ThenBy(c => c.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDoPacienteAsync(
+        int pacienteId, int limite = 200, CancellationToken ct = default)
+        => await _db.EvolucoesEnfermagem
+            // ⚠️ A exportação e a linha do tempo escrevem o número da folha
+            // (`e.Prescricao?.Numero`). Sem este Include ele sai NULO em produção, onde
+            // cada operação abre escopo próprio — e o teste passa mesmo assim, pelo
+            // relationship fixup do EF num DbContext compartilhado (parcela 68).
+            .Include(e => e.Prescricao)
+            .Include(e => e.Diagnosticos)
+            .Include(e => e.Cuidados)
+            .Where(e => e.PacienteId == pacienteId)
+            // A mais recente primeiro: é o que se lê ao abrir o prontuário. O limite vai no
+            // SQL, nunca depois de materializar — a regra do seletor de pacientes.
+            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Hora).ThenByDescending(e => e.Id)
+            .Take(limite)
+            .ToListAsync(ct);
 
     public async Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default)
     {

@@ -190,6 +190,20 @@
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="{Binding Pacote}" TextWrapping="Wrap" />
                         </Border>
+                        <!-- O recado que vem do CONSULTÓRIO (parcela 74): o profissional
+                             terminou e o paciente está vindo fechar a sessão. Até aqui a
+                             recepcionista só descobria isso quando ele aparecia na frente
+                             dela, e o cartão ficava em "Em atendimento" por meia hora
+                             depois de a sala estar vazia — o quadro do dia mentindo sobre
+                             quem está ocupado. É SELO e não raia nova: uma coluna
+                             permanente para um estado que dura minutos é a faixa vazia
+                             comendo a tela. -->
+                        <Border Style="{StaticResource Badge.Sucesso}" Margin="0,0,4,4"
+                                ToolTip="O profissional encerrou o atendimento — o paciente está vindo fechar a sessão"
+                                Visibility="{Binding AtendimentoEncerrado,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="{Binding EncerradoEm}" TextWrapping="Wrap" />
+                        </Border>
                         <Border Style="{StaticResource Badge.Erro}" Margin="0,0,4,4"
                                 ToolTip="Guia pendente — peça o documento enquanto ele está aqui"
                                 Visibility="{Binding TemGuiaPendente,

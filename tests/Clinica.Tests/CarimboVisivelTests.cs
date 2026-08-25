@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.RegularExpressions;
 using Clinica.Application.Assinatura;
 using FluentAssertions;
 using PdfSharp.Pdf;
+using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
 using PdfSharp.Pdf.Signatures;
 using QuestPDF.Fluent;
@@ -119,6 +121,116 @@ public class CarimboVisivelTests
         Encoding.Latin1.GetString(duas).Should().Contain("Enf. Rita Lima");
     }
 
+    /// <summary>
+    /// ⚠️ A régua da 2ª assinatura tem de bater com a de FORA. A aparência dela é escrita à
+    /// mão em Helvetica, e o resolvedor de fontes do projeto só conhece a Segoe WP — que é
+    /// ~9% mais estreita —, então medir com o PDFsharp deixaria o texto estourar justamente
+    /// no caso apertado. A tabela é das métricas base-14; este número (215,319 pontos) foi
+    /// conferido contra o que o poppler mede no arquivo GERADO. Um dígito errado na tabela
+    /// só apareceria como texto por cima do carimbo vizinho, na clínica.
+    /// </summary>
+    [Fact]
+    public void A_regua_da_helvetica_bate_com_a_medicao_de_fora()
+        => RevisaoIncrementalPdf.LarguraNaHelvetica(
+                "20/08/2026 16:23 · emissor: Autoridade Certificadora do SERPRO Final v5", 6.5)
+            .Should().BeApproximately(215.319, 0.01);
+
+    /// <summary>
+    /// O carimbo do prescritor CORTA o que não cabe.
+    ///
+    /// <c>DrawString</c> com <c>TopLeft</c> não quebra linha nem corta: o que sobra sai por
+    /// cima do vizinho. Enquanto o bloco era invisível isso não aparecia. Medido no pior
+    /// caso realista, sobravam 8 pontos na RECEITA — o papel que vai à farmácia, com o QR
+    /// logo ao lado —, e o nome do profissional e o emissor do certificado não têm tamanho
+    /// máximo nenhum.
+    /// </summary>
+    [Fact]
+    public async Task Texto_que_nao_cabe_no_carimbo_sai_cortado()
+    {
+        const string nomeEnorme = "Dra. Maria Aparecida Gonçalves de Oliveira Santos "
+            + "Albuquerque Vasconcelos do Nascimento Figueiredo";
+
+        var servico = new AssinaturaDigitalService(exigirCadeiaConfiavel: false);
+        var assinado = (await servico.AssinarAsync(
+            PdfDeTeste(), Certificado("Dra. Ana Souza"),
+            Pedido("médica", 640) with { NomeExibido = nomeEnorme })).Pdf;
+
+        var conteudo = ConteudoDaPagina(assinado, 0);
+
+        conteudo.Should().NotContain(nomeEnorme,
+            "sem corte o nome sairia por cima do que estiver ao lado do carimbo");
+        conteudo.Should().Contain("Dra. Maria Aparecida",
+            "o começo continua legível — cortar não é apagar");
+        conteudo.Should().Contain("\u0085",
+            "as reticências (0x85 em WinAnsi) são o que diz ao leitor que há mais texto");
+    }
+
+    /// <summary>
+    /// O carimbo da enfermagem corta pela MESMA regra — e ali o vizinho fica a 10 pontos.
+    /// </summary>
+    [Fact]
+    public async Task O_carimbo_da_enfermagem_tambem_corta()
+    {
+        const string emissorEnorme =
+            "Autoridade Certificadora do Sistema de Justica Federal de Sao Paulo v10";
+
+        var enfermeira = Certificado(emissorEnorme);
+        var duas = await RevisaoIncrementalPdf.AnexarAssinaturaAsync(
+            await AssinarAsync(), Pedido("enfermeira", 580), enfermeira,
+            new PdfSharpDefaultSigner(enfermeira.Certificado, PdfMessageDigestType.SHA256, null),
+            "Signature2");
+
+        var texto = Encoding.Latin1.GetString(duas);
+
+        texto.Should().NotContain($"emissor: {emissorEnorme}");
+        texto.Should().Contain("\u0085", "o corte marca com reticências");
+    }
+
+    /// <summary>
+    /// ⚠️ O CARIMBO SÓ CAI NO LUGAR PORQUE A PILHA GRÁFICA CHEGA EQUILIBRADA NELE.
+    ///
+    /// Os fluxos de conteúdo de uma página são CONCATENADOS, e o <c>q</c> que o XGraphics
+    /// emite SALVA o estado — não o reinicia. O fluxo do QuestPDF abre com
+    /// <c>q .25 0 0 -.25 0 842 cm</c> (a escala do Skia) e não fecha esse <c>q</c>; quem
+    /// equilibra é um <c>Q</c> que o PDFsharp acrescenta no fim. Ou seja: a posição do
+    /// carimbo depende de uma combinação entre o que o QuestPDF EMITE e o que o PDFsharp
+    /// CONSERTA — duas bibliotecas que se atualizam sozinhas.
+    ///
+    /// Se um dia essa combinação mudar, o carimbo sai com a escala do Skia herdada: um
+    /// oitavo do tamanho, no meio da folha — e <b>criptograficamente válido</b>, com build
+    /// e testes verdes. É por isso que este teste olha o ESTADO, e não o texto: os outros
+    /// verificam que o carimbo está no fluxo, nunca ONDE ele cai, e o
+    /// <c>CarimboNoRodapeTests</c> mede o retângulo PEDIDO, não o desenhado.
+    /// </summary>
+    [Fact]
+    public async Task A_pilha_grafica_chega_equilibrada_no_carimbo()
+    {
+        var (profundidade, cmNaRaiz) = EstadoAntesDoCarimbo(await AssinarAsync());
+
+        profundidade.Should().Be(0,
+            "com q sobrando, o carimbo herda a transformação de quem desenhou a folha");
+        cmNaRaiz.Should().BeFalse(
+            "um cm fora de q/Q nunca é desfeito, e vale para tudo o que vier depois");
+    }
+
+    /// <summary>
+    /// O título do bloco sai em NEGRITO. O resolvedor de fontes descartava o parâmetro
+    /// <c>bold</c> e devolvia sempre a face regular: as quatro linhas saíam com o mesmo
+    /// peso, e o bloco ficava sem hierarquia nenhuma no papel que a clínica entrega.
+    /// </summary>
+    [Fact]
+    public async Task O_titulo_do_carimbo_sai_em_negrito()
+    {
+        var conteudo = ConteudoDaPagina(await AssinarAsync(), 0);
+
+        var fontes = Regex.Matches(conteudo, @"/(F\d+)\s+[\d.]+\s+Tf")
+            .Select(m => m.Groups[1].Value).Distinct().ToList();
+
+        fontes.Should().HaveCountGreaterThanOrEqualTo(2,
+            "título e corpo têm de resolver para faces DIFERENTES — uma só significa que o "
+            + "negrito foi pedido e descartado");
+    }
+
     // ---- Apoio ----
 
     /// <summary>Os dicionários das anotações da primeira página.</summary>
@@ -190,5 +302,91 @@ public class CarimboVisivelTests
         var comChave = new X509Certificate2(
             cert.Export(X509ContentType.Pfx, "teste"), "teste", X509KeyStorageFlags.Exportable);
         return CertificadoIcpBrasil.Ler(comChave);
+    }
+
+    /// <summary>
+    /// Percorre os fluxos de conteúdo ANTERIORES ao do carimbo (o último) e devolve a
+    /// profundidade da pilha <c>q</c>/<c>Q</c> ao fim deles, mais se algum <c>cm</c> foi
+    /// aplicado na raiz (fora de qualquer q/Q) — que é o que não se desfaz nunca.
+    ///
+    /// Precisa pular literais de texto: um "(Q)" dentro de uma string não é operador, e a
+    /// folha do QuestPDF é cheia de texto e de strings hexadecimais.
+    /// </summary>
+    private static (int Profundidade, bool CmNaRaiz) EstadoAntesDoCarimbo(byte[] pdf)
+    {
+        using var entrada = new MemoryStream(pdf, writable: false);
+        var doc = PdfReader.Open(entrada, PdfDocumentOpenMode.Modify);
+
+        var fluxos = new List<PdfContent>();
+        foreach (var f in doc.Pages[0].Contents) fluxos.Add(f);
+        var antes = new StringBuilder();
+        for (var i = 0; i < fluxos.Count - 1; i++)
+            antes.Append(Encoding.Latin1.GetString(fluxos[i].Stream.UnfilteredValue))
+                 .Append('\n');
+
+        fluxos.Should().HaveCountGreaterThan(1,
+            "o carimbo é o ÚLTIMO fluxo; sem os anteriores este teste não prova nada");
+
+        var texto = antes.ToString();
+        int profundidade = 0, i2 = 0;
+        var cmNaRaiz = false;
+        var token = new StringBuilder();
+
+        void Fechar()
+        {
+            var t = token.ToString();
+            token.Clear();
+            if (t == "q") profundidade++;
+            else if (t == "Q") profundidade--;
+            else if (t == "cm" && profundidade == 0) cmNaRaiz = true;
+        }
+
+        while (i2 < texto.Length)
+        {
+            var c = texto[i2];
+
+            if (c == '(')                       // literal: pula até o ) equilibrado
+            {
+                Fechar();
+                var nivel = 1;
+                i2++;
+                while (i2 < texto.Length && nivel > 0)
+                {
+                    if (texto[i2] == '\\') i2++;
+                    else if (texto[i2] == '(') nivel++;
+                    else if (texto[i2] == ')') nivel--;
+                    i2++;
+                }
+                continue;
+            }
+
+            if (c == '<' && i2 + 1 < texto.Length && texto[i2 + 1] != '<')
+            {
+                Fechar();
+                while (i2 < texto.Length && texto[i2] != '>') i2++;
+                i2++;
+                continue;
+            }
+
+            if (c == '%')                       // comentário até o fim da linha
+            {
+                Fechar();
+                while (i2 < texto.Length && texto[i2] != '\n') i2++;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(c) || c is '/' or '[' or ']' or '<' or '>')
+            {
+                Fechar();
+                i2++;
+                continue;
+            }
+
+            token.Append(c);
+            i2++;
+        }
+
+        Fechar();
+        return (profundidade, cmNaRaiz);
     }
 }

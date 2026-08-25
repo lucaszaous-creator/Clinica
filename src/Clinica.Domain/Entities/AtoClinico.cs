@@ -754,6 +754,19 @@ public class ItemDocumento
 
     /// <summary>Quantidade, quando faz sentido ("1 caixa", "2 frascos").</summary>
     public string? Quantidade { get; set; }
+
+    /// <summary>
+    /// O que esta linha tem de DESENHÁVEL — o mapa corporal da sessão e a EVA (parcela 79),
+    /// na forma de <see cref="DesenhoDaSessao"/>.
+    ///
+    /// ⚠️ Está aqui, e não sendo lido do prontuário na hora de imprimir, porque o conteúdo
+    /// do documento é gravado na EMISSÃO: a segunda via tem de sair idêntica à que o
+    /// paciente levou. Ler o mapa vivo faria a reimpressão de amanhã mostrar pontos que a
+    /// via de hoje não tem, porque a sessão foi corrigida no meio.
+    ///
+    /// Nulo é o caso NORMAL: consulta, receita e atestado não desenham nada.
+    /// </summary>
+    public string? Desenho { get; set; }
 }
 
 /// <summary>

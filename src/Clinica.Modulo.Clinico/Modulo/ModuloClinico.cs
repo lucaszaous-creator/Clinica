@@ -73,6 +73,13 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveSalaInfusao = ChavesSuite.SalaInfusao;
 
     /// <summary>
+    /// A tela da ENFERMAGEM (parcela 71). Terceira tela do SHELL publicada por DOIS
+    /// módulos, pela razão da sala de infusão acima — e a chave mora em ChavesSuite
+    /// porque literal à mão dos dois lados sempre compila e some em silêncio.
+    /// </summary>
+    public const string ChaveEnfermagem = ChavesSuite.Enfermagem;
+
+    /// <summary>
     /// A produtividade do profissional, na tela dele. <c>ProdutividadeProfissional</c> e
     /// <c>CompletudeProntuario</c> só eram lidos pelo BI do Gerente: o sistema media quem
     /// atende e a pessoa medida não via o próprio número.
@@ -153,6 +160,17 @@ public sealed class ModuloClinico : IModuloApp
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
         },
+
+        // A tela da ENFERMAGEM: TODOS os pacientes cadastrados e a evolução de cada
+        // um. SEPARADA da sala de infusão de propósito — a sala responde "o que
+        // executar agora" e só mostra as folhas do dia; esta responde "quem eu atendi
+        // e o que escrevi", e a clínica disse que todo paciente passa pela enfermagem.
+        // Terceira pergunta, terceira tela.
+        new ItemMenuModulo
+        {
+            Chave = ChaveEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.RegistrarEvolucaoEnfermagem
+        },
         new ItemMenuModulo
         {
             Chave = ChaveMeusNumeros, Rotulo = "Meus n\u00FAmeros", Glifo = "\uE9D9",
@@ -198,15 +216,55 @@ public sealed class ModuloClinico : IModuloApp
         }
     ];
 
-    /// <summary>Em que aba da tela do paciente cada chave clínica cai.</summary>
-    private static int AbaDe(string chave) => chave switch
+    /// <summary>
+    /// As SEÇÕES da tela do paciente, na ordem em que o rail as desenha.
+    ///
+    /// ⚠️ Ela existe para o mapa de navegação parar de ser por ÍNDICE. Enquanto
+    /// <c>AbaDe</c> devolvia um número escrito à mão, pôr uma seção no MEIO da lista
+    /// empurrava todos os de baixo — e índice desatualizado não quebra build nenhum: ele
+    /// abre a seção ERRADA. Foi o que a parcela 75 fez ao inserir a Anamnese em 1.
+    ///
+    /// Agora a chave aponta para o NOME e o índice sai daqui. Reordenar continua exigindo
+    /// mexer nesta lista, mas mexer nela é ÓBVIO — e a checagem 38 casa esta lista com os
+    /// rótulos do rail, posição por posição, de modo que XAML e C# não podem divergir em
+    /// silêncio.
+    /// </summary>
+    public static readonly IReadOnlyList<string> SecoesDoPaciente =
+    [
+        "Atendimento",
+        "Anamnese",
+        "Histórico de sessões",
+        "Prescrições e documentos",
+        "Exames e anexos",
+        "Evolução da dor",
+        "Medidas",
+        "Avaliações"
+    ];
+
+    /// <summary>
+    /// Em que seção da tela do paciente cada chave clínica cai.
+    ///
+    /// O mapa é por NOME (ver <see cref="SecoesDoPaciente"/>); o índice é derivado. Chave
+    /// que não estiver aqui cai na primeira seção, que é o Atendimento.
+    ///
+    /// <c>ChavePrescricoes</c> continua de FORA de propósito: ela é um item de menu de
+    /// verdade, e quem entra por ali não tem paciente em foco — mandá-la para a seção
+    /// abriria a tela do paciente em branco pedindo que se escolhesse alguém.
+    /// </summary>
+    private static int AbaDe(string chave)
     {
-        ChaveProntuario => 1,
-        ChaveEvolucaoDor => 2,
-        ChaveMedidas => 3,
-        ChaveAvaliacoes => 4,
-        _ => 0
-    };
+        var nome = chave switch
+        {
+            ChaveProntuario => "Histórico de sessões",
+            ChaveEvolucaoDor => "Evolução da dor",
+            ChaveMedidas => "Medidas",
+            ChaveAvaliacoes => "Avaliações",
+            _ => "Atendimento"
+        };
+
+        var i = SecoesDoPaciente.ToList().IndexOf(nome);
+        return i < 0 ? 0 : i;
+    }
 
     public void Registrar(IServiceCollection servicos)
     {
@@ -220,12 +278,15 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<PrescricoesClinicasViewModel>();
         servicos.AddTransient<PrescricaoInfusaoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
+        servicos.AddTransient<EnfermagemViewModel>();
         servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
         servicos.AddTransient<EvolucaoDorViewModel>();
         servicos.AddTransient<MedidasViewModel>();
         servicos.AddTransient<AvaliacoesViewModel>();
+        servicos.AddTransient<AnamneseViewModel>();
+        servicos.AddTransient<AnexosPacienteViewModel>();
         servicos.AddTransient<MeusPacientesViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
         // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e
@@ -257,6 +318,10 @@ public sealed class ModuloClinico : IModuloApp
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
+        },
+        ChaveEnfermagem => new EnfermagemView
+        {
+            DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
         },
         ChaveMeusNumeros => new MeusNumerosView
         {

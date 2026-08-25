@@ -26,6 +26,25 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     private readonly int _pacienteId;
     private int? _evolucaoId;
 
+    // ⚠️ OS QUATRO DA PARCELA 73, CARREGADOS E DEVOLVIDOS INTACTOS (parcela 74, 2ª rodada).
+    //
+    // Esta janela é a do BALCÃO e não edita anamnese — ela não tem esses campos na tela. Mas
+    // o serviço grava o que o chamador manda, então reenviar nulos APAGARIA a história da
+    // doença atual, o exame físico, a hipótese e o CID que o médico escreveu no Consultório.
+    // É a mesma armadilha que a parcela 68 encontrou no vínculo com o horário, e a saída é a
+    // mesma: quem não edita, PRESERVA.
+    //
+    // Eles não viram propriedade pública de propósito — propriedade pública convida um XAML
+    // a mostrá-los, e dado clínico do médico não se edita no balcão.
+    private string? _historiaDoencaAtual;
+    private string? _exameFisico;
+    private string? _hipoteseDiagnostica;
+    private string? _cidSessao;
+    private string? _planoTerapeutico;
+    private DateOnly? _retornoSugeridoEm;
+    private string? _retornoSugeridoNota;
+    private string? _encaminhamento;
+
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<AnexoResumo> Anexos { get; } = [];
 
@@ -64,7 +83,13 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
         var vm = new ModelosEvolucaoViewModel(
             _escopos,
             Profissional?.Id ?? SessaoUsuario.Atual.ProfissionalId,
-            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes));
+            // ⚠️ `sessaoCompleta: false` — esta janela mostra QUATRO campos. Os cinco da
+            // consulta (história, exame físico, hipótese, CID e plano) ela PRESERVA sem
+            // exibir, e por isso não os oferece nem os aplica: gravar aqui um texto que a
+            // pessoa não viu é escrever no prontuário às cegas. A janela DIZ isso quando o
+            // modelo escolhido os traz, em vez de descartá-los calada.
+            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes),
+            sessaoCompleta: false);
 
         var janela = new ModelosEvolucaoWindow(vm)
         {
@@ -149,6 +174,16 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             TextoEvolucao = evolucao.TextoEvolucao;
             Orientacoes = evolucao.Orientacoes;
 
+            // Guardados para voltarem intactos no Salvar — ver o comentário dos campos.
+            _historiaDoencaAtual = evolucao.HistoriaDoencaAtual;
+            _exameFisico = evolucao.ExameFisico;
+            _hipoteseDiagnostica = evolucao.HipoteseDiagnostica;
+            _cidSessao = evolucao.CidSessao;
+            _planoTerapeutico = evolucao.PlanoTerapeutico;
+            _retornoSugeridoEm = evolucao.RetornoSugeridoEm;
+            _retornoSugeridoNota = evolucao.RetornoSugeridoNota;
+            _encaminhamento = evolucao.Encaminhamento;
+
             await RecarregarAnexosAsync(prontuario);
         }
         catch (Exception ex)
@@ -202,7 +237,19 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
                 QueixaPrincipal = QueixaPrincipal,
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
-                Orientacoes = Orientacoes
+                Orientacoes = Orientacoes,
+                // Devolvidos como vieram: esta janela não os edita.
+                HistoriaDoencaAtual = _historiaDoencaAtual,
+                ExameFisico = _exameFisico,
+                HipoteseDiagnostica = _hipoteseDiagnostica,
+                CidSessao = _cidSessao,
+                PlanoTerapeutico = _planoTerapeutico,
+                // QUEM NÃO EDITA, PRESERVA: esta janela não mostra o retorno nem o
+                // encaminhamento, e devolvê-los intactos é o que impede a edição pelo
+                // balcão de APAGAR a decisão que o profissional tomou.
+                RetornoSugeridoEm = _retornoSugeridoEm,
+                RetornoSugeridoNota = _retornoSugeridoNota,
+                Encaminhamento = _encaminhamento
             }, SessaoUsuario.Atual.Operador);
 
             _evolucaoId = salva.Id;

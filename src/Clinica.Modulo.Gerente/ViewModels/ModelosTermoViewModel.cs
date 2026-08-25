@@ -283,37 +283,26 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Cria os dois termos do BSV como RASCUNHO e os amarra às duas modalidades de BSV
-    /// (parcela 67).
+    /// Cria os dois termos do BSV — o TCLE (assinado UMA vez, vale a partir da assinatura)
+    /// e o Termo da sessão (assinado a CADA sessão) — e os amarra às duas modalidades.
     ///
-    /// ⚠️ Isto não contradiz a regra do cabeçalho — "o texto é da clínica, não nosso". O que
-    /// a regra proíbe é o termo de FÁBRICA: o texto que o sistema aplica sozinho, sem
-    /// ninguém ler. Aqui alguém abre esta tela e CLICA; o nome do modelo traz "(rascunho —
-    /// revisar)" e a primeira linha do corpo manda o responsável técnico conferir.
+    /// Desde ago/2026 o texto NÃO é mais rascunho: é o conteúdo que o advogado da cliente
+    /// redigiu, reproduzido em `ModelosTermoBsv`. A regra do cabeçalho ("o texto é da
+    /// clínica, não nosso") passou a ser atendida pela via direta — o texto É o da clínica.
     ///
-    /// O que mudou a decisão foi o desfecho da alternativa: a lista nascer vazia não fez
-    /// ninguém escrever um termo do zero no meio do expediente — fez o BSV continuar
-    /// acontecendo SEM termo nenhum. Rascunho que alguém revisa é melhor que folha em branco
-    /// que ninguém preenche.
+    /// ⚠️ Quando o BSV JÁ exige termo, o botão vira SUBSTITUIÇÃO, e ela é explícita: uma
+    /// confirmação de perigo lista o que está amarrado hoje, desliga essas exigências
+    /// (`AlternarAsync` — desligar, nunca apagar: o texto antigo e os termos já assinados
+    /// ficam) e amarra o par novo. Recusar a pergunta não muda nada. É seguro porque
+    /// aplicar COPIA (Lei 13.787/2018): o termo assinado guarda o texto que o paciente leu.
     ///
-    /// ⚠️ A guarda de "já configurado" olha as EXIGÊNCIAS do BSV, nunca o nome do modelo.
-    ///
-    /// A primeira versão comparava o nome — e o nome é justamente o que o desenho pede que
-    /// mude: a marca "(rascunho — revisar)" mora nele para ser apagada quando o responsável
-    /// técnico aprovar o texto. Renomeado, o segundo clique não encontrava nada, criava
-    /// outro par de rascunhos e ligava mais QUATRO exigências — que a chave alargada desta
-    /// mesma parcela deixa CONVIVER com as antigas. O resultado seria o BSV cobrando quatro
-    /// papéis, dois deles o rascunho não revisado, e assinar um par não zeraria o outro.
-    ///
-    /// A pergunta certa não é "este texto já existe?", é "o BSV já está configurado?".
-    ///
-    /// ⚠️ E ela é RESUMÍVEL de propósito: são seis gravações contra um banco remoto, sem
+    /// ⚠️ E ela é RESUMÍVEL de propósito: são gravações contra um banco remoto, sem
     /// transação que as amarre. Caindo a rede no meio, o segundo clique refaz o que faltou
-    /// — `SalvarModeloAsync` sobrescreve o modelo de mesmo nome (ainda o rascunho, ninguém
-    /// revisou) e `ExigirAsync` atualiza a amarração que já existe em vez de duplicá-la.
-    /// A versão anterior travava aqui: o guarda por nome achava o consentimento gravado,
-    /// recusava tudo, e a declaração de jejum nunca era criada — em silêncio, com a tela
-    /// dizendo que o trabalho estava feito.
+    /// — `SalvarModeloAsync` sobrescreve o modelo de mesmo nome, desligar exigência já
+    /// desligada é no-op e `ExigirAsync` atualiza (e RELIGA) a amarração que já existe em
+    /// vez de duplicá-la. A guarda continua olhando as EXIGÊNCIAS, nunca o nome do modelo
+    /// (a lição da parcela 67: nome é editável, e guarda ancorada em campo editável não é
+    /// guarda).
     /// </summary>
     [RelayCommand]
     private async Task CriarModelosDoBsvAsync()
@@ -330,11 +319,10 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
         // recepção faz amanhã de manhã não acontece num clique distraído.
         if (!_dialogo.Confirmar(
                 "Criar os termos do BSV",
-                "Serão criados dois termos como RASCUNHO — o consentimento do procedimento e "
-                + "a declaração do dia (jejum) — e as duas modalidades de BSV passam a "
-                + "exigi-los.\n\n"
-                + "O texto é um ponto de partida: o responsável técnico precisa revisá-lo "
-                + "antes do primeiro uso. Confirma?"))
+                "Serão criados os dois termos do BSV com o texto aprovado pela clínica:\n\n"
+                + "• TCLE — o paciente assina UMA vez, e ele fica registrado na ficha;\n"
+                + "• Termo da sessão — o paciente assina a CADA sessão.\n\n"
+                + "As duas modalidades de BSV passam a exigi-los. Confirma?"))
             return;
 
         try
@@ -346,51 +334,62 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
             var termos = scope.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
             var operador = SessaoUsuario.Atual.Operador;
 
-            // O BSV já está configurado? A pergunta é sobre a AMARRAÇÃO, não sobre o texto:
-            // amarrada, existe um termo em uso — possivelmente já revisado e renomeado —, e
-            // criar outro par faria o paciente assinar quatro papéis.
+            // O BSV já exige termo? A pergunta é sobre a AMARRAÇÃO, não sobre o texto —
+            // nome de modelo é editável, e guarda ancorada em campo editável não é guarda
+            // (parcela 67). Havendo amarração, o clique vira SUBSTITUIÇÃO: desliga o que
+            // está em uso e amarra o par novo. Desligar, nunca apagar — o texto antigo e
+            // os termos já assinados com ele ficam, porque aplicar COPIA.
+            // Só as ATIVAS: `ExigenciasAsync` devolve também as desligadas, e desligada não
+            // está "em uso" — listá-la na pergunta de substituição seria cobrar decisão
+            // sobre o que já foi decidido.
             var jaAmarradas = (await termos.ExigenciasAsync())
-                .Where(e => ModelosTermoBsv.ModalidadesDoBsv.Contains(e.Modalidade))
+                .Where(e => e.Ativa && ModelosTermoBsv.ModalidadesDoBsv.Contains(e.Modalidade))
                 .ToList();
 
             if (jaAmarradas.Count > 0)
             {
-                MensagemEhErro = true;
-                Mensagem = "O BSV já exige termo: "
-                           + string.Join("; ", jaAmarradas
-                               .Select(e => $"\"{e.Modelo?.Nome ?? "termo"}\"")
-                               .Distinct())
-                           + ". Edite o texto na lista ao lado — criar outro par faria o "
-                           + "paciente assinar os mesmos papéis duas vezes.";
-                return;
+                var emUso = string.Join("; ", jaAmarradas
+                    .Select(e => $"\"{e.Modelo?.Nome ?? "termo"}\"")
+                    .Distinct());
+
+                if (!_dialogo.ConfirmarPerigo(
+                        "Substituir os termos do BSV",
+                        $"O BSV já exige termo: {emUso}.\n\n"
+                        + "Essas exigências serão DESLIGADAS e as modalidades de BSV "
+                        + "passam a exigir os dois termos novos. Os termos já assinados "
+                        + "não mudam — cada um guarda o texto que o paciente leu.\n\n"
+                        + "Substituir?"))
+                    return;
+
+                foreach (var exigencia in jaAmarradas)
+                    await termos.AlternarAsync(exigencia.Id, ativa: false, operador);
             }
 
             var consentimento = ModelosTermoBsv.Consentimento();
-            var declaracao = ModelosTermoBsv.DeclaracaoDoDia();
+            var declaracao = ModelosTermoBsv.TermoDaSessao();
 
             var salvoConsentimento = await documentos.SalvarModeloAsync(consentimento, operador);
             var salvoDeclaracao = await documentos.SalvarModeloAsync(declaracao, operador);
 
             foreach (var modalidade in ModelosTermoBsv.ModalidadesDoBsv)
             {
-                // O consentimento vale a partir da assinatura: é o que permite colhê-lo na
-                // consulta em que o paciente vem tirar dúvidas.
+                // O TCLE vale a partir da assinatura: o paciente assina UMA vez — inclusive
+                // na consulta em que vem tirar dúvidas — e ele fica na ficha.
                 await termos.ExigirAsync(
                     modalidade, salvoConsentimento.Id, operador: operador,
                     soValeNoDiaDoProcedimento: false);
 
-                // A declaração do dia é a exceção que a caixa existe para atender: "ESTOU em
-                // jejum" assinado na véspera é afirmação sobre o futuro.
+                // O termo da sessão é assinado a CADA sessão (decisão da cliente): "fui
+                // reavaliado NESTA data" assinado na véspera é afirmação sobre o futuro.
                 await termos.ExigirAsync(
                     modalidade, salvoDeclaracao.Id, operador: operador,
                     soValeNoDiaDoProcedimento: true);
             }
 
             MensagemEhErro = false;
-            Mensagem = "Dois termos do BSV criados como RASCUNHO e amarrados às duas "
-                       + "modalidades. Revise o texto com o responsável técnico e apague a "
-                       + "linha de aviso ao aprová-lo.";
-            _snackbar.Sucesso("Termos do BSV criados.");
+            Mensagem = "Termos do BSV amarrados às duas modalidades: o TCLE é assinado uma "
+                       + "vez e fica na ficha; o Termo da sessão é assinado a cada sessão.";
+            _snackbar.Sucesso("Termos do BSV configurados.");
 
             await CarregarAsync();
             Selecionado = Modelos.FirstOrDefault(m => m.Id == salvoConsentimento.Id);
@@ -403,7 +402,7 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
                        + "gravado é reaproveitado.";
             Clinica.Application.Diagnostico.Registrar("Gerente — criar termos do BSV", ex);
 
-            // Recarregar depois da FALHA, e não só depois do êxito: são seis gravações
+            // Recarregar depois da FALHA, e não só depois do êxito: são várias gravações
             // independentes, e a tela precisa mostrar o que ficou. Sem isto ela continua
             // vazia dizendo "Nenhum termo escrito", que é o convite a clicar de novo sem
             // saber que metade já existe.

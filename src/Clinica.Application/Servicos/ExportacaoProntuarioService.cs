@@ -3,6 +3,7 @@ using System.Text;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -58,6 +59,32 @@ public sealed class ExportacaoProntuarioService
     public ExportacaoProntuarioService(IClinicaRepositorio repo) => _repo = repo;
 
     /// <summary>
+    /// ⚠️ O ARQUIVO de cada natureza clínica (parcela 72) — a declaração que
+    /// <c>ConjuntoClinicoTests</c> confere contra <see cref="CatalogoRegistroClinico"/>,
+    /// natureza a natureza, gravando um registro de cada e exigindo que ele APAREÇA.
+    ///
+    /// O defeito que ela existe para impedir já foi cometido duas vezes neste arquivo: a
+    /// folha de infusão e a lista de problemas — onde moram as ALERGIAS — ficaram de fora
+    /// da primeira versão. Um prontuário exportado sem elas entrega ao próximo fornecedor
+    /// um paciente "sem alergia nenhuma". Declaração sozinha pode mentir, e é por isso que
+    /// o teste é COMPORTAMENTAL: ele lê o CSV.
+    /// </summary>
+    public static IReadOnlyDictionary<NaturezaRegistroClinico, string> ArquivoPorNatureza { get; } =
+        new Dictionary<NaturezaRegistroClinico, string>
+        {
+            [NaturezaRegistroClinico.SessaoMedica] = "prontuario-sessoes.csv",
+            [NaturezaRegistroClinico.EvolucaoEnfermagem] = "prontuario-enfermagem.csv",
+            [NaturezaRegistroClinico.PrescricaoInterna] = "prontuario-prescricoes.csv",
+            [NaturezaRegistroClinico.DocumentoClinico] = "prontuario-documentos.csv",
+            [NaturezaRegistroClinico.AvaliacaoClinica] = "prontuario-avaliacoes.csv",
+            [NaturezaRegistroClinico.MedidaClinica] = "prontuario-medidas.csv",
+            [NaturezaRegistroClinico.ProblemaPaciente] = "prontuario-problemas.csv",
+            [NaturezaRegistroClinico.Anexo] = "prontuario-anexos.csv",
+            [NaturezaRegistroClinico.MapaCorporal] = "prontuario-mapa-corporal.csv",
+            [NaturezaRegistroClinico.Anamnese] = "prontuario-anamnese.csv"
+        };
+
+    /// <summary>
     /// Exporta o prontuário de todos os pacientes (ou de um só, quando
     /// <paramref name="pacienteId"/> vem preenchido).
     /// </summary>
@@ -71,11 +98,17 @@ public sealed class ExportacaoProntuarioService
 
         var cadastro = Cabecalho("PacienteId", "Nome", "Documento", "Nascimento", "Sexo",
             "Telefone", "Convenio", "Carteirinha");
+        // ⚠️ As colunas do ATENDIMENTO (parcela 73) entram AQUI e não numa planilha nova:
+        // elas são da sessão, e separá-las obrigaria quem recebe o prontuário a casar duas
+        // tabelas pelo id para ler uma consulta.
         var sessoes = Cabecalho("PacienteId", "Paciente", "SessaoId", "Data", "Situacao",
-            "EvaAntes", "EvaDepois", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
+            "EvaAntes", "EvaDepois", "QueixaPrincipal", "HistoriaDoencaAtual", "ExameFisico",
+            "HipoteseDiagnostica", "CID", "Conduta", "Evolucao", "Orientacoes",
+            "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento",
             "CriadoPor", "MotivoCancelamento");
         var versoes = Cabecalho("PacienteId", "SessaoId", "Versao", "SubstituidaEm",
-            "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes");
+            "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
+            "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento");
         var avaliacoes = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "Pontuacao", "PontuacaoMaxima", "Unidade", "Faixa", "Situacao");
         var medidas = Cabecalho("PacienteId", "Paciente", "Data", "Tipo", "Valor",
@@ -105,10 +138,47 @@ public sealed class ExportacaoProntuarioService
         // Coordenadas normalizadas (0 a 1) sobre a figura, como foram gravadas.
         var pontosMapa = Cabecalho("PacienteId", "SessaoId", "Face", "Ordem", "Numero",
             "X", "Y", "Tecnica", "Observacao");
+        // A ANAMNESE do paciente (parcela 75). Entra pela regra 8 do compromisso: entidade
+        // clínica nova entra na exportação, senão a clínica entrega ao próximo fornecedor um
+        // prontuário sem os antecedentes — e antecedente que não viaja é antecedente que o
+        // próximo médico vai reperguntar, ou pior, presumir ausente.
+        //
+        // As VERSÕES vão junto: a retificação rastreável (art. 3º da Lei 13.787/2018) só
+        // continua rastreável se o que foi substituído acompanhar o que vale.
+        var anamnese = Cabecalho("PacienteId", "Paciente", "Versao", "Situacao",
+            "AntecedentesPessoais", "AntecedentesFamiliares", "HabitosDeVida",
+            "HistoriaObstetrica", "RevisaoDeSistemas", "Observacoes",
+            "Quando", "Por", "MotivoDaCorrecao");
         // As RESPOSTAS item a item das escalas: o escore ia e o que o paciente respondeu
         // ficava — e é a resposta (o item 9 do PHQ-9, por exemplo) que carrega o alerta.
         var respostas = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "ItemOrdem", "ItemCodigo", "Enunciado", "Valor", "OpcaoRotulo");
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). Entra pela regra 8: entidade clínica nova
+        // entra na exportação e na guarda, senão a clínica exporta um prontuário
+        // incompleto. Canceladas e retificadas INCLUÍDAS e marcadas, como em toda lista
+        // deste arquivo.
+        var enfermagem = Cabecalho("PacienteId", "Paciente", "Data", "Hora", "RegistradoEm",
+            "PrescricaoNumero", "Texto", "Intercorrencia", "PA", "FC", "FR", "Temperatura",
+            "SpO2", "Dor", "Autor", "Conselho", "Retificacao", "MotivoRetificacao",
+            "Situacao", "MotivoCancelamento",
+            // O Processo de Enfermagem (parcela 73): o que é TEXTO fica na linha da
+            // evolução; o diagnóstico e o cuidado são LISTAS e vão em planilha própria,
+            // como os itens e as checagens da folha de infusão.
+            "EhConsulta", "Historico", "ExameFisico", "Avaliacao",
+            // O acesso venoso (parcela 77): numa clínica de infusão é o achado que a
+            // próxima punção consulta, e ele não se conta lendo parágrafo.
+            "AcessoLocal", "AcessoCalibre", "AcessoPuncionadoEm");
+        var diagnosticosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
+            "Ordem", "Codigo", "Titulo", "RelacionadoA", "EvidenciadoPor", "ResultadoEsperado");
+        var cuidadosEnf = Cabecalho("PacienteId", "Paciente", "Data", "Hora",
+            "Ordem", "Codigo", "Cuidado", "Frequencia", "SeNecessario");
+        // ⚠️ A EXECUÇÃO do cuidado (etapa 4 da COFEN, parcela 76) entra pela regra 8 do
+        // compromisso de conformidade. Exportar o cuidado PRESCRITO sem o que foi
+        // executado dá um prontuário que diz o que se mandou fazer e cala sobre o que foi
+        // feito — que é justamente a pergunta de quem audita enfermagem.
+        var execucoesEnf = Cabecalho("PacienteId", "Paciente", "Cuidado", "Data", "Hora",
+            "Situacao", "Justificativa", "Observacao", "Executante", "Conselho",
+            "RegistradoEm", "Retifica", "MotivoRetificacao");
 
         foreach (var p in pacientes)
         {
@@ -122,13 +192,20 @@ public sealed class ExportacaoProntuarioService
             {
                 Linha(sessoes, p.Id, p.Nome, e.Id, Data(e.Data),
                     e.Cancelada ? "Cancelada" : "Vigente",
-                    e.EvaAntes, e.EvaDepois, e.QueixaPrincipal, e.Conduta,
-                    e.TextoEvolucao, e.Orientacoes, e.CriadoPor, e.MotivoCancelamento);
+                    e.EvaAntes, e.EvaDepois, e.QueixaPrincipal,
+                    e.HistoriaDoencaAtual, e.ExameFisico, e.HipoteseDiagnostica, e.CidSessao,
+                    e.Conduta, e.TextoEvolucao, e.Orientacoes, e.PlanoTerapeutico,
+                    e.RetornoSugeridoEm is { } r ? Data(r) : null,
+                    e.RetornoSugeridoNota, e.Encaminhamento,
+                    e.CriadoPor, e.MotivoCancelamento);
 
                 foreach (var v in await _repo.VersoesDaEvolucaoAsync(e.Id, ct))
                     Linha(versoes, p.Id, e.Id, v.Versao,
                         v.SubstituidaEm.ToString("O", Fixa), v.SubstituidaPor, v.Motivo,
-                        v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes);
+                        v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes,
+                        v.PlanoTerapeutico,
+                        v.RetornoSugeridoEm is { } rv ? Data(rv) : null,
+                        v.RetornoSugeridoNota, v.Encaminhamento);
 
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
                     Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,
@@ -169,6 +246,22 @@ public sealed class ExportacaoProntuarioService
                     m.ValorSecundario?.ToString("0.##", Fixa), m.Unidade, m.FaixaNome,
                     m.Cancelada ? "Cancelada" : "Vigente");
 
+            if (await _repo.AnamneseDoPacienteAsync(p.Id, ct) is { } an)
+            {
+                // A VIGENTE primeiro, depois o que ela já disse — a ordem em que se lê.
+                Linha(anamnese, p.Id, p.Nome, an.Versoes.Count + 1, "Vigente",
+                    an.AntecedentesPessoais, an.AntecedentesFamiliares, an.HabitosDeVida,
+                    an.HistoriaObstetrica, an.RevisaoDeSistemas, an.Observacoes,
+                    an.UltimaRevisao.ToString("O", Fixa),
+                    an.AtualizadaPor ?? an.CriadaPor, null);
+
+                foreach (var v in an.Versoes.OrderBy(v => v.Versao))
+                    Linha(anamnese, p.Id, p.Nome, v.Versao, "Substituída",
+                        v.AntecedentesPessoais, v.AntecedentesFamiliares, v.HabitosDeVida,
+                        v.HistoriaObstetrica, v.RevisaoDeSistemas, v.Observacoes,
+                        v.SubstituidaEm.ToString("O", Fixa), v.SubstituidaPor, v.Motivo);
+            }
+
             foreach (var pr in await _repo.PrescricoesInternasDoPacienteAsync(p.Id, int.MaxValue, ct))
             {
                 Linha(prescricoes, p.Id, p.Nome, pr.Numero, Data(pr.Data),
@@ -196,6 +289,58 @@ public sealed class ExportacaoProntuarioService
                 }
             }
 
+            var enfermagemDoPaciente =
+                await _repo.EvolucoesEnfermagemDoPacienteAsync(p.Id, int.MaxValue, ct);
+
+            foreach (var en in enfermagemDoPaciente)
+            {
+                Linha(enfermagem, p.Id, p.Nome, Data(en.Data), en.Hora.ToString("HH\\:mm"),
+                    en.RegistradoEm.ToString("O", Fixa),
+                    en.Prescricao?.Numero, en.Texto, en.Intercorrencia ? "sim" : "não",
+                    en.PressaoArterial, en.FrequenciaCardiaca, en.FrequenciaRespiratoria,
+                    en.Temperatura, en.SaturacaoOxigenio, en.Dor,
+                    en.AutorNome, en.AutorConselho,
+                    en.EhRetificacao ? "retifica anterior" : string.Empty,
+                    en.MotivoRetificacao,
+                    en.Cancelada ? "Cancelada" : "Válida", en.MotivoCancelamento,
+                    en.EhConsulta ? "sim" : "não",
+                    en.Historico, en.ExameFisico, en.Avaliacao,
+                    en.AcessoLocal, en.AcessoCalibre,
+                    en.AcessoPuncionadoEm is { } a ? Data(a) : null);
+
+                foreach (var d in en.Diagnosticos.OrderBy(x => x.Ordem))
+                    Linha(diagnosticosEnf, p.Id, p.Nome, Data(en.Data),
+                        en.Hora.ToString("HH\\:mm"), d.Ordem, d.Codigo, d.Titulo,
+                        d.RelacionadoA, d.EvidenciadoPor, d.ResultadoEsperado);
+
+                foreach (var c in en.Cuidados.OrderBy(x => x.Ordem))
+                    Linha(cuidadosEnf, p.Id, p.Nome, Data(en.Data),
+                        en.Hora.ToString("HH\\:mm"), c.Ordem, c.Codigo, c.Descricao,
+                        c.Frequencia, c.SeNecessario ? "sim" : "não");
+            }
+
+            // EM LOTE, com os ids que já estão em memória: uma consulta por cuidado daria
+            // dezenas de idas ao banco por paciente — a lição da guarda (parcela 69).
+            // A RETIFICADA entra também, marcada: o prontuário exportado mostra o que a
+            // folha dizia antes, que é o que torna a correção rastreável (art. 3º da Lei
+            // 13.787/2018).
+            // ⚠️ O nome do cuidado sai do que JÁ ESTÁ EM MEMÓRIA, nunca de `x.Cuidado`:
+            // `ChecagensDosCuidadosAsync` é `AsNoTracking` e não faz `Include` — a
+            // navegação chegaria NULA em produção e a coluna sairia com "#123", enquanto o
+            // teste passaria pelo relationship fixup do EF (a lição da parcela 68).
+            var nomeDoCuidado = enfermagemDoPaciente
+                .SelectMany(en => en.Cuidados)
+                .ToDictionary(c => c.Id, c => c.Redacao);
+
+            foreach (var x in await _repo.ChecagensDosCuidadosAsync(nomeDoCuidado.Keys.ToList(), ct))
+                Linha(execucoesEnf, p.Id, p.Nome,
+                    nomeDoCuidado.GetValueOrDefault(x.CuidadoEnfermagemId, "(cuidado removido)"),
+                    Data(x.Data), x.HoraRealizacao.ToString("HH\\:mm"),
+                    x.Realizado ? "Realizado" : "Não realizado",
+                    x.Justificativa, x.Observacao, x.ExecutanteNome, x.ExecutanteConselho,
+                    x.RegistradoEm.ToString("dd/MM/yyyy HH\\:mm"),
+                    x.EhRetificacao ? "sim" : "não", x.MotivoRetificacao);
+
             foreach (var d in await _repo.DocumentosDoPacienteAsync(p.Id, ct))
                 Linha(documentos, p.Id, p.Nome, d.Numero,
                     TipoDocumentoInfo.Rotular(d.Tipo), Data(d.Data),
@@ -217,7 +362,12 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-prescricoes-checagens.csv", checagens.ToString()),
             new("prontuario-problemas.csv", problemas.ToString()),
             new("prontuario-mapa-corporal.csv", pontosMapa.ToString()),
+            new("prontuario-anamnese.csv", anamnese.ToString()),
             new("prontuario-avaliacoes-respostas.csv", respostas.ToString()),
+            new("prontuario-enfermagem.csv", enfermagem.ToString()),
+            new("prontuario-enfermagem-diagnosticos.csv", diagnosticosEnf.ToString()),
+            new("prontuario-enfermagem-cuidados.csv", cuidadosEnf.ToString()),
+            new("prontuario-enfermagem-execucoes.csv", execucoesEnf.ToString()),
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }
@@ -286,6 +436,9 @@ public sealed class ExportacaoProntuarioService
          - prontuario-anexos.csv ............. LISTA dos arquivos anexados (ver abaixo)
          - prontuario-prescricoes.csv ........ folhas de infusão (prescrição interna)
          - prontuario-prescricoes-itens.csv .. o que foi prescrito em cada folha
+         - prontuario-enfermagem............ a evolução de enfermagem: o que foi observado
+                                             no paciente, com hora do fato, sinais vitais e
+                                             quem escreveu (nome e COREN)
          - prontuario-prescricoes-checagens... o que a enfermagem executou, com horário
          - prontuario-problemas.csv .......... lista de problemas (diagnósticos, ALERGIAS)
          - prontuario-mapa-corporal.csv ...... pontos marcados no mapa corporal por sessão

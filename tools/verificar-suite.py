@@ -1671,6 +1671,47 @@ LIMPOS = (
 )
 
 
+_TEXT_DO_TEXTBLOCK = re.compile(r'\bText\s*=\s*"((?:[^"]|\n)*?)"', re.S)
+
+
+def _texto_amarrado(tag: str) -> bool:
+    """O `Text` DESTE TextBlock vem de um `{Binding}`?
+
+    ⚠️ Olha o atributo `Text`, e não a tag inteira. A primeira versão procurava "Binding"
+    em qualquer lugar da abertura, e por isso acusava um `Text` LITERAL só porque a mesma
+    tag tinha `Visibility="{Binding ...}"` ao lado — o indicador "●" das abas da sessão
+    (parcela 77) foi o caso que a revelou. A regra é "texto do BANCO tem tamanho
+    imprevisível"; um literal o programador mede ao escrever, tenha ele binding no
+    Visibility, no Foreground ou em nada.
+
+    Checagem que reclama do que está certo é checagem que alguém desliga — e aí ela para
+    de pegar o defeito de verdade.
+    """
+    m = _TEXT_DO_TEXTBLOCK.search(tag)
+    return m is not None and "{Binding" in m.group(1)
+
+
+# --- autoteste do `_texto_amarrado` (checagem 24) ---
+#
+# Os dois sentidos no mesmo lugar, pela lição da parcela 66: o sentido que você deixar de
+# fora é o que a próxima pessoa vai cometer. O 2º caso é o que a primeira versão errava.
+for _cenario, _tag, _esperado in (
+    ("Text do banco", '<TextBlock Text="{Binding Nome}" />', True),
+    ("Text literal com binding no Visibility",
+     '<TextBlock Text="&#x25CF;" Visibility="{Binding Tem, Converter={StaticResource C}}" />',
+     False),
+    ("Text literal puro", '<TextBlock Text="Subjetivo" />', False),
+    ("binding de Text quebrado em duas linhas",
+     '<TextBlock Text="{Binding Mensagem,\n    Converter={StaticResource C}}" />', True),
+    ("sem Text nenhum", '<TextBlock Style="{StaticResource X}" />', False),
+):
+    if _texto_amarrado(_tag) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 24 mudou de resposta ({_cenario}) — "
+            f"leu {_texto_amarrado(_tag)}, esperado {_esperado}."
+        )
+
+
 def _estilos_que_ja_resolvem() -> set[str]:
     """
     Os estilos de TextBlock que já tratam o estouro no PRÓPRIO estilo.
@@ -1737,7 +1778,7 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
 
     for achado in TEXTBLOCK_ABERTURA.finditer(corpo):
         tag = achado.group(0)
-        if "Binding" in tag and "TextWrapping" not in tag and "TextTrimming" not in tag:
+        if _texto_amarrado(tag) and "TextWrapping" not in tag and "TextTrimming" not in tag:
             suspeitos.append((achado.start(), tag))
 
     for achado in TEXTBLOCK_COM_FILHOS.finditer(corpo):
@@ -2995,6 +3036,487 @@ for _cenario, _corpo, _deve in (
         erros.append(
             f"verificar-suite: a checagem 37 mudou de resposta ({_cenario}) — "
             f"detectou={_detectou}, esperado={_deve}."
+        )
+
+# ============================================================================
+# CHECAGEM 38 — o rail de seções e o índice de navegação andam JUNTOS
+#
+# A tela do paciente tem um rail (ListBox de rótulos) e um TabControl (as telas),
+# ligados pelo MESMO `SelectedIndex`. E `ModuloClinico.AbaDe` traduz a chave de
+# navegação de outros módulos num ÍNDICE dessa lista.
+#
+# ⚠️ Três coisas que não quebram build nenhum:
+#   (a) rótulo a mais no rail do que tela no TabControl (ou o contrário) — o clique
+#       abre a tela do vizinho, ou não abre nada;
+#   (b) seção nova no MEIO da lista, que empurra os índices abaixo dela — pego desde a
+#       2ª rodada da parcela 75, quando o mapa deixou de ser por índice e passou a ser por
+#       NOME: a lista do C# e os rótulos do rail são casados POSIÇÃO POR POSIÇÃO;
+#   (c) índice fora da faixa, que o WPF ignora em silêncio.
+#
+# É literalmente a regressão da parcela 37, 4ª rodada (a navegação por string que
+# "retorna false em silêncio"), um nível abaixo: ali a chave não achava destino;
+# aqui ela acha o destino errado. E a parcela 75 acabou de fazer (b) ao pôr a
+# Anamnese na posição 1.
+# ============================================================================
+
+_WORKSPACE = RAIZ / "src/Clinica.Modulo.Clinico/Views/PacienteWorkspaceView.xaml"
+_MODULO_CLINICO = RAIZ / "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs"
+
+
+def _secoes_do_workspace(texto: str) -> tuple[int, int]:
+    """Quantos rótulos o rail tem e quantas telas o TabControl tem."""
+    return (len(re.findall(r"<ListBoxItem\b", texto)),
+            len(re.findall(r"<TabItem\b", texto)))
+
+
+def _rotulos_do_rail(texto: str) -> list[str]:
+    """Os rótulos do rail, NA ORDEM — é a régua com que o índice de navegação é resolvido."""
+    return re.findall(
+        r"<ListBoxItem>\s*<TextBlock\s+Text=\"([^\"]+)\"", texto)
+
+
+def _secoes_declaradas(texto: str) -> list[str]:
+    """A lista `SecoesDoPaciente` do ModuloClinico, na ordem."""
+    corpo = re.search(r"SecoesDoPaciente\s*=\s*\[(.*?)\];", texto, re.S)
+    if corpo is None:
+        return []
+    return re.findall(r"\"([^\"]+)\"", corpo.group(1))
+
+
+def _nomes_de_abade(texto: str) -> list[str]:
+    """Os NOMES de seção que o mapa de navegação produz."""
+    corpo = re.search(r"AbaDe\(string chave\)(.*?)\n    \}", texto, re.S)
+    if corpo is None:
+        return []
+    return re.findall(r"=>\s*\"([^\"]+)\"", corpo.group(1))
+
+
+if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
+    # Comentário XML fora, pela lição da checagem 31: prosa que cita
+    # `<TabItem>` não pode entrar na contagem.
+    _txt_ws = re.sub(r"<!--.*?-->", "", _WORKSPACE.read_text(encoding="utf-8"), flags=re.S)
+    _rotulos, _telas = _secoes_do_workspace(_txt_ws)
+
+    if _rotulos != _telas:
+        erros.append(
+            f"{_WORKSPACE.relative_to(RAIZ)}: o rail tem {_rotulos} rótulo(s) e o "
+            f"TabControl tem {_telas} tela(s). Os dois seguem o MESMO SelectedIndex — "
+            f"a diferença faz o clique abrir a tela do vizinho, sem erro nenhum."
+        )
+
+    _txt_mod = _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8"))
+    _declaradas = _secoes_declaradas(_txt_mod)
+    _rail = _rotulos_do_rail(_txt_ws)
+
+    # ⚠️ O CASO (b), que a primeira versão desta checagem PROMETIA e não pegava: a lista de
+    # seções do C# e os rótulos do rail têm de bater POSIÇÃO POR POSIÇÃO. É isso que faz
+    # inserir uma seção no meio ser impossível de esquecer — e foi por isso que o mapa de
+    # navegação deixou de ser por índice e passou a ser por NOME.
+    if _declaradas and _rail and _declaradas != _rail:
+        erros.append(
+            f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.SecoesDoPaciente e o rail de "
+            f"{_WORKSPACE.name} divergem.\n"
+            f"      C#:   {_declaradas}\n"
+            f"      XAML: {_rail}\n"
+            f"      O índice de navegação sai da lista do C#; o rótulo que o usuário lê sai do "
+            f"XAML. Divergentes, a chave de outro módulo abre a seção ERRADA — sem erro nenhum."
+        )
+
+    for _nome in _nomes_de_abade(_txt_mod):
+        if _declaradas and _nome not in _declaradas:
+            erros.append(
+                f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.AbaDe aponta para a seção "
+                f"“{_nome}”, que não está em SecoesDoPaciente. A navegação cai na primeira "
+                f"seção em silêncio."
+            )
+
+# --- autoteste da 38 ---
+#
+# Casos SINTÉTICOS, pela lição do autoteste da 37: teste de checagem que depende do
+# arquivo real morre no dia em que alguém arruma o arquivo.
+for _cenario, _xaml, _esperado in (
+    ("rail e telas casam", "<ListBoxItem/><ListBoxItem/><TabItem/><TabItem/>", (2, 2)),
+    ("rótulo a mais", "<ListBoxItem/><ListBoxItem/><TabItem/>", (2, 1)),
+):
+    if _secoes_do_workspace(_xaml) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"contou {_secoes_do_workspace(_xaml)}, esperado {_esperado}."
+        )
+
+for _cenario, _cs, _esperado in (
+    ("seções declaradas",
+     'public static readonly IReadOnlyList<string> SecoesDoPaciente =\n'
+     '    [\n        "Um",\n        "Dois"\n    ];', ["Um", "Dois"]),
+    ("sem lista", "public static int Outra() => 3;", []),
+):
+    if _secoes_declaradas(_cs) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"leu {_secoes_declaradas(_cs)}, esperado {_esperado}."
+        )
+
+for _cenario, _xaml, _esperado in (
+    ("rótulos do rail",
+     '<ListBoxItem>\n  <TextBlock Text="Um" TextWrapping="Wrap" />\n</ListBoxItem>\n'
+     '<ListBoxItem>\n  <TextBlock Text="Dois" TextWrapping="Wrap" />\n</ListBoxItem>',
+     ["Um", "Dois"]),
+):
+    if _rotulos_do_rail(_xaml) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"leu {_rotulos_do_rail(_xaml)}, esperado {_esperado}."
+        )
+
+# --------------------------------------------------------------- checagem 39
+#
+# `PromptWindow` RECUSA resposta em branco por padrão — e está certo: quase toda pergunta
+# dele é o motivo de um cancelamento, que não pode ser registrado sem explicação. O defeito
+# nasce quando a PERGUNTA anuncia o campo como opcional ("se quiser", "deixe em branco") e
+# a janela continua exigindo: a pessoa clica Confirmar, leva um erro em vermelho, e a ÚNICA
+# saída que lhe resta é o **Cancelar** — que o chamador lê como "siga em frente".
+#
+# Nos dois casos reais isso GRAVAVA: a revisão da anamnese (prontuário, com versão e
+# auditoria, sem desfazer) e o recibo do caixa (numerado por ano, desfeito só com
+# cancelamento e motivo). A porta rotulada "desisti" era a que efetivava o ato.
+#
+# Nenhuma rede pegava: o C# compila, o XAML é válido, e os testes não alcançam WPF. As duas
+# metades são cobradas juntas, como na checagem 21 — a pergunta que promete opcional passa
+# `obrigatorio: false`, e quem passa `obrigatorio: false` distingue o `null` do Cancelar.
+
+_PALAVRAS_DE_OPCIONAL = (
+    "opcional",
+    "deixe em branco",
+    "deixar em branco",
+    "em branco para",
+    "se quiser",
+    "se desejar",
+)
+
+
+def _corpo_da_chamada(texto: str, abre: int) -> tuple[str, int]:
+    """Os argumentos da chamada cujo `(` está em `abre`, e o índice logo após o `)`.
+
+    Conta parênteses pulando literais de string — `$"Item {a.B(c)}"` tem parêntese DENTRO
+    do texto, e contar sem pular fecharia a chamada no lugar errado.
+    """
+    nivel, i, n = 0, abre, len(texto)
+    while i < n:
+        c = texto[i]
+        if c == '"':
+            verbatim = i > 0 and texto[i - 1] == "@"
+            i += 1
+            while i < n:
+                if verbatim:
+                    if texto[i] == '"':
+                        if i + 1 < n and texto[i + 1] == '"':
+                            i += 2
+                            continue
+                        break
+                else:
+                    if texto[i] == "\\":
+                        i += 2
+                        continue
+                    if texto[i] == '"':
+                        break
+                i += 1
+        elif c == "(":
+            nivel += 1
+        elif c == ")":
+            nivel -= 1
+            if nivel == 0:
+                return texto[abre + 1 : i], i + 1
+        i += 1
+    return "", n
+
+
+def _perguntas_de_texto(texto: str) -> list[dict]:
+    """Cada chamada de `PerguntarTexto` do texto, com o que a checagem 39 precisa saber.
+
+    ⚠️ Tira os comentários ANTES de olhar (a lição da checagem 31): a explicação desta
+    própria regra, escrita ao lado da correção, contém as palavras que ela procura.
+    """
+    limpo = _sem_comentarios(texto)
+    achados: list[dict] = []
+    for m in re.finditer(r"PerguntarTexto\s*\(", limpo):
+        args, fim = _corpo_da_chamada(limpo, m.end() - 1)
+        literais = " ".join(
+            re.findall(r'"((?:[^"\\]|\\.)*)"', args)
+        ).lower()
+        antes = limpo[max(0, m.start() - 160) : m.start()].rstrip()
+        alvo = None
+        atribuicao = re.search(r"(\w+)\s*=\s*[\w\._]*$", antes)
+        if atribuicao:
+            alvo = atribuicao.group(1)
+        # ⚠️ `_sem_comentarios` APAGA o comentário com espaços, preservando as posições —
+        # um bloco explicativo de cinco linhas empurra a guarda para fora de uma janela
+        # medida em caracteres. É o tropeço da parcela 41, e a primeira versão desta
+        # checagem o repetiu: ela acusou a correção que estava certa. Colapsa-se o branco
+        # antes de medir, para a janela contar LINHAS DE CÓDIGO e não espaço em branco.
+        depois = re.sub(r"\s+", " ", limpo[fim : fim + 6000])[:400]
+        achados.append(
+            {
+                "anuncia_opcional": any(p in literais for p in _PALAVRAS_DE_OPCIONAL),
+                "passa_false": re.search(r"obrigatorio\s*:\s*false", args) is not None,
+                "alvo": alvo,
+                "distingue_cancelar": bool(
+                    alvo
+                    and re.search(
+                        rf"\b{re.escape(alvo)}\s+is\s+null\b"
+                        rf"|\b{re.escape(alvo)}\s*==\s*null\b",
+                        depois,
+                    )
+                ),
+                "trecho": " ".join(literais.split())[:70],
+            }
+        )
+    return achados
+
+
+for _arq in sorted(RAIZ.joinpath("src").rglob("*.cs")):
+    if "/obj/" in _arq.as_posix() or "/bin/" in _arq.as_posix():
+        continue
+    _texto = _arq.read_text(encoding="utf-8")
+    if "PerguntarTexto" not in _texto:
+        continue
+    for _p in _perguntas_de_texto(_texto):
+        _rel = _arq.relative_to(RAIZ)
+        if _p["anuncia_opcional"] and not _p["passa_false"]:
+            erros.append(
+                f"{_rel}: `PerguntarTexto` cuja pergunta anuncia o campo como OPCIONAL "
+                f"(“{_p['trecho']}…”) e não passa `obrigatorio: false`. A janela recusa a "
+                f"resposta em branco, então a única saída da pessoa é o Cancelar — e o "
+                f"chamador o lê como “siga”. Passe `obrigatorio: false`."
+            )
+        if _p["passa_false"] and not _p["distingue_cancelar"]:
+            erros.append(
+                f"{_rel}: `PerguntarTexto` com `obrigatorio: false` sem distinguir o "
+                f"Cancelar. Com ele, `null` quer dizer “desisti” e string vazia quer dizer "
+                f"“siga, sem texto” — sem a guarda `{_p['alvo'] or 'resposta'} is null` o "
+                f"desistir vira gravar."
+            )
+
+# --- autoteste da 39 ---
+#
+# Casos SINTÉTICOS que chamam a MESMA função da varredura (a regra da parcela 67: autoteste
+# que reimplementa a lógica fica verde exatamente quando a checagem quebra). Os dois
+# primeiros são as duas formas quebradas; os dois últimos, as legítimas.
+for _cenario, _cs, _esperado in (
+    (
+        "promete opcional e exige",
+        'var motivo = _dialogo.PerguntarTexto("T", "diga o que mudou (opcional):");\n'
+        "if (motivo is null) return;",
+        {"anuncia_opcional": True, "passa_false": False, "distingue_cancelar": True},
+    ),
+    (
+        "opcional sem guarda de cancelar",
+        'var nome = _dialogo.PerguntarTexto("T", "Deixe em branco para usar o do paciente.",\n'
+        "    null, obrigatorio: false);\nEmitir(nome);",
+        {"anuncia_opcional": True, "passa_false": True, "distingue_cancelar": False},
+    ),
+    (
+        "obrigatório de sempre, sem promessa",
+        'var motivo = _dialogo.PerguntarTexto("T", "Por que está sendo cancelado?");\n'
+        "if (string.IsNullOrWhiteSpace(motivo)) return;",
+        {"anuncia_opcional": False, "passa_false": False, "distingue_cancelar": False},
+    ),
+    (
+        "opcional declarado e distinguido",
+        'var motivo = _dialogo.PerguntarTexto("T", "Se quiser, diga o que mudou.",\n'
+        "    string.Empty, obrigatorio: false);\nif (motivo is null) return;",
+        {"anuncia_opcional": True, "passa_false": True, "distingue_cancelar": True},
+    ),
+):
+    _lidos = _perguntas_de_texto(_cs)
+    if len(_lidos) != 1 or any(_lidos[0][k] != v for k, v in _esperado.items()):
+        erros.append(
+            f"verificar-suite: a checagem 39 mudou de resposta ({_cenario}) — "
+            f"leu {_lidos}, esperado {_esperado}."
+        )
+
+# ⚠️ O caso que a PRIMEIRA versão desta checagem errou: a guarda existe, e um comentário
+# de cinco linhas entre ela e a chamada a empurrava para fora da janela. Sem este caso o
+# autoteste ficava verde com a checagem acusando o código correto.
+_com_comentario = (
+    'var motivo = _dialogo.PerguntarTexto("T", "Se quiser, diga o que mudou.",\n'
+    "    string.Empty, obrigatorio: false);\n\n"
+    + "".join(f"    // linha {i} de uma explicacao comprida que ocupa a janela toda\n"
+             for i in range(8))
+    + "if (motivo is null) return;"
+)
+if not _perguntas_de_texto(_com_comentario)[0]["distingue_cancelar"]:
+    erros.append(
+        "verificar-suite: a checagem 39 perdeu a guarda por causa de um comentário entre "
+        "ela e a chamada — a janela está medindo espaço em branco em vez de código."
+    )
+
+# O parêntese DENTRO do literal interpolado não pode fechar a chamada cedo demais.
+_interpolado = 'var m = _dialogo.PerguntarTexto("T", $"Item {Fmt(x)} — opcional");'
+if len(_perguntas_de_texto(_interpolado)) != 1 or not _perguntas_de_texto(_interpolado)[0][
+    "anuncia_opcional"
+]:
+    erros.append(
+        "verificar-suite: a checagem 39 perdeu o literal interpolado com parêntese — "
+        "o contador de parênteses está fechando a chamada dentro da string."
+    )
+
+# --------------------------------------------------------------- checagem 40
+#
+# `<Style TargetType="ctrl:X">` declarado numa TELA, sem `BasedOn`, SUBSTITUI o estilo
+# implícito do design system — e é lá que mora o `Template` do controle. Não há
+# `themes/generic.xaml` em projeto nenhum, então o `DefaultStyleKeyProperty.OverrideMetadata`
+# não tem tema de onde cair: o que sobra é um controle vivo, com todas as propriedades
+# corretas, desenhando **nada**.
+#
+# Foi assim que o estado vazio da anamnese sumiu — e junto com ele o terceiro estado, que
+# faz uma leitura FALHADA se distinguir de um paciente sem antecedentes. Nenhuma rede pegava:
+# o XAML é bem-formado, as propriedades existem, o binding é válido e nada lança.
+#
+# Ruído medido ANTES de decidir (a lição da parcela 64): das 14 declarações do repositório,
+# 11 já traziam o `BasedOn` e as 3 restantes são os PRÓPRIOS dicionários do design system —
+# que são os donos do Template e por definição não herdam de ninguém. Zero falso positivo.
+
+_TIPO_COM_PREFIXO = re.compile(
+    r"TargetType\s*=\s*\"(?:\{x:Type\s+)?([A-Za-z_]\w*):(\w+)"
+)
+
+
+def _estilos_sem_basedon(xaml: str) -> list[str]:
+    """Os `<Style>` de controle PRÓPRIO (TargetType com prefixo) que não herdam nada.
+
+    A varredura e o autoteste chamam esta mesma função — a regra da parcela 67.
+    """
+    achados: list[str] = []
+    for m in re.finditer(r"<Style\b", xaml):
+        fim = xaml.find(">", m.end())
+        if fim < 0:
+            continue
+        abertura = xaml[m.start() : fim]
+        tipo = _TIPO_COM_PREFIXO.search(abertura)
+        if not tipo:
+            continue
+        if "BasedOn" in abertura:
+            continue
+        achados.append(f"{tipo.group(1)}:{tipo.group(2)}")
+    return achados
+
+
+for _arq in sorted(RAIZ.joinpath("src").rglob("*.xaml")):
+    caminho = _arq.as_posix()
+    # Os dicionários do design system SÃO os estilos implícitos: eles definem o Template
+    # e não herdam de ninguém. É o único lugar legítimo sem `BasedOn`.
+    if "/Styles/" in caminho or "/obj/" in caminho or "/bin/" in caminho:
+        continue
+    for _tipo in _estilos_sem_basedon(_arq.read_text(encoding="utf-8")):
+        erros.append(
+            f"{_arq.relative_to(RAIZ)}: `<Style TargetType=\"{_tipo}\">` sem `BasedOn`. "
+            f"Estilo local substitui o implícito do design system, que é onde mora o "
+            f"`Template` — o controle continua vivo e desenha NADA. Acrescente "
+            f"`BasedOn=\"{{StaticResource {{x:Type {_tipo}}}}}\"`."
+        )
+
+# --- autoteste da 40 ---
+for _cenario, _xaml, _esperado in (
+    ("controle da casa sem BasedOn", '<Style TargetType="ctrl:EstadoDaTela">', ["ctrl:EstadoDaTela"]),
+    ("controle da casa com BasedOn",
+     '<Style TargetType="ctrl:EstadoDaTela" BasedOn="{StaticResource {x:Type ctrl:EstadoDaTela}}">', []),
+    ("BasedOn na linha de baixo",
+     '<Style TargetType="ctrl:EstadoDaTela"\n       BasedOn="{StaticResource {x:Type ctrl:X}}">', []),
+    ("forma x:Type sem BasedOn", '<Style TargetType="{x:Type ctrl:CabecalhoRaia}">', ["ctrl:CabecalhoRaia"]),
+    ("controle do WPF não é da casa", '<Style TargetType="Button">', []),
+    ("TextBlock com BasedOn implícito do WPF", '<Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">', []),
+):
+    if _estilos_sem_basedon(_xaml) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 40 mudou de resposta ({_cenario}) — "
+            f"leu {_estilos_sem_basedon(_xaml)}, esperado {_esperado}."
+        )
+
+# --------------------------------------------------------------- checagem 41
+#
+# NOME DE TABELA em migration escrita à mão. O nome da tabela sai do **DbSet**
+# (`DbSet<UsuarioSistema> Usuarios` → tabela `Usuarios`), e não do nome da CLASSE — e a
+# migration é o único lugar do repositório onde ele é digitado à mão, porque não há
+# `dotnet ef` neste ambiente.
+#
+# Escrever `principalTable: "UsuariosSistema"` derrubou a ABERTURA de todos os apps na
+# clínica: 42P01 no meio do `MigrateAsync`, apresentado ao usuário como "não foi possível
+# conectar ao banco de dados" — que manda a clínica caçar a connection string, um problema
+# que não existe.
+#
+# ⚠️ NENHUMA rede pegava, e a razão é estrutural: o C# compila (é string), o
+# `compilar-sombra` não lê migration, e **os 1874 testes não executam migration nenhuma** —
+# o SQLite deles monta o schema pelo MODELO, com `EnsureCreated`. É a mesma família do
+# `xmin` e das datas com fuso: só o Postgres pega, e "só o Postgres" quer dizer "só a
+# clínica".
+#
+# Ruído medido ANTES de decidir (a lição da parcela 64): 68 tabelas e ~80 migrations, UMA
+# ocorrência — a que quebrou. Zero falso positivo.
+
+_TABELA_CRIADA = re.compile(r'CreateTable\(\s*name:\s*"([^"]+)"')
+_TABELA_RENOMEADA = re.compile(r'RenameTable\([^)]*?newName:\s*"([^"]+)"', re.S)
+_TABELA_REFERIDA = re.compile(r'(?:principalTable|table):\s*"([^"]+)"')
+
+
+def _tabelas_fantasma(fontes: dict[str, str]) -> list[tuple[str, str]]:
+    """(arquivo, tabela) das referências a tabela que migration nenhuma cria.
+
+    Recebe o CONJUNTO das migrations porque a resposta depende delas todas: a tabela
+    referida aqui costuma ter sido criada anos atrás, noutro arquivo. A varredura e o
+    autoteste chamam esta mesma função — a regra da parcela 67.
+    """
+    existentes: set[str] = set()
+    for texto in fontes.values():
+        existentes.update(m.group(1) for m in _TABELA_CRIADA.finditer(texto))
+        existentes.update(m.group(1) for m in _TABELA_RENOMEADA.finditer(texto))
+
+    achados: list[tuple[str, str]] = []
+    for arquivo, texto in sorted(fontes.items()):
+        limpo = _sem_comentarios(texto)
+        for tabela in sorted({m.group(1) for m in _TABELA_REFERIDA.finditer(limpo)}):
+            if tabela not in existentes:
+                achados.append((arquivo, tabela))
+    return achados
+
+
+_MIGRATIONS = RAIZ / "src" / "Clinica.Infrastructure" / "Migrations"
+_fontes_migration = {
+    a.name: a.read_text(encoding="utf-8")
+    for a in sorted(_MIGRATIONS.glob("*.cs"))
+    if ".Designer." not in a.name and "Snapshot" not in a.name
+}
+
+for _arq, _tabela in _tabelas_fantasma(_fontes_migration):
+    erros.append(
+        f"Migrations/{_arq}: referencia a tabela \"{_tabela}\", que migration nenhuma cria. "
+        f"O nome da tabela sai do DbSet do ClinicaDbContext, não do nome da classe — "
+        f"confira lá. Isto NÃO falha em teste (o SQLite monta o schema pelo modelo): "
+        f"falha no MigrateAsync da abertura, na clínica, como 42P01."
+    )
+
+# --- autoteste da 41 ---
+_CRIA = 'migrationBuilder.CreateTable(\n    name: "Usuarios",'
+for _cenario, _fontes, _esperado in (
+    ("nome da CLASSE em vez do DbSet (o caso real)",
+     {"a.cs": _CRIA, "b.cs": 'principalTable: "UsuariosSistema", principalColumn: "Id"'},
+     [("b.cs", "UsuariosSistema")]),
+    ("nome certo",
+     {"a.cs": _CRIA, "b.cs": 'principalTable: "Usuarios", principalColumn: "Id"'}, []),
+    ("tabela criada no MESMO arquivo que a referencia",
+     {"a.cs": 'migrationBuilder.CreateTable(\n    name: "Nova",\n table: "Nova"'}, []),
+    ("AddColumn na tabela de sempre",
+     {"a.cs": _CRIA, "b.cs": 'migrationBuilder.AddColumn<bool>(\n name: "X", table: "Usuarios"'}, []),
+    ("tabela RENOMEADA passa a existir",
+     {"a.cs": 'migrationBuilder.RenameTable(name: "Velha", newName: "Nova");',
+      "b.cs": 'table: "Nova"'}, []),
+    ("comentário citando o nome errado não dispara",
+     {"a.cs": _CRIA, "b.cs": '// não escreva principalTable: "UsuariosSistema" aqui'}, []),
+):
+    _lido = _tabelas_fantasma(_fontes)
+    if _lido != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 41 mudou de resposta ({_cenario}) — "
+            f"leu {_lido}, esperado {_esperado}."
         )
 
 # ---------------------------------------------------------------------- saída

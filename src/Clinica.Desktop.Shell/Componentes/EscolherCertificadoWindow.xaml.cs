@@ -38,13 +38,21 @@ public partial class EscolherCertificadoWindow : Window
     /// Vai como <c>login_hint</c> para a página do PSC já abrir no CPF certo, poupando a
     /// médica de digitá-lo a cada documento.
     /// </param>
+    /// <param name="assinaturasDoAto">
+    /// Quantos documentos este ato vai selar com o MESMO certificado. ⚠️ Em nuvem isso
+    /// escolhe o ESCOPO da autorização: o padrão do SafeID é "um hash só; o token morre no
+    /// uso", e um ato de duas selagens teria a segunda recusada SEMPRE. Quem sela dois
+    /// documentos precisa dizer que são dois.
+    /// </param>
     public static CertificadoAssinatura? Perguntar(
         string assunto, Window? dono,
         Microsoft.Extensions.DependencyInjection.IServiceScopeFactory? escopos = null,
-        string? cpfDeQuemAssina = null)
+        string? cpfDeQuemAssina = null,
+        int assinaturasDoAto = 1)
     {
         var janela = new EscolherCertificadoWindow(
-            new EscolherCertificadoViewModel(assunto, escopos, cpfDeQuemAssina))
+            new EscolherCertificadoViewModel(
+                assunto, escopos, cpfDeQuemAssina, assinaturasDoAto))
         {
             Owner = dono
         };

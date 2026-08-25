@@ -195,6 +195,85 @@ public class PrescricaoInternaPdfTests : IDisposable
     }
 
     /// <summary>
+    /// A caixa de INTERCORRÊNCIAS é SEPARADA da de alergias (parcela 80 — a médica viu
+    /// "Pressão caiu" listado como alergia na folha e mandou separar). São dois fatos de
+    /// naturezas diferentes: alergia é atributo do PACIENTE (lista de problemas);
+    /// intercorrência é um EVENTO desta execução (evolução de enfermagem com o selo).
+    ///
+    /// O teste é sobre a leitura PURA que a folha usa: vigente com o selo entra;
+    /// cancelada e substituída são registro desdito e ficam de fora; passagem sem o selo
+    /// não é intercorrência por mais dramático que seja o texto.
+    /// </summary>
+    [Fact]
+    public async Task Intercorrencias_da_execucao_saem_separadas_e_so_as_vigentes()
+    {
+        var (pacienteId, profissionalId) = await BaseAsync();
+        var prescricao = await _prescricoes.CriarAsync(pacienteId, profissionalId);
+        await _prescricoes.SalvarRascunhoAsync(prescricao.Id, "Hidratação", null,
+            [new ItemPrescricaoInterna { Descricao = "Soro fisiológico 0,9%", Dose = "500 mL" }]);
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        // Passagem comum: texto dramático NÃO vira intercorrência — quem decide é o selo.
+        _db.EvolucoesEnfermagem.Add(new EvolucaoEnfermagem
+        {
+            PacienteId = pacienteId, PrescricaoInternaId = prescricao.Id,
+            Data = hoje, Hora = new TimeOnly(9, 0),
+            Texto = "Pressão aferida, paciente ansioso.", AutorNome = "Joana Técnica"
+        });
+
+        // A intercorrência vigente — é ela que a caixa lista.
+        _db.EvolucoesEnfermagem.Add(new EvolucaoEnfermagem
+        {
+            PacienteId = pacienteId, PrescricaoInternaId = prescricao.Id,
+            Data = hoje, Hora = new TimeOnly(10, 37),
+            Texto = "Pressão caiu durante a infusão.", AutorNome = "Joana Técnica",
+            Intercorrencia = true
+        });
+
+        // Cancelada: registro desdito não alarma.
+        _db.EvolucoesEnfermagem.Add(new EvolucaoEnfermagem
+        {
+            PacienteId = pacienteId, PrescricaoInternaId = prescricao.Id,
+            Data = hoje, Hora = new TimeOnly(11, 0),
+            Texto = "Lançada no paciente errado.", AutorNome = "Joana Técnica",
+            Intercorrencia = true, CanceladaEm = DateTime.Today.AddHours(11.5),
+            MotivoCancelamento = "paciente errado", CanceladaPor = "joana"
+        });
+        await _db.SaveChangesAsync();
+
+        // Substituída pela retificação: quem vale é a corrigida.
+        var substituida = new EvolucaoEnfermagem
+        {
+            PacienteId = pacienteId, PrescricaoInternaId = prescricao.Id,
+            Data = hoje, Hora = new TimeOnly(11, 30),
+            Texto = "Náusea às 11h50.", AutorNome = "Joana Técnica", Intercorrencia = true
+        };
+        _db.EvolucoesEnfermagem.Add(substituida);
+        await _db.SaveChangesAsync();
+        _db.EvolucoesEnfermagem.Add(new EvolucaoEnfermagem
+        {
+            PacienteId = pacienteId, PrescricaoInternaId = prescricao.Id,
+            Data = hoje, Hora = new TimeOnly(11, 20),
+            Texto = "Náusea às 11h20.", AutorNome = "Joana Técnica",
+            Intercorrencia = true, RetificaEvolucaoId = substituida.Id,
+            MotivoRetificacao = "hora errada"
+        });
+        await _db.SaveChangesAsync();
+
+        var carregada = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!;
+        var intercorrencias = PrescricaoInternaPdfService.IntercorrenciasDaExecucao(carregada);
+
+        intercorrencias.Should().HaveCount(2);
+        intercorrencias[0].Texto.Should().Contain("Pressão caiu");
+        intercorrencias[1].Texto.Should().Contain("11h20",
+            "a substituída sai e a retificação fica — a folha mostra a versão que vale");
+
+        // E o registro de execução desenha com a caixa, sem estourar.
+        (await _pdfs.GerarRegistroExecucaoAsync(prescricao.Id)).Should().NotBeEmpty();
+    }
+
+    /// <summary>
     /// O rodapé nunca promete mais do que a via garante — e o caso sem carimbo do tempo é
     /// o que mais tenta a mentira, porque a data está lá, bonita, vinda do relógio de quem
     /// assinou.

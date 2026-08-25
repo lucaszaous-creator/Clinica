@@ -61,8 +61,9 @@
                             Command="{Binding NovoCommand}"
                             IsEnabled="{Binding PodeConfigurar}" />
 
-                    <!-- O rascunho do BSV. Fica ABAIXO do "Novo termo" de propósito: quem
-                         vai escrever o próprio texto não deve tropeçar num botão que cria
+                    <!-- Os termos do BSV com o texto aprovado pela clínica (advogado dela,
+                         ago/2026). Fica ABAIXO do "Novo termo" de propósito: quem vai
+                         escrever o próprio texto não deve tropeçar num botão que cria
                          dois papéis e liga quatro exigências. -->
                     <Button DockPanel.Dock="Top" Content="Criar os termos do BSV…"
                             Margin="0,0,0,8"
@@ -91,7 +92,7 @@
                                                Carregando="{Binding Carregando}"
                                                NaoVerificado="{Binding NaoVerificado}"
                                                Titulo="Nenhum termo escrito"
-                                               Descricao="Clique em “Criar os termos do BSV…” para começar de um rascunho, ou em “Novo termo” para escrever o seu." />
+                                               Descricao="Clique em “Criar os termos do BSV…” para usar o texto aprovado pela clínica, ou em “Novo termo” para escrever o seu." />
                         </Grid>
                     </Border>
                 </DockPanel>

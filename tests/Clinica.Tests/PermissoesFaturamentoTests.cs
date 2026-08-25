@@ -160,6 +160,70 @@ public class PermissoesFaturamentoTests
     }
 
     /// <summary>
+    /// ⚠️ O BIT DA EVOLUÇÃO DE ENFERMAGEM tem dono, e o teste que fixa isso não existia
+    /// (parcela 72): <c>grep RegistrarEvolucaoEnfermagem tests/</c> devolvia ZERO desde
+    /// que o bit nasceu.
+    ///
+    /// Enquanto ele for a porta de escrita de dado de saúde, mexer nele em silêncio muda
+    /// quem escreve no prontuário — <b>com todos os testes verdes</b>. É a mesma família
+    /// do teste que impede uma atualização de tirar em silêncio o que a pessoa fazia
+    /// ontem, só que do lado de conceder.
+    ///
+    /// O médico NÃO recebe: o registro é assinado com nome e COREN, e evolução de
+    /// enfermagem escrita por quem tem CRM é registro assinado com o conselho errado —
+    /// pior que a lacuna que resolveria.
+    /// </summary>
+    [Fact]
+    public void Registrar_evolucao_de_enfermagem_e_da_ENFERMAGEM()
+    {
+        PerfisAcesso.Padrao(PerfilAcesso.Enfermagem)
+            .HasFlag(Permissao.RegistrarEvolucaoEnfermagem).Should().BeTrue();
+
+        PerfisAcesso.Padrao(PerfilAcesso.Profissional)
+            .HasFlag(Permissao.RegistrarEvolucaoEnfermagem).Should().BeFalse();
+        PerfisAcesso.Padrao(PerfilAcesso.Recepcao)
+            .HasFlag(Permissao.RegistrarEvolucaoEnfermagem).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// ⚠️ O XY DA PARCELA 72, fixado: a LEITURA do prontuário é compartilhada entre quem
+    /// prescreve e quem executa — as duas telas mostram o mesmo conjunto porque os dois
+    /// perfis têm o mesmo bit. É o que garante que a última pessoa entre a alergia e a
+    /// veia enxergue a alergia.
+    ///
+    /// O que os SEPARA é a escrita, e cada lado escreve com o conselho dele.
+    /// </summary>
+    [Fact]
+    public void Medico_e_enfermagem_LEEM_o_mesmo_e_ESCREVEM_coisas_diferentes()
+    {
+        var medico = PerfisAcesso.Padrao(PerfilAcesso.Profissional);
+        var enfermagem = PerfisAcesso.Padrao(PerfilAcesso.Enfermagem);
+
+        // XY — a leitura
+        foreach (var bit in new[]
+                 {
+                     Permissao.VerAgenda, Permissao.VerFichaPaciente,
+                     Permissao.VerProntuario, Permissao.ColherAssinaturaPaciente
+                 })
+        {
+            medico.HasFlag(bit).Should().BeTrue($"{bit} é leitura compartilhada (XY)");
+            enfermagem.HasFlag(bit).Should().BeTrue($"{bit} é leitura compartilhada (XY)");
+        }
+
+        // X — só o médico
+        medico.HasFlag(Permissao.EditarProntuario).Should().BeTrue();
+        medico.HasFlag(Permissao.Prescrever).Should().BeTrue();
+        enfermagem.HasFlag(Permissao.EditarProntuario).Should().BeFalse();
+        enfermagem.HasFlag(Permissao.Prescrever).Should().BeFalse();
+
+        // Y — só a enfermagem
+        enfermagem.HasFlag(Permissao.ChecarPrescricao).Should().BeTrue();
+        enfermagem.HasFlag(Permissao.RegistrarEvolucaoEnfermagem).Should().BeTrue();
+        medico.HasFlag(Permissao.ChecarPrescricao).Should().BeFalse();
+        medico.HasFlag(Permissao.RegistrarEvolucaoEnfermagem).Should().BeFalse();
+    }
+
+    /// <summary>
     /// O FINANCEIRO vê a ficha (a tela de inadimplência mostra dívida de gente que ele
     /// precisa conseguir abrir para achar o telefone) e não vê o prontuário: cobrar não
     /// exige saber o diagnóstico de ninguém.

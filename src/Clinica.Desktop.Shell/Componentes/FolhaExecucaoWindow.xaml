@@ -28,7 +28,24 @@
                        Style="{StaticResource TextoSuave}" />
             <TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,2,0,0"
                        Style="{StaticResource TextoSuave}" />
+
+            <!-- Medicação de uso contínuo: CONTEXTO, não alerta — por isso fora da caixa
+                 vermelha. Quem administra era, até a parcela 72, a única pessoa da clínica
+                 que não sabia o que o paciente já toma. -->
+            <TextBlock Text="{Binding MedicacaoEmUso}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Style="{StaticResource TextoSuave}"
+                       Visibility="{Binding MedicacaoEmUso,
+                                    Converter={StaticResource TextoParaVisibilidade},
+                                    FallbackValue=Collapsed}" />
         </StackPanel>
+
+        <!-- ⚠️ O aviso do COREN vem na ABERTURA, não no clique: a recusa é do serviço, e
+             sem esta faixa a técnica descobre depois de administrar. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                Visibility="{Binding AvisoDoConselho, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <TextBlock Text="{Binding AvisoDoConselho}" TextWrapping="Wrap" />
+        </Border>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding TemAlertas, Converter={StaticResource BoolParaVisibilidade}}">
@@ -97,6 +114,16 @@
                             IsEnabled="{Binding TemRegistroExecucao}"
                             ToolTip="O espelho eletrônico do que já foi checado. Habilita depois da primeira checagem."
                             Command="{Binding ImprimirRegistroCommand}" />
+                    <!-- A SEGUNDA porta da evolução de enfermagem, para quem já está
+                         aqui. ⚠️ FORA do IsEnabled do bloco de PodeMexer, de propósito: o
+                         bit é outro, e a folha ENCERRADA continua aceitando registro — a
+                         reação que aparece meia hora depois é justamente a que importa. -->
+                    <Button Content="Anotar" Margin="8,0,0,0" MinWidth="110"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeRegistrarEnfermagem}"
+                            ToolTip="Registrar no prontuário o que foi observado no paciente — sinais vitais, intercorrência, evolução da passagem."
+                            Command="{Binding AnotarCommand}" />
                     <Button Content="Fechar" IsCancel="True" MinWidth="100" Margin="8,0,0,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}" />
@@ -167,6 +194,19 @@
                                                        Style="{StaticResource TextoSuave}"
                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                        Margin="0,3,0,0" />
+                                            <!-- ⚠️ A alergia na LINHA (parcela 72). No topo da
+                                                 folha ela diz que o paciente é alérgico a
+                                                 dipirona; aqui ela diz QUAL das seis linhas
+                                                 é a dipirona — e é uma linha que se vai
+                                                 pendurar na veia. -->
+                                            <Border Style="{StaticResource AlertaPerigo}"
+                                                    Margin="0,4,0,0" Padding="8,5"
+                                                    Visibility="{Binding TemAlertaAlergia,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="{Binding AlertaAlergia}" TextWrapping="Wrap"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="{StaticResource Fonte.Legenda}" />
+                                            </Border>
                                             <TextBlock Text="{Binding Justificativa}" TextWrapping="Wrap"
                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                        Margin="0,4,0,0"

@@ -36,6 +36,8 @@ public class ClinicaDbContext : DbContext
     /// torna a retificação rastreável, como a Lei 13.787/2018 (art. 3º) exige.
     /// </summary>
     public DbSet<VersaoEvolucao> VersoesEvolucao => Set<VersaoEvolucao>();
+    public DbSet<AnamnesePaciente> Anamneses => Set<AnamnesePaciente>();
+    public DbSet<VersaoAnamnese> VersoesAnamnese => Set<VersaoAnamnese>();
 
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
@@ -54,6 +56,11 @@ public class ClinicaDbContext : DbContext
     public DbSet<PrescricaoInterna> PrescricoesInternas => Set<PrescricaoInterna>();
     public DbSet<ItemPrescricaoInterna> ItensPrescricaoInterna => Set<ItemPrescricaoInterna>();
     public DbSet<ChecagemPrescricao> ChecagensPrescricao => Set<ChecagemPrescricao>();
+    public DbSet<EvolucaoEnfermagem> EvolucoesEnfermagem => Set<EvolucaoEnfermagem>();
+    public DbSet<DiagnosticoEnfermagem> DiagnosticosEnfermagem => Set<DiagnosticoEnfermagem>();
+    public DbSet<CuidadoEnfermagem> CuidadosEnfermagem => Set<CuidadoEnfermagem>();
+    public DbSet<ChecagemCuidado> ChecagensCuidado => Set<ChecagemCuidado>();
+    public DbSet<ColetaRemotaTermo> ColetasRemotasTermo => Set<ColetaRemotaTermo>();
     public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
     public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
     public DbSet<TracoAssinatura> TracosAssinatura => Set<TracoAssinatura>();
@@ -276,6 +283,8 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.ChegadaEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.ChamadoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.FimAtendimentoEm).HasColumnType("timestamp without time zone");
+            e.Ignore(a => a.AtendimentoEncerrado);
             e.HasOne(a => a.Profissional).WithMany()
                 .HasForeignKey(a => a.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(a => a.Sala).WithMany()
@@ -402,10 +411,74 @@ public class ClinicaDbContext : DbContext
         // A versão guardada de uma evolução corrigida (parcela 52). O bloco existe
         // só por causa da data: sem ele, SubstituidaEm cai no padrão do Npgsql
         // ("with time zone") e a CORREÇÃO de uma evolução estoura no Postgres.
+        // A ANAMNESE do paciente (parcela 75) — uma por paciente, versionada.
+        b.Entity<AnamnesePaciente>(e =>
+        {
+            e.HasKey(x => x.Id);
+
+            // Hora de PAREDE: o Npgsql RECUSA DateTime com Kind=Local em coluna "with time
+            // zone", e o padrão do provedor é COM fuso — esquecer isto não quebra nada até
+            // alguém gravar em produção (a lição da parcela 67).
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadaEm).HasColumnType("timestamp without time zone");
+
+            e.Property(x => x.AntecedentesPessoais).HasMaxLength(4000);
+            e.Property(x => x.AntecedentesFamiliares).HasMaxLength(4000);
+            e.Property(x => x.HabitosDeVida).HasMaxLength(4000);
+            e.Property(x => x.HistoriaObstetrica).HasMaxLength(4000);
+            e.Property(x => x.RevisaoDeSistemas).HasMaxLength(4000);
+            e.Property(x => x.Observacoes).HasMaxLength(4000);
+            e.Property(x => x.CriadaPor).HasMaxLength(120);
+            e.Property(x => x.AtualizadaPor).HasMaxLength(120);
+
+            // UMA anamnese por paciente. Duas dariam duas verdades sobre a mesma pessoa, e a
+            // tela escolheria uma sem dizer qual.
+            e.HasIndex(x => x.PacienteId).IsUnique();
+
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Cascade);
+
+            // Cascata SÓ da anamnese para as versões dela: são o mesmo registro visto no
+            // tempo, e uma versão órfã não tem sentido nem leitor.
+            e.HasMany(x => x.Versoes).WithOne(v => v.Anamnese)
+                .HasForeignKey(v => v.AnamnesePacienteId).OnDelete(DeleteBehavior.Cascade);
+
+            e.Ignore(x => x.EstaVazia);
+            e.Ignore(x => x.UltimaRevisao);
+        });
+
+        b.Entity<VersaoAnamnese>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
+
+            // Os mesmos tetos da anamnese — a versão guarda o que ela dizia.
+            e.Property(x => x.AntecedentesPessoais).HasMaxLength(4000);
+            e.Property(x => x.AntecedentesFamiliares).HasMaxLength(4000);
+            e.Property(x => x.HabitosDeVida).HasMaxLength(4000);
+            e.Property(x => x.HistoriaObstetrica).HasMaxLength(4000);
+            e.Property(x => x.RevisaoDeSistemas).HasMaxLength(4000);
+            e.Property(x => x.Observacoes).HasMaxLength(4000);
+            e.Property(x => x.SubstituidaPor).HasMaxLength(120);
+            e.Property(x => x.Motivo).HasMaxLength(500);
+
+            e.HasIndex(x => x.AnamnesePacienteId);
+        });
+
         b.Entity<VersaoEvolucao>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
+
+            // Os mesmos tetos da Evolucao — a versão guarda o que ela dizia, então o que
+            // cabia lá tem de caber aqui.
+            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
+            e.Property(x => x.CidSessao).HasMaxLength(20);
+            e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
+            e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);
+            e.Property(x => x.Encaminhamento).HasMaxLength(600);
         });
 
         b.Entity<Evolucao>(e =>
@@ -415,9 +488,20 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.HasKey(x => x.Id);
             e.Property(x => x.QueixaPrincipal).HasMaxLength(1000);
+            // O registro do ATENDIMENTO (parcela 73) — todos anuláveis, todos aditivos: a
+            // sessão curta de manutenção continua sendo queixa + conduta.
+            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
+            e.Property(x => x.CidSessao).HasMaxLength(20);
             e.Property(x => x.Conduta).HasMaxLength(4000);
             e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
+            // O retorno e o encaminhamento (parcela 77). A DATA não precisa de teto, e
+            // o `DateOnly` vira `date` e não `timestamp` — o fuso não a alcança.
+            e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);
+            e.Property(x => x.Encaminhamento).HasMaxLength(600);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
@@ -750,6 +834,10 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
             e.Property(x => x.Detalhe).HasMaxLength(1000);
             e.Property(x => x.Quantidade).HasMaxLength(60);
+            // 80 pontos (o teto de `MapaCorporal.MaximoPontos`) com nome longo passam de
+            // 2000; o campo não tem teto declarado de propósito — recortar o desenho
+            // silenciosamente tiraria marcações do papel sem ninguém saber quais.
+            e.Property(x => x.Desenho);
 
             e.HasOne(x => x.Documento).WithMany(x => x.Itens)
                 .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);
@@ -856,6 +944,163 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.AtrasoDoRegistro);
         });
 
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). Ao lado da checagem porque é a mesma
+        // família e o mesmo desenho de autoria — mas o DONO é o paciente, não a folha.
+        b.Entity<EvolucaoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(4000);
+            // As três etapas do Processo de Enfermagem que são TEXTO (parcela 73). Todas
+            // anuláveis: a anotação de passagem continua sendo só o `Texto`.
+            e.Property(x => x.Historico).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.Avaliacao).HasMaxLength(4000);
+            e.Property(x => x.AutorNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.AutorConselho).HasMaxLength(60);
+            e.Property(x => x.MotivoRetificacao).HasMaxLength(500);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CanceladaPor).HasMaxLength(120);
+            e.Property(x => x.Temperatura).HasPrecision(4, 1);
+            // O acesso venoso (parcela 77). `AcessoPuncionadoEm` é `DateOnly` -> `date`,
+            // então o fuso não a alcança.
+            e.Property(x => x.AcessoLocal).HasMaxLength(120);
+            e.Property(x => x.AcessoCalibre).HasMaxLength(20);
+            // ⚠️ Parcela 67: sem isto o Npgsql RECUSA gravar (Kind=Local numa coluna com
+            // fuso) e o SQLite dos testes não pega. DatasSemFusoTests cobra.
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+
+            // ⚠️ SetNull, e a FK é ANULÁVEL: registro clínico não se apaga por arrasto.
+            // Obrigatória, o EF forçaria Cascade — e apagar uma folha levaria junto o que
+            // a enfermagem escreveu. É a cascata que a parcela 60 achou no excluir paciente.
+            e.HasOne(x => x.Prescricao).WithMany(x => x.EvolucoesEnfermagem)
+                .HasForeignKey(x => x.PrescricaoInternaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.AutorUsuario).WithMany()
+                .HasForeignKey(x => x.AutorUsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.RetificaEvolucao).WithMany()
+                .HasForeignKey(x => x.RetificaEvolucaoId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.PacienteId, x.Data });   // a linha do tempo do prontuário
+            e.HasIndex(x => x.PrescricaoInternaId);          // a lista da folha
+
+            e.Ignore(x => x.Cancelada);
+            e.Ignore(x => x.EhRetificacao);
+            e.Ignore(x => x.Momento);
+            e.Ignore(x => x.AtrasoDoRegistro);
+            e.Ignore(x => x.TemAcesso);
+            e.Ignore(x => x.DiasDeAcesso);
+            e.Ignore(x => x.AcessoResumo);
+            e.Ignore(x => x.PressaoArterial);
+            e.Ignore(x => x.TemSinaisVitais);
+            e.Ignore(x => x.SinaisVitaisResumidos);
+            e.Ignore(x => x.EhConsulta);
+            e.Ignore(x => x.EtapasEmFalta);
+        });
+
+        // ---- O Processo de Enfermagem (parcela 73) ----
+        //
+        // ⚠️ CASCADE nas duas, e é a única cascata clínica que este projeto aceita: o
+        // diagnóstico e o cuidado não são registro AUTÔNOMO — eles só existem DENTRO de uma
+        // evolução de enfermagem, como o ponto do mapa corporal dentro da sessão. E a
+        // evolução, essa sim, não se apaga: ela se CANCELA com motivo, e a cascata nunca
+        // dispara. Mantê-las Restrict só impediria o EF de montar o grafo, sem proteger
+        // nada que já não esteja protegido uma camada acima.
+        b.Entity<DiagnosticoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Codigo).HasMaxLength(40);
+            e.Property(x => x.Titulo).IsRequired().HasMaxLength(200);
+            e.Property(x => x.RelacionadoA).HasMaxLength(400);
+            e.Property(x => x.EvidenciadoPor).HasMaxLength(400);
+            e.Property(x => x.ResultadoEsperado).HasMaxLength(600);
+
+            e.HasOne(x => x.Evolucao).WithMany(x => x.Diagnosticos)
+                .HasForeignKey(x => x.EvolucaoEnfermagemId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoEnfermagemId);
+            e.Ignore(x => x.Redacao);
+        });
+
+        b.Entity<CuidadoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Codigo).HasMaxLength(40);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(400);
+            e.Property(x => x.Frequencia).HasMaxLength(120);
+
+            e.HasOne(x => x.Evolucao).WithMany(x => x.Cuidados)
+                .HasForeignKey(x => x.EvolucaoEnfermagemId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoEnfermagemId);
+            e.Ignore(x => x.Redacao);
+        });
+
+        b.Entity<ColetaRemotaTermo>(e =>
+        {
+            e.ToTable("ColetasRemotasTermo");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Token).IsRequired().HasMaxLength(40);
+            e.Property(x => x.TelefoneDestino).IsRequired().HasMaxLength(30);
+            e.Property(x => x.EnviadaPor).IsRequired().HasMaxLength(120);
+            e.Property(x => x.EvidenciaResposta).HasMaxLength(600);
+            e.Property(x => x.CanceladaPor).HasMaxLength(120);
+
+            // O Npgsql RECUSA Kind=Local em coluna COM fuso, e o padrão do provedor é COM
+            // (a lição da parcela 67 — DatasSemFusoTests cobra do modelo inteiro).
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ExpiraEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RespondidaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ConcluidaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Documento).WithMany()
+                .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);
+
+            // Token único: é a chave do circuito com a borda, e dois envios com o mesmo
+            // token fariam a resposta de um cair no outro.
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => x.DocumentoClinicoId);
+
+            e.Ignore(x => x.EmAberto);
+        });
+
+        b.Entity<ChecagemCuidado>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Justificativa).HasMaxLength(600);
+            e.Property(x => x.Observacao).HasMaxLength(1000);
+            e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.ExecutanteConselho).HasMaxLength(40);
+            e.Property(x => x.MotivoRetificacao).HasMaxLength(600);
+            // O Npgsql RECUSA Kind=Local em coluna COM fuso, e o padrão do provedor é COM.
+            // Esquecer esta linha não quebra nada até alguém gravar em produção.
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Cuidado).WithMany(x => x.Checagens)
+                .HasForeignKey(x => x.CuidadoEnfermagemId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.ExecutanteUsuario).WithMany()
+                .HasForeignKey(x => x.ExecutanteUsuarioId).OnDelete(DeleteBehavior.SetNull);
+
+            // Retificação aponta a anterior. RESTRICT: apagar a linha corrigida quebraria a
+            // cadeia que prova o que a folha dizia antes.
+            e.HasOne(x => x.RetificaChecagem).WithMany()
+                .HasForeignKey(x => x.RetificaChecagemId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.CuidadoEnfermagemId, x.Data });
+
+            e.Ignore(x => x.EhRetificacao);
+            e.Ignore(x => x.Realizado);
+            e.Ignore(x => x.AtrasoDoRegistro);
+            e.Ignore(x => x.Linha);
+        });
+
         b.Entity<AssinaturaDocumento>(e =>
         {
             e.HasKey(x => x.Id);
@@ -881,6 +1126,8 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Arquivo).WithMany()
                 .HasForeignKey(x => x.ArquivoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ArquivoRegistro).WithMany()
+                .HasForeignKey(x => x.ArquivoRegistroId).OnDelete(DeleteBehavior.SetNull);
 
             // Uma assinatura por papel: a folha tem um prescritor e um executante. Sem o
             // índice, um clique duplo no botão gravaria duas e a tela mostraria a errada.
@@ -909,6 +1156,13 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Conduta).HasMaxLength(2000);
             e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            // Os MESMOS limites da Evolucao: o modelo é o texto que vai para ela, e um teto
+            // menor aqui truncaria na aplicação sem ninguém ver.
+            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
+            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
+            e.Property(x => x.CidSessao).HasMaxLength(20);
+            e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");

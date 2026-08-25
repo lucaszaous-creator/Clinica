@@ -113,6 +113,32 @@ public sealed class ArmazenamentoS3 : IArmazenamentoPublico
             new DeleteObjectRequest { BucketName = opcoes.Bucket, Key = caminho }, ct);
     }
 
+    /// <summary>
+    /// Lê de volta pela API AUTENTICADA (parcela 81 — a resposta do termo assinado no
+    /// celular). "Não existe" é resposta normal — é o polling perguntando se o paciente
+    /// já assinou —, então NoSuchKey/404 devolve null em vez de estourar.
+    /// </summary>
+    public async Task<byte[]?> LerAsync(string caminho, CancellationToken ct = default)
+    {
+        var (cliente, opcoes) = await ClienteAsync(ct);
+        using var _ = cliente;
+
+        try
+        {
+            using var resposta = await cliente.GetObjectAsync(
+                new GetObjectRequest { BucketName = opcoes.Bucket, Key = caminho }, ct);
+            using var memoria = new MemoryStream();
+            await resposta.ResponseStream.CopyToAsync(memoria, ct);
+            return memoria.ToArray();
+        }
+        catch (AmazonS3Exception ex) when (
+            ex.StatusCode == System.Net.HttpStatusCode.NotFound
+            || ex.ErrorCode == "NoSuchKey")
+        {
+            return null;
+        }
+    }
+
     private async Task<(IAmazonS3 Cliente, OpcoesArmazenamento Opcoes)> ClienteAsync(
         CancellationToken ct)
     {

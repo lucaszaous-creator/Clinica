@@ -18,9 +18,17 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// </summary>
 public sealed partial class PontoMapaItem : ObservableObject
 {
-    /// <summary>Tamanho da figura na tela, em pixels. O XAML usa os mesmos números.</summary>
-    public const double LarguraFigura = 220;
-    public const double AlturaFigura = 460;
+    /// <summary>
+    /// Tamanho da figura na tela, em pixels — e ele VEM do domínio (parcela 79).
+    ///
+    /// ⚠️ Enquanto o número era escrito aqui, ele existia em três lugares: nesta const, no
+    /// <c>Width</c>/<c>Height</c> do Canvas e nas coordenadas da silhueta. Os três TÊM de
+    /// concordar, porque é dividindo por eles que o clique vira fração — e divergir não
+    /// estoura nada: espalha as marcações em silêncio. Agora o desenho manda, e a tela e o
+    /// papel leem o mesmo número.
+    /// </summary>
+    public const double LarguraFigura = SilhuetaCorporal.Largura;
+    public const double AlturaFigura = SilhuetaCorporal.Altura;
 
     /// <summary>Raio da bolinha — a marcação fica centrada no clique, não ao lado dele.</summary>
     public const double RaioMarcador = 10;

@@ -311,6 +311,59 @@ public class AgendaMultiprofissionalTests : IDisposable
             "quem não fez check-in não tem espera para medir — zero mentiria na média");
     }
 
+    /// <summary>
+    /// A espera ABERTA (chegou e nunca foi chamado) só corre para quem ainda está na fila
+    /// (fila da parcela 69, item 3): quem chegou e virou FALTA não tem espera medida —
+    /// ninguém carimbou quando a pessoa desistiu, e a espera dela corria até `agora`,
+    /// levando a média do painel a milhares de minutos num dia passado.
+    /// </summary>
+    [Fact]
+    public async Task Espera_DeQuemChegouEVirouFalta_EhNula()
+    {
+        var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
+            ModalidadeAtendimento.AcupunturaSimples, null);
+
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
+        await _agenda.MarcarFaltaAsync(ag.Id);
+
+        (await _agenda.ObterAsync(ag.Id))!.EsperaMinutos(Manha.AddDays(3)).Should().BeNull(
+            "falta não CONCLUI a espera, DESFAZ a medida — contá-la até agora inventaria "
+            + "uma fila de dias");
+    }
+
+    /// <summary>
+    /// E num dia já passado a espera aberta também não corre: o horário de ontem que
+    /// ninguém chamou nem marcou falta mediria dias, não fila.
+    /// </summary>
+    [Fact]
+    public async Task Espera_AbertaDeUmDiaPassado_EhNula()
+    {
+        var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
+            ModalidadeAtendimento.AcupunturaSimples, null);
+
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
+
+        var lido = await _agenda.ObterAsync(ag.Id);
+        lido!.EsperaMinutos(Manha.AddMinutes(25)).Should().Be(25,
+            "no dia corrente a espera aberta corre — é a fila viva do painel");
+        lido.EsperaMinutos(Manha.AddDays(1)).Should().BeNull();
+    }
+
+    /// <summary>A espera já MEDIDA (chegada → chamada) fica, mesmo que a pessoa vire falta depois.</summary>
+    [Fact]
+    public async Task Espera_MedidaAteAChamada_SobreviveAFalta()
+    {
+        var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
+            ModalidadeAtendimento.AcupunturaSimples, null);
+
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
+        await _agenda.ChamarAsync(ag.Id, "teste", Manha.AddMinutes(12));
+        await _agenda.MarcarFaltaAsync(ag.Id);
+
+        (await _agenda.ObterAsync(ag.Id))!.EsperaMinutos(Manha.AddDays(3)).Should().Be(12,
+            "a chamada aconteceu e foi carimbada — o fato medido não some com o desfecho");
+    }
+
     [Fact]
     public async Task Chamar_SemPassarPeloCheckIn_CarimbaAChegadaTambem()
     {

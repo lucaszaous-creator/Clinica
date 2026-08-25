@@ -127,7 +127,12 @@ public sealed class DocumentoClinicoService
                 Ordem = ordem++,
                 Descricao = i.Descricao.Trim(),
                 Detalhe = Limpar(i.Detalhe),
-                Quantidade = Limpar(i.Quantidade)
+                Quantidade = Limpar(i.Quantidade),
+                // ⚠️ A CÓPIA É CAMPO A CAMPO, e o que não estiver nesta lista é DESCARTADO
+                // em silêncio — o lugar 3 da auditoria de linha, aqui na emissão. O
+                // `Desenho` era montado certo pelo relatório e sumia neste `new`: a ficha
+                // saía sem mapa nenhum, com o desenho gravado no objeto que ninguém guardou.
+                Desenho = i.Desenho
             });
 
         await _repo.AdicionarDocumentoAsync(documento, ct);
@@ -200,6 +205,12 @@ public sealed class DocumentoClinicoService
     /// entram no resumo as sessões com o PAR de EVA — a mesma regra do gráfico da
     /// parcela 2, porque meia medida não diz se melhorou.
     /// </summary>
+    private static DateOnly Menor(DateOnly? a, DateOnly? b)
+        => a is null ? b!.Value : b is null ? a.Value : a.Value < b.Value ? a.Value : b.Value;
+
+    private static DateOnly Maior(DateOnly? a, DateOnly? b)
+        => a is null ? b!.Value : b is null ? a.Value : a.Value > b.Value ? a.Value : b.Value;
+
     public async Task<DocumentoClinico> EmitirRelatorioEvolucaoAsync(
         int pacienteId, int? profissionalId = null, DateOnly? inicio = null, DateOnly? fim = null,
         string? operador = null, CancellationToken ct = default)
@@ -209,30 +220,145 @@ public sealed class DocumentoClinicoService
             .OrderBy(e => e.Data).ThenBy(e => e.Id)
             .ToList();
 
-        if (evolucoes.Count == 0)
+        // ⚠️ A ENFERMAGEM entra no MESMO papel (parcela 78). A clínica disse que todo
+        // paciente passa por ela, e até aqui o único jeito de a passagem sair impressa era
+        // haver uma folha de infusão: a técnica que colhe sinais vitais, faz o curativo e
+        // registra a consulta de enfermagem completa não tinha o que entregar a ninguém.
+        //
+        // No MESMO documento, e não num tipo novo, porque é o mesmo fato para quem lê: o
+        // paciente veio, e isto foi o que aconteteu com ele. Um segundo papel obrigaria a
+        // clínica a entregar dois e o convênio a casar duas numerações.
+        //
+        // Só as VIGENTES: registro cancelado ou já retificado é registro desdito, e ele
+        // continua no prontuário — não no papel que sai da clínica.
+        var enfermagem = EvolucaoEnfermagem.Vigentes(
+                await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct))
+            .Where(e => (inicio is null || e.Data >= inicio) && (fim is null || e.Data <= fim))
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
+            .ToList();
+
+        if (evolucoes.Count == 0 && enfermagem.Count == 0)
             throw new InvalidOperationException(
-                "Não há sessão registrada no prontuário para relatar neste período.");
+                "Não há registro no prontuário para relatar neste período.");
 
         var comPar = evolucoes.Where(e => e.TemParEva).ToList();
 
-        var corpo = $"Relatório da evolução clínica de {evolucoes[0].Data:dd/MM/yyyy} a "
-                    + $"{evolucoes[^1].Data:dd/MM/yyyy}, com {evolucoes.Count} sessão(ões) registrada(s). ";
+        // O MAPA CORPORAL de cada sessão, numa consulta só (parcela 79). Ele é COPIADO
+        // para dentro do documento aqui, e não lido na impressão: a segunda via tem de
+        // sair idêntica à que o paciente levou, e a sessão pode ser corrigida depois.
+        var mapas = (await _repo.MapasDasEvolucoesAsync(
+                evolucoes.Select(e => e.Id).ToList(), ct))
+            .ToDictionary(m => m.EvolucaoId);
 
-        corpo += comPar.Count == 0
-            ? "Nenhuma sessão do período tem a escala de dor (EVA) medida antes E depois, "
-              + "então não é possível afirmar a variação da dor pelo registro."
-            : $"{comPar.Count} sessão(ões) têm a EVA medida antes e depois: a dor foi de "
-              + $"{comPar[0].EvaAntes}/10 na primeira medida para {comPar[^1].EvaDepois}/10 na última, "
-              + $"com alívio médio de {comPar.Average(e => e.VariacaoEva!.Value):0.#} ponto(s) por sessão.";
+        var primeira = Menor(evolucoes.FirstOrDefault()?.Data, enfermagem.FirstOrDefault()?.Data);
+        var ultima = Maior(evolucoes.LastOrDefault()?.Data, enfermagem.LastOrDefault()?.Data);
 
-        var itens = evolucoes.Select(e => new ItemDocumento
+        // ⚠️ A abertura conta SÓ o que existe. "0 sessão(ões) registrada(s) e 1 registro(s)
+        // de enfermagem" é verdade e se lê como falta — e este é o papel que o paciente
+        // leva embora, onde a primeira linha é a que todo mundo lê.
+        var contagens = new List<string>();
+        if (evolucoes.Count > 0) contagens.Add($"{evolucoes.Count} sessão(ões) registrada(s)");
+        if (enfermagem.Count > 0) contagens.Add($"{enfermagem.Count} registro(s) de enfermagem");
+
+        var corpo = $"Relatório da evolução clínica de {primeira:dd/MM/yyyy} a "
+                    + $"{ultima:dd/MM/yyyy}, com {string.Join(" e ", contagens)}. ";
+
+        // ⚠️ A frase da EVA só existe quando há sessão do prontuário médico: numa ficha só
+        // de enfermagem, "nenhuma sessão tem a EVA medida" seria uma afirmação sobre um
+        // registro que não se propôs a medi-la.
+        if (evolucoes.Count > 0)
+            corpo += comPar.Count == 0
+                ? "Nenhuma sessão do período tem a escala de dor (EVA) medida antes E depois, "
+                  + "então não é possível afirmar a variação da dor pelo registro."
+                : $"{comPar.Count} sessão(ões) têm a EVA medida antes e depois: a dor foi de "
+                  + $"{comPar[0].EvaAntes}/10 na primeira medida para {comPar[^1].EvaDepois}/10 na última, "
+                  + $"com alívio médio de {comPar.Average(e => e.VariacaoEva!.Value):0.#} ponto(s) por sessão.";
+
+        // ⚠️ A lista carrega a DATA de cada item para ser ordenada no fim. O comentário
+        // das escalas promete, desde a parcela 36, que elas entram "na MESMA linha do
+        // tempo das sessões" — e elas eram ANEXADAS depois de todas, isto é, o papel
+        // saía com as sessões, depois os escores, depois a enfermagem. Comentário que
+        // descreve um comportamento e não o realiza é o defeito da parcela 67; aqui ele
+        // fazia o leitor comparar o escore de agosto com a sessão de junho.
+        var datados = evolucoes.Select(e => (e.Data, Item: new ItemDocumento
         {
             Descricao = e.TemParEva
                 ? $"{e.Data:dd/MM/yyyy} · EVA {e.EvaAntes} → {e.EvaDepois}"
                 : $"{e.Data:dd/MM/yyyy} · EVA não medida",
-            Detalhe = Juntar(e.QueixaPrincipal, e.Conduta, e.TextoEvolucao),
-            Quantidade = e.Profissional?.Rotulo
-        }).ToList();
+            // A anamnese e o exame físico da sessão entram no relatório porque é
+            // JUSTAMENTE isso que o outro profissional lê para não recomeçar o raciocínio
+            // do zero — sem eles, o papel diz o que foi feito e não diz por quê.
+            //
+            // ⚠️ A HIPÓTESE entra pelo TEXTO; o CÓDIGO CID, não. É a economia do CID da
+            // parcela 3, e ela vale aqui com mais razão: o relatório circula fora da
+            // clínica, o código é o que se lê num campo de formulário sem ninguém ler a
+            // frase ao lado, e este documento não passa pela autorização expressa que a
+            // receita e o atestado pedem. Quem precisa do código pede o atestado.
+            Detalhe = Juntar(
+                e.QueixaPrincipal,
+                e.HistoriaDoencaAtual,
+                e.ExameFisico,
+                e.HipoteseDiagnostica is { } h ? $"hipótese: {h}" : null,
+                e.Conduta,
+                e.TextoEvolucao,
+                // ⚠️ O PLANO entra no relatório (parcela 75), e é o que o CONVÊNIO mais
+                // procura nele: "10 sessões, 2x/semana, reavaliar em 4 semanas" é a frase
+                // que sustenta a continuidade do tratamento para quem não o acompanhou.
+                // Sem isto, o campo nasceria gravado e o único papel que sai da clínica não
+                // o levaria — o defeito recorrente na variante mais cara.
+                e.PlanoTerapeutico is { } pl ? $"plano: {pl}" : null,
+                // O RETORNO e o ENCAMINHAMENTO (parcela 77) pela mesma razão do plano: o
+                // relatório é o papel que o paciente leva ao convênio e ao outro
+                // profissional, e "reavaliar em 7 dias" e "encaminhado à psiquiatria" são
+                // exatamente o que quem não acompanhou o tratamento precisa ler.
+                e.RetornoSugeridoEm is { } rs
+                    ? $"retorno sugerido: {rs:dd/MM/yyyy}"
+                      + (string.IsNullOrWhiteSpace(e.RetornoSugeridoNota)
+                          ? string.Empty
+                          : $" ({e.RetornoSugeridoNota})")
+                    : null,
+                e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null),
+            Quantidade = e.Profissional?.Rotulo,
+            // A EVA e as marcações do mapa, na forma que o PDF desenha.
+            Desenho = DesenhoDaSessao.De(e, mapas.GetValueOrDefault(e.Id)).Serializar()
+        })).ToList();
+
+        // Os registros de ENFERMAGEM entram como itens datados, na MESMA linha do tempo
+        // das sessões — separá-los em dois blocos faria o leitor comparar a passagem de
+        // agosto com a consulta de junho, que é o defeito que as escalas já evitam abaixo.
+        foreach (var en in enfermagem)
+            datados.Add((en.Data, new ItemDocumento
+            {
+                Descricao = $"{en.Data:dd/MM/yyyy} \u00E0s {en.Hora:HH\\:mm} \u00B7 enfermagem"
+                            + (en.EhConsulta ? " (consulta de enfermagem)" : string.Empty),
+                Detalhe = Juntar(
+                    en.Texto,
+                    en.SinaisVitaisResumidos,
+                    en.AcessoResumo is { } ac ? $"acesso venoso: {ac}" : null,
+                    // As CINCO etapas da COFEN 358/2009, e elas entram quando FORAM
+                    // escritas: numa passagem de curativo não existem, e imprimir rótulo
+                    // sem conteúdo faria o papel parecer um formulário pela metade.
+                    //
+                    // ⚠️ O DIAGNÓSTICO e os CUIDADOS (etapas 2, 3 e 4) entram porque são o
+                    // que faz a consulta de enfermagem ser uma consulta: sem eles o papel
+                    // diz "consulta de enfermagem" e mostra um texto livre — que é
+                    // exatamente o que a clínica tinha antes de a etapa existir. As duas
+                    // listas já vêm carregadas da consulta do repositório; deixá-las de
+                    // fora seria dado gravado sem leitor no único papel que sai da clínica.
+                    en.Historico,
+                    en.ExameFisico,
+                    Lista("diagnóstico(s) de enfermagem", en.Diagnosticos
+                        .OrderBy(d => d.Ordem).ThenBy(d => d.Id).Select(d => d.Redacao)),
+                    Lista("cuidados prescritos", en.Cuidados
+                        .OrderBy(c => c.Ordem).ThenBy(c => c.Id).Select(c => c.Redacao)),
+                    en.Avaliacao,
+                    en.Intercorrencia ? "INTERCORRÊNCIA registrada" : null),
+                // Quem assina a passagem é quem a fez, com o COREN — é o que dá valor ao
+                // registro de enfermagem, e o papel circula fora da clínica.
+                Quantidade = string.IsNullOrWhiteSpace(en.AutorConselho)
+                    ? en.AutorNome
+                    : $"{en.AutorNome} ({en.AutorConselho})"
+            }));
 
         // As escalas aplicadas no período entram no MESMO relatório (parcela 36).
         //
@@ -251,7 +377,7 @@ public sealed class DocumentoClinicoService
             .ToList();
 
         foreach (var a in avaliacoes)
-            itens.Add(new ItemDocumento
+            datados.Add((a.Data, new ItemDocumento
             {
                 Descricao = $"{a.Data:dd/MM/yyyy} · {a.InstrumentoNome}: {a.PontuacaoFormatada}",
                 // A faixa vai como foi GRAVADA na aplicação, não recalculada pela
@@ -259,7 +385,7 @@ public sealed class DocumentoClinicoService
                 // na época.
                 Detalhe = Juntar(a.FaixaNome, a.FaixaInterpretacao, a.Observacoes),
                 Quantidade = a.Profissional?.Rotulo
-            });
+            }));
 
         if (avaliacoes.Count > 0)
         {
@@ -283,18 +409,38 @@ public sealed class DocumentoClinicoService
             PacienteId = pacienteId,
             ProfissionalId = profissionalId,
             Data = DateOnly.FromDateTime(DateTime.Today),
-            PeriodoInicio = evolucoes[0].Data,
-            PeriodoFim = evolucoes[^1].Data,
+            // ⚠️ `evolucoes[0]` ESTOURA numa ficha só de enfermagem — e ela passou a
+            // existir nesta parcela. O período sai do que de fato entrou no papel.
+            PeriodoInicio = primeira,
+            PeriodoFim = ultima,
             Corpo = corpo,
-            Itens = itens
+            Itens = datados.OrderBy(d => d.Data).Select(d => d.Item).ToList()
         }, operador, ct);
     }
 
     /// <summary>
-    /// Anamnese. Vem preenchida com o que o sistema já sabe (a primeira sessão do
-    /// prontuário) e sai com LINHAS para o que ele não guarda — antecedentes,
-    /// medicações, hábitos. Imprimir só o que existe daria uma folha quase vazia; o
-    /// papel serve para a entrevista acontecer.
+    /// Anamnese. Vem preenchida com o que o sistema já sabe e sai com LINHAS para o resto —
+    /// o papel serve para a entrevista acontecer.
+    ///
+    /// ⚠️ O QUE O SISTEMA SABE MUDOU DUAS VEZES, e o comentário desta função ficou para trás
+    /// nas duas (corrigido na parcela 75, 2ª rodada):
+    /// <list type="bullet">
+    ///   <item>a parcela 73 deu à sessão <c>HistoriaDoencaAtual</c>, <c>ExameFisico</c> e
+    ///   <c>HipoteseDiagnostica</c> próprios, e este montador continuava lendo a HDA do
+    ///   <c>TextoEvolucao</c> — o campo ao lado;</item>
+    ///   <item>a parcela 75 criou a <see cref="AnamnesePaciente"/> com antecedentes
+    ///   pessoais, familiares e hábitos, e a folha continuava imprimindo LINHA EM BRANCO
+    ///   para os três, dizendo por escrito que "o sistema não guarda".</item>
+    /// </list>
+    ///
+    /// Folha em branco sobre dado que existe é pior do que folha em branco: ela faz a
+    /// entrevista repetir a pergunta que já foi feita, e o paciente concluir que ninguém
+    /// leu o que ele contou da última vez.
+    ///
+    /// ⚠️ ALERGIAS e MEDICAÇÕES continuam em LINHA de propósito. Elas moram na lista de
+    /// problemas, que é uma lista — imprimi-la aqui daria uma segunda cópia do que já sai
+    /// no relatório, e a que ninguém lembraria de conferir contra a lista viva é justamente
+    /// a que o alerta de prescrição lê.
     /// </summary>
     public async Task<DocumentoClinico> EmitirAnamneseAsync(
         int pacienteId, int? profissionalId = null, string? operador = null,
@@ -302,11 +448,19 @@ public sealed class DocumentoClinicoService
     {
         var evolucoes = await _prontuario.DoPacienteAsync(pacienteId, ct);
         var primeira = evolucoes.OrderBy(e => e.Data).ThenBy(e => e.Id).FirstOrDefault();
+        var anamnese = await _repo.AnamneseDoPacienteAsync(pacienteId, ct);
 
         var preenchido = new Dictionary<string, string?>
         {
             ["Queixa principal"] = primeira?.QueixaPrincipal,
-            ["História da doença atual"] = primeira?.TextoEvolucao,
+            // A HDA tem campo PRÓPRIO desde a parcela 73; ler o TextoEvolucao punha a
+            // evolução da sessão no lugar da história da doença — dois campos diferentes.
+            ["História da doença atual"] = primeira?.HistoriaDoencaAtual ?? primeira?.TextoEvolucao,
+            ["Antecedentes pessoais e cirúrgicos"] = anamnese?.AntecedentesPessoais,
+            ["Hábitos (sono, atividade física, alimentação)"] = anamnese?.HabitosDeVida,
+            ["Antecedentes familiares"] = anamnese?.AntecedentesFamiliares,
+            ["Exame físico"] = primeira?.ExameFisico,
+            ["Hipótese diagnóstica"] = primeira?.HipoteseDiagnostica,
             ["Conduta inicial"] = primeira?.Conduta
         };
 
@@ -585,6 +739,19 @@ public sealed class DocumentoClinicoService
         { Concedido: true } r => $"Concedido em {r.RegistradoEm:dd/MM/yyyy}",
         var r => $"Recusado em {r.RegistradoEm:dd/MM/yyyy}"
     };
+
+    /// <summary>
+    /// Uma lista rotulada dentro do detalhe do item — "cuidados prescritos: X; Y".
+    ///
+    /// Lista VAZIA devolve nulo, e não o rótulo sozinho: é a mesma regra do
+    /// <see cref="Juntar"/>, e é ela que faz a passagem de curativo sair sem os rótulos
+    /// das etapas que ninguém escreveu.
+    /// </summary>
+    private static string? Lista(string rotulo, IEnumerable<string> itens)
+    {
+        var texto = string.Join("; ", itens.Where(i => !string.IsNullOrWhiteSpace(i)));
+        return string.IsNullOrWhiteSpace(texto) ? null : $"{rotulo}: {texto}";
+    }
 
     private static string? Juntar(params string?[] partes)
     {

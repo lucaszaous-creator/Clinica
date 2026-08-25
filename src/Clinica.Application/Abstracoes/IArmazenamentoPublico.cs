@@ -47,4 +47,12 @@ public interface IArmazenamentoPublico
     /// continuam no banco pelos 20 anos. O que sai é a PUBLICAÇÃO.
     /// </summary>
     Task RemoverAsync(string caminho, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lê um objeto de volta, ou <c>null</c> quando não existe (parcela 81 — a coleta do
+    /// termo pelo celular: o desktop publica o pedido e fica LENDO o balde à espera da
+    /// resposta que o Worker grava). A leitura é pela API autenticada, nunca pela URL
+    /// pública — o desktop tem credencial, e é ela que prova que quem lê é a clínica.
+    /// </summary>
+    Task<byte[]?> LerAsync(string caminho, CancellationToken ct = default);
 }

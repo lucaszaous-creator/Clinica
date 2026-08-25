@@ -44,6 +44,39 @@ public sealed record AnexoResumo(
 }
 
 /// <summary>
+/// Um anexo visto do PACIENTE, não da sessão (parcela 74).
+///
+/// ⚠️ O eixo é o que muda: até aqui os anexos só se alcançavam sessão a sessão, dentro do
+/// prontuário. A pergunta que quem atende faz é outra — <i>"eu pedi a ressonância; ela
+/// chegou?"</i> —, e ela não se responde abrindo quarenta sessões uma por uma. É a lacuna
+/// que a parcela 37 já tinha nomeado ("ele pedia e não recebia") e resolvido pela metade.
+///
+/// Traz a DATA DA SESSÃO junto porque é ela que situa o exame no tratamento; a data de
+/// upload responde outra coisa (quando alguém digitalizou), e as duas divergem em semanas
+/// quando o laudo é anexado depois.
+/// </summary>
+public sealed record AnexoDoPaciente(
+    int Id,
+    int EvolucaoId,
+    DateOnly DataSessao,
+    string NomeArquivo,
+    TipoAnexo Tipo,
+    string? TipoConteudo,
+    int Tamanho,
+    string? Descricao,
+    DateTime CriadoEm)
+{
+    public string TamanhoFormatado => Tamanho < 1024
+        ? $"{Tamanho} B"
+        : Tamanho < 1024 * 1024
+            ? $"{Tamanho / 1024} KB"
+            : $"{Tamanho / (1024.0 * 1024):0.#} MB";
+
+    /// <summary>"Sessão de 12/03/2026 · 340 KB" — o contexto numa linha só.</summary>
+    public string Contexto => $"Sessão de {DataSessao:dd/MM/yyyy}  ·  {TamanhoFormatado}";
+}
+
+/// <summary>
 /// Um ponto da evolução da dor: o par EVA de uma sessão.
 ///
 /// Só entram sessões com o par completo — uma medida solta não diz se melhorou, e

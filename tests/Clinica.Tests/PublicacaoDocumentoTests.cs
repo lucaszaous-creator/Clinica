@@ -49,6 +49,12 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
         Removidos.Add(caminho);
         return Task.CompletedTask;
     }
+
+    public Task<byte[]?> LerAsync(string caminho, CancellationToken ct = default)
+    {
+        if (Quebrado) throw new InvalidOperationException("armazenamento fora do ar");
+        return Task.FromResult(Objetos.TryGetValue(caminho, out var b) ? b : null);
+    }
 }
 
 /// <summary>

@@ -4,192 +4,269 @@ using Clinica.Domain.Entities;
 namespace Clinica.Application.Servicos;
 
 /// <summary>
-/// Os dois termos do BSV, prontos para a clínica REVISAR e usar (parcela 67).
+/// Os dois termos do BSV com o TEXTO DA CLÍNICA — o conteúdo veio por escrito do advogado
+/// dela (ago/2026) e substituiu o rascunho da parcela 67.
 ///
-/// ⚠️ Isto NÃO é termo de fábrica, e a diferença é a que decide tudo o mais neste arquivo.
-/// Termo de fábrica é o que o sistema aplica sozinho, sem ninguém ler; o que existe aqui é
-/// um RASCUNHO que alguém pede, lê e edita antes de valer — e que não é exigido de ninguém
-/// enquanto a clínica não amarrar a modalidade a ele.
+/// ⚠️ Isto continua NÃO sendo termo de fábrica, e a regra do projeto ("o texto é da
+/// clínica, não nosso") continua valendo — só que agora ela é atendida pela via direta:
+/// o texto abaixo É o da clínica, reproduzido do documento que o advogado dela redigiu.
+/// Por isso a marca "(rascunho — revisar)" morreu: mantê-la num texto que a cliente
+/// aprovou mandaria o responsável técnico revisar o que ele já assinou embaixo.
+/// Nada mudou no mecanismo: ninguém aplica sozinho (o botão de Configurações continua
+/// sendo um clique de quem responde por ele), criar não amarra nada por si, e aplicar
+/// COPIA (Lei 13.787/2018) — editar o modelo amanhã não reescreve o que já foi assinado.
 ///
-/// Por que o rascunho existe
-/// -------------------------
-/// A regra do projeto continua sendo "o texto é da clínica, não nosso": o conteúdo de um
-/// consentimento é responsabilidade técnica de quem faz o procedimento. Só que a lista
-/// nascer vazia, na prática, produziu o pior desfecho possível — a clínica que não tem um
-/// texto pronto não escreve um do zero no meio do expediente, e o BSV continua acontecendo
-/// **sem termo nenhum**. Um rascunho que alguém revisa é melhor do que uma folha em branco
-/// que ninguém preenche.
+/// Por que DOIS termos, e o que cada um vale (decisão da cliente, 24/08/2026)
+/// --------------------------------------------------------------------------
+/// - **TCLE** — o consentimento institucional, longo, lido com calma. O paciente assina
+///   UMA vez e ele fica registrado na ficha: vale a partir da assinatura
+///   (`SoValeNoDiaDoProcedimento = false`).
+/// - **Termo da sessão** — a reavaliação de cada dia. O paciente assina a CADA sessão
+///   (`SoValeNoDiaDoProcedimento = true`), porque o que ele afirma ("fui reavaliado NESTA
+///   data", "meu estado não mudou desde a última sessão") é sobre o dia, não sobre o ano.
 ///
-/// O que o desenho preserva:
+/// O que foi ADAPTADO do papel para o meio eletrônico — e é adaptação de FORMA, não de
+/// conteúdo:
 ///
-/// 1. **Ninguém aplica sozinho.** Nada é semeado em migration nem criado na abertura do app.
-///    Alguém abre Configurações → "Escrever termos…" e CLICA. É o padrão do
-///    `FechamentoSessaoService`: o sistema faz o trabalho, o clique continua sendo de quem
-///    responde por ele.
-/// 2. **Nasce dizendo que é rascunho.** O nome traz "(rascunho — revisar)" e a primeira
-///    linha do corpo manda o responsável técnico conferir. Quem apagar essa linha está
-///    afirmando que leu — e é exatamente essa a decisão que se quer explícita.
-/// 3. **Não exige nada de ninguém.** Criar o modelo não amarra modalidade nenhuma; a
-///    exigência continua sendo um segundo ato, na mesma tela. Enquanto ela não existe, o
-///    balcão não cobra o termo e nada muda no dia de trabalho.
-/// 4. **Aplicar COPIA.** Editar o rascunho depois não reescreve termo já assinado — é a
-///    regra do protocolo do mapa corporal, e aqui ela é a Lei 13.787/2018.
-///
-/// Por que DOIS termos, e não um
-/// -----------------------------
-/// É a distinção que desenhou a parcela 66 inteira. O **consentimento** ganha em ser lido
-/// com calma, dias antes, e vale a partir da assinatura. A **declaração de jejum** afirma
-/// "ESTOU em jejum": assinada na véspera, ela é uma declaração sobre o futuro, e por isso
-/// nasce marcada para valer **só no dia**. Um termo só obrigaria a escolher entre pedir o
-/// jejum uma vez por ano ou o consentimento toda semana; o primeiro erro é perigoso.
+/// 1. Os blocos de IDENTIFICAÇÃO e ASSINATURAS com linhas em branco saíram: a folha
+///    emitida já imprime paciente, data e profissional, e a assinatura é colhida na tela
+///    (traço + evidência) no lugar da linha de caneta.
+/// 2. As lacunas da INDICAÇÃO ("____", Diagnóstico, CID) viraram remissão ao prontuário:
+///    um modelo é um texto FIXO copiado na emissão, e lacuna impressa sairia em branco
+///    para sempre. A indicação individual mora onde sempre morou — no registro clínico.
+/// 3. As listas de "☐" do termo da sessão viraram as DECLARAÇÕES Sim/Não do sistema —
+///    que é exatamente o que elas são no papel.
+/// 4. As seções 4 a 7 do termo da sessão (avaliação médica, dados da sessão,
+///    intercorrências, alta) são atos da EQUIPE, não afirmações do paciente: no sistema
+///    eles já têm registro próprio (prescrição, checagem de enfermagem, intercorrências
+///    da execução, evolução), cada um com autoria e trilha. O corpo do termo diz onde
+///    eles ficam, em vez de duplicá-los num papel que o paciente assina.
 /// </summary>
 public static class ModelosTermoBsv
 {
     /// <summary>
-    /// A marca que diz, no próprio nome, que o texto ainda não foi conferido. Fica no NOME
-    /// e não num campo à parte de propósito: ele aparece na lista da tela, no seletor da
-    /// coleta avulsa e na exigência — quem for amarrar a modalidade lê o aviso no caminho.
+    /// O TCLE institucional — assinado UMA vez, fica na ficha do paciente e vale a partir
+    /// da assinatura. Texto do advogado da clínica, seções 1 a 12.
     /// </summary>
-    public const string MarcaRascunho = "(rascunho — revisar)";
-
-    private const string AvisoDeRevisao =
-        "⚠️ RASCUNHO — o responsável técnico deve revisar este texto antes do primeiro uso, "
-        + "e apagar esta linha ao aprová-lo.";
-
-    /// <summary>O consentimento do procedimento — o texto longo, lido com calma.</summary>
     public static ModeloDocumento Consentimento() => new()
     {
         Tipo = TipoDocumentoClinico.TermoProcedimento,
-        Nome = $"Termo de consentimento — BSV {MarcaRascunho}",
-        Titulo = "Termo de consentimento livre e esclarecido — Bloqueio Simpático Venoso (BSV)",
+        Nome = "TCLE — Bloqueio Simpático Venoso (BSV)",
+        Titulo = "Termo de Consentimento Livre e Esclarecido (TCLE) — Bloqueio Simpático Venoso (BSV)",
         Corpo = string.Join("\n\n",
-            AvisoDeRevisao,
+            "1. FINALIDADE DESTE DOCUMENTO\n"
+            + "Este Termo de Consentimento Livre e Esclarecido tem como objetivo registrar "
+            + "que fui informado(a), em linguagem clara e adequada, sobre o procedimento "
+            + "denominado Bloqueio Simpático Venoso (BSV), incluindo sua finalidade, "
+            + "possíveis benefícios, limitações, riscos previsíveis, alternativas "
+            + "terapêuticas e cuidados relacionados. Declaro que tive oportunidade de fazer "
+            + "perguntas e que recebi esclarecimentos suficientes para decidir, de forma "
+            + "livre e consciente, sobre a realização do procedimento.",
 
-            "Declaro que fui informado(a), em linguagem que compreendi, sobre o procedimento "
-            + "de Bloqueio Simpático Venoso (BSV) que me foi indicado, e que tive a "
-            + "oportunidade de fazer perguntas e recebi respostas para todas elas.",
+            "2. O QUE É O BSV\n"
+            + "Fui informado(a) de que o Bloqueio Simpático Venoso (BSV) é um procedimento "
+            + "utilizado em determinadas condições dolorosas, com o objetivo de auxiliar no "
+            + "controle da dor e na melhora funcional. O procedimento envolverá a "
+            + "administração intravenosa de medicamentos considerados necessários pelo "
+            + "médico responsável, conforme avaliação clínica e prescrição médica "
+            + "individualizada, devidamente registrada no prontuário do paciente. "
+            + "Compreendo que a escolha e a indicação dos medicamentos, bem como a eventual "
+            + "necessidade de repetição do tratamento, dependerão da minha condição clínica "
+            + "e da avaliação do médico responsável.",
 
-            "O QUE É. O BSV é a aplicação de medicação por via venosa no membro afetado, com "
-            + "o objetivo de reduzir a dor e melhorar a circulação da região. O membro é "
-            + "mantido com um garrote durante alguns minutos, enquanto a medicação age no "
-            + "local, e o procedimento é acompanhado pela equipe do início ao fim.",
+            "3. INDICAÇÃO\n"
+            + "Fui informado(a) de que o procedimento foi indicado em razão da minha "
+            + "condição clínica, conforme avaliação médica registrada no meu prontuário — "
+            + "incluindo, quando aplicável, o diagnóstico e o CID correspondentes.",
 
-            "PARA QUE SERVE. O objetivo é o alívio da dor e a melhora dos sintomas. Fui "
-            + "informado(a) de que o resultado varia de pessoa para pessoa, de que costuma "
-            + "ser necessária mais de uma sessão, e de que NENHUM resultado me foi prometido "
-            + "ou garantido.",
+            "4. BENEFÍCIOS ESPERADOS\n"
+            + "Os benefícios podem incluir, entre outros:\n"
+            + "• redução da intensidade da dor;\n"
+            + "• melhora funcional;\n"
+            + "• melhora da qualidade de vida;\n"
+            + "• melhora do sono;\n"
+            + "• redução da necessidade de outros analgésicos;\n"
+            + "• auxílio na reabilitação.\n"
+            + "Estou ciente de que os resultados variam entre os pacientes e de que não há "
+            + "garantia de melhora completa, nem de cura.",
 
-            "RISCOS E EFEITOS POSSÍVEIS. Fui informado(a) de que podem ocorrer, entre outros: "
-            + "dor, ardência ou formigamento durante a aplicação; hematoma, inchaço ou dor no "
-            + "local da punção; tontura, náusea, queda da pressão ou desmaio; e, mais "
-            + "raramente, reação alérgica à medicação, flebite ou infecção no local. Fui "
-            + "orientado(a) a avisar a equipe IMEDIATAMENTE diante de qualquer mal-estar "
-            + "durante ou após o procedimento.",
+            "5. ALTERNATIVAS TERAPÊUTICAS\n"
+            + "Fui informado(a) de que existem outras opções de tratamento, cuja indicação "
+            + "depende da avaliação médica, podendo incluir tratamento medicamentoso, "
+            + "fisioterapia, psicoterapia, terapia ocupacional, bloqueios por outras "
+            + "técnicas, procedimentos intervencionistas e outras abordagens. Recebi "
+            + "explicações sobre essas possibilidades e tive oportunidade de esclarecê-las.",
 
-            "O QUE EU DEVO INFORMAR. Comprometo-me a informar à equipe todas as doenças que "
-            + "tenho, as medicações que uso (incluindo anticoagulantes), alergias já "
-            + "conhecidas, cirurgias anteriores e a possibilidade de gravidez. Estou "
-            + "ciente de que omitir qualquer uma dessas informações pode me colocar em risco.",
+            "6. RISCOS E POSSÍVEIS EFEITOS ADVERSOS\n"
+            + "Compreendo que todo procedimento médico envolve riscos, ainda que realizado "
+            + "com técnica adequada e monitorização. Fui informado(a) de que podem ocorrer "
+            + "efeitos adversos ou complicações, tais como:\n"
+            + "• dor, hematoma ou desconforto no local da punção venosa;\n"
+            + "• náuseas e vômitos;\n"
+            + "• tontura;\n"
+            + "• sonolência;\n"
+            + "• alterações transitórias da pressão arterial ou da frequência cardíaca;\n"
+            + "• visão borrada ou dupla;\n"
+            + "• sensação de flutuação ou dissociação;\n"
+            + "• alterações temporárias da percepção;\n"
+            + "• ansiedade ou agitação;\n"
+            + "• reações alérgicas aos medicamentos.\n"
+            + "Fui informado(a) de que, embora raros, eventos graves podem ocorrer e podem "
+            + "exigir atendimento médico imediato.",
 
-            "ALTERNATIVAS. Fui informado(a) de que existem outras formas de tratamento para o "
-            + "meu caso, de que elas me foram apresentadas, e de que posso optar por qualquer "
-            + "uma delas ou por nenhuma.",
+            "7. CONTRAINDICAÇÕES E INFORMAÇÕES PRESTADAS PELO PACIENTE\n"
+            + "Declaro que informei ao médico, de forma completa e verdadeira, sobre: "
+            + "alergias conhecidas; doenças pré-existentes; cirurgias anteriores; gravidez "
+            + "ou suspeita de gravidez; amamentação; medicamentos em uso; uso de álcool ou "
+            + "outras substâncias que possam interferir na segurança do procedimento; e a "
+            + "realização recente de procedimentos ou tratamentos que envolvam "
+            + "administração de medicamentos por qualquer via, incluindo imunobiológicos, "
+            + "infiltrações, infusões, injeções, vacinas ou outros tratamentos "
+            + "medicamentosos. Comprometo-me a informar ao médico responsável qualquer "
+            + "procedimento ou tratamento medicamentoso realizado antes da sessão de BSV, "
+            + "independentemente da via de administração, para avaliação da segurança e da "
+            + "possibilidade de realização do procedimento. Compreendo que a omissão de "
+            + "informações relevantes pode aumentar os riscos do procedimento.",
 
-            "DIREITO DE DESISTIR. Estou ciente de que posso retirar este consentimento a "
-            + "qualquer momento, antes ou durante o procedimento, sem que isso prejudique o "
-            + "meu atendimento nesta clínica.",
+            "8. ORIENTAÇÕES\n"
+            + "Recebi orientações sobre os cuidados antes e após o procedimento, incluindo, "
+            + "quando aplicável:\n"
+            + "• necessidade de acompanhante;\n"
+            + "• restrições para dirigir ou operar máquinas após o procedimento;\n"
+            + "• uso de medicamentos;\n"
+            + "• sinais de alerta que justificam contato com a equipe médica ou procura por "
+            + "atendimento;\n"
+            + "• realizar tricotomia/depilação da região do tórax, conforme orientação da "
+            + "equipe assistencial;\n"
+            + "• manter jejum de 6 (seis) horas para alimentos sólidos ou, no caso de "
+            + "ingestão de líquidos, observar o intervalo de 2 (duas) a 3 (três) horas "
+            + "antes do horário previsto para o BSV, conforme orientação da equipe "
+            + "assistencial;\n"
+            + "• comparecer utilizando roupas leves, folgadas e de fácil abertura, a fim de "
+            + "facilitar o posicionamento adequado do paciente e dos dispositivos "
+            + "necessários à realização do procedimento.",
 
-            "Declaro que li e compreendi este termo, que minhas dúvidas foram esclarecidas e "
-            + "que CONSINTO livremente com a realização do procedimento."),
+            "9. INTERCORRÊNCIAS\n"
+            + "Estou ciente de que, caso ocorra alguma intercorrência durante ou após o "
+            + "procedimento, serei avaliado(a) pela equipe assistencial, e as medidas "
+            + "necessárias serão adotadas e devidamente registradas. Havendo necessidade, "
+            + "serei encaminhado(a) para um serviço de maior complexidade, visando à "
+            + "continuidade e à segurança da assistência.",
+
+            "10. TRATAMENTO DE DADOS PESSOAIS\n"
+            + "Fui informado(a) de que meus dados pessoais e informações de saúde serão "
+            + "tratados pela clínica para finalidades assistenciais, administrativas, "
+            + "regulatórias e legais relacionadas ao meu atendimento, observada a "
+            + "legislação aplicável de proteção de dados.",
+
+            "11. DECLARAÇÃO DO PACIENTE\n"
+            + "As declarações que faço constam abaixo, respondidas uma a uma no momento da "
+            + "assinatura.",
+
+            "12. REVOGAÇÃO DO CONSENTIMENTO\n"
+            + "Estou ciente de que posso retirar meu consentimento antes da realização do "
+            + "procedimento, devendo comunicar minha decisão à equipe médica."),
+        // As declarações reproduzem a seção 11 do documento do advogado, agrupadas em três
+        // respostas — e TODAS continuam redigidas para que "Não" seja um SINAL (a regra da
+        // parcela 67): afirmativas, incondicionais, e com o Detalhe falando com o PACIENTE.
         Itens =
         [
             new ItemModelo
             {
                 Ordem = 1,
-                Descricao = "Li este termo e minhas dúvidas foram esclarecidas",
-                Detalhe = "Tive tempo e oportunidade de perguntar antes de assinar."
+                Descricao = "Li este documento, ou ele me foi integralmente lido, e "
+                            + "compreendi o seu conteúdo",
+                Detalhe = "Tive oportunidade de fazer perguntas, recebi esclarecimentos "
+                          + "suficientes e minhas dúvidas foram respondidas de forma "
+                          + "satisfatória."
             },
             new ItemModelo
             {
                 Ordem = 2,
-                Descricao = "Informei todas as minhas doenças, alergias e medicações em uso",
-                Detalhe = "Incluindo anticoagulantes, suplementos e remédios sem receita."
+                Descricao = "Informei ao médico, de forma completa e verdadeira, minhas "
+                            + "alergias, doenças, cirurgias anteriores e medicamentos em uso",
+                Detalhe = "Incluindo gravidez ou suspeita, amamentação, uso de álcool ou "
+                          + "outras substâncias, e tratamentos recentes com medicamentos "
+                          + "por qualquer via — imunobiológicos, infiltrações, infusões, "
+                          + "injeções e vacinas."
             },
             new ItemModelo
             {
                 Ordem = 3,
-                Descricao = "Fui informado(a) de que o resultado não é garantido e de que "
-                            + "pode ser necessária mais de uma sessão"
-            },
-            new ItemModelo
-            {
-                Ordem = 4,
-                Descricao = "Consinto com a realização do Bloqueio Simpático Venoso"
+                Descricao = "Recebi tempo suficiente para decidir e concordo "
+                            + "voluntariamente com a realização do procedimento proposto"
             }
         ]
     };
 
     /// <summary>
-    /// A declaração do dia — jejum e as condições que mudam a cada sessão.
-    ///
-    /// É curta de propósito: ela é lida no balcão, com o paciente de pé, minutos antes do
-    /// procedimento. Um texto longo aqui seria assinado sem ser lido, e é justamente esta a
-    /// folha em que a leitura importa.
+    /// O termo da sessão — a reavaliação de cada dia, assinada a CADA sessão. Reproduz as
+    /// seções do paciente do documento do advogado (1 a 3 e a declaração final); as seções
+    /// da equipe (4 a 7) têm registro próprio no sistema e o corpo diz onde.
     /// </summary>
-    public static ModeloDocumento DeclaracaoDoDia() => new()
+    public static ModeloDocumento TermoDaSessao() => new()
     {
         Tipo = TipoDocumentoClinico.TermoProcedimento,
-        Nome = $"Declaração do dia — BSV (jejum) {MarcaRascunho}",
-        Titulo = "Declaração do paciente no dia do procedimento — BSV",
+        Nome = "Termo da sessão — BSV",
+        Titulo = "Termo de Consentimento Específico para Sessão de Bloqueio Simpático Venoso (BSV)",
         Corpo = string.Join("\n\n",
-            AvisoDeRevisao,
+            "1. REAVALIAÇÃO CLÍNICA\n"
+            + "Declaro que fui reavaliado(a) pelo médico responsável nesta data e que tive "
+            + "a oportunidade de relatar qualquer alteração ocorrida desde a última "
+            + "consulta ou sessão de tratamento — novos sintomas, internações recentes, "
+            + "procedimentos realizados desde a última sessão, uso de novos medicamentos, "
+            + "reações alérgicas, gravidez ou suspeita e outros fatos relevantes. As "
+            + "alterações que relatei foram registradas no meu prontuário.",
 
-            "Declaro, nesta data e imediatamente antes da realização do Bloqueio Simpático "
-            + "Venoso, que as informações abaixo são verdadeiras.",
+            "2. CONFIRMAÇÃO DAS INFORMAÇÕES\n"
+            + "Confirmo que li e compreendi o TCLE do Bloqueio Simpático Venoso "
+            + "anteriormente assinado e que não houve alteração relevante que exija a sua "
+            + "substituição, salvo as informações atualizadas registradas nesta "
+            + "reavaliação. Compreendo que os resultados podem variar entre os pacientes e "
+            + "estou ciente de que poderão ocorrer efeitos adversos ou complicações "
+            + "inerentes ao procedimento.",
 
-            "Estou ciente de que estas respostas orientam a equipe sobre a segurança de "
-            + "realizar o procedimento HOJE, e de que responder \"não\" a qualquer uma delas "
-            + "não me impede de ser atendido(a): a decisão de realizar ou adiar é de quem "
-            + "executa o procedimento, e será conversada comigo."),
-        // ⚠️ TODA declaração daqui é redigida para que "Não" seja um SINAL — ele acende
-        // alerta VERMELHO no balcão e no consultório (`ElegibilidadeService`).
-        //
-        // Duas armadilhas que a revisão desta parcela pegou no primeiro rascunho:
-        //
-        // (a) **Declaração cujo "Não" é normal dilui o alerta.** Havia um "Estou
-        //     acompanhado(a) para voltar para casa" com a ressalva "se a clínica exigir" —
-        //     ou seja, num dia comum metade dos pacientes responderia "Não" e acenderia
-        //     vermelho. Alerta que dispara para todo mundo é alerta que ninguém lê, e o
-        //     próximo a ser ignorado seria o do jejum. Se a clínica exigir acompanhante,
-        //     ela acrescenta a linha — aí o "Não" volta a significar alguma coisa.
-        //
-        // (b) **Declaração NEGATIVA torna a resposta ambígua.** "Não tive febre" respondido
-        //     com "Não" é uma dupla negação que o paciente lê errado e a equipe também.
-        //     Todas são afirmativas: responder "Sim" é o caso bom.
+            "3. AVALIAÇÃO MÉDICA E REGISTROS DA SESSÃO\n"
+            + "A avaliação médica desta data — indicação, contraindicações identificadas e "
+            + "conduta —, os dados da sessão, as eventuais intercorrências e as condutas "
+            + "adotadas, bem como a alta, são registrados pela equipe assistencial no meu "
+            + "prontuário, com a respectiva autoria."),
+        // As declarações reproduzem as listas de "☐" das seções 1 a 3 e a declaração final
+        // (seção 8) do documento do advogado — e TODAS continuam redigidas para que "Não"
+        // seja um SINAL (parcela 67): afirmativas e incondicionais, porque o "Não" acende
+        // alerta VERMELHO no balcão e no consultório. Na 2ª, "Não" = "meu estado mudou",
+        // que é exatamente o que a equipe precisa ouvir ANTES de começar.
         Itens =
         [
             new ItemModelo
             {
                 Ordem = 1,
-                Descricao = "Estou em jejum conforme a orientação que recebi",
-                Detalhe = "Diga à equipe desde que horas você está sem comer e sem beber."
+                Descricao = "Fui reavaliado(a) pelo médico responsável nesta data e "
+                            + "relatei tudo o que mudou desde a última sessão",
+                Detalhe = "Novos sintomas, internações, procedimentos ou tratamentos "
+                          + "realizados, novos medicamentos, reações alérgicas, gravidez "
+                          + "ou suspeita e outros fatos relevantes."
             },
             new ItemModelo
             {
                 Ordem = 2,
-                Descricao = "Segui a orientação que recebi sobre as minhas medicações de uso contínuo"
+                Descricao = "Meu estado de saúde está sem alterações importantes desde a "
+                            + "última sessão",
+                Detalhe = "Alterações que existirem devem ser descritas à equipe antes do "
+                          + "início do procedimento."
             },
             new ItemModelo
             {
                 Ordem = 3,
-                Descricao = "Estou bem hoje: sem febre, sem infecção e sem mal-estar nos últimos dias"
+                Descricao = "Li e compreendi o TCLE do BSV que assinei anteriormente, e "
+                            + "as informações dele continuam valendo"
             },
             new ItemModelo
             {
                 Ordem = 4,
-                Descricao = "Minhas doenças, alergias e medicações continuam as mesmas que "
-                            + "declarei no termo de consentimento",
-                Detalhe = "Se alguma coisa mudou, avise a equipe antes de começar."
+                Descricao = "Permaneço com indicação clínica, minhas dúvidas sobre esta "
+                            + "sessão foram esclarecidas e concordo voluntariamente com a "
+                            + "realização desta sessão de BSV"
             }
         ]
     };
