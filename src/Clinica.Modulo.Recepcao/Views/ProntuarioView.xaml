@@ -189,7 +189,7 @@
                                                             Command="{Binding DataContext.EditarSessaoCommand,
                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding}" />
-                                                    <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    <Button Content="Cancelar…" Style="{StaticResource BotaoAcaoGridPerigo}"
                                                             Command="{Binding DataContext.ExcluirSessaoCommand,
                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding}" />

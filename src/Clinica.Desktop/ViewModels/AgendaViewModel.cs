@@ -431,11 +431,17 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         if (!_dialogo.ConfirmarPerigo("Cancelar agendamento",
             $"Cancelar o horário de {cartao.Paciente} às {cartao.Hora}?")) return;
 
+        IReadOnlyList<string> avisos;
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(cartao.Item.Id, SessaoUsuario.Atual.Operador);
+            avisos = await agenda.CancelarAsync(cartao.Item.Id, SessaoUsuario.Atual.Operador);
         }
+        // O destino das GUIAS (parcela 70) não passa calado: "suspensas" é rotina, mas
+        // "já baixada no portal" exige alguém ligar para o convênio — e aqui é a tela de
+        // quem fatura, o único que pode estornar.
+        if (avisos.Count > 0)
+            _dialogo.Aviso($"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
         await Recarregar();
     }
 
@@ -446,11 +452,15 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar falta");
 
+        IReadOnlyList<string> avisos;
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(cartao.Item.Id, SessaoUsuario.Atual.Operador);
+            avisos = await agenda.MarcarFaltaAsync(cartao.Item.Id, SessaoUsuario.Atual.Operador);
         }
+        // Mesma regra do cancelamento logo acima: aviso de guia é ação, não ruído.
+        if (avisos.Count > 0)
+            _dialogo.Aviso($"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
         await Recarregar();
     }
 

@@ -170,12 +170,13 @@ public sealed class ParametrosService
         => await _repo.ObterConfiguracaoAsync(ChaveGuiaNoAgendamento, ct) == "1";
 
     /// <summary>
-    /// Liga/desliga o regime. ⚠️ LIGAR repete o backfill do <c>Atendimento.RealizadoEm</c>:
-    /// até este momento não existe atendimento de sessão futura, então tudo o que está sem
-    /// o carimbo é, por definição, sessão realizada — inclusive as linhas que um app
-    /// ANTIGO gravou depois da migration, que o backfill dela não alcançou. Sem isto, os
-    /// leitores de "sessão realizada" (BI, rentabilidade, retenção) perderiam essas linhas
-    /// para sempre no dia em que a chave ligasse.
+    /// Liga/desliga o regime. ⚠️ LIGAR repete o backfill do <c>Atendimento.RealizadoEm</c>,
+    /// para alcançar as linhas que um app ANTIGO gravou depois da migration — sem isso os
+    /// leitores de "sessão realizada" (BI, rentabilidade, retenção) as perderiam para
+    /// sempre no dia em que a chave ligasse. O backfill só carimba atendimento cujo
+    /// horário está Realizado (ou sem horário): "sem carimbo" NÃO é sinônimo de "sessão
+    /// antiga" — se a chave já esteve ligada antes, há atendimento de sessão MARCADA com
+    /// o nulo de propósito, e religar não pode transformá-lo em visita que nunca houve.
     /// </summary>
     public async Task DefinirGuiaNoAgendamentoAsync(bool ligada, CancellationToken ct = default)
     {

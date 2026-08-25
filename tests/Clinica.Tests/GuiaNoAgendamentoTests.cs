@@ -393,6 +393,130 @@ public class GuiaNoAgendamentoTests : IDisposable
             "a presença confirmada é o que faz a sessão contar no repasse");
     }
 
+    /// <summary>
+    /// A corrida entre as duas máquinas do balcão (validação de ago/2026): o cartão "Em
+    /// atendimento" da máquina A só relê a cada minuto, e a máquina B cancela o horário
+    /// nesse meio tempo — as guias já estão SUSPENSAS. Confirmar por cima carimbaria
+    /// Realizado sem devolver guia nenhuma: sessão realizada sem guia, calada, uma das
+    /// duas coisas que a direção disse não aceitar. A recusa mora no SERVIÇO, porque as
+    /// telas só guardam a metade visível.
+    /// </summary>
+    [Fact]
+    public async Task Confirmar_presenca_de_horario_cancelado_e_recusado_e_nada_muda()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        await LigarChaveAsync();
+
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null);
+        await _agenda.CancelarAsync(ag.Id, "ana");
+        _db.ChangeTracker.Clear();
+
+        var acao = () => _agenda.ConfirmarPresencaAsync(ag.Id, operador: "bia");
+
+        await acao.Should().ThrowAsync<InvalidOperationException>().WithMessage("*cancelado*");
+        (await _db.Agendamentos.AsNoTracking().SingleAsync()).Status
+            .Should().Be(StatusAgendamento.Cancelado);
+        (await _db.Atendimentos.AsNoTracking().SingleAsync()).RealizadoEm.Should().BeNull(
+            "a sessão não aconteceu — quem reabre o horário (e devolve as guias) é o Remarcar");
+        (await _db.Codigos.AsNoTracking().ToListAsync())
+            .Should().OnlyContain(c => c.Status == StatusCodigo.NaoAplicavel);
+    }
+
+    /// <summary>
+    /// RELIGAR a chave não pode carimbar <c>RealizadoEm</c> em sessão marcada (nem na
+    /// cancelada): "sem carimbo" só é sinônimo de "sessão antiga" na PRIMEIRA ativação.
+    /// Desligar e religar é o ritual que a própria caixinha ensina ("desligue até
+    /// atualizar a máquina X") — e o backfill cego transformaria toda sessão futura em
+    /// visita que nunca houve, corrompendo retenção, origem e estreia sem sintoma.
+    /// </summary>
+    [Fact]
+    public async Task Religar_a_chave_nao_carimba_a_sessao_marcada_nem_a_cancelada()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        await LigarChaveAsync();
+
+        await _agenda.AgendarAsync(
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+        var cancelada = await _agenda.AgendarAsync(
+            pacienteId, SemanaQueVem.AddDays(1), ModalidadeAtendimento.AcupunturaComEletro, null);
+        await _agenda.CancelarAsync(cancelada.Id, "ana");
+
+        await _parametros.DefinirGuiaNoAgendamentoAsync(false);
+        _db.ChangeTracker.Clear();
+        await _parametros.DefinirGuiaNoAgendamentoAsync(true);
+
+        (await _db.Atendimentos.AsNoTracking().ToListAsync())
+            .Should().OnlyContain(a => a.RealizadoEm == null,
+                "sessão marcada e sessão cancelada não viraram visita por a chave piscar");
+    }
+
+    /// <summary>
+    /// A especialidade da consulta VAI NA GUIA (é a informação que a operadora cobra), e
+    /// trocar "Consulta/Psiquiatria" por "Consulta/Geriatria" mantém o código "Consulta"
+    /// — só olhar a modalidade deixava o horário com a especialidade nova e a guia com a
+    /// antiga, sem aviso nenhum.
+    /// </summary>
+    [Fact]
+    public async Task Trocar_so_a_especialidade_da_consulta_regera_as_guias()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        await LigarChaveAsync();
+
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.Consulta, null,
+            modalidadeCodigo: ModalidadeAtendimento.Consulta.ToString(),
+            especialidadeConsulta: Especialidade.Psiquiatria,
+            especialidadeConsultaCodigo: Especialidade.Psiquiatria.ToString());
+        var antigas = await _db.Codigos.AsNoTracking().Select(c => c.Id).ToListAsync();
+        antigas.Should().NotBeEmpty();
+
+        _db.ChangeTracker.Clear();
+        var avisos = new List<string>();
+        await _agenda.RemarcarAsync(ag.Id, SemanaQueVem, null,
+            modalidadeCodigo: ModalidadeAtendimento.Consulta.ToString(),
+            especialidadeConsultaCodigo: Especialidade.Geriatria.ToString(),
+            operador: "ana", avisosGuia: avisos);
+
+        avisos.Should().Contain(a => a.Contains("regeradas"));
+        var atendimento = await _db.Atendimentos.AsNoTracking().SingleAsync();
+        atendimento.EspecialidadeConsultaCodigo.Should().Be(Especialidade.Geriatria.ToString(),
+            "o atendimento acompanha o horário — é dele que a guia sai");
+        (await _db.Codigos.AsNoTracking().ToListAsync())
+            .Where(c => !antigas.Contains(c.Id)).Should().NotBeEmpty()
+            .And.OnlyContain(c => c.Status == StatusCodigo.Aberto);
+    }
+
+    /// <summary>
+    /// O <c>primeiroCodigo</c> escolhido na tela vale para a SÉRIE inteira: a escolha é
+    /// feita uma vez e a prévia a mostra — descartá-la faria as dez guias nascerem na
+    /// ordem padrão da regra, contradizendo o que a tela prometeu (prévia que não bate
+    /// com o lançamento é pior do que prévia nenhuma, parcela 47).
+    /// </summary>
+    [Fact]
+    public async Task A_serie_respeita_a_escolha_do_primeiro_codigo()
+    {
+        var p = new Paciente
+        {
+            Nome = "Marta", Convenio = Convenio.UnimedPadrao, Sexo = Sexo.Feminino, PossuiApp = true
+        };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+        await LigarChaveAsync();
+
+        var serie = await _agenda.AgendarSerieAsync(
+            p.Id, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, quantidade: 2,
+            primeiroCodigo: TipoCodigo.Eletroacupuntura);
+
+        serie.Marcados.Should().HaveCount(2);
+        var atendimentos = await _db.Atendimentos.Include(a => a.Codigos).AsNoTracking().ToListAsync();
+        atendimentos.Should().HaveCount(2);
+        foreach (var a in atendimentos)
+            a.Codigos.Single(c => c.Ordem == OrdemCodigo.Primeiro).Tipo
+                .Should().Be(TipoCodigo.Eletroacupuntura,
+                    "a escolha da tela atravessa cada sessão da série");
+    }
+
     public void Dispose()
     {
         _db.Dispose();

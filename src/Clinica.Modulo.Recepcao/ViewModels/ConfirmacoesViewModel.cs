@@ -169,6 +169,10 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
 
             var r = await campanhas.GerarConfirmacoesAsync(DateOnly.FromDateTime(Dia));
 
+            // A CONFIRMAÇÃO VEM DEPOIS DO RECARREGAR (a regra da ConsultasViewModel): a
+            // carga começa zerando `Mensagem`, então escrita antes ela nunca aparecia.
+            await CarregarAsync();
+
             Mensagem = r.Gerados > 0
                 ? $"{r.Gerados} sessão(ões) para avisar."
                   + (r.JaExistiam > 0 ? $" {r.JaExistiam} já estavam na rodada." : string.Empty)
@@ -177,8 +181,6 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
                     ? $"Nada novo — as {r.JaExistiam} sessão(ões) do dia já estavam na rodada."
                     : "Nenhuma sessão marcada para este dia.";
             MensagemEhErro = false;
-
-            await CarregarAsync();
         }
         catch (Exception ex)
         {

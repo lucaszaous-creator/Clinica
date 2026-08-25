@@ -25,17 +25,22 @@ public sealed record AtendimentoMontado(Atendimento Atendimento, List<string> Av
 /// </summary>
 public sealed record CapaDoDia(
     int AtendimentoId, string Numero, string Modalidade, string Lancamento,
-    int GuiasFaturaveis, int GuiasBaixadas)
+    int GuiasFaturaveis, int GuiasBaixadas, bool SessaoCaiu = false)
 {
-    /// <summary>"2 guias — 1 já baixada" / "sem guia (particular)".</summary>
-    public string ResumoGuias => GuiasFaturaveis == 0
-        ? "sem guia (particular)"
-        : (GuiasFaturaveis == 1 ? "1 guia" : $"{GuiasFaturaveis} guias") + " — " + GuiasBaixadas switch
-        {
-            0 => "nenhuma baixada ainda",
-            1 => "1 já baixada pelo faturamento",
-            var b => $"{b} já baixadas pelo faturamento"
-        };
+    /// <summary>"2 guias — 1 já baixada" / "sem guia (particular)" / "sessão cancelada…".</summary>
+    public string ResumoGuias => SessaoCaiu
+        // A sessão cancelada/faltou NÃO pode sair como "particular": são duas afirmações
+        // erradas na tela que existe para informar a decisão de duplicidade — e marcar de
+        // novo para quem desmarcou de manhã é justamente o caso legítimo.
+        ? "sessão cancelada/falta — guias suspensas"
+        : GuiasFaturaveis == 0
+            ? "sem guia (particular)"
+            : (GuiasFaturaveis == 1 ? "1 guia" : $"{GuiasFaturaveis} guias") + " — " + GuiasBaixadas switch
+            {
+                0 => "nenhuma baixada ainda",
+                1 => "1 já baixada pelo faturamento",
+                var b => $"{b} já baixadas pelo faturamento"
+            };
 }
 
 /// <summary>
@@ -103,6 +108,14 @@ public sealed class AtendimentoService
         return atendimentos.Select(a =>
         {
             var faturaveis = a.Codigos.Where(c => c.Status != StatusCodigo.NaoAplicavel).ToList();
+
+            // A sessão que CAIU se reconhece pela marca da suspensão nas guias — é o que
+            // separa "cancelada" (guias suspensas com a marca) de "particular" (guias
+            // `NaoAplicavel` desde o nascimento, sem marca), sem outra ida ao banco.
+            var sessaoCaiu = faturaveis.Count == 0 && a.Codigos.Any(c =>
+                c.Status == StatusCodigo.NaoAplicavel
+                && c.ObservacaoPendencia?.StartsWith(MarcaSuspensao) == true);
+
             return new CapaDoDia(
                 a.Id,
                 a.Numero ?? $"#{a.Id}",
@@ -115,7 +128,8 @@ public sealed class AtendimentoService
                         ? $"lançado por {a.LancadoPor} às {quando:HH:mm}"
                         : $"lançado por {a.LancadoPor}",
                 faturaveis.Count,
-                faturaveis.Count(c => c.Baixado));
+                faturaveis.Count(c => c.Baixado),
+                sessaoCaiu);
         }).ToList();
     }
 
@@ -597,7 +611,7 @@ public sealed class AtendimentoService
     /// Só MUTA — quem salva é o `RemarcarAsync`, no mesmo SaveChanges do horário.
     /// </summary>
     public async Task<List<string>> AjustarAoRemarcarAsync(
-        Agendamento ag, DateOnly dataAnterior, bool modalidadeMudou, string? operador,
+        Agendamento ag, DateOnly dataAnterior, bool regerarGuias, string? operador,
         CancellationToken ct = default)
     {
         var avisos = new List<string>();
@@ -608,14 +622,14 @@ public sealed class AtendimentoService
 
         var dataNova = DateOnly.FromDateTime(ag.DataHora);
 
-        if (modalidadeMudou)
+        if (regerarGuias)
         {
             if (atendimento.Codigos.Any(c =>
                     c.Baixado || c.LoteTissId is not null || c.Status == StatusCodigo.NaoConformidade))
                 throw new InvalidOperationException(
-                    "A modalidade deste horário não pode mudar: há guia dele já baixada, em lote "
-                    + "TISS ou em não conformidade. Estorne/resolva antes — ou cancele este "
-                    + "horário e marque outro.");
+                    "A modalidade/especialidade deste horário não pode mudar: há guia dele já "
+                    + "baixada, em lote TISS ou em não conformidade. Estorne/resolva antes — ou "
+                    + "cancele este horário e marque outro.");
 
             var paciente = atendimento.Paciente
                 ?? await _repo.ObterPacienteAsync(atendimento.PacienteId, ct)
@@ -632,7 +646,7 @@ public sealed class AtendimentoService
             {
                 c.Status = StatusCodigo.NaoAplicavel;
                 c.RegistrarObservacaoPendencia(
-                    $"Substituída em {DateTime.Now:dd/MM/yyyy} — modalidade do horário alterada.");
+                    $"Substituída em {DateTime.Now:dd/MM/yyyy} — modalidade/especialidade do horário alterada.");
                 substituidas++;
             }
 
@@ -645,11 +659,11 @@ public sealed class AtendimentoService
             {
                 Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
                 Acao = "GuiasRegeradas",
-                Detalhe = $"Modalidade do horário de {ag.DataHora:dd/MM/yyyy HH:mm} alterada — "
+                Detalhe = $"Modalidade/especialidade do horário de {ag.DataHora:dd/MM/yyyy HH:mm} alterada — "
                           + $"{substituidas} guia(s) substituída(s) por {resultado.Codigos.Count} nova(s)",
                 PacienteId = ag.PacienteId
             }, ct);
-            avisos.Add($"As guias foram regeradas pela nova modalidade "
+            avisos.Add($"As guias foram regeradas pela nova modalidade/especialidade "
                        + $"({resultado.Codigos.Count} código(s) novos).");
         }
         else if (dataNova != dataAnterior)

@@ -188,13 +188,17 @@ public partial class FilaView : UserControl
         Acrescentar("Entrou (pular a chamada)", vm.IniciarAtendimentoCommand,
             cartao.PodeIniciar && cartao.Etapa != EtapaFila.Chamado && vm.PodeEditarAgenda);
 
-        if (menu.Items.Count > 0 && cartao.EmAberto && vm.PodeConcluirSessao)
+        if (menu.Items.Count > 0 && cartao.EmAberto && vm.PodeMarcarFaltaOuCancelar)
             menu.Items.Add(new Separator());
 
+        // O bit dos ITENS casa com a guarda dos comandos (`EditarAgenda` estrito) — a
+        // metade visível não pode ser mais estreita que a guarda, senão tirar
+        // `LancarAtendimento` de alguém esconde daqui a falta e o cancelamento, que
+        // não geram guia nenhuma.
         Acrescentar("Marcar falta", vm.MarcarFaltaCommand,
-            cartao.EmAberto && vm.PodeConcluirSessao);
+            cartao.EmAberto && vm.PodeMarcarFaltaOuCancelar);
         Acrescentar("Cancelar o horário", vm.CancelarCommand,
-            cartao.EmAberto && vm.PodeConcluirSessao);
+            cartao.EmAberto && vm.PodeMarcarFaltaOuCancelar);
 
         if (menu.Items.Count == 0)
         {

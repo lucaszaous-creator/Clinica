@@ -283,12 +283,16 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
             if (r.SemConsentimento > 0) partes.Add($"{r.SemConsentimento} sem consentimento (LGPD)");
             if (r.SemTelefone > 0) partes.Add($"{r.SemTelefone} sem telefone");
 
+            // A CONFIRMAÇÃO VEM DEPOIS DO RECARREGAR (a regra da ConsultasViewModel):
+            // a carga começa zerando `Mensagem`, então escrita antes ela nunca chega a
+            // aparecer — e a contagem "N sem consentimento (LGPD)" é justamente a que a
+            // parcela 64 exigiu visível. Só o sucesso sumia; o erro volta sem recarregar.
+            await RecarregarAsync();
+
             Mensagem = partes.Count == 0
                 ? "Nenhum paciente elegível para a rodada deste mês."
                 : string.Join(" · ", partes) + ".";
             MensagemEhErro = false;
-
-            await RecarregarAsync();
         }
         catch (Exception ex)
         {

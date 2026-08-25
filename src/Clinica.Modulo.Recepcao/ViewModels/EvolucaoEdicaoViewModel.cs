@@ -182,6 +182,11 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
         try
         {
+            // A segunda barreira mora na JANELA, não só nas portas que a abrem ("só se
+            // chega por ali" é a suposição que a parcela 51 derrubou) — e esta janela é
+            // ESCRITA DE PRONTUÁRIO: a próxima porta que alguém abrir nasce guardada.
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
@@ -251,6 +256,9 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
         try
         {
+            // Escrita de prontuário: mesma barreira do Salvar.
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
             var bytes = await File.ReadAllBytesAsync(dialogo.FileName);
             var extensao = Path.GetExtension(dialogo.FileName).ToLowerInvariant();
             var ehImagem = extensao is ".jpg" or ".jpeg" or ".png" or ".bmp";
@@ -322,6 +330,9 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     private async Task RemoverAnexoAsync(AnexoResumo? anexo)
     {
         if (anexo is null) return;
+
+        // Escrita de prontuário: mesma barreira do Salvar.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
         // Retirar, nunca apagar (parcela 52): o laudo que sustentou uma conduta é parte da
         // prova de que ela era razoável, e a guarda de 20 anos não admite que um clique o

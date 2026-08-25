@@ -1672,8 +1672,31 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         // ligada, marcar também CRIA o atendimento e as guias — o ato que
         // `LancarAtendimento` nomeia (parcela 69: quando o momento do fato muda, a
         // permissão vai junto). `Exigir` com bits somados é um E.
+        //
+        // ⚠️ A chave é RELIDA aqui, fresca — nunca decidida pelo `GuiaNaMarcacao` da
+        // tela, que é lido uma vez na abertura e presume `false` quando a leitura
+        // falha. Quem cria as guias (`AgendarAsync`) relê a chave no ato; a guarda que
+        // decidisse pelo cache deixaria alguém só com `EditarAgenda` gerar guia na
+        // janela entre a abertura da tela e o clique (é o padrão dos outros dois
+        // formulários, que leem a chave dentro do próprio Salvar). E a falha de leitura
+        // AQUI exige o duplo bit: guarda na dúvida pede MAIS, nunca menos — se o banco
+        // está fora, o Salvar logo abaixo falharia de qualquer jeito.
+        bool chaveLigada;
+        try
+        {
+            using var escopoChave = _scopeFactory.CreateScope();
+            chaveLigada = await escopoChave.ServiceProvider
+                .GetRequiredService<ParametrosService>().GuiaNoAgendamentoAsync();
+            GuiaNaMarcacao = chaveLigada;
+            AtualizarRotuloLancar();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — chave da guia não pôde ser relida na guarda", ex);
+            chaveLigada = true;
+        }
         SessaoUsuario.Atual.Exigir(
-            GuiaNaMarcacao
+            chaveLigada
                 ? Permissao.EditarAgenda | Permissao.LancarAtendimento
                 : Permissao.EditarAgenda,
             "marcar horário");
@@ -1728,7 +1751,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                     especialidadeConsultaCodigo: especialidade,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(),
-                    operador: SessaoUsuario.Atual.Operador);
+                    operador: SessaoUsuario.Atual.Operador,
+                    primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
 
                 // A série que pulou datas NÃO passa em silêncio: a recepção precisa ver
                 // quais não entraram para resolver com o paciente ainda na linha.

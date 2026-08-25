@@ -1344,11 +1344,13 @@ public sealed partial class AgendaViewModel : ObservableObject
             // O horário acabou de vagar: a pergunta seguinte é sempre "quem eu chamo?",
             // e a lista já responde antes de alguém precisar perguntar.
             ApontarEsperaPara(cartao);
-            // O destino das GUIAS (parcela 70) não pode passar calado: "suspensas" é
-            // rotina, mas "já baixada no portal" exige alguém ligar para o convênio.
-            _snackbar.Info(avisos.Count == 0
-                ? "Horário cancelado."
-                : "Horário cancelado. " + string.Join(" ", avisos));
+            // O destino das GUIAS (parcela 70) não pode passar calado — e não pode ir em
+            // snackbar: "já baixada no portal" exige alguém ligar para o convênio, e
+            // snackbar some em 4s (a regra da Fila, parcela 62). O diálogo segura; o
+            // snackbar fica só com a confirmação de rotina.
+            if (avisos.Count > 0)
+                _dialogo.Aviso($"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
+            _snackbar.Info("Horário cancelado.");
         }, "cancelamento do horário");
     }
 
@@ -1365,9 +1367,10 @@ public sealed partial class AgendaViewModel : ObservableObject
             var avisos = await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             ApontarEsperaPara(cartao);
-            _snackbar.Info(avisos.Count == 0
-                ? $"{cartao.Paciente} marcado como falta."
-                : $"{cartao.Paciente} marcado como falta. " + string.Join(" ", avisos));
+            // Mesma regra do cancelamento: aviso de guia é ação, e ação não cabe em 4s.
+            if (avisos.Count > 0)
+                _dialogo.Aviso($"Atenção — {cartao.Paciente}", string.Join("\n\n", avisos));
+            _snackbar.Info($"{cartao.Paciente} marcado como falta.");
         }, "marcação de falta");
     }
 
@@ -1394,7 +1397,12 @@ public sealed partial class AgendaViewModel : ObservableObject
     {
         if (cartao is null) return;
 
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+        // SEM `Exigir` de propósito: confirmar pelo WhatsApp é LEITURA — abre o wa.me
+        // com a mensagem pronta e não grava nada. A janela do horário deixa o botão
+        // aceso para quem só tem `VerAgenda` (decisão da parcela 69: "apagá-lo tiraria
+        // de quem só lê uma coisa que ele fazia ontem"), e a guarda de escrita aqui
+        // fazia as duas metades discordarem sobre o mesmo ato — o clique estourava a
+        // recusa depois de o botão ter dito sim.
 
         var erro = Whatsapp.Abrir(
             cartao.Telefone, cartao.Paciente,

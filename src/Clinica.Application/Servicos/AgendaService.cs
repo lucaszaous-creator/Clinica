@@ -159,6 +159,7 @@ public sealed class AgendaService
         var horarioAnterior = ag.DataHora;
         var statusAnterior = ag.Status;
         var modalidadeCodigoAnterior = ag.ModalidadeCodigo;
+        var especialidadeCodigoAnterior = ag.EspecialidadeConsultaCodigo;
 
         // O faturamento remarca sem saber de profissional/sala: por padrão os recursos
         // do horário são preservados. A recepção passa manterRecursos:false quando o
@@ -238,10 +239,15 @@ public sealed class AgendaService
         if (statusAnterior is StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
             Anexar(avisosGuia, await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct));
 
-        var modalidadeMudou = modalidadeCodigo is not null
-                              && modalidadeCodigo != modalidadeCodigoAnterior;
+        // A ESPECIALIDADE da consulta conta como "mudou" também: ela vai na guia (é a
+        // informação que a operadora cobra), e trocar "Consulta/Psiquiatria" por
+        // "Consulta/Geriatria" mantém o código "Consulta" — só a modalidade não a vê.
+        // Sem isto o horário mostrava a especialidade nova e a guia ia com a antiga.
+        var regerarGuias = modalidadeCodigo is not null
+                           && (modalidadeCodigo != modalidadeCodigoAnterior
+                               || (ehConsulta && especialidadeConsultaCodigo != especialidadeCodigoAnterior));
         Anexar(avisosGuia, await _atendimentos.AjustarAoRemarcarAsync(
-            ag, DateOnly.FromDateTime(horarioAnterior), modalidadeMudou, operador, ct));
+            ag, DateOnly.FromDateTime(horarioAnterior), regerarGuias, operador, ct));
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
@@ -413,7 +419,7 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        CancellationToken ct = default, string? operador = null)
+        CancellationToken ct = default, string? operador = null, TipoCodigo? primeiroCodigo = null)
     {
         if (quantidade < 2)
             throw new InvalidOperationException(
@@ -439,6 +445,10 @@ public sealed class AgendaService
 
             try
             {
+                // O `primeiroCodigo` viaja para CADA sessão: a escolha de qual código o
+                // convênio libera primeiro é feita uma vez na tela e vale para a série
+                // inteira — descartá-la aqui faria as dez guias nascerem na ordem padrão
+                // da regra, contradizendo a prévia que a tela mostrou.
                 var agendamento = await AgendarAsync(
                     pacienteId, quando, modalidade, observacoes,
                     origem: OrigemAgendamento.Manual, ct: ct,
@@ -446,7 +456,8 @@ public sealed class AgendaService
                     modalidadeCodigo: modalidadeCodigo,
                     especialidadeConsultaCodigo: especialidadeConsultaCodigo,
                     profissionalId: profissionalId, salaId: salaId,
-                    duracaoMinutos: duracaoMinutos, operador: operador);
+                    duracaoMinutos: duracaoMinutos, operador: operador,
+                    primeiroCodigo: primeiroCodigo);
 
                 agendamento.SerieId = serieId;
                 marcados.Add(agendamento);
@@ -745,6 +756,17 @@ public sealed class AgendaService
 
         if (ag.Status == StatusAgendamento.Realizado)
             throw new InvalidOperationException("Este agendamento já teve a presença confirmada.");
+
+        // A recusa mora AQUI, não na tela, porque a corrida é entre duas máquinas: o
+        // cartão "Em atendimento" da máquina A só relê a cada minuto, e a máquina B pode
+        // ter cancelado o horário nesse meio tempo — com as guias já SUSPENSAS. Confirmar
+        // por cima carimbaria Realizado sem devolver uma guia sequer: sessão realizada sem
+        // guia, calada, que é uma das duas coisas que a direção disse não aceitar.
+        if (ag.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+            throw new InvalidOperationException(
+                "Este horário foi cancelado (ou marcado como falta) — provavelmente na outra "
+                + "máquina do balcão. Reabra o horário (Remarcar) antes de concluir a sessão: "
+                + "é a reabertura que devolve as guias suspensas.");
 
         return await ConfirmarNucleoAsync(ag, operador, ct);
     }

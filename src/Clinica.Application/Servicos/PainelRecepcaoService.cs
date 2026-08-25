@@ -38,8 +38,13 @@ public sealed class PainelRecepcaoService
 
         // Espera média de quem JÁ chegou: quem não fez check-in não tem espera para medir,
         // e incluí-lo como zero faria a média mentir para baixo.
+        //
+        // FALTA fica de fora como o cancelado (item 3 da fila da parcela 69): quem fez
+        // check-in e depois virou falta nunca foi chamado, então a espera dele corre até
+        // `agora` — num dia passado, milhares de minutos, e a média do painel explodia
+        // por uma sessão que oficialmente não aconteceu.
         var esperas = doDia
-            .Where(a => a.Status != StatusAgendamento.Cancelado)
+            .Where(a => a.Status is not StatusAgendamento.Cancelado and not StatusAgendamento.Faltou)
             .Select(a => a.EsperaMinutos(referencia))
             .Where(m => m is not null)
             .Select(m => m!.Value)

@@ -60,8 +60,9 @@ public partial class AutorizacaoEdicaoViewModel : ObservableObject
     /// <summary>
     /// Metade VISÍVEL da permissão. A que IMPEDE é o <c>Exigir</c> no Salvar.
     ///
-    /// É <c>EditarProntuario</c> — o MESMO bit que já governa cadastrar paciente na
-    /// Recepção. Um bit novo pareceria mais preciso e teria um efeito indesejado: quem
+    /// É <c>EditarPaciente</c> — o MESMO bit que já governa cadastrar paciente na
+    /// Recepção (o corte da parcela 49: senha de autorização é dado administrativo do
+    /// convênio, não dado de saúde). Um bit novo pareceria mais preciso e teria um efeito indesejado: quem
     /// cadastra paciente hoje deixaria de conseguir registrar a senha até alguém marcar a
     /// caixinha nova em Acessos. Versão que introduz permissão e, de quebra, tira uma
     /// função que a pessoa usava ontem vira chamado de suporte na segunda de manhã.

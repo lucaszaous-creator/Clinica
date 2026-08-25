@@ -258,6 +258,16 @@ public sealed partial class FilaViewModel : ObservableObject
         Permissao.EditarAgenda | Permissao.LancarAtendimento);
 
     /// <summary>
+    /// Falta e cancelamento pedem SÓ <c>EditarAgenda</c> — nenhum dos dois gera guia, e
+    /// as guardas dos comandos exigem exatamente esse bit. A metade visível era
+    /// <see cref="PodeConcluirSessao"/> (o E com <c>LancarAtendimento</c>): se a direção
+    /// tirasse `LancarAtendimento` de uma recepcionista — o gesto que a granularidade
+    /// existe para permitir —, ela perdia em SILÊNCIO a falta e o cancelamento na Fila,
+    /// capacidades que a guarda lhe dá e o menu escondia.
+    /// </summary>
+    public bool PodeMarcarFaltaOuCancelar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
     /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
     /// agenda —, e por isso ele é perguntado à parte no menu "⋯". É a metade visível que
     /// faltava: enquanto o menu montava os itens só pelo ESTADO do cartão, o XAML já
@@ -911,9 +921,17 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
+            IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())
-                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                avisos = await e.ServiceProvider.GetRequiredService<AgendaService>()
                     .MarcarFaltaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
+
+            // Os avisos de GUIA em diálogo, nunca descartados nem em snackbar: no regime
+            // "guia no agendamento" eles incluem "guia JÁ BAIXADA no portal — a sessão
+            // caiu; confira com o convênio", que exige ação de quem está no balcão.
+            // É a mesma regra do Concluir logo acima (parcela 62).
+            if (avisos.Count > 0)
+                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"{c.Paciente} marcado como falta.");
         }, "marcação de falta");
 
@@ -923,9 +941,14 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
+            IReadOnlyList<string> avisos;
             using (var e = _escopos.CreateScope())
-                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                avisos = await e.ServiceProvider.GetRequiredService<AgendaService>()
                     .CancelarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
+
+            // Mesma regra da falta: aviso de guia é ação, não confirmação passageira.
+            if (avisos.Count > 0)
+                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", avisos));
             _snackbar.Info($"Agendamento de {c.Paciente} cancelado.");
         }, "cancelamento");
 

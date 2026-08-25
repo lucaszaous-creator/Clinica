@@ -3837,18 +3837,18 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
      (e perder o clique que abre o cancelado) ou mudar o desenho da célula. O caminho de
      volta agora existe pela janela ("Reabrir este horário"); a decisão de leiaute é do
      cliente.
-  3. **A espera média do painel conta quem chegou e virou FALTA** — em dia passado ela vai
-     a milhares de minutos, porque a espera de quem nunca foi chamado corre até `agora`.
-  4. **Bloqueio de parte do dia não enxerga a sessão que COMEÇA antes dele** e invade o
-     período fechado: `MarcadosDentroAsync` filtra por `DataHora` dentro do intervalo, e não
-     por sobreposição — a mesma conta que `ColideCom` já sabe fazer.
-  5. **`ConfirmarPresencaAsync` não deixa linha na trilha** — o ato que gera as guias é o
-     único da agenda sem `EventoAuditoria`; remarcar, cancelar e faltar têm. (Os cinco
-     movimentos da FILA ganharam trilha na rodada do Consultório; este ficou de fora de
-     propósito, porque mexer nele encosta no caminho que gera as guias — é o item 1 desta
-     fila, e vai junto da transação.)
+  3. ~~A espera média do painel conta quem chegou e virou FALTA~~ — **pago na validação
+     da parcela 71**: a falta ficou de fora da média como o cancelado.
+  4. ~~Bloqueio de parte do dia não enxerga a sessão que COMEÇA antes dele~~ — **pago na
+     parcela 71**: a consulta-base do `MarcadosDentroAsync` abre no começo do DIA e quem
+     decide é o `ColideCom` (o filtro certo estava sobre a consulta errada).
+  5. ~~`ConfirmarPresencaAsync` não deixa linha na trilha~~ — **pago na parcela 70**: a
+     trilha `PresencaConfirmada` entra no MESMO commit atômico do `ConfirmarNucleoAsync`.
   6. **Trocar a DATA no formulário não reconfere elegibilidade** (carteirinha, cota,
-     consulta a renovar) — a conferência roda ao escolher o paciente e não ao mudar o dia.
+     consulta a renovar) — **metade paga**: o Novo atendimento reconfere tudo ao trocar a
+     data (parcela 70); o FORMULÁRIO DA AGENDA (o fallback, e o caminho da lista de
+     espera) só reconfere conflitos e a consulta — a elegibilidade completa continua
+     presa ao `AoTrocarPaciente`.
   7. **Horário de profissional (ou sala) DESATIVADO some da grade** — a coluna só é montada
       para os ATIVOS, e o horário com dono inativo não cai em "Sem profissional": não existe
       coluna para ele. O resumo continua contando sobre a lista inteira, então o cabeçalho
@@ -4283,3 +4283,60 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   incremental é **WinAnsiEncoding** e o arquivo é escrito em Latin-1 — as duas tabelas só
   divergem na faixa 0x80–0x9F, onde mora a tipografia (acento não precisa de nada: "é" é
   0xE9 nas duas).
+
+- **A VALIDAÇÃO COMPLETA DA RECEPÇÃO — "tudo funcionando perfeitamente" pedido pela
+  direção, e o que três auditorias adversariais acharam com 1670 testes verdes**
+  (parcela 71). As três redes locais passaram ANTES da rodada; nenhum dos achados
+  quebrava build ou teste — a assinatura de sempre. Os que ensinam regra nova:
+  **String na posição de string: a troca de parâmetro que nenhuma rede vê.** O
+  "Excluir" da aba Prontuário da FICHA chamava `CancelarAsync(id, Operador)` — o
+  operador caía no parâmetro `motivo`, o motivo obrigatório da parcela 52 virava o
+  login (nunca vazio, então o serviço não recusava) e `CanceladaPor` ficava nulo: a
+  trilha respondia "?" para "quem cancelou este registro clínico". A tela irmã
+  (Prontuário) fazia certo, com `PerguntarTexto`. É o `CS1503` da família que o
+  compilar-sombra não alcança — string encaixa em string. **Ao chamar método com dois
+  parâmetros do mesmo tipo, escreva os nomes** (`motivo:`, `operador:`); e quando duas
+  telas fazem o mesmo ato, o teste que falta continua sendo o que compara as duas.
+  **O backfill que só é seguro na PRIMEIRA vez.** Religar a chave `GuiaNoAgendamento`
+  repetia o backfill de `RealizadoEm` sobre "todo atendimento sem carimbo" — e depois
+  da primeira ativação existe atendimento SEM carimbo de propósito: a sessão marcada
+  (e a cancelada). Desligar e religar — o ritual que a própria tela ensina — carimbava
+  como visita sessão que nunca houve, corrompendo retenção/origem/estreia sem sintoma.
+  O filtro exclui atendimento pendurado em agendamento não-`Realizado`. **Premissa de
+  migração escrita como "neste momento não existe X" expira no momento em que X passa a
+  existir — releia-a em toda operação que pode rodar DUAS vezes.**
+  **Confirmar presença de horário CANCELADO produzia sessão Realizada com todas as
+  guias suspensas.** A corrida é real (duas máquinas, fila que relê a cada minuto), a
+  recusa faltava no SERVIÇO — as telas só guardam a metade visível. Agora recusa
+  mandando reabrir pelo Remarcar, que é quem devolve as guias.
+  **A especialidade da consulta é parte da GUIA, e só a modalidade disparava a
+  regeneração.** Trocar "Consulta/Psiquiatria" por "Consulta/Geriatria" mantém o código
+  "Consulta": o horário gravava a nova e a guia seguia com a antiga. `regerarGuias`
+  agora olha as duas; e a SÉRIE ganhou o `primeiroCodigo` que o ramo único já passava
+  (campo que a tela oferece e o serviço descarta, de novo).
+  **O aviso de guia descartado nas portas irmãs.** `CancelarAsync`/`MarcarFaltaAsync`
+  devolvem os avisos do regime novo — inclusive "guia JÁ BAIXADA no portal" — e a FILA
+  os jogava fora (a Agenda os punha em snackbar de 4s; a cópia do faturamento também
+  descartava). Aviso que exige ação vai em DIÁLOGO nas três portas. E o formulário de
+  agendamento do FATURAMENTO ganhou a pergunta de duplicidade informada pela capa — era
+  a única porta de criação sem ela.
+  **A mensagem escrita antes do recarregar, pela terceira vez** (Retorno e
+  Confirmações — a rodada dizia "N sem consentimento (LGPD)" e a carga zerava a frase
+  antes de ela renderizar); **o catch da batida silenciosa que pinta a tela**, pela
+  segunda (as sub-cargas do Painel limpavam as pendências do dia numa engasgada do
+  banco de 2 em 2 min); **barreiras**: enviar documento clínico sem `Exigir` na cópia
+  da Recepção (a 68 corrigiu só o Consultório), o Emitir do orçamento exigindo o bit de
+  LEITURA (`VerFinanceiro`) onde as portas exigem escrita, o WhatsApp de confirmação
+  exigindo `EditarAgenda` num ato de leitura (as duas metades discordavam), e a guarda
+  do "marcar" decidindo pela chave em CACHE da tela (na dúvida, a guarda exige MAIS).
+  **Menores pagos**: "Excluir"→"Cancelar…" nos dois botões de evolução; N+1 de anexos
+  na ficha (o método de uma consulta existia desde a 37 e a ficha não o usava); falta
+  fora da espera média; o menu "⋯" da Fila escondendo falta/cancelamento de quem a
+  guarda autoriza; capa do dia dizendo "particular" para sessão cancelada.
+  **Ficou documentado sem correção (decisão ou desenho)**: itens 1, 2 e 7 da fila da
+  69 (decisões de cliente/leiaute); o formulário da agenda sem reconferir elegibilidade
+  na troca de data (item 6, metade); a observação do faturista sobrescrita pela
+  suspensão; a NC de sessão cancelada que ressuscita na volta do paciente; a
+  `Categoria` do paciente atualizada na marcação sem reversão no cancelamento; os dois
+  commits do `ListaEsperaService.ChamarAsync`; férias do profissional invisíveis na
+  visão de SEMANA da Recepção.

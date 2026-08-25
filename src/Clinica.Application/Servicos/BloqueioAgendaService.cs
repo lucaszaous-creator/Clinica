@@ -223,7 +223,12 @@ public sealed class BloqueioAgendaService
     public async Task<IReadOnlyList<Agendamento>> MarcadosDentroAsync(
         BloqueioAgenda bloqueio, CancellationToken ct = default)
     {
-        var doPeriodo = await _repo.AgendamentosNoPeriodoAsync(bloqueio.Inicio, bloqueio.Fim, ct);
+        // A consulta-base abre no COMEÇO DO DIA, não no início do bloqueio: a sessão de
+        // 11h30–12h30 colide com um bloqueio de 12h–18h e nunca chegaria ao `ColideCom`
+        // se o SQL filtrasse `DataHora >= 12h` (o filtro certo estava sobre a consulta
+        // errada — item 4 da fila da parcela 69). Sessão não atravessa a meia-noite, e o
+        // excedente do dia é barato: quem decide é a sobreposição logo abaixo.
+        var doPeriodo = await _repo.AgendamentosNoPeriodoAsync(bloqueio.Inicio.Date, bloqueio.Fim, ct);
 
         return doPeriodo
             .Where(a => a.OcupaAgenda)

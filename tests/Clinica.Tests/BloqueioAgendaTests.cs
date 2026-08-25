@@ -168,6 +168,28 @@ public class BloqueioAgendaTests : IDisposable
         (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().ContainSingle();
     }
 
+    /// <summary>
+    /// A sessão que COMEÇA antes do bloqueio e o invade (11h30–12h30 × bloqueio a partir
+    /// das 12h) tem de aparecer em "quem já estava marcado" — item 4 da fila da parcela
+    /// 69: o `ColideCom` estava certo e a consulta-base filtrava `DataHora >= início`,
+    /// então essa sessão nunca chegava ao filtro.
+    /// </summary>
+    [Fact]
+    public async Task Sessao_que_comeca_antes_do_bloqueio_e_invade_aparece_nos_marcados()
+    {
+        var pacienteId = await CriarPacienteAsync();
+
+        var invade = await _agenda.AgendarAsync(
+            pacienteId, Manha.Date.AddHours(11).AddMinutes(30),
+            ModalidadeAtendimento.AcupunturaComEletro, null, duracaoMinutos: 60);
+
+        var resultado = await _bloqueios.CriarAsync(
+            Manha.Date.AddHours(12), Manha.Date.AddHours(18), "Reunião da equipe");
+
+        resultado.JaMarcados.Should().ContainSingle()
+            .Which.Id.Should().Be(invade.Id);
+    }
+
     [Fact]
     public async Task Bloqueio_sem_motivo_e_recusado()
     {

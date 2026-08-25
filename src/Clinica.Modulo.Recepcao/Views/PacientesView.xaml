@@ -524,7 +524,7 @@
                                                         Command="{Binding DataContext.EditarEvolucaoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="Excluir" Margin="8,0,0,0"
+                                                <Button Content="Cancelar…" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
                                                         Command="{Binding DataContext.ExcluirEvolucaoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"

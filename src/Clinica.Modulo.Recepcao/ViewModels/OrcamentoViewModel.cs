@@ -180,7 +180,14 @@ public sealed partial class OrcamentoViewModel : ObservableObject
         Emitindo = true;
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "emitir orçamento");
+            // A UNIÃO dos bits das portas (a regra da parcela 69): a central exige
+            // `EditarFinanceiro` (quem só LÊ o caixa não propõe preço em nome da
+            // clínica — é o que o catálogo de folhas declara) e a tela de Pacotes chega
+            // com `VenderPacote`. `VerFinanceiro` aqui era a regra mais fraca das três
+            // no único lugar que de fato grava — e um bit de LEITURA emitindo papel
+            // com valor.
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarFinanceiro | Permissao.VenderPacote, "emitir orçamento");
 
             DocumentoFinanceiro emitido;
             using (var scope = _escopos.CreateScope())

@@ -206,8 +206,8 @@ public sealed partial class PainelViewModel : ObservableObject
             if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
 
-        await CarregarPendenciasAsync(dia, geracao);
-        await CarregarAniversariantesAsync(dia, geracao);
+        await CarregarPendenciasAsync(dia, geracao, silencioso);
+        await CarregarAniversariantesAsync(dia, geracao, silencioso);
     }
 
     /// <summary>
@@ -246,11 +246,11 @@ public sealed partial class PainelViewModel : ObservableObject
     ///
     /// Isolada do resto, como as pendências: se falhar, o painel continua mostrando o dia.
     /// </summary>
-    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao)
+    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao, bool silencioso = false)
     {
         try
         {
-            AniversariantesNaoVerificados = false;
+            if (!silencioso) AniversariantesNaoVerificados = false;
             using var escopoAniversario = _escopos.CreateScope();
             var lista = await escopoAniversario.ServiceProvider
                 .GetRequiredService<RelacionamentoService>()
@@ -271,6 +271,10 @@ public sealed partial class PainelViewModel : ObservableObject
                               + a.DiaEMes
                               + (a.VemHoje ? " · vem hoje" : string.Empty)
                 });
+
+            // Sucesso limpa o aviso mesmo na batida de fundo — a lista acabou de ser
+            // conferida de verdade (o padrão das pendências logo abaixo).
+            AniversariantesNaoVerificados = false;
         }
         catch (Exception ex)
         {
@@ -279,6 +283,12 @@ public sealed partial class PainelViewModel : ObservableObject
 
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — aniversariantes não puderam ser lidos", ex);
+
+            // Batida de fundo que falha NÃO pinta a tela (a regra do bloco principal,
+            // que faltava aqui): uma engasgada do banco às 10h limparia a lista e
+            // escreveria "não verificado" por cima de um painel cheio, sem clique nenhum.
+            if (silencioso) return;
+
             Aniversariantes.Clear();
             AniversariantesNaoVerificados = true;
         }
@@ -328,7 +338,7 @@ public sealed partial class PainelViewModel : ObservableObject
     /// Guias pendentes dos pacientes do dia. Isolada do resto de propósito: se ela
     /// falhar, o painel continua mostrando o dia — e diz que não conseguiu conferir.
     /// </summary>
-    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao)
+    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao, bool silencioso = false)
     {
         try
         {
@@ -363,6 +373,11 @@ public sealed partial class PainelViewModel : ObservableObject
 
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — pendências do dia não puderam ser verificadas", ex);
+
+            // Mesma regra do bloco principal: a releitura de fundo que falha não limpa
+            // as guias pendentes do dia nem acende "não verificado" sozinha.
+            if (silencioso) return;
+
             Pendencias.Clear();
             PendenciasNaoVerificadas = true;
         }

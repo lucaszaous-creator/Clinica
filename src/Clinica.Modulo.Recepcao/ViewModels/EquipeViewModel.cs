@@ -258,10 +258,12 @@ public sealed partial class EquipeViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoBloqueioAsync()
     {
-        // MESMO bit do botão "Fechar agenda…" da tela de Agenda (parcela 62): fechar a
-        // agenda é ato de AGENDA, e exigir `GerenciarEquipe` aqui deixava o balcão de
-        // fora de uma feature vendida como dele.
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a agenda");
+        // A UNIÃO dos bits das portas (a lição da parcela 69): o Salvar da janela aceita
+        // `EditarAgenda` OU `GerenciarEquipe` — a porta não pode ser mais estreita que
+        // ele, senão quem recebeu só `GerenciarEquipe` em Acessos é barrado na ENTRADA
+        // de uma janela cujo Salvar o aceitaria (o corredor sem saída, pelo avesso).
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.EditarAgenda | Permissao.GerenciarEquipe, "fechar a agenda");
 
         var vm = new BloqueioEdicaoViewModel(_escopos);
         var janela = new Janelas.BloqueioWindow(vm)

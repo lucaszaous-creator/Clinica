@@ -254,6 +254,25 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
                         "marcar atendimento gerando as guias");
             }
 
+            // A PERGUNTA de duplicidade, informada pela capa (parcela 70): o mesmo ponto
+            // único das portas da suíte (`CapasDoDiaAsync`). Sem ela, esta era a única
+            // porta de criação em que marcar duas vezes o mesmo paciente no mesmo dia
+            // gerava dois jogos de guias sem uma palavra — a cópia que ficou para trás,
+            // no app que fatura. É PERGUNTA e não recusa: sessão de manhã e consulta à
+            // tarde são legítimas, e recusar travaria o balcão sem saída.
+            if (EditandoId is null)
+            {
+                var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
+                var capas = await atendimentos.CapasDoDiaAsync(paciente.Id, DateOnly.FromDateTime(Data));
+                if (capas.Count > 0 &&
+                    !_dialogo.ConfirmarPerigo("Paciente já tem atendimento neste dia",
+                        $"{paciente.Nome} já tem em {Data:dd/MM}: "
+                        + string.Join(" · ", capas.Select(c =>
+                            $"nº {c.Numero} ({c.Modalidade}, {c.Lancamento} — {c.ResumoGuias})"))
+                        + "\n\nMarcar de novo cria OUTRO atendimento e outro jogo de guias. Continuar?"))
+                    return;
+            }
+
             // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
             // Numa remarcação, o próprio agendamento não conflita consigo mesmo.
             var conflito = await agenda.ConflitoAsync(dataHora, ignorarAgendamentoId: EditandoId);

@@ -97,6 +97,11 @@ public sealed partial class ListaEsperaEdicaoViewModel : ObservableObject
 
         try
         {
+            // A segunda barreira mora na JANELA, não só na porta que a abre — "só se
+            // chega por ali" é a suposição que a parcela 51 derrubou, e as janelas
+            // irmãs (Agendamento, Bloqueio) já carregam a própria guarda.
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na lista de espera");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();

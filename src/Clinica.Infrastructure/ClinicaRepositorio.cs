@@ -261,11 +261,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         // Quem tem LancadoEm herda a hora real do lançamento; o resto recebe o momento da
         // ativação — o VALOR importa pouco (os leitores ancoram em "não nulo"; período é
         // sempre o da Data), o que não pode é a linha ficar de fora de "realizado".
+        //
+        // ⚠️ SÓ atendimento cujo horário está Realizado (ou sem horário — dado anterior à
+        // esteira única). "Sem carimbo" não é sinônimo de "sessão antiga": se a chave já
+        // esteve LIGADA, existe atendimento de sessão MARCADA (Agendado, RealizadoEm nulo
+        // de propósito) e de sessão cancelada — e religar a chave os carimbaria como
+        // visita que nunca houve, corrompendo retenção, origem e estreia sem sintoma.
         await _db.Atendimentos
-            .Where(a => a.RealizadoEm == null && a.LancadoEm != null)
+            .Where(a => a.RealizadoEm == null
+                        && !_db.Agendamentos.Any(g => g.AtendimentoId == a.Id
+                                                      && g.Status != StatusAgendamento.Realizado)
+                        && a.LancadoEm != null)
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, a => a.LancadoEm), ct);
         await _db.Atendimentos
-            .Where(a => a.RealizadoEm == null)
+            .Where(a => a.RealizadoEm == null
+                        && !_db.Agendamentos.Any(g => g.AtendimentoId == a.Id
+                                                      && g.Status != StatusAgendamento.Realizado))
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, DateTime.Now), ct);
     }
 

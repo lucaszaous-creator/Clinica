@@ -629,14 +629,16 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var evolucoes = await prontuario.DoPacienteAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
 
+        // Uma consulta para o prontuário inteiro (parcela 37): antes era uma ida ao
+        // banco POR SESSÃO só para desenhar o clipe — num tratamento de quarenta, eram
+        // quarenta viagens ao banco remoto, repetidas a cada gravação da própria ficha.
+        var contagens = await prontuario.ContagemDeAnexosAsync(
+            evolucoes.Select(e => e.Id).ToList());
+        if (geracao != _geracaoCarga) return;
+
         Prontuario.Clear();
         foreach (var e in evolucoes)
-        {
-            var anexos = await prontuario.AnexosAsync(e.Id);
-            // Chegou tarde: parar a montagem impede a lista velha de terminar por cima da nova.
-            if (geracao != _geracaoCarga) return;
-            Prontuario.Add(LinhaEvolucao.De(e, anexos.Count));
-        }
+            Prontuario.Add(LinhaEvolucao.De(e, contagens.GetValueOrDefault(e.Id)));
 
         var dor = await prontuario.EvolucaoDaDorAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
@@ -1036,16 +1038,23 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
 
         try
         {
+            // Cancelar, nunca apagar (parcela 52): a Lei 13.787/2018 manda guardar o
+            // prontuário por 20 anos, e o motivo escrito é o que separa a correção da
+            // reescrita. O mesmo diálogo da tela de Prontuário — duas telas para o mesmo
+            // ato com regras diferentes é como o motivo obrigatório se perde.
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar sessão do prontuário",
+                $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
+                + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Sessão excluída do prontuário.");
+            await prontuario.CancelarAsync(linha.EvolucaoId, motivo, SessaoUsuario.Atual.Operador);
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)
