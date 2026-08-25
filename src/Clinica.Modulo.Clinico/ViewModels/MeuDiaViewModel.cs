@@ -105,7 +105,9 @@ public sealed class LinhaSessao
         Data = DateOnly.FromDateTime(s.DataHora),
         PacienteId = s.PacienteId,
         Paciente = s.PacienteNome,
-        Hora = s.DataHora.ToString("HH:mm"),
+        // Com o término (redesenho de ago/2026): "quando a sala vaga" é a metade que o
+        // início sozinho calava — e é a que decide se cabe um encaixe.
+        Hora = $"{s.DataHora:HH:mm}–{s.FimPrevisto:HH:mm}",
         Modalidade = s.Modalidade,
         Local = s.Sala ?? "—",
         Situacao = Rotular(s.Status, s.Etapa),

@@ -50,6 +50,45 @@ public class CabecalhoRaia : Control
         set => SetValue(TituloProperty, value);
     }
 
+    /// <summary>
+    /// A cor de ESTADO da raia — o ponto ao lado do rótulo (redesenho da fila, ago/2026).
+    /// É o que faz o olho achar a coluna certa antes de ler: cinco rótulos em caixa alta
+    /// da mesma cor exigem leitura; cinco pontos (cinza → âmbar → vermelho → verde) não.
+    /// Nula, o ponto some e o cabeçalho fica como sempre foi — nenhum quadro existente
+    /// muda sem pedir.
+    /// </summary>
+    public static readonly DependencyProperty PontoProperty =
+        DependencyProperty.Register(nameof(Ponto), typeof(System.Windows.Media.Brush),
+            typeof(CabecalhoRaia), new PropertyMetadata(null));
+
+    public System.Windows.Media.Brush? Ponto
+    {
+        get => (System.Windows.Media.Brush?)GetValue(PontoProperty);
+        set => SetValue(PontoProperty, value);
+    }
+
+    /// <summary>Fundo da pílula de contagem. O padrão (no estilo) é o acento suave.</summary>
+    public static readonly DependencyProperty PilulaFundoProperty =
+        DependencyProperty.Register(nameof(PilulaFundo), typeof(System.Windows.Media.Brush),
+            typeof(CabecalhoRaia), new PropertyMetadata(null));
+
+    public System.Windows.Media.Brush? PilulaFundo
+    {
+        get => (System.Windows.Media.Brush?)GetValue(PilulaFundoProperty);
+        set => SetValue(PilulaFundoProperty, value);
+    }
+
+    /// <summary>Texto da pílula de contagem. O padrão (no estilo) é o acento.</summary>
+    public static readonly DependencyProperty PilulaTextoProperty =
+        DependencyProperty.Register(nameof(PilulaTexto), typeof(System.Windows.Media.Brush),
+            typeof(CabecalhoRaia), new PropertyMetadata(null));
+
+    public System.Windows.Media.Brush? PilulaTexto
+    {
+        get => (System.Windows.Media.Brush?)GetValue(PilulaTextoProperty);
+        set => SetValue(PilulaTextoProperty, value);
+    }
+
     /// <summary>A coleção da raia. O componente conta sozinho.</summary>
     public static readonly DependencyProperty ItensProperty =
         DependencyProperty.Register(nameof(Itens), typeof(IEnumerable), typeof(CabecalhoRaia),

@@ -1158,6 +1158,15 @@ public interface IClinicaRepositorio
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     /// <summary>
+    /// Situação do contato de CONFIRMAÇÃO de cada agendamento informado, numa consulta
+    /// só — é o selo "Confirmou / Não confirmou" do kanban da fila. Agendamento sem
+    /// contato gerado não aparece no dicionário: sem rodada não há o que afirmar, e o
+    /// cartão fica sem selo em vez de acusar quem nunca foi avisado.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, StatusContato>> ConfirmacoesDosAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
+
+    /// <summary>
     /// Histórico de contatos de UM paciente, do mais recente para o mais antigo — a
     /// aba de CRM da ficha. O corte vai no SQL: quem abre a ficha quer as últimas
     /// conversas, não a carteira inteira de mensagens desde a instalação.

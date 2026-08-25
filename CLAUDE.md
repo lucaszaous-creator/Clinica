@@ -4340,3 +4340,45 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `Categoria` do paciente atualizada na marcação sem reversão no cancelamento; os dois
   commits do `ListaEsperaService.ChamarAsync`; férias do profissional invisíveis na
   visão de SEMANA da Recepção.
+
+- **O KANBAN NOVO DA FILA — o redesenho que a cliente pediu comparando com o Smart
+  Clinic** (parcela 72; mockup aprovado em canvas antes de uma linha de WPF — a lição
+  das seis reprovações aplicada de véspera). "A fila/agenda em kanban do smart clinic é
+  muito melhor que a nossa, tanto visualmente quanto funcional" — e o inventário deu
+  razão com fatos: a raia tinha a MESMA cor do fundo da tela (o quadro não se lia como
+  quadro), o nome do paciente tinha o mesmo corpo da legenda (12px — hierarquia só de
+  peso), e o cartão calava atraso, confirmação, convênio, término e pacote — tudo dado
+  que o banco JÁ TINHA.
+  As decisões:
+  (a) **Cores de estado moram no CABEÇALHO da raia, não no cartão** — `CabecalhoRaia`
+  ganhou `Ponto`/`PilulaFundo`/`PilulaTexto` (nulos = o visual de sempre; os padrões da
+  pílula moram no ESTILO, porque o C# não alcança StaticResource). Cartão continua
+  branco em toda coluna: cor por estado no cartão brigaria com os DOIS estados que já
+  pintam ele inteiro (chamada demorada, atraso).
+  (b) **`Brush.Raia` é token** (Cinza.100) — raia um degrau acima do fundo é o que
+  devolve o quadro ao olho, e vale para os dois quadros pelo mesmo token.
+  (c) **O atraso mora no DOMÍNIO** (`Agendamento.AtrasoMinutos`): só Agendado, sem
+  check-in, hora estourada — quem chegou está ESPERANDO, não atrasado (os dois selos
+  juntos se contradiriam), e dois quadros com duas contas de "atrasado" divergiriam.
+  (d) **O selo de confirmação só afirma o que a rodada afirmou**: "Confirmou" =
+  Respondido; "Não confirmou" = Enviado sem resposta; sem contato = SEM selo — acusar
+  de "não confirmou" quem nunca foi avisado seria o selo mentindo. E só na coluna
+  AGUARDANDO: depois do check-in é ruído. A leitura é em lote
+  (`ConfirmacoesDosAgendamentosAsync`), uma consulta para o dia.
+  (e) **A espera média virou definição ÚNICA** (`PainelRecepcaoService.EsperaMediaMinutos`,
+  estático) — o painel e o resumo da fila leem a mesma conta; nula sem base, nunca zero.
+  (f) **A faixa CHAMANDO nomeia o MAIS ANTIGO e carrega o "Entrou" DENTRO dela**, pelo
+  MESMO comando (e a mesma guarda) do botão do cartão — é para a faixa que a
+  recepcionista está olhando quando o paciente levanta; os demais chamados viram uma
+  linha ("Também: …").
+  (g) **O filtro por profissional remonta da memória** (`MontarQuadro` separado da
+  carga; entre o Clear e o último Add não há await) e só aparece com DOIS ou mais
+  profissionais no dia — chip único é ruído. O filtro vigente sobrevive à recarga só
+  enquanto o profissional continua no dia.
+  (h) **Paridade entre os dois quadros é regra, não coincidência**: Meu dia ganhou as
+  mesmas cores, a mesma hierarquia (nome grande, hora–fim como contexto), e as duas
+  divergências históricas caíram (FINALIZADOS→FINALIZADO; encaixe Badge.Info→Aviso) —
+  o mesmo fato com duas cores nos dois quadros se lia como dois fatos.
+  O que ficou POR DECISÃO da clínica (as notas do canvas): cancelado/falta dentro do
+  quadro (o Meu dia já mostra; a fila segue fora), situação de pagamento no cartão, e
+  o clique no cartão abrindo a ficha.

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -20,6 +21,9 @@ public sealed partial class CartaoFila : ObservableObject
     /// <summary>De quem é a sessão — é o que a conferência de elegibilidade pergunta.</summary>
     public required int PacienteId { get; init; }
 
+    /// <summary>A faixa do horário, com término ("09:00–10:00") — só o início dizia
+    /// "quando começa" e calava "quando a sala vaga", que é a metade que o balcão usa
+    /// para encaixar o próximo (redesenho da fila, ago/2026).</summary>
     public required string Horario { get; init; }
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
@@ -27,6 +31,44 @@ public sealed partial class CartaoFila : ObservableObject
     public required string Sala { get; init; }
     public required EtapaFila Etapa { get; init; }
     public string? Observacoes { get; init; }
+
+    /// <summary>Bytes da miniatura do retrato (o cadastro já a tem desde sempre) — o
+    /// <c>Avatar</c> cai nas iniciais quando não há foto. `object` pela mesma razão do
+    /// controle: DP de tipo array não se atribui em DataTemplate (MC4102).</summary>
+    public object? Foto { get; init; }
+
+    /// <summary>Operadora do paciente ("Unimed Costa do Sol"). Vazio para quem não tem.</summary>
+    public string Convenio { get; init; } = string.Empty;
+
+    /// <summary>A linha de contexto sob o nome: horário + convênio.</summary>
+    public string SubLinha => Convenio.Length == 0 ? Horario : $"{Horario} · {Convenio}";
+
+    /// <summary>
+    /// Selo da rodada de confirmação, SÓ na coluna AGUARDANDO: "Confirmou" quando o
+    /// paciente respondeu, "Não confirmou" quando foi avisado e não respondeu, vazio
+    /// quando a rodada nem o alcançou (sem rodada não há o que afirmar). Depois do
+    /// check-in o selo é ruído — a pessoa está aqui.
+    /// </summary>
+    public string ConfirmacaoRotulo { get; init; } = string.Empty;
+
+    /// <summary>O selo de confirmação é o positivo (verde) — decide a cor no XAML.</summary>
+    public bool ConfirmouPresenca { get; init; }
+
+    public bool TemConfirmacao => ConfirmacaoRotulo.Length > 0;
+
+    /// <summary>"Pacote 9/10" — sessões usadas/contratadas do pacote ativo. A 10ª sessão
+    /// de um pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48).</summary>
+    public string Pacote { get; init; } = string.Empty;
+
+    public bool TemPacote => Pacote.Length > 0;
+
+    /// <summary>"Atrasado 25 min" — a hora marcada estourou e o paciente não chegou.
+    /// Recalculado a cada batida do relógio, como a espera. Vazio sem atraso.</summary>
+    [ObservableProperty]
+    private string _atraso = string.Empty;
+
+    [ObservableProperty]
+    private bool _atrasado;
 
     /// <summary>Retorno sugerido automaticamente para obter o 2º código.</summary>
     public required bool EhRetornoDoSegundoCodigo { get; init; }
@@ -136,6 +178,22 @@ public sealed partial class CartaoFila : ObservableObject
 }
 
 /// <summary>
+/// Um chip do filtro por profissional no topo do quadro (redesenho da fila, ago/2026).
+/// Numa clínica com mais de um profissional atendendo, a fila misturava todo mundo e a
+/// pergunta "quem é da Dra. Ana agora?" só se respondia lendo cartão por cartão.
+/// </summary>
+public sealed partial class ChipProfissional : ObservableObject
+{
+    /// <summary>Nulo = "Todos".</summary>
+    public int? Id { get; init; }
+
+    public required string Nome { get; init; }
+
+    [ObservableProperty]
+    private bool _ativo;
+}
+
+/// <summary>
 /// Fila de hoje em KANBAN: Aguardando → Chegou → Chamado → Em atendimento → Finalizado.
 ///
 /// A lista simples que existia aqui antes respondia "quem está marcado"; o balcão
@@ -177,6 +235,13 @@ public sealed partial class FilaViewModel : ObservableObject
 
     private List<Agendamento> _doDia = [];
 
+    // O que acompanha o dia lido — preenchidos junto do _doDia e lidos pelo
+    // MontarQuadro, que o filtro por profissional chama sem voltar ao banco.
+    private HashSet<int> _comPendencia = [];
+    private Dictionary<int, IReadOnlyList<SituacaoTermo>> _termos = [];
+    private Dictionary<int, StatusContato> _confirmacoes = [];
+    private Dictionary<int, string> _pacotes = [];
+
     public ObservableCollection<CartaoFila> Aguardando { get; } = [];
     public ObservableCollection<CartaoFila> NaRecepcao { get; } = [];
     public ObservableCollection<CartaoFila> Chamados { get; } = [];
@@ -199,9 +264,31 @@ public sealed partial class FilaViewModel : ObservableObject
     /// </summary>
     public bool TemChamados => Chamados.Count > 0;
 
-    /// <summary>Quem chamar, em uma linha ("Ana Souza · sala 2").</summary>
+    /// <summary>
+    /// O chamado MAIS ANTIGO — quem a faixa CHAMANDO nomeia, com sala e cronômetro, e
+    /// quem o botão "Entrou" da própria faixa move. A ação mora na faixa porque é nela
+    /// que a recepcionista está olhando quando o paciente levanta: caçar o cartão na
+    /// terceira coluna é o clique que ela não tem tempo de dar.
+    /// </summary>
     [ObservableProperty]
-    private string _avisoChamada = string.Empty;
+    private CartaoFila? _primeiroChamado;
+
+    /// <summary>"Também chamados: Fulano · Beltrano" — só quando há mais de um.</summary>
+    [ObservableProperty]
+    private string _outrosChamados = string.Empty;
+
+    public bool TemOutrosChamados => OutrosChamados.Length > 0;
+
+    partial void OnOutrosChamadosChanged(string value) => OnPropertyChanged(nameof(TemOutrosChamados));
+
+    /// <summary>Chips do filtro por profissional. "Todos" + quem tem horário no dia.</summary>
+    public ObservableCollection<ChipProfissional> Profissionais { get; } = [];
+
+    /// <summary>O quadro só filtra com DOIS ou mais profissionais no dia — chip único é ruído.</summary>
+    public bool TemFiltroProfissional => Profissionais.Count > 2;
+
+    /// <summary>O filtro vigente (nulo = todos). Vive fora dos chips para sobreviver à recarga.</summary>
+    private int? _filtroProfissionalId;
 
     [ObservableProperty]
     private DateTime _dia = DateTime.Today;
@@ -210,15 +297,13 @@ public sealed partial class FilaViewModel : ObservableObject
     private bool _carregando;
 
     /// <summary>
-    /// O que o quadro NÃO mostra: faltas e cancelamentos, que saem da fila.
-    ///
-    /// Substituiu a linha de resumo que repetia a contagem das cinco colunas em sequência
-    /// — os mesmos cinco números que agora ficam no cabeçalho de cada raia, junto do que
-    /// eles contam. Repetidos acima do quadro, obrigavam o olho a casar número com coluna
-    /// pela ordem e empurravam o quadro para baixo.
+    /// A linha de contexto do dia: atendidos, em sala, espera média e o que o quadro NÃO
+    /// mostra (faltas e cancelamentos, que saem da fila). Envelhece com o relógio, como a
+    /// espera dos cartões. Os números POR COLUNA continuam no cabeçalho de cada raia — o
+    /// resumo carrega só o que nenhuma coluna diz.
     /// </summary>
     [ObservableProperty]
-    private string _foraDaFila = string.Empty;
+    private string _resumoDia = string.Empty;
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -444,62 +529,62 @@ public sealed partial class FilaViewModel : ObservableObject
                 termos = [];
             }
 
-            if (geracao != _geracaoCarga) return;
-
-            Aguardando.Clear();
-            NaRecepcao.Clear();
-            Chamados.Clear();
-            EmAtendimento.Clear();
-            Finalizados.Clear();
-
-            foreach (var a in _doDia)
+            // O selo da rodada de confirmação ("Confirmou" / "Não confirmou"): a rodada
+            // grava a resposta desde a parcela 5, e o quadro nunca a mostrou. Aviso, não
+            // conteúdo — falha não derruba a fila.
+            Dictionary<int, StatusContato> confirmacoes;
+            try
             {
-                // Cancelado e falta saem do quadro: o kanban é o fluxo de quem vem hoje.
-                if (a.Etapa == EtapaFila.ForaDaFila) continue;
-
-                var cartao = new CartaoFila
-                {
-                    AgendamentoId = a.Id,
-                    PacienteId = a.PacienteId,
-                    Horario = a.DataHora.ToString("HH:mm"),
-                    Paciente = a.Paciente?.Nome ?? "(paciente removido)",
-                    // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
-                    // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
-                    Modalidade = CatalogoModalidades.Nome(
-                        a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
-                    Profissional = a.Profissional?.Rotulo ?? "—",
-                    Sala = a.Sala?.Nome ?? "—",
-                    Etapa = a.Etapa,
-                    Observacoes = a.Observacoes,
-                    EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
-                    EhEncaixe = a.Encaixe,
-                    Lancamento = DescreverLancamento(a),
-                    TemGuiaPendente = comPendencia.Contains(a.PacienteId),
-                    TemTermoPendente = termos.TryGetValue(a.PacienteId, out var doPaciente)
-                                       && doPaciente.Any(t => t.Pendente)
-                };
-
-                Coluna(a.Etapa).Add(cartao);
+                var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+                confirmacoes = new Dictionary<int, StatusContato>(
+                    await repo.ConfirmacoesDosAgendamentosAsync(_doDia.Select(a => a.Id).ToList()));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — confirmações do dia não puderam ser lidas", ex);
+                confirmacoes = [];
             }
 
-            AtualizarEsperas();
-            // As cinco coleções mudaram: o quadro precisa reavaliar se está vazio e se
-            // há alguém esperando ser anunciado.
-            OnPropertyChanged(nameof(QuadroVazio));
-            OnPropertyChanged(nameof(TemChamados));
-
-            // O aviso nomeia QUEM chamar e para onde. "1 paciente chamado" obrigaria a
-            // recepcionista a procurar o cartão numa das cinco colunas antes de abrir a
-            // boca — e é ela que tem o paciente da vez à frente dela.
-            AvisoChamada = string.Join(" · ", Chamados.Select(c => $"{c.Paciente} → sala {c.Sala}"));
-
-            var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
-            var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);
-            ForaDaFila = (faltas, cancelados) switch
+            // O selo "Pacote 9/10": a 10ª sessão de um pacote de 10 se descobre na
+            // MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só quem TEM
+            // pacote ativo ganha selo — metade da clínica é de convênio e nunca comprou.
+            Dictionary<int, string> pacotes;
+            try
             {
-                (0, 0) => "Nenhuma falta nem cancelamento hoje.",
-                var (f, c) => $"Fora do quadro: {f} falta(s) e {c} cancelamento(s)."
-            };
+                var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+                var hoje = DateOnly.FromDateTime(Dia);
+                var todos = await repo.PacotesDosPacientesAsync(
+                    _doDia.Select(a => a.PacienteId).Distinct().ToList());
+                pacotes = todos
+                    .Where(p => p.PodeConsumir(hoje) && p.SessoesContratadas is not null)
+                    .GroupBy(p => p.PacienteId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g =>
+                        {
+                            // O que vence primeiro é o que a baixa automática debita.
+                            var p = g.OrderBy(x => x.ValidoAte ?? DateOnly.MaxValue).First();
+                            return $"Pacote {p.SessoesUsadas}/{p.SessoesContratadas}";
+                        });
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — pacotes do dia não puderam ser lidos", ex);
+                pacotes = [];
+            }
+
+            if (geracao != _geracaoCarga) return;
+
+            _comPendencia = comPendencia;
+            _termos = termos;
+            _confirmacoes = confirmacoes;
+            _pacotes = pacotes;
+
+            MontarChips();
+            MontarQuadro();
+            AtualizarEsperas();
         }
         catch (Exception ex)
         {
@@ -547,6 +632,134 @@ public sealed partial class FilaViewModel : ObservableObject
         _ => Aguardando
     };
 
+    /// <summary>
+    /// Reconstrói os chips do filtro a partir do dia lido. O filtro vigente sobrevive à
+    /// recarga só enquanto o profissional continua no dia — apontando para quem saiu, ele
+    /// esconderia o quadro inteiro em silêncio.
+    /// </summary>
+    private void MontarChips()
+    {
+        var doDia = _doDia
+            .Where(a => a.Etapa != EtapaFila.ForaDaFila && a.ProfissionalId is not null)
+            .GroupBy(a => a.ProfissionalId!.Value)
+            .Select(g => (Id: g.Key, Nome: g.First().Profissional?.Rotulo ?? $"Profissional {g.Key}"))
+            .OrderBy(p => p.Nome)
+            .ToList();
+
+        if (_filtroProfissionalId is { } vigente && doDia.All(p => p.Id != vigente))
+            _filtroProfissionalId = null;
+
+        Profissionais.Clear();
+        Profissionais.Add(new ChipProfissional
+        {
+            Id = null, Nome = "Todos", Ativo = _filtroProfissionalId is null
+        });
+        foreach (var p in doDia)
+            Profissionais.Add(new ChipProfissional
+            {
+                Id = p.Id, Nome = p.Nome, Ativo = _filtroProfissionalId == p.Id
+            });
+
+        OnPropertyChanged(nameof(TemFiltroProfissional));
+    }
+
+    /// <summary>
+    /// (Re)monta as cinco colunas a partir do dia JÁ LIDO — é o que o filtro por
+    /// profissional chama sem voltar ao banco. Entre o Clear e o último Add não há await
+    /// (a regra da parcela 62): quem monta é sempre uma passada síncrona.
+    /// </summary>
+    private void MontarQuadro()
+    {
+        Aguardando.Clear();
+        NaRecepcao.Clear();
+        Chamados.Clear();
+        EmAtendimento.Clear();
+        Finalizados.Clear();
+
+        foreach (var a in _doDia)
+        {
+            // Cancelado e falta saem do quadro: o kanban é o fluxo de quem vem hoje.
+            if (a.Etapa == EtapaFila.ForaDaFila) continue;
+            // Horário sem profissional só aparece em "Todos": ele não é de ninguém.
+            if (_filtroProfissionalId is { } soDele && a.ProfissionalId != soDele) continue;
+
+            // O selo de confirmação só fala na coluna AGUARDANDO — depois do check-in a
+            // pessoa está aqui, e o selo viraria ruído.
+            var confirmacao = a.Etapa == EtapaFila.Aguardando
+                              && _confirmacoes.TryGetValue(a.Id, out var status)
+                ? status switch
+                {
+                    StatusContato.Respondido => "Confirmou",
+                    StatusContato.Enviado => "Não confirmou",
+                    _ => string.Empty
+                }
+                : string.Empty;
+
+            var cartao = new CartaoFila
+            {
+                AgendamentoId = a.Id,
+                PacienteId = a.PacienteId,
+                Horario = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
+                Paciente = a.Paciente?.Nome ?? "(paciente removido)",
+                Foto = a.Paciente?.FotoMiniatura,
+                Convenio = a.Paciente?.ConvenioNome ?? string.Empty,
+                // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
+                // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
+                Modalidade = CatalogoModalidades.Nome(
+                    a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+                Profissional = a.Profissional?.Rotulo ?? "—",
+                Sala = a.Sala?.Nome ?? "—",
+                Etapa = a.Etapa,
+                Observacoes = a.Observacoes,
+                EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
+                EhEncaixe = a.Encaixe,
+                Lancamento = DescreverLancamento(a),
+                TemGuiaPendente = _comPendencia.Contains(a.PacienteId),
+                TemTermoPendente = _termos.TryGetValue(a.PacienteId, out var doPaciente)
+                                   && doPaciente.Any(t => t.Pendente),
+                ConfirmacaoRotulo = confirmacao,
+                ConfirmouPresenca = confirmacao == "Confirmou",
+                Pacote = _pacotes.GetValueOrDefault(a.PacienteId, string.Empty)
+            };
+
+            Coluna(a.Etapa).Add(cartao);
+        }
+
+        // As cinco coleções mudaram: o quadro precisa reavaliar se está vazio e se
+        // há alguém esperando ser anunciado.
+        OnPropertyChanged(nameof(QuadroVazio));
+        OnPropertyChanged(nameof(TemChamados));
+
+        // A faixa nomeia o chamado MAIS ANTIGO — é ele que está há mais tempo sem
+        // notícia, e é nele que o "Entrou" da faixa age. Os demais viram uma linha.
+        var chamadaPorId = _doDia
+            .Where(a => a.ChamadoEm is not null)
+            .ToDictionary(a => a.Id, a => a.ChamadoEm!.Value);
+        var porIdade = Chamados
+            .OrderBy(c => chamadaPorId.GetValueOrDefault(c.AgendamentoId, DateTime.MaxValue))
+            .ToList();
+        PrimeiroChamado = porIdade.FirstOrDefault();
+        OutrosChamados = porIdade.Count <= 1
+            ? string.Empty
+            : "Também: " + string.Join(" · ", porIdade.Skip(1)
+                .Select(c => $"{c.Paciente} → sala {c.Sala}"));
+    }
+
+    /// <summary>
+    /// Filtra o quadro por profissional. É LEITURA — sem <c>Exigir</c>, como todo filtro
+    /// da suíte — e remonta das listas já lidas, sem ir ao banco.
+    /// </summary>
+    [RelayCommand]
+    private void Filtrar(ChipProfissional? chip)
+    {
+        if (chip is null) return;
+
+        _filtroProfissionalId = chip.Id;
+        foreach (var p in Profissionais) p.Ativo = p.Id == chip.Id;
+        MontarQuadro();
+        AtualizarEsperas();
+    }
+
     /// <summary>Recalcula os rótulos de espera sem ir ao banco (chamado a cada minuto).</summary>
     private void AtualizarEsperas()
     {
@@ -572,7 +785,30 @@ public sealed partial class FilaViewModel : ObservableObject
                 var m => $"chamado há {m} min"
             };
             cartao.ChamadaDemorada = desdeAChamada >= ChamadaDemoradaMinutos;
+
+            // O atraso é a pergunta que o quadro nunca respondeu: a hora estourou e o
+            // paciente não chegou. A conta mora no DOMÍNIO (`Agendamento.AtrasoMinutos`).
+            var atraso = ag.AtrasoMinutos(agora);
+            cartao.Atraso = atraso is null ? string.Empty : $"Atrasado {atraso} min";
+            cartao.Atrasado = atraso is not null;
         }
+
+        // O resumo do dia envelhece junto (a espera média corre com o relógio). A conta
+        // da média é a ÚNICA — a mesma do painel (`PainelRecepcaoService`).
+        var atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
+        var emSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
+        var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
+        var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);
+
+        var partes = new List<string> { $"{atendidos} atendido(s)", $"{emSala} em sala" };
+        if (PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media)
+            partes.Add($"espera média {media} min");
+        partes.Add((faltas, cancelados) switch
+        {
+            (0, 0) => "sem faltas nem cancelamentos",
+            var (f, c) => $"fora do quadro: {f} falta(s), {c} cancelamento(s)"
+        });
+        ResumoDia = string.Join("  ·  ", partes);
     }
 
     /// <summary>

@@ -228,6 +228,24 @@ public class Agendamento
     }
 
     /// <summary>
+    /// Há quantos minutos a hora marcada estourou SEM o paciente ter chegado. Null quando
+    /// não há atraso a anunciar: quem já fez check-in não está atrasado (está esperando),
+    /// e horário que saiu da fila (falta/cancelado) ou já virou atendimento não tem o que
+    /// cobrar. É o selo "Atrasado N min" do kanban — antes dele, NADA no quadro dizia que
+    /// a hora passou e a pessoa não apareceu, que é a pergunta que o balcão faz para
+    /// decidir se liga.
+    ///
+    /// Mora no DOMÍNIO, e não na tela, pela razão de sempre: dois quadros leem o mesmo
+    /// horário, e duas contas de "está atrasado" divergiriam na primeira correção.
+    /// </summary>
+    public int? AtrasoMinutos(DateTime agora)
+    {
+        if (ChegadaEm is not null || Status != StatusAgendamento.Agendado) return null;
+        var minutos = (int)Math.Round((agora - DataHora).TotalMinutes);
+        return minutos <= 0 ? null : minutos;
+    }
+
+    /// <summary>
     /// Este horário se sobrepõe ao intervalo informado? Comparação por intervalo (e não
     /// por igualdade de horário) — o choque real é a sessão de 30 min que invade a
     /// seguinte, não só o horário batido na mosca.

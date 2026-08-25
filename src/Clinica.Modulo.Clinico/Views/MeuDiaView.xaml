@@ -18,8 +18,10 @@
              nenhuma viram um buraco de mil pixels ao lado da única que tem conteúdo. -->
         <!-- AllowDrop: a raia é o alvo do cartão arrastado (parcela 61) — os handlers
              moram no code-behind, como na fila do balcão. -->
+        <!-- `Brush.Raia` (redesenho de ago/2026): um degrau acima do fundo da página —
+             raia da mesma cor do fundo fazia o quadro deixar de se ler como quadro. -->
         <Style x:Key="RaiaDoQuadro" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+            <Setter Property="Background" Value="{StaticResource Brush.Raia}" />
             <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
             <Setter Property="Padding" Value="10,10,10,4" />
             <Setter Property="Margin" Value="0,0,10,0" />
@@ -51,18 +53,23 @@
                 </Border.Style>
 
                 <StackPanel>
-                    <TextBlock TextWrapping="Wrap"
-                               Foreground="{StaticResource Brush.Texto.Primario}">
-                        <Run Text="{Binding Hora, Mode=OneWay}" FontWeight="SemiBold" />
-                        <Run Text="  " />
-                        <Run Text="{Binding Paciente, Mode=OneWay}" />
-                    </TextBlock>
+                    <!-- Nome GRANDE, hora como contexto — a mesma hierarquia da fila do
+                         balcão (redesenho de ago/2026): dois quadros da mesma agenda com
+                         desenhos diferentes se leem como dois sistemas. -->
+                    <TextBlock Text="{Binding Paciente}"
+                               FontSize="{StaticResource Fonte.Corpo}"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
 
                     <TextBlock Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}"
-                               Margin="0,4,0,0" TextWrapping="Wrap">
+                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap">
+                        <Run Text="{Binding Hora, Mode=OneWay}" FontWeight="SemiBold" />
+                        <Run Text="·" />
                         <Run Text="{Binding Modalidade, Mode=OneWay}" />
-                        <Run Text=" · sala " />
+                        <Run Text="· sala" />
                         <Run Text="{Binding Local, Mode=OneWay}" />
                     </TextBlock>
 
@@ -115,7 +122,9 @@
                     </TextBlock>
 
                     <WrapPanel Margin="0,6,0,0">
-                        <Border Style="{StaticResource Badge.Info}" Margin="0,0,6,4"
+                        <!-- AVISO, como na fila do balcão: o mesmo fato com duas cores
+                             nos dois quadros se lia como dois fatos (redesenho ago/2026). -->
+                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,6,4"
                                 Visibility="{Binding Encaixe,
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Encaixe" />
@@ -348,7 +357,10 @@
                             DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
                             DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
+                            <!-- As mesmas cores de estado da fila do balcão (redesenho de
+                                 ago/2026): dois quadros da mesma agenda, um vocabulário. -->
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="AGUARDANDO"
+                                                Ponto="{StaticResource Brush.Acento}"
                                                 Itens="{Binding Aguardando}" />
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Aguardando}"
@@ -362,6 +374,9 @@
                             DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="NA RECEPÇÃO"
+                                                Ponto="{StaticResource Brush.Aviso}"
+                                                PilulaFundo="{StaticResource Brush.Aviso.Suave}"
+                                                PilulaTexto="{StaticResource Brush.Aviso}"
                                                 Itens="{Binding NaRecepcao}" />
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding NaRecepcao}"
@@ -375,6 +390,9 @@
                             DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="CHAMADO"
+                                                Ponto="{StaticResource Brush.Erro}"
+                                                PilulaFundo="{StaticResource Brush.Erro.Suave}"
+                                                PilulaTexto="{StaticResource Brush.Erro}"
                                                 Itens="{Binding Chamados}" />
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Chamados}"
@@ -388,6 +406,9 @@
                             DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="EM ATENDIMENTO"
+                                                Ponto="{StaticResource Brush.Sucesso}"
+                                                PilulaFundo="{StaticResource Brush.Sucesso.Suave}"
+                                                PilulaTexto="{StaticResource Brush.Sucesso.Forte}"
                                                 Itens="{Binding EmAtendimento}" />
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding EmAtendimento}"
@@ -401,7 +422,12 @@
                             DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
                             DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADOS"
+                            <!-- Singular, como no balcão: os dois quadros divergiam só
+                                 aqui, e diferença sem razão se lê como razão escondida. -->
+                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADO"
+                                                Ponto="{StaticResource Brush.Borda.Hover}"
+                                                PilulaFundo="{StaticResource Brush.Borda}"
+                                                PilulaTexto="{StaticResource Brush.Texto.Secundario}"
                                                 Itens="{Binding Finalizados}" />
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Finalizados}"

@@ -2263,6 +2263,23 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyDictionary<int, StatusContato>> ConfirmacoesDosAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default)
+    {
+        if (agendamentoIds.Count == 0) return new Dictionary<int, StatusContato>();
+
+        // Um status por agendamento: a origem "AGD:{id}" tem índice único junto do tipo,
+        // então não há dois contatos de confirmação para o mesmo horário. O GroupBy é
+        // cinto de segurança contra dado anterior à idempotência.
+        return await _db.Contatos.AsNoTracking()
+            .Where(c => c.Tipo == TipoContato.ConfirmacaoSessao
+                        && c.AgendamentoId != null
+                        && agendamentoIds.Contains(c.AgendamentoId.Value))
+            .GroupBy(c => c.AgendamentoId!.Value)
+            .Select(g => new { g.Key, Status = g.Max(c => c.Status) })
+            .ToDictionaryAsync(x => x.Key, x => x.Status, ct);
+    }
+
     // Aqui a ordem é a oposta da fila: é HISTÓRICO, e histórico se lê do mais novo para
     // o mais velho. O corte vai no SQL, como manda a convenção do projeto.
     public async Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(

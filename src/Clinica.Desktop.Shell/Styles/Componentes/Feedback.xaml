@@ -186,32 +186,42 @@
     <Style TargetType="ctrl:CabecalhoRaia">
         <Setter Property="IsTabStop" Value="False" />
         <Setter Property="Margin" Value="0,0,0,8" />
+        <!-- Os padrões das cores moram no ESTILO (o C# não alcança StaticResource):
+             sem nada declarado, o cabeçalho fica exatamente como sempre foi. -->
+        <Setter Property="PilulaFundo" Value="{StaticResource Brush.Acento.Suave}" />
+        <Setter Property="PilulaTexto" Value="{StaticResource Brush.Acento}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ctrl:CabecalhoRaia">
                     <StackPanel>
                         <Grid Margin="2,0,2,0">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="0" Text="{TemplateBinding Titulo}"
+                            <!-- O ponto de ESTADO da raia. Sem cor declarada, some. -->
+                            <Ellipse x:Name="ponto" Grid.Column="0" Width="8" Height="8"
+                                     Margin="0,0,7,0" VerticalAlignment="Center"
+                                     Fill="{TemplateBinding Ponto}" />
+
+                            <TextBlock Grid.Column="1" Text="{TemplateBinding Titulo}"
                                        TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center"
                                        FontSize="{StaticResource Fonte.Legenda}"
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource Brush.Texto.Secundario}" />
 
-                            <Border x:Name="pilula" Grid.Column="1" MinWidth="22"
+                            <Border x:Name="pilula" Grid.Column="2" MinWidth="22"
                                     Padding="7,1" Margin="8,0,0,0"
                                     CornerRadius="{StaticResource Raio.Pilula}"
-                                    Background="{StaticResource Brush.Acento.Suave}">
+                                    Background="{TemplateBinding PilulaFundo}">
                                 <TextBlock Text="{TemplateBinding Quantidade}"
                                            HorizontalAlignment="Center"
                                            FontSize="{StaticResource Fonte.Legenda}"
                                            FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Acento}" />
+                                           Foreground="{TemplateBinding PilulaTexto}" />
                             </Border>
                         </Grid>
 
@@ -222,6 +232,9 @@
                     </StackPanel>
 
                     <ControlTemplate.Triggers>
+                        <Trigger Property="Ponto" Value="{x:Null}">
+                            <Setter TargetName="ponto" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
                         <Trigger Property="Vazia" Value="True">
                             <Setter TargetName="traco" Property="Visibility" Value="Visible" />
                             <!-- Contagem zero fica discreta: pílula colorida em raia vazia

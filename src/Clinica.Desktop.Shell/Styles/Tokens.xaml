@@ -63,6 +63,10 @@
     <SolidColorBrush x:Key="Brush.Superficie" Color="#FFFFFF" />
     <SolidColorBrush x:Key="Brush.Superficie.Hover" Color="{StaticResource Cor.Cinza.100}" />
     <SolidColorBrush x:Key="Brush.LinhaAlt" Color="{StaticResource Cor.Cinza.50}" />
+    <!-- A faixa de fundo de uma RAIA de kanban. Um degrau acima do fundo da página de
+         propósito: raia da mesma cor do fundo faz o quadro deixar de se ler como quadro
+         (a reprovação do redesenho da fila, ago/2026). -->
+    <SolidColorBrush x:Key="Brush.Raia" Color="{StaticResource Cor.Cinza.100}" />
     <SolidColorBrush x:Key="Brush.Borda" Color="{StaticResource Cor.Cinza.200}" />
     <SolidColorBrush x:Key="Brush.Borda.Hover" Color="{StaticResource Cor.Cinza.300}" />
 
