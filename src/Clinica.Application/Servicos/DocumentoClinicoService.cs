@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -129,10 +130,13 @@ public sealed class DocumentoClinicoService
                 Detalhe = Limpar(i.Detalhe),
                 Quantidade = Limpar(i.Quantidade),
                 // ⚠️ A CÓPIA É CAMPO A CAMPO, e o que não estiver nesta lista é DESCARTADO
-                // em silêncio — o lugar 3 da auditoria de linha, aqui na emissão. O
-                // `Desenho` era montado certo pelo relatório e sumia neste `new`: a ficha
-                // saía sem mapa nenhum, com o desenho gravado no objeto que ninguém guardou.
-                Desenho = i.Desenho
+                // em silêncio — o lugar 3 da auditoria de linha, aqui na emissão. Ela já
+                // mordeu DUAS vezes: o `Desenho` era montado certo pelo relatório e sumia
+                // neste `new` (a ficha saía sem mapa nenhum), e o `Codigo` do termo LGPD
+                // sumiu igual na parcela 89 — sem ele, a resposta assinada do paciente não
+                // teria como ser lida de volta como consentimento.
+                Desenho = i.Desenho,
+                Codigo = Limpar(i.Codigo)
             });
 
         await _repo.AdicionarDocumentoAsync(documento, ct);
@@ -492,35 +496,45 @@ public sealed class DocumentoClinicoService
     }
 
     /// <summary>
-    /// Termo de consentimento LGPD em papel, para assinar. Imprime a situação de cada
-    /// finalidade no momento da emissão — o registro no sistema continua sendo o que
-    /// vale; o papel é a prova assinada que a lei pede quando alguém a exige.
+    /// Termo de consentimento LGPD que o PACIENTE ASSINA (parcela 89).
+    ///
+    /// ⚠️ Ele mudou de natureza. Até aqui era um RECIBO: imprimia a situação de cada
+    /// finalidade ("Autorizado"/"Pendente") a partir do que o balcão já tinha marcado, e o
+    /// registro no sistema é que valia. Agora as quatro finalidades saem como
+    /// **declarações SEM RESPOSTA**, o paciente responde e assina, e é essa resposta que
+    /// vira o consentimento.
+    ///
+    /// A inversão é o que impede as duas verdades: com o termo sendo recibo, o paciente
+    /// podia responder "Não" ao marketing no celular e a clínica continuar mandando
+    /// campanha, porque a caixinha do balcão seguia marcada.
+    ///
+    /// ⚠️ **Nascem sem resposta, e isso é decisão.** Pré-marcar com a situação atual
+    /// fabricaria a resposta mais conveniente para a clínica — o oposto do que o termo
+    /// existe para provar —, e é a mesma regra do termo de procedimento da parcela 66.
+    ///
+    /// O <see cref="ItemDocumento.Codigo"/> é o que permite ler a resposta de volta; ver
+    /// <see cref="TermoConsentimento"/>.
     /// </summary>
     public async Task<DocumentoClinico> EmitirTermoConsentimentoAsync(
         int pacienteId, int? profissionalId = null, string? operador = null,
         CancellationToken ct = default)
     {
-        var situacao = await _consentimentos.SituacaoAsync(pacienteId, ct);
-
         var ordem = 0;
-        var itens = ConsentimentoService.Finalidades.Select(finalidade =>
+        var itens = ConsentimentoService.Finalidades.Select(finalidade => new ItemDocumento
         {
-            situacao.TryGetValue(finalidade, out var atual);
-            return new ItemDocumento
-            {
-                Ordem = ++ordem,
-                Descricao = ConsentimentoService.Rotular(finalidade),
-                Detalhe = Descrever(atual),
-                Quantidade = atual?.Vigente == true ? "Autorizado" : "Pendente"
-            };
+            Ordem = ++ordem,
+            Codigo = finalidade.ToString(),
+            Descricao = TermoConsentimento.Declarar(finalidade),
+            Detalhe = TermoConsentimento.Detalhar(finalidade)
+            // Quantidade (a resposta) fica NULA de propósito — quem responde é o paciente.
         }).ToList();
 
         const string termo =
-            "Autorizo a clínica a tratar meus dados pessoais e de saúde para as finalidades "
-            + "assinaladas abaixo, nos termos da Lei 13.709/2018 (LGPD). Fui informado(a) de que "
-            + "posso revogar qualquer uma destas autorizações a qualquer momento, sem prejuízo do "
-            + "meu atendimento, e de que a revogação não apaga o registro do consentimento dado "
-            + "no período em que meus dados já foram tratados.";
+            "Declaro que fui informado(a), de forma clara, sobre como a clínica trata meus "
+            + "dados pessoais e de saúde, nos termos da Lei 13.709/2018 (LGPD), e respondo "
+            + "abaixo a cada finalidade. Sei que posso revogar qualquer uma destas "
+            + "autorizações a qualquer momento, e que a revogação não apaga o registro do "
+            + "consentimento dado no período em que meus dados já foram tratados.";
 
         return await EmitirAsync(new DocumentoClinico
         {
@@ -716,6 +730,20 @@ public sealed class DocumentoClinicoService
         return $"{ano}/{sequencial:0000}";
     }
 
+
+    /// <summary>
+    /// Uma lista rotulada dentro do detalhe do item — "cuidados prescritos: X; Y".
+    ///
+    /// Lista VAZIA devolve nulo, e não o rótulo sozinho: é a mesma regra do
+    /// <see cref="Juntar"/>, e é ela que faz a passagem de curativo sair sem os rótulos
+    /// das etapas que ninguém escreveu.
+    /// </summary>
+    private static string? Lista(string rotulo, IEnumerable<string> itens)
+    {
+        var texto = string.Join("; ", itens.Where(i => !string.IsNullOrWhiteSpace(i)));
+        return string.IsNullOrWhiteSpace(texto) ? null : $"{rotulo}: {texto}";
+    }
+
     /// <summary>
     /// Código curto de conferência da via em papel. Vem de um Guid (não do conteúdo):
     /// código derivado do texto viraria uma forma de adivinhar documento alheio.
@@ -730,27 +758,6 @@ public sealed class DocumentoClinicoService
             letras[i] = i == 5 ? '-' : AlfabetoCodigo[bytes[origem++] % AlfabetoCodigo.Length];
 
         return new string(letras);
-    }
-
-    private static string Descrever(ConsentimentoLgpd? registro) => registro switch
-    {
-        null => "Nunca perguntado",
-        { RevogadoEm: { } revogado } => $"Revogado em {revogado:dd/MM/yyyy}",
-        { Concedido: true } r => $"Concedido em {r.RegistradoEm:dd/MM/yyyy}",
-        var r => $"Recusado em {r.RegistradoEm:dd/MM/yyyy}"
-    };
-
-    /// <summary>
-    /// Uma lista rotulada dentro do detalhe do item — "cuidados prescritos: X; Y".
-    ///
-    /// Lista VAZIA devolve nulo, e não o rótulo sozinho: é a mesma regra do
-    /// <see cref="Juntar"/>, e é ela que faz a passagem de curativo sair sem os rótulos
-    /// das etapas que ninguém escreveu.
-    /// </summary>
-    private static string? Lista(string rotulo, IEnumerable<string> itens)
-    {
-        var texto = string.Join("; ", itens.Where(i => !string.IsNullOrWhiteSpace(i)));
-        return string.IsNullOrWhiteSpace(texto) ? null : $"{rotulo}: {texto}";
     }
 
     private static string? Juntar(params string?[] partes)

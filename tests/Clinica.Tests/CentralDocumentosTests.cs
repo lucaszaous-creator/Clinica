@@ -143,16 +143,36 @@ public class CentralDocumentosTests : IDisposable
     }
 
     [Fact]
-    public void Catalogo_AsTresMontadasDoProntuarioEstaoMarcadas()
+    public void Catalogo_AsMontadasDoProntuarioEstaoMarcadas()
     {
         var montadas = CentralDocumentosService.Catalogo
             .Where(f => f.MontadaDoProntuario)
             .Select(f => f.Chave)
             .ToList();
 
-        // Estas três não se digitam — o sistema monta do prontuário. A tela precisa saber
+        // Estas duas não se digitam — o sistema monta do prontuário. A tela precisa saber
         // para não abrir um formulário em branco que ninguém deveria preencher.
-        montadas.Should().BeEquivalentTo(["relatorio-evolucao", "anamnese", "consentimento"]);
+        //
+        // ⚠️ O "consentimento" saiu desta lista na parcela 89: ele deixou de ser um papel
+        // montado do cadastro e passou a ser ASSINADO PELO PACIENTE.
+        montadas.Should().BeEquivalentTo(["relatorio-evolucao", "anamnese"]);
+    }
+
+    [Fact]
+    public void Catalogo_OTermoLgpdLevaAColeta_NaoEmiteUmPapelEmBranco()
+    {
+        var folha = CentralDocumentosService.Folha("consentimento")!;
+
+        // O cartão NAVEGA até a coleta, como o termo de procedimento. Emitir aqui
+        // produziria um termo numerado e pendente que ninguém assinaria — e a leitura
+        // natural de um papel que saiu é que o consentimento foi colhido.
+        folha.Exigencia.Should().Be(ExigenciaFolha.TermoParaAssinar);
+        folha.MontadaDoProntuario.Should().BeFalse();
+
+        // Agir passou a ser COLHER assinatura. Ver continua sendo o bit do CADASTRO: o
+        // termo LGPD não carrega dado de saúde, ao contrário do de procedimento.
+        folha.PermissaoEmitir.Should().Be(Permissao.ColherAssinaturaPaciente);
+        folha.PermissaoVer.Should().Be(Permissao.VerFichaPaciente);
     }
 
     [Fact]

@@ -2186,6 +2186,63 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   permissão. Nada foi tirado: todo campo editável antes continua editável, um clique
   adiante.
 
+- **O CONSENTIMENTO ERA UMA CAIXINHA — e a única prova era a palavra de quem clicou**
+  (parcela 89; o mapa completo está em `docs/termo-assinado-pelo-paciente.md` §8, e é lá
+  que se atualiza). A direção pediu que **todo** documento que precisa da assinatura do
+  paciente fosse pelo Worker, como o termo do BSV, e nomeou os quatro consentimentos LGPD
+  da Recepção. Medido antes de escrever: **a coleta inteira já era genérica sobre
+  `DocumentoClinico`** — a janela, a segunda tela, o traço, a evidência, o selo, o envio
+  pelo WhatsApp e a volta pelo Worker olham `AguardaAssinaturaDoPaciente`, que responde por
+  `TipoDocumentoInfo.AssinadoPeloPaciente`. **Faltava uma linha de portão.** É o defeito
+  recorrente do projeto na variante mais barata de corrigir e a mais cara de deixar: a
+  capacidade existia, testada e em produção, para um tipo só.
+  ⚠️ **A inversão é a metade que importa.** O termo era o RECIBO do que o balcão marcara;
+  passou a ser a FONTE. Com ele como recibo, o paciente podia responder "Não" ao marketing
+  no celular e a clínica continuar mandando campanha, porque a caixinha seguia marcada —
+  **duas verdades sobre o mesmo fato, e nada falha: a campanha simplesmente sai**. E o
+  problema maior é jurídico: o art. 8º pede manifestação do TITULAR e o §2º põe o ônus da
+  prova em quem trata o dado, e a nossa prova era um clique da recepcionista.
+  Três decisões da direção: a **resposta assinada vence**; a caixinha **deixa de existir**
+  (o termo é o único caminho — o que não trava quem não tem celular, porque a coleta no
+  balcão continua sendo assinatura; o que acaba é o consentimento SEM assinatura nenhuma);
+  e é **um termo com as quatro declarações**, não quatro papéis.
+  ⚠️ **O vínculo é por CÓDIGO** (`ItemDocumento.Codigo`, migration aditiva), nunca por
+  `Ordem` — seria o contrato de ÍNDICE que a parcela 41 trocou por nome: acrescentar uma
+  finalidade no meio empurraria todas, e o "Sim" do uso de imagem viraria autorização para
+  compartilhar com o convênio, **sem quebrar build nenhum**. Nem pelo RÓTULO, que a clínica
+  reescreve. Código não reconhecível é **ignorado, nunca adivinhado**: deduzir pela posição
+  gravaria a autorização errada, que é pior do que não gravar.
+  ⚠️ **O PAPEL tinha de mudar junto, e essa foi a armadilha da parcela.** O desenho antigo
+  (`ListaFinalidades`) marcava um X quando a resposta era a palavra `"Autorizado"` e
+  escrevia "Pendente" no resto — com as respostas em "Sim"/"Não" ele imprimiria TODA
+  finalidade como pendente, e um **"Não" sairia idêntico a uma pergunta não respondida**,
+  no papel que o paciente leva justamente para provar o que recusou. O termo LGPD passou a
+  usar o MESMO desenho do termo de procedimento. A regra que fica: **ao trocar o que um
+  campo GUARDA, procure quem o IMPRIME** — o renderizador casa por VALOR e não quebra
+  build ao deixar de reconhecê-lo.
+  ⚠️ E **`RespostaDeclaracao` desceu da Application para o DOMÍNIO**: o termo LGPD precisa
+  ler a mesma resposta e o Domínio não enxerga a Application. Uma segunda cópia de "isto é
+  um sim?" divergiria na primeira correção — aqui, o paciente responder "Não" e o sistema
+  gravar outra coisa. Pelo mesmo argumento, o par *linha + auditoria* do consentimento saiu
+  para `ConsentimentoService.Montar`: são dois caminhos de escrita e um não pode chamar o
+  outro (o termo grava no MESMO `SaveChanges` do ato; `RegistrarAsync` tem o `SalvarAsync`
+  dele), e duas montagens divergiriam na AÇÃO de auditoria, que é o nome pelo qual uma
+  investigação procura.
+  ⚠️ **Reler RASTREADO na revogação**: `ConsentimentosDoPacienteAsync` é `AsNoTracking` —
+  ela existe para LER —, e mutar o que ela devolve não grava nada. A revogação sumiria em
+  silêncio, e a ficha mostraria uma autorização sem fim ao lado da recusa assinada.
+  **REVOGAR continua sem assinatura, e a assimetria é da lei**: revogar é direito
+  UNILATERAL do titular (art. 8º, §5º; art. 18), atendido de imediato, inclusive por
+  telefone — exigir termo assinado dificultaria o lado que a LGPD manda facilitar.
+  A **procedência** entrou na linha de cada finalidade ("Concedido em 12/03 · termo
+  2026/0007"): é o número do termo que responde *"onde está a prova?"*, e sem ele a
+  auditoria continuaria acreditando na palavra de quem clicou.
+  ⚠️ E a releitura do próprio diff pegou o de sempre: `CarregarDocumentosAsync` limpava a
+  lista **depois** do await, então uma falha de leitura deixaria as linhas do paciente
+  ANTERIOR na tela com o botão "Colher assinatura…" apontando para o `TermoLgpdPendenteId`
+  do outro — **um clique assinaria o termo de quem já saiu, em nome de quem está na
+  frente**. É a lição da parcela 66, 2ª rodada, na tela vizinha à que a ensinou.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

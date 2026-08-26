@@ -318,10 +318,23 @@ public class DocumentosClinicosTests : IDisposable
         anamnese.Itens.Single(i => i.Descricao == "Alergias").Detalhe.Should().BeNull();
     }
 
+    /// <summary>
+    /// ⚠️ Este teste fixava o COMPORTAMENTO ANTERIOR: o termo era um RECIBO, que imprimia
+    /// "Autorizado"/"Pendente" a partir do que o balcão já tinha marcado. A parcela 89
+    /// inverteu — o paciente responde e assina, e é a resposta dele que vira o
+    /// consentimento —, então o termo nasce SEM RESPOSTA e não repete a situação atual.
+    ///
+    /// Pré-marcar com o que a clínica já registrou fabricaria a resposta mais conveniente
+    /// para ela, que é o oposto do que o termo existe para provar. O circuito completo
+    /// está em <c>TermoLgpdAssinadoTests</c>.
+    /// </summary>
     [Fact]
-    public async Task Termo_de_consentimento_traz_uma_linha_por_finalidade_com_a_situacao_atual()
+    public async Task Termo_de_consentimento_traz_uma_declaracao_por_finalidade_SEM_resposta()
     {
         var pacienteId = await CriarPacienteAsync();
+
+        // Mesmo com o balcão tendo registrado uma autorização, o termo não a repete: quem
+        // responde é o paciente.
         await _consentimentos.RegistrarAsync(
             pacienteId, FinalidadeConsentimento.TratamentoDeDados, concedido: true,
             operador: "secretaria");
@@ -331,14 +344,16 @@ public class DocumentosClinicosTests : IDisposable
         termo.Itens.Should().HaveCount(ConsentimentoService.Finalidades.Count);
         termo.Corpo.Should().Contain("13.709");
 
-        var tratamento = termo.Itens.Single(
-            i => i.Descricao == ConsentimentoService.Rotular(FinalidadeConsentimento.TratamentoDeDados));
-        tratamento.Quantidade.Should().Be("Autorizado");
+        termo.Itens.Should().OnlyContain(i => i.Quantidade == null,
+            "a resposta é do paciente, e pré-marcá-la seria fabricá-la");
 
-        var imagem = termo.Itens.Single(
-            i => i.Descricao == ConsentimentoService.Rotular(FinalidadeConsentimento.UsoDeImagem));
-        imagem.Quantidade.Should().Be("Pendente");
-        imagem.Detalhe.Should().Be("Nunca perguntado");
+        // O CÓDIGO é o que permite ler a resposta de volta — por nome, nunca por ordem.
+        termo.Itens.Select(i => i.Codigo).Should().BeEquivalentTo(
+            ConsentimentoService.Finalidades.Select(f => f.ToString()));
+
+        // E cada declaração diz o que acontece ao responder "Não": consentimento arrancado
+        // por medo de perder a consulta não é consentimento (art. 8º, §4º).
+        termo.Itens.Should().OnlyContain(i => !string.IsNullOrWhiteSpace(i.Detalhe));
     }
 
     // ==================== Modelos ====================

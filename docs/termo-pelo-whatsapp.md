@@ -13,6 +13,12 @@ errado.
 > link sai, o paciente assina no celular, a resposta volta ao desktop e o termo é concluído
 > com a evidência gravada.
 
+> ✅ **Desde a parcela 89 este caminho serve TAMBÉM ao termo de consentimento (LGPD)** — as
+> quatro finalidades viraram declarações Sim/Não que o paciente responde e assina, e a
+> resposta assinada é o que o sistema passa a consultar. Nada aqui mudou para isso: o
+> circuito sempre foi genérico sobre `DocumentoClinico`, e o que faltava era o portão
+> (`TipoDocumentoInfo.AssinadoPeloPaciente`). Ver `docs/termo-assinado-pelo-paciente.md`, §8.
+
 ## 1. O que muda e o que NÃO muda
 
 A parcela 66 decidiu a coleta no balcão (traço na tela, testemunha, documento conferido) e

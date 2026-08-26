@@ -6,6 +6,7 @@ using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Tests;
 
@@ -1073,16 +1074,29 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         folha.PermissaoEmitir.Should().Be(Permissao.ColherAssinaturaPaciente);
     }
 
+    /// <summary>
+    /// A amarra que impede o PRÓXIMO tipo assinado pelo paciente de nascer caindo na
+    /// JANELA GENÉRICA — que não traz as declarações e produziria um papel numerado com a
+    /// linha de assinatura em branco.
+    ///
+    /// ⚠️ Ela cobrava <c>TermoParaAssinar</c> para todos, e a parcela 89 mostrou que isso
+    /// era estreito demais: o termo LGPD também é assinado pelo paciente e **não vem de
+    /// modelo** — ele é MONTADO pelo sistema a partir das quatro finalidades, e por isso
+    /// tem outro caminho de emissão, igualmente próprio. O que o invariante protege é
+    /// "não cai na genérica", e é isso que ele passou a dizer.
+    /// </summary>
     [Fact]
-    public void Todo_tipo_assinado_pelo_paciente_tem_folha_com_exigencia_do_dia()
+    public void Nenhum_tipo_assinado_pelo_paciente_cai_na_janela_generica()
     {
-        // A amarra que impede o PRÓXIMO tipo assinado pelo paciente de nascer caindo na
-        // janela genérica: se alguém acrescentar um, esta asserção o cobra.
         var assinadosPeloPaciente = TipoDocumentoInfo.Todos
             .Where(TipoDocumentoInfo.AssinadoPeloPaciente)
             .ToList();
 
         assinadosPeloPaciente.Should().NotBeEmpty();
+
+        // Os caminhos PRÓPRIOS: um copia o modelo escrito pela clínica, o outro é montado
+        // do cadastro. Os dois trazem as declarações; a genérica (`Paciente`) não.
+        var proprios = new[] { ExigenciaFolha.TermoParaAssinar, ExigenciaFolha.PacienteComProntuario };
 
         foreach (var tipo in assinadosPeloPaciente)
         {
@@ -1090,10 +1104,17 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
                 .Should().ContainSingle(f => f.TipoClinico == tipo,
                     $"{TipoDocumentoInfo.Rotular(tipo)} precisa de folha no catálogo").Subject;
 
-            folha.Exigencia.Should().Be(ExigenciaFolha.TermoParaAssinar,
+            folha.Exigencia.Should().BeOneOf(proprios,
                 "documento assinado pelo paciente não se emite pela janela genérica: ela "
-                + "não copia o modelo, não traz as declarações e não grava ModeloOrigemId");
+                + "não traz as declarações, e o papel sairia numerado com a linha de "
+                + "assinatura em branco e a pendência continuando acesa");
         }
+
+        // E a segunda barreira, que é a que de fato impede: a janela genérica RECUSA
+        // qualquer tipo assinado pelo paciente, no construtor. O catálogo diz por onde
+        // passar; esta é a porta trancada.
+        TipoDocumentoInfo.AssinadoPeloPaciente(TipoDocumentoClinico.Consentimento)
+            .Should().BeTrue("a parcela 89 pôs o termo LGPD na assinatura do paciente");
     }
 
     [Fact]

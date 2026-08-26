@@ -9,6 +9,7 @@ using QRCoder;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -314,16 +315,22 @@ public sealed class DocumentosClinicosPdfService
                             MapasDasSessoes(col, itens);
                             break;
 
+                        // ⚠️ O termo LGPD passou a usar o MESMO desenho do termo de
+                        // procedimento (parcela 89), e não é economia de código: os dois
+                        // são agora declarações que o PACIENTE responde e assina. O
+                        // desenho antigo (`ListaFinalidades`) marcava um X quando a
+                        // resposta era "Autorizado" e escrevia "Pendente" no resto — com
+                        // as respostas em "Sim"/"Não", ele imprimiria TODA finalidade como
+                        // pendente, e um "Não" sairia igual a uma pergunta não respondida.
+                        // Num papel que o paciente leva para provar o que recusou, isso é
+                        // a garantia aparente que este projeto recusa desde a parcela 3.
                         case TipoDocumentoClinico.Consentimento:
-                            ListaFinalidades(col, itens);
+                        case TipoDocumentoClinico.TermoProcedimento:
+                            Declaracoes(col, itens);
                             break;
 
                         case TipoDocumentoClinico.Anamnese:
                             RoteiroComLinhas(col, itens);
-                            break;
-
-                        case TipoDocumentoClinico.TermoProcedimento:
-                            Declaracoes(col, itens);
                             break;
                     }
 
@@ -778,37 +785,6 @@ public sealed class DocumentosClinicosPdfService
             "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var data)
             ? data
             : DateOnly.FromDateTime(DateTime.Today);
-
-    /// <summary>Termo de consentimento: uma finalidade por linha, com quadrado para assinalar.</summary>
-    private static void ListaFinalidades(ColumnDescriptor col, IReadOnlyList<ItemDocumento> itens)
-    {
-        col.Item().Text("Finalidades").Bold().FontSize(11).FontColor(AzulEscuro);
-
-        foreach (var item in itens)
-        {
-            var autorizado = string.Equals(item.Quantidade, "Autorizado", StringComparison.OrdinalIgnoreCase);
-
-            col.Item().BorderBottom(1).BorderColor(Borda).PaddingVertical(8).Row(row =>
-            {
-                row.ConstantItem(22).AlignTop()
-                    .Border(1).BorderColor(TextoSecundario).Width(14).Height(14)
-                    .AlignCenter().AlignMiddle()
-                    .Text(autorizado ? "X" : " ").Bold().FontSize(9).FontColor(AzulEscuro);
-
-                row.RelativeItem().Column(c =>
-                {
-                    c.Item().Text(item.Descricao).SemiBold().FontSize(10.5f);
-                    if (!string.IsNullOrWhiteSpace(item.Detalhe))
-                        c.Item().Text(item.Detalhe!).FontSize(9).FontColor(TextoSecundario);
-                });
-
-                row.ConstantItem(90).AlignRight().AlignMiddle()
-                    .Text(autorizado ? "Autorizado" : "Pendente")
-                    .SemiBold().FontSize(9)
-                    .FontColor(autorizado ? VerdeForte : TextoSecundario);
-            });
-        }
-    }
 
     /// <summary>
     /// As declarações do termo de procedimento (parcela 66), com a resposta do paciente.

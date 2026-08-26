@@ -4,6 +4,7 @@ using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Desktop.Shell.Componentes;
 
@@ -36,7 +37,15 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     private readonly Clinica.Desktop.Controls.IDialogoService _dialogo;
     private readonly ParametrosService? _parametros;
     private readonly int _pacienteId;
-    private readonly int _modeloId;
+    /// <summary>
+    /// O modelo escrito pela clínica, quando o termo VEM de um — é o caso do procedimento.
+    ///
+    /// ⚠️ NULO no termo LGPD (parcela 89): ele não é copiado de um modelo, é MONTADO das
+    /// quatro finalidades pelo `EmitirTermoConsentimentoAsync`. Uma segunda janela para
+    /// colher esse traço seria uma segunda definição de "o paciente assina", e a evidência
+    /// (documento conferido, testemunha, selo do conteúdo) divergiria na primeira correção.
+    /// </summary>
+    private readonly int? _modeloId;
     private readonly int? _profissionalId;
 
     /// <summary>
@@ -66,7 +75,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         AssinaturaDoPacienteService assinaturas,
         Clinica.Desktop.Controls.IDialogoService dialogo,
         int pacienteId,
-        int modeloId,
+        int? modeloId,
         string pacienteNome,
         int? documentoExistenteId = null,
         int? profissionalId = null,
@@ -524,8 +533,12 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
 
             _documento = DocumentoExistenteId is int existente
                 ? await _documentos.ObterAsync(existente)
-                : await _documentos.EmitirTermoProcedimentoAsync(
-                    _pacienteId, _modeloId, _profissionalId, Testemunha);
+                : _modeloId is int modelo
+                    ? await _documentos.EmitirTermoProcedimentoAsync(
+                        _pacienteId, modelo, _profissionalId, Testemunha)
+                    // Sem modelo é o termo LGPD, montado das quatro finalidades.
+                    : await _documentos.EmitirTermoConsentimentoAsync(
+                        _pacienteId, _profissionalId, Testemunha);
 
             if (_documento is null)
             {
