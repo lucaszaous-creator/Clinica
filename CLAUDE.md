@@ -6068,9 +6068,19 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   escondia atrás do dono. **A CHAVE não muda junto** (`consultorio-pacientes`): chave é
   contrato de navegação entre módulos, e renomeá-la para acompanhar um rótulo é a regressão
   da parcela 37, 4ª rodada.
-  ⚠️ **E o vazio ganhou uma SEGUNDA pergunta no mesmo movimento.** Enquanto a busca filtrava
+  ⚠️ **E o vazio ganhou DUAS perguntas novas no mesmo movimento.** Enquanto a busca filtrava
   a tela, "não há ninguém aqui" bastava; quando ela passou a alcançar o cadastro inteiro,
   responder *"entra aqui quem já foi atendido"* a quem digitou um nome faz concluir que o
   paciente EXISTE e só não foi atendido — quando o sistema está dizendo que ele **não está
   cadastrado**. E é essa leitura errada que leva a cadastrar quem já tem ficha (o CPF
-  duplicado da parcela 57). Um estado vazio por pergunta, como sempre.
+  duplicado da parcela 57). A terceira apareceu na releitura: **quem ESCONDEU responde
+  primeiro** — com o "só quem sumiu" marcado sobre uma busca que TROUXE gente, "não achei
+  ninguém no cadastro" mentiria sobre a causa e mandaria cadastrar de novo alguém que a tela
+  acabou de achar. Um estado vazio por pergunta, como sempre.
+  ⚠️ E as três frases foram para a **Application** (`ResumoDaCarteira.Montar`), não para a
+  ViewModel: é a regra da `GradeSemana` (parcela 69) e do `ResumoSessaoAnterior` (77) — **o
+  que decide o que a tela AFIRMA precisa morar onde o `dotnet test` alcança**. Foi só ao
+  escrever o teste que apareceu o exagero da frase do recorte, que afirmava *"vieram nos
+  últimos 45 dias"* sobre uma lista que pode conter quem **nunca veio** — a busca alcança a
+  primeira consulta, e essa pessoa também não é "sumida". Afirmar uma sessão que não houve,
+  numa frase de tela, é a mesma família de garantia aparente que este projeto recusa.

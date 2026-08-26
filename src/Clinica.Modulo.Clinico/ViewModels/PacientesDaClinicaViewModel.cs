@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Clinico.ViewModels;
 
-/// <summary>Um paciente na carteira do profissional, já com a leitura da dor pronta.</summary>
+/// <summary>Um paciente na carteira da CLÍNICA, já com a leitura da dor pronta.</summary>
 public sealed class LinhaPacienteClinico
 {
     public required int PacienteId { get; init; }
@@ -197,20 +197,15 @@ public sealed partial class PacientesDaClinicaViewModel : ObservableObject
     /// <summary>Teto da carteira — o mesmo padrão do serviço.</summary>
     private const int TetoDaCarteira = 200;
 
-    // ==================== O vazio tem DUAS perguntas (parcela 88, 3ª rodada) ============
+    // ==================== O vazio tem TRÊS perguntas (parcela 88, 3ª rodada) ============
     //
-    // ⚠️ "não há ninguém em tratamento" e "esta busca não achou ninguém" são respostas
-    // diferentes, e a segunda passou a existir quando a busca deixou de filtrar a tela e
-    // passou a alcançar o CADASTRO INTEIRO. Responder "entra aqui quem já foi atendido" a
-    // quem digitou um nome faria a pessoa concluir que o paciente EXISTE e só não foi
-    // atendido — quando o que o sistema está dizendo é que ele não está cadastrado. E é
-    // essa leitura errada que leva a cadastrar alguém que já tem ficha (parcela 57).
+    // Quem decide as três frases é `ResumoDaCarteira.Montar`, na APPLICATION — o que a tela
+    // AFIRMA precisa morar onde o `dotnet test` alcança (a regra da GradeSemana, parcela
+    // 69). Aqui ficam só as propriedades que o XAML lê.
 
-    [ObservableProperty] private string _tituloVazio = "Nenhum paciente em tratamento";
+    [ObservableProperty] private string _tituloVazio = string.Empty;
 
-    [ObservableProperty] private string _descricaoVazio =
-        "Entra aqui quem a clínica já atendeu: o horário precisa ter tido a presença "
-        + "confirmada na recepção. Busque pelo nome ou CPF para alcançar quem ainda não veio.";
+    [ObservableProperty] private string _descricaoVazio = string.Empty;
 
     /// <summary>
     /// Publica a lista. O TERMO já foi resolvido no SQL — o que sobra em memória é o
@@ -235,57 +230,14 @@ public sealed partial class PacientesDaClinicaViewModel : ObservableObject
             Pacientes.Add(p);
         }
 
-        var termo = Termo.Trim();
+        var dito = ResumoDaCarteira.Montar(
+            lidos: _todos.Count, mostrados: Pacientes.Count, termo: Termo,
+            somenteSumidos: SomenteSumidos, teto: TetoDaCarteira,
+            diasParaDestaque: LinhaPacienteClinico.DiasParaDestaque);
 
-        // ⚠️ TRÊS vazios, não um. Quando a busca TROUXE gente e o "só quem sumiu" a
-        // escondeu, dizer "não achou ninguém no cadastro" seria mentir sobre a causa — e
-        // mandaria cadastrar de novo alguém que a tela acabou de achar. Quem esconde
-        // responde por si (a regra de "um estado vazio por pergunta", parcela 37).
-        if (_todos.Count > 0 && Pacientes.Count == 0)
-        {
-            TituloVazio = "Ninguém está sem vir há mais tempo";
-            DescricaoVazio =
-                $"Os {_todos.Count} paciente(s) desta lista vieram nos últimos "
-                + $"{LinhaPacienteClinico.DiasParaDestaque} dias. Desmarque "
-                + "“Só quem sumiu” para ver todos.";
-        }
-        else if (termo.Length > 0)
-        {
-            TituloVazio = "Ninguém com esse nome ou CPF";
-            DescricaoVazio =
-                $"A busca “{termo}” não achou ninguém no cadastro da clínica — nem entre "
-                + "quem já veio, nem entre quem ainda não veio. Confira a grafia antes de "
-                + "cadastrar de novo: ficha repetida parte o histórico do paciente em duas.";
-        }
-        else
-        {
-            TituloVazio = "Nenhum paciente em tratamento";
-            DescricaoVazio =
-                "Entra aqui quem a clínica já atendeu: o horário precisa ter tido a presença "
-                + "confirmada na recepção. Busque pelo nome ou CPF para alcançar quem ainda "
-                + "não veio.";
-        }
-
-        if (termo.Length > 0)
-        {
-            Resumo = $"Busca “{termo}” — {Pacientes.Count} paciente(s) no cadastro da clínica."
-                     + (SomenteSumidos ? " Só quem está sem vir há mais tempo." : string.Empty);
-            return;
-        }
-
-        // ⚠️ O teto é DITO. Uma lista cortada que se anuncia como a carteira inteira faz
-        // quem não achou alguém concluir que ele não está cadastrado — corte silencioso é
-        // o que este projeto recusa desde sempre.
-        var cortada = _todos.Count >= TetoDaCarteira;
-
-        var quantos = SomenteSumidos
-            ? $"{Pacientes.Count} de {_todos.Count} paciente(s), só quem está sem vir há mais tempo"
-            : $"{_todos.Count} paciente(s) atendidos na clínica, do que veio por último ao mais antigo";
-
-        Resumo = cortada
-            ? quantos + $" — os {TetoDaCarteira} mais recentes, que é o teto desta tela. "
-              + "Busque pelo nome ou CPF para alcançar quem está fora, inclusive quem nunca veio."
-            : quantos + ".";
+        Resumo = dito.Resumo;
+        TituloVazio = dito.TituloVazio;
+        DescricaoVazio = dito.DescricaoVazio;
     }
 
     /// <summary>

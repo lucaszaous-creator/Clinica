@@ -513,6 +513,16 @@ ficha, não histórico — fabricar `Sessoes = 0` para quem tem quarenta esvazia
 MESMO critério da lista (`Status == Realizado`); duas contagens de "quantas sessões este
 paciente teve" divergiriam na primeira correção.
 
+⚠️ **O vazio tem TRÊS respostas, e elas moram na Application.** `ResumoDaCarteira.Montar`
+decide a linha de resumo e o vazio certo — *"a clínica não atendeu ninguém"*, *"a busca não
+achou no cadastro"* (esta manda conferir a grafia, porque a leitura errada é a que leva a
+cadastrar quem já tem ficha) e *"o «só quem sumiu» escondeu o que a busca trouxe"*. **Quem
+escondeu responde primeiro**: dizer "não achei ninguém" ali mentiria sobre a causa. Ficou na
+Application, e não na ViewModel, pela regra da `GradeSemana` (parcela 69) — o que decide o
+que a tela AFIRMA precisa morar onde o `dotnet test` alcança; `ResumoDaCarteiraTests` fixa as
+três, inclusive que a frase do recorte não afirma "vieram nos últimos 45 dias" sobre quem
+nunca veio.
+
 **E abrir pela lista passou a amarrar o horário de hoje.** Isso era aceitável enquanto ela
 era só a dele — o caminho normal é "Meu dia", que já traz o agendamento. Com a lista sendo a
 da clínica, ela virou o caminho de quem cobre o colega, e sem o vínculo a evolução nasceria
