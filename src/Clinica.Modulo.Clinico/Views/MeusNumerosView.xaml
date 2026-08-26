@@ -34,9 +34,15 @@
                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
                                Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}"
-                               Visibility="{Binding SemVinculo,
+                               Visibility="{Binding ListaDaClinica,
                                             Converter={StaticResource BoolParaVisibilidade}}"
-                               Text="Seu acesso não está vinculado a um profissional cadastrado, então estes são os números da clínica inteira — não os seus." />
+                               Text="{Binding MotivoDaLista}" />
+                    <TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                               Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Visibility="{Binding ListaDaClinica,
+                                            Converter={StaticResource BoolParaVisibilidade}}"
+                               Text="Então estes são os números da clínica inteira — não os seus." />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal"

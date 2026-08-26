@@ -21,6 +21,32 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+
+        <!-- A linha, com o botão que NOMEIA a ação (parcela 88).
+             Ela EMBRULHA o template compartilhado em vez de copiá-lo: a linha do paciente
+             é a mesma das outras listas da suíte, e uma cópia divergiria na primeira
+             correção. A coluna do botão tem SharedSizeGroup para o cabeçalho reservar
+             exatamente a mesma largura — sem isso a régua do cabeçalho não casa com as
+             linhas (a lição da checagem 31). -->
+        <DataTemplate x:Key="LinhaPacienteEnfermagem">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="EnfLinhaAcao" />
+                </Grid.ColumnDefinitions>
+
+                <ContentPresenter Grid.Column="0" Content="{Binding}"
+                                  ContentTemplate="{StaticResource ItemPacienteLinha}" />
+
+                <Button Grid.Column="1" Content="Atender" MinWidth="90" Margin="10,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoAcaoGrid}"
+                        ToolTip="Abre o paciente para você registrar a passagem: sinais vitais, o que foi observado e, quando for o caso, a consulta de enfermagem completa."
+                        Command="{Binding DataContext.AtenderCommand,
+                                  RelativeSource={RelativeSource AncestorType=ListBox}}"
+                        CommandParameter="{Binding}" />
+            </Grid>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -48,18 +74,23 @@
                          Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                          ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
 
-                <!-- Os dois modos da MESMA lista. A busca é atalho; a carteira inteira é
-                     um clique, e não o estado padrão da tela. -->
-                <Button Grid.Column="1" Content="Hoje" MinWidth="90" Margin="10,0,0,0"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BotaoSecundario}"
-                        ToolTip="Quem está marcado para hoje — a fila que a enfermagem vai receber."
-                        Command="{Binding HojeCommand}" />
-                <Button Grid.Column="2" Content="Todos os pacientes" MinWidth="160" Margin="8,0,0,0"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BotaoSecundario}"
-                        ToolTip="A carteira inteira da clínica, para alcançar quem não está no dia."
-                        Command="{Binding TodosCommand}" />
+                <!-- Os dois modos da MESMA lista, como CHIPS exclusivos (parcela 88).
+                     Eram dois botões iguais, e dois botões iguais não dizem em qual dos
+                     dois você está: quem voltasse do café com "Hoje" no ar leria "ninguém
+                     aqui" como "não há pacientes", e não como "este recorte é o do dia".
+                     O chip marcado é a régua — o padrão da parcela 61. -->
+                <ToggleButton Grid.Column="1" Content="Na clínica hoje" MinWidth="120"
+                              Margin="10,0,0,0" VerticalAlignment="Center"
+                              Style="{StaticResource ChipFiltro}"
+                              IsChecked="{Binding MostrandoHoje, Mode=OneWay}"
+                              ToolTip="Quem está marcado para hoje — a fila que a enfermagem vai receber."
+                              Command="{Binding HojeCommand}" />
+                <ToggleButton Grid.Column="2" Content="Todos os pacientes" MinWidth="150"
+                              VerticalAlignment="Center"
+                              Style="{StaticResource ChipFiltro}"
+                              IsChecked="{Binding MostrandoTodos, Mode=OneWay}"
+                              ToolTip="A carteira inteira da clínica — todo paciente passa pela enfermagem, e a maioria dessas passagens não tem horário marcado."
+                              Command="{Binding TodosCommand}" />
             </Grid>
 
             <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoDaLista}"
@@ -92,6 +123,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="EnfLinhaAcao" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
                             <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
@@ -104,7 +136,7 @@
                              isso a fila do dia e a busca publicam na MESMA lista. -->
                         <ListBox ItemsSource="{Binding Pacientes}"
                                  SelectedItem="{Binding Escolhido}"
-                                 ItemTemplate="{StaticResource ItemPacienteLinha}"
+                                 ItemTemplate="{StaticResource LinhaPacienteEnfermagem}"
                                  BorderThickness="0" Background="Transparent"
                                  HorizontalContentAlignment="Stretch"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
@@ -223,12 +255,12 @@
                                  consegui ler o plano" dizem coisas opostas numa tela que
                                  existe para dizer o que falta fazer, e um booleano gravado
                                  sem leitor não é estado nenhum. -->
-                            <TextBlock Text="{Binding ResumoDoPlano}" TextWrapping="Wrap" Margin="0">
+                            <TextBlock Text="{Binding Plano.Resumo}" TextWrapping="Wrap" Margin="0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock"
                                            BasedOn="{StaticResource TextoSuave}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding PlanoNaoVerificado}"
+                                            <DataTrigger Binding="{Binding Plano.NaoVerificado}"
                                                          Value="True">
                                                 <Setter Property="Foreground"
                                                         Value="{StaticResource Brush.Erro}" />
@@ -244,9 +276,9 @@
                                     VerticalAlignment="Center">
                             <TextBlock Text="Hora" Style="{StaticResource TextoSuave}"
                                        VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBox Text="{Binding HoraDoCuidado, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox Text="{Binding Plano.Hora, UpdateSourceTrigger=PropertyChanged}"
                                      Width="70" VerticalAlignment="Center"
-                                     IsEnabled="{Binding PodeChecarCuidado}"
+                                     IsEnabled="{Binding Plano.PodeChecar}"
                                      ToolTip="A hora em que o cuidado foi executado — não a de agora." />
                         </StackPanel>
                     </Grid>
@@ -254,7 +286,7 @@
                     <!-- Teto na lista que cresce com o DADO: sem ele, um plano de doze
                          cuidados empurra a linha do tempo para fora da tela. -->
                     <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Cuidados}">
+                        <ItemsControl ItemsSource="{Binding Plano.Cuidados}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,0,0,8">
@@ -286,17 +318,17 @@
                                                     VerticalAlignment="Center">
                                             <Button Content="Feito" Margin="0,0,6,0"
                                                     Style="{StaticResource BotaoAcaoGrid}"
-                                                    IsEnabled="{Binding DataContext.PodeChecarCuidado,
+                                                    IsEnabled="{Binding DataContext.Plano.PodeChecar,
                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    Command="{Binding DataContext.MarcarFeitoCommand,
+                                                    Command="{Binding DataContext.Plano.MarcarFeitoCommand,
                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Não feito"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    IsEnabled="{Binding DataContext.PodeChecarCuidado,
+                                                    IsEnabled="{Binding DataContext.Plano.PodeChecar,
                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     ToolTip="A “rodela” do papel: o horário circulado, com a justificativa escrita."
-                                                    Command="{Binding DataContext.MarcarNaoFeitoCommand,
+                                                    Command="{Binding DataContext.Plano.MarcarNaoFeitoCommand,
                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}" />
                                         </StackPanel>

@@ -256,7 +256,10 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// dia da clínica inteira. Dito na tela de propósito: um dia com o dobro de horários
     /// sem explicação se lê como defeito.
     /// </summary>
-    [ObservableProperty] private bool _semVinculo;
+    [ObservableProperty] private bool _listaDaClinica;
+
+    /// <summary>POR QUE o quadro é o da clínica — a frase certa para cada motivo.</summary>
+    [ObservableProperty] private string? _motivoDaLista;
 
     /// <summary>
     /// "Agenda fechada neste dia: Férias" — o bloqueio que alcança este profissional no
@@ -283,14 +286,18 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// propriedade — as duas condições em MultiBinding no XAML seriam a versão frágil
     /// disto.
     ///
-    /// ⚠️ SEM VÍNCULO ele fica desligado, e é decisão: nesse modo a tela mostra a clínica
-    /// inteira, e "o primeiro da recepção" pode ser paciente de OUTRO profissional — o
-    /// clique cego anunciaria um nome para a sala do colega. Chamar por um CARTÃO
-    /// específico continua liberado: ali a escolha é de quem olhou o nome antes de clicar.
+    /// ⚠️ NO MODO "LISTA DA CLÍNICA" ele fica desligado, e é decisão: nesse modo o quadro
+    /// mostra a clínica inteira, e "o primeiro da recepção" pode ser paciente de OUTRO
+    /// profissional — o clique cego anunciaria um nome para a sala do colega. Chamar por um
+    /// CARTÃO específico continua liberado: ali a escolha é de quem olhou o nome antes de
+    /// clicar.
+    ///
+    /// São DOIS os caminhos até esse modo (ver <see cref="PostoClinico"/>): não haver
+    /// cadastro vinculado, e não haver agenda própria — que é o caso da enfermagem.
     /// </summary>
-    public bool PodeChamarProximo => TemProximo && PodeMovimentarFila && !SemVinculo;
+    public bool PodeChamarProximo => TemProximo && PodeMovimentarFila && !ListaDaClinica;
 
-    partial void OnSemVinculoChanged(bool value)
+    partial void OnListaDaClinicaChanged(bool value)
         => OnPropertyChanged(nameof(PodeChamarProximo));
 
     /// <summary>
@@ -383,7 +390,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    private static int? ProfissionalDaSessao => SessaoUsuario.Atual.ProfissionalId;
+    /// <summary>
+    /// De quem é o dia mostrado. A resposta mora num lugar só (<see cref="PostoClinico"/>):
+    /// a enfermagem NÃO tem agenda própria — os horários são de quem consulta, e ela passa
+    /// por todos —, e filtrar por ela devolvia o quadro VAZIO justamente para quem está
+    /// cadastrado certo.
+    /// </summary>
+    private static int? ProfissionalDaSessao => PostoClinico.ProfissionalDaLista();
 
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
@@ -418,7 +431,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
                 MensagemEhErro = false;
             }
             var profissionalId = ProfissionalDaSessao;
-            SemVinculo = profissionalId is null;
+            ListaDaClinica = profissionalId is null;
+            MotivoDaLista = PostoClinico.MotivoDaListaAmpla();
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var dia = DateOnly.FromDateTime(Dia);
@@ -579,12 +593,16 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         // A segunda barreira do modo sem vínculo (a primeira é o IsEnabled): atalho e
         // corrida de carregamento passam pelo comando, e a guarda diz por quê em vez de
         // voltar calada.
-        if (SemVinculo)
+        if (ListaDaClinica)
         {
-            Mensagem = "Sem profissional vinculado ao seu login, o primeiro da fila pode "
-                       + "ser paciente de outro profissional. Chame pelo cartão dele no "
-                       + "quadro — ou peça à direção para ligar o seu usuário ao seu "
-                       + "cadastro.";
+            // ⚠️ A frase sai do PONTO ÚNICO, e não é uma escrita à mão aqui. Ela dizia
+            // "peça à direção para ligar o seu usuário ao seu cadastro" — verdade para
+            // quem não tem vínculo, e MENTIRA para a enfermagem, que está vinculada e
+            // simplesmente não tem agenda própria. Instrução errada com cara de instrução
+            // certa manda o suporte procurar um defeito que não existe.
+            Mensagem = MotivoDaLista
+                       + " Como o quadro é o da clínica, o primeiro da fila pode ser "
+                       + "paciente de outro profissional: chame pelo cartão dele.";
             MensagemEhErro = true;
             return Task.CompletedTask;
         }
@@ -836,7 +854,9 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
         _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
                       linha.AtendimentoId, linha.Data);
-        NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
+        // A seção de escrita de QUEM clicou: quem consulta cai no S-O-A-P, quem
+        // executa cai na passagem de enfermagem. Uma palavra, dois destinos certos.
+        NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento());
     }
 
     /// <summary>Abre a tela das sessões sem evolução — a dívida de prontuário.</summary>

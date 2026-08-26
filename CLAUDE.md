@@ -5915,3 +5915,81 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   O que ficou POR DECISÃO da clínica (as notas do canvas): cancelado/falta dentro do
   quadro (o Meu dia já mostra; a fila segue fora), situação de pagamento no cartão, e
   o clique no cartão abrindo a ficha.
+
+- **A ENFERMAGEM NÃO TEM AGENDA PRÓPRIA — e cadastrá-la CERTO esvaziava as cinco telas
+  dela** (parcela 88 — a cliente: *"os enfermeiros podem ver todos os pacientes e clicar em
+  atender, em vez de ver só os pacientes dele"*; o mapa completo está em
+  `docs/atendimento-medico-e-enfermagem.md` §13, e é lá que se atualiza). Três fatos
+  verdadeiros, e o defeito era a SOMA deles: (1) as cinco listas do Consultório filtram por
+  `SessaoUsuario.Atual.ProfissionalId`; (2) a enfermeira PRECISA de um `Profissional`
+  vinculado, porque é dele que sai o COREN copiado em cada registro (parcela 72) e
+  `IdentificacaoExecutante.Exigir` recusa sem ele; (3) os horários pertencem a quem
+  CONSULTA — ela passa por todos eles.
+  ⚠️ **Nada falhava.** Build verde, 1908 testes verdes, três redes verdes — e o dia, a
+  semana, a carteira, a dívida de prontuário e os números dela abriam VAZIOS, justamente
+  por ela estar cadastrada certo. Tela vazia se lê como sistema quebrado, não como "esta
+  lista não é para você".
+  A decisão mora no **DOMÍNIO** (`PerfisAcesso.EscreveComoEnfermagem` /
+  `ProfissionalDaListaDoPosto` / `MotivoDaListaDoPosto`), e `PostoClinico` é só o adaptador
+  que lê a sessão: projeto WPF não compila no `dotnet test`, e regra que o teste não alcança
+  apodrece sem ninguém notar.
+  ⚠️ **Pelos BITS, nunca pelo texto do conselho.** `RegistroConselho` é campo livre
+  ("COREN-SP 999999", "Coren SP 12345", "coren/sp 12345"): procurar "COREN" nele erraria no
+  dia em que alguém digitasse diferente, e erraria em SILÊNCIO. O corte é o X · Y da parcela
+  72 — escreve por `ChecarPrescricao | RegistrarEvolucaoEnfermagem` e **não** por
+  `EditarProntuario | Prescrever`. E quem tem OS DOIS lados (o Gerente, que recebe `Todas`)
+  responde **false**: ele TEM agenda própria, e devolver-lhe a clínica inteira esconderia
+  justamente os pacientes dele. A regra é "escreve **SÓ** por Y".
+  ⚠️ **A FRASE vale tanto quanto o filtro.** São DOIS motivos para a lista ser a da clínica,
+  e a mensagem não pode ser uma só: *"peça à direção para ligar o seu usuário ao seu
+  cadastro"* é verdade para quem não tem vínculo e MENTIRA para a enfermeira, que está
+  vinculada. Instrução errada com cara de instrução certa manda o suporte procurar um
+  defeito que não existe — é a irmã de "falha exibida como sucesso", e ela sobrevivia
+  escrita à mão dentro da guarda do "Chamar próximo" depois de o texto da tela já ter sido
+  corrigido. **Frase de guarda sai do PONTO ÚNICO.**
+
+- **"Atender" é uma palavra só, e precisa levar à seção de escrita de QUEM clicou**
+  (parcela 88). `PostoClinico.ChaveDoAtendimento()` bifurca: quem consulta cai no S-O-A-P,
+  quem executa cai na passagem de enfermagem — as duas na MESMA tela do paciente (mesmo
+  crachá, mesmo rail, mesmas seções de leitura), mudando só a seção que abre. Sem a
+  bifurcação a técnica cairia no formulário do médico, onde o `Salvar` segue
+  `PodeEditarProntuario` e ela não o tem: o **botão que não faz nada** da parcela 41, com
+  uma tela inteira em volta.
+  A seção nova (`Atendimento de enfermagem`, posição 1 do rail) repete o desenho do
+  Atendimento do médico DE PROPÓSITO — escrever à esquerda, reler à direita, rodapé
+  ancorado fora do scroll —, e a coluna da direita é a **imagem espelhada**: o médico relê a
+  enfermagem e a infusão; a enfermagem relê a sessão médica e a infusão.
+  ⚠️ **O compositor NÃO foi reescrito**: a seção declara `DataContext="{Binding Passagem}"`
+  sobre o MESMO `EvolucaoEnfermagemViewModel` da janela da sala. As regras caras (hora
+  informada, hora futura recusada, retificação que preserva a data do fato, alergia no mesmo
+  `SaveChanges`) não podem existir em duas cópias.
+  ⚠️ **E a janela CONTINUA** — ela não é dívida, é a porta que a seção não alcança: a folha
+  de execução é MODAL e `PodeMexer => PodeChecar && EmExecucao`, então folha encerrada apaga
+  o painel inteiro, e é ali que se registra a reação que aparece meia hora depois da última
+  bomba. **A seção é a quinta porta, não a substituta.**
+  ⚠️ **O caminho de volta é parte da feature.** A tela da Enfermagem é do SHELL e é publicada
+  por DOIS módulos: no `Clinica.Recepcao.exe` o módulo Clínico não está carregado, e
+  `NavegacaoSuite.Ir` devolveria `false` EM SILÊNCIO. Pergunta-se antes com `Existe`, e o
+  painel da própria tela atende onde não há posto clínico.
+
+- **A cópia campo a campo do serviço engoliu o "se necessário" por doze parcelas** (parcela
+  88). `EvolucaoEnfermagemService.AplicarProcesso` copia o cuidado campo a campo — o **lugar
+  3** da lista de conferência — e `SeNecessario` ficou de fora desde que o campo nasceu
+  (parcela 76). A caixinha da tela gravava sempre `false`.
+  ⚠️ **E o estrago não aparecia como falha, e sim como CONTAGEM errada**: `CuidadoDoDia.
+  Pendente` é `!SeNecessario && Vigentes.Count == 0`, então TODO cuidado condicional ("se
+  dor > 5") ficava eternamente aguardando registro e o contador da sala passava a apontar
+  para nada — exatamente o que o comentário do próprio campo diz existir para impedir. A
+  retificação sofria do mesmo (mesmo `AplicarProcesso`), então corrigir uma vírgula
+  desligava o SOS de todo cuidado condicional.
+  Os dois testes novos **falham no código anterior** — foi verificado, não presumido.
+
+- **Dado gravado sem leitor, na variante que faz o COMENTÁRIO mentir** (parcela 88):
+  `EvolucaoEnfermagem.AgendamentoId` era gravado desde a parcela 71, preservado na
+  retificação, e **nenhuma consulta, tela ou papel o lia**. A seção nova ia escrever
+  *"a passagem fica registrada nesta sessão"* — promessa que o código não cumpre, o defeito
+  da parcela 67. Ganhou o primeiro leitor: o selo **DESTA SESSÃO** na lista de passagens,
+  que responde a pergunta de quem está com o paciente na frente ("já registrei alguma coisa
+  NESTA passagem, ou o que estou vendo é de outro dia?").
+  A regra que fica: **antes de escrever um comentário que promete um vínculo, procure quem
+  o LÊ.** Se ninguém lê, ou se constrói o leitor, ou a frase muda.

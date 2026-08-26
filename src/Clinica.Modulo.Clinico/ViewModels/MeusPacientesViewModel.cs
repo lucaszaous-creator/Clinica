@@ -84,8 +84,15 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
-    /// <summary>Sem profissional vinculado ao login: a carteira é a da clínica.</summary>
-    [ObservableProperty] private bool _semVinculo;
+    /// <summary>
+    /// A carteira mostrada é a da CLÍNICA, e não a de uma pessoa. São dois caminhos
+    /// até aqui (ver <see cref="PostoClinico"/>): não haver cadastro vinculado, e não
+    /// haver agenda própria — que é o caso da enfermagem.
+    /// </summary>
+    [ObservableProperty] private bool _listaDaClinica;
+
+    /// <summary>POR QUE a lista é da clínica — a frase certa para cada motivo.</summary>
+    [ObservableProperty] private string? _motivoDaLista;
 
     public MeusPacientesViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
     {
@@ -116,8 +123,12 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
 
-            var profissionalId = SessaoUsuario.Atual.ProfissionalId;
-            SemVinculo = profissionalId is null;
+            // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
+            // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
+            // tela vazia justamente para quem está cadastrado certo.
+            var profissionalId = PostoClinico.ProfissionalDaLista();
+            ListaDaClinica = profissionalId is null;
+            MotivoDaLista = PostoClinico.MotivoDaListaAmpla();
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
@@ -183,7 +194,9 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
         if (linha is null) return;
 
         _foco.Definir(linha.PacienteId, linha.Nome);
-        NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
+        // A seção de escrita de QUEM clicou: quem consulta cai no S-O-A-P, quem
+        // executa cai na passagem de enfermagem. Uma palavra, dois destinos certos.
+        NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento());
     }
 
     [RelayCommand]

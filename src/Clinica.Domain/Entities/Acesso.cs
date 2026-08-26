@@ -509,6 +509,86 @@ public static class PerfisAcesso
         _ => Permissao.Nenhuma
     };
 
+    /// <summary>
+    /// Esta pessoa escreve o prontuário pelo lado da ENFERMAGEM, e não pelo do médico.
+    ///
+    /// Para que serve, e por que a pergunta é esta
+    /// -------------------------------------------
+    /// <b>A enfermagem não tem agenda própria.</b> Os horários pertencem a quem consulta;
+    /// a técnica passa por todos eles — a clínica disse a frase que decidiu a parcela 71:
+    /// <i>"todo paciente precisa passar pela enfermagem"</i>.
+    ///
+    /// ⚠️ Isso produzia um defeito silencioso e caro. "Meu dia" e "Meus pacientes" filtram
+    /// por <c>ProfissionalId</c>; e a enfermeira PRECISA de um <c>Profissional</c>
+    /// vinculado, porque é dele que sai o COREN copiado em cada registro (parcela 72). Ou
+    /// seja: cadastrá-la CERTO fazia as duas telas dela abrirem VAZIAS — e tela vazia se
+    /// lê como sistema quebrado, não como "esta lista não é para você". Agora as duas
+    /// perguntam isto antes de filtrar, e mostram a clínica inteira dizendo por quê.
+    ///
+    /// Por que pelos BITS, e não pelo texto do conselho
+    /// ------------------------------------------------
+    /// <c>Profissional.RegistroConselho</c> é campo livre ("COREN-SP 999999", "Coren SP
+    /// 12345", "coren/sp 12345"): procurar "COREN" nele daria uma regra que erra no dia em
+    /// que alguém digitar diferente, e erra em silêncio. Os bits são a divisão que o
+    /// domínio JÁ fez na parcela 72 e que este arquivo documenta: <b>X</b> é
+    /// <c>EditarProntuario | Prescrever</c>, <b>Y</b> é <c>ChecarPrescricao |
+    /// RegistrarEvolucaoEnfermagem</c>. Quem escreve por Y e não por X é enfermagem.
+    ///
+    /// ⚠️ Quem tem OS DOIS lados (o Gerente Geral, que recebe <see cref="Todas"/>) responde
+    /// <c>false</c>, e é de propósito: ele tem agenda própria como qualquer profissional, e
+    /// devolver-lhe a clínica inteira na carteira esconderia justamente os pacientes dele.
+    /// A regra é "escreve SÓ por Y", não "escreve por Y".
+    /// </summary>
+    public static bool EscreveComoEnfermagem(Permissao efetivas)
+    {
+        var enfermagem = (efetivas & (Permissao.RegistrarEvolucaoEnfermagem
+                                      | Permissao.ChecarPrescricao)) != Permissao.Nenhuma;
+
+        var consultorio = (efetivas & (Permissao.EditarProntuario
+                                       | Permissao.Prescrever)) != Permissao.Nenhuma;
+
+        return enfermagem && !consultorio;
+    }
+
+    /// <summary>
+    /// De quem é a lista que as telas do POSTO clínico mostram — o dia, a semana, a
+    /// carteira, a dívida de prontuário e os números.
+    ///
+    /// <c>null</c> quer dizer <b>a clínica inteira</b>, e é a resposta certa em dois casos:
+    /// quem não tem cadastro vinculado (residente, usuário recém-criado) e quem <b>não tem
+    /// agenda própria</b> — ver <see cref="EscreveComoEnfermagem"/>.
+    ///
+    /// ⚠️ Ela mora no DOMÍNIO, e não na ViewModel que a usa, porque é uma DECISÃO: as
+    /// camadas de tela do WPF não compilam no projeto de teste, e regra que o
+    /// <c>dotnet test</c> não alcança apodrece sem ninguém notar (a lição da grade da
+    /// semana, parcela 69, e do rodapé do registro de execução, parcela 68).
+    /// </summary>
+    public static int? ProfissionalDaListaDoPosto(Permissao efetivas, int? profissionalId)
+        => EscreveComoEnfermagem(efetivas) ? null : profissionalId;
+
+    /// <summary>
+    /// POR QUE a lista é a da clínica — <c>null</c> quando ela não é.
+    ///
+    /// ⚠️ São dois motivos DIFERENTES e a frase não pode ser uma só. "Seu acesso não está
+    /// vinculado a um profissional" é um cadastro a corrigir; mandar a enfermeira pedir à
+    /// direção que conserte um vínculo que JÁ EXISTE faria o suporte procurar um defeito
+    /// que não há. Falha exibida como sucesso tem uma irmã: instrução errada exibida com
+    /// cara de instrução certa.
+    /// </summary>
+    public static string? MotivoDaListaDoPosto(Permissao efetivas, int? profissionalId)
+    {
+        if (EscreveComoEnfermagem(efetivas))
+            return "A enfermagem não tem agenda própria — os horários são de quem "
+                 + "consulta, e todo paciente passa por você. Por isso esta lista é a da "
+                 + "clínica inteira.";
+
+        return profissionalId is null
+            ? "Seu acesso não está vinculado a um profissional cadastrado, então esta é a "
+              + "lista da clínica, e não a sua. Peça à direção para ligar o seu usuário ao "
+              + "seu cadastro em Profissionais e salas."
+            : null;
+    }
+
     /// <summary>Todos os bits definidos — o que o Gerente recebe.</summary>
     public static Permissao Todas
     {

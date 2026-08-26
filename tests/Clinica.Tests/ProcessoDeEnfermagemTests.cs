@@ -403,6 +403,102 @@ public class ProcessoDeEnfermagemTests : IDisposable
         corrigida.Data.Should().Be(sabado);
     }
 
+    // ==================== O "se necessário" (SOS) ====================
+
+    /// <summary>
+    /// ⚠️ O CAMPO ERA COLHIDO NA TELA E DESCARTADO NA GRAVAÇÃO.
+    ///
+    /// <c>AplicarProcesso</c> copia o cuidado campo a campo — o "lugar 3" da lista de
+    /// conferência do projeto —, e <c>SeNecessario</c> ficou de fora desde que o campo
+    /// nasceu (parcela 76). A caixinha da tela gravava sempre <c>false</c>.
+    ///
+    /// E o estrago não aparecia como falha, e sim como CONTAGEM errada:
+    /// <c>CuidadoDoDia.Pendente</c> é <c>!SeNecessario &amp;&amp; Vigentes.Count == 0</c>, então
+    /// TODO cuidado condicional ("se dor &gt; 5") ficava eternamente aguardando registro e o
+    /// contador da sala passava a apontar para nada — exatamente o que o comentário do
+    /// próprio campo diz existir para impedir.
+    ///
+    /// Este teste FALHA no código anterior à correção.
+    /// </summary>
+    [Fact]
+    public async Task O_cuidado_condicional_grava_o_se_necessario()
+    {
+        var pacienteId = await PacienteAsync();
+
+        var e = await _servico.RegistrarAsync(
+            pacienteId, Dia, new TimeOnly(9, 0), "Consulta de enfermagem.", Enfermeira,
+            processo: new ProcessoDeEnfermagem(
+                Historico: "Refere dor lombar.",
+                ExameFisico: "Corada, acesso pérvio.",
+                Avaliacao: "Orientada.",
+                Diagnosticos: [],
+                Cuidados:
+                [
+                    new CuidadoEnfermagem
+                    {
+                        Descricao = "Analgesia conforme prescrição",
+                        Frequencia = "se dor > 5",
+                        SeNecessario = true
+                    },
+                    new CuidadoEnfermagem
+                    {
+                        Descricao = "Verificar o acesso venoso",
+                        Frequencia = "a cada 2h"
+                    }
+                ]));
+
+        var sos = e.Cuidados.Single(c => c.Descricao.StartsWith("Analgesia"));
+        sos.SeNecessario.Should().BeTrue(
+            "sem isto o SOS conta como pendência eterna no quadro da sala");
+
+        e.Cuidados.Single(c => c.Descricao.StartsWith("Verificar")).SeNecessario
+            .Should().BeFalse("o cuidado de rotina continua sendo cobrado");
+    }
+
+    /// <summary>
+    /// E a RETIFICAÇÃO preserva o SOS. Ela passa pelo mesmo <c>AplicarProcesso</c>, então
+    /// corrigir uma vírgula desligava o "se necessário" de todo cuidado condicional — em
+    /// silêncio, e no registro que passa a valer.
+    /// </summary>
+    [Fact]
+    public async Task A_correcao_preserva_o_se_necessario()
+    {
+        var pacienteId = await PacienteAsync();
+
+        var original = await _servico.RegistrarAsync(
+            pacienteId, Dia, new TimeOnly(9, 0), "Consulta.", Enfermeira,
+            processo: new ProcessoDeEnfermagem(
+                Historico: "h", ExameFisico: "e", Avaliacao: "a",
+                Diagnosticos: [],
+                Cuidados:
+                [
+                    new CuidadoEnfermagem
+                    {
+                        Descricao = "Analgesia conforme prescrição",
+                        Frequencia = "se dor > 5",
+                        SeNecessario = true
+                    }
+                ]));
+
+        var corrigida = await _servico.RetificarAsync(
+            original.Id, Dia, new TimeOnly(9, 0), "Consulta corrigida.", Enfermeira,
+            "erro de digitação",
+            processo: new ProcessoDeEnfermagem(
+                Historico: "h", ExameFisico: "e", Avaliacao: "a",
+                Diagnosticos: [],
+                Cuidados:
+                [
+                    new CuidadoEnfermagem
+                    {
+                        Descricao = "Analgesia conforme prescrição",
+                        Frequencia = "se dor > 5",
+                        SeNecessario = true
+                    }
+                ]));
+
+        corrigida.Cuidados.Single().SeNecessario.Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

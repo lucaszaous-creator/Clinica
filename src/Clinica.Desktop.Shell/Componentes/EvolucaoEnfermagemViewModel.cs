@@ -111,6 +111,20 @@ public sealed class LinhaEvolucaoEnfermagem
     public required bool Intercorrencia { get; init; }
     public required bool Cancelada { get; init; }
     public required bool Substituida { get; init; }
+
+    /// <summary>
+    /// Esta passagem é do horário que está aberto agora.
+    ///
+    /// ⚠️ Ela é o primeiro LEITOR de <c>EvolucaoEnfermagem.AgendamentoId</c>. O campo era
+    /// gravado desde que a entidade nasceu (parcela 71), preservado na retificação — e
+    /// nenhuma consulta, tela ou papel o lia: dado gravado sem leitor, o defeito recorrente
+    /// do projeto. Sem este marcador, dizer que "a passagem fica ligada a esta sessão" seria
+    /// uma promessa que o código não cumpre (a armadilha da parcela 67).
+    ///
+    /// O que ele responde é a pergunta de quem está com o paciente na frente: <i>já
+    /// registrei alguma coisa NESTA passagem, ou o que estou vendo é de outro dia?</i>
+    /// </summary>
+    public required bool DestaSessao { get; init; }
     public required string? Marca { get; init; }
     public required string? Folha { get; init; }
 
@@ -134,7 +148,8 @@ public sealed class LinhaEvolucaoEnfermagem
     public bool EmDestaque => Intercorrencia && Vigente;
 
     public static LinhaEvolucaoEnfermagem De(
-        EvolucaoEnfermagem e, bool substituida, bool mostrarData)
+        EvolucaoEnfermagem e, bool substituida, bool mostrarData,
+        int? agendamentoAberto = null)
     {
         var marca = e.Cancelada
             ? $"CANCELADA — {e.MotivoCancelamento}"
@@ -164,6 +179,9 @@ public sealed class LinhaEvolucaoEnfermagem
             Intercorrencia = e.Intercorrencia,
             Cancelada = e.Cancelada,
             Substituida = substituida,
+            // Nulo dos dois lados NÃO casa: sem horário aberto, nada é "desta sessão" —
+            // senão toda passagem avulsa se anunciaria como da sessão que não existe.
+            DestaSessao = agendamentoAberto is { } aberto && e.AgendamentoId == aberto,
             Marca = marca,
             Folha = e.Prescricao?.Numero
         };
@@ -419,6 +437,31 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     public bool PodeRegistrar =>
         SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
 
+    /// <summary>
+    /// O compositor está vazio — nada foi digitado desta passagem.
+    ///
+    /// ⚠️ Ela existe para o FINALIZAR do posto clínico não perguntar <i>"você não escreveu
+    /// nada desta sessão?"</i> a quem acabou de escrever uma consulta de enfermagem
+    /// inteira. Perguntar sobre o registro que a pessoa tem na frente é o jeito mais rápido
+    /// de ensinar alguém a fechar diálogo sem ler — que é a causa raiz do incidente da
+    /// parcela 65.
+    ///
+    /// ⚠️ Ela olha TUDO o que grava, e não só o texto: sinais vitais, acesso venoso, alergia
+    /// observada e as cinco etapas contam. É a lição da parcela 74 — <c>SessaoEmBranco</c>
+    /// decide se a tela PERGUNTA, e usá-la para decidir se GRAVA descartou em silêncio a
+    /// sessão mais comum da casa.
+    /// </summary>
+    public bool CompositorEmBranco =>
+        string.IsNullOrWhiteSpace(Texto)
+        && string.IsNullOrWhiteSpace(AlergiaObservada)
+        && LerSinaisVitais() is null
+        && LerAcesso() is null
+        && string.IsNullOrWhiteSpace(Historico)
+        && string.IsNullOrWhiteSpace(ExameFisico)
+        && string.IsNullOrWhiteSpace(Avaliacao)
+        && Diagnosticos.All(d => string.IsNullOrWhiteSpace(d.Titulo))
+        && Cuidados.All(c => string.IsNullOrWhiteSpace(c.Descricao));
+
     public EvolucaoEnfermagemViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo,
         int pacienteId, string paciente,
@@ -431,17 +474,33 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         _agendamentoId = agendamentoId;
         Paciente = paciente;
 
-        Contexto = prescricaoId is null
-            // ⚠️ A janela DIZ que não há folha, em vez de deixar a pessoa supor: é a
-            // passagem avulsa (curativo, observação, triagem), e o registro é do paciente.
-            ? "Registro do paciente — esta passagem não está ligada a uma folha de infusão."
-            : $"Durante a folha de infusão {folha}.";
+        // ⚠️ A tela DIZ a que a passagem fica ligada, em vez de deixar a pessoa supor — e
+        // são três casos diferentes, não dois. Ligada ao HORÁRIO ela entra na ficha DAQUELA
+        // sessão e na conferência do consultório; solta, é registro do paciente e não de
+        // sessão nenhuma. Escrever "não está ligada a uma folha" para quem veio da agenda
+        // seria verdade pela metade, e é a metade que não interessa.
+        Contexto = prescricaoId is not null
+            ? $"Durante a folha de infusão {folha}."
+            : agendamentoId is not null
+                ? "Ligada ao horário do atendimento — a passagem fica registrada nesta sessão."
+                : "Registro do paciente — esta passagem não está ligada a uma folha de infusão.";
 
         _ = CarregarAsync();
     }
 
     public async Task CarregarAsync()
     {
+        // ⚠️ Sem paciente não há o que ler. A SEÇÃO do posto clínico constrói o compositor
+        // antes de saber quem é (o workspace monta as nove seções de uma vez), e ir ao
+        // banco perguntar pelo paciente zero é uma ida a mais por navegação, num banco
+        // remoto — e uma linha de log por navegação, que é como uma trilha útil vira ruído.
+        if (_pacienteId == 0 && _prescricaoId is null)
+        {
+            Registros.Clear();
+            Carregando = false;
+            return;
+        }
+
         var geracao = ++_geracaoCarga;
         Carregando = true;
         NaoVerificado = false;
@@ -468,7 +527,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             var linhas = lista
                 .OrderByDescending(e => e.Data).ThenByDescending(e => e.Hora).ThenByDescending(e => e.Id)
                 .Select(e => LinhaEvolucaoEnfermagem.De(
-                    e, substituidas.Contains(e.Id), mostrarData: _prescricaoId is null))
+                    e, substituidas.Contains(e.Id), mostrarData: _prescricaoId is null,
+                    agendamentoAberto: _agendamentoId))
                 .ToList();
 
             Registros.Clear();

@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Clinico.ViewModels;
 
 /// <summary>
-/// A TELA DO PACIENTE — uma pessoa, cinco abas (parcela 37, 4ª rodada).
+/// A TELA DO PACIENTE — uma pessoa, um rail de seções (parcela 37, 4ª rodada).
 ///
 /// O vício que ela corrige
 /// -----------------------
@@ -27,18 +27,18 @@ namespace Clinica.Clinico.ViewModels;
 ///   <item><b>Uma lista</b> — "Meu dia" (quem eu vejo hoje) ou "Meus pacientes" (quem eu
 ///   acompanho). São as duas portas de entrada, e são telas de verdade, com a largura
 ///   inteira.</item>
-///   <item><b>A tela do paciente</b> — clicou, entrou. A identidade fica no topo, as cinco
-///   seções viram ABAS, e a largura inteira é do conteúdo clínico.</item>
+///   <item><b>A tela do paciente</b> — clicou, entrou. A identidade fica no topo, as
+///   seções viram um RAIL à esquerda, e a largura inteira é do conteúdo clínico.</item>
 /// </list>
 ///
-/// Por que abas, e não cinco itens de menu
-/// ---------------------------------------
-/// Porque as cinco só existem COM paciente. Item de menu que só funciona depois de você ter
+/// Por que seções, e não itens de menu
+/// -----------------------------------
+/// Porque elas só existem COM paciente. Item de menu que só funciona depois de você ter
 /// passado por outro lugar é item que ensina o usuário a errar — e era exatamente o que a
 /// versão anterior fazia, abrindo "Medidas" numa tela em branco pedindo que se buscasse
 /// alguém. Aba, ao contrário, diz sozinha que pertence à pessoa cujo nome está logo acima.
 ///
-/// As cinco chaves antigas continuam válidas e caem AQUI, cada uma na sua aba: o painel da
+/// As chaves antigas continuam válidas e caem AQUI, cada uma na sua seção: o painel da
 /// direção e a fila do dia navegam por elas, e renomear contrato de navegação para arrumar
 /// leiaute quebraria o que funciona em outro módulo.
 /// </summary>
@@ -70,6 +70,18 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     private Agendamento? _horario;
 
     public AtendimentoViewModel Atendimento { get; }
+
+    /// <summary>
+    /// O ATENDIMENTO DE ENFERMAGEM (parcela 88) — a seção de escrita do lado Y.
+    ///
+    /// Vem logo depois do Atendimento porque é a segunda coisa que acontece com o paciente
+    /// no mesmo dia, e porque as duas respondem à mesma pergunta ("o que aconteceu nesta
+    /// sessão?") por dois conselhos diferentes. Fica VISÍVEL para quem lê o prontuário, e
+    /// não só para quem escreve nela: quem consulta precisa da pressão que a técnica
+    /// aferiu vinte minutos antes, e quem infunde precisa da conduta da consulta de hoje —
+    /// é a metade XY da parcela 72.
+    /// </summary>
+    public AtendimentoEnfermagemViewModel Enfermagem { get; }
 
     /// <summary>
     /// A ANAMNESE do paciente (parcela 75) — o que se pergunta uma vez e se revisa.
@@ -123,7 +135,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// <summary>
     /// Ninguém em foco. Acontece quando se chega aqui por navegação direta (o painel da
     /// direção manda para o Consultório sem ter escolhido paciente): a tela diz o que
-    /// fazer em vez de mostrar cinco abas vazias.
+    /// fazer em vez de mostrar as seções em branco.
     /// </summary>
     [ObservableProperty] private bool _semPaciente = true;
 
@@ -176,11 +188,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();
 
-        // As cinco seções são construídas juntas de propósito. Elas falam da MESMA pessoa,
+        // As seções são construídas juntas de propósito. Elas falam da MESMA pessoa,
         // e trocar de aba é folhear o prontuário dela — se cada aba fosse carregada no
         // primeiro clique, folhear custaria uma ida ao banco por página, justamente no
         // momento em que se está com o paciente na frente.
         Atendimento = servicos.GetRequiredService<AtendimentoViewModel>();
+        Enfermagem = servicos.GetRequiredService<AtendimentoEnfermagemViewModel>();
         Anamnese = servicos.GetRequiredService<AnamneseViewModel>();
         Prontuario = servicos.GetRequiredService<ProntuarioClinicoViewModel>();
         Prescricoes = servicos.GetRequiredService<PrescricoesClinicasViewModel>();
@@ -379,6 +392,25 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             Avisar("Não há atendimento em curso para finalizar.", erro: true);
             return;
         }
+
+        // ⚠️ A PASSAGEM DE ENFERMAGEM AINDA NÃO REGISTRADA (parcela 88).
+        //
+        // Ela não é gravada por este botão, e é de propósito: a evolução de enfermagem é
+        // append-only — são VÁRIAS por passagem (14h20, 14h50, 15h10) —, e cada uma nasce
+        // com a hora do FATO que a pessoa digitou. Gravá-la de carona no encerramento
+        // criaria uma passagem com hora que ninguém confirmou.
+        //
+        // O que não pode é sumir CALADA: quem digitou e não clicou em Registrar perde o
+        // que escreveu ao trocar de tela, e o registro refeito de memória é o que este
+        // módulo existe para evitar. Então a tela PERGUNTA, com a consequência escrita.
+        if (!Enfermagem.PassagemEmBranco
+            && !_dialogo.Confirmar(
+                "Há uma passagem de enfermagem não registrada",
+                "Você escreveu uma passagem de enfermagem e ainda não clicou em "
+                + "\u201CRegistrar\u201D.\n\nEncerrando agora, ela N\u00C3O \u00E9 gravada — a evolu\u00E7\u00E3o de "
+                + "enfermagem \u00E9 registrada uma a uma, com a hora do que foi observado.\n\n"
+                + "Encerrar mesmo assim?"))
+            return;
 
         if (Atendimento.SessaoEmBranco
             && !_dialogo.Confirmar(

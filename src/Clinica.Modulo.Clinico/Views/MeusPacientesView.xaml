@@ -29,8 +29,8 @@
         <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12" TextWrapping="Wrap"
                    Style="{StaticResource TextoSuave}"
                    FontSize="{StaticResource Fonte.Legenda}"
-                   Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}"
-                   Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a lista de pacientes da clínica, e não a sua carteira." />
+                   Visibility="{Binding ListaDaClinica, Converter={StaticResource BoolParaVisibilidade}}"
+                   Text="{Binding MotivoDaLista}" />
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">

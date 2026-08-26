@@ -327,3 +327,149 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 python3 tools/compilar-sombra.py
 python3 tools/verificar-suite.py
 ```
+
+---
+
+## 13. O POSTO da enfermagem: ver todos os pacientes e ATENDER (parcela 88)
+
+A cliente voltou com duas frases:
+
+> *"Os enfermeiros podem ver todos os pacientes e clicar em atender, em vez de ver só os
+> pacientes dele. E quando clicado em atender teremos seções de texto livre para escrever
+> sobre o atendimento e campos de evolução. Precisamos deixar isso profissional no módulo
+> Clínico."*
+
+A parcela 72 entregou **quem vê**; esta entrega **por onde se entra e onde se escreve**.
+
+### 13.1 A primeira frase tinha um mecanismo, e ele era invisível
+
+Três fatos verdadeiros, que somados produziam o defeito:
+
+1. As cinco telas de lista do Consultório — o dia, a semana, a carteira, a dívida de
+   prontuário e os números — filtram por `SessaoUsuario.Atual.ProfissionalId`.
+2. A enfermeira **precisa** de um `Profissional` vinculado: é dele que sai o **COREN**
+   copiado em cada registro (parcela 72), e `IdentificacaoExecutante.Exigir` recusa sem ele.
+3. **A enfermagem não tem agenda própria.** Os horários pertencem a quem consulta; ela passa
+   por todos eles — a frase da parcela 71, *"todo paciente precisa passar pela enfermagem"*.
+
+> ⚠️ **Cadastrá-la CERTO fazia as cinco telas dela abrirem VAZIAS.** Nada falhava: sem erro,
+> sem log, sem exceção. E tela vazia se lê como sistema quebrado, não como "esta lista não é
+> para você".
+
+A decisão mora no **domínio**, porque é decisão — e projeto WPF não compila no `dotnet test`:
+
+| Função (`PerfisAcesso`, `Clinica.Domain`) | Responde |
+|---|---|
+| `EscreveComoEnfermagem(efetivas)` | escreve por **Y** (`ChecarPrescricao \| RegistrarEvolucaoEnfermagem`) e **não** por **X** (`EditarProntuario \| Prescrever`) |
+| `ProfissionalDaListaDoPosto(efetivas, profissionalId)` | de quem é a lista — `null` = a clínica inteira |
+| `MotivoDaListaDoPosto(efetivas, profissionalId)` | **por quê**, e são dois motivos diferentes |
+
+`PostoClinico` (módulo Clínico) é só o adaptador que lê `SessaoUsuario.Atual`.
+
+**Por que pelos BITS e não pelo texto do conselho:** `Profissional.RegistroConselho` é campo
+livre — "COREN-SP 999999", "Coren SP 12345", "coren/sp 12345". Procurar "COREN" nele daria
+uma regra que erra no dia em que alguém digitar diferente, **e erra em silêncio**.
+
+⚠️ **Quem tem OS DOIS lados responde `false`.** O Gerente Geral recebe `Todas`, inclusive o
+bit da enfermagem, e ele **tem** agenda própria: devolver-lhe a clínica inteira na carteira
+esconderia justamente os pacientes dele. A regra é "escreve **SÓ** por Y".
+
+⚠️ **E a FRASE importa tanto quanto o filtro.** *"Peça à direção para ligar o seu usuário ao
+seu cadastro"* é verdade para quem não tem vínculo e **mentira** para a enfermeira, que está
+vinculada. Instrução errada com cara de instrução certa manda o suporte procurar um defeito
+que não existe — é a irmã de "falha exibida como sucesso".
+
+### 13.2 "Atender" é uma palavra só, e leva a duas seções
+
+`PostoClinico.ChaveDoAtendimento()` bifurca o destino:
+
+| Quem clica | Cai em |
+|---|---|
+| quem consulta | `ChaveAtendimento` — a sessão em **S-O-A-P** |
+| quem executa | `ChaveAtendimentoEnfermagem` — a passagem nas **cinco etapas da COFEN** |
+
+As duas caem na **mesma** tela do paciente: mesmo crachá, mesmo rail, mesmas seções de
+leitura. O que muda é a seção que abre.
+
+> ⚠️ Sem a bifurcação, a técnica cairia no formulário do médico — onde `Salvar` tem
+> `IsEnabled="{Binding PodeEditarProntuario}"` e ela não tem `EditarProntuario`. Seria o
+> **botão que não faz nada** da parcela 41, com uma tela inteira em volta.
+
+A porta na lista é o botão **Atender** de cada linha da tela da Enfermagem, e o clique na
+linha faz a MESMA coisa — dois resultados para o mesmo alvo fariam a pessoa procurar a
+diferença que não existe. Os dois modos da lista viraram **chips exclusivos** ("Na clínica
+hoje" × "Todos os pacientes"), porque dois botões iguais não dizem em qual dos dois você
+está.
+
+⚠️ **O caminho de volta é parte da feature.** A tela da Enfermagem é do **shell** e é
+publicada por DOIS módulos: no `Clinica.Recepcao.exe` o módulo Clínico não está carregado, e
+`NavegacaoSuite.Ir` devolveria `false` **em silêncio**. Então se pergunta antes, com
+`Existe`, e o painel da própria tela continua sendo a resposta onde não há posto clínico —
+com tudo o que ele já tinha.
+
+### 13.3 A seção nova: `Atendimento de enfermagem`
+
+Posição **1** do rail, logo depois do Atendimento (`ModuloClinico.SecoesDoPaciente`, checagem
+38 casa a lista do C# com os rótulos do XAML, posição por posição).
+
+O desenho é o do Atendimento do médico, **de propósito**: escrever à esquerda, reler à
+direita; rodapé ancorado fora do scroll; avisos numa superfície só, uma linha por aviso.
+Dois desenhos para o mesmo ato no mesmo sistema é o que faz alguém achar que abriu outro
+programa (a reprovação da parcela 47).
+
+A coluna da direita é a **imagem espelhada**: o médico relê a enfermagem e a infusão; a
+enfermagem relê a **sessão médica** e a infusão.
+
+> ⚠️ **O compositor NÃO foi reescrito.** `Passagem` é o MESMO `EvolucaoEnfermagemViewModel`
+> da janela da sala de infusão e da ficha da Recepção. As regras caras moram lá — hora
+> INFORMADA, hora futura recusada, retificação que preserva a data do fato, alergia que
+> entra na lista de problemas no mesmo `SaveChanges`. O XAML da seção declara
+> `DataContext="{Binding Passagem}"` justamente para ficar idêntico ao da janela.
+
+**A janela continua existindo, e não é dívida.** A folha de execução é MODAL e
+`PodeMexer => PodeChecar && EmExecucao`: folha encerrada apaga o painel dela inteiro. A
+janela existe para o caso que a justifica — a reação meia hora depois da última bomba —, e
+uma seção do workspace não é alcançável de dentro de um modal. **A seção é a quinta porta,
+não a substituta.**
+
+O **plano de cuidados do dia** (etapa 4) virou componente do shell
+(`PlanoDeCuidadosViewModel`), usado pela tela da Enfermagem **e** pela seção: duas
+definições de "o que falta executar hoje" divergiriam na primeira correção.
+
+### 13.4 O que a rodada achou de quebrado no caminho
+
+| Defeito | Mecanismo |
+|---|---|
+| **O "se necessário" era descartado na gravação** | `AplicarProcesso` copia o cuidado campo a campo e `SeNecessario` ficou de fora desde a parcela 76 — o "lugar 3" da lista de conferência. `CuidadoDoDia.Pendente` é `!SeNecessario && Vigentes.Count == 0`, então **todo cuidado condicional ficava eternamente aguardando** e o contador da sala apontava para nada — exatamente o que o comentário do campo diz existir para impedir. |
+| **`EvolucaoEnfermagem.AgendamentoId` sem leitor** | Gravado desde a parcela 71, preservado na retificação, **e nenhuma consulta, tela ou papel o lia**. Sem leitor, dizer "a passagem fica ligada a esta sessão" seria promessa que o código não cumpre. Ganhou o primeiro: o selo **DESTA SESSÃO** na lista de passagens. |
+| **Guarda com a mensagem errada** | O "Chamar próximo" mandava a enfermeira consertar um vínculo que já existe. A frase passou a sair do ponto único. |
+
+### 13.5 O que ficou de fora, e por quê
+
+- **A barra de atendimento (Iniciar/Finalizar/Reabrir) fica desabilitada para a enfermagem**
+  — `PodeMoverFila` é `EditarAgenda | MovimentarFila`, e `PerfilAcesso.Enfermagem` não tem
+  nenhum dos dois. É correto: mover a fila é ato do balcão e de quem consulta. A barra
+  continua mostrando o **estado** da sessão, que é o que ela precisa ler.
+- **`Finalizar` não grava a passagem de enfermagem**, e é decisão: a evolução dela é
+  append-only, várias por passagem, cada uma com a hora do FATO. Gravá-la de carona criaria
+  uma passagem com hora que ninguém confirmou. O que não pode é sumir calada — então a tela
+  **pergunta**, com a consequência escrita.
+- **Nenhum bit novo.** `RegistrarEvolucaoEnfermagem = 1 << 30` é o último positivo do
+  `[Flags] int`; e, como na parcela 72, **não era preciso**: faltava porta.
+- **A altura da seção** é o ponto a vigiar. A janela declara `MinHeight 670` porque a
+  consulta COFEN aberta pede muito; dentro do workspace o compositor divide altura com o
+  crachá, a barra e o rodapé. As abas são o filho que **PREENCHE** (`MinHeight="100"`, nunca
+  `Height` fixo) e cada uma rola por dentro — mas numa janela muito baixa, com a consulta
+  aberta, elas encolhem antes de tudo. É a família da checagem 36.
+
+### 13.6 Como conferir
+
+```bash
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~PostoDaEnfermagem"
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ProcessoDeEnfermagem"
+```
+
+`PostoDaEnfermagemTests.A_carteira_da_enfermeira_e_a_da_clinica_e_a_do_medico_nao_e` é o que
+carrega o arquivo: ele monta a clínica real e pergunta a carteira **dos dois lados** contra o
+serviço de verdade. Provar só o predicado deixaria passar o defeito, que estava no casamento
+entre a regra e o filtro — e elo partido ali não vira erro, vira **lista vazia**.

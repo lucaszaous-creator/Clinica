@@ -28,6 +28,17 @@ public sealed class ModuloClinico : IModuloApp
     // ser um literal repetido do outro lado, onde renomear compila e só falha na clínica.
     public const string ChaveMeuDia = ChavesSuite.ConsultorioMeuDia;
     public const string ChaveAtendimento = "consultorio-atendimento";
+
+    /// <summary>
+    /// O ATENDIMENTO DE ENFERMAGEM (parcela 88) — a seção de escrita do lado Y.
+    ///
+    /// ⚠️ Ela mora em <see cref="ChavesSuite"/> porque atravessa módulo: quem manda a
+    /// enfermeira para cá é o "Atender" da tela da Enfermagem, que é do SHELL e é
+    /// publicada também pela Recepção. Literal escrito à mão dos dois lados sempre
+    /// compila — e o botão simplesmente deixaria de abrir, em silêncio, no dia em que
+    /// alguém renomeasse um dos dois (a regressão da parcela 37, 4ª rodada).
+    /// </summary>
+    public const string ChaveAtendimentoEnfermagem = ChavesSuite.AtendimentoEnfermagem;
     public const string ChaveProntuario = "consultorio-prontuario";
     public const string ChaveEvolucaoDor = "consultorio-evolucao-dor";
     public const string ChaveMedidas = "consultorio-medidas";
@@ -87,9 +98,9 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveMeusNumeros = ChavesSuite.ConsultorioMeusNumeros;
 
     /// <summary>
-    /// A tela do PACIENTE — identidade no topo, as cinco seções em abas.
+    /// A tela do PACIENTE — identidade no topo, as seções num rail à esquerda.
     ///
-    /// As cinco chaves clínicas acima continuam válidas e caem todas aqui, cada uma na
+    /// As chaves clínicas acima continuam válidas e caem todas aqui, cada uma na
     /// sua aba (ver <see cref="AbaDe"/>): a fila do dia e o painel da direção navegam por
     /// elas, e renomear contrato de navegação para arrumar leiaute quebraria o que
     /// funciona noutro módulo.
@@ -179,7 +190,7 @@ public sealed class ModuloClinico : IModuloApp
 
         // ===== Navegáveis, mas fora do menu =====
         //
-        // A tela do paciente e as cinco chaves clínicas continuam sendo DESTINO: é por
+        // A tela do paciente e as chaves clínicas continuam sendo DESTINO: é por
         // elas que "Atender" na fila do dia, os atalhos da carteira e o painel da direção
         // abrem alguém. Tirá-las da lista — e não só do menu — foi o que quebrou todos
         // esses botões de uma vez: o shell navega procurando a chave em `Itens`, e o que
@@ -193,6 +204,20 @@ public sealed class ModuloClinico : IModuloApp
         {
             Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+        // O destino do "Atender" da enfermagem. Ele PRECISA estar nesta lista, e não só
+        // no rail: o shell navega procurando a chave em `Itens`, e o que não está aqui
+        // simplesmente não abre — sem erro, sem log, sem exceção (parcela 37, 4ª rodada).
+        //
+        // ⚠️ `Requer` é `VerProntuario` e não `RegistrarEvolucaoEnfermagem`: a seção é
+        // XY — o médico LÊ a passagem que a técnica escreveu, e a técnica lê a conduta
+        // dele. Exigir o bit de ESCREVER aqui faria a seção sumir para quem tem todo o
+        // direito de lê-la, que é a metade que a parcela 72 existe para garantir.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAtendimentoEnfermagem, Rotulo = "Atendimento de enfermagem",
+            Glifo = "\uE95E", Grupo = GrupoSidebar.Paciente,
+            Requer = Permissao.VerProntuario, Oculto = true
         },
         new ItemMenuModulo
         {
@@ -232,6 +257,7 @@ public sealed class ModuloClinico : IModuloApp
     public static readonly IReadOnlyList<string> SecoesDoPaciente =
     [
         "Atendimento",
+        "Atendimento de enfermagem",
         "Anamnese",
         "Histórico de sessões",
         "Prescrições e documentos",
@@ -255,6 +281,7 @@ public sealed class ModuloClinico : IModuloApp
     {
         var nome = chave switch
         {
+            ChaveAtendimentoEnfermagem => "Atendimento de enfermagem",
             ChaveProntuario => "Histórico de sessões",
             ChaveEvolucaoDor => "Evolução da dor",
             ChaveMedidas => "Medidas",
@@ -281,6 +308,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<EnfermagemViewModel>();
         servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
+        servicos.AddTransient<AtendimentoEnfermagemViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
         servicos.AddTransient<EvolucaoDorViewModel>();
         servicos.AddTransient<MedidasViewModel>();
@@ -328,8 +356,9 @@ public sealed class ModuloClinico : IModuloApp
             DataContext = servicos.GetRequiredService<MeusNumerosViewModel>()
         },
 
-        // A tela do paciente, e as cinco chaves clínicas que caem nela.
-        ChavePaciente or ChaveAtendimento or ChaveProntuario
+        // A tela do paciente, e as chaves clínicas que caem nela — cada uma na sua
+        // seção (ver AbaDe).
+        ChavePaciente or ChaveAtendimento or ChaveAtendimentoEnfermagem or ChaveProntuario
             or ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes
             => new PacienteWorkspaceView
             {

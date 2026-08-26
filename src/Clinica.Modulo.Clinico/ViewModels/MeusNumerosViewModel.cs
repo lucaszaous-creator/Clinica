@@ -51,7 +51,10 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
-    [ObservableProperty] private bool _semVinculo;
+    [ObservableProperty] private bool _listaDaClinica;
+
+    /// <summary>POR QUE a lista é da clínica — a frase certa para cada motivo.</summary>
+    [ObservableProperty] private string? _motivoDaLista;
 
     /// <summary>Não houve movimento no período — nem sessão, nem falta.</summary>
     [ObservableProperty] private bool _semMovimento;
@@ -106,8 +109,12 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
 
-            var profissionalId = SessaoUsuario.Atual.ProfissionalId;
-            SemVinculo = profissionalId is null;
+            // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
+            // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
+            // tela vazia justamente para quem está cadastrado certo.
+            var profissionalId = PostoClinico.ProfissionalDaLista();
+            ListaDaClinica = profissionalId is null;
+            MotivoDaLista = PostoClinico.MotivoDaListaAmpla();
 
             var (inicio, fim) = Intervalo_(PeriodoEscolhido);
             Intervalo = $"{inicio:dd/MM/yyyy} a {fim:dd/MM/yyyy}";

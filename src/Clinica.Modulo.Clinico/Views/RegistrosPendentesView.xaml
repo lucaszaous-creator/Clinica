@@ -28,8 +28,15 @@
                    Style="{StaticResource TextoSuave}"
                    FontSize="{StaticResource Fonte.Legenda}"
                    TextWrapping="Wrap"
-                   Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}"
-                   Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a dívida da clínica inteira. Peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas." />
+                   Visibility="{Binding ListaDaClinica, Converter={StaticResource BoolParaVisibilidade}}"
+                   Text="{Binding MotivoDaLista}" />
+
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12"
+                   Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding ListaDaClinica, Converter={StaticResource BoolParaVisibilidade}}"
+                   Text="Esta é a dívida de EVOLUÇÃO da clínica inteira — o registro de quem consulta. A passagem da enfermagem é escrita em “Atendimento de enfermagem”, dentro do paciente." />
 
         <!-- ===== Filtro =====
              Linha única acima da lista (REGRA DE LEIAUTE). O combo de profissional só
@@ -53,7 +60,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Width="220" Margin="16,0,0,0"
-                            Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}">
+                            Visibility="{Binding ListaDaClinica, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
                     <ComboBox ItemsSource="{Binding ProfissionaisDaLista}"
                               SelectedItem="{Binding FiltroProfissionalRegistro}" />

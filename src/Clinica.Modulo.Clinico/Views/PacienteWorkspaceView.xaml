@@ -318,6 +318,9 @@
                     <TextBlock Text="Atendimento" TextWrapping="Wrap" />
                 </ListBoxItem>
                 <ListBoxItem>
+                    <TextBlock Text="Atendimento de enfermagem" TextWrapping="Wrap" />
+                </ListBoxItem>
+                <ListBoxItem>
                     <TextBlock Text="Anamnese" TextWrapping="Wrap" />
                 </ListBoxItem>
                 <ListBoxItem>
@@ -353,6 +356,9 @@
 
                 <TabItem Header="Atendimento">
                     <views:AtendimentoView DataContext="{Binding Atendimento}" />
+                </TabItem>
+                <TabItem Header="Atendimento de enfermagem">
+                    <views:AtendimentoEnfermagemView DataContext="{Binding Enfermagem}" />
                 </TabItem>
                 <TabItem Header="Anamnese">
                     <views:AnamneseView DataContext="{Binding Anamnese}" />

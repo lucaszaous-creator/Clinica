@@ -89,8 +89,14 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
-    /// <summary>Sem vínculo, a lista é da clínica inteira — e a tela diz isso.</summary>
-    [ObservableProperty] private bool _semVinculo;
+    /// <summary>
+    /// A lista é a da clínica inteira — e a tela diz POR QUÊ, que são dois motivos
+    /// diferentes (ver <see cref="PostoClinico"/>).
+    /// </summary>
+    [ObservableProperty] private bool _listaDaClinica;
+
+    /// <summary>POR QUE a lista é da clínica — a frase certa para cada motivo.</summary>
+    [ObservableProperty] private string? _motivoDaLista;
 
     public bool Vazio => Pendentes.Count == 0;
 
@@ -120,8 +126,12 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
 
-            var profissionalId = SessaoUsuario.Atual.ProfissionalId;
-            SemVinculo = profissionalId is null;
+            // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
+            // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
+            // tela vazia justamente para quem está cadastrado certo.
+            var profissionalId = PostoClinico.ProfissionalDaLista();
+            ListaDaClinica = profissionalId is null;
+            MotivoDaLista = PostoClinico.MotivoDaListaAmpla();
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
@@ -143,7 +153,7 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
             {
                 ProfissionaisDaLista.Clear();
                 ProfissionaisDaLista.Add(TodosProfissionais);
-                if (SemVinculo)
+                if (ListaDaClinica)
                     foreach (var nome in _todas.Select(l => l.Profissional)
                                  .Where(n => n.Length > 0).Distinct().OrderBy(n => n))
                         ProfissionaisDaLista.Add(nome);

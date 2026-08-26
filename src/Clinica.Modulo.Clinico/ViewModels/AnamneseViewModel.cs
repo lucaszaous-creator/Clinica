@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Desktop.Controls;
 using Clinica.Domain;
 using Clinica.Domain.Entities;

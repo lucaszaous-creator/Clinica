@@ -232,9 +232,20 @@
                 <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
                            Style="{StaticResource TextoSuave}"
                            FontSize="{StaticResource Fonte.Legenda}"
-                           Visibility="{Binding SemVinculo,
+                           Visibility="{Binding ListaDaClinica,
                                         Converter={StaticResource BoolParaVisibilidade}}"
-                           Text="Seu acesso não está vinculado a um profissional cadastrado — peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas. Neste modo o &quot;Chamar próximo&quot; fica desligado: o primeiro da fila pode ser paciente de outro profissional — chame pelo cartão dele no quadro." />
+                           Text="{Binding MotivoDaLista}" />
+
+                <!-- A CONSEQUÊNCIA fica na tela que a sofre; o MOTIVO vem do ponto
+                     único. Duas razões diferentes levam a este modo, e mandar a
+                     enfermeira consertar um vínculo que já existe faria o suporte
+                     procurar um defeito que não há. -->
+                <TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Visibility="{Binding ListaDaClinica,
+                                        Converter={StaticResource BoolParaVisibilidade}}"
+                           Text="Neste modo o &quot;Chamar próximo&quot; fica desligado: o primeiro da fila pode ser paciente de outro profissional — chame pelo cartão dele no quadro." />
 
                 <!-- Férias, feriado, folga: o dia fechado aparecia como dia VAZIO, que se
                      lê como "ninguém marcou". Linha de texto, não faixa — contexto

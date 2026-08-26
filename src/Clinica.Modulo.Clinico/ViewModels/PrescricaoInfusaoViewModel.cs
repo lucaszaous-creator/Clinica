@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell;
