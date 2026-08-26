@@ -6084,3 +6084,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   últimos 45 dias"* sobre uma lista que pode conter quem **nunca veio** — a busca alcança a
   primeira consulta, e essa pessoa também não é "sumida". Afirmar uma sessão que não houve,
   numa frase de tela, é a mesma família de garantia aparente que este projeto recusa.
+
+
+- **O CATÁLOGO ERA UMA CAIXINHA DE 240 px, e o que não cabia nele era o que ele sabe**
+  (parcela 88, 4ª rodada — a clínica mandou o print da aba de Cuidados: *"preciso de um pop
+  out para que a enfermeira consiga maximizar e ler tudo e todas as opções"*). Os dois
+  catálogos da consulta de enfermagem (diagnósticos e cuidados) eram colunas de 240 px com
+  teto de 180, **permanentes ao lado de uma lista que nasce VAZIA** — a aba abria com um
+  quarto da largura gasto num atalho e o resto em branco, mostrando três itens por vez com o
+  título quebrado em três linhas ao lado de um `+`.
+  A regra de leiaute do projeto decide sozinha: **escolher do catálogo é o que a enfermeira
+  faz uma ou duas vezes por consulta; a prescrição é o que ela VÊ o tempo todo** — botão e
+  janela para o primeiro, a tela para o segundo (parcela 37, 3ª rodada).
+  ⚠️ **Mas o pior não era o tamanho, era o que não cabia**: o catálogo guarda a FREQUÊNCIA
+  SUGERIDA de cada cuidado e o RESULTADO ESPERADO de cada diagnóstico, e **nada disso
+  aparecia**. É o defeito recorrente do projeto na variante mais discreta de todas — não é
+  dado sem leitor nem capacidade sem porta, é **porta pequena demais para dizer o que ela
+  sabe**. Ao encolher um painel para caber ao lado de outra coisa, pergunte o que o dado
+  tem que a caixa não mostra.
+  ⚠️ **"Já no plano" tem de ser VISÍVEL.** `AdicionarCuidado` recusa o repetido em silêncio,
+  e na caixinha o segundo clique simplesmente não fazia nada (o defeito da parcela 41). Na
+  janela o botão SOME e no lugar dele fica a marca; e a lista **não é remontada** depois de
+  acrescentar (a rolagem voltaria ao topo a cada escolha), só o estado de cada linha é
+  corrigido no lugar — todas, porque um diagnóstico traz os cuidados dele junto.
+  ⚠️ **UMA janela para os DOIS catálogos**, com o `CatalogoDeEnfermagem` chegando por
+  parâmetro: duas seriam duas definições de "escolher do catálogo". E ela recebe o MESMO
+  objeto da tela de trás (a regra da parcela 49), então **não tem "Salvar"** — o rodapé diz
+  isso em vez de deixar a pessoa supor.
+- **O compositor COFEN existia DUAS vezes, e esta seria a primeira divergência** (parcela 88,
+  4ª rodada). O bloco das cinco etapas tinha ~300 linhas na janela da sala de infusão e ~300
+  na seção do Consultório, que eu escrevi espelhando a primeira na 1ª rodada desta parcela.
+  Medido antes de mexer: **47 linhas de diferença em 300, todas cosméticas** (comentários
+  requebrados, uma margem, uma largura). O catálogo em janela cairia numa das duas cópias, a
+  outra ficaria com a caixinha antiga, e **nada falharia** — build, testes e as três redes
+  verdes, com a enfermeira descobrindo pelo app que ela usa.
+  Virou `ProcessoDeEnfermagemView`, no shell, pela regra do mapa corporal (parcela 36):
+  **quando duas telas precisam do MESMO bloco, ele sobe INTEIRO e não se reescreve.** Sem
+  ViewModel próprio — o `DataContext` é o de quem o hospeda —, senão as regras caras (hora
+  informada, hora futura recusada, alergia no mesmo `SaveChanges`) existiriam em duas cópias.
+  A lição de método: **duplicação que ninguém pagou só cobra na primeira correção de
+  verdade** — e a hora de pagá-la é justamente essa, e não "depois", porque depois quer dizer
+  com uma das duas já divergente.

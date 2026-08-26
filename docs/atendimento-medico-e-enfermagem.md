@@ -539,7 +539,65 @@ paciente de outro profissional, e o clique cego anunciaria um nome para a sala d
 autoria também não mudou: quem atendeu, quem assinou e o conselho de cada registro continuam
 sendo de quem fez.
 
-### 13.7 Como conferir
+### 13.7 O catálogo em janela, e o compositor que virou UM
+
+A clínica mandou o print da aba **4 · Cuidados** com a frase que decide: *"preciso de um pop
+out para que a enfermeira consiga maximizar e ler tudo e todas as opções"*.
+
+O que estava na tela era uma **coluna de 240 px com teto de 180**, permanente ao lado de uma
+lista que nasce **vazia** — a aba abria com um quarto da largura gasto num atalho e o resto
+em branco, e o catálogo mostrava três itens por vez, com o título quebrando em três linhas ao
+lado de um `+`.
+
+A regra de leiaute do projeto decide sozinha: **escolher do catálogo é o que a enfermeira faz
+uma ou duas vezes por consulta; a prescrição é o que ela VÊ o tempo todo** — o primeiro é
+botão/janela, o segundo fica com a tela (parcela 37, 3ª rodada: o mapa corporal e o
+formulário de medida saíram de painéis abertos por este mesmo argumento).
+
+⚠️ **E o pior não era o tamanho, era o que não cabia.** O catálogo guarda a **frequência
+sugerida** de cada cuidado e o **resultado esperado** de cada diagnóstico, mais quantos
+cuidados ele traz junto — e **nada disso aparecia**, porque não havia espaço. É o defeito
+recorrente do projeto na variante mais discreta: a porta existe, ela só é pequena demais para
+dizer o que sabe.
+
+**O que ficou:** `CatalogoEnfermagemWindow` — uma janela `CanResize`, com busca, a lista
+inteira rolando e o detalhe de cada linha por extenso.
+
+- **UMA janela para os DOIS catálogos.** O que muda entre diagnósticos e cuidados é o
+  `CatalogoDeEnfermagem` que chega; duas janelas seriam duas definições de "escolher do
+  catálogo", e a segunda correção já sairia divergente.
+- **Ela recebe o MESMO objeto**, nunca uma cópia (a regra da parcela 49): quem grava é a
+  passagem de trás. Por isso **não há "Salvar"** — o rodapé escreve isso em vez de deixar a
+  pessoa supor.
+- ⚠️ **"Já no plano" é visível, e não é enfeite.** `AdicionarCuidado` recusa o repetido **em
+  silêncio**; na caixinha, o segundo clique não fazia nada e ninguém sabia por quê (o defeito
+  da parcela 41). Aqui o botão **some** e no lugar dele fica a marca.
+- **Depois de acrescentar, a lista não é remontada** — o estado de cada linha é corrigido no
+  lugar. Remontar jogaria a rolagem para o topo a cada escolha, e quem está escolhendo cinco
+  cuidados seguidos perderia o lugar cinco vezes. Um **diagnóstico traz os cuidados dele
+  junto**, então não basta marcar a linha clicada: todas são reavaliadas.
+- **Recarrega ao ABRIR**, sempre: entre uma abertura e outra o plano mudou, e uma lista que
+  não soubesse disso ofereceria "Acrescentar" para o que já está lá.
+
+### 13.8 O compositor COFEN existia DUAS vezes
+
+Ao corrigir o catálogo, o bloco das cinco etapas apareceu **duplicado**: ~300 linhas na janela
+da sala de infusão e ~300 na seção do Consultório, que eu escrevi espelhando a primeira (§13.3).
+Medido antes de mexer: **47 linhas de diferença em 300, todas cosméticas** — comentários
+requebrados, uma margem de 18 para 10, uma coluna de 260 para 240.
+
+⚠️ **E esta seria a primeira divergência de verdade**: o catálogo em janela cairia numa das
+duas, a outra ficaria com a caixinha antiga, e **nada falharia** — build verde, testes verdes,
+redes verdes, e a enfermeira descobrindo pelo app que ela usa.
+
+Virou `ProcessoDeEnfermagemView`, no **shell** — a regra do mapa corporal e da emissão de
+documento (parcela 36): quando duas telas precisam do MESMO bloco, ele sobe INTEIRO e não se
+reescreve. Ele **não tem ViewModel próprio**: o `DataContext` é o
+`EvolucaoEnfermagemViewModel` de quem o hospeda, porque as regras caras (hora informada, hora
+futura recusada, retificação que preserva a data do fato, alergia no mesmo `SaveChanges`) não
+podem existir em duas cópias.
+
+### 13.9 Como conferir
 
 ```bash
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~PostoDaEnfermagem"
