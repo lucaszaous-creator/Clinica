@@ -1,0 +1,80 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.ConsultaDeEnfermagemWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes"
+        Title="Consulta de enfermagem — COFEN 358/2009"
+        Width="1040" Height="660" MinWidth="820" MinHeight="380"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================================
+         A CONSULTA DE ENFERMAGEM EM JANELA (parcela 88, 5ª rodada).
+
+         O pedido da clínica foi este, e eu tinha entendido metade dele: *"queremos um pop
+         out ao clicar em Consulta de enfermagem"*. A 4ª rodada pôs em janela o CATÁLOGO,
+         que é um degrau abaixo — o que a enfermeira precisa maximizar para "ler tudo e
+         todas as opções" é o PROCESSO inteiro.
+
+         E ele nunca coube onde estava: as cinco etapas ficavam empilhadas dentro do
+         compositor da passagem, disputando altura com a hora, o texto, os sinais vitais e
+         a linha do tempo, numa janela de altura fixa. Foi essa disputa que a parcela 79
+         corrigiu tirando o `Height="320"` — o remédio certo para o sintoma errado. Aqui as
+         cinco etapas têm a janela inteira, e ela MAXIMIZA.
+
+         ⚠️ Ela recebe o MESMO `EvolucaoEnfermagemViewModel` da tela de trás, nunca uma
+         cópia (a regra da parcela 49): quem grava é o Registrar de lá. Por isso **não há
+         "Salvar" aqui** — o rodapé escreve isso em vez de deixar a pessoa supor.
+
+         ⚠️ O `MinHeight` é BAIXO de propósito. No monitor do balcão (1366×768) com a escala
+         do Windows em 150% sobram ~470 DIPs de altura: um mínimo alto deixaria a janela
+         permanentemente maior que a tela, e mínimo não se arrasta. Quem cede é o compositor,
+         que PREENCHE e cujas abas rolam por dentro; o rodapé é ancorado e declarado antes
+         do miolo, então ele nunca é o que sai da vista.
+         ============================================================================ -->
+
+    <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- Rodapé ancorado e declarado ANTES do miolo: no DockPanel o filho que PREENCHE
+             vem por último, senão as abas rolantes comem a barra (parcela 47). -->
+        <Border DockPanel.Dock="Bottom" Margin="0,14,0,0" Padding="0,12,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="{StaticResource Brush.Borda}">
+            <DockPanel>
+                <!-- Sem Style: o implícito de Button na suíte JÁ é o primário. -->
+                <Button DockPanel.Dock="Right" Content="Fechar" MinWidth="110"
+                        VerticalAlignment="Center" IsCancel="True" Click="Fechar" />
+                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Text="O que você escreve aqui entra na hora, no registro de trás. Não há “Salvar” nesta janela — quem grava é o Registrar da passagem." />
+            </DockPanel>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <TextBlock Text="{Binding Paciente}" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="820"
+                       Margin="0,4,0,0"
+                       Text="As cinco etapas da Resolução COFEN 358/2009. Você pode preencher o que tem agora e completar depois — o histórico na admissão, a avaliação no fim." />
+        </StackPanel>
+
+        <!-- A frase que AVISA sem impedir: quem colhe o histórico agora e fecha a avaliação
+             depois da infusão está fazendo o processo certo. O que não pode é a etapa
+             faltar sem ninguém perceber. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                Visibility="{Binding EtapasEmFalta,
+                             Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <TextBlock Text="{Binding EtapasEmFalta}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- O compositor PREENCHE o que sobra: janela maior, abas maiores. Foi para isto
+             que ele nasceu sem altura fixa (parcela 79). -->
+        <comp:ProcessoDeEnfermagemView DataContext="{Binding}" />
+    </DockPanel>
+</Window>

@@ -597,7 +597,55 @@ reescreve. Ele **não tem ViewModel próprio**: o `DataContext` é o
 futura recusada, retificação que preserva a data do fato, alergia no mesmo `SaveChanges`) não
 podem existir em duas cópias.
 
-### 13.9 A tag sem prefixo, e a checagem que faltava
+### 13.9 A CONSULTA inteira em janela — o pedido que eu tinha entendido pela metade
+
+A clínica corrigiu: *"ao clicar em «Consulta de enfermagem» ainda não abre um pop out como
+janela, que foi o solicitado. O pop out só abre ao escolher catálogo."*
+
+⚠️ **Eu tinha lido o pedido um degrau abaixo.** O print da 4ª rodada mostrava a aba de
+Cuidados, e eu tratei "essa tela" como o CATÁLOGO; o que ela precisa maximizar para *"ler
+tudo e todas as opções"* é o **processo inteiro**.
+
+E o processo nunca coube onde estava: as cinco etapas ficavam empilhadas dentro do
+compositor da passagem, disputando altura com a hora, o texto, os sinais vitais e a linha do
+tempo, numa janela de altura fixa. Foi essa disputa que a parcela 79 corrigiu tirando o
+`Height="320"` — **o remédio certo para o sintoma errado**. Agora as cinco etapas têm uma
+janela própria, que maximiza.
+
+O bloco que ficou na tela é a **porta**: a caixinha, o aviso do que falta e o botão que
+reabre. As decisões:
+
+- ⚠️ **`Click`, e não `Checked`.** O segundo dispara também quando o ViewModel muda a
+  propriedade sozinho — e ele muda, ao carregar um registro para **corrigir**
+  (`ConsultaCompleta = original.EhConsulta`). A janela abriria sozinha no meio de uma carga.
+  `Click` só existe quando foi a PESSOA que clicou.
+- **O aviso `EtapasEmFalta` fica na TELA, não só dentro da janela**: é o que a enfermeira vê
+  com a janela fechada, e é assim que ela sabe que falta uma etapa antes de Registrar.
+- **O botão "Abrir a consulta…" é o caminho de volta.** Sem ele, fechar a janela deixaria a
+  consulta inalcançável sem desmarcar e marcar de novo — e desmarcar é justamente o gesto
+  que devolve o registro para anotação.
+- ⚠️ **Desmarcar passou a PERGUNTAR.** `ColherProcesso` devolve `null` no modo anotação, ou
+  seja desmarcar **descarta as cinco etapas na gravação** — e esse custo deixou de ser
+  visível quando a consulta saiu da tela: antes as abas sumiam na frente da pessoa, agora
+  nada muda. A pergunta só aparece quando **há o que perder**; cobrar confirmação sobre uma
+  consulta em branco treinaria a equipe a confirmar sem ler.
+- ⚠️ **E ela não pode disparar em carga por código.** `DefinirConsultaCompleta` protege os
+  três caminhos programáticos (a reversão da própria confirmação, a limpeza depois de
+  gravar e o `Corrigir`). Sem isso, abrir uma anotação antiga com uma consulta pela metade
+  na tela perguntaria "voltar para anotação?" no meio de uma carga que ninguém pediu.
+- **A janela recebe o MESMO ViewModel** (parcela 49) e por isso **não tem "Salvar"** — quem
+  grava é o Registrar da passagem, e o rodapé escreve isso.
+- ⚠️ **`MinHeight` baixo (380), de propósito.** No monitor do balcão a 150% sobram ~470 DIPs
+  de altura: mínimo alto deixaria a janela permanentemente maior que a tela, e **mínimo não
+  se arrasta**. Quem cede é o compositor, que preenche e cujas abas rolam por dentro.
+
+E a checagem de rolagem (15/16) **não enxergava dentro de controle da casa**: acusou esta
+janela de não ter rolagem nenhuma, com um `ScrollViewer` por aba dentro do compositor. Ela
+passou a seguir **um nível** de composição, casando o tipo da tag com o `x:Class` dos XAML do
+repositório — com autoteste nos dois sentidos, porque alargar uma checagem é o gesto que a
+deixa cega.
+
+### 13.10 A tag sem prefixo, e a checagem que faltava
 
 O CI reprovou a extração do §13.8 com **MC3074**: `<ProcessoDeEnfermagemView … />` foi
 escrito **sem prefixo**, dentro de uma janela que só declarava o de
@@ -614,7 +662,7 @@ ocorrências** em todo o repositório — ela nasce sem ruído. Autotestada cont
 (verificado revertendo a correção) e contra os três legítimos: com prefixo, tipo do WPF, e a
 tag citada dentro de um comentário.
 
-### 13.10 Como conferir
+### 13.11 Como conferir
 
 ```bash
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~PostoDaEnfermagem"

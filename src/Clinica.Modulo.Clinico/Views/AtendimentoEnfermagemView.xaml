@@ -401,52 +401,16 @@
                             </StackPanel>
                         </Grid>
 
-                        <Separator Margin="0,16,0,12" />
-
-                        <!-- ⚠️ A seção abre no modo ANOTAÇÃO, e a consulta é UM clique. A
-                             técnica que troca um curativo e escreve "ferida limpa, sem
-                             exsudato" não abre um processo de enfermagem — obrigá-la faria
-                             a clínica escrever "idem" em cinco campos, que é pior do que o
-                             campo vazio porque PARECE registro. -->
-                        <CheckBox IsChecked="{Binding ConsultaCompleta}"
-                                  Content="Consulta de enfermagem (processo completo — COFEN 358/2009)"
-                                  ToolTip="Abre as cinco etapas: histórico, diagnóstico, planejamento, prescrição de enfermagem e avaliação. Sem marcar, o registro é a anotação de passagem." />
-
                     </StackPanel>
 
-                    <DockPanel Visibility="{Binding ConsultaCompleta,
-                                            Converter={StaticResource BoolParaVisibilidade}}">
-
-                        <!-- A frase que AVISA sem impedir: quem colhe o histórico agora e
-                             fecha a avaliação depois da infusão está fazendo o processo
-                             certo. O que não pode é a etapa faltar sem ninguém perceber. -->
-                        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
-                                Visibility="{Binding EtapasEmFalta,
-                                             Converter={StaticResource TextoParaVisibilidade},
-                                             FallbackValue=Collapsed}">
-                            <TextBlock Text="{Binding EtapasEmFalta}" TextWrapping="Wrap" />
-                        </Border>
-
-                        <!-- As cinco etapas em abas NUMERADAS: a COFEN 358/2009 não pede
-                             cinco campos, pede um PROCESSO em cinco etapas, e a numeração
-                             na régua é o que mostra onde se parou.
-
-                             ⚠️ Sem ponto no rótulo, ao contrário das abas do médico: aqui
-                             já existe a faixa "EtapasEmFalta" logo acima, que NOMEIA o que
-                             falta. Um segundo indicador seria uma segunda resposta para a
-                             mesma pergunta (parcela 37).
-
-                             ⚠️ SEM altura fixa (parcela 79): as abas são o filho que
-                             PREENCHE a coluna, e cada uma rola por dentro. Altura fixa
-                             somada aos campos acima passava da janela, e o DockPanel
-                             decepava tudo na borda. -->
-                        <!-- As cinco etapas da COFEN 358/2009, no compositor do SHELL — o
-                             MESMO da janela da sala de infusão. Eu tinha escrito este bloco
-                             espelhando aquele, e a primeira correção de verdade (o catálogo
-                             em janela) seria também a primeira divergência: uma das duas
-                             ficaria com a caixinha antiga, e nada falharia. -->
-                        <comp:ProcessoDeEnfermagemView DataContext="{Binding}" />
-                    </DockPanel>
+                    <!-- A porta da consulta de enfermagem: a caixinha, o aviso do que falta
+                         e o botão que reabre a janela das cinco etapas. Mora no SHELL e é a
+                         MESMA da janela da sala de infusão. -->
+                    <!-- ⚠️ É o ÚLTIMO filho do DockPanel, e num DockPanel o último PREENCHE
+                         (o `Dock` dele é ignorado). O `VerticalAlignment` é o que faz o bloco
+                         hospedar-se no topo do que sobra em vez de esticar a caixinha e o
+                         botão pela coluna inteira. -->
+                    <comp:ConsultaDeEnfermagemView VerticalAlignment="Top" DataContext="{Binding}" />
                 </DockPanel>
             </Border>
 

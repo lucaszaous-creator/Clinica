@@ -702,6 +702,38 @@ def _nome(el: ET.Element) -> str:
     return el.tag.split("}")[-1]
 
 
+# ⚠️ A checagem de rolagem não enxergava DENTRO de controle da casa (parcela 88, 5ª
+# rodada). Uma janela cujo miolo é `<comp:ProcessoDeEnfermagemView />` era acusada de não
+# ter rolagem nenhuma, com um `ScrollViewer` por aba dentro do controle — a checagem
+# reclamando do que está certo, que é o que faz alguém desligá-la.
+#
+# Ela passou a seguir UM nível de composição: o tipo da tag é casado com o `x:Class` dos
+# XAML da casa, e a árvore dele entra na conta. Um nível basta para a composição deste
+# projeto, e mais níveis dariam um grafo para percorrer sem ganho medido.
+_arvores_por_tipo: dict[str, ET.Element] = {}
+
+
+def _registrar_tipos_de_controle(mapa: dict[Path, ET.Element]) -> None:
+    for _arq, _raiz in mapa.items():
+        classe = next(
+            (v for k, v in _raiz.attrib.items() if k.split("}")[-1] == "Class"), None)
+        if classe:
+            _arvores_por_tipo[classe.rsplit(".", 1)[-1]] = _raiz
+
+
+def _com_controles_da_casa(raiz: ET.Element) -> list[ET.Element]:
+    """Os elementos da árvore, mais os de um nível de controles próprios usados nela."""
+    todos = list(raiz.iter())
+    for el in list(todos):
+        alvo = _arvores_por_tipo.get(_nome(el))
+        if alvo is not None and alvo is not raiz:
+            todos.extend(alvo.iter())
+    return todos
+
+
+_registrar_tipos_de_controle(arvores)
+_registrar_tipos_de_controle(arvores_com_faturamento)
+
 for arq, raiz in arvores.items():
     if _nome(raiz) != "Window":
         continue
@@ -734,10 +766,38 @@ for arq, raiz in arvores.items():
     ROLAM = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce = (raiz.get("SizeToContent") or "").find("Height") >= 0
     alto = altura is not None and altura >= 400
-    if (cresce or alto) and not any(_nome(e) in ROLAM for e in raiz.iter()):
+    if (cresce or alto) and not any(
+            _nome(e) in ROLAM for e in _com_controles_da_casa(raiz)):
         erros.append(
             f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
             f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
+
+
+# ⚠️ AUTOTESTE de `_com_controles_da_casa`: alargar uma checagem é o gesto que a deixa cega
+# se ninguém provar que ela continua mordendo. Dois casos, e o segundo é o que importa —
+# controle da casa SEM rolagem não pode contar como se tivesse.
+_ctrl_com_rolagem = ET.fromstring(
+    '<UserControl xmlns="x" xmlns:c="y" c:Class="A.B.ControleQueRola">'
+    '<ScrollViewer /></UserControl>')
+_ctrl_sem_rolagem = ET.fromstring(
+    '<UserControl xmlns="x" xmlns:c="y" c:Class="A.B.ControleSeco"><Grid /></UserControl>')
+_arvores_por_tipo["ControleQueRola"] = _ctrl_com_rolagem
+_arvores_por_tipo["ControleSeco"] = _ctrl_sem_rolagem
+
+for _tag, _deve_achar, _cenario in (
+    ("ControleQueRola", True, "o controle da casa TEM ScrollViewer"),
+    ("ControleSeco", False, "o controle da casa não rola — a janela continua acusada"),
+):
+    _janela = ET.fromstring(f'<Window xmlns="x"><{_tag} /></Window>')
+    _achou = any(_nome(e) in {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
+                 for e in _com_controles_da_casa(_janela))
+    if _achou != _deve_achar:
+        erros.append(
+            f"verificar-suite: a checagem de rolagem mudou de resposta ({_cenario}) — "
+            f"esperado {'achar' if _deve_achar else 'NÃO achar'} rolagem."
+        )
+
+del _arvores_por_tipo["ControleQueRola"], _arvores_por_tipo["ControleSeco"]
 
 
 # ------------------------------------------ 11. cor e tamanho de fonte fora dos tokens
@@ -1002,7 +1062,8 @@ for arq in sorted(CONGELADO.rglob("*.xaml")):
     ROLAM_C = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce_c = (raiz_c.get("SizeToContent") or "").find("Height") >= 0
     alto_c = altura_c is not None and altura_c >= 400
-    if (cresce_c or alto_c) and not any(_nome(e) in ROLAM_C for e in raiz_c.iter()):
+    if (cresce_c or alto_c) and not any(
+            _nome(e) in ROLAM_C for e in _com_controles_da_casa(raiz_c)):
         erros.append(
             f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
             f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")

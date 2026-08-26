@@ -475,8 +475,71 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// ALGUMA das cinco etapas tem conteúdo — é o que decide se desmarcar custa alguma
+    /// coisa. Ele NÃO é <c>EtapasEmFalta</c> pelo avesso: aquele responde "o que ainda
+    /// falta", este responde "o que já foi escrito", e são perguntas diferentes.
+    /// </summary>
+    public bool ConsultaTemConteudo
+        => !string.IsNullOrWhiteSpace(Historico)
+           || !string.IsNullOrWhiteSpace(ExameFisico)
+           || !string.IsNullOrWhiteSpace(Avaliacao)
+           || Diagnosticos.Any(d => !string.IsNullOrWhiteSpace(d.Titulo))
+           || Cuidados.Any(c => !string.IsNullOrWhiteSpace(c.Descricao));
+
+    /// <summary>
+    /// A propriedade está sendo mudada por CÓDIGO, e não pela pessoa.
+    ///
+    /// ⚠️ Ele protege três caminhos, e os dois últimos não são teoria: a reversão da
+    /// própria confirmação abaixo; a limpeza depois de gravar; e o <c>Corrigir</c>, que
+    /// carrega um registro antigo — abrir uma ANOTAÇÃO com uma consulta pela metade na
+    /// tela perguntaria "voltar para anotação?" no meio de uma carga que a pessoa não
+    /// pediu. Pergunta que aparece sem gesto é pergunta que se fecha sem ler.
+    /// </summary>
+    private bool _ajustandoConsultaPorCodigo;
+
+    /// <summary>Muda <see cref="ConsultaCompleta"/> sem disparar a confirmação.</summary>
+    private void DefinirConsultaCompleta(bool valor)
+    {
+        _ajustandoConsultaPorCodigo = true;
+        ConsultaCompleta = valor;
+        _ajustandoConsultaPorCodigo = false;
+    }
+
+    /// <summary>
+    /// ⚠️ DESMARCAR DESCARTA AS CINCO ETAPAS na gravação — <see cref="ColherProcesso"/>
+    /// devolve <c>null</c> no modo anotação — e esse custo deixou de ser visível quando a
+    /// consulta saiu da tela e foi para a janela (parcela 88, 5ª rodada). Antes, as abas
+    /// sumiam na frente da pessoa; agora não muda nada na tela, e o que ela escreveu não
+    /// vai para o prontuário sem uma palavra.
+    ///
+    /// Por isso a pergunta — e só quando há o que perder: cobrar confirmação para
+    /// desmarcar uma consulta em branco treinaria a equipe a confirmar sem ler, que é
+    /// exatamente o que este projeto recusa desde a parcela 65.
+    ///
+    /// O texto DIZ que as etapas continuam na tela: elas ficam no ViewModel e voltam ao
+    /// marcar de novo. Quem as perde é quem grava como anotação.
+    /// </summary>
     partial void OnConsultaCompletaChanged(bool value)
-        => OnPropertyChanged(nameof(EtapasEmFalta));
+    {
+        if (!value && !_ajustandoConsultaPorCodigo && ConsultaTemConteudo)
+        {
+            var seguir = _dialogo.ConfirmarPerigo(
+                "Voltar para anotação de passagem?",
+                "As cinco etapas que você escreveu NÃO vão para o prontuário se este "
+                + "registro for gravado como anotação.\n\nElas continuam na tela — basta "
+                + "marcar “Consulta de enfermagem” de novo para voltar a elas.\n\n"
+                + "Deseja continuar?");
+
+            if (!seguir)
+            {
+                DefinirConsultaCompleta(true);
+                return;
+            }
+        }
+
+        OnPropertyChanged(nameof(EtapasEmFalta));
+    }
 
     partial void OnHistoricoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
     partial void OnAvaliacaoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
@@ -867,7 +930,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                     SeNecessario = c.SeNecessario
                 });
 
-            ConsultaCompleta = original.EhConsulta;
+            DefinirConsultaCompleta(original.EhConsulta);
 
             Mensagem = $"Corrigindo o registro de {original.Data:dd/MM/yyyy} às "
                      + $"{original.Hora:HH\\:mm}. O original fica na folha, marcado, e a "
@@ -960,7 +1023,12 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         Diagnosticos.Clear();
         Cuidados.Clear();
         CatalogoDeDiagnosticos.Busca = CatalogoDeCuidados.Busca = string.Empty;
-        ConsultaCompleta = false;
+
+        // ⚠️ Por CÓDIGO: aqui a limpeza dos campos acima já zerou `ConsultaTemConteudo`,
+        // mas depender dessa ordem seria uma armadilha para quem reordenar as linhas —
+        // e o preço seria a pergunta "voltar para anotação?" logo depois de um Registrar
+        // que deu certo.
+        DefinirConsultaCompleta(false);
 
         _retificando = null;
         _dataCorrigida = null;

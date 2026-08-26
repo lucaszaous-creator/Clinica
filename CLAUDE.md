@@ -6146,3 +6146,45 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   rede para um erro, liste as FORMAS que ele pode tomar, não só a que mordeu.** O `xmlns`
   errado e a tag sem prefixo produzem o MESMO `MC3074`, e eu tinha duas checagens para o
   primeiro e nenhuma para o segundo.
+\n
+
+- **"O pop out é da CONSULTA, não do catálogo" — o pedido que eu li um degrau abaixo**
+  (parcela 88, 5ª rodada; a clínica: *"ao clicar em «Consulta de enfermagem» ainda não abre
+  um pop out como janela, que foi o solicitado"*). O print da rodada anterior mostrava a aba
+  de Cuidados, e eu tratei "essa tela" como o CATÁLOGO — que é um degrau abaixo do que ela
+  precisa maximizar.
+  E o processo nunca coube onde estava: as cinco etapas ficavam empilhadas dentro do
+  compositor da passagem, disputando altura com a hora, o texto, os sinais vitais e a linha
+  do tempo, numa janela de altura FIXA. Foi essa disputa que a parcela 79 corrigiu tirando o
+  `Height="320"` — **o remédio certo para o sintoma errado**. A pergunta que eu não fiz lá:
+  *isto cabe nesta tela, ou é outra tela?*
+  ⚠️ **`Click`, e NÃO `Checked`, na caixinha que abre janela.** `Checked` dispara também
+  quando o ViewModel muda a propriedade por código — e ele muda, ao carregar um registro
+  para CORRIGIR: a janela abriria sozinha no meio de uma carga. `Click` só existe quando foi
+  a PESSOA que clicou.
+  ⚠️ **Ao tirar algo da tela, releia o que o gesto vizinho passou a custar EM SILÊNCIO.**
+  Desmarcar "Consulta de enfermagem" sempre descartou as cinco etapas na gravação
+  (`ColherProcesso` devolve nulo no modo anotação) — e enquanto as abas estavam na tela, elas
+  sumiam na frente da pessoa. Com a consulta em janela, nada muda visualmente e o registro
+  vai para o prontuário sem elas. Daí a confirmação, e ela só aparece quando **há o que
+  perder**: cobrar confirmação sobre uma consulta em branco treinaria a equipe a confirmar
+  sem ler (a causa raiz do incidente da parcela 65).
+  ⚠️ **Confirmação em callback de propriedade precisa de guarda contra a carga por CÓDIGO.**
+  São três caminhos programáticos aqui (a reversão da própria confirmação, a limpeza depois
+  de gravar e o `Corrigir`), e sem o flag a pergunta apareceria no meio de uma carga que
+  ninguém pediu — pergunta que aparece sem gesto é pergunta que se fecha sem ler.
+  E o **caminho de volta é parte da feature**: fechar a janela deixaria a consulta
+  inalcançável sem desmarcar e marcar de novo — e desmarcar é justamente o gesto que devolve
+  o registro para anotação. Daí o botão "Abrir a consulta…", e o aviso `EtapasEmFalta`
+  ficando na TELA, que é onde ela o lê antes de clicar em Registrar.
+- **Checagem que não enxerga dentro de controle da casa acusa o que está certo** (parcela
+  88, 5ª rodada). A checagem de rolagem (15/16) varria só `raiz.iter()` do XAML da janela, e
+  uma janela cujo miolo é `<comp:ProcessoDeEnfermagemView />` — com um `ScrollViewer` por aba
+  lá dentro — era acusada de não ter rolagem nenhuma. **Checagem que reclama do que está
+  certo é checagem que alguém desliga**, e aí ela para de pegar o defeito de verdade.
+  Ela passou a seguir **UM nível** de composição: o tipo da tag é casado com o `x:Class` dos
+  XAML do repositório, e a árvore dele entra na conta. Um nível basta para a composição deste
+  projeto; mais níveis dariam um grafo para percorrer sem ganho medido.
+  ⚠️ **Alargar uma checagem é o gesto que a deixa cega, então ela ganhou autoteste nos DOIS
+  sentidos** — controle da casa COM rolagem conta, controle SEM rolagem não conta —, e foi
+  verificado que o autoteste REPROVA quando a varredura é "simplificada" de volta.
