@@ -1,4 +1,4 @@
-<UserControl x:Class="Clinica.Clinico.Views.MeusPacientesView"
+<UserControl x:Class="Clinica.Clinico.Views.PacientesDaClinicaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
@@ -12,9 +12,13 @@
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel>
-                <TextBlock Text="Meus pacientes" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
-                           Text="Quem você acompanha, do mais recente ao mais antigo, com a leitura da dor ao lado." />
+                <TextBlock Text="Pacientes" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <!-- ⚠️ "Meus pacientes" morreu com a premissa (parcela 88, 3ª rodada): não
+                     existe "meu paciente", todos atendem todos. O subtítulo diz o que a
+                     lista É e o que a busca alcança, porque são coisas diferentes — sem
+                     termo, quem já veio; com termo, o cadastro inteiro. -->
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="Quem a clínica vem atendendo, do mais recente ao mais antigo, com a leitura da dor ao lado. Busque para alcançar o cadastro inteiro — inclusive quem ainda não veio." />
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <CheckBox Content="Só quem sumiu" IsChecked="{Binding SomenteSumidos}"
@@ -23,55 +27,18 @@
             </StackPanel>
         </Grid>
 
-        <!-- Aviso permanente é LINHA de texto, não faixa (a regra do README): as outras
-             quatro telas deste app já dizem o "sem vínculo" assim, e esta era a única
-             com uma faixa azul de 60 px que nunca sai. -->
-        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12" TextWrapping="Wrap"
-                   Style="{StaticResource TextoSuave}"
-                   FontSize="{StaticResource Fonte.Legenda}"
-                   Visibility="{Binding ListaDaClinica, Converter={StaticResource BoolParaVisibilidade}}"
-                   Text="{Binding MotivoDaLista}" />
-
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ===================== OS DOIS MODOS DA LISTA (parcela 88) =====================
-             A cliente estendeu a quem consulta o pedido que fez para a enfermagem: "ver
-             todos os pacientes e clicar em atender". O buraco era simétrico e real — a
-             carteira só traz quem ELE já atendeu, então o paciente de primeira consulta, o
-             do colega e o que o balcão acabou de cadastrar eram INALCANÇÁVEIS daqui.
-
-             ⚠️ Chips, e não dois botões iguais: o marcado é a régua que diz qual recorte
-             está no ar. Dois botões não dizem em qual dos dois você está, e uma lista
-             vazia com o filtro esquecido se lê como carteira vazia.
-
-             ⚠️ Eles SOMEM para quem não tem carteira própria (sem vínculo, ou enfermagem,
-             que não tem agenda própria): ali os dois modos mostrariam a MESMA lista, e dois
-             chips que fazem a mesma coisa fazem a pessoa clicar nos dois para descobrir
-             que não muda nada. Quem explica, nesse caso, é a linha de motivo acima. -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8"
-                    Visibility="{Binding TemCarteiraPropria, Converter={StaticResource BoolParaVisibilidade}}">
-            <ToggleButton Content="Meus pacientes" MinWidth="130"
-                          Style="{StaticResource ChipFiltro}"
-                          IsChecked="{Binding MostrandoMinha, Mode=OneWay}"
-                          ToolTip="Quem você já atendeu, do que veio por último ao mais antigo."
-                          Command="{Binding MinhaCarteiraCommand}" />
-            <ToggleButton Content="Todos os pacientes" MinWidth="150"
-                          Style="{StaticResource ChipFiltro}"
-                          IsChecked="{Binding MostrandoTodos, Mode=OneWay}"
-                          ToolTip="O cadastro da clínica inteira — para atender o paciente de primeira consulta, o do colega ou quem o balcão acabou de cadastrar."
-                          Command="{Binding TodosCommand}" />
-        </StackPanel>
-
-        <!-- ⚠️ O placeholder muda com o modo, e não é enfeite: na carteira própria a busca
-             filtra o que já está na tela; no modo "todos" ela vai ao BANCO e alcança o
-             cadastro inteiro, por nome OU CPF. Prometer "filtrar pelo nome" ali faria
-             ninguém tentar o CPF, que é justamente como se acha o homônimo. -->
+        <!-- ⚠️ Sem `Delay` no binding: quem agrupa as teclas é o ViewModel (300 ms), como
+             no SeletorPacienteViewModel. O `Delay` existia porque o filtro rodava em
+             MEMÓRIA e ele era o único freio; somado ao debounce, ele viraria meio segundo
+             de espera por tecla numa busca que agora sempre vai ao SQL. -->
         <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}" Margin="0,0,0,8"
-                 Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                 ctrl:Ajudantes.Placeholder="{Binding PlaceholderDaBusca}" />
+                 Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged}"
+                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — alcança o cadastro inteiro" />
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
                    TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12" />
@@ -167,9 +134,9 @@
                                    Carregando="{Binding Carregando}"
                                    NaoVerificado="{Binding NaoVerificado}"
                                    Glifo="&#xE77B;"
-                                   TextoCarregando="Montando a sua carteira…"
-                                   Titulo="Nenhum paciente na sua carteira"
-                                   Descricao="Entra aqui quem você já atendeu: o horário precisa ter tido a presença confirmada na recepção." />
+                                   TextoCarregando="Montando a carteira…"
+                                   Titulo="{Binding TituloVazio}"
+                                   Descricao="{Binding DescricaoVazio}" />
             </Grid>
         </Border>
     </DockPanel>

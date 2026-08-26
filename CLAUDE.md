@@ -6017,7 +6017,8 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   faria a pessoa achar o paciente pelo CPF e vê-lo SUMIR da lista.
   ⚠️ **Chip que não muda nada é pior que chip nenhum**: para quem não tem carteira própria
   (sem vínculo, ou a enfermagem) os dois modos mostram a MESMA lista, então eles SOMEM e
-  quem explica é a linha de motivo.
+  quem explica é a linha de motivo. *(Os dois chips morreram na 3ª rodada, logo abaixo — a
+  lição fica porque ela é geral.)*
   ⚠️ **E a porta nova mudou o que a porta VELHA precisava fazer.** Abrir pela carteira
   fixava só id e nome — aceitável enquanto a lista era só dele, porque o caminho normal é
   "Meu dia", que já traz o agendamento. Com a lista alcançando a clínica, ela virou o
@@ -6030,3 +6031,46 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A lição que generaliza: **ao ALARGAR o alcance de uma lista, releia o que o clique dela
   faz.** O que era suficiente para um recorte estreito costuma deixar de ser quando o
   recorte cresce — e o que falha não é a porta nova, é a velha.
+
+
+- **"MEU PACIENTE" NÃO EXISTE — e a resposta certa não era um segundo clique, era apagar o
+  recorte** (parcela 88, 3ª rodada; a clínica: *"não existe 'meu paciente', todos atendem
+  todos"*). A rodada anterior tinha resolvido o alcance da lista do Consultório com **dois
+  chips** (*Meus pacientes* × *Todos os pacientes*), a carteira como padrão. A frase da
+  direção derrubou a premissa dos dois: **oferecer a escolha entre "meus" e "todos" numa
+  clínica que não distingue as duas coisas é inventar uma decisão** — e a que abre por
+  padrão seria justamente a lista MAIS ESTREITA, escondendo o paciente do colega de quem
+  foi chamado para cobri-lo.
+  O recorte saiu do repositório, não da chamada: `PacientesDoProfissionalAsync(id, …)` →
+  `PacientesAtendidosAsync(limite)`, `ConsultorioService.MeusPacientesAsync(profissionalId,
+  …)` → `PacientesAsync(termo, limite, comDor)`, record `PacienteDoProfissional` →
+  `PacienteDaCarteira`. **Passar `null` no lugar do id não teria bastado**: aquele caminho
+  fabricava `Sessoes = 0` e `UltimaSessao = null` para todo mundo, esvaziando as duas
+  colunas que são o assunto da tela.
+  ⚠️ **A pergunta que decide o que continua recortado não é conceitual, é sobre a natureza
+  do dado: PACIENTE não tem dono; HORÁRIO tem.** Por isso "Meu dia", "Minha semana", "Meus
+  números" e "Sessões sem evolução" seguem filtrados por profissional — a agenda é fato de
+  marcação, e `PodeChamarProximo` depende disso (na lista da clínica inteira o primeiro da
+  fila pode ser de outro profissional, e o clique cego anunciaria um nome para a sala do
+  colega). A AUTORIA também não se perdeu: quem atendeu está no agendamento, quem escreveu
+  assina a evolução, e "Meus números" continua medindo o trabalho de cada um.
+  ⚠️ **Sem termo, a lista é quem a clínica JÁ ATENDEU — e isso não é o recorte de volta.**
+  É a leitura que a tela existe para dar (sessões, última visita, queda da dor); o cadastro
+  inteiro, quem nunca veio inclusive, chega pela BUSCA. E a busca precisou de
+  `SessoesDosPacientesAsync` (uma consulta em lote, o MESMO critério do agrupamento da
+  lista): sem ela, um paciente de vinte sessões apareceria como "sem sessão registrada" só
+  por ter sido achado pela busca — **dado exibido como ausente é a irmã de falha exibida
+  como sucesso**.
+  ⚠️ **Ao apagar um recorte, releia os RÓTULOS que o nomeavam.** "Meus pacientes" virou
+  "Pacientes" no menu e na tela — e isso colidiu com a aba "Todos" da Recepção, deixando
+  duas abas irmãs quase homônimas. Elas passaram a dizer a PERGUNTA de cada uma
+  ("Cadastro" × "Em tratamento"), que é a diferença que sempre existiu e que o rótulo antigo
+  escondia atrás do dono. **A CHAVE não muda junto** (`consultorio-pacientes`): chave é
+  contrato de navegação entre módulos, e renomeá-la para acompanhar um rótulo é a regressão
+  da parcela 37, 4ª rodada.
+  ⚠️ **E o vazio ganhou uma SEGUNDA pergunta no mesmo movimento.** Enquanto a busca filtrava
+  a tela, "não há ninguém aqui" bastava; quando ela passou a alcançar o cadastro inteiro,
+  responder *"entra aqui quem já foi atendido"* a quem digitou um nome faz concluir que o
+  paciente EXISTE e só não foi atendido — quando o sistema está dizendo que ele **não está
+  cadastrado**. E é essa leitura errada que leva a cadastrar quem já tem ficha (o CPF
+  duplicado da parcela 57). Um estado vazio por pergunta, como sempre.

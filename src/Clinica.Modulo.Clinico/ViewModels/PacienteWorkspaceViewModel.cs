@@ -24,9 +24,9 @@ namespace Clinica.Clinico.ViewModels;
 ///
 /// O desenho certo é o de qualquer prontuário eletrônico sério, e são dois passos:
 /// <list type="number">
-///   <item><b>Uma lista</b> — "Meu dia" (quem eu vejo hoje) ou "Meus pacientes" (quem eu
-///   acompanho). São as duas portas de entrada, e são telas de verdade, com a largura
-///   inteira.</item>
+///   <item><b>Uma lista</b> — "Meu dia" (quem tem horário hoje) ou "Pacientes" (quem a
+///   clínica vem atendendo). São as duas portas de entrada, e são telas de verdade, com a
+///   largura inteira.</item>
 ///   <item><b>A tela do paciente</b> — clicou, entrou. A identidade fica no topo, as
 ///   seções viram um RAIL à esquerda, e a largura inteira é do conteúdo clínico.</item>
 /// </list>
@@ -225,12 +225,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     [RelayCommand]
     private void Voltar()
         => NavegacaoSuite.Ir(_foco.AgendamentoId is null
-            ? ModuloClinico.ChaveMeusPacientes
+            ? ModuloClinico.ChavePacientesDaClinica
             : ModuloClinico.ChaveMeuDia);
 
     /// <summary>Abre a carteira para escolher outra pessoa.</summary>
     [RelayCommand]
-    private void TrocarPaciente() => NavegacaoSuite.Ir(ModuloClinico.ChaveMeusPacientes);
+    private void TrocarPaciente() => NavegacaoSuite.Ir(ModuloClinico.ChavePacientesDaClinica);
 
     /// <summary>
     /// Lê o crachá clínico. Falhar aqui NÃO derruba a tela: o prontuário abre com o nome,

@@ -556,14 +556,35 @@ public interface IClinicaRepositorio
 
 
     /// <summary>
-    /// Pacientes que este profissional atende, do que veio por último para o mais antigo.
+    /// Pacientes que a clínica ATENDEU, do que veio por último para o mais antigo.
+    ///
+    /// ⚠️ Ela era <c>PacientesDoProfissionalAsync</c> e filtrava por dono (parcela 88, 3ª
+    /// rodada). A clínica disse a frase que apaga a premissa: <b>"não existe 'meu
+    /// paciente', todos atendem todos"</b>. Aqui ninguém é dono de ninguém — quem atendeu
+    /// continua gravado no agendamento e no prontuário, que é onde a autoria mora; a
+    /// CARTEIRA é da casa.
     ///
     /// A contagem e a última visita saem do SQL (agrupamento), não de materializar os
-    /// agendamentos: um profissional com dois anos de casa tem milhares deles, e a tela
-    /// mostra uma linha por paciente.
+    /// agendamentos: uma clínica com dois anos de casa tem milhares deles, e a tela mostra
+    /// uma linha por paciente.
     /// </summary>
-    Task<IReadOnlyList<Modelos.PacienteDoProfissional>> PacientesDoProfissionalAsync(
-        int profissionalId, int limite = 200, CancellationToken ct = default);
+    Task<IReadOnlyList<Modelos.PacienteDaCarteira>> PacientesAtendidosAsync(
+        int limite = 200, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quantas sessões cada um destes pacientes já teve, e quando foi a última.
+    ///
+    /// ⚠️ Existe para a BUSCA da carteira não mentir. Sem termo a lista sai do agrupamento
+    /// acima, já rica; com termo ela sai do CADASTRO (para alcançar quem nunca veio), e sem
+    /// este enriquecimento um paciente de vinte sessões apareceria como "sem sessão
+    /// registrada" só por ter sido achado pela busca. Falha exibida como sucesso tem uma
+    /// irmã: dado exibido como ausente.
+    ///
+    /// Uma consulta para todos os ids, como <see cref="ParesDeEvaDosPacientesAsync"/> — o
+    /// laço com uma ida por paciente é o que fazia esta tela levar dezenas de segundos.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, (int Sessoes, DateOnly Ultima)>> SessoesDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
 
     // ---- Consentimento LGPD ----
 

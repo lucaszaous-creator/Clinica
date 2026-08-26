@@ -190,51 +190,77 @@ public sealed class ConsultorioService
     }
 
     /// <summary>
-    /// Os pacientes deste profissional, com a leitura da dor de cada um já resolvida.
+    /// A CARTEIRA DA CLÍNICA, com a leitura da dor de cada um já resolvida.
     ///
-    /// A dor vem do prontuário, uma consulta por paciente — e é por isso que a lista tem
-    /// teto. Com <paramref name="comDor"/> desligado a tela abre instantânea e mostra só
-    /// quem é e quando veio; ligado, ela responde "como este tratamento está indo?" sem
-    /// abrir o prontuário de ninguém, que é a pergunta do profissional antes de chamar o
-    /// próximo.
+    /// ⚠️ Ela era "os pacientes DESTE profissional" e deixou de ser (parcela 88, 3ª
+    /// rodada). A clínica disse a frase que apaga a premissa: <b>"não existe 'meu
+    /// paciente', todos atendem todos"</b>. Filtrar por dono devolvia uma lista em que o
+    /// paciente de PRIMEIRA CONSULTA, o do colega e o que o balcão acabou de cadastrar
+    /// eram inalcançáveis — e não havia segunda porta.
+    ///
+    /// A autoria não se perdeu com isso: quem atendeu continua gravado no agendamento e
+    /// quem escreveu continua assinando a evolução. O que deixou de existir é a NOÇÃO DE
+    /// DONO na lista de pacientes.
+    ///
+    /// Duas fontes, e a regra entre elas é o ponto
+    /// -------------------------------------------
+    /// <list type="bullet">
+    ///   <item><b>Sem termo</b> — quem a clínica JÁ ATENDEU, do que veio por último ao mais
+    ///   antigo. É a leitura que a tela existe para dar: como os tratamentos estão indo.</item>
+    ///   <item><b>Com termo</b> — o CADASTRO inteiro, para alcançar quem nunca veio (a
+    ///   primeira consulta). E enriquecido com as sessões, senão um paciente de vinte
+    ///   sessões apareceria como "sem sessão registrada" só por ter sido achado pela
+    ///   busca.</item>
+    /// </list>
+    ///
+    /// A dor vem do prontuário, e é por isso que a lista tem teto. Com
+    /// <paramref name="comDor"/> desligado a tela abre instantânea e mostra só quem é e
+    /// quando veio; ligado, ela responde "como este tratamento está indo?" sem abrir o
+    /// prontuário de ninguém.
     /// </summary>
     /// <param name="termo">
-    /// Busca por nome ou CPF — só tem efeito na CARTEIRA DA CLÍNICA
-    /// (<paramref name="profissionalId"/> nulo), e a assimetria é o ponto (parcela 88).
+    /// Busca por nome ou CPF, resolvida no SQL.
     ///
-    /// ⚠️ A carteira de UMA pessoa tem teto e cabe na tela, então quem a filtra é a
-    /// ViewModel, em memória — ir ao banco a cada tecla daria uma consulta por letra. A da
-    /// CLÍNICA não cabe: ela é o cadastro inteiro, cortado no <paramref name="limite"/>, e
-    /// filtrar em memória o que já veio cortado faz a busca responder "não existe" para
-    /// todo paciente além do teto. Aí o corte precisa ir para o SQL junto com o termo.
+    /// ⚠️ Ela NÃO pode ser um filtro de memória sobre o que já veio: a lista sai cortada no
+    /// <paramref name="limite"/>, e filtrar em memória o que veio cortado faz a busca
+    /// responder "não existe" para todo paciente além do teto — que é a resposta errada
+    /// mais cara que uma busca de paciente pode dar, porque leva a cadastrar a pessoa de
+    /// novo (o CPF duplicado da parcela 57).
     /// </param>
-    public async Task<IReadOnlyList<PacienteDoProfissional>> MeusPacientesAsync(
-        int? profissionalId, int limite = 200, bool comDor = true,
-        string? termo = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PacienteDaCarteira>> PacientesAsync(
+        string? termo = null, int limite = 200, bool comDor = true,
+        CancellationToken ct = default)
     {
-        // Sem profissional vinculado, a carteira é a da clínica: o consultório continua
-        // servindo (residente, profissional recém-cadastrado, enfermagem — que não tem
-        // agenda própria), só não filtra por dono.
-        var pacientes = profissionalId is { } id
-            ? await _repo.PacientesDoProfissionalAsync(id, limite, ct)
-            : (await _repo.BuscarPacientesAsync(termo, limite, ct))
-                .Select(p => new PacienteDoProfissional(p.Id, p.Nome, null, 0))
+        var buscando = !string.IsNullOrWhiteSpace(termo);
+
+        var pacientes = buscando
+            ? (await _repo.BuscarPacientesAsync(termo, limite, ct))
+                .Select(p => new PacienteDaCarteira(p.Id, p.Nome, null, 0))
+                .ToList()
+            : await _repo.PacientesAtendidosAsync(limite, ct);
+
+        var ids = pacientes.Select(p => p.PacienteId).ToList();
+
+        // ⚠️ UMA consulta, não uma por paciente — em nenhum dos dois enriquecimentos.
+        //
+        // Isto era um laço com `EvolucoesDoPacienteAsync` dentro: até duzentas idas em fila
+        // indiana a um banco REMOTO para desenhar uma tela — e cada uma arrastava o
+        // prontuário INTEIRO daquela pessoa (texto da evolução, conduta, orientações) para
+        // calcular dois inteiros. Esta é uma das duas portas do Consultório, e ela ficava
+        // dezenas de segundos em "Montando a carteira…", repetindo a espera a cada volta.
+        if (buscando)
+        {
+            var sessoes = await _repo.SessoesDosPacientesAsync(ids, ct);
+            pacientes = pacientes
+                .Select(p => sessoes.TryGetValue(p.PacienteId, out var s)
+                    ? p with { UltimaSessao = s.Ultima, Sessoes = s.Sessoes }
+                    : p)
                 .ToList();
+        }
 
         if (!comDor) return pacientes;
 
-        // ⚠️ UMA consulta, não uma por paciente.
-        //
-        // Isto era um laço com `EvolucoesDoPacienteAsync` dentro: até duzentas idas em
-        // fila indiana a um banco REMOTO para desenhar uma tela — e cada uma arrastava o
-        // prontuário INTEIRO daquela pessoa (texto da evolução, conduta, orientações) para
-        // calcular dois inteiros. "Meus pacientes" é uma das duas portas do Consultório, e
-        // ela ficava dezenas de segundos em "Montando a sua carteira…", repetindo a espera
-        // a cada volta para a tela.
-        //
-        // É o mesmo desenho de `DaSemanaAsync` logo acima, e pelo mesmo motivo escrito lá.
-        var pares = await _repo.ParesDeEvaDosPacientesAsync(
-            [.. pacientes.Select(p => p.PacienteId)], ct);
+        var pares = await _repo.ParesDeEvaDosPacientesAsync(ids, ct);
 
         return pacientes
             .Select(p => pares.TryGetValue(p.PacienteId, out var par)

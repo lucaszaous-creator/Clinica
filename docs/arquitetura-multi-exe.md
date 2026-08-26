@@ -441,7 +441,7 @@ atende** — e a pergunta que faltava responder não era "qual é a agenda?", qu
 já mostrava, mas **"o que eu atendi e ainda não escrevi"**.
 
 - **`src/Clinica.Modulo.Clinico`** — o módulo: Meu dia, Atendimento, Evolução da dor,
-  Avaliações e Meus pacientes.
+  Avaliações e Pacientes.
 - **`src/Clinica.Clinico`** — o executável, casca fina como as outras três. Carrega **um**
   módulo: a sala do médico não precisa da agenda do balcão, do caixa nem do cadastro da
   equipe, e instalar tudo em toda máquina é exatamente o que esta arquitetura evita.

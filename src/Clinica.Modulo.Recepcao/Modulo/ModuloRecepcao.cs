@@ -128,16 +128,24 @@ public sealed class ModuloRecepcao : IModuloApp
         },
 
         // ===== PACIENTE =====
-        // A lista do balcão e a carteira de quem atende são a mesma lista com recortes
-        // diferentes — e apareciam como dois itens quase homônimos no Gerente Geral.
+        // A lista do balcão e a de quem atende são a mesma gente com recortes diferentes —
+        // e apareciam como dois itens quase homônimos no Gerente Geral.
+        //
+        // ⚠️ Os rótulos dizem a PERGUNTA de cada aba, e não o recorte de quem a abre
+        // (parcela 88, 3ª rodada): depois de "não existe 'meu paciente'", as duas listam
+        // todo mundo. "Cadastro" responde *quem é essa pessoa?* — ordem de nome, telefone
+        // e convênio, para achar quem ligou; "Em tratamento" responde *como está indo o
+        // tratamento dela?* — de quem veio por último ao mais antigo, com a leitura da dor.
+        // Chamar as duas de "Pacientes" faria a pessoa abrir as duas para descobrir a
+        // diferença.
         new ItemMenuModulo
         {
             Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
             Abas =
             [
-                new AbaMenu("Todos", ChavePacientes),
-                new AbaMenu("Meus pacientes", ChavesSuite.ConsultorioPacientes)
+                new AbaMenu("Cadastro", ChavePacientes),
+                new AbaMenu("Em tratamento", ChavesSuite.ConsultorioPacientes)
             ]
         },
         // Novo atendimento e Consultas vieram do app de FATURAMENTO na parcela 46.

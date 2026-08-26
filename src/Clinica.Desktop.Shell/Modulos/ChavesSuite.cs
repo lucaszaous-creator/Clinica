@@ -86,7 +86,13 @@ public static class ChavesSuite
     /// <summary>Minha semana (Consultório).</summary>
     public const string ConsultorioSemana = "consultorio-semana";
 
-    /// <summary>Meus pacientes — a carteira de quem atende (Consultório).</summary>
+    /// <summary>Pacientes — a carteira de TRATAMENTO da clínica (Consultório).</summary>
+    /// <remarks>
+    /// O valor da chave continua dizendo "consultorio-pacientes" e o rótulo deixou de
+    /// ser "Meus pacientes" na parcela 88 (3ª rodada) — chave é contrato de navegação
+    /// entre módulos, e renomeá-la para acompanhar um rótulo quebraria o que funciona
+    /// do outro lado.
+    /// </remarks>
     public const string ConsultorioPacientes = "consultorio-pacientes";
 
     /// <summary>Prescrever a partir do paciente em foco (Consultório).</summary>

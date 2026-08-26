@@ -346,7 +346,9 @@ A parcela 72 entregou **quem vê**; esta entrega **por onde se entra e onde se e
 Três fatos verdadeiros, que somados produziam o defeito:
 
 1. As cinco telas de lista do Consultório — o dia, a semana, a carteira, a dívida de
-   prontuário e os números — filtram por `SessaoUsuario.Atual.ProfissionalId`.
+   prontuário e os números — filtravam por `SessaoUsuario.Atual.ProfissionalId`. (A
+   **carteira** saiu desse recorte na 3ª rodada — §13.6; as outras quatro continuam nele,
+   porque a agenda tem dono.)
 2. A enfermeira **precisa** de um `Profissional` vinculado: é dele que sai o **COREN**
    copiado em cada registro (parcela 72), e `IdentificacaoExecutante.Exigir` recusa sem ele.
 3. **A enfermagem não tem agenda própria.** Os horários pertencem a quem consulta; ela passa
@@ -462,57 +464,70 @@ definições de "o que falta executar hoje" divergiriam na primeira correção.
   `Height` fixo) e cada uma rola por dentro — mas numa janela muito baixa, com a consulta
   aberta, elas encolhem antes de tudo. É a família da checagem 36.
 
-### 13.6 A correção: vale para MÉDICOS também
+### 13.6 A correção: vale para médicos também — e "meu paciente" não existe
 
-A cliente voltou logo depois: *"a tarefa acima se refere a enfermeiros e médicos também, eu
-mencionei somente enfermeiros"*. E o buraco do lado de quem consulta era **simétrico e
-real**: `MeusPacientesAsync(profissionalId)` devolve só quem **ele** já atendeu, então
+A cliente voltou duas vezes, e a segunda apagou a premissa da primeira.
+
+**(a)** *"A tarefa acima se refere a enfermeiros e médicos também, eu mencionei somente
+enfermeiros."* O buraco do lado de quem consulta era **simétrico e real**:
+`MeusPacientesAsync(profissionalId)` devolvia só quem **ele** já atendeu, então
 
 - o paciente de **primeira consulta**,
 - o do **colega** que ele está cobrindo,
 - e o que o **balcão acabou de cadastrar**
 
 eram **inalcançáveis do Consultório**. Não havia segunda porta: a busca da tela filtra em
-memória o que já veio, e o que veio era a carteira dele.
+memória o que já veio, e o que veio era a carteira dele. A primeira resposta foram dois chips
+(*Meus pacientes* × *Todos os pacientes*), com a carteira como padrão.
 
-**"Meus pacientes" ganhou os mesmos dois chips exclusivos da tela da Enfermagem:**
+**(b)** *"Não existe 'meu paciente', todos atendem todos."* E aí a resposta (a) estava
+errada pela raiz: **o recorte não precisava de um segundo clique, precisava deixar de
+existir.** Dois chips para uma distinção que a clínica não faz é oferecer uma escolha
+inventada — e a que abre por padrão seria justamente a lista **mais estreita**, escondendo
+o paciente do colega de quem foi chamado para cobri-lo.
 
-| Chip | O que traz |
+**O que ficou:**
+
+| Antes | Agora |
 |---|---|
-| **Meus pacientes** (padrão) | quem ele atendeu, do que veio por último ao mais antigo |
-| **Todos os pacientes** | o cadastro da clínica, em ordem de nome |
+| `ConsultorioService.MeusPacientesAsync(profissionalId, …)` | `ConsultorioService.PacientesAsync(termo, limite, comDor)` — **sem parâmetro de profissional** |
+| `IClinicaRepositorio.PacientesDoProfissionalAsync(profissionalId, …)` | `PacientesAtendidosAsync(limite)` — a clínica inteira, de quem veio por último ao mais antigo |
+| record `PacienteDoProfissional` | record **`PacienteDaCarteira`** |
+| Dois chips + linha de motivo | Nada — a lista é uma só, e o título da tela é **"Pacientes"** |
+| `MeusPacientesView(Model)`, `ChaveMeusPacientes` | `PacientesDaClinicaView(Model)`, `ChavePacientesDaClinica` — **o VALOR da chave (`consultorio-pacientes`) não muda**: é contrato de navegação entre módulos |
+| Abas da Recepção: *Todos* × *Meus pacientes* | *Cadastro* × *Em tratamento* — o rótulo passou a dizer a PERGUNTA de cada aba, já que as duas listam todo mundo |
 
-⚠️ **A carteira dele continua sendo o PADRÃO**, e é decisão: *"quem eu acompanho"* é a
-pergunta que a tela responde todo dia, e trocá-la pela clínica inteira afogaria os pacientes
-dele no cadastro. O que faltava era o segundo clique.
+⚠️ **Sem termo, a lista é quem a clínica JÁ ATENDEU — e isso não é o recorte de volta.** É a
+leitura que a tela existe para dar: sessões, última visita e a queda da dor. O cadastro
+inteiro (inclusive quem nunca veio) chega pela **busca**, que casa nome OU CPF.
 
-⚠️ **No modo "todos" a busca vai ao SQL, não à memória.** A lista já vem cortada no teto
-(200), e filtrar em memória o que veio cortado faz a busca responder *"não existe"* para todo
-paciente além dele — a resposta errada mais cara que uma busca de paciente pode dar, porque
-leva a **cadastrar a pessoa de novo** (o CPF duplicado da parcela 57). O termo desce para
-`MeusPacientesAsync(..., termo:)`, com o agrupamento de teclas do
-`SeletorPacienteViewModel`, e a busca passa a casar **nome OU CPF** — por isso o
-*placeholder* muda com o modo. **E o teto é DITO**: uma lista cortada que se anuncia como
-"todos os pacientes" é corte silencioso.
+⚠️ **A busca vai ao SQL, nunca à memória.** A lista vem cortada no teto (200), e filtrar em
+memória o que veio cortado faz a busca responder *"não existe"* para todo paciente além dele
+— a resposta errada mais cara que uma busca de paciente pode dar, porque leva a **cadastrar a
+pessoa de novo** (o CPF duplicado da parcela 57). **E o teto é DITO** no resumo: lista
+cortada que se anuncia como a da clínica é corte silencioso.
 
-⚠️ **Os chips SOMEM para quem não tem carteira própria** (sem vínculo, ou a enfermagem, que
-não tem agenda própria): ali os dois modos mostrariam a MESMA lista, e dois chips que fazem
-a mesma coisa levam a pessoa a clicar nos dois para descobrir que não muda nada. Quem
-explica, nesse caso, é a linha de motivo.
+⚠️ **O resultado da busca não pode mentir sobre as sessões.** `BuscarPacientesAsync` devolve
+ficha, não histórico — fabricar `Sessoes = 0` para quem tem quarenta esvaziaria a coluna que
+é o assunto da tela, com cara de dado. Daí `SessoesDosPacientesAsync(ids)`, que responde pelo
+MESMO critério da lista (`Status == Realizado`); duas contagens de "quantas sessões este
+paciente teve" divergiriam na primeira correção.
 
-**E abrir pela carteira passou a amarrar o horário de hoje.** Isso era aceitável enquanto a
-lista era só a dele — o caminho normal é "Meu dia", que já traz o agendamento. Com a lista
-alcançando a clínica, ela virou o caminho de quem cobre o colega, e sem o vínculo a evolução
-nasceria **solta**: a sessão ficaria em *"Sessões sem evolução"* para sempre, mesmo depois de
-escrita. `EntregaDoPaciente.AoPostoAsync` (shell) é o ponto único que a Enfermagem e a
-carteira compartilham — e as **três** portas da linha (Atender, Dor, Avaliações) passam por
+**E abrir pela lista passou a amarrar o horário de hoje.** Isso era aceitável enquanto ela
+era só a dele — o caminho normal é "Meu dia", que já traz o agendamento. Com a lista sendo a
+da clínica, ela virou o caminho de quem cobre o colega, e sem o vínculo a evolução nasceria
+**solta**: a sessão ficaria em *"Sessões sem evolução"* para sempre, mesmo depois de escrita.
+`EntregaDoPaciente.AoPostoAsync` (shell) é o ponto único que a Enfermagem e a lista de
+pacientes compartilham — e as **três** portas da linha (Atender, Dor, Avaliações) passam por
 ele, porque as três caem na mesma tela e o rail troca de seção sem trocar de paciente.
 
-**O que NÃO mudou, e por quê:** "Meu dia", "Minha semana" e "Meus números" continuam sendo
-DELE. A agenda é dele, e `PodeChamarProximo` depende disso — no modo "clínica inteira" o
-primeiro da fila pode ser paciente de outro profissional, e o clique cego anunciaria um nome
-para a sala do colega. O pedido era **ver todos os pacientes**, e o lugar disso é a lista de
-pacientes.
+**O que NÃO mudou, e por quê:** "Meu dia", "Minha semana", "Meus números" e "Sessões sem
+evolução" continuam recortados por profissional. A diferença não é conceitual, é de natureza
+do dado: **paciente não tem dono; HORÁRIO tem.** A agenda é fato de marcação, e
+`PodeChamarProximo` depende disso — na lista da clínica inteira o primeiro da fila pode ser
+paciente de outro profissional, e o clique cego anunciaria um nome para a sala do colega. A
+autoria também não mudou: quem atendeu, quem assinou e o conselho de cada registro continuam
+sendo de quem fez.
 
 ### 13.7 Como conferir
 
@@ -522,7 +537,13 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedNam
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ConsultorioTests"
 ```
 
-`PostoDaEnfermagemTests.A_carteira_da_enfermeira_e_a_da_clinica_e_a_do_medico_nao_e` é o que
-carrega o arquivo: ele monta a clínica real e pergunta a carteira **dos dois lados** contra o
-serviço de verdade. Provar só o predicado deixaria passar o defeito, que estava no casamento
-entre a regra e o filtro — e elo partido ali não vira erro, vira **lista vazia**.
+`PostoDaEnfermagemTests.O_dia_da_enfermeira_e_o_da_clinica_inteira` é o que carrega o
+arquivo: ele monta a clínica real e pergunta o dia **dos dois lados** contra o serviço de
+verdade. Provar só o predicado deixaria passar o defeito, que estava no casamento entre a
+regra e o filtro — e elo partido ali não vira erro, vira **lista vazia**.
+
+E `A_lista_de_pacientes_e_a_da_clinica_para_os_dois_lados` é a amarra do item (b): se alguém
+devolver um filtro por profissional ao serviço, o paciente do médico some da lista de quem
+não é ele — e sumir não estoura nada. Do lado de `ConsultorioTests`,
+`A_busca_alcanca_alem_do_teto` fixa que o cadastro inteiro continua alcançável mesmo com a
+lista cortada.

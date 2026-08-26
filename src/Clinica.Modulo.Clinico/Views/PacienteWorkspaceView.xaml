@@ -88,8 +88,8 @@
              fazer, em vez de abrir sete seções em branco. -->
         <ctrl:EmptyState Glifo="&#xE77B;"
                          Titulo="Nenhum paciente aberto"
-                         Descricao="Escolha alguém em “Meu dia”, se você o atende hoje, ou em “Meus pacientes”."
-                         TextoAcao="Ir para Meus pacientes"
+                         Descricao="Escolha alguém em “Meu dia”, se ele tem horário hoje, ou em “Pacientes”."
+                         TextoAcao="Ir para Pacientes"
                          AcaoCommand="{Binding TrocarPacienteCommand}"
                          Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
 

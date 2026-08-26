@@ -241,7 +241,7 @@ public class ConsultorioTests : IDisposable
         await EscreverAsync(paciente, Hoje.AddDays(-14), ana, antes: 8, depois: 5);
         await EscreverAsync(paciente, Hoje.AddDays(-7), ana, antes: 6, depois: 3);
 
-        var carteira = await _consultorio.MeusPacientesAsync(ana);
+        var carteira = await _consultorio.PacientesAsync();
 
         carteira.Should().HaveCount(1);
         carteira[0].Nome.Should().Be("Joana");
@@ -262,7 +262,7 @@ public class ConsultorioTests : IDisposable
         await AgendarAsync(paciente, ana, Hoje.AddDays(-7), 9);
         await EscreverAsync(paciente, Hoje.AddDays(-7), ana, antes: 7);
 
-        var carteira = await _consultorio.MeusPacientesAsync(ana);
+        var carteira = await _consultorio.PacientesAsync();
 
         carteira[0].UltimaDor.Should().BeNull();
         carteira[0].GanhoAcumulado.Should().BeNull();
@@ -276,81 +276,89 @@ public class ConsultorioTests : IDisposable
 
         await AgendarAsync(faltou, ana, Hoje.AddDays(-2), 9, StatusAgendamento.Faltou);
 
-        (await _consultorio.MeusPacientesAsync(ana)).Should().BeEmpty();
+        (await _consultorio.PacientesAsync()).Should().BeEmpty();
     }
 
     /// <summary>
-    /// ⚠️ O BURACO SIMÉTRICO AO DA ENFERMAGEM (parcela 88). A carteira do profissional traz
-    /// só quem ELE já atendeu — então o paciente de PRIMEIRA CONSULTA, o do colega e o que
-    /// o balcão acabou de cadastrar eram inalcançáveis do Consultório: não havia segunda
-    /// porta. A cliente estendeu a quem consulta o pedido que fez para a enfermagem — "ver
-    /// todos os pacientes e clicar em atender" —, e é este caminho que o atende.
+    /// ⚠️ NÃO EXISTE "MEU PACIENTE" (parcela 88, 3ª rodada — a frase da clínica: <i>"todos
+    /// atendem todos"</i>). A carteira era filtrada por dono, e por isso o paciente de
+    /// PRIMEIRA CONSULTA, o do colega e o que o balcão acabou de cadastrar eram
+    /// inalcançáveis do Consultório — não havia segunda porta.
+    ///
+    /// Sem termo a lista é quem a CLÍNICA atendeu, do mais recente; com termo ela alcança
+    /// o cadastro inteiro. Este teste fixa as duas metades.
     /// </summary>
     [Fact]
-    public async Task A_carteira_da_CLINICA_alcanca_quem_o_profissional_nunca_atendeu()
+    public async Task A_carteira_e_da_clinica_e_a_busca_alcanca_quem_nunca_veio()
     {
         var ana = await CriarProfissionalAsync();
-        var meu = await CriarPacienteAsync("Joana Atendida");
-        await AgendarAsync(meu, ana, Hoje.AddDays(-7), 9);
-        await EscreverAsync(meu, Hoje.AddDays(-7), ana, antes: 6, depois: 3);
+        var bruno = await CriarProfissionalAsync("Dr. Bruno");
+
+        var daAna = await CriarPacienteAsync("Joana da Ana");
+        await AgendarAsync(daAna, ana, Hoje.AddDays(-7), 9);
+        await EscreverAsync(daAna, Hoje.AddDays(-7), ana, antes: 6, depois: 3);
+
+        var doBruno = await CriarPacienteAsync("Carlos do Bruno");
+        await AgendarAsync(doBruno, bruno, Hoje.AddDays(-2), 9);
 
         // Nunca atendido por ninguém — o caso da primeira consulta.
         var novo = await CriarPacienteAsync("Pedro Primeira Consulta");
 
-        (await _consultorio.MeusPacientesAsync(ana))
-            .Should().ContainSingle(p => p.PacienteId == meu,
-                "a carteira dele é a de quem ele atendeu — e isso não muda");
+        // A lista é a da CLÍNICA: os dois atendidos entram, sem dono.
+        var carteira = await _consultorio.PacientesAsync();
 
-        var daClinica = await _consultorio.MeusPacientesAsync(profissionalId: null);
+        carteira.Should().Contain(p => p.PacienteId == daAna);
+        carteira.Should().Contain(p => p.PacienteId == doBruno,
+            "não existe \"meu paciente\" — todos atendem todos");
+        carteira.Should().NotContain(p => p.PacienteId == novo,
+            "sem termo, a lista é quem a clínica JÁ atendeu — é a leitura do tratamento");
 
-        daClinica.Should().Contain(p => p.PacienteId == novo,
-            "é o segundo clique que torna o paciente de primeira consulta alcançável");
-        daClinica.Should().Contain(p => p.PacienteId == meu);
+        // E a busca alcança quem nunca veio.
+        (await _consultorio.PacientesAsync(termo: "Pedro"))
+            .Should().ContainSingle(p => p.PacienteId == novo);
     }
 
     /// <summary>
-    /// ⚠️ O TERMO PRECISA DESCER PARA O SQL na carteira da clínica. Ela é o cadastro
-    /// inteiro cortado no limite, e filtrar em memória o que já veio cortado faz a busca
-    /// responder "não existe" para todo paciente além do teto — que é a resposta errada
-    /// mais cara que uma busca de paciente pode dar, porque leva a cadastrar a pessoa de
-    /// novo (o CPF duplicado da parcela 57).
+    /// ⚠️ A BUSCA NÃO PODE MENTIR SOBRE AS SESSÕES. Com termo a lista sai do CADASTRO — e
+    /// sem o enriquecimento em lote um paciente de vinte sessões apareceria como "sem
+    /// sessão registrada" só por ter sido achado pela busca.
     /// </summary>
     [Fact]
-    public async Task A_busca_da_carteira_da_clinica_alcanca_alem_do_teto()
+    public async Task A_busca_traz_as_sessoes_de_quem_ja_veio()
     {
-        // Mais gente do que o limite pedido, e o procurado FORA da primeira página: em
-        // ordem de nome, "Zulmira" é a última.
+        var ana = await CriarProfissionalAsync();
+        var paciente = await CriarPacienteAsync("Joana Buscada");
+        await AgendarAsync(paciente, ana, Hoje.AddDays(-14), 9);
+        await AgendarAsync(paciente, ana, Hoje.AddDays(-7), 9);
+
+        var achada = await _consultorio.PacientesAsync(termo: "Buscada");
+
+        achada.Should().ContainSingle();
+        achada[0].Sessoes.Should().Be(2, "é o MESMO critério do agrupamento da lista");
+        achada[0].UltimaSessao.Should().Be(Hoje.AddDays(-7));
+    }
+
+    /// <summary>
+    /// ⚠️ O TERMO DESCE PARA O SQL. A lista vem cortada no teto, e filtrar em memória o que
+    /// veio cortado faz a busca responder "não existe" para todo paciente além dele — a
+    /// resposta errada mais cara que uma busca de paciente pode dar, porque leva a
+    /// cadastrar a pessoa de novo (o CPF duplicado da parcela 57).
+    /// </summary>
+    [Fact]
+    public async Task A_busca_alcanca_alem_do_teto()
+    {
         for (var i = 0; i < 5; i++) await CriarPacienteAsync($"Ana {i:00}");
         var procurado = await CriarPacienteAsync("Zulmira Escondida");
 
-        var primeiraPagina = await _consultorio.MeusPacientesAsync(
-            profissionalId: null, limite: 3, comDor: false);
+        var primeiraPagina = await _consultorio.PacientesAsync(
+            termo: "a", limite: 3, comDor: false);
 
         primeiraPagina.Should().HaveCount(3);
         primeiraPagina.Should().NotContain(p => p.PacienteId == procurado,
             "ela está fora do teto — é exatamente o caso que o filtro de memória perderia");
 
-        var achada = await _consultorio.MeusPacientesAsync(
-            profissionalId: null, limite: 3, comDor: false, termo: "Zulmira");
-
-        achada.Should().ContainSingle(p => p.PacienteId == procurado);
-    }
-
-    /// <summary>
-    /// E o termo NÃO altera a carteira própria: ali quem filtra é a tela, em memória,
-    /// porque a lista tem teto e cabe nela — ir ao banco a cada tecla daria uma consulta
-    /// por letra digitada. A assimetria é declarada, e este teste a fixa.
-    /// </summary>
-    [Fact]
-    public async Task O_termo_nao_mexe_na_carteira_propria()
-    {
-        var ana = await CriarProfissionalAsync();
-        var paciente = await CriarPacienteAsync("Joana");
-        await AgendarAsync(paciente, ana, Hoje.AddDays(-7), 9);
-        await EscreverAsync(paciente, Hoje.AddDays(-7), ana, antes: 6, depois: 3);
-
-        (await _consultorio.MeusPacientesAsync(ana, termo: "nome que não existe"))
-            .Should().ContainSingle(p => p.PacienteId == paciente);
+        (await _consultorio.PacientesAsync(termo: "Zulmira", limite: 3, comDor: false))
+            .Should().ContainSingle(p => p.PacienteId == procurado);
     }
 
     // ---------------------------------------------------------------- avaliações

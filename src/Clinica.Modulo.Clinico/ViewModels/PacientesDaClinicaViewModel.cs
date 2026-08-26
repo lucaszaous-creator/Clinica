@@ -30,7 +30,7 @@ public sealed class LinhaPacienteClinico
     /// <summary>Dias sem vir a partir dos quais a linha ganha destaque.</summary>
     public const int DiasParaDestaque = 45;
 
-    public static LinhaPacienteClinico De(PacienteDoProfissional p, DateOnly hoje)
+    public static LinhaPacienteClinico De(PacienteDaCarteira p, DateOnly hoje)
     {
         var dias = p.DiasSemVir(hoje);
 
@@ -53,16 +53,25 @@ public sealed class LinhaPacienteClinico
 }
 
 /// <summary>
-/// A carteira do profissional: quem ele atende, quando veio pela última vez e como a dor
-/// está.
+/// A CARTEIRA DA CLÍNICA: quem vem se tratando aqui, quando veio pela última vez e como a
+/// dor está.
 ///
-/// É diferente da lista de pacientes da recepção, e a diferença não é cosmética. Lá a
-/// lista é de CADASTRO — todo mundo, ordenado por nome, com telefone e convênio, para
-/// achar quem ligou. Aqui é de TRATAMENTO — só quem este profissional atendeu, ordenado
-/// por quem veio por último, com a leitura da dor ao lado. Uma responde "quem é essa
-/// pessoa?", a outra "como está indo o tratamento dela?".
+/// ⚠️ Ela era "a carteira do profissional" e deixou de ser (parcela 88, 3ª rodada). A
+/// clínica disse a frase que apaga a premissa: <b>"não existe 'meu paciente', todos
+/// atendem todos"</b>. Enquanto a lista filtrava por dono, o paciente de PRIMEIRA
+/// CONSULTA, o do colega e o que o balcão acabou de cadastrar eram inalcançáveis daqui —
+/// e não havia segunda porta.
+///
+/// A autoria não se perdeu com isso: quem atendeu continua gravado no agendamento, quem
+/// escreveu assina a evolução, e "Meus números" continua medindo o trabalho de cada um. O
+/// que deixou de existir é a noção de DONO na lista de pacientes.
+///
+/// Ela continua diferente da lista da recepção, e a diferença não é cosmética. Lá a lista
+/// é de CADASTRO — ordenada por nome, com telefone e convênio, para achar quem ligou.
+/// Aqui é de TRATAMENTO — de quem veio por último ao mais antigo, com a leitura da dor ao
+/// lado. Uma responde "quem é essa pessoa?", a outra "como está indo o tratamento dela?".
 /// </summary>
-public sealed partial class MeusPacientesViewModel : ObservableObject
+public sealed partial class PacientesDaClinicaViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
 
@@ -84,70 +93,11 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
     [ObservableProperty] private bool _mensagemEhErro;
 
     /// <summary>
-    /// A carteira mostrada é a da CLÍNICA, e não a de uma pessoa. São dois caminhos
-    /// até aqui (ver <see cref="PostoClinico"/>): não haver cadastro vinculado, e não
-    /// haver agenda própria — que é o caso da enfermagem.
-    /// </summary>
-    [ObservableProperty] private bool _listaDaClinica;
-
-    /// <summary>POR QUE a lista é da clínica — a frase certa para cada motivo.</summary>
-    [ObservableProperty] private string? _motivoDaLista;
-
-    // ==================== Os dois modos da lista (parcela 88) ====================
-    //
-    // A cliente corrigiu o pedido da enfermagem para valer TAMBÉM para quem consulta:
-    // "ver todos os pacientes e clicar em atender". E o buraco era real e simétrico —
-    // `MeusPacientesAsync(profissionalId)` devolve só quem ELE já atendeu, então o
-    // paciente de primeira consulta, o do colega e o que o balcão acabou de cadastrar
-    // eram INALCANÇÁVEIS do Consultório: não havia segunda porta.
-    //
-    // ⚠️ A carteira dele CONTINUA sendo o padrão, e isso é decisão: "quem eu acompanho"
-    // é a pergunta que a tela responde todo dia, e trocá-la pela clínica inteira
-    // afogaria os pacientes dele no cadastro. O que faltava era o segundo clique.
-
-    /// <summary>Modo "carteira da clínica" — ligado pelo chip.</summary>
-    [ObservableProperty] private bool _mostrandoTodos;
-
-    /// <summary>
-    /// O irmão do chip acima. Os dois modos são EXCLUSIVOS, e o par existe para a régua
-    /// dizer qual está no ar ANTES do clique — dois botões iguais não dizem em qual dos
-    /// dois você está, e filtro esquecido respondendo "ninguém aqui" faz o profissional
-    /// concluir que a carteira dele está vazia.
-    /// </summary>
-    public bool MostrandoMinha => !MostrandoTodos;
-
-    /// <summary>
-    /// Os chips só EXISTEM para quem tem carteira própria. Sem vínculo — ou sendo
-    /// enfermagem, que não tem agenda própria — os dois modos mostrariam a MESMA lista, e
-    /// dois chips que fazem a mesma coisa são a pior espécie de filtro: a pessoa clica nos
-    /// dois para descobrir que não muda nada. Aí quem explica é <see cref="MotivoDaLista"/>.
-    /// </summary>
-    public bool TemCarteiraPropria => !ListaDaClinica;
-
-    partial void OnListaDaClinicaChanged(bool value)
-        => OnPropertyChanged(nameof(TemCarteiraPropria));
-
-    partial void OnMostrandoTodosChanged(bool value)
-    {
-        OnPropertyChanged(nameof(MostrandoMinha));
-        OnPropertyChanged(nameof(PlaceholderDaBusca));
-    }
-
-    /// <summary>
-    /// O que a busca faz NESTE modo — e a diferença não é enfeite: na carteira própria ela
-    /// filtra o que já está na tela; no modo "todos" ela vai ao BANCO e alcança o cadastro
-    /// inteiro, por nome OU CPF. Prometer "filtrar pelo nome" ali faria ninguém tentar o
-    /// CPF, que é justamente como se separa o homônimo.
-    /// </summary>
-    public string PlaceholderDaBusca => MostrandoTodos
-        ? "Buscar no cadastro da clínica — nome ou CPF"
-        : "Filtrar pelo nome";
-
-    /// <summary>
-    /// Agrupa as teclas da busca quando ela vai ao BANCO. É o mesmo atraso do
-    /// <c>SeletorPacienteViewModel</c>, e pela mesma razão: no modo "todos" o termo é
-    /// resolvido no SQL, e uma consulta por letra digitada é o que a carteira própria
-    /// evita filtrando em memória.
+    /// Agrupa as teclas da busca. É o mesmo atraso do <c>SeletorPacienteViewModel</c>, e
+    /// pela mesma razão: o termo é resolvido no SQL — a lista é o cadastro da clínica,
+    /// cortada no teto, e filtrar em memória o que veio cortado faria a busca responder
+    /// "não existe" para todo paciente além dele —, e uma consulta por letra digitada é o
+    /// que este atraso evita.
     /// </summary>
     private const int AtrasoDigitacaoMs = 300;
 
@@ -157,22 +107,17 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
     // `EntregaDoPaciente.AoPostoAsync`, no shell, que resolve o singleton por conta
     // própria e amarra o horário de hoje junto. Guardar aqui uma referência que ninguém
     // lê seria o defeito recorrente do projeto na versão mais barata de cometer.
-    public MeusPacientesViewModel(IServiceScopeFactory escopos)
+    public PacientesDaClinicaViewModel(IServiceScopeFactory escopos)
     {
         _escopos = escopos;
         _ = CarregarAsync();
     }
 
-    partial void OnTermoChanged(string value)
-    {
-        // ⚠️ Na carteira própria o filtro é em MEMÓRIA (ela tem teto e cabe na tela). Na
-        // da clínica ele tem de ir ao SQL: a lista já vem cortada no limite, e filtrar em
-        // memória o que veio cortado faz a busca responder "não existe" para todo paciente
-        // além do teto — que é a resposta errada mais cara que uma busca de paciente pode
-        // dar, porque leva a cadastrar a pessoa de novo (o CPF duplicado da parcela 57).
-        if (MostrandoTodos) _ = RebuscarAsync();
-        else Filtrar();
-    }
+    // ⚠️ A busca vai ao SQL, sempre. A lista é o cadastro da clínica cortado no teto, e
+    // filtrar em memória o que veio cortado faz a busca responder "não existe" para todo
+    // paciente além dele — a resposta errada mais cara que uma busca de paciente pode dar,
+    // porque leva a cadastrar a pessoa de novo (o CPF duplicado da parcela 57).
+    partial void OnTermoChanged(string value) => _ = RebuscarAsync();
 
     partial void OnSomenteSumidosChanged(bool value) => Filtrar();
 
@@ -195,20 +140,6 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private async Task MinhaCarteiraAsync()
-    {
-        MostrandoTodos = false;
-        await CarregarAsync();
-    }
-
-    [RelayCommand]
-    private async Task TodosAsync()
-    {
-        MostrandoTodos = true;
-        await CarregarAsync();
-    }
-
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 60): dois cliques no Atualizar largam
     /// duas leituras no ar, e num banco remoto a VELHA pode responder por último.
@@ -227,24 +158,16 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
 
-            // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
-            // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
-            // tela vazia justamente para quem está cadastrado certo.
-            var profissionalId = PostoClinico.ProfissionalDaLista();
-            ListaDaClinica = profissionalId is null;
-            MotivoDaLista = PostoClinico.MotivoDaListaAmpla();
-
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
             using var scope = _escopos.CreateScope();
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
 
-            // No modo "todos" o dono some da consulta e o TERMO desce para o SQL. Nulo
-            // dos dois lados é o mesmo caminho que a enfermagem já percorre.
-            var pacientes = MostrandoTodos
-                ? await consultorio.MeusPacientesAsync(
-                    profissionalId: null, termo: string.IsNullOrWhiteSpace(Termo) ? null : Termo)
-                : await consultorio.MeusPacientesAsync(profissionalId);
+            // UMA fonte, e ela é a da clínica: não existe "meu paciente". Sem termo, quem
+            // já foi atendido, do mais recente; com termo, o cadastro inteiro — é assim
+            // que a primeira consulta fica alcançável.
+            var pacientes = await consultorio.PacientesAsync(
+                termo: string.IsNullOrWhiteSpace(Termo) ? null : Termo);
             if (geracao != _geracaoCarga) return;
 
             // Clear e Adds JUNTOS, depois do await: entre um e outro a carteira ficaria
@@ -271,56 +194,98 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
         }
     }
 
-    /// <summary>Teto da carteira da clínica — o mesmo padrão do serviço.</summary>
-    private const int TetoDaClinica = 200;
+    /// <summary>Teto da carteira — o mesmo padrão do serviço.</summary>
+    private const int TetoDaCarteira = 200;
+
+    // ==================== O vazio tem DUAS perguntas (parcela 88, 3ª rodada) ============
+    //
+    // ⚠️ "não há ninguém em tratamento" e "esta busca não achou ninguém" são respostas
+    // diferentes, e a segunda passou a existir quando a busca deixou de filtrar a tela e
+    // passou a alcançar o CADASTRO INTEIRO. Responder "entra aqui quem já foi atendido" a
+    // quem digitou um nome faria a pessoa concluir que o paciente EXISTE e só não foi
+    // atendido — quando o que o sistema está dizendo é que ele não está cadastrado. E é
+    // essa leitura errada que leva a cadastrar alguém que já tem ficha (parcela 57).
+
+    [ObservableProperty] private string _tituloVazio = "Nenhum paciente em tratamento";
+
+    [ObservableProperty] private string _descricaoVazio =
+        "Entra aqui quem a clínica já atendeu: o horário precisa ter tido a presença "
+        + "confirmada na recepção. Busque pelo nome ou CPF para alcançar quem ainda não veio.";
 
     /// <summary>
-    /// Na carteira PRÓPRIA o filtro roda em memória sobre o que já veio: ela tem teto e
-    /// cabe na tela, e ir ao banco a cada tecla daria uma consulta por letra digitada.
+    /// Publica a lista. O TERMO já foi resolvido no SQL — o que sobra em memória é o
+    /// recorte de "sumidos", que é sobre o que já veio.
     ///
-    /// ⚠️ No modo "todos" o termo JÁ foi resolvido no SQL, e refiltrar por nome aqui
-    /// derrubaria a busca por CPF — o servidor casa nome OU documento, e o filtro de
-    /// memória só conhece o nome. Achar a pessoa pelo CPF e vê-la sumir da lista é a
-    /// espécie de defeito que leva a cadastrar o paciente de novo.
+    /// ⚠️ Refiltrar o termo aqui derrubaria a busca por CPF: o servidor casa nome OU
+    /// documento, e um filtro de nome em memória só conhece o nome. Achar a pessoa pelo
+    /// CPF e vê-la SUMIR da lista é a espécie de defeito que leva a cadastrar o paciente
+    /// de novo.
     ///
-    /// A lista filtrada DIZ que está filtrada, como no resto do projeto — "8 pacientes"
-    /// sozinho faria o profissional concluir que atende oito pessoas.
+    /// A lista DIZ o que está mostrando, como no resto do projeto — "8 pacientes" sozinho
+    /// faria o profissional concluir que a clínica atende oito pessoas.
     /// </summary>
     private void Filtrar()
     {
-        var termo = Termo.Trim();
-        var filtrarPorNome = !MostrandoTodos && termo.Length > 0;
-
         // Entre o Clear() e o último Add não pode haver await — aqui não há nenhum, e a
         // montagem é síncrona de propósito.
         Pacientes.Clear();
         foreach (var p in _todos)
         {
             if (SomenteSumidos && !p.Sumido) continue;
-            if (filtrarPorNome && !p.Nome.Contains(termo, StringComparison.OrdinalIgnoreCase))
-                continue;
             Pacientes.Add(p);
         }
 
-        if (MostrandoTodos)
+        var termo = Termo.Trim();
+
+        // ⚠️ TRÊS vazios, não um. Quando a busca TROUXE gente e o "só quem sumiu" a
+        // escondeu, dizer "não achou ninguém no cadastro" seria mentir sobre a causa — e
+        // mandaria cadastrar de novo alguém que a tela acabou de achar. Quem esconde
+        // responde por si (a regra de "um estado vazio por pergunta", parcela 37).
+        if (_todos.Count > 0 && Pacientes.Count == 0)
         {
-            // ⚠️ O teto é DITO. Uma lista cortada em 200 que se anuncia como "todos os
-            // pacientes" faz quem não achou alguém concluir que ele não está cadastrado —
-            // corte silencioso é a regra que este projeto recusa desde sempre.
-            var cortada = _todos.Count >= TetoDaClinica;
-            Resumo = termo.Length > 0
-                ? $"Busca “{termo}” — {Pacientes.Count} paciente(s) do cadastro da clínica."
-                : $"Todos os pacientes — {Pacientes.Count} em ordem de nome"
-                  + (cortada
-                      ? $", que é o teto desta tela. Busque pelo nome ou CPF para alcançar quem está fora."
-                      : ".");
+            TituloVazio = "Ninguém está sem vir há mais tempo";
+            DescricaoVazio =
+                $"Os {_todos.Count} paciente(s) desta lista vieram nos últimos "
+                + $"{LinhaPacienteClinico.DiasParaDestaque} dias. Desmarque "
+                + "“Só quem sumiu” para ver todos.";
+        }
+        else if (termo.Length > 0)
+        {
+            TituloVazio = "Ninguém com esse nome ou CPF";
+            DescricaoVazio =
+                $"A busca “{termo}” não achou ninguém no cadastro da clínica — nem entre "
+                + "quem já veio, nem entre quem ainda não veio. Confira a grafia antes de "
+                + "cadastrar de novo: ficha repetida parte o histórico do paciente em duas.";
+        }
+        else
+        {
+            TituloVazio = "Nenhum paciente em tratamento";
+            DescricaoVazio =
+                "Entra aqui quem a clínica já atendeu: o horário precisa ter tido a presença "
+                + "confirmada na recepção. Busque pelo nome ou CPF para alcançar quem ainda "
+                + "não veio.";
+        }
+
+        if (termo.Length > 0)
+        {
+            Resumo = $"Busca “{termo}” — {Pacientes.Count} paciente(s) no cadastro da clínica."
+                     + (SomenteSumidos ? " Só quem está sem vir há mais tempo." : string.Empty);
             return;
         }
 
-        var filtrado = termo.Length > 0 || SomenteSumidos;
-        Resumo = filtrado
-            ? $"{Pacientes.Count} de {_todos.Count} paciente(s) na sua carteira."
-            : $"{_todos.Count} paciente(s) na sua carteira, do que veio por último ao mais antigo.";
+        // ⚠️ O teto é DITO. Uma lista cortada que se anuncia como a carteira inteira faz
+        // quem não achou alguém concluir que ele não está cadastrado — corte silencioso é
+        // o que este projeto recusa desde sempre.
+        var cortada = _todos.Count >= TetoDaCarteira;
+
+        var quantos = SomenteSumidos
+            ? $"{Pacientes.Count} de {_todos.Count} paciente(s), só quem está sem vir há mais tempo"
+            : $"{_todos.Count} paciente(s) atendidos na clínica, do que veio por último ao mais antigo";
+
+        Resumo = cortada
+            ? quantos + $" — os {TetoDaCarteira} mais recentes, que é o teto desta tela. "
+              + "Busque pelo nome ou CPF para alcançar quem está fora, inclusive quem nunca veio."
+            : quantos + ".";
     }
 
     /// <summary>

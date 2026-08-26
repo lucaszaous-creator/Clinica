@@ -20,7 +20,7 @@ namespace Clinica.Tests;
 /// ele é do tipo mais caro que este projeto conhece — <b>nada falha</b>:
 ///
 /// <list type="number">
-///   <item>As cinco telas de lista do Consultório filtram por <c>ProfissionalId</c>.</item>
+///   <item>As telas de lista do Consultório filtravam por <c>ProfissionalId</c>.</item>
 ///   <item>A enfermeira PRECISA de um <c>Profissional</c> vinculado, porque é dele que sai
 ///   o COREN copiado em cada registro (parcela 72).</item>
 ///   <item>Os horários pertencem a quem CONSULTA — a enfermagem não tem agenda própria.</item>
@@ -29,7 +29,13 @@ namespace Clinica.Tests;
 /// Somados: cadastrá-la CERTO fazia o dia, a semana e a carteira dela abrirem VAZIOS. E
 /// tela vazia se lê como sistema quebrado, não como "esta lista não é sua".
 ///
-/// ⚠️ O teste que carrega o arquivo é <see cref="A_carteira_da_enfermeira_e_a_da_clinica_e_a_do_medico_nao_e"/>:
+/// ⚠️ <b>A carteira deixou de existir como recorte.</b> A direção fechou o assunto —
+/// <i>"não existe 'meu paciente', todos atendem todos"</i> —, e a lista de pacientes é a
+/// da CLÍNICA para todo mundo, sem parâmetro de profissional nenhum. O que continua
+/// recortado é a AGENDA, que é fato de marcação: o horário tem dono, e é por isso que o
+/// posto ainda decide o dia, a semana e a dívida de prontuário.
+///
+/// ⚠️ O teste que carrega o arquivo é <see cref="O_dia_da_enfermeira_e_o_da_clinica_inteira"/>:
 /// ele compara OS DOIS LADOS contra o serviço de verdade, e não só o predicado. É a lição
 /// da parcela 64 — quando o mesmo ato existe em dois lugares, o teste que falta é o que
 /// compara os dois, e não o que prova que o lado recém-arrumado funciona.
@@ -172,38 +178,24 @@ public class PostoDaEnfermagemTests : IDisposable
     // =====================================================================
 
     /// <summary>
-    /// O teste que carrega o arquivo. Ele monta a clínica real — um paciente atendido pelo
-    /// MÉDICO — e pergunta a carteira das duas maneiras.
+    /// A lista de pacientes é a da CLÍNICA — para a enfermeira e para o médico, com o
+    /// MESMO método e sem parâmetro de profissional.
     ///
-    /// ⚠️ Provar só o predicado deixaria passar o defeito: ele estava no CASAMENTO entre a
-    /// regra ("a enfermagem passa por todos") e o filtro do serviço ("os pacientes deste
-    /// profissional"). Elo partido aqui não vira erro — vira LISTA VAZIA, indistinguível
-    /// de uma clínica sem movimento.
+    /// ⚠️ Este teste era o oposto disto até a direção fechar o assunto: ele provava que o
+    /// posto da enfermagem alargava a carteira DELA. Não há mais o que alargar, e a
+    /// asserção que ficou é a que impede o recorte de voltar pela porta de trás — se
+    /// alguém devolver um filtro por profissional ao serviço, o paciente do médico some
+    /// da lista de quem não é ele, e sumir não estoura nada.
     /// </summary>
     [Fact]
-    public async Task A_carteira_da_enfermeira_e_a_da_clinica_e_a_do_medico_nao_e()
+    public async Task A_lista_de_pacientes_e_a_da_clinica_para_os_dois_lados()
     {
-        var (pacienteId, medicoId, enfermeiraId) = await ClinicaComUmAtendimentoAsync();
+        var (pacienteId, _, _) = await ClinicaComUmAtendimentoAsync();
 
-        // O médico: a carteira é a dele, e o paciente está nela.
-        var doMedico = await _consultorio.MeusPacientesAsync(
-            PerfisAcesso.ProfissionalDaListaDoPosto(
-                PerfisAcesso.Padrao(PerfilAcesso.Profissional), medicoId));
+        var lista = await _consultorio.PacientesAsync();
 
-        doMedico.Should().ContainSingle(p => p.PacienteId == pacienteId);
-
-        // ⚠️ O DEFEITO: filtrar pela enfermeira devolve VAZIO, porque o horário é do médico.
-        // Esta linha é o "antes" — ela documenta por que a tela dela abria em branco.
-        (await _consultorio.MeusPacientesAsync(enfermeiraId))
-            .Should().BeEmpty("o horário é do médico — a enfermeira não é dona de nenhum");
-
-        // A CORREÇÃO: o posto dela é a clínica, e o paciente aparece.
-        var daEnfermeira = await _consultorio.MeusPacientesAsync(
-            PerfisAcesso.ProfissionalDaListaDoPosto(
-                PerfisAcesso.Padrao(PerfilAcesso.Enfermagem), enfermeiraId));
-
-        daEnfermeira.Should().ContainSingle(p => p.PacienteId == pacienteId,
-            "todo paciente passa pela enfermagem");
+        lista.Should().ContainSingle(p => p.PacienteId == pacienteId,
+            "não existe \"meu paciente\" — quem abre a lista vê a clínica");
     }
 
     /// <summary>

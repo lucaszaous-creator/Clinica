@@ -43,7 +43,7 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveEvolucaoDor = "consultorio-evolucao-dor";
     public const string ChaveMedidas = "consultorio-medidas";
     public const string ChaveAvaliacoes = "consultorio-avaliacoes";
-    public const string ChaveMeusPacientes = ChavesSuite.ConsultorioPacientes;
+    public const string ChavePacientesDaClinica = ChavesSuite.ConsultorioPacientes;
 
     /// <summary>
     /// A dívida de prontuário. É tela, e não um bloco do "Meu dia", porque numa base real
@@ -150,7 +150,11 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveMeusPacientes, Rotulo = "Meus pacientes", Glifo = "\uE77B",
+            // "Meus pacientes" morreu com a premissa (parcela 88, 3ª rodada): não existe
+            // "meu paciente", todos atendem todos. A CHAVE não muda — ela é contrato de
+            // navegação de outros módulos, e renomeá-la para arrumar rótulo quebraria o
+            // que funciona lá (a regressão da parcela 37, 4ª rodada).
+            Chave = ChavePacientesDaClinica, Rotulo = "Pacientes", Glifo = "\uE77B",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
@@ -315,7 +319,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<AvaliacoesViewModel>();
         servicos.AddTransient<AnamneseViewModel>();
         servicos.AddTransient<AnexosPacienteViewModel>();
-        servicos.AddTransient<MeusPacientesViewModel>();
+        servicos.AddTransient<PacientesDaClinicaViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
         // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e
         // EscolherCertificadoViewModel são construídos à mão pela tela: eles recebem o
@@ -326,7 +330,7 @@ public sealed class ModuloClinico : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
-        ChaveMeusPacientes => new MeusPacientesView { DataContext = servicos.GetRequiredService<MeusPacientesViewModel>() },
+        ChavePacientesDaClinica => new PacientesDaClinicaView { DataContext = servicos.GetRequiredService<PacientesDaClinicaViewModel>() },
         ChaveRegistrosPendentes => new RegistrosPendentesView
         {
             DataContext = servicos.GetRequiredService<RegistrosPendentesViewModel>()

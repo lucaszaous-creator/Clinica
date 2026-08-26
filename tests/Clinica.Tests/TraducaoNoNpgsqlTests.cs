@@ -128,6 +128,36 @@ public class TraducaoNoNpgsqlTests
             + "pelo relationship fixup do EF num DbContext compartilhado (parcela 68)");
     }
 
+    [Fact]
+    public void Sessoes_dos_pacientes_em_LOTE_traduzem()
+    {
+        using var db = Postgres();
+
+        // O enriquecimento da BUSCA da carteira (parcela 88, 3ª rodada). Ele soma três
+        // coisas que o SQLite aceita de olhos fechados e o Npgsql pode não aceitar: um
+        // `Contains` sobre a lista de ids, um `GroupBy` por coluna e duas agregações.
+        int[] ids = [1, 2, 3];
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId)
+                        && a.Status == Clinica.Domain.Entities.StatusAgendamento.Realizado)
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new
+            {
+                PacienteId = g.Key,
+                Ultima = g.Max(a => a.DataHora),
+                Sessoes = g.Count()
+            })
+            .ToQueryString();
+
+        sql.Should().Contain("max(").And.Contain("count(");
+
+        // ⚠️ E o agrupamento tem de acontecer no BANCO. Materializar os agendamentos para
+        // contar em memória traria milhares de linhas de uma clínica com dois anos de casa
+        // para produzir uma linha por paciente — o custo que a parcela 69 já pagou uma vez.
+        sql.Should().Contain("GROUP BY");
+    }
+
     /// <summary>
     /// ⚠️ O AUTOTESTE DA REDE — ela precisa ter dentes.
     ///

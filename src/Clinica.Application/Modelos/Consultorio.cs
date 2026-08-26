@@ -178,10 +178,15 @@ public sealed record RegistroPendente(
 }
 
 /// <summary>
-/// Um paciente na lista de quem o profissional atende, com o que ele precisa saber ANTES
-/// de abrir o prontuário: quando veio pela última vez e como a dor estava.
+/// Um paciente na carteira da CLÍNICA, com a leitura do tratamento pronta.
+///
+/// ⚠️ Ele se chamava <c>PacienteDoProfissional</c> (parcela 88, 3ª rodada). A clínica disse
+/// a frase que apaga a premissa: <b>"não existe 'meu paciente', todos atendem todos"</b>.
+/// A autoria não se perdeu — quem atendeu está no agendamento e quem escreveu assina a
+/// evolução —; o que deixou de existir é a noção de DONO na lista de pacientes, e o nome
+/// do tipo tinha de deixar de afirmá-la.
 /// </summary>
-public sealed record PacienteDoProfissional(
+public sealed record PacienteDaCarteira(
     int PacienteId,
     string Nome,
     DateOnly? UltimaSessao,
