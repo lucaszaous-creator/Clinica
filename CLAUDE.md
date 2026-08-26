@@ -5993,3 +5993,40 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   NESTA passagem, ou o que estou vendo é de outro dia?").
   A regra que fica: **antes de escrever um comentário que promete um vínculo, procure quem
   o LÊ.** Se ninguém lê, ou se constrói o leitor, ou a frase muda.
+
+- **A MESMA lacuna do lado de quem CONSULTA — e a lista da clínica é o segundo clique, não
+  o padrão** (parcela 88, 2ª rodada; a cliente corrigiu: *"a tarefa acima se refere a
+  enfermeiros e médicos também, eu mencionei somente enfermeiros"*).
+  `MeusPacientesAsync(profissionalId)` devolve só quem ELE já atendeu, então o paciente de
+  **primeira consulta**, o do **colega** que ele cobre e o que o **balcão acabou de
+  cadastrar** eram INALCANÇÁVEIS do Consultório — não havia segunda porta, e a busca da
+  tela filtra em memória o que já veio. "Meus pacientes" ganhou os mesmos dois chips
+  exclusivos da tela da Enfermagem.
+  ⚠️ **A carteira dele continua sendo o PADRÃO**: "quem eu acompanho" é a pergunta que a
+  tela responde todo dia, e trocá-la pela clínica inteira afogaria os pacientes dele no
+  cadastro. O pedido era o segundo clique, não a troca do primeiro.
+  ⚠️ **Busca sobre lista CORTADA tem de ir ao SQL.** No modo "todos" a lista vem com teto, e
+  filtrar em memória o que veio cortado faz a busca responder *"não existe"* para todo
+  paciente além dele. É a resposta errada mais cara que uma busca de paciente pode dar,
+  porque leva a **cadastrar a pessoa de novo** — o CPF duplicado da parcela 57 pela porta
+  de trás. O termo desceu para `MeusPacientesAsync(..., termo:)` (que casa nome OU CPF),
+  com o agrupamento de teclas do `SeletorPacienteViewModel`, e o **teto é DITO** na frase
+  do resumo: lista cortada que se anuncia como "todos os pacientes" é corte silencioso.
+  ⚠️ **Filtro de memória sobre resultado de servidor DERRUBA o que o servidor casou a mais.**
+  O SQL casa nome OU documento; o filtro em memória só conhece o nome. Refiltrar depois
+  faria a pessoa achar o paciente pelo CPF e vê-lo SUMIR da lista.
+  ⚠️ **Chip que não muda nada é pior que chip nenhum**: para quem não tem carteira própria
+  (sem vínculo, ou a enfermagem) os dois modos mostram a MESMA lista, então eles SOMEM e
+  quem explica é a linha de motivo.
+  ⚠️ **E a porta nova mudou o que a porta VELHA precisava fazer.** Abrir pela carteira
+  fixava só id e nome — aceitável enquanto a lista era só dele, porque o caminho normal é
+  "Meu dia", que já traz o agendamento. Com a lista alcançando a clínica, ela virou o
+  caminho de quem cobre o colega, e sem o vínculo a evolução nasce SOLTA: a sessão fica em
+  "Sessões sem evolução" para sempre, mesmo depois de escrita.
+  `EntregaDoPaciente.AoPostoAsync` (shell) virou o ponto único que a Enfermagem e a carteira
+  compartilham — e as TRÊS portas da linha (Atender, Dor, Avaliações) passam por ele,
+  porque as três caem na mesma tela e o rail troca de seção sem trocar de paciente: se só
+  uma amarrasse, bastaria entrar por outra para gravar solto.
+  A lição que generaliza: **ao ALARGAR o alcance de uma lista, releia o que o clique dela
+  faz.** O que era suficiente para um recorte estreito costuma deixar de ser quando o
+  recorte cresce — e o que falha não é a porta nova, é a velha.

@@ -279,6 +279,80 @@ public class ConsultorioTests : IDisposable
         (await _consultorio.MeusPacientesAsync(ana)).Should().BeEmpty();
     }
 
+    /// <summary>
+    /// ⚠️ O BURACO SIMÉTRICO AO DA ENFERMAGEM (parcela 88). A carteira do profissional traz
+    /// só quem ELE já atendeu — então o paciente de PRIMEIRA CONSULTA, o do colega e o que
+    /// o balcão acabou de cadastrar eram inalcançáveis do Consultório: não havia segunda
+    /// porta. A cliente estendeu a quem consulta o pedido que fez para a enfermagem — "ver
+    /// todos os pacientes e clicar em atender" —, e é este caminho que o atende.
+    /// </summary>
+    [Fact]
+    public async Task A_carteira_da_CLINICA_alcanca_quem_o_profissional_nunca_atendeu()
+    {
+        var ana = await CriarProfissionalAsync();
+        var meu = await CriarPacienteAsync("Joana Atendida");
+        await AgendarAsync(meu, ana, Hoje.AddDays(-7), 9);
+        await EscreverAsync(meu, Hoje.AddDays(-7), ana, antes: 6, depois: 3);
+
+        // Nunca atendido por ninguém — o caso da primeira consulta.
+        var novo = await CriarPacienteAsync("Pedro Primeira Consulta");
+
+        (await _consultorio.MeusPacientesAsync(ana))
+            .Should().ContainSingle(p => p.PacienteId == meu,
+                "a carteira dele é a de quem ele atendeu — e isso não muda");
+
+        var daClinica = await _consultorio.MeusPacientesAsync(profissionalId: null);
+
+        daClinica.Should().Contain(p => p.PacienteId == novo,
+            "é o segundo clique que torna o paciente de primeira consulta alcançável");
+        daClinica.Should().Contain(p => p.PacienteId == meu);
+    }
+
+    /// <summary>
+    /// ⚠️ O TERMO PRECISA DESCER PARA O SQL na carteira da clínica. Ela é o cadastro
+    /// inteiro cortado no limite, e filtrar em memória o que já veio cortado faz a busca
+    /// responder "não existe" para todo paciente além do teto — que é a resposta errada
+    /// mais cara que uma busca de paciente pode dar, porque leva a cadastrar a pessoa de
+    /// novo (o CPF duplicado da parcela 57).
+    /// </summary>
+    [Fact]
+    public async Task A_busca_da_carteira_da_clinica_alcanca_alem_do_teto()
+    {
+        // Mais gente do que o limite pedido, e o procurado FORA da primeira página: em
+        // ordem de nome, "Zulmira" é a última.
+        for (var i = 0; i < 5; i++) await CriarPacienteAsync($"Ana {i:00}");
+        var procurado = await CriarPacienteAsync("Zulmira Escondida");
+
+        var primeiraPagina = await _consultorio.MeusPacientesAsync(
+            profissionalId: null, limite: 3, comDor: false);
+
+        primeiraPagina.Should().HaveCount(3);
+        primeiraPagina.Should().NotContain(p => p.PacienteId == procurado,
+            "ela está fora do teto — é exatamente o caso que o filtro de memória perderia");
+
+        var achada = await _consultorio.MeusPacientesAsync(
+            profissionalId: null, limite: 3, comDor: false, termo: "Zulmira");
+
+        achada.Should().ContainSingle(p => p.PacienteId == procurado);
+    }
+
+    /// <summary>
+    /// E o termo NÃO altera a carteira própria: ali quem filtra é a tela, em memória,
+    /// porque a lista tem teto e cabe nela — ir ao banco a cada tecla daria uma consulta
+    /// por letra digitada. A assimetria é declarada, e este teste a fixa.
+    /// </summary>
+    [Fact]
+    public async Task O_termo_nao_mexe_na_carteira_propria()
+    {
+        var ana = await CriarProfissionalAsync();
+        var paciente = await CriarPacienteAsync("Joana");
+        await AgendarAsync(paciente, ana, Hoje.AddDays(-7), 9);
+        await EscreverAsync(paciente, Hoje.AddDays(-7), ana, antes: 6, depois: 3);
+
+        (await _consultorio.MeusPacientesAsync(ana, termo: "nome que não existe"))
+            .Should().ContainSingle(p => p.PacienteId == paciente);
+    }
+
     // ---------------------------------------------------------------- avaliações
 
     [Fact]

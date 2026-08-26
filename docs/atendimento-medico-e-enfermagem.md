@@ -462,11 +462,64 @@ definições de "o que falta executar hoje" divergiriam na primeira correção.
   `Height` fixo) e cada uma rola por dentro — mas numa janela muito baixa, com a consulta
   aberta, elas encolhem antes de tudo. É a família da checagem 36.
 
-### 13.6 Como conferir
+### 13.6 A correção: vale para MÉDICOS também
+
+A cliente voltou logo depois: *"a tarefa acima se refere a enfermeiros e médicos também, eu
+mencionei somente enfermeiros"*. E o buraco do lado de quem consulta era **simétrico e
+real**: `MeusPacientesAsync(profissionalId)` devolve só quem **ele** já atendeu, então
+
+- o paciente de **primeira consulta**,
+- o do **colega** que ele está cobrindo,
+- e o que o **balcão acabou de cadastrar**
+
+eram **inalcançáveis do Consultório**. Não havia segunda porta: a busca da tela filtra em
+memória o que já veio, e o que veio era a carteira dele.
+
+**"Meus pacientes" ganhou os mesmos dois chips exclusivos da tela da Enfermagem:**
+
+| Chip | O que traz |
+|---|---|
+| **Meus pacientes** (padrão) | quem ele atendeu, do que veio por último ao mais antigo |
+| **Todos os pacientes** | o cadastro da clínica, em ordem de nome |
+
+⚠️ **A carteira dele continua sendo o PADRÃO**, e é decisão: *"quem eu acompanho"* é a
+pergunta que a tela responde todo dia, e trocá-la pela clínica inteira afogaria os pacientes
+dele no cadastro. O que faltava era o segundo clique.
+
+⚠️ **No modo "todos" a busca vai ao SQL, não à memória.** A lista já vem cortada no teto
+(200), e filtrar em memória o que veio cortado faz a busca responder *"não existe"* para todo
+paciente além dele — a resposta errada mais cara que uma busca de paciente pode dar, porque
+leva a **cadastrar a pessoa de novo** (o CPF duplicado da parcela 57). O termo desce para
+`MeusPacientesAsync(..., termo:)`, com o agrupamento de teclas do
+`SeletorPacienteViewModel`, e a busca passa a casar **nome OU CPF** — por isso o
+*placeholder* muda com o modo. **E o teto é DITO**: uma lista cortada que se anuncia como
+"todos os pacientes" é corte silencioso.
+
+⚠️ **Os chips SOMEM para quem não tem carteira própria** (sem vínculo, ou a enfermagem, que
+não tem agenda própria): ali os dois modos mostrariam a MESMA lista, e dois chips que fazem
+a mesma coisa levam a pessoa a clicar nos dois para descobrir que não muda nada. Quem
+explica, nesse caso, é a linha de motivo.
+
+**E abrir pela carteira passou a amarrar o horário de hoje.** Isso era aceitável enquanto a
+lista era só a dele — o caminho normal é "Meu dia", que já traz o agendamento. Com a lista
+alcançando a clínica, ela virou o caminho de quem cobre o colega, e sem o vínculo a evolução
+nasceria **solta**: a sessão ficaria em *"Sessões sem evolução"* para sempre, mesmo depois de
+escrita. `EntregaDoPaciente.AoPostoAsync` (shell) é o ponto único que a Enfermagem e a
+carteira compartilham — e as **três** portas da linha (Atender, Dor, Avaliações) passam por
+ele, porque as três caem na mesma tela e o rail troca de seção sem trocar de paciente.
+
+**O que NÃO mudou, e por quê:** "Meu dia", "Minha semana" e "Meus números" continuam sendo
+DELE. A agenda é dele, e `PodeChamarProximo` depende disso — no modo "clínica inteira" o
+primeiro da fila pode ser paciente de outro profissional, e o clique cego anunciaria um nome
+para a sala do colega. O pedido era **ver todos os pacientes**, e o lugar disso é a lista de
+pacientes.
+
+### 13.7 Como conferir
 
 ```bash
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~PostoDaEnfermagem"
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ProcessoDeEnfermagem"
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ConsultorioTests"
 ```
 
 `PostoDaEnfermagemTests.A_carteira_da_enfermeira_e_a_da_clinica_e_a_do_medico_nao_e` é o que

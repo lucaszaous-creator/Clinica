@@ -37,9 +37,41 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <!-- ===================== OS DOIS MODOS DA LISTA (parcela 88) =====================
+             A cliente estendeu a quem consulta o pedido que fez para a enfermagem: "ver
+             todos os pacientes e clicar em atender". O buraco era simétrico e real — a
+             carteira só traz quem ELE já atendeu, então o paciente de primeira consulta, o
+             do colega e o que o balcão acabou de cadastrar eram INALCANÇÁVEIS daqui.
+
+             ⚠️ Chips, e não dois botões iguais: o marcado é a régua que diz qual recorte
+             está no ar. Dois botões não dizem em qual dos dois você está, e uma lista
+             vazia com o filtro esquecido se lê como carteira vazia.
+
+             ⚠️ Eles SOMEM para quem não tem carteira própria (sem vínculo, ou enfermagem,
+             que não tem agenda própria): ali os dois modos mostrariam a MESMA lista, e dois
+             chips que fazem a mesma coisa fazem a pessoa clicar nos dois para descobrir
+             que não muda nada. Quem explica, nesse caso, é a linha de motivo acima. -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8"
+                    Visibility="{Binding TemCarteiraPropria, Converter={StaticResource BoolParaVisibilidade}}">
+            <ToggleButton Content="Meus pacientes" MinWidth="130"
+                          Style="{StaticResource ChipFiltro}"
+                          IsChecked="{Binding MostrandoMinha, Mode=OneWay}"
+                          ToolTip="Quem você já atendeu, do que veio por último ao mais antigo."
+                          Command="{Binding MinhaCarteiraCommand}" />
+            <ToggleButton Content="Todos os pacientes" MinWidth="150"
+                          Style="{StaticResource ChipFiltro}"
+                          IsChecked="{Binding MostrandoTodos, Mode=OneWay}"
+                          ToolTip="O cadastro da clínica inteira — para atender o paciente de primeira consulta, o do colega ou quem o balcão acabou de cadastrar."
+                          Command="{Binding TodosCommand}" />
+        </StackPanel>
+
+        <!-- ⚠️ O placeholder muda com o modo, e não é enfeite: na carteira própria a busca
+             filtra o que já está na tela; no modo "todos" ela vai ao BANCO e alcança o
+             cadastro inteiro, por nome OU CPF. Prometer "filtrar pelo nome" ali faria
+             ninguém tentar o CPF, que é justamente como se acha o homônimo. -->
         <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}" Margin="0,0,0,8"
                  Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                 ctrl:Ajudantes.Placeholder="Filtrar pelo nome" />
+                 ctrl:Ajudantes.Placeholder="{Binding PlaceholderDaBusca}" />
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
                    TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12" />

@@ -198,14 +198,26 @@ public sealed class ConsultorioService
     /// abrir o prontuário de ninguém, que é a pergunta do profissional antes de chamar o
     /// próximo.
     /// </summary>
+    /// <param name="termo">
+    /// Busca por nome ou CPF — só tem efeito na CARTEIRA DA CLÍNICA
+    /// (<paramref name="profissionalId"/> nulo), e a assimetria é o ponto (parcela 88).
+    ///
+    /// ⚠️ A carteira de UMA pessoa tem teto e cabe na tela, então quem a filtra é a
+    /// ViewModel, em memória — ir ao banco a cada tecla daria uma consulta por letra. A da
+    /// CLÍNICA não cabe: ela é o cadastro inteiro, cortado no <paramref name="limite"/>, e
+    /// filtrar em memória o que já veio cortado faz a busca responder "não existe" para
+    /// todo paciente além do teto. Aí o corte precisa ir para o SQL junto com o termo.
+    /// </param>
     public async Task<IReadOnlyList<PacienteDoProfissional>> MeusPacientesAsync(
-        int? profissionalId, int limite = 200, bool comDor = true, CancellationToken ct = default)
+        int? profissionalId, int limite = 200, bool comDor = true,
+        string? termo = null, CancellationToken ct = default)
     {
         // Sem profissional vinculado, a carteira é a da clínica: o consultório continua
-        // servindo (residente, profissional recém-cadastrado), só não filtra por dono.
+        // servindo (residente, profissional recém-cadastrado, enfermagem — que não tem
+        // agenda própria), só não filtra por dono.
         var pacientes = profissionalId is { } id
             ? await _repo.PacientesDoProfissionalAsync(id, limite, ct)
-            : (await _repo.BuscarPacientesAsync(null, limite, ct))
+            : (await _repo.BuscarPacientesAsync(termo, limite, ct))
                 .Select(p => new PacienteDoProfissional(p.Id, p.Nome, null, 0))
                 .ToList();
 

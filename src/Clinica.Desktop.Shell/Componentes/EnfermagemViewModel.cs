@@ -387,7 +387,8 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         // um clique que não faz nada, sem uma linha no log.
         try
         {
-            var foco = await PrepararFocoAsync(paciente);
+            var foco = await EntregaDoPaciente.AoPostoAsync(
+                _escopos, paciente.Id, paciente.Nome);
 
             // O foco é SINGLETON e é registrado pelo módulo Clínico. Sem ele não há para
             // onde entregar o paciente — e navegar assim abriria a tela clínica com o
@@ -405,56 +406,6 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
-    }
-
-    /// <summary>
-    /// Entrega o paciente ao posto clínico, com o HORÁRIO de hoje quando há um — é esse
-    /// vínculo que faz a passagem nascer ligada à sessão.
-    /// </summary>
-    /// <returns><c>false</c> quando não há posto clínico neste executável.</returns>
-    private async Task<bool> PrepararFocoAsync(Paciente paciente)
-    {
-        using var scope = _escopos.CreateScope();
-
-        var foco = scope.ServiceProvider.GetService<PacienteEmFoco>();
-        if (foco is null) return false;
-
-        try
-        {
-            var hoje = DateOnly.FromDateTime(DateTime.Today);
-            var agenda = await scope.ServiceProvider
-                .GetRequiredService<AgendaService>().DoDiaAsync(hoje);
-
-            // O horário DESTE paciente hoje. Quem já está na sala VENCE: com duas sessões
-            // no mesmo dia (a da manhã e a da tarde), a passagem pertence à que está
-            // acontecendo — presumir a primeira ligaria o registro à sessão errada, e a
-            // marca "desta sessão" da lista passaria a apontar para a outra.
-            var doPaciente = agenda
-                .Where(a => a.PacienteId == paciente.Id
-                            && a.Status != StatusAgendamento.Cancelado)
-                .OrderBy(a => a.DataHora)
-                .ToList();
-
-            var horario = doPaciente.FirstOrDefault(
-                              a => a.InicioAtendimentoEm is not null && a.FimAtendimentoEm is null)
-                          ?? doPaciente.FirstOrDefault();
-
-            foco.Definir(
-                paciente.Id, paciente.Nome, horario?.Id, horario?.AtendimentoId,
-                horario is null ? null : DateOnly.FromDateTime(horario.DataHora));
-        }
-        catch (Exception ex)
-        {
-            // ⚠️ Degradar deixa rastro, e o paciente é aberto DE QUALQUER FORMA: não achar
-            // o horário de hoje não pode impedir alguém de registrar o que observou. O
-            // registro apenas não fica ligado à sessão — e a tela de lá diz isso, na linha
-            // de contexto do compositor.
-            Diagnostico.Registrar(
-                "Enfermagem — horário de hoje do paciente não pôde ser lido", ex);
-            foco.Definir(paciente.Id, paciente.Nome);
-        }
-
-        return true;
     }
 
     /// <summary>
