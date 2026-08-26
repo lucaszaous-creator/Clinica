@@ -6125,3 +6125,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A lição de método: **duplicação que ninguém pagou só cobra na primeira correção de
   verdade** — e a hora de pagá-la é justamente essa, e não "depois", porque depois quer dizer
   com uma das duas já divergente.
+\n
+
+- **Tag de tipo da casa SEM PREFIXO: a terceira variante da família, e a que as duas
+  checagens não viam** (parcela 88, 4ª rodada — o CI reprovou o PR). Ao extrair o compositor
+  da consulta de enfermagem para o shell, escrevi `<ProcessoDeEnfermagemView … />` dentro de
+  uma janela que só declarava o prefixo de `Clinica.Desktop.Controls`. Sem prefixo, o WPF
+  procura a tag no namespace PADRÃO — o dele — e recusa com **MC3074**.
+  As checagens 33 e 33-B cobrem o `xmlns` que EXISTE e está errado (o `;assembly=` que sobra
+  e o que falta). Aqui ele **não foi declarado**, e nenhuma das duas olha a TAG.
+  ⚠️ Nenhuma rede local pegava, pela razão de sempre nesta família: o XML é bem-formado, o
+  `compilar-sombra` **não lê o corpo** do XAML e o C# compila.
+  Virou a **checagem 42**, e o critério é estreito de propósito: só reclama de tag sem
+  prefixo cujo nome é um tipo que algum `.cs` do repositório DECLARA — tipo do WPF (`Grid`,
+  `TabControl`) não está nessa lista e passa. **Medido antes de ligar: ZERO ocorrências em
+  todo o repositório**, então ela nasce sem uma linha de ruído. Autotestada contra o caso
+  real (verificado revertendo a correção: ela acusa a linha exata) e contra os três
+  legítimos — com prefixo, tipo do WPF e a tag citada dentro de um COMENTÁRIO.
+  A lição que generaliza, e é a terceira vez que esta família a cobra: **ao escrever uma
+  rede para um erro, liste as FORMAS que ele pode tomar, não só a que mordeu.** O `xmlns`
+  errado e a tag sem prefixo produzem o MESMO `MC3074`, e eu tinha duas checagens para o
+  primeiro e nenhuma para o segundo.

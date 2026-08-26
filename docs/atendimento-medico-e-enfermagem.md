@@ -597,7 +597,24 @@ reescreve. Ele **não tem ViewModel próprio**: o `DataContext` é o
 futura recusada, retificação que preserva a data do fato, alergia no mesmo `SaveChanges`) não
 podem existir em duas cópias.
 
-### 13.9 Como conferir
+### 13.9 A tag sem prefixo, e a checagem que faltava
+
+O CI reprovou a extração do §13.8 com **MC3074**: `<ProcessoDeEnfermagemView … />` foi
+escrito **sem prefixo**, dentro de uma janela que só declarava o de
+`Clinica.Desktop.Controls`. Sem prefixo, o WPF procura a tag no namespace PADRÃO — o dele —
+e recusa.
+
+⚠️ É a **terceira variante** da família das checagens 33 e 33-B, e a que nenhuma das duas
+via: elas cobrem o `xmlns` que EXISTE e está errado (o `;assembly=` que sobra, o que falta);
+aqui ele simplesmente não foi declarado, e o erro está na TAG.
+
+Virou a **checagem 42**, com o critério estreito: só reclama de tag sem prefixo cujo nome é
+um tipo que algum `.cs` do repositório **declara**. Medido antes de ligar: **zero
+ocorrências** em todo o repositório — ela nasce sem ruído. Autotestada contra o caso real
+(verificado revertendo a correção) e contra os três legítimos: com prefixo, tipo do WPF, e a
+tag citada dentro de um comentário.
+
+### 13.10 Como conferir
 
 ```bash
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~PostoDaEnfermagem"

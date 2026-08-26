@@ -3519,6 +3519,86 @@ for _cenario, _fontes, _esperado in (
             f"leu {_lido}, esperado {_esperado}."
         )
 
+# --------------------------------------------------------------- checagem 42
+# TAG DE TIPO DA CASA ESCRITA SEM PREFIXO.
+#
+#     MC3074: The tag 'ProcessoDeEnfermagemView' does not exist in XML namespace
+#             'http://schemas.microsoft.com/winfx/2006/xaml/presentation'.
+#
+# É a TERCEIRA variante da família das checagens 33 e 33-B, e a que nenhuma das duas via.
+# Lá o `xmlns` existe e está errado (o `;assembly=` que sobra ou que falta); aqui ele
+# simplesmente NÃO FOI DECLARADO, e a tag saiu sem prefixo — então o WPF a procura no
+# namespace PADRÃO (o do próprio WPF) e recusa.
+#
+# Foi o que quebrou o build na parcela 88, 4ª rodada: ao extrair o compositor da consulta
+# de enfermagem para o shell, escrevi `<ProcessoDeEnfermagemView … />` dentro de uma janela
+# que só declarava o prefixo de `Clinica.Desktop.Controls`.
+#
+# ⚠️ Nenhuma rede local pegava, pela razão de sempre nesta família: o XML é bem-formado, o
+# `compilar-sombra` NÃO lê o corpo do XAML e o C# compila. Sete minutos de CI por um
+# prefixo que faltou.
+#
+# O critério é estreito de propósito: só reclama de tag sem prefixo cujo nome é um tipo que
+# ALGUM `.cs` do repositório declara. Tag de tipo do WPF (`Grid`, `TabControl`, `Button`)
+# não está nessa lista e passa; tipo da casa usado sem prefixo é sempre o defeito. Medido
+# antes de ligar: ZERO ocorrências em todo o repositório depois da correção — a checagem
+# nasce sem uma linha de ruído.
+TAG_SEM_PREFIXO = re.compile(r'<([A-Z]\w*)(?=[\s/>])')
+DECLARACAO_DE_TIPO = re.compile(r'\b(?:class|record|struct|interface|enum)\s+([A-Z]\w*)')
+
+_tipos_da_casa: set[str] = set()
+for _cs in RAIZ.glob("src/*/**/*.cs"):
+    if "/obj/" in str(_cs) or "/bin/" in str(_cs):
+        continue
+    _tipos_da_casa.update(DECLARACAO_DE_TIPO.findall(_cs.read_text(encoding="utf-8")))
+
+
+def _tags_sem_prefixo(texto: str) -> list[tuple[int, str]]:
+    """As tags sem prefixo que nomeiam um tipo declarado no repositório."""
+    # ⚠️ Comentário fora ANTES de procurar: prosa que cite `<EstadoDaTela …>` faria a
+    # checagem gritar sobre uma explicação (a lição da checagem 31, parcela 58). O branco
+    # é preservado para a contagem de linhas continuar valendo.
+    limpo = re.sub(
+        r"<!--.*?-->",
+        lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+        texto,
+        flags=re.S,
+    )
+    return [
+        (limpo.count("\n", 0, m.start()) + 1, m.group(1))
+        for m in TAG_SEM_PREFIXO.finditer(limpo)
+        if m.group(1) in _tipos_da_casa
+    ]
+
+
+if not _tipos_da_casa:
+    erros.append(
+        "verificar-suite: a checagem 42 não achou tipo nenhum declarado em `src/**/*.cs`."
+    )
+
+for f in list(arvores_com_faturamento):
+    for linha, nome in _tags_sem_prefixo(f.read_text(encoding="utf-8")):
+        erros.append(
+            f"{rel(f)}:{linha}: a tag `<{nome}>` não tem prefixo, e `{nome}` é um tipo "
+            f"declarado neste repositório — sem prefixo o WPF a procura no namespace "
+            f"padrão dele e recusa com MC3074. Declare um `xmlns:` para o namespace do "
+            f"tipo e use-o na tag."
+        )
+
+# Autoteste: o caso REAL da parcela 88 e os dois legítimos que não podem disparar.
+for _amostra, _deve_pegar, _cenario in (
+    ('<comp:ProcessoDeEnfermagemView DataContext="{Binding}" />', False, "com prefixo"),
+    ('<ProcessoDeEnfermagemView DataContext="{Binding}" />', True, "sem prefixo — o defeito"),
+    ('<TabControl MinHeight="100" />', False, "tipo do WPF, que não é da casa"),
+    ('<!-- o <ProcessoDeEnfermagemView> mora no shell -->', False, "só um comentário"),
+):
+    if bool(_tags_sem_prefixo(_amostra)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 42 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
