@@ -1,7 +1,13 @@
 # O banco numa VPS própria — conexão direta, porta trancada por certificado
 
+> ✅ **FEITO — em produção desde ago/2026, numa VPS da Locaweb.** O que segue deixou de
+> ser plano e passou a ser a descrição do que está no ar: a clínica opera sobre esta VPS, e
+> a base não está mais na Neon. A consequência que mais pesa fora deste documento está em
+> [`conformidade-lgpd.md`](conformidade-lgpd.md), item 10: **a transferência internacional
+> do art. 33 deixou de existir**, porque o dado passou a residir no Brasil.
+
 **A decisão**: migrar o PostgreSQL da Neon para uma VPS Linux de preço fixo (Locaweb,
-Hostinger ou equivalente, **datacenter no Brasil**), com o acesso protegido por
+**datacenter no Brasil**), com o acesso protegido por
 **mTLS** — TLS mútuo: além de o servidor provar quem é (o `VerifyFull` que o app já
 exige), o servidor passa a **exigir que cada máquina cliente prove quem é**, com um
 certificado emitido pela própria clínica. Quem não tem o certificado morre no aperto

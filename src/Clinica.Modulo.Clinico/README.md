@@ -43,7 +43,7 @@ Oito itens visíveis, agrupados por **tema** (não por módulo — ver parcela 7
 | GESTÃO | Sessões sem evolução | `ChaveRegistrosPendentes` | `VerProntuario` |
 | GESTÃO | Minha semana | `ChaveMinhaSemana` | `VerAgenda` |
 | GESTÃO | Sala de infusão | `ChaveSalaInfusao` | `ChecarPrescricao` |
-| PACIENTE | Meus pacientes | `ChaveMeusPacientes` | `VerProntuario` |
+| PACIENTE | Pacientes | `ChavePacientesDaClinica` | `VerProntuario` |
 | PACIENTE | Prescrições | `ChavePrescricoes` | `VerProntuario` |
 | PACIENTE | Prescrição de infusão | `ChavePrescricaoInfusao` | `Prescrever` |
 | INTELIGÊNCIA | Meus números | `ChaveMeusNumeros` | `VerAgenda` |

@@ -412,3 +412,199 @@ da clínica **sem** a dependência que eles têm — e a diferença que resta a 
 E há um ganho que eles não têm: **a nossa assinatura de paciente entra debaixo da assinatura
 ICP-Brasil do profissional**, no mesmo arquivo, selada. No SmartDocs as duas coisas são
 produtos separados.
+
+---
+
+## 8. O TERMO LGPD entra no mesmo circuito (parcela 89)
+
+O pedido da direção foi curto e mudou uma decisão antiga:
+
+> "quero que **TODOS** os documentos que precisam da assinatura do paciente também sejam
+> enviados igual ao termo do BSV com o worker, a qual podemos enviar o link para o paciente
+> assinar e retorna para nosso sistema com banco de dados salvos. Por exemplo, temos os
+> Consentimentos (LGPD) no sistema de recepção: tratamento de dados pessoais e de saúde,
+> compartilhamento com o convênio para faturamento, uso de imagem, mensagens de confirmação
+> recall e campanhas."
+
+### 8.1 O que faltava era o PORTÃO
+
+Medido antes de escrever: **a coleta inteira já era genérica sobre `DocumentoClinico`**.
+A janela, a segunda tela, o traço, a evidência, o selo do conteúdo, o envio pelo WhatsApp e
+a volta pelo Worker olham `AguardaAssinaturaDoPaciente`, que responde por
+`TipoDocumentoInfo.AssinadoPeloPaciente(tipo)` — e esse método listava **um** tipo.
+
+Ou seja: pôr o termo LGPD no circuito custou **uma linha** de portão. Tudo o mais foi
+consequência dela.
+
+### 8.2 A inversão: o termo deixou de ser RECIBO e virou a FONTE
+
+Até aqui o consentimento era uma **caixinha** que a recepcionista marcava na ficha
+("Concedeu" / "Recusou", quatro pares de botões), e o termo impresso era o recibo do que já
+estava no sistema.
+
+⚠️ **A inversão não é preferência de leiaute — é a única forma de os dois não divergirem.**
+Com o termo sendo recibo, o paciente podia responder **"Não"** ao marketing no celular e a
+clínica continuar mandando campanha, porque a caixinha do balcão seguia marcada. Duas
+verdades sobre o mesmo fato, e nada falha: a campanha simplesmente sai.
+
+E havia o problema maior, que é jurídico: **a única prova do consentimento era a palavra de
+quem clicou.** O art. 8º da LGPD pede manifestação do **titular**, e o §2º põe o ônus da
+prova em quem trata o dado.
+
+As três decisões da direção:
+
+| Pergunta | Decisão |
+|---|---|
+| Termo e caixinha discordam — quem vence? | **A resposta assinada do paciente** |
+| A caixinha continua existindo? | **Não.** O termo assinado é o único caminho |
+| Um termo por finalidade ou um só? | **Um termo com as quatro declarações** |
+
+⚠️ "Único caminho" **não** trava quem não tem celular: a coleta no balcão (traço na tela, ou
+na segunda tela) continua sendo um caminho de assinatura. O que deixou de existir é o
+consentimento **sem assinatura nenhuma**.
+
+### 8.3 O vínculo é por CÓDIGO, nunca por ordem nem por rótulo
+
+`ItemDocumento.Codigo` (coluna nova, migration aditiva) guarda o nome da
+`FinalidadeConsentimento` de cada declaração.
+
+- Casar por `Ordem` seria o **contrato de índice** que a parcela 41 trocou por nome:
+  acrescentar uma finalidade no meio empurraria todas as outras, e o "Sim" do uso de imagem
+  viraria autorização para compartilhar com o convênio — **sem quebrar build nenhum**.
+- Casar pelo **rótulo** amarraria a decisão a um texto que a clínica pode reescrever.
+
+O código é **copiado na emissão**, como todo o resto do documento: o termo assinado no mês
+passado continua se lendo mesmo que uma finalidade seja renomeada hoje.
+
+⚠️ Item sem código reconhecível é **ignorado, nunca adivinhado**. Ele existe em dois casos
+legítimos — o termo emitido antes desta parcela, e uma finalidade que uma versão mais nova
+do sistema conhece e esta não — e nos dois a resposta certa é não gravar consentimento
+nenhum. Deduzir pela posição gravaria a autorização errada, que é pior do que não gravar.
+
+### 8.4 O circuito de volta, e por que ele é o MESMO SaveChanges
+
+`AssinaturaDoPacienteService.ColherAsync` traduz as declarações em `ConsentimentoLgpd`
+**antes** do `SalvarAsync` do ato — ponto 7 do compromisso de conformidade. Senão existiria
+um instante em que o termo está assinado e a clínica ainda manda campanha para quem acabou
+de recusar.
+
+Recusar o que estava vigente é uma **revogação**, registrada nos dois lugares: a linha antiga
+ganha `RevogadoEm` (o consentimento de fato acabou naquele instante, e a linha continua
+provando que existiu no período tratado) e uma linha nova grava a recusa. Só a linha nova
+bastaria para o portão — `SituacaoAsync` lê a mais recente —, mas quem abre o histórico na
+ficha veria uma autorização sem fim ao lado de uma recusa posterior e concluiria que ainda
+vale.
+
+⚠️ **Reler RASTREADO.** `ConsentimentosDoPacienteAsync` é `AsNoTracking` — ela existe para
+LER —, e mutar o objeto que ela devolve não grava nada: a revogação sumiria em silêncio.
+
+⚠️ **Uma definição só de "como se grava um consentimento".** São dois caminhos e um não pode
+chamar o outro (o termo grava no mesmo `SaveChanges`; `RegistrarAsync` tem o `SalvarAsync`
+dele), então o par *linha + auditoria* sai de `ConsentimentoService.Montar`. Duas montagens
+divergiriam na ação de auditoria — que é justamente o nome pelo qual uma investigação
+procura.
+
+### 8.5 O PAPEL tinha de mudar junto
+
+O desenho antigo do termo LGPD (`ListaFinalidades`) marcava um **X** quando a resposta era a
+palavra `"Autorizado"` e escrevia **"Pendente"** no resto. Com as respostas em `"Sim"`/`"Não"`
+ele imprimiria **toda finalidade como pendente**, e um "Não" sairia idêntico a uma pergunta
+que ninguém respondeu.
+
+Num papel que o paciente leva para provar **o que recusou**, isso é a garantia aparente que
+este projeto recusa desde a parcela 3. O termo LGPD passou a usar o **mesmo desenho** do termo
+de procedimento (`Declaracoes`): a resposta sai por extenso, e o "Não" sai destacado em
+vermelho.
+
+E `RespostaDeclaracao` **desceu da Application para o Domínio**, porque o termo LGPD precisa
+ler a mesma resposta e o Domínio não enxerga a Application. Uma segunda cópia de "isto é um
+sim?" divergiria na primeira correção.
+
+### 8.6 As portas
+
+| Onde | O que faz |
+|---|---|
+| **Recepção → ficha → aba LGPD** | Botão *Colher assinatura…*, com a situação do termo escrita ao lado |
+| **Central de documentos** | O cartão "Termo de consentimento (LGPD)" **leva à coleta**, não emite papel em branco |
+
+A janela é a **mesma** do termo de procedimento, e ela já oferece as duas formas: o traço na
+tela do balcão (ou na segunda tela) e o envio do link pelo WhatsApp, que volta assinado do
+celular. **Uma porta só**, porque quem escolhe a forma é quem está com a pessoa na frente.
+
+⚠️ **O que SAIU**: os botões "Concedeu"/"Recusou" da ficha, e o botão "Termo de consentimento"
+da aba Documentos (que emitia um papel montado do cadastro). O primeiro afirmava uma
+manifestação que ninguém colheu; o segundo, agora, produziria um termo numerado e em branco
+— e a leitura natural de um papel que saiu é que o consentimento foi colhido.
+
+**REVOGAR fica**, e a assimetria é da lei: revogar é direito **unilateral** do titular
+(art. 8º, §5º; art. 18) e a clínica é obrigada a atender de imediato — inclusive por
+telefone, onde não há termo a assinar. Exigir assinatura para revogar dificultaria justamente
+o lado que a LGPD manda facilitar.
+
+### 8.7 O que a linha da finalidade passou a dizer
+
+A situação de cada finalidade ganhou a **procedência**: `Concedido em 12/03 · termo 2026/0007`.
+É o número do termo que responde *"onde está a prova?"* — sem ele a linha diria "Concedido em
+12/03" e a auditoria continuaria tendo de acreditar na palavra de quem clicou, que é
+exatamente o que a assinatura veio resolver. Registro anterior à parcela não tem termo, e a
+frase simplesmente não afirma um que não existe.
+
+### 8.8 O que ficou de fora, e é sabido
+
+- **`ConsentimentoService.RegistrarAsync` sobreviveu** e não tem mais chamador de produção.
+  Fica para o registro feito **fora** do termo (hoje, a montagem dos testes), com o aviso
+  escrito no próprio método: quem for pendurar uma tela nele está reabrindo o caminho sem
+  assinatura.
+- **O termo LGPD não tem exigência por procedimento.** Ele é do paciente, não de uma sessão —
+  não entra em `ExigenciaTermoProcedimento` nem no alerta do dia da fila.
+
+### 8.9 O termo da versão ANTERIOR (2ª rodada — o defeito que a clínica encontrou)
+
+A clínica colheu o consentimento e o alerta *"Sem consentimento LGPD de tratamento de
+dados — colha no balcão"* continuou aceso. O papel resolveu o diagnóstico: a via saía com
+o **rótulo** da finalidade ("Tratamento de dados pessoais e de saúde") e o detalhe **"Nunca
+perguntado"** — que são exatamente o que a emissão ANTIGA escrevia — desenhados pelo
+renderizador novo, com "Sim" à direita.
+
+**O mecanismo.** Ligar o portão (`AssinadoPeloPaciente(Consentimento)`) fez, no mesmo
+instante, todo termo LGPD **já emitido** pela versão anterior satisfazer
+`AguardaAssinaturaDoPaciente`: não está cancelado, o paciente não assinou, não recusou. A
+ficha ofereceu um deles como pendente, a coleta o **reaproveitou**, o paciente respondeu
+"Sim" nas quatro declarações, o documento ficou selado e completo — e **nenhum
+consentimento foi gravado**, porque os itens antigos não têm `Codigo`.
+
+⚠️ **Nada falhou.** Build, testes e as três redes verdes; o papel saiu perfeito; e o alerta
+continuou aceso. É a garantia aparente na forma mais discreta, e a mais cara: a clínica
+acredita ter colhido.
+
+**A correção tem duas metades, e uma sem a outra não resolve:**
+
+| Metade | Onde | Por quê |
+|---|---|---|
+| A porta não **OFERECE** o termo antigo | ficha → `TermosLgpdComFinalidadeAsync` | senão o paciente assina e só então leva a recusa |
+| `ColherAsync` **RECUSA** | `AssinaturaDoPacienteService` | senão a central, o link do WhatsApp ou uma tela futura reabrem o caminho |
+
+E a tela deixou de **afirmar** "Assinado em 26/08" sobre um papel desses: header dizendo
+que o termo foi assinado com o alerta "sem consentimento" aceso no balcão são duas verdades
+sobre o mesmo fato — o defeito que esta parcela existe para acabar, cometido pela própria
+correção dele. No lugar, ela diz o que houve: *"Há termo assinado de uma versão anterior do
+sistema — ele não traz as respostas por finalidade e NÃO vale como manifestação do titular.
+Colha um novo."*
+
+⚠️ **`Enum.TryParse` aceita NÚMERO, e `Enum.IsDefined` não salva**: `"1"` vira uma
+finalidade de verdade porque 1 É um valor definido. Quando o código guardado é o NOME, a
+conferência é de **ida e volta** (`finalidade.ToString() == codigo`).
+
+⚠️ **A pergunta "quais termos carregam finalidade" é consulta PRÓPRIA**, e não um `Include`
+na leitura dos documentos da ficha: aquela alimenta a lista inteira, e puxar os itens de
+todos arrastaria o `Desenho` dos relatórios de evolução — um mapa corporal por sessão — a
+cada abertura de ficha. Decidir pela navegação `documento.Itens` ali seria a lição da
+parcela 68 de novo: vazia em produção, cheia no teste pelo fixup do EF.
+
+**O que a clínica precisa fazer com o que já assinou:** o termo que ela assinou no teste
+não registra nada e não pode ser aproveitado — a coleta seguinte emite um novo, e é ele que
+vale. O termo antigo continua na lista de documentos, como todo documento emitido (não se
+apaga); se a clínica quiser tirá-lo da vista, cancela com motivo.
+
+**A regra geral, para o próximo portão:** *ao alargar a condição que um dado satisfaz,
+pergunte o que na BASE passa a satisfazê-la — e se o que passa é a mesma coisa.*

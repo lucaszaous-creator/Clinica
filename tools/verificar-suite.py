@@ -702,6 +702,38 @@ def _nome(el: ET.Element) -> str:
     return el.tag.split("}")[-1]
 
 
+# ⚠️ A checagem de rolagem não enxergava DENTRO de controle da casa (parcela 88, 5ª
+# rodada). Uma janela cujo miolo é `<comp:ProcessoDeEnfermagemView />` era acusada de não
+# ter rolagem nenhuma, com um `ScrollViewer` por aba dentro do controle — a checagem
+# reclamando do que está certo, que é o que faz alguém desligá-la.
+#
+# Ela passou a seguir UM nível de composição: o tipo da tag é casado com o `x:Class` dos
+# XAML da casa, e a árvore dele entra na conta. Um nível basta para a composição deste
+# projeto, e mais níveis dariam um grafo para percorrer sem ganho medido.
+_arvores_por_tipo: dict[str, ET.Element] = {}
+
+
+def _registrar_tipos_de_controle(mapa: dict[Path, ET.Element]) -> None:
+    for _arq, _raiz in mapa.items():
+        classe = next(
+            (v for k, v in _raiz.attrib.items() if k.split("}")[-1] == "Class"), None)
+        if classe:
+            _arvores_por_tipo[classe.rsplit(".", 1)[-1]] = _raiz
+
+
+def _com_controles_da_casa(raiz: ET.Element) -> list[ET.Element]:
+    """Os elementos da árvore, mais os de um nível de controles próprios usados nela."""
+    todos = list(raiz.iter())
+    for el in list(todos):
+        alvo = _arvores_por_tipo.get(_nome(el))
+        if alvo is not None and alvo is not raiz:
+            todos.extend(alvo.iter())
+    return todos
+
+
+_registrar_tipos_de_controle(arvores)
+_registrar_tipos_de_controle(arvores_com_faturamento)
+
 for arq, raiz in arvores.items():
     if _nome(raiz) != "Window":
         continue
@@ -734,10 +766,38 @@ for arq, raiz in arvores.items():
     ROLAM = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce = (raiz.get("SizeToContent") or "").find("Height") >= 0
     alto = altura is not None and altura >= 400
-    if (cresce or alto) and not any(_nome(e) in ROLAM for e in raiz.iter()):
+    if (cresce or alto) and not any(
+            _nome(e) in ROLAM for e in _com_controles_da_casa(raiz)):
         erros.append(
             f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
             f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
+
+
+# ⚠️ AUTOTESTE de `_com_controles_da_casa`: alargar uma checagem é o gesto que a deixa cega
+# se ninguém provar que ela continua mordendo. Dois casos, e o segundo é o que importa —
+# controle da casa SEM rolagem não pode contar como se tivesse.
+_ctrl_com_rolagem = ET.fromstring(
+    '<UserControl xmlns="x" xmlns:c="y" c:Class="A.B.ControleQueRola">'
+    '<ScrollViewer /></UserControl>')
+_ctrl_sem_rolagem = ET.fromstring(
+    '<UserControl xmlns="x" xmlns:c="y" c:Class="A.B.ControleSeco"><Grid /></UserControl>')
+_arvores_por_tipo["ControleQueRola"] = _ctrl_com_rolagem
+_arvores_por_tipo["ControleSeco"] = _ctrl_sem_rolagem
+
+for _tag, _deve_achar, _cenario in (
+    ("ControleQueRola", True, "o controle da casa TEM ScrollViewer"),
+    ("ControleSeco", False, "o controle da casa não rola — a janela continua acusada"),
+):
+    _janela = ET.fromstring(f'<Window xmlns="x"><{_tag} /></Window>')
+    _achou = any(_nome(e) in {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
+                 for e in _com_controles_da_casa(_janela))
+    if _achou != _deve_achar:
+        erros.append(
+            f"verificar-suite: a checagem de rolagem mudou de resposta ({_cenario}) — "
+            f"esperado {'achar' if _deve_achar else 'NÃO achar'} rolagem."
+        )
+
+del _arvores_por_tipo["ControleQueRola"], _arvores_por_tipo["ControleSeco"]
 
 
 # ------------------------------------------ 11. cor e tamanho de fonte fora dos tokens
@@ -1002,7 +1062,8 @@ for arq in sorted(CONGELADO.rglob("*.xaml")):
     ROLAM_C = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce_c = (raiz_c.get("SizeToContent") or "").find("Height") >= 0
     alto_c = altura_c is not None and altura_c >= 400
-    if (cresce_c or alto_c) and not any(_nome(e) in ROLAM_C for e in raiz_c.iter()):
+    if (cresce_c or alto_c) and not any(
+            _nome(e) in ROLAM_C for e in _com_controles_da_casa(raiz_c)):
         erros.append(
             f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
             f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
@@ -3518,6 +3579,86 @@ for _cenario, _fontes, _esperado in (
             f"verificar-suite: a checagem 41 mudou de resposta ({_cenario}) — "
             f"leu {_lido}, esperado {_esperado}."
         )
+
+# --------------------------------------------------------------- checagem 42
+# TAG DE TIPO DA CASA ESCRITA SEM PREFIXO.
+#
+#     MC3074: The tag 'ProcessoDeEnfermagemView' does not exist in XML namespace
+#             'http://schemas.microsoft.com/winfx/2006/xaml/presentation'.
+#
+# É a TERCEIRA variante da família das checagens 33 e 33-B, e a que nenhuma das duas via.
+# Lá o `xmlns` existe e está errado (o `;assembly=` que sobra ou que falta); aqui ele
+# simplesmente NÃO FOI DECLARADO, e a tag saiu sem prefixo — então o WPF a procura no
+# namespace PADRÃO (o do próprio WPF) e recusa.
+#
+# Foi o que quebrou o build na parcela 88, 4ª rodada: ao extrair o compositor da consulta
+# de enfermagem para o shell, escrevi `<ProcessoDeEnfermagemView … />` dentro de uma janela
+# que só declarava o prefixo de `Clinica.Desktop.Controls`.
+#
+# ⚠️ Nenhuma rede local pegava, pela razão de sempre nesta família: o XML é bem-formado, o
+# `compilar-sombra` NÃO lê o corpo do XAML e o C# compila. Sete minutos de CI por um
+# prefixo que faltou.
+#
+# O critério é estreito de propósito: só reclama de tag sem prefixo cujo nome é um tipo que
+# ALGUM `.cs` do repositório declara. Tag de tipo do WPF (`Grid`, `TabControl`, `Button`)
+# não está nessa lista e passa; tipo da casa usado sem prefixo é sempre o defeito. Medido
+# antes de ligar: ZERO ocorrências em todo o repositório depois da correção — a checagem
+# nasce sem uma linha de ruído.
+TAG_SEM_PREFIXO = re.compile(r'<([A-Z]\w*)(?=[\s/>])')
+DECLARACAO_DE_TIPO = re.compile(r'\b(?:class|record|struct|interface|enum)\s+([A-Z]\w*)')
+
+_tipos_da_casa: set[str] = set()
+for _cs in RAIZ.glob("src/*/**/*.cs"):
+    if "/obj/" in str(_cs) or "/bin/" in str(_cs):
+        continue
+    _tipos_da_casa.update(DECLARACAO_DE_TIPO.findall(_cs.read_text(encoding="utf-8")))
+
+
+def _tags_sem_prefixo(texto: str) -> list[tuple[int, str]]:
+    """As tags sem prefixo que nomeiam um tipo declarado no repositório."""
+    # ⚠️ Comentário fora ANTES de procurar: prosa que cite `<EstadoDaTela …>` faria a
+    # checagem gritar sobre uma explicação (a lição da checagem 31, parcela 58). O branco
+    # é preservado para a contagem de linhas continuar valendo.
+    limpo = re.sub(
+        r"<!--.*?-->",
+        lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+        texto,
+        flags=re.S,
+    )
+    return [
+        (limpo.count("\n", 0, m.start()) + 1, m.group(1))
+        for m in TAG_SEM_PREFIXO.finditer(limpo)
+        if m.group(1) in _tipos_da_casa
+    ]
+
+
+if not _tipos_da_casa:
+    erros.append(
+        "verificar-suite: a checagem 42 não achou tipo nenhum declarado em `src/**/*.cs`."
+    )
+
+for f in list(arvores_com_faturamento):
+    for linha, nome in _tags_sem_prefixo(f.read_text(encoding="utf-8")):
+        erros.append(
+            f"{rel(f)}:{linha}: a tag `<{nome}>` não tem prefixo, e `{nome}` é um tipo "
+            f"declarado neste repositório — sem prefixo o WPF a procura no namespace "
+            f"padrão dele e recusa com MC3074. Declare um `xmlns:` para o namespace do "
+            f"tipo e use-o na tag."
+        )
+
+# Autoteste: o caso REAL da parcela 88 e os dois legítimos que não podem disparar.
+for _amostra, _deve_pegar, _cenario in (
+    ('<comp:ProcessoDeEnfermagemView DataContext="{Binding}" />', False, "com prefixo"),
+    ('<ProcessoDeEnfermagemView DataContext="{Binding}" />', True, "sem prefixo — o defeito"),
+    ('<TabControl MinHeight="100" />', False, "tipo do WPF, que não é da casa"),
+    ('<!-- o <ProcessoDeEnfermagemView> mora no shell -->', False, "só um comentário"),
+):
+    if bool(_tags_sem_prefixo(_amostra)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 42 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
 
 # ---------------------------------------------------------------------- saída
 for a in avisos:

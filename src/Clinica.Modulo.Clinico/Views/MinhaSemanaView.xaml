@@ -195,9 +195,9 @@
                 <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
                            Style="{StaticResource TextoSuave}"
                            FontSize="{StaticResource Fonte.Legenda}"
-                           Visibility="{Binding SemVinculo,
+                           Visibility="{Binding ListaDaClinica,
                                         Converter={StaticResource BoolParaVisibilidade}}"
-                           Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a semana da clínica inteira." />
+                           Text="{Binding MotivoDaLista}" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal"

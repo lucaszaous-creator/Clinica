@@ -46,26 +46,6 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// mesmo <c>SelectedItem</c> se limpam mutuamente, porque a que não contém o item escolhido
 /// devolve <c>null</c> pelo binding (a armadilha da parcela 37).
 /// </summary>
-/// <summary>
-/// Uma linha do PLANO DE CUIDADOS do dia — a etapa 4 da COFEN na tela de quem executa
-/// (parcela 76).
-/// </summary>
-public sealed class LinhaCuidadoDoDia
-{
-    public required int CuidadoId { get; init; }
-
-    /// <summary>"Curativo em MID — a cada 12h".</summary>
-    public required string Redacao { get; init; }
-
-    /// <summary>O que já foi registrado HOJE, uma linha por execução. Vazio quando nada.</summary>
-    public required string Registro { get; init; }
-
-    /// <summary>"aguardando", "se necessário" ou vazio — o selo que resume a linha.</summary>
-    public required string Selo { get; init; }
-
-    public required bool Pendente { get; init; }
-}
-
 public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 {
     private readonly IServiceScopeFactory _escopos;
@@ -110,6 +90,17 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     /// </summary>
     public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
 
+    /// <summary>
+    /// O PLANO DE CUIDADOS DE HOJE — a etapa 4 da COFEN (parcela 76).
+    ///
+    /// ⚠️ Ele saiu daqui e virou componente do shell na parcela 88, porque a seção
+    /// <b>Atendimento de enfermagem</b> do módulo Clínico mostra o MESMO plano. Duas
+    /// definições de "o que falta executar hoje" divergem na primeira correção, e a
+    /// segunda é sempre a que ninguém lembra de ajustar — aqui isso custaria a regra do
+    /// <i>se necessário</i>, que é o que impede o contador de apontar para nada.
+    /// </summary>
+    public PlanoDeCuidadosViewModel Plano { get; }
+
     [ObservableProperty] private bool _mostrandoLista = true;
     [ObservableProperty] private bool _carregandoLista;
     [ObservableProperty] private string? _mensagem;
@@ -118,8 +109,18 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     /// <summary>O que a lista está mostrando agora — a frase que evita o filtro esquecido.</summary>
     [ObservableProperty] private string _resumoDaLista = string.Empty;
 
-    /// <summary>Modo "carteira inteira" ligado pelo botão, ou pela busca com termo.</summary>
+    /// <summary>Modo "carteira inteira" ligado pelo chip, ou pela busca com termo.</summary>
     [ObservableProperty] private bool _mostrandoTodos;
+
+    /// <summary>
+    /// O irmão do chip acima. Os dois modos são EXCLUSIVOS, e o par existe para a régua
+    /// dizer qual está no ar ANTES do clique — dois botões iguais não dizem em qual dos
+    /// dois você está, e filtro esquecido respondendo "ninguém aqui" faz a clínica dar o
+    /// dia por atendido (a lição da lista de espera, parcela 25).
+    /// </summary>
+    public bool MostrandoHoje => !MostrandoTodos;
+
+    partial void OnMostrandoTodosChanged(bool value) => OnPropertyChanged(nameof(MostrandoHoje));
 
     /// <summary>
     /// A escolha da lista. UM clique abre a tela do paciente: quem escolhe alguém na
@@ -129,7 +130,11 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
     partial void OnEscolhidoChanged(Paciente? value)
     {
-        if (value is not null) _ = AbrirAsync(value);
+        // O clique da linha e o botão "Atender" fazem A MESMA COISA. Dois resultados
+        // diferentes para o mesmo alvo fariam a pessoa procurar a diferença entre eles —
+        // e o botão existe porque ele NOMEIA a ação: linha que só responde ao clique não
+        // anuncia o que o clique faz.
+        if (value is not null) _ = AtenderAsync(value);
     }
 
     [ObservableProperty] private string _paciente = string.Empty;
@@ -179,34 +184,6 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
     public bool PodeAbrirFolha => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
 
-    // ==================== O plano de cuidados do dia (parcela 76) ====================
-
-    /// <summary>
-    /// Os cuidados prescritos que este paciente tem hoje, com o que já foi registrado.
-    ///
-    /// ⚠️ É a PORTA da etapa 4 da COFEN. Sem ela o serviço que registra a execução seria
-    /// mais uma capacidade sem porta — o defeito recorrente do projeto —, e a enfermeira
-    /// continuaria escrevendo "curativo a cada 12h" num plano que ninguém marca.
-    /// </summary>
-    public ObservableCollection<LinhaCuidadoDoDia> Cuidados { get; } = [];
-
-    [ObservableProperty] private string _resumoDoPlano = string.Empty;
-
-    /// <summary>A leitura do plano FALHOU — o terceiro estado. "Sem plano" e "não consegui
-    /// ler o plano" não podem ficar idênticos numa tela que diz o que falta fazer.</summary>
-    [ObservableProperty] private bool _planoNaoVerificado;
-
-    /// <summary>
-    /// Hora sugerida para o registro. SUGESTÃO — o campo é de quem executou: a técnica faz
-    /// o curativo às 14h e digita às 14h20, e é a hora do FATO que vai para a folha.
-    /// </summary>
-    [ObservableProperty] private string _horaDoCuidado = DateTime.Now.ToString("HH\\:mm");
-
-    /// <summary>Metade visível; a que impede é o <c>Exigir</c> no comando. O MESMO bit da
-    /// folha de infusão: checar a execução é o mesmo ato e a mesma responsabilidade — um
-    /// bit novo nasceria desligado para quem já faz isso hoje.</summary>
-    public bool PodeChecarCuidado => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
-
     public EnfermagemViewModel(IServiceScopeFactory escopos, IDialogoService dialogo)
     {
         _escopos = escopos;
@@ -217,6 +194,22 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
             SecaoInicial = NaturezaRegistroClinico.EvolucaoEnfermagem
+        };
+
+        Plano = new PlanoDeCuidadosViewModel(escopos, dialogo);
+
+        // ⚠️ A MENSAGEM tem uma superfície só, e ela é da TELA. O componente escreve na
+        // propriedade dele; quem a mostra é quem o hospeda — duas caixas de mensagem na
+        // mesma tela seriam duas respostas para a mesma pergunta (a regra de "um estado
+        // vazio por pergunta", parcela 37), e a de baixo apareceria longe do clique.
+        Plano.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is not (nameof(PlanoDeCuidadosViewModel.Mensagem)
+                                       or nameof(PlanoDeCuidadosViewModel.MensagemEhErro))
+                || Plano.Mensagem is null) return;
+
+            Mensagem = Plano.Mensagem;
+            MensagemEhErro = Plano.MensagemEhErro;
         };
 
         // Remontagem por busca CONCLUÍDA, nunca por CollectionChanged — que dispara uma
@@ -350,8 +343,78 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
     // ---- A tela do paciente ----
 
-    /// <summary>Abre a tela DO PACIENTE — a evolução dele, com a largura inteira.</summary>
+    /// <summary>
+    /// ATENDER — abre o paciente na tela clínica, com a seção da enfermagem já aberta.
+    ///
+    /// O que ele resolve
+    /// -----------------
+    /// A clínica pediu <i>"ver todos os pacientes e clicar em ATENDER"</i>, e a palavra
+    /// importa: é a mesma da fila de quem consulta, e passa a levar ao mesmo lugar — a
+    /// tela do paciente, com o crachá, as alergias, o prontuário inteiro e o cronômetro
+    /// da sessão. Até aqui a enfermagem escrevia numa janela modal de altura fixa; dois
+    /// desenhos para o mesmo ato no mesmo sistema é o que faz alguém achar que abriu
+    /// outro programa (a reprovação da parcela 47).
+    ///
+    /// ⚠️ O CAMINHO DE VOLTA É PARTE DA FEATURE, não um remendo. Esta tela é do SHELL e é
+    /// publicada por DOIS módulos: no <c>Clinica.Recepcao.exe</c> o módulo Clínico não
+    /// está carregado, e <c>NavegacaoSuite.Ir</c> devolveria <c>false</c> EM SILÊNCIO — o
+    /// botão não faria nada (a regressão da parcela 37, 4ª rodada, que passou pelas três
+    /// redes). Então se pergunta ANTES, com <c>Existe</c>, e o painel desta própria tela
+    /// continua sendo a resposta onde não há posto clínico.
+    ///
+    /// ⚠️ E leva o HORÁRIO de hoje junto quando há um. É esse vínculo que faz a passagem
+    /// nascer ligada à sessão — sem ele o registro é do paciente e de sessão nenhuma, e a
+    /// ficha do atendimento sai sem ele.
+    /// </summary>
     [RelayCommand]
+    private async Task AtenderAsync(Paciente? paciente)
+    {
+        // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (a exceção
+        // declarada da checagem 21).
+        if (paciente is null) return;
+
+        // Este executável não tem posto clínico (é o caso do Clinica.Recepcao.exe): o
+        // painel desta própria tela é a resposta, e continua sendo uma tela completa.
+        if (!NavegacaoSuite.Existe(ChavesSuite.AtendimentoEnfermagem))
+        {
+            await AbrirAsync(paciente);
+            return;
+        }
+
+        // ⚠️ TUDO dentro do try. Este comando também é disparado pelo clique da LINHA, com
+        // `_ = AtenderAsync(...)`: exceção que escape daqui não tem quem a observe — nem o
+        // `DispatcherUnhandledException`, que é a rede do WPF e não a de Tasks. Ela viraria
+        // um clique que não faz nada, sem uma linha no log.
+        try
+        {
+            var foco = await EntregaDoPaciente.AoPostoAsync(
+                _escopos, paciente.Id, paciente.Nome);
+
+            // O foco é SINGLETON e é registrado pelo módulo Clínico. Sem ele não há para
+            // onde entregar o paciente — e navegar assim abriria a tela clínica com o
+            // paciente ANTERIOR, que é o pior desfecho possível num prontuário.
+            if (foco && NavegacaoSuite.Ir(ChavesSuite.AtendimentoEnfermagem)) return;
+
+            // `Existe` disse que sim e `Ir` disse que não: a permissão do destino pode ter
+            // mudado entre um e outro. Guarda que volta em silêncio é botão que não faz
+            // nada (parcela 41), então o painel atende.
+            await AbrirAsync(paciente);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — o paciente não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Abre o PAINEL desta tela — a evolução do paciente, com a largura inteira.
+    ///
+    /// É a resposta onde não há posto clínico (o <c>Clinica.Recepcao.exe</c>), e continua
+    /// sendo uma tela completa: o prontuário inteiro, o plano de cuidados, as duas portas
+    /// do dia e a ficha do atendimento.
+    /// </summary>
     private async Task AbrirAsync(Paciente? paciente)
     {
         // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (a exceção
@@ -379,6 +442,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         MostrandoLista = true;
         Mensagem = null;
         _ = LinhaDoTempo.CarregarAsync(0);
+        _ = Plano.CarregarAsync(0);
         Alerta = null;
         TermoPendente = null;
         FolhaDeHoje = null;
@@ -528,7 +592,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
             await CarregarContextoAsync(servicos, pacienteId, lista, geracao);
             if (geracao != _geracaoCarga) return;
 
-            await CarregarPlanoAsync(servicos, pacienteId, geracao);
+            await Plano.CarregarAsync(pacienteId);
         }
         catch (Exception ex)
         {
@@ -597,159 +661,6 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
             MensagemEhErro = true;
         }
     }
-
-    /// <summary>
-    /// O plano de cuidados de HOJE.
-    ///
-    /// Falha SOZINHA, pela mesma razão do contexto: o assunto da tela é a evolução, e uma
-    /// leitura de plano que não respondeu não pode impedir a enfermeira de registrar a
-    /// passagem. Mas também não passa calada — vira o terceiro estado e vai para o log.
-    /// </summary>
-    private async Task CarregarPlanoAsync(
-        IServiceProvider servicos, int pacienteId, int geracao)
-    {
-        try
-        {
-            PlanoNaoVerificado = false;
-
-            var plano = await servicos.GetRequiredService<ChecagemCuidadoService>()
-                .PlanoDoDiaAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
-
-            if (geracao != _geracaoCarga) return;
-
-            // ⚠️ Monta em lista LOCAL e só então publica: entre o `Clear()` e o último
-            // `Add` não pode haver await, senão duas cargas se intercalam na coleção.
-            var linhas = plano is null
-                ? []
-                : plano.Cuidados.Select(Montar).ToList();
-
-            Cuidados.Clear();
-            foreach (var l in linhas) Cuidados.Add(l);
-
-            ResumoDoPlano = plano is null
-                ? "Nenhum plano de cuidados prescrito para este paciente."
-                : $"{plano.Cuidados.Count} cuidado(s) prescrito(s) em "
-                  + $"{plano.PrescritoEm:dd/MM/yyyy} por {plano.PrescritoPor} — "
-                  + (plano.Pendentes == 0
-                      ? "tudo registrado hoje."
-                      : $"{plano.Pendentes} aguardando registro hoje.");
-        }
-        catch (Exception ex)
-        {
-            if (geracao != _geracaoCarga) return;
-
-            Cuidados.Clear();
-            PlanoNaoVerificado = true;
-            ResumoDoPlano = "Não foi possível ler o plano de cuidados.";
-            Diagnostico.Registrar("Enfermagem — plano de cuidados não pôde ser lido", ex);
-        }
-    }
-
-    private static LinhaCuidadoDoDia Montar(CuidadoDoDia c) => new()
-    {
-        CuidadoId = c.CuidadoId,
-        Redacao = c.Redacao,
-        // ⚠️ A CORRIGIDA aparece marcada, nunca sumindo. O comentário de `RetificarAsync`
-        // promete que "a folha mostra as duas", e promessa que o código não cumpre é o
-        // defeito da parcela 67 — aqui ela seria pior que em outro lugar, porque apagar da
-        // vista o registro que foi corrigido é exatamente o gesto que a auditoria de
-        // enfermagem procura.
-        Registro = string.Join("\n", c.Checagens.Select(Descrever)),
-        Pendente = c.Pendente,
-        // O "se necessário" tem selo PRÓPRIO, e não o de pendente: ele não é trabalho
-        // atrasado, é a condição que não aconteceu.
-        Selo = c.Pendente ? "aguardando"
-             : c.SeNecessario && c.Vigentes.Count == 0 ? "se necessário"
-             : string.Empty
-    };
-
-    private static string Descrever(ChecagemCuidado x)
-    {
-        var texto = x.Linha;
-        if (!string.IsNullOrWhiteSpace(x.Justificativa)) texto += $" \u2014 {x.Justificativa}";
-        if (x.EhRetificacao) texto += $" \u2014 corrige o anterior: {x.MotivoRetificacao}";
-        return texto;
-    }
-
-    [RelayCommand]
-    private Task MarcarFeitoAsync(LinhaCuidadoDoDia? linha)
-        => RegistrarCuidadoAsync(linha, SituacaoChecagem.Realizado);
-
-    [RelayCommand]
-    private Task MarcarNaoFeitoAsync(LinhaCuidadoDoDia? linha)
-        => RegistrarCuidadoAsync(linha, SituacaoChecagem.NaoRealizado);
-
-    /// <summary>
-    /// Registra a execução de um cuidado.
-    ///
-    /// ⚠️ A hora vem do CAMPO, nunca do relógio: a técnica executa às 14h e digita às
-    /// 14h20, e a folha tem de dizer 14h. O relógio vai ao lado, em `RegistradoEm`, e a
-    /// diferença entre os dois é o que uma auditoria de enfermagem procura.
-    /// </summary>
-    private async Task RegistrarCuidadoAsync(
-        LinhaCuidadoDoDia? linha, SituacaoChecagem situacao)
-    {
-        // Guarda sobre PARÂMETRO: vindo de botão de linha ela nunca dispara — é a exceção
-        // que a checagem 21 reconhece.
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(
-                Permissao.ChecarPrescricao, "registrar a execução de um cuidado");
-
-            if (!TimeOnly.TryParse(HoraDoCuidado, out var hora))
-            {
-                Mensagem = $"Hora inválida (\"{HoraDoCuidado}\"). Escreva no formato 14:30 — "
-                         + "é o horário em que o cuidado foi executado, não o de agora.";
-                MensagemEhErro = true;
-                return;
-            }
-
-            string? justificativa = null;
-            if (situacao == SituacaoChecagem.NaoRealizado)
-            {
-                justificativa = _dialogo.PerguntarTexto(
-                    "Por que não foi realizado?",
-                    $"{linha.Redacao}\n\n"
-                    + "Ex.: paciente ausente, recusou, material em falta, condição não ocorreu.");
-
-                // Sem justificativa não se grava — e o serviço recusaria de qualquer forma.
-                // Perguntar aqui é o que evita transformar a regra num erro na cara da técnica.
-                if (string.IsNullOrWhiteSpace(justificativa)) return;
-            }
-
-            using var scope = _escopos.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<ChecagemCuidadoService>()
-                .ChecarAsync(
-                    linha.CuidadoId, situacao, DateOnly.FromDateTime(DateTime.Today), hora,
-                    Executante(), justificativa);
-
-            Mensagem = situacao == SituacaoChecagem.Realizado
-                ? $"Registrado: {linha.Redacao} \u2014 {hora:HH\\:mm}."
-                : $"Registrado como NÃO realizado: {linha.Redacao} \u2014 {hora:HH\\:mm}.";
-            MensagemEhErro = false;
-
-            await RecarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Diagnostico.Registrar("Enfermagem — execução do cuidado não pôde ser registrada", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    /// <summary>
-    /// Quem está executando sai do LOGIN, nunca de um campo digitado: é o vínculo com a
-    /// pessoa que dá valor ao registro, e o COREN é copiado no ato.
-    /// </summary>
-    private static IdentificacaoExecutante Executante() => new(
-        UsuarioId: SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-        Nome: SessaoUsuario.Atual.Autenticado
-            ? SessaoUsuario.Atual.Nome
-            : SessaoUsuario.Atual.Operador,
-        Conselho: SessaoUsuario.Atual.RegistroConselho);
 
     /// <summary>
     /// A linha de contexto e as duas portas condicionais.

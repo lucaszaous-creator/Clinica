@@ -304,11 +304,18 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         // Recusar no CONSTRUTOR, e não no seletor, porque o tipo também chega por parâmetro:
         // é a porta por onde a central de documentos passava antes de a exigência
         // `ProcedimentoDoDia` existir. Quem colhe o termo é a `AssinaturaPacienteWindow`.
+        // ⚠️ A frase NOMEIA a porta certa de cada tipo. "No dia do procedimento" é verdade
+        // para o termo do BSV e MENTIRA para o termo LGPD, que é do paciente e não de uma
+        // sessão — instrução errada com cara de instrução certa manda a pessoa procurar
+        // uma tela que não existe (a lição da parcela 88).
         if (TipoDocumentoInfo.AssinadoPeloPaciente(tipoInicial))
             throw new InvalidOperationException(
                 $"{TipoDocumentoInfo.Rotular(tipoInicial)} é assinado pelo PACIENTE e não se "
-                + "emite por esta janela. Colha-o na ficha do paciente, aba Documentos, no "
-                + "dia do procedimento.");
+                + "emite por esta janela. "
+                + (tipoInicial is TipoDocumentoClinico.Consentimento
+                    ? "Colha-o na ficha do paciente, aba LGPD — lá dá para assinar no balcão "
+                      + "ou enviar o link pelo WhatsApp."
+                    : "Colha-o na ficha do paciente, aba Documentos, no dia do procedimento."));
 
         _escopos = escopos;
         _pacienteId = pacienteId;

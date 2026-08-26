@@ -76,6 +76,50 @@ public static class ColetaDeTermo
     }
 
     /// <summary>
+    /// Colhe o TERMO LGPD (parcela 89) — o consentimento que o paciente assina.
+    ///
+    /// ⚠️ É a MESMA janela do termo de procedimento, e isso não é economia: ela é o único
+    /// lugar que sabe colher o traço com a evidência que o sustenta (documento de
+    /// identidade conferido, testemunha logada, selo do conteúdo que estava na tela) e que
+    /// oferece a segunda tela e o envio pelo WhatsApp. Uma janela própria para o LGPD
+    /// divergiria dela na primeira correção — e a metade que ficasse para trás seria a que
+    /// ninguém releria.
+    ///
+    /// O que muda é só a AUSÊNCIA de modelo: este termo é montado das quatro finalidades,
+    /// não copiado de um texto escrito pela clínica.
+    /// </summary>
+    /// <param name="documentoId">
+    /// Um termo já emitido e ainda não assinado, quando existe. Nulo = emite um novo.
+    /// </param>
+    public static bool AbrirConsentimentoLgpd(
+        IServiceScopeFactory escopos, int pacienteId, string pacienteNome,
+        int? documentoId = null)
+    {
+        ArgumentNullException.ThrowIfNull(escopos);
+
+        using var scope = escopos.CreateScope();
+        var servicos = scope.ServiceProvider;
+
+        var vm = new AssinaturaPacienteViewModel(
+            servicos.GetRequiredService<DocumentoClinicoService>(),
+            servicos.GetRequiredService<AssinaturaDoPacienteService>(),
+            servicos.GetRequiredService<IDialogoService>(),
+            pacienteId,
+            modeloId: null,
+            pacienteNome,
+            documentoId,
+            profissionalId: null,
+            servicos.GetRequiredService<AcessoProntuarioService>(),
+            servicos.GetRequiredService<ParametrosService>(),
+            servicos.GetRequiredService<ProblemaPacienteService>(),
+            servicos.GetRequiredService<ColetaRemotaTermoService>());
+
+        new AssinaturaPacienteWindow(vm) { Owner = Dono() }.ShowDialog();
+
+        return vm.Concluido;
+    }
+
+    /// <summary>
     /// A janela ATIVA, não a principal: com um modal já aberto, a próxima nasceria ATRÁS
     /// dele e quem clicou concluiria que o botão não fez nada (a lição da parcela 58).
     /// </summary>

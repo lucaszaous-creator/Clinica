@@ -128,6 +128,36 @@ public class TraducaoNoNpgsqlTests
             + "pelo relationship fixup do EF num DbContext compartilhado (parcela 68)");
     }
 
+    [Fact]
+    public void Sessoes_dos_pacientes_em_LOTE_traduzem()
+    {
+        using var db = Postgres();
+
+        // O enriquecimento da BUSCA da carteira (parcela 88, 3ª rodada). Ele soma três
+        // coisas que o SQLite aceita de olhos fechados e o Npgsql pode não aceitar: um
+        // `Contains` sobre a lista de ids, um `GroupBy` por coluna e duas agregações.
+        int[] ids = [1, 2, 3];
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId)
+                        && a.Status == Clinica.Domain.Entities.StatusAgendamento.Realizado)
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new
+            {
+                PacienteId = g.Key,
+                Ultima = g.Max(a => a.DataHora),
+                Sessoes = g.Count()
+            })
+            .ToQueryString();
+
+        sql.Should().Contain("max(").And.Contain("count(");
+
+        // ⚠️ E o agrupamento tem de acontecer no BANCO. Materializar os agendamentos para
+        // contar em memória traria milhares de linhas de uma clínica com dois anos de casa
+        // para produzir uma linha por paciente — o custo que a parcela 69 já pagou uma vez.
+        sql.Should().Contain("GROUP BY");
+    }
+
     /// <summary>
     /// ⚠️ O AUTOTESTE DA REDE — ela precisa ter dentes.
     ///
@@ -136,6 +166,30 @@ public class TraducaoNoNpgsqlTests
     /// afirma que a compilação REPROVA. Se um dia o EF passar a traduzir isso, este teste
     /// falha e alguém relê os outros três.
     /// </summary>
+    /// <summary>
+    /// A pergunta "quais termos LGPD carregam finalidade" (parcela 89, 2ª rodada) usa
+    /// NAVEGAÇÃO dentro do <c>Where</c> — um <c>EXISTS</c> — e projeta uma coluna só.
+    ///
+    /// Os dois lados importam: se o EXISTS não traduzisse, a ficha estouraria ao abrir; e
+    /// se a projeção trouxesse a entidade inteira, a leitura arrastaria o
+    /// <c>Desenho</c> dos itens a cada abertura de ficha.
+    /// </summary>
+    [Fact]
+    public void Termos_lgpd_com_finalidade_traduzem_COM_exists_e_UMA_coluna()
+    {
+        using var db = Postgres();
+
+        var sql = db.DocumentosClinicos.AsNoTracking()
+            .Where(d => d.PacienteId == 1
+                        && d.Tipo == Clinica.Domain.Entities.TipoDocumentoClinico.Consentimento
+                        && d.Itens.Any(i => i.Codigo != null))
+            .Select(d => d.Id)
+            .ToQueryString();
+
+        sql.Should().Contain("EXISTS");
+        sql.Should().NotContain("Desenho", "a projeção é de UMA coluna — o id");
+    }
+
     [Fact]
     public void A_rede_REPROVA_a_propriedade_derivada_que_causou_o_defeito()
     {

@@ -576,7 +576,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         if (Seletor.Selecionado is not { } paciente) return;
 
-        var concluiu = ColetaDeTermo.Abrir(_escopos, paciente.Id, paciente.Nome);
+        // ⚠️ São DOIS termos assinados pelo paciente, e a diferença não é de estilo: o do
+        // PROCEDIMENTO copia um modelo escrito pela clínica (por isso a janela pergunta
+        // qual é), e o LGPD é montado das quatro finalidades — não há modelo a escolher.
+        // Perguntar "qual termo?" para o LGPD ofereceria uma lista onde ele não está.
+        var concluiu = folha.TipoClinico == TipoDocumentoClinico.Consentimento
+            ? ColetaDeTermo.AbrirConsentimentoLgpd(_escopos, paciente.Id, paciente.Nome)
+            : ColetaDeTermo.Abrir(_escopos, paciente.Id, paciente.Nome);
 
         // Recarrega de qualquer jeito: abrir a janela já emite o termo numerado.
         await CarregarAsync();
@@ -610,7 +616,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
     }
 
     /// <summary>
-    /// As três montadas do prontuário. Não se digitam: o sistema monta e imprime.
+    /// As montadas do prontuário (relatório de evolução e anamnese). Não se digitam: o
+    /// sistema monta e imprime. O termo LGPD saiu daqui na parcela 89 — ele passou a ser
+    /// assinado pelo paciente e vai pela coleta.
     /// </summary>
     private async Task EmitirMontadaAsync(FolhaCatalogo folha)
     {
@@ -629,8 +637,6 @@ public sealed partial class DocumentosViewModel : ObservableObject
             {
                 TipoDocumentoClinico.RelatorioEvolucao =>
                     await servico.EmitirRelatorioEvolucaoAsync(paciente.Id, operador: operador),
-                TipoDocumentoClinico.Consentimento =>
-                    await servico.EmitirTermoConsentimentoAsync(paciente.Id, operador: operador),
                 _ => await servico.EmitirAnamneseAsync(paciente.Id, operador: operador)
             };
         }

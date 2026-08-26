@@ -946,6 +946,33 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 g => (Inicial: g.First().EvaAntes!.Value, Ultima: g.Last().EvaDepois!.Value));
     }
 
+    public async Task<IReadOnlyDictionary<int, (int Sessoes, DateOnly Ultima)>>
+        SessoesDosPacientesAsync(
+            IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return new Dictionary<int, (int, DateOnly)>();
+
+        // O MESMO critério do agrupamento da carteira — sessão é agendamento REALIZADO —,
+        // e ele precisa ser o mesmo: duas definições de "quantas sessões este paciente
+        // teve" divergiriam na primeira correção, e a lista mostraria um número na busca e
+        // outro fora dela, para a mesma pessoa.
+        var agrupado = await _db.Agendamentos.AsNoTracking()
+            .Where(a => pacienteIds.Contains(a.PacienteId)
+                        && a.Status == StatusAgendamento.Realizado)
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new
+            {
+                PacienteId = g.Key,
+                Ultima = g.Max(a => a.DataHora),
+                Sessoes = g.Count()
+            })
+            .ToListAsync(ct);
+
+        return agrupado.ToDictionary(
+            x => x.PacienteId,
+            x => (x.Sessoes, DateOnly.FromDateTime(x.Ultima)));
+    }
+
     public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, bool incluirCanceladas, CancellationToken ct = default)
         => await _db.Evolucoes.AsNoTracking()
@@ -1165,19 +1192,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
-    // O agrupamento vai no SQL: um profissional com dois anos de casa tem milhares de
+    // O agrupamento vai no SQL: uma clínica com dois anos de casa tem milhares de
     // agendamentos, e a tela mostra uma linha por paciente. Cancelado e falta ficam de
-    // fora — "meus pacientes" é quem eu atendi, não quem marcou e não veio.
-    public async Task<IReadOnlyList<Clinica.Application.Modelos.PacienteDoProfissional>>
-        PacientesDoProfissionalAsync(
-            int profissionalId, int limite = 200, CancellationToken ct = default)
+    // fora — a carteira é quem a clínica ATENDEU, não quem marcou e não veio.
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.PacienteDaCarteira>>
+        PacientesAtendidosAsync(int limite = 200, CancellationToken ct = default)
     {
         // O agrupamento sai como DateTime porque é o tipo da coluna; a conversão para
         // DateOnly acontece depois, em memória, sobre as poucas linhas já reduzidas —
         // traduzir DateOnly.FromDateTime para SQL não é coisa que se peça ao provedor.
+        //
+        // ⚠️ SEM filtro de profissional: "não existe 'meu paciente', todos atendem todos".
         var agrupado = await _db.Agendamentos.AsNoTracking()
-            .Where(a => a.ProfissionalId == profissionalId
-                        && a.Status == StatusAgendamento.Realizado)
+            .Where(a => a.Status == StatusAgendamento.Realizado)
             .GroupBy(a => new { a.PacienteId, Nome = a.Paciente!.Nome })
             .Select(g => new
             {
@@ -1191,7 +1218,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
         return agrupado
-            .Select(x => new Clinica.Application.Modelos.PacienteDoProfissional(
+            .Select(x => new Clinica.Application.Modelos.PacienteDaCarteira(
                 x.PacienteId, x.Nome, DateOnly.FromDateTime(x.Ultima), x.Sessoes))
             .ToList();
     }
@@ -1327,6 +1354,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(d => d.Profissional)
             .Where(d => d.PacienteId == pacienteId)
             .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToListAsync(ct);
+
+    // Projeção de UMA coluna com EXISTS: a pergunta é "quais termos carregam finalidade",
+    // e trazer os itens para respondê-la arrastaria o desenho dos relatórios junto.
+    public async Task<IReadOnlyList<int>> TermosLgpdComFinalidadeAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Where(d => d.PacienteId == pacienteId
+                        && d.Tipo == TipoDocumentoClinico.Consentimento
+                        && d.Itens.Any(i => i.Codigo != null))
+            .Select(d => d.Id)
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosClinicosNoPeriodoAsync(

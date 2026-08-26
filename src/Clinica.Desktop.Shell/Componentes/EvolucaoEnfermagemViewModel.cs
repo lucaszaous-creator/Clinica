@@ -111,6 +111,20 @@ public sealed class LinhaEvolucaoEnfermagem
     public required bool Intercorrencia { get; init; }
     public required bool Cancelada { get; init; }
     public required bool Substituida { get; init; }
+
+    /// <summary>
+    /// Esta passagem é do horário que está aberto agora.
+    ///
+    /// ⚠️ Ela é o primeiro LEITOR de <c>EvolucaoEnfermagem.AgendamentoId</c>. O campo era
+    /// gravado desde que a entidade nasceu (parcela 71), preservado na retificação — e
+    /// nenhuma consulta, tela ou papel o lia: dado gravado sem leitor, o defeito recorrente
+    /// do projeto. Sem este marcador, dizer que "a passagem fica ligada a esta sessão" seria
+    /// uma promessa que o código não cumpre (a armadilha da parcela 67).
+    ///
+    /// O que ele responde é a pergunta de quem está com o paciente na frente: <i>já
+    /// registrei alguma coisa NESTA passagem, ou o que estou vendo é de outro dia?</i>
+    /// </summary>
+    public required bool DestaSessao { get; init; }
     public required string? Marca { get; init; }
     public required string? Folha { get; init; }
 
@@ -134,7 +148,8 @@ public sealed class LinhaEvolucaoEnfermagem
     public bool EmDestaque => Intercorrencia && Vigente;
 
     public static LinhaEvolucaoEnfermagem De(
-        EvolucaoEnfermagem e, bool substituida, bool mostrarData)
+        EvolucaoEnfermagem e, bool substituida, bool mostrarData,
+        int? agendamentoAberto = null)
     {
         var marca = e.Cancelada
             ? $"CANCELADA — {e.MotivoCancelamento}"
@@ -164,9 +179,147 @@ public sealed class LinhaEvolucaoEnfermagem
             Intercorrencia = e.Intercorrencia,
             Cancelada = e.Cancelada,
             Substituida = substituida,
+            // Nulo dos dois lados NÃO casa: sem horário aberto, nada é "desta sessão" —
+            // senão toda passagem avulsa se anunciaria como da sessão que não existe.
+            DestaSessao = agendamentoAberto is { } aberto && e.AgendamentoId == aberto,
             Marca = marca,
             Folha = e.Prescricao?.Numero
         };
+    }
+}
+
+/// <summary>
+/// Uma linha do catálogo de enfermagem, como ela aparece na janela de escolha.
+///
+/// ⚠️ Ela existe porque o registro do DOMÍNIO não pode carregar estado de tela: quem sabe
+/// se este cuidado JÁ ESTÁ no plano é a passagem que está sendo escrita, não o catálogo.
+/// E mostrar isso não é enfeite — <c>AdicionarCuidado</c> recusa o repetido **em
+/// silêncio**, e clique que não faz nada é o defeito da parcela 41. Aqui o botão some e
+/// no lugar dele fica a marca de que já está lá.
+/// </summary>
+public sealed partial class ItemCatalogoEnfermagem : ObservableObject
+{
+    public required string Codigo { get; init; }
+    public required string Titulo { get; init; }
+
+    /// <summary>O que a caixinha de 240 px nunca teve espaço para mostrar.</summary>
+    public string? Detalhe { get; init; }
+
+    [ObservableProperty] private bool _noPlano;
+}
+
+/// <summary>
+/// UM catálogo de enfermagem aberto em JANELA — o de diagnósticos ou o de cuidados.
+///
+/// Por que janela, e não a caixinha de antes
+/// -----------------------------------------
+/// O catálogo é o que a enfermeira FAZ uma ou duas vezes por consulta; a prescrição é o que
+/// ela VÊ o tempo todo. A regra de leiaute do projeto decide sozinha: o primeiro é
+/// botão/janela, o segundo é a tela (parcela 37, 3ª rodada — o mapa corporal e o formulário
+/// de medida saíram de painéis abertos pelo mesmo argumento).
+///
+/// A caixinha custava caro nos dois sentidos. Ela ocupava 240 px permanentes ao lado de uma
+/// lista que nasce VAZIA — a tela abria com um quarto da largura gasto num atalho e o resto
+/// em branco —, e o que ela mostrava era um recorte de três linhas com rolagem: a
+/// frequência sugerida de cada cuidado e o resultado esperado de cada diagnóstico **nunca
+/// apareciam**, porque não cabiam. Dado que o sistema tem e a tela não mostra é o defeito
+/// recorrente deste projeto, aqui na variante mais discreta: a caixa está lá, ela só é
+/// pequena demais para dizer o que sabe.
+///
+/// ⚠️ UMA classe para os DOIS catálogos, e uma janela só. Duas seriam duas definições de
+/// "escolher do catálogo", e a segunda correção já sairia divergente.
+/// </summary>
+public sealed partial class CatalogoDeEnfermagem : ObservableObject
+{
+    private readonly Func<string?, IReadOnlyList<ItemCatalogoEnfermagem>> _buscar;
+    private readonly Action<string> _adicionar;
+    private readonly Func<string, bool> _estaNoPlano;
+
+    public CatalogoDeEnfermagem(
+        string titulo, string explicacao, string dicaDaBusca,
+        Func<string?, IReadOnlyList<ItemCatalogoEnfermagem>> buscar,
+        Action<string> adicionar,
+        Func<string, bool> estaNoPlano)
+    {
+        Titulo = titulo;
+        Explicacao = explicacao;
+        DicaDaBusca = dicaDaBusca;
+        _buscar = buscar;
+        _adicionar = adicionar;
+        _estaNoPlano = estaNoPlano;
+    }
+
+    public string Titulo { get; }
+    public string Explicacao { get; }
+    public string DicaDaBusca { get; }
+
+    public ObservableCollection<ItemCatalogoEnfermagem> Itens { get; } = new();
+
+    [ObservableProperty] private string _busca = string.Empty;
+    [ObservableProperty] private string _resumo = string.Empty;
+
+    partial void OnBuscaChanged(string value) => Recarregar();
+
+    /// <summary>
+    /// Monta a lista com o termo atual. Chamada ao ABRIR a janela, sempre: entre uma
+    /// abertura e outra o plano mudou (escolher um diagnóstico traz os cuidados dele
+    /// junto), e uma lista que não sabe disso ofereceria "+" para o que já está lá.
+    /// </summary>
+    public void Recarregar()
+    {
+        var achados = _buscar(Busca);
+
+        // Entre o Clear() e o último Add não pode haver await — não há nenhum aqui, e a
+        // montagem é síncrona de propósito (a regra da parcela 62).
+        Itens.Clear();
+        foreach (var i in achados)
+        {
+            i.NoPlano = _estaNoPlano(i.Codigo);
+            Itens.Add(i);
+        }
+
+        AtualizarResumo();
+    }
+
+    /// <summary>
+    /// ⚠️ Depois de acrescentar, a lista NÃO é remontada: o estado de cada linha é
+    /// corrigido no lugar. Remontar jogaria a rolagem para o topo a cada escolha, e quem
+    /// está escolhendo cinco cuidados seguidos perderia o lugar cinco vezes.
+    /// </summary>
+    [RelayCommand]
+    private void Adicionar(ItemCatalogoEnfermagem? item)
+    {
+        if (item is null || item.NoPlano) return;
+
+        _adicionar(item.Codigo);
+
+        // Um diagnóstico traz os CUIDADOS dele junto — então não basta marcar a linha
+        // clicada: o plano pode ter crescido em vários pontos de uma vez.
+        foreach (var i in Itens) i.NoPlano = _estaNoPlano(i.Codigo);
+
+        AtualizarResumo();
+    }
+
+    /// <summary>
+    /// O tamanho do catálogo inteiro, medido uma vez. Ele é uma lista em CÓDIGO e não muda
+    /// em tempo de execução — refazer a busca vazia a cada tecla para escrever um número no
+    /// resumo seria trabalho a cada letra digitada.
+    /// </summary>
+    private int? _totalDoCatalogo;
+
+    private void AtualizarResumo()
+    {
+        _totalDoCatalogo ??= _buscar(null).Count;
+
+        var noPlano = Itens.Count(i => i.NoPlano);
+        var termo = Busca.Trim();
+        var jaNoPlano = noPlano > 0 ? $", {noPlano} já no plano." : ".";
+
+        // A lista filtrada DIZ que está filtrada — "6 no catálogo" sozinho faria a
+        // enfermeira concluir que a clínica só tem seis cuidados cadastrados.
+        Resumo = termo.Length > 0
+            ? $"“{termo}” — {Itens.Count} de {_totalDoCatalogo} no catálogo{jaNoPlano}"
+            : $"{Itens.Count} no catálogo{jaNoPlano}";
     }
 }
 
@@ -279,15 +432,19 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     public ObservableCollection<LinhaDiagnosticoEnfermagem> Diagnosticos { get; } = new();
     public ObservableCollection<LinhaCuidadoEnfermagem> Cuidados { get; } = new();
 
-    /// <summary>O catálogo, filtrado pela busca — atalho, e a tela diz que é atalho.</summary>
-    public ObservableCollection<DiagnosticoCatalogo> CatalogoDiagnosticos { get; } = new();
-    public ObservableCollection<CuidadoCatalogo> CatalogoCuidados { get; } = new();
+    // ==================== OS DOIS CATÁLOGOS, em janela (parcela 88, 4ª rodada) =========
+    //
+    // A clínica pediu: "preciso de um pop out para que a enfermeira consiga maximizar e ler
+    // tudo e todas as opções". Eles eram duas caixinhas de 240 px com teto de 180 —
+    // permanentes ao lado de uma lista que nasce VAZIA, e pequenas demais para mostrar o
+    // que o catálogo sabe (a frequência sugerida de cada cuidado, o resultado esperado de
+    // cada diagnóstico). Agora são botão + janela redimensionável.
+    //
+    // ⚠️ A janela recebe ESTE objeto, e não uma cópia: quem grava é a passagem de trás, e
+    // dois VMs dariam duas verdades sobre o mesmo plano (a regra da parcela 49).
 
-    [ObservableProperty] private string _buscaDiagnostico = string.Empty;
-    [ObservableProperty] private string _buscaCuidado = string.Empty;
-
-    partial void OnBuscaDiagnosticoChanged(string value) => FiltrarDiagnosticos();
-    partial void OnBuscaCuidadoChanged(string value) => FiltrarCuidados();
+    public CatalogoDeEnfermagem CatalogoDeDiagnosticos { get; }
+    public CatalogoDeEnfermagem CatalogoDeCuidados { get; }
 
     /// <summary>
     /// As etapas que ficaram vazias — a frase que AVISA sem impedir.
@@ -318,12 +475,67 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// ALGUMA das cinco etapas tem conteúdo — é o que decide se desmarcar custa alguma
+    /// coisa. Ele NÃO é <c>EtapasEmFalta</c> pelo avesso: aquele responde "o que ainda
+    /// falta", este responde "o que já foi escrito", e são perguntas diferentes.
+    /// </summary>
+    public bool ConsultaTemConteudo
+        => !string.IsNullOrWhiteSpace(Historico)
+           || !string.IsNullOrWhiteSpace(ExameFisico)
+           || !string.IsNullOrWhiteSpace(Avaliacao)
+           || Diagnosticos.Any(d => !string.IsNullOrWhiteSpace(d.Titulo))
+           || Cuidados.Any(c => !string.IsNullOrWhiteSpace(c.Descricao));
+
+    /// <summary>
+    /// A propriedade está sendo mudada por CÓDIGO, e não pela pessoa.
+    ///
+    /// ⚠️ Ele protege três caminhos, e os dois últimos não são teoria: a reversão da
+    /// própria confirmação abaixo; a limpeza depois de gravar; e o <c>Corrigir</c>, que
+    /// carrega um registro antigo — abrir uma ANOTAÇÃO com uma consulta pela metade na
+    /// tela perguntaria "voltar para anotação?" no meio de uma carga que a pessoa não
+    /// pediu. Pergunta que aparece sem gesto é pergunta que se fecha sem ler.
+    /// </summary>
+    private bool _ajustandoConsultaPorCodigo;
+
+    /// <summary>Muda <see cref="ConsultaCompleta"/> sem disparar a confirmação.</summary>
+    private void DefinirConsultaCompleta(bool valor)
+    {
+        _ajustandoConsultaPorCodigo = true;
+        ConsultaCompleta = valor;
+        _ajustandoConsultaPorCodigo = false;
+    }
+
+    /// <summary>
+    /// ⚠️ DESMARCAR DESCARTA AS CINCO ETAPAS na gravação — <see cref="ColherProcesso"/>
+    /// devolve <c>null</c> no modo anotação — e esse custo deixou de ser visível quando a
+    /// consulta saiu da tela e foi para a janela (parcela 88, 5ª rodada). Antes, as abas
+    /// sumiam na frente da pessoa; agora não muda nada na tela, e o que ela escreveu não
+    /// vai para o prontuário sem uma palavra.
+    ///
+    /// Por isso a pergunta — e só quando há o que perder: cobrar confirmação para
+    /// desmarcar uma consulta em branco treinaria a equipe a confirmar sem ler, que é
+    /// exatamente o que este projeto recusa desde a parcela 65.
+    ///
+    /// O texto DIZ que as etapas continuam na tela: elas ficam no ViewModel e voltam ao
+    /// marcar de novo. Quem as perde é quem grava como anotação.
+    /// </summary>
     partial void OnConsultaCompletaChanged(bool value)
     {
-        if (value && CatalogoDiagnosticos.Count == 0)
+        if (!value && !_ajustandoConsultaPorCodigo && ConsultaTemConteudo)
         {
-            FiltrarDiagnosticos();
-            FiltrarCuidados();
+            var seguir = _dialogo.ConfirmarPerigo(
+                "Voltar para anotação de passagem?",
+                "As cinco etapas que você escreveu NÃO vão para o prontuário se este "
+                + "registro for gravado como anotação.\n\nElas continuam na tela — basta "
+                + "marcar “Consulta de enfermagem” de novo para voltar a elas.\n\n"
+                + "Deseja continuar?");
+
+            if (!seguir)
+            {
+                DefinirConsultaCompleta(true);
+                return;
+            }
         }
 
         OnPropertyChanged(nameof(EtapasEmFalta));
@@ -331,20 +543,6 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
 
     partial void OnHistoricoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
     partial void OnAvaliacaoChanged(string value) => OnPropertyChanged(nameof(EtapasEmFalta));
-
-    private void FiltrarDiagnosticos()
-    {
-        var achados = CatalogoEnfermagem.BuscarDiagnosticos(BuscaDiagnostico).ToList();
-        CatalogoDiagnosticos.Clear();
-        foreach (var d in achados) CatalogoDiagnosticos.Add(d);
-    }
-
-    private void FiltrarCuidados()
-    {
-        var achados = CatalogoEnfermagem.BuscarCuidados(BuscaCuidado).ToList();
-        CatalogoCuidados.Clear();
-        foreach (var c in achados) CatalogoCuidados.Add(c);
-    }
 
     /// <summary>
     /// Traz o diagnóstico do catálogo E os cuidados que ele costuma pedir.
@@ -354,7 +552,11 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// enfermagem que ninguém leu — e cuidado prescrito é cuidado que alguém vai ter de
     /// checar depois.
     /// </summary>
-    [RelayCommand]
+    /// <summary>
+    /// A definição ÚNICA de "acrescentar este diagnóstico" — chamada pelo catálogo em
+    /// janela. Deixou de ser <c>[RelayCommand]</c> quando a caixinha saiu da tela: comando
+    /// que nenhum XAML amarra é superfície sem leitor.
+    /// </summary>
     private void AdicionarDiagnostico(DiagnosticoCatalogo? escolhido)
     {
         if (escolhido is null) return;
@@ -385,7 +587,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         OnPropertyChanged(nameof(EtapasEmFalta));
     }
 
-    [RelayCommand]
+    /// <summary>A definição ÚNICA de "acrescentar este cuidado" — ver o irmão acima.</summary>
     private void AdicionarCuidado(CuidadoCatalogo? escolhido)
     {
         if (escolhido is null) return;
@@ -419,6 +621,31 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     public bool PodeRegistrar =>
         SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
 
+    /// <summary>
+    /// O compositor está vazio — nada foi digitado desta passagem.
+    ///
+    /// ⚠️ Ela existe para o FINALIZAR do posto clínico não perguntar <i>"você não escreveu
+    /// nada desta sessão?"</i> a quem acabou de escrever uma consulta de enfermagem
+    /// inteira. Perguntar sobre o registro que a pessoa tem na frente é o jeito mais rápido
+    /// de ensinar alguém a fechar diálogo sem ler — que é a causa raiz do incidente da
+    /// parcela 65.
+    ///
+    /// ⚠️ Ela olha TUDO o que grava, e não só o texto: sinais vitais, acesso venoso, alergia
+    /// observada e as cinco etapas contam. É a lição da parcela 74 — <c>SessaoEmBranco</c>
+    /// decide se a tela PERGUNTA, e usá-la para decidir se GRAVA descartou em silêncio a
+    /// sessão mais comum da casa.
+    /// </summary>
+    public bool CompositorEmBranco =>
+        string.IsNullOrWhiteSpace(Texto)
+        && string.IsNullOrWhiteSpace(AlergiaObservada)
+        && LerSinaisVitais() is null
+        && LerAcesso() is null
+        && string.IsNullOrWhiteSpace(Historico)
+        && string.IsNullOrWhiteSpace(ExameFisico)
+        && string.IsNullOrWhiteSpace(Avaliacao)
+        && Diagnosticos.All(d => string.IsNullOrWhiteSpace(d.Titulo))
+        && Cuidados.All(c => string.IsNullOrWhiteSpace(c.Descricao));
+
     public EvolucaoEnfermagemViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo,
         int pacienteId, string paciente,
@@ -431,17 +658,75 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         _agendamentoId = agendamentoId;
         Paciente = paciente;
 
-        Contexto = prescricaoId is null
-            // ⚠️ A janela DIZ que não há folha, em vez de deixar a pessoa supor: é a
-            // passagem avulsa (curativo, observação, triagem), e o registro é do paciente.
-            ? "Registro do paciente — esta passagem não está ligada a uma folha de infusão."
-            : $"Durante a folha de infusão {folha}.";
+        // Os dois catálogos, com a LEITURA e a ESCRITA apontando para este mesmo objeto —
+        // a janela é uma porta, nunca uma segunda verdade sobre o plano.
+        CatalogoDeDiagnosticos = new CatalogoDeEnfermagem(
+            titulo: "Diagnósticos de enfermagem",
+            explicacao: "Lista desta clínica — NÃO é a NANDA-I, que é licenciada. Escolher um "
+                        + "traz junto os cuidados que ele costuma pedir, para você desmarcar o "
+                        + "que não vale. O que não estiver aqui se escreve à mão.",
+            dicaDaBusca: "Buscar por diagnóstico ou causa",
+            buscar: termo => CatalogoEnfermagem.BuscarDiagnosticos(termo)
+                .Select(d => new ItemCatalogoEnfermagem
+                {
+                    Codigo = d.Codigo,
+                    Titulo = d.Titulo,
+                    // O que a caixinha de 240 px nunca teve como mostrar.
+                    Detalhe = $"Resultado esperado: {d.ResultadoEsperado}"
+                              + (d.Cuidados.Count > 0
+                                  ? $"  ·  traz {d.Cuidados.Count} cuidado(s)"
+                                  : string.Empty)
+                })
+                .ToList(),
+            adicionar: codigo => AdicionarDiagnostico(CatalogoEnfermagem.Diagnostico(codigo)),
+            estaNoPlano: codigo => Diagnosticos.Any(d => d.Codigo == codigo));
+
+        CatalogoDeCuidados = new CatalogoDeEnfermagem(
+            titulo: "Cuidados de enfermagem",
+            explicacao: "O que a ENFERMAGEM prescreve. A frequência vem sugerida e é sua para "
+                        + "ajustar: “verificar o acesso” sem dizer de quanto em quanto tempo é "
+                        + "lembrete, não prescrição. O que não estiver aqui se escreve à mão.",
+            dicaDaBusca: "Buscar cuidado",
+            buscar: termo => CatalogoEnfermagem.BuscarCuidados(termo)
+                .Select(c => new ItemCatalogoEnfermagem
+                {
+                    Codigo = c.Codigo,
+                    Titulo = c.Descricao,
+                    Detalhe = string.IsNullOrWhiteSpace(c.FrequenciaSugerida)
+                        ? null
+                        : $"Frequência sugerida: {c.FrequenciaSugerida}"
+                })
+                .ToList(),
+            adicionar: codigo => AdicionarCuidado(CatalogoEnfermagem.Cuidado(codigo)),
+            estaNoPlano: codigo => Cuidados.Any(c => c.Codigo == codigo));
+
+        // ⚠️ A tela DIZ a que a passagem fica ligada, em vez de deixar a pessoa supor — e
+        // são três casos diferentes, não dois. Ligada ao HORÁRIO ela entra na ficha DAQUELA
+        // sessão e na conferência do consultório; solta, é registro do paciente e não de
+        // sessão nenhuma. Escrever "não está ligada a uma folha" para quem veio da agenda
+        // seria verdade pela metade, e é a metade que não interessa.
+        Contexto = prescricaoId is not null
+            ? $"Durante a folha de infusão {folha}."
+            : agendamentoId is not null
+                ? "Ligada ao horário do atendimento — a passagem fica registrada nesta sessão."
+                : "Registro do paciente — esta passagem não está ligada a uma folha de infusão.";
 
         _ = CarregarAsync();
     }
 
     public async Task CarregarAsync()
     {
+        // ⚠️ Sem paciente não há o que ler. A SEÇÃO do posto clínico constrói o compositor
+        // antes de saber quem é (o workspace monta as nove seções de uma vez), e ir ao
+        // banco perguntar pelo paciente zero é uma ida a mais por navegação, num banco
+        // remoto — e uma linha de log por navegação, que é como uma trilha útil vira ruído.
+        if (_pacienteId == 0 && _prescricaoId is null)
+        {
+            Registros.Clear();
+            Carregando = false;
+            return;
+        }
+
         var geracao = ++_geracaoCarga;
         Carregando = true;
         NaoVerificado = false;
@@ -468,7 +753,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             var linhas = lista
                 .OrderByDescending(e => e.Data).ThenByDescending(e => e.Hora).ThenByDescending(e => e.Id)
                 .Select(e => LinhaEvolucaoEnfermagem.De(
-                    e, substituidas.Contains(e.Id), mostrarData: _prescricaoId is null))
+                    e, substituidas.Contains(e.Id), mostrarData: _prescricaoId is null,
+                    agendamentoAberto: _agendamentoId))
                 .ToList();
 
             Registros.Clear();
@@ -644,7 +930,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                     SeNecessario = c.SeNecessario
                 });
 
-            ConsultaCompleta = original.EhConsulta;
+            DefinirConsultaCompleta(original.EhConsulta);
 
             Mensagem = $"Corrigindo o registro de {original.Data:dd/MM/yyyy} às "
                      + $"{original.Hora:HH\\:mm}. O original fica na folha, marcado, e a "
@@ -736,8 +1022,13 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         Historico = ExameFisico = Avaliacao = string.Empty;
         Diagnosticos.Clear();
         Cuidados.Clear();
-        BuscaDiagnostico = BuscaCuidado = string.Empty;
-        ConsultaCompleta = false;
+        CatalogoDeDiagnosticos.Busca = CatalogoDeCuidados.Busca = string.Empty;
+
+        // ⚠️ Por CÓDIGO: aqui a limpeza dos campos acima já zerou `ConsultaTemConteudo`,
+        // mas depender dessa ordem seria uma armadilha para quem reordenar as linhas —
+        // e o preço seria a pergunta "voltar para anotação?" logo depois de um Registrar
+        // que deu certo.
+        DefinirConsultaCompleta(false);
 
         _retificando = null;
         _dataCorrigida = null;

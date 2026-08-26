@@ -54,15 +54,21 @@ public sealed class ConsentimentoService
         return situacao.TryGetValue(finalidade, out var atual) && atual.Vigente;
     }
 
-    /// <summary>Registra a resposta do paciente (concedeu ou negou) para uma finalidade.</summary>
-    public async Task<ConsentimentoLgpd> RegistrarAsync(
+    /// <summary>
+    /// A LINHA de consentimento e a linha de auditoria dela — o par que TODO caminho de
+    /// registro grava.
+    ///
+    /// ⚠️ Existe porque há DOIS caminhos e um deles não pode chamar o outro: o termo
+    /// assinado (<c>AssinaturaDoPacienteService</c>) grava no MESMO <c>SaveChanges</c> do
+    /// ato, e <see cref="RegistrarAsync"/> tem o <c>SalvarAsync</c> dele. Sem este ponto
+    /// único, "como se grava um consentimento" teria duas definições — e a que ninguém
+    /// lembrasse de ajustar gravaria com a ação de auditoria errada, que é justamente o
+    /// que uma investigação procura por nome.
+    /// </summary>
+    public static (ConsentimentoLgpd Registro, EventoAuditoria Evento) Montar(
         int pacienteId, FinalidadeConsentimento finalidade, bool concedido,
-        string? versaoTermo = null, string? operador = null, string? observacoes = null,
-        CancellationToken ct = default)
+        string? versaoTermo, string? operador, string? observacoes)
     {
-        if (await _repo.ObterPacienteAsync(pacienteId, ct) is null)
-            throw new InvalidOperationException("Paciente não encontrado.");
-
         var registro = new ConsentimentoLgpd
         {
             PacienteId = pacienteId,
@@ -74,14 +80,42 @@ public sealed class ConsentimentoService
             Observacoes = observacoes
         };
 
-        await _repo.AdicionarConsentimentoAsync(registro, ct);
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        var evento = new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = concedido ? "ConsentimentoConcedido" : "ConsentimentoNegado",
-            Detalhe = finalidade.ToString(),
+            Detalhe = string.IsNullOrWhiteSpace(versaoTermo)
+                ? finalidade.ToString()
+                : $"{finalidade} — termo {versaoTermo} assinado pelo paciente",
             PacienteId = pacienteId
-        }, ct);
+        };
+
+        return (registro, evento);
+    }
+
+    /// <summary>
+    /// Registra a resposta do paciente (concedeu ou negou) para uma finalidade.
+    ///
+    /// ⚠️ **Não é a porta do balcão.** Desde a parcela 89 o único caminho de PRODUÇÃO para
+    /// conceder ou recusar é o termo que o paciente ASSINA — a caixinha que a
+    /// recepcionista marcava saiu da ficha, porque o art. 8º pede manifestação do titular
+    /// e o §2º põe o ônus da prova em quem trata o dado. Este método sobreviveu para o
+    /// registro feito FORA do termo (hoje, a montagem dos testes); quem for pendurar uma
+    /// tela nele está reabrindo o caminho sem assinatura.
+    /// </summary>
+    public async Task<ConsentimentoLgpd> RegistrarAsync(
+        int pacienteId, FinalidadeConsentimento finalidade, bool concedido,
+        string? versaoTermo = null, string? operador = null, string? observacoes = null,
+        CancellationToken ct = default)
+    {
+        if (await _repo.ObterPacienteAsync(pacienteId, ct) is null)
+            throw new InvalidOperationException("Paciente não encontrado.");
+
+        var (registro, evento) = Montar(
+            pacienteId, finalidade, concedido, versaoTermo, operador, observacoes);
+
+        await _repo.AdicionarConsentimentoAsync(registro, ct);
+        await _repo.RegistrarAuditoriaAsync(evento, ct);
 
         await _repo.SalvarAsync(ct);
         return registro;

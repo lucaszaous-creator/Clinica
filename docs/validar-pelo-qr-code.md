@@ -1,6 +1,10 @@
-# Validar pelo QR Code direto no gov.br — o que falta e como ligar
+# Validar pelo QR Code direto no gov.br — como está ligado
 
-## O que acontece hoje (e por quê)
+> ✅ **O Worker está PUBLICADO e testado** (ago/2026). O que segue explica o porquê do
+> desenho e como ele funciona; o roteiro de instalação continua aqui porque é o que se
+> refaz ao trocar de domínio ou de conta.
+
+## O problema que ele resolveu (e por quê)
 
 O QR das nossas folhas carrega a **URL do PDF assinado**. Isso faz dois caminhos
 funcionarem e um não:

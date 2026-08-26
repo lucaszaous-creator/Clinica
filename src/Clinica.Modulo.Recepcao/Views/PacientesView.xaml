@@ -636,23 +636,20 @@
 
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Receita, atestado, declaração e pedido de exame são escritos na janela. Os três abaixo o sistema monta do prontuário — e todos ficam numerados aqui, com código de conferência para a via em papel." />
+                                   Text="Receita, atestado, declaração e pedido de exame são escritos na janela. Os dois abaixo o sistema monta do prontuário — e todos ficam numerados aqui, com código de conferência para a via em papel. O termo de consentimento (LGPD) fica na aba LGPD: ele é assinado pelo paciente." />
 
-                        <!-- Os três montados NÃO pedem o mesmo acesso (parcela 59):
-                             relatório de evolução e anamnese saem do PRONTUÁRIO; o termo
-                             de consentimento sai do cadastro e é colhido no balcão. Botão
-                             aceso que só diz "seu acesso não permite" depois do clique é
-                             o defeito da parcela 41 com uma etapa a mais. -->
+                        <!-- ⚠️ O "Termo de consentimento" SAIU desta barra na parcela 89.
+                             Ele deixou de ser um papel montado do cadastro e passou a ser
+                             assinado pelo PACIENTE — emitir aqui produziria um termo
+                             numerado e em branco, que a leitura natural de quem viu o
+                             papel sair é o consentimento colhido. A porta é a aba LGPD,
+                             onde a coleta acontece. -->
                         <!-- Barra de FORMULÁRIO usa BotaoSecundario; BotaoPequeno é de
                              linha densa de grid (parcela 49) e deixava os três miúdos. -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="Relatório de evolução" Style="{StaticResource BotaoSecundario}"
                                     IsEnabled="{Binding PodeEmitirDoProntuario}"
                                     Command="{Binding EmitirRelatorioCommand}" />
-                            <Button Content="Termo de consentimento" Margin="8,0,0,0"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    IsEnabled="{Binding PodeEditarCadastro}"
-                                    Command="{Binding EmitirTermoCommand}" />
                             <Button Content="Anamnese" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoSecundario}"
                                     IsEnabled="{Binding PodeEmitirDoProntuario}"
@@ -827,8 +824,46 @@
                     <StackPanel>
                         <TextBlock Text="Consentimentos (LGPD)" Style="{StaticResource H3}" />
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Cada resposta vira um registro datado. Revogar não apaga o anterior — ele continua provando o consentimento do período já tratado." />
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
+                                   Text="Quem responde é o PACIENTE, no termo que ele assina. Cada resposta vira um registro datado, e revogar não apaga o anterior — ele continua provando o consentimento do período já tratado." />
+
+                        <!-- A PORTA (parcela 89). Até aqui o balcão marcava "Concedeu"/"Recusou"
+                             em quatro pares de botões, sem assinatura nenhuma: o sistema
+                             afirmava a uma auditoria que o titular havia consentido, e a única
+                             prova era a palavra de quem clicou. O art. 8º pede manifestação do
+                             TITULAR, e o §2º põe o ônus da prova em quem trata o dado.
+
+                             O botão abre a MESMA janela do termo de procedimento, que já
+                             oferece as duas formas: o traço na tela do balcão (ou na segunda
+                             tela) e o envio do link pelo WhatsApp, que volta assinado do
+                             celular do paciente. Uma porta só, porque quem escolhe a forma é
+                             quem está com a pessoa na frente. -->
+                        <Border Background="{StaticResource Brush.Fundo}"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Termo de consentimento assinado pelo paciente"
+                                               FontWeight="SemiBold" TextWrapping="Wrap"
+                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                    <TextBlock Text="{Binding TermoLgpdSituacao}" Margin="0,2,0,0"
+                                               TextWrapping="Wrap" HorizontalAlignment="Left"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                </StackPanel>
+
+                                <Button Grid.Column="1" Content="Colher assinatura…"
+                                        VerticalAlignment="Center" MinWidth="150"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        ToolTip="Abre o termo com as quatro finalidades. O paciente assina na tela do balcão ou pelo link do WhatsApp."
+                                        IsEnabled="{Binding PodeColherTermoLgpd}"
+                                        Command="{Binding ColherTermoLgpdCommand}" />
+                            </Grid>
+                        </Border>
 
                         <ItemsControl ItemsSource="{Binding Consentimentos}">
                             <ItemsControl.ItemTemplate>
@@ -857,19 +892,17 @@
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="Vigente" />
                                                 </Border>
-                                                <Button Content="Concedeu" Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding DataContext.PodeEditarCadastro,
-                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        Command="{Binding DataContext.ConcederCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button Content="Recusou" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                        IsEnabled="{Binding DataContext.PodeEditarCadastro,
-                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        Command="{Binding DataContext.RecusarCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                <!-- ⚠️ "Concedeu"/"Recusou" SAÍRAM na parcela 89: conceder e
+                                                     recusar passou a ser exclusivamente o que o paciente
+                                                     responde no termo assinado, acima. Marcar aqui era o
+                                                     sistema afirmar, a uma auditoria, uma manifestação do
+                                                     titular que ninguém tinha colhido.
+
+                                                     REVOGAR fica, e a assimetria é da lei: revogar é direito
+                                                     UNILATERAL do titular (art. 8º, §5º; art. 18) e a clínica
+                                                     é obrigada a atender de imediato — inclusive por telefone,
+                                                     onde não há termo a assinar. Exigir assinatura para revogar
+                                                     dificultaria justamente o lado que a LGPD manda facilitar. -->
                                                 <!-- ⚠️ Revogar tinha IsEnabled amarrado a `PodeRevogar`, que é
                                                      ESTADO da linha, não permissão. Os dois COMPÕEM: quem só lê
                                                      não revoga consentimento vigente. -->

@@ -275,6 +275,18 @@ public class EvolucaoEnfermagemService
                 Codigo = Limpar(c.Codigo),
                 Descricao = c.Descricao.Trim(),
                 Frequencia = Limpar(c.Frequencia),
+                // ⚠️ O "se necessário" ficou de FORA desta cópia desde que o campo nasceu
+                // (parcela 76), e o defeito é o "lugar 3" da lista de conferência: a cópia
+                // campo a campo do serviço, onde o que não está na lista some sem erro
+                // nenhum.
+                //
+                // O estrago não aparecia como falha, e sim como CONTAGEM errada: a caixinha
+                // da tela gravava sempre `false`, e `CuidadoDoDia.Pendente` é
+                // `!SeNecessario && Vigentes.Count == 0` — ou seja, TODO cuidado condicional
+                // ("se dor > 5") ficava eternamente aguardando registro, e o contador da
+                // sala passava a apontar para nada. É exatamente o que o comentário do
+                // próprio campo diz existir para impedir.
+                SeNecessario = c.SeNecessario,
                 Ordem = ordem++
             });
         }

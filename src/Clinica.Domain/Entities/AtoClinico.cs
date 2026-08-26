@@ -248,13 +248,19 @@ public static class TipoDocumentoInfo
     /// <summary>
     /// O documento é assinado pelo PACIENTE, e não (só) pelo profissional.
     ///
-    /// Hoje é um tipo só, e mesmo assim a pergunta mora aqui em vez de espalhada como
-    /// <c>== TermoProcedimento</c> pelas telas: a coleta, o alerta da fila, o catálogo de
-    /// folhas e o PDF precisam da mesma resposta, e quatro cópias divergem na primeira
-    /// vez que um segundo tipo entrar.
+    /// A pergunta mora aqui em vez de espalhada como <c>== TermoProcedimento</c> pelas
+    /// telas: a coleta, o alerta da fila, o catálogo de folhas, a janela genérica de
+    /// documento e o PDF precisam da mesma resposta, e cópias divergem na primeira vez que
+    /// um segundo tipo entrar.
+    ///
+    /// ⚠️ E ele entrou: o <see cref="TipoDocumentoClinico.Consentimento"/> chegou aqui na
+    /// parcela 89 — uma linha só, porque tudo o que vem depois (a coleta no balcão, a
+    /// segunda tela, o link no WhatsApp e a evidência) já era GENÉRICO sobre
+    /// <see cref="DocumentoClinico"/>. O que faltava era o portão.
     /// </summary>
     public static bool AssinadoPeloPaciente(TipoDocumentoClinico tipo)
-        => tipo is TipoDocumentoClinico.TermoProcedimento;
+        => tipo is TipoDocumentoClinico.TermoProcedimento
+               or TipoDocumentoClinico.Consentimento;
 
     /// <summary>
     /// O documento é montado pelo sistema a partir do prontuário/cadastro (em vez de
@@ -754,6 +760,21 @@ public class ItemDocumento
 
     /// <summary>Quantidade, quando faz sentido ("1 caixa", "2 frascos").</summary>
     public string? Quantidade { get; set; }
+
+    /// <summary>
+    /// O que esta linha É, para quem precisa LER a resposta de volta — hoje, a
+    /// <see cref="FinalidadeConsentimento"/> de cada declaração do termo LGPD (parcela 89).
+    ///
+    /// ⚠️ Ele existe porque casar a resposta por ORDEM seria o contrato de índice que a
+    /// parcela 41 trocou por nome: acrescentar uma finalidade no meio empurraria todas as
+    /// outras, e o "Sim" do uso de imagem viraria autorização para compartilhar com o
+    /// convênio — sem quebrar build nenhum. E casar pelo RÓTULO amarraria a decisão a um
+    /// texto que a clínica pode reescrever.
+    ///
+    /// É COPIADO na emissão, como todo o resto do documento. Nulo é o caso NORMAL: receita,
+    /// atestado e as outras impressões não precisam ser lidas de volta.
+    /// </summary>
+    public string? Codigo { get; set; }
 
     /// <summary>
     /// O que esta linha tem de DESENHÁVEL — o mapa corporal da sessão e a EVA (parcela 79),

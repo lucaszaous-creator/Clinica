@@ -1604,9 +1604,8 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   documento real para conferir infraestrutura seria expor dado de saúde para testar
   endereço.
   **Validado ao vivo contra o Cloudflare R2** (ago/2026): gravação, ACL de leitura pública,
-  exclusão e abertura do PDF pela URL. O que continua sem prova de campo é a assinatura, que
-  depende de e-CPF — e **sem certificado a publicação não funciona em produção também**, já
-  que é a assinatura que dispara o upload.
+  exclusão e abertura do PDF pela URL. E a assinatura **também foi provada na clínica com
+  e-CPF real pelo SafeID** (ago/2026) — ver a lição da prova de campo mais abaixo.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
@@ -2186,6 +2185,103 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   a consequência escrita ao lado — o mesmo que a parcela 49 fez com as caixinhas de
   permissão. Nada foi tirado: todo campo editável antes continua editável, um clique
   adiante.
+
+- **O CONSENTIMENTO ERA UMA CAIXINHA — e a única prova era a palavra de quem clicou**
+  (parcela 89; o mapa completo está em `docs/termo-assinado-pelo-paciente.md` §8, e é lá
+  que se atualiza). A direção pediu que **todo** documento que precisa da assinatura do
+  paciente fosse pelo Worker, como o termo do BSV, e nomeou os quatro consentimentos LGPD
+  da Recepção. Medido antes de escrever: **a coleta inteira já era genérica sobre
+  `DocumentoClinico`** — a janela, a segunda tela, o traço, a evidência, o selo, o envio
+  pelo WhatsApp e a volta pelo Worker olham `AguardaAssinaturaDoPaciente`, que responde por
+  `TipoDocumentoInfo.AssinadoPeloPaciente`. **Faltava uma linha de portão.** É o defeito
+  recorrente do projeto na variante mais barata de corrigir e a mais cara de deixar: a
+  capacidade existia, testada e em produção, para um tipo só.
+  ⚠️ **A inversão é a metade que importa.** O termo era o RECIBO do que o balcão marcara;
+  passou a ser a FONTE. Com ele como recibo, o paciente podia responder "Não" ao marketing
+  no celular e a clínica continuar mandando campanha, porque a caixinha seguia marcada —
+  **duas verdades sobre o mesmo fato, e nada falha: a campanha simplesmente sai**. E o
+  problema maior é jurídico: o art. 8º pede manifestação do TITULAR e o §2º põe o ônus da
+  prova em quem trata o dado, e a nossa prova era um clique da recepcionista.
+  Três decisões da direção: a **resposta assinada vence**; a caixinha **deixa de existir**
+  (o termo é o único caminho — o que não trava quem não tem celular, porque a coleta no
+  balcão continua sendo assinatura; o que acaba é o consentimento SEM assinatura nenhuma);
+  e é **um termo com as quatro declarações**, não quatro papéis.
+  ⚠️ **O vínculo é por CÓDIGO** (`ItemDocumento.Codigo`, migration aditiva), nunca por
+  `Ordem` — seria o contrato de ÍNDICE que a parcela 41 trocou por nome: acrescentar uma
+  finalidade no meio empurraria todas, e o "Sim" do uso de imagem viraria autorização para
+  compartilhar com o convênio, **sem quebrar build nenhum**. Nem pelo RÓTULO, que a clínica
+  reescreve. Código não reconhecível é **ignorado, nunca adivinhado**: deduzir pela posição
+  gravaria a autorização errada, que é pior do que não gravar.
+  ⚠️ **O PAPEL tinha de mudar junto, e essa foi a armadilha da parcela.** O desenho antigo
+  (`ListaFinalidades`) marcava um X quando a resposta era a palavra `"Autorizado"` e
+  escrevia "Pendente" no resto — com as respostas em "Sim"/"Não" ele imprimiria TODA
+  finalidade como pendente, e um **"Não" sairia idêntico a uma pergunta não respondida**,
+  no papel que o paciente leva justamente para provar o que recusou. O termo LGPD passou a
+  usar o MESMO desenho do termo de procedimento. A regra que fica: **ao trocar o que um
+  campo GUARDA, procure quem o IMPRIME** — o renderizador casa por VALOR e não quebra
+  build ao deixar de reconhecê-lo.
+  ⚠️ E **`RespostaDeclaracao` desceu da Application para o DOMÍNIO**: o termo LGPD precisa
+  ler a mesma resposta e o Domínio não enxerga a Application. Uma segunda cópia de "isto é
+  um sim?" divergiria na primeira correção — aqui, o paciente responder "Não" e o sistema
+  gravar outra coisa. Pelo mesmo argumento, o par *linha + auditoria* do consentimento saiu
+  para `ConsentimentoService.Montar`: são dois caminhos de escrita e um não pode chamar o
+  outro (o termo grava no MESMO `SaveChanges` do ato; `RegistrarAsync` tem o `SalvarAsync`
+  dele), e duas montagens divergiriam na AÇÃO de auditoria, que é o nome pelo qual uma
+  investigação procura.
+  ⚠️ **Reler RASTREADO na revogação**: `ConsentimentosDoPacienteAsync` é `AsNoTracking` —
+  ela existe para LER —, e mutar o que ela devolve não grava nada. A revogação sumiria em
+  silêncio, e a ficha mostraria uma autorização sem fim ao lado da recusa assinada.
+  **REVOGAR continua sem assinatura, e a assimetria é da lei**: revogar é direito
+  UNILATERAL do titular (art. 8º, §5º; art. 18), atendido de imediato, inclusive por
+  telefone — exigir termo assinado dificultaria o lado que a LGPD manda facilitar.
+  A **procedência** entrou na linha de cada finalidade ("Concedido em 12/03 · termo
+  2026/0007"): é o número do termo que responde *"onde está a prova?"*, e sem ele a
+  auditoria continuaria acreditando na palavra de quem clicou.
+  ⚠️ E a releitura do próprio diff pegou o de sempre: `CarregarDocumentosAsync` limpava a
+  lista **depois** do await, então uma falha de leitura deixaria as linhas do paciente
+  ANTERIOR na tela com o botão "Colher assinatura…" apontando para o `TermoLgpdPendenteId`
+  do outro — **um clique assinaria o termo de quem já saiu, em nome de quem está na
+  frente**. É a lição da parcela 66, 2ª rodada, na tela vizinha à que a ensinou.
+
+- **LIGAR UM PORTÃO NOVO FAZ O DADO ANTIGO SATISFAZER A CONDIÇÃO NOVA** (parcela 89, 2ª
+  rodada — a clínica colheu o termo e o alerta *"Sem consentimento LGPD de tratamento de
+  dados"* continuou aceso; o print do papel resolveu o diagnóstico em um olhar). O termo
+  de consentimento passou a ser `AssinadoPeloPaciente`, e no MESMO instante todo termo LGPD
+  já emitido pela versão anterior — quando ele era o **RECIBO** da caixinha do balcão —
+  passou a satisfazer `AguardaAssinaturaDoPaciente`: não está cancelado, o paciente não
+  assinou, não recusou. A ficha ofereceu um deles como "pendente", a coleta o
+  **reaproveitou**, o paciente respondeu "Sim" nas quatro declarações, o documento saiu
+  selado e completo — e **nenhum consentimento foi gravado**, porque os itens antigos não
+  têm `Codigo` e `TermoConsentimento.Decisoes` não tinha por onde ler a resposta.
+  ⚠️ **Nada falhou em lugar nenhum.** Build, 1938 testes, três redes locais e o CI verdes;
+  o papel saiu perfeito; e o alerta continuou aceso do outro lado da tela. É a **garantia
+  aparente** na forma mais discreta — e a mais cara, porque a clínica acredita ter colhido.
+  **O papel é que denunciou**: a via saía com o RÓTULO da finalidade ("Tratamento de dados
+  pessoais e de saúde") e o detalhe "Nunca perguntado", que são exatamente o que a emissão
+  ANTIGA escrevia — conteúdo velho desenhado pelo renderizador novo. **Print de tela é
+  evidência de primeira classe: leia o que está escrito, não o que devia estar.**
+  A regra que fica, e ela vale para todo portão: **ao alargar a condição que um dado
+  satisfaz, pergunte o que na BASE passa a satisfazê-la** — e se o que passa é a mesma
+  coisa. Aqui não era: os dois papéis compartilham o `TipoDocumentoClinico` e são coisas
+  diferentes; o discriminador é o `Codigo` do item, e ele não existia.
+  As duas metades da correção, porque uma sem a outra não resolve: a porta **não OFERECE**
+  o termo antigo (senão o paciente assina e só então leva a recusa) e `ColherAsync`
+  **RECUSA** (senão a central, o link do WhatsApp ou uma tela futura reabrem o caminho).
+  ⚠️ E a tela deixou de AFIRMAR "Assinado em 26/08" sobre um papel desses: header dizendo
+  que o termo foi assinado com o alerta "sem consentimento" aceso no balcão são duas
+  verdades sobre o mesmo fato — o defeito que esta parcela existe para acabar, cometido
+  pela própria correção dele.
+  ⚠️ **`Enum.TryParse` aceita NÚMERO, e `Enum.IsDefined` não salva**: `"1"` vira uma
+  finalidade de verdade porque 1 É um valor definido. Quando o código guardado é o NOME, a
+  conferência é de **ida e volta** (`finalidade.ToString() == codigo`) — senão um código
+  numérico vindo de qualquer lugar grava a autorização de uma finalidade que ninguém
+  escreveu.
+  ⚠️ **A pergunta "quais termos carregam finalidade" virou consulta PRÓPRIA**, e não um
+  `Include` na leitura dos documentos da ficha: aquela alimenta a lista inteira, e puxar os
+  itens de todos arrastaria o `Desenho` dos relatórios de evolução — um mapa corporal por
+  sessão — a cada abertura de ficha. E decidir pela navegação `documento.Itens` ali seria a
+  lição da parcela 68 de novo: vazia em produção, cheia no teste pelo fixup do EF, com TODO
+  termo — o novo inclusive — parecendo da versão anterior.
 
 ### Convenções
 
@@ -5915,3 +6011,304 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   O que ficou POR DECISÃO da clínica (as notas do canvas): cancelado/falta dentro do
   quadro (o Meu dia já mostra; a fila segue fora), situação de pagamento no cartão, e
   o clique no cartão abrindo a ficha.
+
+- **A ENFERMAGEM NÃO TEM AGENDA PRÓPRIA — e cadastrá-la CERTO esvaziava as cinco telas
+  dela** (parcela 88 — a cliente: *"os enfermeiros podem ver todos os pacientes e clicar em
+  atender, em vez de ver só os pacientes dele"*; o mapa completo está em
+  `docs/atendimento-medico-e-enfermagem.md` §13, e é lá que se atualiza). Três fatos
+  verdadeiros, e o defeito era a SOMA deles: (1) as cinco listas do Consultório filtram por
+  `SessaoUsuario.Atual.ProfissionalId`; (2) a enfermeira PRECISA de um `Profissional`
+  vinculado, porque é dele que sai o COREN copiado em cada registro (parcela 72) e
+  `IdentificacaoExecutante.Exigir` recusa sem ele; (3) os horários pertencem a quem
+  CONSULTA — ela passa por todos eles.
+  ⚠️ **Nada falhava.** Build verde, 1908 testes verdes, três redes verdes — e o dia, a
+  semana, a carteira, a dívida de prontuário e os números dela abriam VAZIOS, justamente
+  por ela estar cadastrada certo. Tela vazia se lê como sistema quebrado, não como "esta
+  lista não é para você".
+  A decisão mora no **DOMÍNIO** (`PerfisAcesso.EscreveComoEnfermagem` /
+  `ProfissionalDaListaDoPosto` / `MotivoDaListaDoPosto`), e `PostoClinico` é só o adaptador
+  que lê a sessão: projeto WPF não compila no `dotnet test`, e regra que o teste não alcança
+  apodrece sem ninguém notar.
+  ⚠️ **Pelos BITS, nunca pelo texto do conselho.** `RegistroConselho` é campo livre
+  ("COREN-SP 999999", "Coren SP 12345", "coren/sp 12345"): procurar "COREN" nele erraria no
+  dia em que alguém digitasse diferente, e erraria em SILÊNCIO. O corte é o X · Y da parcela
+  72 — escreve por `ChecarPrescricao | RegistrarEvolucaoEnfermagem` e **não** por
+  `EditarProntuario | Prescrever`. E quem tem OS DOIS lados (o Gerente, que recebe `Todas`)
+  responde **false**: ele TEM agenda própria, e devolver-lhe a clínica inteira esconderia
+  justamente os pacientes dele. A regra é "escreve **SÓ** por Y".
+  ⚠️ **A FRASE vale tanto quanto o filtro.** São DOIS motivos para a lista ser a da clínica,
+  e a mensagem não pode ser uma só: *"peça à direção para ligar o seu usuário ao seu
+  cadastro"* é verdade para quem não tem vínculo e MENTIRA para a enfermeira, que está
+  vinculada. Instrução errada com cara de instrução certa manda o suporte procurar um
+  defeito que não existe — é a irmã de "falha exibida como sucesso", e ela sobrevivia
+  escrita à mão dentro da guarda do "Chamar próximo" depois de o texto da tela já ter sido
+  corrigido. **Frase de guarda sai do PONTO ÚNICO.**
+
+- **"Atender" é uma palavra só, e precisa levar à seção de escrita de QUEM clicou**
+  (parcela 88). `PostoClinico.ChaveDoAtendimento()` bifurca: quem consulta cai no S-O-A-P,
+  quem executa cai na passagem de enfermagem — as duas na MESMA tela do paciente (mesmo
+  crachá, mesmo rail, mesmas seções de leitura), mudando só a seção que abre. Sem a
+  bifurcação a técnica cairia no formulário do médico, onde o `Salvar` segue
+  `PodeEditarProntuario` e ela não o tem: o **botão que não faz nada** da parcela 41, com
+  uma tela inteira em volta.
+  A seção nova (`Atendimento de enfermagem`, posição 1 do rail) repete o desenho do
+  Atendimento do médico DE PROPÓSITO — escrever à esquerda, reler à direita, rodapé
+  ancorado fora do scroll —, e a coluna da direita é a **imagem espelhada**: o médico relê a
+  enfermagem e a infusão; a enfermagem relê a sessão médica e a infusão.
+  ⚠️ **O compositor NÃO foi reescrito**: a seção declara `DataContext="{Binding Passagem}"`
+  sobre o MESMO `EvolucaoEnfermagemViewModel` da janela da sala. As regras caras (hora
+  informada, hora futura recusada, retificação que preserva a data do fato, alergia no mesmo
+  `SaveChanges`) não podem existir em duas cópias.
+  ⚠️ **E a janela CONTINUA** — ela não é dívida, é a porta que a seção não alcança: a folha
+  de execução é MODAL e `PodeMexer => PodeChecar && EmExecucao`, então folha encerrada apaga
+  o painel inteiro, e é ali que se registra a reação que aparece meia hora depois da última
+  bomba. **A seção é a quinta porta, não a substituta.**
+  ⚠️ **O caminho de volta é parte da feature.** A tela da Enfermagem é do SHELL e é publicada
+  por DOIS módulos: no `Clinica.Recepcao.exe` o módulo Clínico não está carregado, e
+  `NavegacaoSuite.Ir` devolveria `false` EM SILÊNCIO. Pergunta-se antes com `Existe`, e o
+  painel da própria tela atende onde não há posto clínico.
+
+- **A cópia campo a campo do serviço engoliu o "se necessário" por doze parcelas** (parcela
+  88). `EvolucaoEnfermagemService.AplicarProcesso` copia o cuidado campo a campo — o **lugar
+  3** da lista de conferência — e `SeNecessario` ficou de fora desde que o campo nasceu
+  (parcela 76). A caixinha da tela gravava sempre `false`.
+  ⚠️ **E o estrago não aparecia como falha, e sim como CONTAGEM errada**: `CuidadoDoDia.
+  Pendente` é `!SeNecessario && Vigentes.Count == 0`, então TODO cuidado condicional ("se
+  dor > 5") ficava eternamente aguardando registro e o contador da sala passava a apontar
+  para nada — exatamente o que o comentário do próprio campo diz existir para impedir. A
+  retificação sofria do mesmo (mesmo `AplicarProcesso`), então corrigir uma vírgula
+  desligava o SOS de todo cuidado condicional.
+  Os dois testes novos **falham no código anterior** — foi verificado, não presumido.
+
+- **Dado gravado sem leitor, na variante que faz o COMENTÁRIO mentir** (parcela 88):
+  `EvolucaoEnfermagem.AgendamentoId` era gravado desde a parcela 71, preservado na
+  retificação, e **nenhuma consulta, tela ou papel o lia**. A seção nova ia escrever
+  *"a passagem fica registrada nesta sessão"* — promessa que o código não cumpre, o defeito
+  da parcela 67. Ganhou o primeiro leitor: o selo **DESTA SESSÃO** na lista de passagens,
+  que responde a pergunta de quem está com o paciente na frente ("já registrei alguma coisa
+  NESTA passagem, ou o que estou vendo é de outro dia?").
+  A regra que fica: **antes de escrever um comentário que promete um vínculo, procure quem
+  o LÊ.** Se ninguém lê, ou se constrói o leitor, ou a frase muda.
+
+- **A MESMA lacuna do lado de quem CONSULTA — e a lista da clínica é o segundo clique, não
+  o padrão** (parcela 88, 2ª rodada; a cliente corrigiu: *"a tarefa acima se refere a
+  enfermeiros e médicos também, eu mencionei somente enfermeiros"*).
+  `MeusPacientesAsync(profissionalId)` devolve só quem ELE já atendeu, então o paciente de
+  **primeira consulta**, o do **colega** que ele cobre e o que o **balcão acabou de
+  cadastrar** eram INALCANÇÁVEIS do Consultório — não havia segunda porta, e a busca da
+  tela filtra em memória o que já veio. "Meus pacientes" ganhou os mesmos dois chips
+  exclusivos da tela da Enfermagem.
+  ⚠️ **A carteira dele continua sendo o PADRÃO**: "quem eu acompanho" é a pergunta que a
+  tela responde todo dia, e trocá-la pela clínica inteira afogaria os pacientes dele no
+  cadastro. O pedido era o segundo clique, não a troca do primeiro.
+  ⚠️ **Busca sobre lista CORTADA tem de ir ao SQL.** No modo "todos" a lista vem com teto, e
+  filtrar em memória o que veio cortado faz a busca responder *"não existe"* para todo
+  paciente além dele. É a resposta errada mais cara que uma busca de paciente pode dar,
+  porque leva a **cadastrar a pessoa de novo** — o CPF duplicado da parcela 57 pela porta
+  de trás. O termo desceu para `MeusPacientesAsync(..., termo:)` (que casa nome OU CPF),
+  com o agrupamento de teclas do `SeletorPacienteViewModel`, e o **teto é DITO** na frase
+  do resumo: lista cortada que se anuncia como "todos os pacientes" é corte silencioso.
+  ⚠️ **Filtro de memória sobre resultado de servidor DERRUBA o que o servidor casou a mais.**
+  O SQL casa nome OU documento; o filtro em memória só conhece o nome. Refiltrar depois
+  faria a pessoa achar o paciente pelo CPF e vê-lo SUMIR da lista.
+  ⚠️ **Chip que não muda nada é pior que chip nenhum**: para quem não tem carteira própria
+  (sem vínculo, ou a enfermagem) os dois modos mostram a MESMA lista, então eles SOMEM e
+  quem explica é a linha de motivo. *(Os dois chips morreram na 3ª rodada, logo abaixo — a
+  lição fica porque ela é geral.)*
+  ⚠️ **E a porta nova mudou o que a porta VELHA precisava fazer.** Abrir pela carteira
+  fixava só id e nome — aceitável enquanto a lista era só dele, porque o caminho normal é
+  "Meu dia", que já traz o agendamento. Com a lista alcançando a clínica, ela virou o
+  caminho de quem cobre o colega, e sem o vínculo a evolução nasce SOLTA: a sessão fica em
+  "Sessões sem evolução" para sempre, mesmo depois de escrita.
+  `EntregaDoPaciente.AoPostoAsync` (shell) virou o ponto único que a Enfermagem e a carteira
+  compartilham — e as TRÊS portas da linha (Atender, Dor, Avaliações) passam por ele,
+  porque as três caem na mesma tela e o rail troca de seção sem trocar de paciente: se só
+  uma amarrasse, bastaria entrar por outra para gravar solto.
+  A lição que generaliza: **ao ALARGAR o alcance de uma lista, releia o que o clique dela
+  faz.** O que era suficiente para um recorte estreito costuma deixar de ser quando o
+  recorte cresce — e o que falha não é a porta nova, é a velha.
+
+
+- **"MEU PACIENTE" NÃO EXISTE — e a resposta certa não era um segundo clique, era apagar o
+  recorte** (parcela 88, 3ª rodada; a clínica: *"não existe 'meu paciente', todos atendem
+  todos"*). A rodada anterior tinha resolvido o alcance da lista do Consultório com **dois
+  chips** (*Meus pacientes* × *Todos os pacientes*), a carteira como padrão. A frase da
+  direção derrubou a premissa dos dois: **oferecer a escolha entre "meus" e "todos" numa
+  clínica que não distingue as duas coisas é inventar uma decisão** — e a que abre por
+  padrão seria justamente a lista MAIS ESTREITA, escondendo o paciente do colega de quem
+  foi chamado para cobri-lo.
+  O recorte saiu do repositório, não da chamada: `PacientesDoProfissionalAsync(id, …)` →
+  `PacientesAtendidosAsync(limite)`, `ConsultorioService.MeusPacientesAsync(profissionalId,
+  …)` → `PacientesAsync(termo, limite, comDor)`, record `PacienteDoProfissional` →
+  `PacienteDaCarteira`. **Passar `null` no lugar do id não teria bastado**: aquele caminho
+  fabricava `Sessoes = 0` e `UltimaSessao = null` para todo mundo, esvaziando as duas
+  colunas que são o assunto da tela.
+  ⚠️ **A pergunta que decide o que continua recortado não é conceitual, é sobre a natureza
+  do dado: PACIENTE não tem dono; HORÁRIO tem.** Por isso "Meu dia", "Minha semana", "Meus
+  números" e "Sessões sem evolução" seguem filtrados por profissional — a agenda é fato de
+  marcação, e `PodeChamarProximo` depende disso (na lista da clínica inteira o primeiro da
+  fila pode ser de outro profissional, e o clique cego anunciaria um nome para a sala do
+  colega). A AUTORIA também não se perdeu: quem atendeu está no agendamento, quem escreveu
+  assina a evolução, e "Meus números" continua medindo o trabalho de cada um.
+  ⚠️ **Sem termo, a lista é quem a clínica JÁ ATENDEU — e isso não é o recorte de volta.**
+  É a leitura que a tela existe para dar (sessões, última visita, queda da dor); o cadastro
+  inteiro, quem nunca veio inclusive, chega pela BUSCA. E a busca precisou de
+  `SessoesDosPacientesAsync` (uma consulta em lote, o MESMO critério do agrupamento da
+  lista): sem ela, um paciente de vinte sessões apareceria como "sem sessão registrada" só
+  por ter sido achado pela busca — **dado exibido como ausente é a irmã de falha exibida
+  como sucesso**.
+  ⚠️ **Ao apagar um recorte, releia os RÓTULOS que o nomeavam.** "Meus pacientes" virou
+  "Pacientes" no menu e na tela — e isso colidiu com a aba "Todos" da Recepção, deixando
+  duas abas irmãs quase homônimas. Elas passaram a dizer a PERGUNTA de cada uma
+  ("Cadastro" × "Em tratamento"), que é a diferença que sempre existiu e que o rótulo antigo
+  escondia atrás do dono. **A CHAVE não muda junto** (`consultorio-pacientes`): chave é
+  contrato de navegação entre módulos, e renomeá-la para acompanhar um rótulo é a regressão
+  da parcela 37, 4ª rodada.
+  ⚠️ **E o vazio ganhou DUAS perguntas novas no mesmo movimento.** Enquanto a busca filtrava
+  a tela, "não há ninguém aqui" bastava; quando ela passou a alcançar o cadastro inteiro,
+  responder *"entra aqui quem já foi atendido"* a quem digitou um nome faz concluir que o
+  paciente EXISTE e só não foi atendido — quando o sistema está dizendo que ele **não está
+  cadastrado**. E é essa leitura errada que leva a cadastrar quem já tem ficha (o CPF
+  duplicado da parcela 57). A terceira apareceu na releitura: **quem ESCONDEU responde
+  primeiro** — com o "só quem sumiu" marcado sobre uma busca que TROUXE gente, "não achei
+  ninguém no cadastro" mentiria sobre a causa e mandaria cadastrar de novo alguém que a tela
+  acabou de achar. Um estado vazio por pergunta, como sempre.
+  ⚠️ E as três frases foram para a **Application** (`ResumoDaCarteira.Montar`), não para a
+  ViewModel: é a regra da `GradeSemana` (parcela 69) e do `ResumoSessaoAnterior` (77) — **o
+  que decide o que a tela AFIRMA precisa morar onde o `dotnet test` alcança**. Foi só ao
+  escrever o teste que apareceu o exagero da frase do recorte, que afirmava *"vieram nos
+  últimos 45 dias"* sobre uma lista que pode conter quem **nunca veio** — a busca alcança a
+  primeira consulta, e essa pessoa também não é "sumida". Afirmar uma sessão que não houve,
+  numa frase de tela, é a mesma família de garantia aparente que este projeto recusa.
+
+
+- **O CATÁLOGO ERA UMA CAIXINHA DE 240 px, e o que não cabia nele era o que ele sabe**
+  (parcela 88, 4ª rodada — a clínica mandou o print da aba de Cuidados: *"preciso de um pop
+  out para que a enfermeira consiga maximizar e ler tudo e todas as opções"*). Os dois
+  catálogos da consulta de enfermagem (diagnósticos e cuidados) eram colunas de 240 px com
+  teto de 180, **permanentes ao lado de uma lista que nasce VAZIA** — a aba abria com um
+  quarto da largura gasto num atalho e o resto em branco, mostrando três itens por vez com o
+  título quebrado em três linhas ao lado de um `+`.
+  A regra de leiaute do projeto decide sozinha: **escolher do catálogo é o que a enfermeira
+  faz uma ou duas vezes por consulta; a prescrição é o que ela VÊ o tempo todo** — botão e
+  janela para o primeiro, a tela para o segundo (parcela 37, 3ª rodada).
+  ⚠️ **Mas o pior não era o tamanho, era o que não cabia**: o catálogo guarda a FREQUÊNCIA
+  SUGERIDA de cada cuidado e o RESULTADO ESPERADO de cada diagnóstico, e **nada disso
+  aparecia**. É o defeito recorrente do projeto na variante mais discreta de todas — não é
+  dado sem leitor nem capacidade sem porta, é **porta pequena demais para dizer o que ela
+  sabe**. Ao encolher um painel para caber ao lado de outra coisa, pergunte o que o dado
+  tem que a caixa não mostra.
+  ⚠️ **"Já no plano" tem de ser VISÍVEL.** `AdicionarCuidado` recusa o repetido em silêncio,
+  e na caixinha o segundo clique simplesmente não fazia nada (o defeito da parcela 41). Na
+  janela o botão SOME e no lugar dele fica a marca; e a lista **não é remontada** depois de
+  acrescentar (a rolagem voltaria ao topo a cada escolha), só o estado de cada linha é
+  corrigido no lugar — todas, porque um diagnóstico traz os cuidados dele junto.
+  ⚠️ **UMA janela para os DOIS catálogos**, com o `CatalogoDeEnfermagem` chegando por
+  parâmetro: duas seriam duas definições de "escolher do catálogo". E ela recebe o MESMO
+  objeto da tela de trás (a regra da parcela 49), então **não tem "Salvar"** — o rodapé diz
+  isso em vez de deixar a pessoa supor.
+- **O compositor COFEN existia DUAS vezes, e esta seria a primeira divergência** (parcela 88,
+  4ª rodada). O bloco das cinco etapas tinha ~300 linhas na janela da sala de infusão e ~300
+  na seção do Consultório, que eu escrevi espelhando a primeira na 1ª rodada desta parcela.
+  Medido antes de mexer: **47 linhas de diferença em 300, todas cosméticas** (comentários
+  requebrados, uma margem, uma largura). O catálogo em janela cairia numa das duas cópias, a
+  outra ficaria com a caixinha antiga, e **nada falharia** — build, testes e as três redes
+  verdes, com a enfermeira descobrindo pelo app que ela usa.
+  Virou `ProcessoDeEnfermagemView`, no shell, pela regra do mapa corporal (parcela 36):
+  **quando duas telas precisam do MESMO bloco, ele sobe INTEIRO e não se reescreve.** Sem
+  ViewModel próprio — o `DataContext` é o de quem o hospeda —, senão as regras caras (hora
+  informada, hora futura recusada, alergia no mesmo `SaveChanges`) existiriam em duas cópias.
+  A lição de método: **duplicação que ninguém pagou só cobra na primeira correção de
+  verdade** — e a hora de pagá-la é justamente essa, e não "depois", porque depois quer dizer
+  com uma das duas já divergente.
+\n
+
+- **Tag de tipo da casa SEM PREFIXO: a terceira variante da família, e a que as duas
+  checagens não viam** (parcela 88, 4ª rodada — o CI reprovou o PR). Ao extrair o compositor
+  da consulta de enfermagem para o shell, escrevi `<ProcessoDeEnfermagemView … />` dentro de
+  uma janela que só declarava o prefixo de `Clinica.Desktop.Controls`. Sem prefixo, o WPF
+  procura a tag no namespace PADRÃO — o dele — e recusa com **MC3074**.
+  As checagens 33 e 33-B cobrem o `xmlns` que EXISTE e está errado (o `;assembly=` que sobra
+  e o que falta). Aqui ele **não foi declarado**, e nenhuma das duas olha a TAG.
+  ⚠️ Nenhuma rede local pegava, pela razão de sempre nesta família: o XML é bem-formado, o
+  `compilar-sombra` **não lê o corpo** do XAML e o C# compila.
+  Virou a **checagem 42**, e o critério é estreito de propósito: só reclama de tag sem
+  prefixo cujo nome é um tipo que algum `.cs` do repositório DECLARA — tipo do WPF (`Grid`,
+  `TabControl`) não está nessa lista e passa. **Medido antes de ligar: ZERO ocorrências em
+  todo o repositório**, então ela nasce sem uma linha de ruído. Autotestada contra o caso
+  real (verificado revertendo a correção: ela acusa a linha exata) e contra os três
+  legítimos — com prefixo, tipo do WPF e a tag citada dentro de um COMENTÁRIO.
+  A lição que generaliza, e é a terceira vez que esta família a cobra: **ao escrever uma
+  rede para um erro, liste as FORMAS que ele pode tomar, não só a que mordeu.** O `xmlns`
+  errado e a tag sem prefixo produzem o MESMO `MC3074`, e eu tinha duas checagens para o
+  primeiro e nenhuma para o segundo.
+\n
+
+- **"O pop out é da CONSULTA, não do catálogo" — o pedido que eu li um degrau abaixo**
+  (parcela 88, 5ª rodada; a clínica: *"ao clicar em «Consulta de enfermagem» ainda não abre
+  um pop out como janela, que foi o solicitado"*). O print da rodada anterior mostrava a aba
+  de Cuidados, e eu tratei "essa tela" como o CATÁLOGO — que é um degrau abaixo do que ela
+  precisa maximizar.
+  E o processo nunca coube onde estava: as cinco etapas ficavam empilhadas dentro do
+  compositor da passagem, disputando altura com a hora, o texto, os sinais vitais e a linha
+  do tempo, numa janela de altura FIXA. Foi essa disputa que a parcela 79 corrigiu tirando o
+  `Height="320"` — **o remédio certo para o sintoma errado**. A pergunta que eu não fiz lá:
+  *isto cabe nesta tela, ou é outra tela?*
+  ⚠️ **`Click`, e NÃO `Checked`, na caixinha que abre janela.** `Checked` dispara também
+  quando o ViewModel muda a propriedade por código — e ele muda, ao carregar um registro
+  para CORRIGIR: a janela abriria sozinha no meio de uma carga. `Click` só existe quando foi
+  a PESSOA que clicou.
+  ⚠️ **Ao tirar algo da tela, releia o que o gesto vizinho passou a custar EM SILÊNCIO.**
+  Desmarcar "Consulta de enfermagem" sempre descartou as cinco etapas na gravação
+  (`ColherProcesso` devolve nulo no modo anotação) — e enquanto as abas estavam na tela, elas
+  sumiam na frente da pessoa. Com a consulta em janela, nada muda visualmente e o registro
+  vai para o prontuário sem elas. Daí a confirmação, e ela só aparece quando **há o que
+  perder**: cobrar confirmação sobre uma consulta em branco treinaria a equipe a confirmar
+  sem ler (a causa raiz do incidente da parcela 65).
+  ⚠️ **Confirmação em callback de propriedade precisa de guarda contra a carga por CÓDIGO.**
+  São três caminhos programáticos aqui (a reversão da própria confirmação, a limpeza depois
+  de gravar e o `Corrigir`), e sem o flag a pergunta apareceria no meio de uma carga que
+  ninguém pediu — pergunta que aparece sem gesto é pergunta que se fecha sem ler.
+  E o **caminho de volta é parte da feature**: fechar a janela deixaria a consulta
+  inalcançável sem desmarcar e marcar de novo — e desmarcar é justamente o gesto que devolve
+  o registro para anotação. Daí o botão "Abrir a consulta…", e o aviso `EtapasEmFalta`
+  ficando na TELA, que é onde ela o lê antes de clicar em Registrar.
+- **Checagem que não enxerga dentro de controle da casa acusa o que está certo** (parcela
+  88, 5ª rodada). A checagem de rolagem (15/16) varria só `raiz.iter()` do XAML da janela, e
+  uma janela cujo miolo é `<comp:ProcessoDeEnfermagemView />` — com um `ScrollViewer` por aba
+  lá dentro — era acusada de não ter rolagem nenhuma. **Checagem que reclama do que está
+  certo é checagem que alguém desliga**, e aí ela para de pegar o defeito de verdade.
+  Ela passou a seguir **UM nível** de composição: o tipo da tag é casado com o `x:Class` dos
+  XAML do repositório, e a árvore dele entra na conta. Um nível basta para a composição deste
+  projeto; mais níveis dariam um grafo para percorrer sem ganho medido.
+  ⚠️ **Alargar uma checagem é o gesto que a deixa cega, então ela ganhou autoteste nos DOIS
+  sentidos** — controle da casa COM rolagem conta, controle SEM rolagem não conta —, e foi
+  verificado que o autoteste REPROVA quando a varredura é "simplificada" de volta.
+
+
+- **PROVA DE CAMPO — o que deixou de ser suposição em ago/2026.** Três coisas que este
+  arquivo descrevia como "sem prova" passaram a rodar na clínica, e a lista existe para
+  ninguém voltar a hedgeá-las:
+  **(a) O banco saiu da Neon e está numa VPS da Locaweb, com datacenter no BRASIL**
+  (`docs/banco-na-vps.md`, que deixou de ser plano). A consequência que mais pesa não é
+  técnica: o ponto 10 do compromisso de conformidade — **transferência internacional do
+  art. 33** — deixou de existir, porque o dado passou a residir no país. O suboperador
+  agora é um fornecedor nacional, e o mTLS acrescenta uma fechadura que a Neon não
+  oferecia (cada máquina cliente prova quem é, com certificado da própria clínica).
+  **(b) A assinatura ICP-Brasil foi testada com e-CPF REAL pelo SafeID.** Era a maior
+  incógnita do projeto: o `docs/safeid-congelado.md` listava "e-CPF real",
+  "`exigirCadeiaConfiavel` com cadeia ICP-Brasil de verdade" e "publicação no S3 com
+  documento real" como nunca exercitados, e as rodadas 3 a 8 da parcela 67 corrigiram o
+  caminho de nuvem **às cegas**, uma mensagem de erro por vez. Continuam sem prova o
+  **carimbo do tempo no caminho de nuvem** (a ACT configurada não é aplicada, e a
+  configuração é ignorada em silêncio) e o **LTV/PAdES-LT**, que nunca existiu.
+  **(c) Os Workers do Cloudflare estão publicados e funcionando** — o do validador do QR
+  (parcela 68, 7ª rodada) e o da coleta remota do termo (parcela 81), que hoje são um
+  arquivo só (`tools/worker-clinica.js`, parcela 82).
+  ⚠️ **A lição de método é sobre o que fazer com isto, não sobre o que foi provado.** Este
+  projeto documenta com cuidado o que ainda não rodou, e isso é certo — mas afirmação de
+  "sem prova" tem prazo, como o motivo de uma exclusão de rede (parcela 51). **Quando um
+  caminho passa a rodar em produção, o documento que o chamava de incógnita vira uma
+  hedge FALSA** — e hedge falsa num documento que vai ao cliente custa a mesma confiança
+  que a promessa exagerada. O `entrega-ao-cliente.md` afirmava, meses depois da parcela
+  42, que "**não** há certificado ICP-Brasil".

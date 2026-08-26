@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -104,6 +105,27 @@ public sealed class AssinaturaDoPacienteService
             throw new InvalidOperationException(
                 "Não há usuário identificado para testemunhar a assinatura. Faça login.");
 
+        // ⚠️ A RECUSA que a 1ª rodada desta parcela não tinha (a clínica encontrou).
+        //
+        // O termo de consentimento emitido por uma versão ANTERIOR era o recibo da caixinha
+        // do balcão: os itens levam o rótulo e a situação da finalidade, e nenhum CÓDIGO.
+        // Ao ligar o portão, esses papéis passaram a satisfazer
+        // `AguardaAssinaturaDoPaciente`, e assinar um deles produzia um documento selado,
+        // completo, com as quatro respostas "Sim" — e ZERO consentimento gravado, porque
+        // não há por onde ler a resposta de volta.
+        //
+        // Recusar aqui é a segunda barreira: a ficha já deixou de OFERECER o termo antigo,
+        // e esta impede que outra porta (a central, o link do WhatsApp, uma tela futura)
+        // reabra o caminho. Documento assinado que não registra nada é a garantia aparente
+        // que este projeto recusa desde a parcela 3.
+        if (documento.Tipo == TipoDocumentoClinico.Consentimento
+            && !TermoConsentimento.Respondivel(documento))
+            throw new InvalidOperationException(
+                "Este termo de consentimento foi emitido por uma versão anterior do sistema "
+                + "e não carrega as finalidades que o paciente responde — assiná-lo "
+                + "produziria um documento que não registra consentimento nenhum. Emita um "
+                + "novo pela aba LGPD da ficha do paciente.");
+
         // As respostas entram ANTES do selo: o hash tem de cobrir o que o paciente viu na
         // tela, declarações respondidas incluídas. Selar só o corpo deixaria de fora
         // justamente a parte que se contesta ("eu nunca disse que estava em jejum").
@@ -170,8 +192,88 @@ public sealed class AssinaturaDoPacienteService
             PacienteId = documento.PacienteId
         }, ct);
 
+        // ⚠️ O CIRCUITO DE VOLTA (parcela 89): no termo LGPD, o que o paciente respondeu É
+        // o consentimento. Ele entra no MESMO SaveChanges do ato — ponto 7 do compromisso
+        // de conformidade —, senão existiria um instante em que o termo está assinado e a
+        // clínica ainda manda campanha para quem acabou de recusar.
+        await AplicarConsentimentosAsync(documento, testemunha.Trim(), ct);
+
         await _repo.SalvarAsync(ct);
         return documento;
+    }
+
+    /// <summary>
+    /// Traduz as declarações do termo LGPD assinado em <see cref="ConsentimentoLgpd"/>.
+    ///
+    /// ⚠️ **A resposta assinada do paciente VENCE** (decisão da direção, ago/2026). Ela é
+    /// mais recente e é a única que ele assinou; deixar a caixinha do balcão prevalecer
+    /// faria o sistema mandar campanha para quem escreveu "Não" de próprio punho.
+    ///
+    /// Recusar o que estava vigente é uma **revogação**, e ela é registrada nos dois
+    /// lugares: a linha antiga ganha <c>RevogadoEm</c> (o consentimento de fato ACABOU
+    /// naquele instante, e a linha continua provando que existiu no período) e uma linha
+    /// nova grava a recusa. Só a linha nova bastaria para o portão — <c>SituacaoAsync</c>
+    /// lê a mais recente —, mas quem abre o histórico na ficha veria uma autorização sem
+    /// fim ao lado de uma recusa posterior, e concluiria que ainda vale.
+    ///
+    /// Não faz nada quando o documento não é o termo LGPD: é o caso NORMAL, e é o que
+    /// mantém o termo de procedimento exatamente como estava.
+    /// </summary>
+    private async Task AplicarConsentimentosAsync(
+        DocumentoClinico documento, string operador, CancellationToken ct)
+    {
+        var decisoes = TermoConsentimento.Decisoes(documento);
+        if (decisoes.Count == 0) return;
+
+        var historico = await _repo.ConsentimentosDoPacienteAsync(documento.PacienteId, ct);
+
+        // A situação por finalidade: a linha mais recente, o MESMO critério do
+        // ConsentimentoService — duas definições de "o consentimento que vale"
+        // divergiriam na primeira correção.
+        var atual = historico
+            .GroupBy(c => c.Finalidade)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(c => c.RegistradoEm).ThenByDescending(c => c.Id).First());
+
+        foreach (var (finalidade, concedido) in decisoes)
+        {
+            var vigente = atual.TryGetValue(finalidade, out var anterior) && anterior.Vigente
+                ? anterior
+                : null;
+
+            if (!concedido && vigente is not null)
+            {
+                // ⚠️ RELER RASTREADO. `ConsentimentosDoPacienteAsync` é `AsNoTracking` —
+                // ela existe para LER —, e mutar o objeto que ela devolve não grava nada:
+                // a revogação sumiria em silêncio, e o histórico da ficha mostraria uma
+                // autorização sem fim ao lado da recusa que o paciente assinou.
+                var paraRevogar = await _repo.ObterConsentimentoAsync(vigente.Id, ct);
+                if (paraRevogar is not null)
+                {
+                    paraRevogar.RevogadoEm = DateTime.Now;
+                    paraRevogar.Observacoes = string.IsNullOrWhiteSpace(paraRevogar.Observacoes)
+                        ? $"Revogado pelo termo {documento.Numero}, assinado pelo paciente"
+                        : $"{paraRevogar.Observacoes} — revogado pelo termo {documento.Numero}";
+                }
+            }
+
+            // O par linha + auditoria vem do PONTO ÚNICO. Montá-lo aqui à mão daria uma
+            // segunda definição de "como se grava um consentimento", e a que ficasse para
+            // trás gravaria com a ação de auditoria errada — que é justamente o nome pelo
+            // qual uma investigação procura.
+            //
+            // A "versão do termo" é o NÚMERO do documento assinado: é ele que leva o texto
+            // exato que o paciente leu, o traço e o selo do conteúdo.
+            var (registro, evento) = ConsentimentoService.Montar(
+                documento.PacienteId, finalidade, concedido,
+                versaoTermo: documento.Numero,
+                operador: operador,
+                observacoes: $"Termo {documento.Numero}, assinado pelo paciente");
+
+            await _repo.AdicionarConsentimentoAsync(registro, ct);
+            await _repo.RegistrarAuditoriaAsync(evento, ct);
+        }
     }
 
     /// <summary>

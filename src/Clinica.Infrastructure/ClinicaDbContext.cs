@@ -834,6 +834,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
             e.Property(x => x.Detalhe).HasMaxLength(1000);
             e.Property(x => x.Quantidade).HasMaxLength(60);
+            // O que a linha É, para quem lê a resposta de volta (parcela 89) — hoje
+            // o nome da FinalidadeConsentimento no termo LGPD. Nulo é o caso normal.
+            e.Property(x => x.Codigo).HasMaxLength(60);
             // 80 pontos (o teto de `MapaCorporal.MaximoPontos`) com nome longo passam de
             // 2000; o campo não tem teto declarado de propósito — recortar o desenho
             // silenciosamente tiraria marcações do papel sem ninguém saber quais.

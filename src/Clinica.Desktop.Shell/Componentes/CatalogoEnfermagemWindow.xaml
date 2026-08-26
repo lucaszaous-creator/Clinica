@@ -1,0 +1,141 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.CatalogoEnfermagemWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="{Binding Titulo}" Width="820" Height="640"
+        MinWidth="520" MinHeight="380"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================================
+         O CATÁLOGO DE ENFERMAGEM EM JANELA (parcela 88, 4ª rodada).
+
+         O pedido da clínica foi literal: "preciso de um pop out para que a enfermeira
+         consiga maximizar e ler tudo e todas as opções". Antes ele era uma caixinha de
+         240 px com teto de 180, grudada ao lado da lista de prescrição — e ela mostrava
+         três itens por vez, com o título quebrando em três linhas ao lado de um "+".
+
+         Duas coisas mudam aqui, e a segunda é a que importa:
+
+         1. dá para MAXIMIZAR (ResizeMode="CanResize", e a janela lembra que é janela);
+         2. cada linha tem espaço para o DETALHE — a frequência sugerida do cuidado, o
+            resultado esperado do diagnóstico e quantos cuidados ele traz junto. Isso o
+            sistema sempre soube e a caixinha nunca teve como dizer.
+
+         ⚠️ Ela NÃO tem "Salvar": quem grava é a passagem de trás, e esta janela recebe o
+         MESMO objeto de catálogo (a regra da parcela 49 — duas cópias dariam duas verdades
+         sobre o mesmo plano). Escolher já vale; o rodapé escreve isso em vez de deixar a
+         pessoa supor.
+         ============================================================================ -->
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- ⚠️ Rodapé ancorado e declarado ANTES do miolo: no DockPanel o filho que
+             PREENCHE vem por último, senão a lista rolante come a barra (parcela 47). -->
+        <Border DockPanel.Dock="Bottom" Margin="0,14,0,0" Padding="0,12,0,0"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{StaticResource Brush.Borda}">
+            <DockPanel>
+                <!-- Sem Style: o implícito de Button na suíte JÁ é o primário. -->
+                <Button DockPanel.Dock="Right" Content="Fechar" MinWidth="110"
+                        VerticalAlignment="Center" IsCancel="True" Click="Fechar" />
+                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Text="O que você escolhe entra na hora, na aba de trás. Não há “Salvar” aqui — quem grava é o registro da passagem." />
+            </DockPanel>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Explicacao}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" MaxWidth="820" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}"
+                 Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                 ctrl:Ajudantes.Placeholder="{Binding DicaDaBusca}" />
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}" Margin="0,8,0,10"
+                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" />
+
+        <!-- Grid por fora para hospedar a sobreposição do estado vazio; o miolo rola por
+             dentro. Painel linear nunca sobrepõe (checagem 25). -->
+        <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Itens}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,6"
+                                    Padding="14,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Titulo}" TextWrapping="Wrap"
+                                                   FontWeight="SemiBold" />
+                                        <!-- Dado do banco em caixa de largura variável:
+                                             quebra, nunca reticências (checagem 24). -->
+                                        <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                   Margin="0,3,0,0"
+                                                   Style="{StaticResource TextoSuave}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Visibility="{Binding Detalhe,
+                                                                Converter={StaticResource TextoParaVisibilidade}}" />
+                                    </StackPanel>
+
+                                    <!-- ⚠️ Já no plano: o botão SOME e no lugar dele fica a
+                                         marca. `AdicionarCuidado` recusa o repetido em
+                                         SILÊNCIO, e botão que não faz nada é o defeito da
+                                         parcela 41 — aqui ele nem chega a estar aceso. -->
+                                    <TextBlock Grid.Column="1" Text="✓  já no plano"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource Brush.Sucesso}"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               FontWeight="SemiBold"
+                                               Visibility="{Binding NoPlano,
+                                                            Converter={StaticResource BoolParaVisibilidade}}" />
+
+                                    <Button Grid.Column="1" Content="Acrescentar" MinWidth="120"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding DataContext.AdicionarCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Style>
+                                            <Style TargetType="Button"
+                                                   BasedOn="{StaticResource BotaoSecundario}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding NoPlano}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <ctrl:EstadoDaTela Itens="{Binding Itens}"
+                               Glifo="&#xE71E;"
+                               Titulo="Nada com esse termo"
+                               Descricao="O catálogo é a lista desta clínica, não a NANDA-I inteira. Feche e use “Escrever à mão” para registrar o que não está aqui." />
+        </Grid>
+    </DockPanel>
+</Window>

@@ -556,14 +556,35 @@ public interface IClinicaRepositorio
 
 
     /// <summary>
-    /// Pacientes que este profissional atende, do que veio por último para o mais antigo.
+    /// Pacientes que a clínica ATENDEU, do que veio por último para o mais antigo.
+    ///
+    /// ⚠️ Ela era <c>PacientesDoProfissionalAsync</c> e filtrava por dono (parcela 88, 3ª
+    /// rodada). A clínica disse a frase que apaga a premissa: <b>"não existe 'meu
+    /// paciente', todos atendem todos"</b>. Aqui ninguém é dono de ninguém — quem atendeu
+    /// continua gravado no agendamento e no prontuário, que é onde a autoria mora; a
+    /// CARTEIRA é da casa.
     ///
     /// A contagem e a última visita saem do SQL (agrupamento), não de materializar os
-    /// agendamentos: um profissional com dois anos de casa tem milhares deles, e a tela
-    /// mostra uma linha por paciente.
+    /// agendamentos: uma clínica com dois anos de casa tem milhares deles, e a tela mostra
+    /// uma linha por paciente.
     /// </summary>
-    Task<IReadOnlyList<Modelos.PacienteDoProfissional>> PacientesDoProfissionalAsync(
-        int profissionalId, int limite = 200, CancellationToken ct = default);
+    Task<IReadOnlyList<Modelos.PacienteDaCarteira>> PacientesAtendidosAsync(
+        int limite = 200, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quantas sessões cada um destes pacientes já teve, e quando foi a última.
+    ///
+    /// ⚠️ Existe para a BUSCA da carteira não mentir. Sem termo a lista sai do agrupamento
+    /// acima, já rica; com termo ela sai do CADASTRO (para alcançar quem nunca veio), e sem
+    /// este enriquecimento um paciente de vinte sessões apareceria como "sem sessão
+    /// registrada" só por ter sido achado pela busca. Falha exibida como sucesso tem uma
+    /// irmã: dado exibido como ausente.
+    ///
+    /// Uma consulta para todos os ids, como <see cref="ParesDeEvaDosPacientesAsync"/> — o
+    /// laço com uma ida por paciente é o que fazia esta tela levar dezenas de segundos.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, (int Sessoes, DateOnly Ultima)>> SessoesDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
 
     // ---- Consentimento LGPD ----
 
@@ -642,6 +663,24 @@ public interface IClinicaRepositorio
         DateOnly hoje, CancellationToken ct = default);
 
     Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os ids dos termos LGPD do paciente que carregam FINALIDADE nos itens — isto é, os
+    /// que a coleta pode reaproveitar e cuja assinatura de fato registra consentimento
+    /// (parcela 89, 2ª rodada).
+    ///
+    /// ⚠️ Existe como consulta PRÓPRIA, e não como um `Include` em
+    /// <see cref="DocumentosDoPacienteAsync"/>, porque aquela leitura alimenta a lista
+    /// inteira de documentos da ficha: puxar os itens de todos eles arrastaria junto o
+    /// <see cref="ItemDocumento.Desenho"/> dos relatórios de evolução — um mapa corporal
+    /// por sessão — a cada abertura de ficha, num banco remoto.
+    ///
+    /// O filtro é `Codigo != null` e não o PARSE, porque parse não se traduz para SQL. Ele
+    /// é o pré-filtro barato; quem decide de verdade é
+    /// <c>TermoConsentimento.Respondivel</c>, no <c>ColherAsync</c>.
+    /// </summary>
+    Task<IReadOnlyList<int>> TermosLgpdComFinalidadeAsync(
         int pacienteId, CancellationToken ct = default);
 
     /// <summary>

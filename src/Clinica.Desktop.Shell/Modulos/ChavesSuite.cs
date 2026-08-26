@@ -86,7 +86,13 @@ public static class ChavesSuite
     /// <summary>Minha semana (Consultório).</summary>
     public const string ConsultorioSemana = "consultorio-semana";
 
-    /// <summary>Meus pacientes — a carteira de quem atende (Consultório).</summary>
+    /// <summary>Pacientes — a carteira de TRATAMENTO da clínica (Consultório).</summary>
+    /// <remarks>
+    /// O valor da chave continua dizendo "consultorio-pacientes" e o rótulo deixou de
+    /// ser "Meus pacientes" na parcela 88 (3ª rodada) — chave é contrato de navegação
+    /// entre módulos, e renomeá-la para acompanhar um rótulo quebraria o que funciona
+    /// do outro lado.
+    /// </remarks>
     public const string ConsultorioPacientes = "consultorio-pacientes";
 
     /// <summary>Prescrever a partir do paciente em foco (Consultório).</summary>
@@ -119,6 +125,22 @@ public static class ChavesSuite
     /// passagens não tem folha nenhuma.
     /// </summary>
     public const string Enfermagem = "enfermagem";
+
+    /// <summary>
+    /// O ATENDIMENTO DE ENFERMAGEM (parcela 88) — a seção do módulo Clínico onde a técnica
+    /// escreve a passagem, dentro da tela do paciente.
+    ///
+    /// Ela atravessa módulo porque quem manda a enfermeira para lá é o <b>Atender</b> da
+    /// tela da Enfermagem, que é do SHELL: quem ENTREGA o paciente está de um lado da
+    /// fronteira e quem o RECEBE está do outro.
+    ///
+    /// ⚠️ E ela pode NÃO EXISTIR no executável em que a tela está aberta: o
+    /// <c>Clinica.Recepcao.exe</c> publica a Enfermagem e não carrega o módulo Clínico.
+    /// Por isso o "Atender" pergunta antes, com <c>NavegacaoSuite.Existe</c>, e cai no
+    /// painel da própria tela quando o destino não está ali — <c>Ir</c> devolve
+    /// <c>false</c> EM SILÊNCIO, e botão que não faz nada é o defeito da parcela 41.
+    /// </summary>
+    public const string AtendimentoEnfermagem = "consultorio-atendimento-enfermagem";
 
     /// <summary>
     /// Pacotes de sessões — a segunda tela do SHELL publicada por DOIS módulos

@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -391,32 +392,6 @@ public sealed class TermoProcedimentoService
         => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
 }
 
-/// <summary>
-/// Como o paciente respondeu uma declaração do termo.
-///
-/// É texto e não booleano porque mora em <see cref="ItemDocumento.Quantidade"/>, que é o
-/// campo genérico que as sete impressões já usam — e porque a resposta precisa sair
-/// IMPRESSA com essa palavra na via que o paciente leva. Um booleano viraria "True" no
-/// papel se alguém esquecesse de traduzir.
-/// </summary>
-public static class RespostaDeclaracao
-{
-    public const string Sim = "Sim";
-    public const string Nao = "Não";
-
-    /// <summary>
-    /// A resposta é um "não". Compara sem acento e sem caixa porque o valor pode ter sido
-    /// gravado por versões diferentes da tela — e uma comparação estrita faria uma
-    /// declaração negada deixar de acender o alerta, que é a falha que custa caro.
-    /// </summary>
-    public static bool EhNegativa(string? resposta)
-        => resposta is not null
-           && (resposta.Trim().Equals(Nao, StringComparison.OrdinalIgnoreCase)
-               || resposta.Trim().Equals("Nao", StringComparison.OrdinalIgnoreCase));
-
-    public static bool EhPositiva(string? resposta)
-        => resposta is not null && resposta.Trim().Equals(Sim, StringComparison.OrdinalIgnoreCase);
-}
 
 /// <summary>Um termo exigido para a sessão de hoje, e em que pé ele está.</summary>
 /// <param name="DocumentoId">

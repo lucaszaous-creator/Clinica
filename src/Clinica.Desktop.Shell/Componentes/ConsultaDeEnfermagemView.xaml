@@ -1,0 +1,64 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.ConsultaDeEnfermagemView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+
+    <!-- ============================================================================
+         A PORTA DA CONSULTA DE ENFERMAGEM (parcela 88, 5ª rodada).
+
+         O bloco que decide se este registro é uma ANOTAÇÃO de passagem ou uma CONSULTA
+         (COFEN 358/2009), e que abre a consulta em janela.
+
+         ⚠️ A janela abre no modo ANOTAÇÃO, e a consulta é UM clique. A técnica que troca um
+         curativo e escreve "ferida limpa, sem exsudato" não abre um processo de enfermagem
+         — obrigá-la faria a clínica escrever "idem" em cinco campos, que é pior do que o
+         campo vazio porque PARECE registro.
+
+         ⚠️ Ele mora no SHELL e é o MESMO nas duas portas (a janela da sala de infusão e a
+         seção do Consultório). Duas cópias divergiriam na primeira correção — e esta é a
+         quinta rodada seguida em que uma correção cai aqui.
+         ============================================================================ -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <StackPanel>
+        <Separator Margin="0,16,0,12" />
+
+        <!-- ⚠️ `Click`, e NÃO `Checked`: o segundo dispara também quando o ViewModel muda a
+             propriedade sozinho — e ele muda, ao carregar um registro para CORRIGIR
+             (`ConsultaCompleta = original.EhConsulta`). A janela abriria sozinha no meio de
+             uma carga. `Click` só existe quando foi a PESSOA que clicou. -->
+        <CheckBox IsChecked="{Binding ConsultaCompleta}"
+                  Click="AoClicarNaConsulta"
+                  Content="Consulta de enfermagem (processo completo — COFEN 358/2009)"
+                  ToolTip="Abre as cinco etapas numa janela: histórico, diagnóstico, planejamento, prescrição de enfermagem e avaliação. Sem marcar, o registro é a anotação de passagem." />
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0"
+                   FontSize="{StaticResource Fonte.Legenda}"
+                   Text="Marcar abre uma janela com as cinco etapas — dá para maximizar e completar depois." />
+
+        <!-- A frase que AVISA sem impedir. Ela fica AQUI, e não só dentro da janela: é o
+             que a enfermeira vê com a janela fechada, e é assim que ela sabe que ainda
+             falta uma etapa antes de clicar em Registrar. -->
+        <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
+                Visibility="{Binding EtapasEmFalta,
+                             Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <TextBlock Text="{Binding EtapasEmFalta}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- O caminho de VOLTA. Sem ele, fechar a janela deixaria a consulta inalcançável
+             sem desmarcar e marcar a caixinha de novo — e desmarcar é justamente o gesto
+             que devolve o registro para anotação. -->
+        <Button Content="Abrir a consulta de enfermagem…" MinWidth="240" Margin="0,10,0,0"
+                HorizontalAlignment="Left"
+                Style="{StaticResource BotaoSecundario}"
+                ToolTip="Reabre a janela das cinco etapas. O que você já escreveu continua lá."
+                Click="AbrirConsulta"
+                Visibility="{Binding ConsultaCompleta,
+                             Converter={StaticResource BoolParaVisibilidade}}" />
+    </StackPanel>
+</UserControl>

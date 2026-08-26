@@ -1266,7 +1266,7 @@ que fica para depois.**
 | Painel de evolução da dor — duas curvas, redução % e tendência | ✅ | `EvolucaoDorViewModel` sobre `ProntuarioService.EvolucaoDaDorAsync` |
 | Escalas por especialidade: PHQ-9, GAD-7, Oswestry, Katz, FINDRISC | ✅ | `Domain/Avaliacoes/`, `AvaliacaoClinicaService` |
 | Curva do escore de um instrumento, com o sinal da melhora resolvido | ✅ | `AvaliacaoClinicaService.EvolucaoDoEscoreAsync` |
-| Carteira do profissional, com a leitura da dor de cada paciente | ✅ | `ConsultorioService.MeusPacientesAsync` |
+| Carteira da clínica, com a leitura da dor de cada paciente | ✅ | `ConsultorioService.PacientesAsync` — sem dono: *"não existe 'meu paciente', todos atendem todos"* (parcela 88) |
 | Especialidade **Neurocirurgia** | ✅ | Código do catálogo (`InstrumentoOswestry.CodigoNeurocirurgia`) — **fora do enum**, para não aparecer no seletor do app congelado |
 | Quinto executável, instalável e com auto-update no canal `clinico` | ✅ | `src/Clinica.Clinico` |
 
@@ -1408,7 +1408,7 @@ uma tela sem paciente nenhum.
 | Contagem de anexos, uma consulta por sessão | `ContagemDeAnexosAsync`, uma para o prontuário inteiro |
 
 **Nada disso pedia dado novo.** A fila do dia (`DoDiaAsync`) e a carteira
-(`MeusPacientesAsync`) existiam desde a parcela 36, cada uma servindo a uma tela só — é a
+(hoje `PacientesAsync`) existiam desde a parcela 36, cada uma servindo a uma tela só — é a
 mesma família do defeito que a parcela inteira corrigiu, agora na camada da tela: a
 informação estava lá e o lugar onde ela decidia alguma coisa não a alcançava.
 

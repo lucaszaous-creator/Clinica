@@ -64,7 +64,10 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
-    [ObservableProperty] private bool _semVinculo;
+    [ObservableProperty] private bool _listaDaClinica;
+
+    /// <summary>POR QUE a lista é da clínica — a frase certa para cada motivo.</summary>
+    [ObservableProperty] private string? _motivoDaLista;
 
     /// <summary>A semana não tem uma sessão sequer — é o que liga o estado vazio.</summary>
     [ObservableProperty] private bool _vazio = true;
@@ -98,8 +101,12 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
 
-            var profissionalId = SessaoUsuario.Atual.ProfissionalId;
-            SemVinculo = profissionalId is null;
+            // De quem é esta lista — a resposta mora num lugar só (PostoClinico):
+            // a enfermagem NÃO tem agenda própria, e filtrar por ela devolvia a
+            // tela vazia justamente para quem está cadastrado certo.
+            var profissionalId = PostoClinico.ProfissionalDaLista();
+            ListaDaClinica = profissionalId is null;
+            MotivoDaLista = PostoClinico.MotivoDaListaAmpla();
 
             using var scope = _escopos.CreateScope();
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
