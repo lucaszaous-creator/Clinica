@@ -213,7 +213,8 @@ auditar é "o cancelamento é coberto; a EDIÇÃO destes dois ainda não guarda 
 | Autenticação no banco | SCRAM, com *channel binding* negociado pelo Npgsql |
 | Credencial na máquina | criptografada com **DPAPI** (chave do usuário do Windows), em `%APPDATA%` |
 | Senhas de usuário | PBKDF2, ver item 1 |
-| Armazenamento em repouso | criptografia do provedor (Neon) — ver a ressalva abaixo |
+| Onde o dado repousa | **VPS própria na Locaweb, datacenter no Brasil** (`docs/banco-na-vps.md`) — em produção desde ago/2026 |
+| Armazenamento em repouso | criptografia do disco da VPS — ver a ressalva abaixo |
 | Concorrência | controle otimista (`xmin`): duas pessoas não sobrescrevem uma à outra em silêncio |
 
 **Mudança da parcela 52:** o modo TLS era `Require`, que criptografa e **não valida** o
@@ -221,9 +222,15 @@ certificado. Isso protege contra quem observa o tráfego e não contra quem se a
 sendo o banco — e é prontuário que passa por esse cano. `VerifyFull` fecha essa porta e não
 exige configuração da clínica.
 
-⚠️ **A parte que não é nossa.** A criptografia em repouso é do provedor de banco, não do
-nosso código. Ela é adequada, mas é **declaração de subprocessador** e pertence ao contrato
-do item 10 — não a uma promessa nossa.
+⚠️ **A parte que não é nossa.** A criptografia em repouso é do provedor de
+infraestrutura, não do nosso código. Ela é adequada, mas é **declaração de subprocessador**
+e pertence ao contrato do item 10 — não a uma promessa nossa.
+
+**Mudança de ago/2026 — a base saiu da Neon e foi para uma VPS na Locaweb, no Brasil.** O
+desenho, o porquê e o passo a passo estão em [`banco-na-vps.md`](banco-na-vps.md). Ele
+acrescenta uma fechadura que a Neon não oferecia (**mTLS**: cada máquina cliente prova quem
+é, com certificado emitido pela própria clínica) e — o que mais pesa neste documento —
+**remove a transferência internacional do item 10**.
 
 ## 6. Backup e recuperação ✅
 
@@ -348,29 +355,25 @@ A estrutura é a que a clínica descreveu:
 |---|---|
 | **Controladora** | a clínica — decide as finalidades do tratamento |
 | **Operador** | o fornecedor do software |
-| **Suboperador** | o provedor de banco de dados (Neon) |
+| **Suboperador** | o provedor da VPS (**Locaweb**, datacenter no Brasil) |
 
 Falta redigir o contrato com responsabilidades sobre tratamento, confidencialidade,
 segurança, subcontratados, incidentes, backup, término e devolução/eliminação dos dados.
 
-⚠️ **O ponto que não estava na lista dela e é o mais sério deste item: transferência
-internacional.**
+✅ **A transferência internacional deixou de existir — e era o ponto mais sério deste
+item.**
 
-O banco de dados fica **fora do Brasil**. Prontuário de paciente brasileiro hospedado no
-exterior é **transferência internacional de dados** (LGPD, art. 33) e exige base legal
-específica — as **cláusulas-padrão contratuais** aprovadas pela ANPD em 2024, ou outra
-hipótese do artigo.
+Até ago/2026 o banco ficava **fora do Brasil** (Neon), e prontuário de paciente brasileiro
+hospedado no exterior é **transferência internacional de dados** (LGPD, art. 33): exigia
+base legal específica — as cláusulas-padrão contratuais da ANPD, ou outra hipótese do
+artigo.
 
-Há dois caminhos, e a escolha é da clínica:
+**A clínica escolheu a opção que REMOVE o requisito em vez de administrá-lo**: a base foi
+migrada para uma **VPS própria na Locaweb, com datacenter no Brasil**, e está em produção.
+Não há mais transferência internacional a cobrir contratualmente, e o suboperador passou a
+ser um fornecedor de infraestrutura nacional.
 
-1. **Manter onde está** e cobrir contratualmente, com as cláusulas-padrão da ANPD e o
-   registro do suboperador.
-2. **Migrar a base para região brasileira**, o que simplifica a conformidade e elimina a
-   discussão. Tecnicamente é uma mudança de string de conexão mais a migração dos dados; não
-   afeta o código.
-
-Recomendamos avaliar a opção 2 antes de assinar contrato, porque ela **remove** um requisito
-em vez de administrá-lo.
+O que **continua** faltando neste item é o contrato em si (DPA), que não é código.
 
 ---
 
@@ -384,7 +387,6 @@ Para não deixar dúvida sobre o que este documento não cobre:
 | Certificação SBIS/CFM (S-RES) | certificação de produto | fornecedor + entidade certificadora |
 | Procedimento de resposta a incidentes | documento | clínica, com apoio do fornecedor |
 | Contrato de tratamento (DPA) | contrato | clínica + fornecedor |
-| Base legal para transferência internacional | contrato **ou** migração de região | clínica decide |
 | Destino do backup fora da máquina | configuração | clínica |
 
 ## Onde isso está no código

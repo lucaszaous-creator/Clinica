@@ -1604,9 +1604,8 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   documento real para conferir infraestrutura seria expor dado de saúde para testar
   endereço.
   **Validado ao vivo contra o Cloudflare R2** (ago/2026): gravação, ACL de leitura pública,
-  exclusão e abertura do PDF pela URL. O que continua sem prova de campo é a assinatura, que
-  depende de e-CPF — e **sem certificado a publicação não funciona em produção também**, já
-  que é a assinatura que dispara o upload.
+  exclusão e abertura do PDF pela URL. E a assinatura **também foi provada na clínica com
+  e-CPF real pelo SafeID** (ago/2026) — ver a lição da prova de campo mais abaixo.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
@@ -6188,3 +6187,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **Alargar uma checagem é o gesto que a deixa cega, então ela ganhou autoteste nos DOIS
   sentidos** — controle da casa COM rolagem conta, controle SEM rolagem não conta —, e foi
   verificado que o autoteste REPROVA quando a varredura é "simplificada" de volta.
+
+
+- **PROVA DE CAMPO — o que deixou de ser suposição em ago/2026.** Três coisas que este
+  arquivo descrevia como "sem prova" passaram a rodar na clínica, e a lista existe para
+  ninguém voltar a hedgeá-las:
+  **(a) O banco saiu da Neon e está numa VPS da Locaweb, com datacenter no BRASIL**
+  (`docs/banco-na-vps.md`, que deixou de ser plano). A consequência que mais pesa não é
+  técnica: o ponto 10 do compromisso de conformidade — **transferência internacional do
+  art. 33** — deixou de existir, porque o dado passou a residir no país. O suboperador
+  agora é um fornecedor nacional, e o mTLS acrescenta uma fechadura que a Neon não
+  oferecia (cada máquina cliente prova quem é, com certificado da própria clínica).
+  **(b) A assinatura ICP-Brasil foi testada com e-CPF REAL pelo SafeID.** Era a maior
+  incógnita do projeto: o `docs/safeid-congelado.md` listava "e-CPF real",
+  "`exigirCadeiaConfiavel` com cadeia ICP-Brasil de verdade" e "publicação no S3 com
+  documento real" como nunca exercitados, e as rodadas 3 a 8 da parcela 67 corrigiram o
+  caminho de nuvem **às cegas**, uma mensagem de erro por vez. Continuam sem prova o
+  **carimbo do tempo no caminho de nuvem** (a ACT configurada não é aplicada, e a
+  configuração é ignorada em silêncio) e o **LTV/PAdES-LT**, que nunca existiu.
+  **(c) Os Workers do Cloudflare estão publicados e funcionando** — o do validador do QR
+  (parcela 68, 7ª rodada) e o da coleta remota do termo (parcela 81), que hoje são um
+  arquivo só (`tools/worker-clinica.js`, parcela 82).
+  ⚠️ **A lição de método é sobre o que fazer com isto, não sobre o que foi provado.** Este
+  projeto documenta com cuidado o que ainda não rodou, e isso é certo — mas afirmação de
+  "sem prova" tem prazo, como o motivo de uma exclusão de rede (parcela 51). **Quando um
+  caminho passa a rodar em produção, o documento que o chamava de incógnita vira uma
+  hedge FALSA** — e hedge falsa num documento que vai ao cliente custa a mesma confiança
+  que a promessa exagerada. O `entrega-ao-cliente.md` afirmava, meses depois da parcela
+  42, que "**não** há certificado ICP-Brasil".

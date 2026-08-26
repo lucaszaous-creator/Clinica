@@ -67,11 +67,16 @@ foi vendida** — estão registradas para não serem redescobertas do zero.
 ### Duas afirmações da proposta que ainda precisam de decisão
 
 1. **Página 24 — "Dois apps, um banco".** São **quatro**, um por perfil.
-2. **Feature 07 — "assinatura e carimbo digitais".** O que existe é o carimbo do
-   profissional (nome e registro no conselho), a linha de assinatura e um código de
-   conferência que acha o documento no sistema. **Não** há certificado ICP-Brasil —
-   chamar isso de assinatura digital seria mentir sobre o que a via garante. Validade
-   jurídica de assinatura eletrônica é escopo novo.
+2. ~~**Feature 07 — "assinatura e carimbo digitais".**~~ **RESOLVIDA.** Quando este
+   documento foi escrito não havia certificado ICP-Brasil, e chamar o carimbo de
+   "assinatura digital" seria mentir sobre o que a via garante. As parcelas 42 e 43
+   construíram a **assinatura qualificada ICP-Brasil** de verdade (PKCS#7 destacado
+   SHA-256 no PDF, com o CPF lido de dentro do certificado e conferido contra o
+   profissional), e em **ago/2026 ela foi testada na clínica com e-CPF real, pelo
+   SafeID** — ver [`safeid-congelado.md`](safeid-congelado.md).
+   O que continua **não** existindo, e o rodapé não promete: **LTV/PAdES-LT** (o PDF
+   assinado deixa de se validar sozinho quando o certificado expira) e o carimbo do tempo
+   no caminho de nuvem.
 
 A **página 23** ("Prontuário com mapa corporal e EVA") deixou de ser divergência: a EVA
 saiu na parcela 2 e o mapa corporal saiu na 3 — a afirmação agora é inteiramente

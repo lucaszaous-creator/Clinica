@@ -113,18 +113,35 @@ src/Clinica.Infrastructure/ArmazenamentoS3.cs
 
 ---
 
+## Prova de campo — o que JÁ rodou na clínica
+
+> ✅ **A assinatura de prescrição com e-CPF real, pelo SafeID, foi testada e funciona**
+> (ago/2026). Deixou de ser a maior incógnita deste documento.
+
+Isso exercitou, de uma vez, o que os testes não alcançavam:
+
+- **e-CPF real**, em vez do certificado autoassinado em memória;
+- **`exigirCadeiaConfiavel: true`** com cadeia **ICP-Brasil** de verdade;
+- **a publicação no S3** de um documento real — ela estourava antes de rodar uma vez;
+- e o circuito inteiro que as rodadas 3 a 8 da parcela 67 corrigiram às cegas: o
+  `raw_signature`, o recorte do PKCS#7 em BER, o hash do conteúdo coberto e a normalização
+  para DER.
+
+⚠️ **O que isso NÃO significa.** Continua valendo o resto deste documento: cada tentativa é
+COBRADA, o valor jurídico é afirmado no rodapé, e "verde nos testes" segue não querendo
+dizer "funciona" — foi preciso chegar à clínica para provar. Mudança aqui continua exigindo
+autorização expressa.
+
 ## O que continua sem prova de campo
 
 Registrado para não ser confundido com "funciona":
 
-- **e-CPF real** — tudo é testado com certificado autoassinado em memória.
-- **`exigirCadeiaConfiavel: true`** — em produção o serviço recusa certificado cuja cadeia
-  não valide na máquina. Nunca exercitado com cadeia ICP-Brasil de verdade.
-- **A publicação no S3 com um documento real** — ela estourava antes de rodar uma vez.
 - **Carimbo do tempo (ACT RFC 3161)** — a ACT configurada **não é aplicada** no caminho de
   nuvem: o `CarimbadoraDeTempo` só chega ao assinador local. O rodapé escreve "data
   declarada", que é honesto, mas a configuração é ignorada em silêncio. **Em aberto,
   aguardando decisão da direção.**
+- **LTV / PAdES-LT** — sem ele, o PDF assinado deixa de se validar sozinho quando o
+  certificado expira. Nunca foi implementado, e o rodapé não o promete.
 
 ---
 

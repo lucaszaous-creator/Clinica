@@ -9,6 +9,10 @@ Este documento é a DECISÃO — o que o link faz, o que ele nunca faz, que evid
 por quê. O código executa o que está aqui; quando os dois divergirem, é o código que está
 errado.
 
+> ✅ **O Worker está publicado e o circuito foi testado de ponta a ponta** (ago/2026): o
+> link sai, o paciente assina no celular, a resposta volta ao desktop e o termo é concluído
+> com a evidência gravada.
+
 ## 1. O que muda e o que NÃO muda
 
 A parcela 66 decidiu a coleta no balcão (traço na tela, testemunha, documento conferido) e
