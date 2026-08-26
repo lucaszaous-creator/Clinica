@@ -69,6 +69,14 @@ public sealed class DocumentoClinicoService
         int pacienteId, CancellationToken ct = default)
         => _repo.DocumentosDoPacienteAsync(pacienteId, ct);
 
+    /// <summary>
+    /// Os termos LGPD do paciente que carregam FINALIDADE — os que a coleta pode
+    /// reaproveitar e cuja assinatura registra consentimento (parcela 89, 2ª rodada).
+    /// </summary>
+    public Task<IReadOnlyList<int>> TermosLgpdComFinalidadeAsync(
+        int pacienteId, CancellationToken ct = default)
+        => _repo.TermosLgpdComFinalidadeAsync(pacienteId, ct);
+
     public Task<DocumentoClinico?> ObterAsync(int documentoId, CancellationToken ct = default)
         => _repo.ObterDocumentoAsync(documentoId, ct);
 

@@ -105,6 +105,27 @@ public sealed class AssinaturaDoPacienteService
             throw new InvalidOperationException(
                 "Não há usuário identificado para testemunhar a assinatura. Faça login.");
 
+        // ⚠️ A RECUSA que a 1ª rodada desta parcela não tinha (a clínica encontrou).
+        //
+        // O termo de consentimento emitido por uma versão ANTERIOR era o recibo da caixinha
+        // do balcão: os itens levam o rótulo e a situação da finalidade, e nenhum CÓDIGO.
+        // Ao ligar o portão, esses papéis passaram a satisfazer
+        // `AguardaAssinaturaDoPaciente`, e assinar um deles produzia um documento selado,
+        // completo, com as quatro respostas "Sim" — e ZERO consentimento gravado, porque
+        // não há por onde ler a resposta de volta.
+        //
+        // Recusar aqui é a segunda barreira: a ficha já deixou de OFERECER o termo antigo,
+        // e esta impede que outra porta (a central, o link do WhatsApp, uma tela futura)
+        // reabra o caminho. Documento assinado que não registra nada é a garantia aparente
+        // que este projeto recusa desde a parcela 3.
+        if (documento.Tipo == TipoDocumentoClinico.Consentimento
+            && !TermoConsentimento.Respondivel(documento))
+            throw new InvalidOperationException(
+                "Este termo de consentimento foi emitido por uma versão anterior do sistema "
+                + "e não carrega as finalidades que o paciente responde — assiná-lo "
+                + "produziria um documento que não registra consentimento nenhum. Emita um "
+                + "novo pela aba LGPD da ficha do paciente.");
+
         // As respostas entram ANTES do selo: o hash tem de cobrir o que o paciente viu na
         // tela, declarações respondidas incluídas. Selar só o corpo deixaria de fora
         // justamente a parte que se contesta ("eu nunca disse que estava em jejum").

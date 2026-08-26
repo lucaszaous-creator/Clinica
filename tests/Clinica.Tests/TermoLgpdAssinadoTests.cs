@@ -349,4 +349,112 @@ public class TermoLgpdAssinadoTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// O DEFEITO QUE A CLÍNICA ENCONTROU (parcela 89, 2ª rodada), e a recusa que o fecha.
+    ///
+    /// Um termo de consentimento emitido por uma versão ANTERIOR — quando ele era o RECIBO
+    /// da caixinha do balcão — passou a satisfazer <c>AguardaAssinaturaDoPaciente</c> no
+    /// instante em que o portão foi ligado. A coleta reaproveitou um deles: o paciente
+    /// assinou as quatro declarações com "Sim", o documento ficou selado e completo, e
+    /// <b>nenhum consentimento foi gravado</b> — o alerta "sem consentimento LGPD"
+    /// continuava aceso do outro lado da tela.
+    ///
+    /// A prova visual estava no papel: a via saía com o RÓTULO da finalidade
+    /// ("Tratamento de dados pessoais e de saúde") e o detalhe "Nunca perguntado", que são
+    /// exatamente o que a emissão antiga escrevia.
+    ///
+    /// Este teste PASSAVA antes da correção (o "Sim" era aceito e nada era gravado).
+    /// </summary>
+    [Fact]
+    public async Task Termo_de_versao_ANTERIOR_e_RECUSADO_em_vez_de_assinar_sem_registrar()
+    {
+        var paciente = await PacienteAsync();
+        var antigo = await EmitirComoAVersaoAntigaAsync(paciente);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _assinaturas.ColherAsync(
+                antigo.Id, TracoDeTeste(), 300, 100,
+                new Dictionary<int, string?> { [1] = "Sim", [2] = "Sim", [3] = "Sim", [4] = "Sim" },
+                documentoConferido: "CPF 123.456.789-00",
+                testemunha: "ana"));
+
+        // A frase diz o que houve E o que fazer — a lição das rodadas do SafeID.
+        erro.Message.Should().Contain("versão anterior");
+        erro.Message.Should().Contain("Emita um novo");
+
+        // E o documento continua INTACTO: nem assinado, nem selado.
+        var depois = await _repo.ObterDocumentoAsync(antigo.Id);
+        depois!.PacienteAssinou.Should().BeFalse();
+        (await _consentimentos.VigenteAsync(paciente, FinalidadeConsentimento.TratamentoDeDados))
+            .Should().BeFalse();
+    }
+
+    /// <summary>
+    /// A porta não OFERECE o termo antigo — é a metade que impede o paciente de assinar
+    /// para só então levar a recusa.
+    ///
+    /// ⚠️ A consulta é PRÓPRIA e não um `Include`: a leitura dos documentos da ficha não
+    /// traz os itens de propósito (arrastaria o desenho dos relatórios de evolução), e
+    /// decidir por uma navegação vazia faria TODO termo — o novo inclusive — parecer da
+    /// versão anterior, com o teste passando pelo fixup do EF.
+    /// </summary>
+    [Fact]
+    public async Task Só_o_termo_COM_finalidade_e_oferecido_para_colher()
+    {
+        var paciente = await PacienteAsync();
+        var antigo = await EmitirComoAVersaoAntigaAsync(paciente);
+        var novo = await _documentos.EmitirTermoConsentimentoAsync(paciente, operador: "ana");
+
+        var comFinalidade = await _repo.TermosLgpdComFinalidadeAsync(paciente);
+
+        comFinalidade.Should().Contain(novo.Id);
+        comFinalidade.Should().NotContain(antigo.Id);
+    }
+
+    /// <summary>
+    /// `Enum.TryParse` aceita NÚMERO: um código "1" viraria uma finalidade de verdade.
+    /// Adivinhar a autorização é pior do que não gravar.
+    /// </summary>
+    [Fact]
+    public async Task Codigo_numerico_nao_vira_finalidade()
+    {
+        var paciente = await PacienteAsync();
+
+        var termo = await _documentos.EmitirAsync(new DocumentoClinico
+        {
+            Tipo = TipoDocumentoClinico.Consentimento,
+            PacienteId = paciente,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Corpo = "Termo com código numérico.",
+            Itens = [new ItemDocumento { Ordem = 1, Codigo = "1", Descricao = "Alguma coisa" }]
+        }, "ana");
+
+        var gravado = await _repo.ObterDocumentoAsync(termo.Id);
+
+        TermoConsentimento.Respondivel(gravado!).Should().BeFalse();
+        TermoConsentimento.Decisoes(gravado!).Should().BeEmpty();
+    }
+
+    /// <summary>Emite um termo com a FORMA da versão anterior: sem `Codigo` nos itens.</summary>
+    private async Task<DocumentoClinico> EmitirComoAVersaoAntigaAsync(int pacienteId)
+    {
+        var ordem = 0;
+        var itens = ConsentimentoService.Finalidades.Select(f => new ItemDocumento
+        {
+            Ordem = ++ordem,
+            Descricao = ConsentimentoService.Rotular(f),
+            Detalhe = "Nunca perguntado",
+            Quantidade = "Pendente"
+        }).ToList();
+
+        return await _documentos.EmitirAsync(new DocumentoClinico
+        {
+            Tipo = TipoDocumentoClinico.Consentimento,
+            PacienteId = pacienteId,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Corpo = "Termo da versão anterior.",
+            Itens = itens
+        }, "ana");
+    }
+
 }

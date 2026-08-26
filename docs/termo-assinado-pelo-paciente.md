@@ -557,3 +557,54 @@ frase simplesmente não afirma um que não existe.
   assinatura.
 - **O termo LGPD não tem exigência por procedimento.** Ele é do paciente, não de uma sessão —
   não entra em `ExigenciaTermoProcedimento` nem no alerta do dia da fila.
+
+### 8.9 O termo da versão ANTERIOR (2ª rodada — o defeito que a clínica encontrou)
+
+A clínica colheu o consentimento e o alerta *"Sem consentimento LGPD de tratamento de
+dados — colha no balcão"* continuou aceso. O papel resolveu o diagnóstico: a via saía com
+o **rótulo** da finalidade ("Tratamento de dados pessoais e de saúde") e o detalhe **"Nunca
+perguntado"** — que são exatamente o que a emissão ANTIGA escrevia — desenhados pelo
+renderizador novo, com "Sim" à direita.
+
+**O mecanismo.** Ligar o portão (`AssinadoPeloPaciente(Consentimento)`) fez, no mesmo
+instante, todo termo LGPD **já emitido** pela versão anterior satisfazer
+`AguardaAssinaturaDoPaciente`: não está cancelado, o paciente não assinou, não recusou. A
+ficha ofereceu um deles como pendente, a coleta o **reaproveitou**, o paciente respondeu
+"Sim" nas quatro declarações, o documento ficou selado e completo — e **nenhum
+consentimento foi gravado**, porque os itens antigos não têm `Codigo`.
+
+⚠️ **Nada falhou.** Build, testes e as três redes verdes; o papel saiu perfeito; e o alerta
+continuou aceso. É a garantia aparente na forma mais discreta, e a mais cara: a clínica
+acredita ter colhido.
+
+**A correção tem duas metades, e uma sem a outra não resolve:**
+
+| Metade | Onde | Por quê |
+|---|---|---|
+| A porta não **OFERECE** o termo antigo | ficha → `TermosLgpdComFinalidadeAsync` | senão o paciente assina e só então leva a recusa |
+| `ColherAsync` **RECUSA** | `AssinaturaDoPacienteService` | senão a central, o link do WhatsApp ou uma tela futura reabrem o caminho |
+
+E a tela deixou de **afirmar** "Assinado em 26/08" sobre um papel desses: header dizendo
+que o termo foi assinado com o alerta "sem consentimento" aceso no balcão são duas verdades
+sobre o mesmo fato — o defeito que esta parcela existe para acabar, cometido pela própria
+correção dele. No lugar, ela diz o que houve: *"Há termo assinado de uma versão anterior do
+sistema — ele não traz as respostas por finalidade e NÃO vale como manifestação do titular.
+Colha um novo."*
+
+⚠️ **`Enum.TryParse` aceita NÚMERO, e `Enum.IsDefined` não salva**: `"1"` vira uma
+finalidade de verdade porque 1 É um valor definido. Quando o código guardado é o NOME, a
+conferência é de **ida e volta** (`finalidade.ToString() == codigo`).
+
+⚠️ **A pergunta "quais termos carregam finalidade" é consulta PRÓPRIA**, e não um `Include`
+na leitura dos documentos da ficha: aquela alimenta a lista inteira, e puxar os itens de
+todos arrastaria o `Desenho` dos relatórios de evolução — um mapa corporal por sessão — a
+cada abertura de ficha. Decidir pela navegação `documento.Itens` ali seria a lição da
+parcela 68 de novo: vazia em produção, cheia no teste pelo fixup do EF.
+
+**O que a clínica precisa fazer com o que já assinou:** o termo que ela assinou no teste
+não registra nada e não pode ser aproveitado — a coleta seguinte emite um novo, e é ele que
+vale. O termo antigo continua na lista de documentos, como todo documento emitido (não se
+apaga); se a clínica quiser tirá-lo da vista, cancela com motivo.
+
+**A regra geral, para o próximo portão:** *ao alargar a condição que um dado satisfaz,
+pergunte o que na BASE passa a satisfazê-la — e se o que passa é a mesma coisa.*

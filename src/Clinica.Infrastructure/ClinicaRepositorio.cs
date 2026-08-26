@@ -1356,6 +1356,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
             .ToListAsync(ct);
 
+    // Projeção de UMA coluna com EXISTS: a pergunta é "quais termos carregam finalidade",
+    // e trazer os itens para respondê-la arrastaria o desenho dos relatórios junto.
+    public async Task<IReadOnlyList<int>> TermosLgpdComFinalidadeAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Where(d => d.PacienteId == pacienteId
+                        && d.Tipo == TipoDocumentoClinico.Consentimento
+                        && d.Itens.Any(i => i.Codigo != null))
+            .Select(d => d.Id)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosClinicosNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, TipoDocumentoClinico? tipo = null,
         int? pacienteId = null, CancellationToken ct = default)

@@ -61,8 +61,7 @@ public static class TermoConsentimento
 
         foreach (var item in documento.Itens.OrderBy(i => i.Ordem))
         {
-            if (!Enum.TryParse<FinalidadeConsentimento>(item.Codigo, out var finalidade))
-                continue;
+            if (!Finalidade(item, out var finalidade)) continue;
 
             // Só resposta EXPLÍCITA vira decisão. Em branco não é "não" — é uma pergunta
             // que ninguém fez, e o `ColherAsync` já recusa assinar assim.
@@ -71,6 +70,55 @@ public static class TermoConsentimento
         }
 
         return decisoes;
+    }
+
+    /// <summary>
+    /// Este termo carrega as finalidades que o paciente RESPONDE — ou seja, assiná-lo
+    /// produz consentimento.
+    ///
+    /// ⚠️ Existe por causa do que a clínica encontrou na 1ª rodada desta parcela. Até aqui
+    /// o termo de consentimento era o RECIBO da caixinha do balcão: os itens levavam o
+    /// rótulo da finalidade e a situação dela ("Nunca perguntado"), e <b>nenhum código</b>.
+    /// Ao ligar o portão, esses papéis antigos passaram a satisfazer
+    /// <see cref="DocumentoClinico.AguardaAssinaturaDoPaciente"/> — e a coleta reaproveitou
+    /// um deles. O paciente assinou as quatro declarações com "Sim", o documento ficou
+    /// selado e completo, e <b>nenhum consentimento foi gravado</b>, porque
+    /// <see cref="Decisoes"/> não tinha por onde ler a resposta.
+    ///
+    /// É a garantia aparente que este projeto recusa desde a parcela 3, na forma mais
+    /// discreta: nada falha, o papel sai perfeito, e o alerta "sem consentimento LGPD"
+    /// continua aceso do outro lado da tela.
+    ///
+    /// ⚠️ Quem chama precisa ter os <see cref="DocumentoClinico.Itens"/> CARREGADOS. Sem o
+    /// <c>Include</c>, a navegação chega vazia em produção e todo termo — inclusive o novo
+    /// — responderia "não é respondível", enquanto o teste passaria pelo fixup do EF.
+    /// </summary>
+    public static bool Respondivel(DocumentoClinico documento)
+    {
+        ArgumentNullException.ThrowIfNull(documento);
+
+        return documento.Tipo == TipoDocumentoClinico.Consentimento
+               && documento.Itens.Any(i => Finalidade(i, out _));
+    }
+
+    /// <summary>
+    /// A finalidade que a linha declara.
+    ///
+    /// ⚠️ A conferência é de IDA E VOLTA contra o NOME, e não um <c>Enum.TryParse</c> seco:
+    /// ele aceita NÚMERO, e <c>"1"</c> vira uma finalidade de verdade — <c>Enum.IsDefined</c>
+    /// não salva, porque 1 É um valor definido. Um código numérico vindo de qualquer lugar
+    /// gravaria a autorização de uma finalidade que ninguém escreveu, que é a adivinhação
+    /// que esta classe existe para recusar.
+    /// </summary>
+    private static bool Finalidade(ItemDocumento item, out FinalidadeConsentimento finalidade)
+    {
+        finalidade = default;
+
+        var codigo = item.Codigo?.Trim();
+        if (string.IsNullOrEmpty(codigo)) return false;
+
+        return Enum.TryParse(codigo, ignoreCase: true, out finalidade)
+               && finalidade.ToString().Equals(codigo, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>O texto que a declaração de cada finalidade leva no termo.</summary>

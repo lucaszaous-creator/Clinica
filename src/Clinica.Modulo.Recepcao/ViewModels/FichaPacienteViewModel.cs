@@ -330,7 +330,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// faria a segunda parecer a primeira, e o balcão emitiria outro termo em cima do que
     /// o paciente está lendo no telefone.
     ///
-    /// ⚠️ Nasce em "Conferindo…" e não em "Nunca colhido": antes de a leitura voltar, o
+    /// ⚠️ Nasce em "Conferindo…" e não em "Nenhum termo": antes de a leitura voltar, o
     /// sistema não SABE, e afirmar que nunca foi colhido é a resposta que faz a
     /// recepcionista começar um termo que já existe.
     /// </summary>
@@ -1094,10 +1094,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             if (SessaoUsuario.Atual.Pode(linha.AcessoParaVer)) Documentos.Add(linha);
         }
 
-        // O termo LGPD sai da MESMA leitura (parcela 89): uma segunda consulta ao banco
-        // para responder sobre um dos papéis que acabaram de chegar seria ida a mais num
-        // banco remoto, a cada abertura de ficha.
-        AplicarTermoLgpd(doPaciente);
+        // O termo LGPD sai da mesma leitura, mas precisa de UMA pergunta a mais: quais
+        // deles carregam as finalidades (parcela 89, 2ª rodada). A resposta não vem daqui
+        // porque `DocumentosDoPacienteAsync` não traz os itens de propósito.
+        var comFinalidade = await servico.TermosLgpdComFinalidadeAsync(pacienteId);
+        if (geracao != _geracaoCarga) return;
+
+        AplicarTermoLgpd(doPaciente, comFinalidade);
     }
 
     /// <summary>
@@ -1107,22 +1110,47 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// justamente o gesto que pede outro. E o pendente é o MAIS RECENTE em aberto — se
     /// houver mais de um (dois cliques em máquinas diferentes), reaproveitar o antigo
     /// deixaria o novo pendente para sempre na tela.
+    ///
+    /// ⚠️ SÓ os termos que carregam FINALIDADE contam, nas DUAS pontas (parcela 89, 2ª
+    /// rodada — o defeito que a clínica encontrou):
+    ///
+    /// - como PENDENTE, porque reaproveitar um termo da versão anterior levava o paciente
+    ///   a assinar um papel que não registra consentimento nenhum;
+    /// - como ASSINADO, porque escrever "Assinado em 26/08" sobre um papel desses seria a
+    ///   tela AFIRMANDO que a manifestação existe enquanto o alerta "sem consentimento
+    ///   LGPD" continua aceso no balcão. Duas verdades sobre o mesmo fato.
     /// </summary>
-    private void AplicarTermoLgpd(IReadOnlyList<DocumentoClinico> doPaciente)
+    /// <param name="comFinalidade">
+    /// Os ids dos termos cujos itens carregam a finalidade. Vem de uma consulta própria: a
+    /// leitura dos documentos não traz os itens, e decidir por uma navegação vazia faria
+    /// TODO termo — o novo inclusive — parecer da versão anterior, com o teste passando
+    /// pelo fixup do EF (a lição da parcela 68).
+    /// </param>
+    private void AplicarTermoLgpd(
+        IReadOnlyList<DocumentoClinico> doPaciente, IReadOnlyList<int> comFinalidade)
     {
+        var respondiveis = comFinalidade.ToHashSet();
+
         var termos = doPaciente
             .Where(d => d.Tipo == TipoDocumentoClinico.Consentimento)
             .ToList();
 
         var assinado = termos
-            .Where(d => d.PacienteAssinou && !d.Cancelado)
+            .Where(d => d.PacienteAssinou && !d.Cancelado && respondiveis.Contains(d.Id))
             .OrderByDescending(d => d.PacienteAssinadoEm)
             .FirstOrDefault();
 
         var pendente = termos
-            .Where(d => d.AguardaAssinaturaDoPaciente)
+            .Where(d => d.AguardaAssinaturaDoPaciente && respondiveis.Contains(d.Id))
             .OrderByDescending(d => d.Id)
             .FirstOrDefault();
+
+        // Um termo da versão anterior que alguém já assinou. Não vale como manifestação, e
+        // a tela DIZ isso: sumir com ele faria a recepcionista jurar que colheu — ela
+        // colheu mesmo, num papel que não registra.
+        var antigoAssinado = assinado is null
+                             && termos.Any(d => d.PacienteAssinou && !d.Cancelado
+                                                && !respondiveis.Contains(d.Id));
 
         TermoLgpdPendenteId = pendente?.Id;
         OnPropertyChanged(nameof(TermoLgpdPendenteId));
@@ -1133,7 +1161,15 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             : assinado is not null
                 ? $"Assinado em {assinado.PacienteAssinadoEm:dd/MM/yyyy 'às' HH:mm} "
                   + $"(termo {assinado.Numero})."
-                : "Nunca colhido — as finalidades abaixo continuam sem manifestação do titular.";
+                : antigoAssinado
+                    ? "Há termo assinado de uma versão anterior do sistema — ele não traz as "
+                      + "respostas por finalidade e NÃO vale como manifestação do titular. "
+                      + "Colha um novo."
+                    // ⚠️ A frase fala do TERMO, e só dele. Dizer aqui que "as finalidades
+                    // continuam sem manifestação" seria FALSO para a base que já existe:
+                    // os consentimentos colhidos pela caixinha antiga estão gravados, e a
+                    // lista abaixo os mostra com a data. Uma afirmação por pergunta.
+                    : "Nenhum termo assinado por este paciente.";
     }
 
     /// <summary>

@@ -2243,6 +2243,46 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do outro — **um clique assinaria o termo de quem já saiu, em nome de quem está na
   frente**. É a lição da parcela 66, 2ª rodada, na tela vizinha à que a ensinou.
 
+- **LIGAR UM PORTÃO NOVO FAZ O DADO ANTIGO SATISFAZER A CONDIÇÃO NOVA** (parcela 89, 2ª
+  rodada — a clínica colheu o termo e o alerta *"Sem consentimento LGPD de tratamento de
+  dados"* continuou aceso; o print do papel resolveu o diagnóstico em um olhar). O termo
+  de consentimento passou a ser `AssinadoPeloPaciente`, e no MESMO instante todo termo LGPD
+  já emitido pela versão anterior — quando ele era o **RECIBO** da caixinha do balcão —
+  passou a satisfazer `AguardaAssinaturaDoPaciente`: não está cancelado, o paciente não
+  assinou, não recusou. A ficha ofereceu um deles como "pendente", a coleta o
+  **reaproveitou**, o paciente respondeu "Sim" nas quatro declarações, o documento saiu
+  selado e completo — e **nenhum consentimento foi gravado**, porque os itens antigos não
+  têm `Codigo` e `TermoConsentimento.Decisoes` não tinha por onde ler a resposta.
+  ⚠️ **Nada falhou em lugar nenhum.** Build, 1938 testes, três redes locais e o CI verdes;
+  o papel saiu perfeito; e o alerta continuou aceso do outro lado da tela. É a **garantia
+  aparente** na forma mais discreta — e a mais cara, porque a clínica acredita ter colhido.
+  **O papel é que denunciou**: a via saía com o RÓTULO da finalidade ("Tratamento de dados
+  pessoais e de saúde") e o detalhe "Nunca perguntado", que são exatamente o que a emissão
+  ANTIGA escrevia — conteúdo velho desenhado pelo renderizador novo. **Print de tela é
+  evidência de primeira classe: leia o que está escrito, não o que devia estar.**
+  A regra que fica, e ela vale para todo portão: **ao alargar a condição que um dado
+  satisfaz, pergunte o que na BASE passa a satisfazê-la** — e se o que passa é a mesma
+  coisa. Aqui não era: os dois papéis compartilham o `TipoDocumentoClinico` e são coisas
+  diferentes; o discriminador é o `Codigo` do item, e ele não existia.
+  As duas metades da correção, porque uma sem a outra não resolve: a porta **não OFERECE**
+  o termo antigo (senão o paciente assina e só então leva a recusa) e `ColherAsync`
+  **RECUSA** (senão a central, o link do WhatsApp ou uma tela futura reabrem o caminho).
+  ⚠️ E a tela deixou de AFIRMAR "Assinado em 26/08" sobre um papel desses: header dizendo
+  que o termo foi assinado com o alerta "sem consentimento" aceso no balcão são duas
+  verdades sobre o mesmo fato — o defeito que esta parcela existe para acabar, cometido
+  pela própria correção dele.
+  ⚠️ **`Enum.TryParse` aceita NÚMERO, e `Enum.IsDefined` não salva**: `"1"` vira uma
+  finalidade de verdade porque 1 É um valor definido. Quando o código guardado é o NOME, a
+  conferência é de **ida e volta** (`finalidade.ToString() == codigo`) — senão um código
+  numérico vindo de qualquer lugar grava a autorização de uma finalidade que ninguém
+  escreveu.
+  ⚠️ **A pergunta "quais termos carregam finalidade" virou consulta PRÓPRIA**, e não um
+  `Include` na leitura dos documentos da ficha: aquela alimenta a lista inteira, e puxar os
+  itens de todos arrastaria o `Desenho` dos relatórios de evolução — um mapa corporal por
+  sessão — a cada abertura de ficha. E decidir pela navegação `documento.Itens` ali seria a
+  lição da parcela 68 de novo: vazia em produção, cheia no teste pelo fixup do EF, com TODO
+  termo — o novo inclusive — parecendo da versão anterior.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

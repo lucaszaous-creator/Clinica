@@ -166,6 +166,30 @@ public class TraducaoNoNpgsqlTests
     /// afirma que a compilação REPROVA. Se um dia o EF passar a traduzir isso, este teste
     /// falha e alguém relê os outros três.
     /// </summary>
+    /// <summary>
+    /// A pergunta "quais termos LGPD carregam finalidade" (parcela 89, 2ª rodada) usa
+    /// NAVEGAÇÃO dentro do <c>Where</c> — um <c>EXISTS</c> — e projeta uma coluna só.
+    ///
+    /// Os dois lados importam: se o EXISTS não traduzisse, a ficha estouraria ao abrir; e
+    /// se a projeção trouxesse a entidade inteira, a leitura arrastaria o
+    /// <c>Desenho</c> dos itens a cada abertura de ficha.
+    /// </summary>
+    [Fact]
+    public void Termos_lgpd_com_finalidade_traduzem_COM_exists_e_UMA_coluna()
+    {
+        using var db = Postgres();
+
+        var sql = db.DocumentosClinicos.AsNoTracking()
+            .Where(d => d.PacienteId == 1
+                        && d.Tipo == Clinica.Domain.Entities.TipoDocumentoClinico.Consentimento
+                        && d.Itens.Any(i => i.Codigo != null))
+            .Select(d => d.Id)
+            .ToQueryString();
+
+        sql.Should().Contain("EXISTS");
+        sql.Should().NotContain("Desenho", "a projeção é de UMA coluna — o id");
+    }
+
     [Fact]
     public void A_rede_REPROVA_a_propriedade_derivada_que_causou_o_defeito()
     {

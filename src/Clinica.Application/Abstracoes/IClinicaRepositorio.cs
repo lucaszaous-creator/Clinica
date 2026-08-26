@@ -666,6 +666,24 @@ public interface IClinicaRepositorio
         int pacienteId, CancellationToken ct = default);
 
     /// <summary>
+    /// Os ids dos termos LGPD do paciente que carregam FINALIDADE nos itens — isto é, os
+    /// que a coleta pode reaproveitar e cuja assinatura de fato registra consentimento
+    /// (parcela 89, 2ª rodada).
+    ///
+    /// ⚠️ Existe como consulta PRÓPRIA, e não como um `Include` em
+    /// <see cref="DocumentosDoPacienteAsync"/>, porque aquela leitura alimenta a lista
+    /// inteira de documentos da ficha: puxar os itens de todos eles arrastaria junto o
+    /// <see cref="ItemDocumento.Desenho"/> dos relatórios de evolução — um mapa corporal
+    /// por sessão — a cada abertura de ficha, num banco remoto.
+    ///
+    /// O filtro é `Codigo != null` e não o PARSE, porque parse não se traduz para SQL. Ele
+    /// é o pré-filtro barato; quem decide de verdade é
+    /// <c>TermoConsentimento.Respondivel</c>, no <c>ColherAsync</c>.
+    /// </summary>
+    Task<IReadOnlyList<int>> TermosLgpdComFinalidadeAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
     /// Documentos clínicos emitidos no período (parcela 24), com paciente e profissional
     /// carregados. Cancelado ENTRA na lista, marcado: documento não se apaga neste sistema,
     /// e esconder o cancelado faria a lista mentir sobre o que o paciente levou para casa.
