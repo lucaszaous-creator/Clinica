@@ -132,12 +132,26 @@
                                  `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
                                  largura sozinha — a lista deixa de ter colunas e vira uma pilha de
                                  linhas desalinhadas (checagem 31). -->
+                            <!-- ⚠️ `RodaDaPagina` (parcela 90): esta lista rola por DENTRO e fica
+                                 no meio de uma página que também rola. Sem isto o `ScrollViewer`
+                                 do ListBox COME a roda do mouse — o evento é marcado como
+                                 tratado e nunca sobe —, e a página não rola com o cursor em
+                                 cima da lista, que é o maior alvo da tela.
+
+                                 Foi o defeito que o cliente relatou como "tela toda cortada":
+                                 o "LANÇADOS HOJE" fica abaixo da dobra, a pessoa gira a roda,
+                                 nada acontece, e a leitura natural é que a tela quebrou.
+
+                                 ⚠️ E o MinHeight saiu: reservar 180 px de lista vazia empurrava
+                                 a conferência do dia para fora da vista antes de haver o que
+                                 mostrar. Quem decide a altura agora é o conteúdo, até o teto. -->
                             <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
                                      SelectedItem="{Binding Seletor.Selecionado}"
                                      ItemTemplate="{StaticResource ItemPacienteLinha}"
                                      BorderThickness="0" Background="Transparent"
                                      HorizontalContentAlignment="Stretch"
-                                     MinHeight="180" MaxHeight="300"
+                                     MaxHeight="300"
+                                     ctrl:Ajudantes.RodaDaPagina="True"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                         </DockPanel>
                     </Border>

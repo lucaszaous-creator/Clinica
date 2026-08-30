@@ -26,7 +26,8 @@
         <ListBox ItemsSource="{Binding Seletor.Resultados}"
                  SelectedItem="{Binding Seletor.Selecionado}"
                  ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                 MaxHeight="150" Margin="0,6,0,0" />
+                 MaxHeight="150" Margin="0,6,0,0"
+                     ctrl:Ajudantes.RodaDaPagina="True" />
         <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
                    TextWrapping="Wrap" />

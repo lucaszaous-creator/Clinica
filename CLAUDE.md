@@ -2283,6 +2283,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   lição da parcela 68 de novo: vazia em produção, cheia no teste pelo fixup do EF, com TODO
   termo — o novo inclusive — parecendo da versão anterior.
 
+- **LISTA QUE ROLA POR DENTRO COME A RODA DO MOUSE, E A PÁGINA NÃO ROLA** (parcela 90 — o
+  cliente: *"quando clicamos em lançar outro ele nos leva a tela de pacientes que está toda
+  cortada junto a tela de lançados hoje"*, com a janela MAXIMIZADA). O `ScrollViewer` que o
+  `ListBox` traz no template marca o evento da roda como TRATADO — sempre, inclusive no
+  limite —, e ele nunca sobe para o `ScrollViewer` da página. Com a lista ocupando 300 px no
+  meio da tela, ela é o **maior alvo do cursor**: a pessoa gira a roda em cima dela, a
+  página não anda, e a leitura natural é que **a tela quebrou**.
+  ⚠️ **O que me fez errar o primeiro palpite** foi tratar "não rola" como posição de
+  rolagem. Não era: a rolagem existe e o `ScrollViewer` até desenha a barra — o que não
+  existe é o EVENTO chegar nele. Perguntar *"rolar para cima resolve?"* foi o que separou as
+  duas coisas, e a resposta **"não resolve"** matou a hipótese em uma pergunta. **Quando o
+  sintoma é "não rola", separe POSIÇÃO de EVENTO antes de mexer em leiaute.**
+  Por que só depois do "Lançar outro": `NovoLancamento` faz `Seletor.Termo = null`, o que
+  dispara a busca e traz as 50 primeiras linhas. No primeiro open a lista também vem cheia
+  — só que a pessoa **digita um nome imediatamente**, a lista encolhe para duas ou três
+  linhas e nada passa da dobra. O estado "50 pacientes parados na tela + LANÇADOS HOJE" só
+  acontece depois do reset, e é o único em que a página precisa rolar.
+  ⚠️ **E ele não aparece na máquina de quem programa**: a coluna esquerda pede ~730 px, e
+  isso só corta no monitor de 1366×768 do balcão ou com a escala do Windows em 125/150% —
+  a mesma família da parcela 79.
+  A correção é `Ajudantes.RodaDaPagina` no shell, e a **condição de borda é o que a separa
+  de um remendo**: a roda vai para a página **só quando a lista já chegou ao fim naquela
+  direção**. Sem isso, trocaríamos o defeito pelo oposto — a lista pararia de rolar.
+  De quebra o `MinHeight="180"` da lista saiu: reservar 180 px de lista VAZIA empurrava a
+  conferência do dia para fora da vista antes de haver o que mostrar.
+  **Nenhuma rede pega**: o XAML é bem-formado, o binding é válido, nada lança, e as três
+  redes locais e o CI ficam verdes. Só a tela montada — e só na altura errada.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`
