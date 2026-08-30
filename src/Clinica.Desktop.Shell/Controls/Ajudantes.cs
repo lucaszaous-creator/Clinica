@@ -91,7 +91,9 @@ public static class Ajudantes
     /// menor que o conteúdo, que é o monitor de 1366×768 do balcão, ou qualquer tela com a
     /// escala do Windows em 125/150%.
     ///
-    /// Nenhuma rede local pega — o XAML é bem-formado, o binding é válido e nada lança.
+    /// Compilador nenhum pega — o XAML é bem-formado, o binding é válido e nada lança;
+    /// quem cobra é a <b>checagem 43</b> do <c>verificar-suite</c>, que acusa todo controle
+    /// rolante dentro de página rolante sem este atributo.
     /// </summary>
     public static readonly DependencyProperty RodaDaPaginaProperty =
         DependencyProperty.RegisterAttached("RodaDaPagina", typeof(bool), typeof(Ajudantes),

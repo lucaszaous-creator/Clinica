@@ -2339,6 +2339,38 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   o cliente repetir a palavra "APÓS" para eu ir ler o que o `Lançar outro` faz de
   diferente. **Mecanismo que não explica o gatilho é meia causa.**
 
+- **A MESMA RODA COMIDA EM MAIS DEZESSEIS LUGARES — e metade foi CRIADA por uma correção
+  nossa** (parcela 90, 3ª rodada — a varredura que respondeu à pergunta *"ainda ficou
+  erros?"*). `ScrollViewer.OnMouseWheel` marca o evento como TRATADO **sempre**, inclusive
+  quando não há o que rolar; então todo controle cujo template traz um `ScrollViewer`
+  (`DataGrid`, `ListBox`, `ListView`, `TreeView`, `RichTextBox`, e o próprio `ScrollViewer`
+  aninhado) come a roda. A primeira varredura filtrou por "tem `MaxHeight`" e por isso
+  deixou dois de fora: **teto não é a condição — a condição é ter `ScrollViewer` no
+  template.**
+  ⚠️ **Doze das dezesseis estavam no FATURAMENTO, e a checagem 36 é quem as pôs lá.** A
+  correção da parcela 68 (seção decepada em Relatórios) manda pôr `ScrollViewer` na raiz e
+  teto nas grades — e é exatamente isso que dá a cada grade um `ScrollViewer` próprio para
+  comer a roda. **As duas metades andam juntas**, e uma correção que só aplica a primeira
+  troca o corte por uma tela travada. Quatro delas ficam no **Dashboard**, que é a tela de
+  ABERTURA do app que fatura a clínica.
+  As outras quatro: a régua da EVA na janela de evolução (duas — `ListBox` horizontal, sem
+  nada que role, comendo a roda vertical do formulário inteiro) e as duas listas da Guarda
+  de prontuário do Gerente.
+  ⚠️ **O que NÃO era defeito, e a regra que o separa**: os dez `ScrollViewer` das raias do
+  kanban (Fila e Meu dia) estão dentro de uma página que rola **só na horizontal**
+  (`VerticalScrollBarVisibility="Disabled"`) — ali comer a roda vertical é o
+  comportamento certo, porque quem deve rolar na vertical é a raia. A busca sobe **pulando**
+  essas páginas horizontais: se houver uma vertical mais acima, o defeito continua de pé.
+  `Ajudantes.RodaDaPagina` teve de ser **portado para o design system do faturamento** — os
+  dois não se referenciam, o débito permanente da Fase 4 —, como o `obrigatorio` do
+  `PromptWindow` (parcela 75) e o `TextoParaVisibilidade` (parcela 61). **Correção de
+  ajudante do shell se porta para o outro lado no mesmo commit**; a cópia que ficar para
+  trás é onde a capacidade some.
+  Virou a **checagem 43**, medida antes de ligar: **zero** ocorrências depois da correção —
+  ela nasce sem uma linha de ruído. Autotestada contra o caso real (verificado removendo o
+  atributo de uma grade do Dashboard: ela acusa a linha exata) e contra os três legítimos —
+  com o atributo, kanban horizontal, e sem página rolante acima.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

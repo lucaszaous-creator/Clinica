@@ -166,7 +166,8 @@
                                 <Button Content="+ Nova modalidade" Command="{Binding NovaModalidadeCommand}"
                                         Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" />
                             </Grid>
-                            <DataGrid x:Name="GridModalidades" ItemsSource="{Binding Modalidades}"
+                            <DataGrid x:Name="GridModalidades" ctrl:Ajudantes.RodaDaPagina="True"
+                                      ItemsSource="{Binding Modalidades}"
                                       IsReadOnly="False" CanUserAddRows="False" MaxHeight="360"
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
@@ -222,7 +223,8 @@
                                 <Button Content="+ Nova especialidade" Command="{Binding NovaEspecialidadeCommand}"
                                         Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" />
                             </Grid>
-                            <DataGrid x:Name="GridEspecialidades" ItemsSource="{Binding Especialidades}"
+                            <DataGrid x:Name="GridEspecialidades" ctrl:Ajudantes.RodaDaPagina="True"
+                                      ItemsSource="{Binding Especialidades}"
                                       IsReadOnly="False" CanUserAddRows="False" MaxHeight="360"
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>

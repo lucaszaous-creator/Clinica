@@ -113,6 +113,7 @@
                             <Border MaxHeight="180" Margin="0,0,0,12"
                                     Visibility="{Binding Paciente.TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
                                 <ListBox ItemsSource="{Binding Paciente.Resultados}"
+                                         ctrl:Ajudantes.RodaDaPagina="True"
                                          SelectedItem="{Binding Paciente.Selecionado}"
                                          ItemTemplate="{StaticResource ItemPacienteSeletor}"
                                          BorderThickness="0" Background="Transparent"
@@ -148,7 +149,8 @@
                                 <Border Style="{StaticResource Card}" MaxHeight="240"
                                         Visibility="{Binding TemAcessos,
                                                      Converter={StaticResource BoolParaVisibilidade}}">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  ctrl:Ajudantes.RodaDaPagina="True">
                                         <ItemsControl ItemsSource="{Binding Acessos}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>

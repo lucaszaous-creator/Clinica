@@ -142,6 +142,7 @@
                             <TextBlock Text="Antes da sessão" Style="{StaticResource Rotulo}" />
                             <StackPanel Orientation="Horizontal">
                                 <ListBox Style="{StaticResource ReguaEva}"
+                                         ctrl:Ajudantes.RodaDaPagina="True"
                                          ItemsSource="{Binding EscalaEva}"
                                          SelectedItem="{Binding EvaAntes}" />
                                 <Button Content="Não medida" Margin="12,0,0,0"
@@ -152,6 +153,7 @@
                             <TextBlock Text="Depois da sessão" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
                             <StackPanel Orientation="Horizontal">
                                 <ListBox Style="{StaticResource ReguaEva}"
+                                         ctrl:Ajudantes.RodaDaPagina="True"
                                          ItemsSource="{Binding EscalaEva}"
                                          SelectedItem="{Binding EvaDepois}" />
                                 <Button Content="Não medida" Margin="12,0,0,0"
