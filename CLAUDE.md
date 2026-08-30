@@ -2283,6 +2283,94 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   lição da parcela 68 de novo: vazia em produção, cheia no teste pelo fixup do EF, com TODO
   termo — o novo inclusive — parecendo da versão anterior.
 
+- **LISTA QUE ROLA POR DENTRO COME A RODA DO MOUSE, E A PÁGINA NÃO ROLA** (parcela 90 — o
+  cliente: *"quando clicamos em lançar outro ele nos leva a tela de pacientes que está toda
+  cortada junto a tela de lançados hoje"*, com a janela MAXIMIZADA). O `ScrollViewer` que o
+  `ListBox` traz no template marca o evento da roda como TRATADO — sempre, inclusive no
+  limite —, e ele nunca sobe para o `ScrollViewer` da página. Com a lista ocupando 300 px no
+  meio da tela, ela é o **maior alvo do cursor**: a pessoa gira a roda em cima dela, a
+  página não anda, e a leitura natural é que **a tela quebrou**.
+  ⚠️ **O que me fez errar o primeiro palpite** foi tratar "não rola" como posição de
+  rolagem. Não era: a rolagem existe e o `ScrollViewer` até desenha a barra — o que não
+  existe é o EVENTO chegar nele. Perguntar *"rolar para cima resolve?"* foi o que separou as
+  duas coisas, e a resposta **"não resolve"** matou a hipótese em uma pergunta. **Quando o
+  sintoma é "não rola", separe POSIÇÃO de EVENTO antes de mexer em leiaute.**
+  Por que só depois do "Lançar outro": `NovoLancamento` faz `Seletor.Termo = null`, o que
+  dispara a busca e traz as 50 primeiras linhas. No primeiro open a lista também vem cheia
+  — só que a pessoa **digita um nome imediatamente**, a lista encolhe para duas ou três
+  linhas e nada passa da dobra. O estado "50 pacientes parados na tela + LANÇADOS HOJE" só
+  acontece depois do reset, e é o único em que a página precisa rolar.
+  ⚠️ **E ele não aparece na máquina de quem programa**: a coluna esquerda pede ~730 px, e
+  isso só corta no monitor de 1366×768 do balcão ou com a escala do Windows em 125/150% —
+  a mesma família da parcela 79.
+  A correção é `Ajudantes.RodaDaPagina` no shell, e a **condição de borda é o que a separa
+  de um remendo**: a roda vai para a página **só quando a lista já chegou ao fim naquela
+  direção**. Sem isso, trocaríamos o defeito pelo oposto — a lista pararia de rolar.
+  De quebra o `MinHeight="180"` da lista saiu: reservar 180 px de lista VAZIA empurrava a
+  conferência do dia para fora da vista antes de haver o que mostrar.
+  **Nenhuma rede pega**: o XAML é bem-formado, o binding é válido, nada lança, e as três
+  redes locais e o CI ficam verdes. Só a tela montada — e só na altura errada.
+
+- **LISTA SEM TETO CRESCE COM O DIA — e é a metade que só quebra DEPOIS de lançar**
+  (parcela 90, 2ª rodada; a frase que a achou foi do cliente: *"esse erro acontece APÓS
+  fazer um lançamento e clicar em 'lançar outro'"*). A roda do mouse explicava por que
+  rolar não resolvia; **não explicava por que o corte só aparece depois de lançar**, e eu
+  tinha dado a primeira metade por resposta inteira.
+  A causa é `CarregarDoDiaAsync`, que roda **de novo a cada lançamento** e lista TODO
+  agendamento de hoje com atendimento — não só o que saiu desta tela. Numa clínica que
+  trabalhou o dia inteiro são 20 a 40 linhas, e o cartão LANÇADOS HOJE tinha `MinHeight` e
+  **nenhum `MaxHeight`**: o `ItemsControl` desenha todas, sem virtualização, e a coluna
+  esquerda passa de dois mil pixels — crescendo a cada guia lançada. Some-se a lista de
+  pacientes que o reset reabre cheia, e o que a pessoa vê é a tela cortada logo depois de
+  um lançamento bem-sucedido.
+  ⚠️ **A regra que fica: `MinHeight` num cartão cujo conteúdo vem do BANCO é meia decisão.**
+  O piso responde "não encolha quando estiver vazio"; ninguém respondeu "até onde pode
+  crescer quando estiver cheio" — e a resposta implícita do WPF é *sem limite*. É a irmã da
+  checagem 36 (dentro de um `ScrollViewer` a altura disponível é INFINITA, então nada
+  distribui) e da parcela 79 (filho ancorado que não cabe é decepado): **quem cresce com o
+  dado precisa de teto, e o teto vem com rolagem por dentro.**
+  ⚠️ E o teto sozinho seria trocar o defeito de lugar: lista que rola por dentro come a
+  roda (a lição acima), então o `ScrollViewer` novo nasceu com `RodaDaPagina`. **As duas
+  metades andam juntas — teto sem devolução da roda é a mesma tela travada, numa altura
+  menor.**
+  A lição de método é a mais cara da rodada: **quando o cliente diz QUANDO o defeito
+  acontece, o "quando" é parte do diagnóstico, não contexto.** Achei um mecanismo real,
+  fechei a resposta com ele, e o gatilho que ele não explicava ficou de fora — foi preciso
+  o cliente repetir a palavra "APÓS" para eu ir ler o que o `Lançar outro` faz de
+  diferente. **Mecanismo que não explica o gatilho é meia causa.**
+
+- **A MESMA RODA COMIDA EM MAIS DEZESSEIS LUGARES — e metade foi CRIADA por uma correção
+  nossa** (parcela 90, 3ª rodada — a varredura que respondeu à pergunta *"ainda ficou
+  erros?"*). `ScrollViewer.OnMouseWheel` marca o evento como TRATADO **sempre**, inclusive
+  quando não há o que rolar; então todo controle cujo template traz um `ScrollViewer`
+  (`DataGrid`, `ListBox`, `ListView`, `TreeView`, `RichTextBox`, e o próprio `ScrollViewer`
+  aninhado) come a roda. A primeira varredura filtrou por "tem `MaxHeight`" e por isso
+  deixou dois de fora: **teto não é a condição — a condição é ter `ScrollViewer` no
+  template.**
+  ⚠️ **Doze das dezesseis estavam no FATURAMENTO, e a checagem 36 é quem as pôs lá.** A
+  correção da parcela 68 (seção decepada em Relatórios) manda pôr `ScrollViewer` na raiz e
+  teto nas grades — e é exatamente isso que dá a cada grade um `ScrollViewer` próprio para
+  comer a roda. **As duas metades andam juntas**, e uma correção que só aplica a primeira
+  troca o corte por uma tela travada. Quatro delas ficam no **Dashboard**, que é a tela de
+  ABERTURA do app que fatura a clínica.
+  As outras quatro: a régua da EVA na janela de evolução (duas — `ListBox` horizontal, sem
+  nada que role, comendo a roda vertical do formulário inteiro) e as duas listas da Guarda
+  de prontuário do Gerente.
+  ⚠️ **O que NÃO era defeito, e a regra que o separa**: os dez `ScrollViewer` das raias do
+  kanban (Fila e Meu dia) estão dentro de uma página que rola **só na horizontal**
+  (`VerticalScrollBarVisibility="Disabled"`) — ali comer a roda vertical é o
+  comportamento certo, porque quem deve rolar na vertical é a raia. A busca sobe **pulando**
+  essas páginas horizontais: se houver uma vertical mais acima, o defeito continua de pé.
+  `Ajudantes.RodaDaPagina` teve de ser **portado para o design system do faturamento** — os
+  dois não se referenciam, o débito permanente da Fase 4 —, como o `obrigatorio` do
+  `PromptWindow` (parcela 75) e o `TextoParaVisibilidade` (parcela 61). **Correção de
+  ajudante do shell se porta para o outro lado no mesmo commit**; a cópia que ficar para
+  trás é onde a capacidade some.
+  Virou a **checagem 43**, medida antes de ligar: **zero** ocorrências depois da correção —
+  ela nasce sem uma linha de ruído. Autotestada contra o caso real (verificado removendo o
+  atributo de uma grade do Dashboard: ela acusa a linha exata) e contra os três legítimos —
+  com o atributo, kanban horizontal, e sem página rolante acima.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

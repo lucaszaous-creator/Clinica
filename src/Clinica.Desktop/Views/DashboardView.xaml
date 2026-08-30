@@ -285,7 +285,8 @@
                 </Style>
             </ctrl:EmptyState.Style>
         </ctrl:EmptyState>
-        <DataGrid x:Name="GridPendencias" ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
+        <DataGrid x:Name="GridPendencias" ctrl:Ajudantes.RodaDaPagina="True"
+                  ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                   CanUserAddRows="False" SelectionMode="Extended" MaxHeight="380" MinHeight="120">
             <DataGrid.Columns>
@@ -369,7 +370,8 @@
                 Visibility="{Binding TemRecursos, Converter={StaticResource BoolParaVisibilidade}}">
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Glosas — prazo de recurso correndo" Style="{StaticResource H2}" Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Recursos}" AutoGenerateColumns="False"
+        <DataGrid ItemsSource="{Binding Recursos}" ctrl:Ajudantes.RodaDaPagina="True"
+                  AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">
@@ -422,7 +424,8 @@
                 Visibility="{Binding TemCarteirinhas, Converter={StaticResource BoolParaVisibilidade}}">
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Carteirinhas vencidas ou vencendo (30 dias)" Style="{StaticResource H2}" Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Carteirinhas}" AutoGenerateColumns="False"
+        <DataGrid ItemsSource="{Binding Carteirinhas}" ctrl:Ajudantes.RodaDaPagina="True"
+                  AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">
@@ -479,7 +482,8 @@
         <Border Grid.Row="6" Style="{StaticResource Card}" Margin="0,16,0,0">
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Consultas a renovar" Style="{StaticResource H2}" Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Consultas}" AutoGenerateColumns="False"
+        <DataGrid ItemsSource="{Binding Consultas}" ctrl:Ajudantes.RodaDaPagina="True"
+                  AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">

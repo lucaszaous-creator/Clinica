@@ -63,7 +63,8 @@
                 </ctrl:EmptyState.Style>
             </ctrl:EmptyState>
 
-            <DataGrid ItemsSource="{Binding Itens}" AutoGenerateColumns="False"
+            <DataGrid ItemsSource="{Binding Itens}" ctrl:Ajudantes.RodaDaPagina="True"
+                      AutoGenerateColumns="False"
                       IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                       CanUserAddRows="False" MinHeight="120">
                 <DataGrid.Columns>

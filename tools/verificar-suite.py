@@ -3660,6 +3660,95 @@ for _amostra, _deve_pegar, _cenario in (
         )
 
 
+
+# --------------------------------------------------------------- checagem 43
+# CONTROLE QUE ROLA POR DENTRO, DENTRO DE UMA PÁGINA QUE ROLA: A RODA NÃO CHEGA NA PÁGINA.
+#
+# `ScrollViewer.OnMouseWheel` marca o evento como TRATADO — sempre, inclusive quando não há
+# o que rolar. Então todo controle cujo template traz um `ScrollViewer` (`ListBox`,
+# `DataGrid`, `ListView`, `TreeView`, `RichTextBox`, e o próprio `ScrollViewer` aninhado)
+# COME a roda do mouse: com o cursor em cima dele, a página não anda.
+#
+# O estrago não é "rola pouco": é a pessoa ver o conteúdo cortado embaixo, girar a roda,
+# nada acontecer, e concluir que A TELA ESTÁ QUEBRADA. Foi o relato do cliente na parcela
+# 90 — "toda cortada", e rolar não resolvia.
+#
+# ⚠️ E metade das ocorrências foi CRIADA por outra correção nossa: a checagem 36 (parcela
+# 68) manda pôr `ScrollViewer` na raiz e teto nas grades para a última seção não ser
+# decepada — e é justamente isso que dá a cada grade um `ScrollViewer` próprio para comer a
+# roda. As duas metades andam juntas: teto sem devolver a roda é a mesma tela travada,
+# numa altura menor.
+#
+# A saída é `Ajudantes.RodaDaPagina="True"` (existe nos DOIS design systems — o do shell e
+# o do faturamento, que não se referenciam): a roda vai para a página SÓ quando a lista já
+# chegou ao fim naquela direção. Sem essa condição de borda trocaríamos o defeito pelo
+# oposto — a lista pararia de rolar.
+#
+# ⚠️ Página que rola só na HORIZONTAL não conta, e é o que salva o kanban da Fila e do Meu
+# dia: lá o de fora tem `VerticalScrollBarVisibility="Disabled"` e a raia é quem deve rolar
+# na vertical. A busca sobe PULANDO essas — se houver uma página vertical mais acima, o
+# defeito continua de pé.
+#
+# Nenhuma outra rede pega: o XAML é bem-formado, o `compilar-sombra` não lê o corpo do XAML
+# e nada lança. Só a tela montada, e só na altura errada — que nunca é a de quem programa.
+# Medido antes de ligar: ZERO ocorrências depois da correção da parcela 90.
+COME_A_RODA = {"ListBox", "DataGrid", "ListView", "TreeView", "ScrollViewer", "RichTextBox"}
+
+
+def _rodas_comidas(raiz: ET.Element) -> list[str]:
+    """Controles rolantes cuja roda nunca chega à página que os contém."""
+    # ⚠️ Helper LOCAL de propósito: o `_nome` do topo do arquivo é sobrescrito por uma
+    # variável de laço lá pelas checagens do meio, e a partir dali ele é uma string.
+    def tag(el: ET.Element) -> str:
+        return el.tag.split("}")[-1]
+
+    pais = {filho: pai for pai in raiz.iter() for filho in pai}
+    achados = []
+    for el in raiz.iter():
+        if tag(el) not in COME_A_RODA:
+            continue
+        if any("RodaDaPagina" in k for k in el.attrib):
+            continue
+        pai = pais.get(el)
+        while pai is not None:
+            if (tag(pai) == "ScrollViewer"
+                    and pai.get("VerticalScrollBarVisibility", "").strip() != "Disabled"):
+                achados.append(tag(el))
+                break
+            pai = pais.get(pai)
+    return achados
+
+
+for f, raiz_r in arvores_com_faturamento.items():
+    for _ctrl in _rodas_comidas(raiz_r):
+        erros.append(
+            f"{rel(f)}: `{_ctrl}` rola por dentro e está dentro de uma página que também "
+            f"rola — o `ScrollViewer` dele marca a roda do mouse como tratada e ela nunca "
+            f"chega na página, que fica parada com o conteúdo cortado embaixo. Acrescente "
+            f"`ctrl:Ajudantes.RodaDaPagina=\"True\"`."
+        )
+
+# Autoteste: o caso REAL da parcela 90 e os três legítimos que não podem disparar.
+_AMOSTRAS_RODA = (
+    ('<ScrollViewer xmlns:ctrl="c"><StackPanel><DataGrid MaxHeight="240" />'
+     '</StackPanel></ScrollViewer>', True, "grade dentro da página — o defeito"),
+    ('<ScrollViewer xmlns:ctrl="c"><StackPanel>'
+     '<DataGrid MaxHeight="240" ctrl:Ajudantes.RodaDaPagina="True" />'
+     '</StackPanel></ScrollViewer>', False, "com a roda devolvida"),
+    ('<ScrollViewer xmlns:ctrl="c" VerticalScrollBarVisibility="Disabled">'
+     '<StackPanel><ScrollViewer><StackPanel /></ScrollViewer></StackPanel></ScrollViewer>',
+     False, "kanban: a página de fora só rola na horizontal"),
+    ('<Grid xmlns:ctrl="c"><DataGrid MaxHeight="240" /></Grid>',
+     False, "sem página rolante acima"),
+)
+for _xaml, _deve_pegar, _cenario in _AMOSTRAS_RODA:
+    if bool(_rodas_comidas(ET.fromstring(_xaml))) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 43 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

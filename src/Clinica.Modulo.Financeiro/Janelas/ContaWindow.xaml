@@ -61,6 +61,7 @@
                      SelectedItem="{Binding Seletor.Selecionado}"
                      ItemTemplate="{StaticResource ItemPacienteSeletor}"
                      MaxHeight="180" Margin="0,6,0,0"
+                     ctrl:Ajudantes.RodaDaPagina="True"
                      BorderThickness="0" Background="Transparent" />
         </StackPanel>
 
