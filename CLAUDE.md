@@ -2311,6 +2311,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **Nenhuma rede pega**: o XAML é bem-formado, o binding é válido, nada lança, e as três
   redes locais e o CI ficam verdes. Só a tela montada — e só na altura errada.
 
+- **LISTA SEM TETO CRESCE COM O DIA — e é a metade que só quebra DEPOIS de lançar**
+  (parcela 90, 2ª rodada; a frase que a achou foi do cliente: *"esse erro acontece APÓS
+  fazer um lançamento e clicar em 'lançar outro'"*). A roda do mouse explicava por que
+  rolar não resolvia; **não explicava por que o corte só aparece depois de lançar**, e eu
+  tinha dado a primeira metade por resposta inteira.
+  A causa é `CarregarDoDiaAsync`, que roda **de novo a cada lançamento** e lista TODO
+  agendamento de hoje com atendimento — não só o que saiu desta tela. Numa clínica que
+  trabalhou o dia inteiro são 20 a 40 linhas, e o cartão LANÇADOS HOJE tinha `MinHeight` e
+  **nenhum `MaxHeight`**: o `ItemsControl` desenha todas, sem virtualização, e a coluna
+  esquerda passa de dois mil pixels — crescendo a cada guia lançada. Some-se a lista de
+  pacientes que o reset reabre cheia, e o que a pessoa vê é a tela cortada logo depois de
+  um lançamento bem-sucedido.
+  ⚠️ **A regra que fica: `MinHeight` num cartão cujo conteúdo vem do BANCO é meia decisão.**
+  O piso responde "não encolha quando estiver vazio"; ninguém respondeu "até onde pode
+  crescer quando estiver cheio" — e a resposta implícita do WPF é *sem limite*. É a irmã da
+  checagem 36 (dentro de um `ScrollViewer` a altura disponível é INFINITA, então nada
+  distribui) e da parcela 79 (filho ancorado que não cabe é decepado): **quem cresce com o
+  dado precisa de teto, e o teto vem com rolagem por dentro.**
+  ⚠️ E o teto sozinho seria trocar o defeito de lugar: lista que rola por dentro come a
+  roda (a lição acima), então o `ScrollViewer` novo nasceu com `RodaDaPagina`. **As duas
+  metades andam juntas — teto sem devolução da roda é a mesma tela travada, numa altura
+  menor.**
+  A lição de método é a mais cara da rodada: **quando o cliente diz QUANDO o defeito
+  acontece, o "quando" é parte do diagnóstico, não contexto.** Achei um mecanismo real,
+  fechei a resposta com ele, e o gatilho que ele não explicava ficou de fora — foi preciso
+  o cliente repetir a palavra "APÓS" para eu ir ler o que o `Lançar outro` faz de
+  diferente. **Mecanismo que não explica o gatilho é meia causa.**
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

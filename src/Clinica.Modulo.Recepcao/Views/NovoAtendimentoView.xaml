@@ -579,7 +579,18 @@
                         <TextBlock Text="{Binding AvisoRegistro}" TextWrapping="Wrap" />
                     </Border>
 
-                    <Border Style="{StaticResource Card}" MinHeight="140">
+                    <!-- ⚠️ TETO (parcela 90, 2ª rodada — a parte que só quebra DEPOIS de
+                         lançar). `CarregarDoDiaAsync` lista TODO agendamento de hoje que
+                         tem atendimento — não só o que saiu desta tela —, e roda de novo a
+                         cada lançamento. Numa clínica que trabalhou o dia inteiro são 20 a
+                         40 linhas, e este cartão não tinha teto: o `ItemsControl` desenhava
+                         todas, sem virtualização, dentro da página que rola. A coluna
+                         passava de dois mil pixels e crescia a cada guia lançada.
+
+                         Com o teto, a conferência rola por DENTRO — e a roda continua
+                         chegando na página por causa do `RodaDaPagina`, senão isto seria
+                         trocar um defeito pelo mesmo defeito noutro lugar. -->
+                    <Border Style="{StaticResource Card}" MinHeight="140" MaxHeight="300">
                         <Grid>
                             <ctrl:EstadoDaTela Panel.ZIndex="1"
                                                Itens="{Binding LancadosHoje}"
@@ -604,63 +615,66 @@
                                     <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
                                 </Grid>
 
-                                <ItemsControl ItemsSource="{Binding LancadosHoje}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,0,0,10">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="200" />
-                                                    <ColumnDefinition Width="130" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              ctrl:Ajudantes.RodaDaPagina="True">
+                                    <ItemsControl ItemsSource="{Binding LancadosHoje}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="200" />
+                                                        <ColumnDefinition Width="130" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
 
-                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="{Binding Modalidade}"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                                    <!-- Quem lançou (parcela 58). A conferência do dia é
-                                                         onde a pergunta da direção nasce, e até aqui a
-                                                         resposta só existia na trilha de auditoria — em
-                                                         outra tela e em outro app. -->
-                                                    <TextBlock Text="{Binding Lancamento}"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
+                                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Modalidade}"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                        <!-- Quem lançou (parcela 58). A conferência do dia é
+                                                             onde a pergunta da direção nasce, e até aqui a
+                                                             resposta só existia na trilha de auditoria — em
+                                                             outra tela e em outro app. -->
+                                                        <TextBlock Text="{Binding Lancamento}"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
 
-                                                <!-- A guia que falta é o assunto do produto: ela vem em
-                                                     âmbar aqui também, na conferência do fim do dia. -->
-                                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding Guias}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                    <TextBlock x:Name="pendente" Text="{Binding Pendencia}"
-                                                               TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                               Margin="0,2,0,0" />
-                                                </StackPanel>
+                                                    <!-- A guia que falta é o assunto do produto: ela vem em
+                                                         âmbar aqui também, na conferência do fim do dia. -->
+                                                    <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding Guias}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                        <TextBlock x:Name="pendente" Text="{Binding Pendencia}"
+                                                                   TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                   Margin="0,2,0,0" />
+                                                    </StackPanel>
 
-                                                <TextBlock Grid.Column="2" Text="{Binding Numero}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding Numero}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
-                                                <Border Grid.Column="3" Style="{StaticResource Badge}"
-                                                        VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Convenio}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                </Border>
+                                                    <Border Grid.Column="3" Style="{StaticResource Badge}"
+                                                            VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Convenio}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    </Border>
 
-                                            </Grid>
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding TemPendencia}" Value="True">
-                                                    <Setter TargetName="pendente" Property="Foreground"
-                                                            Value="{StaticResource Brush.Aviso}" />
-                                                    <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding TemPendencia}" Value="True">
+                                                        <Setter TargetName="pendente" Property="Foreground"
+                                                                Value="{StaticResource Brush.Aviso}" />
+                                                        <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
                             </DockPanel>
                         </Grid>
                     </Border>
