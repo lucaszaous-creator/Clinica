@@ -1,14 +1,42 @@
 name: Build EXE (Windows)
 
 # Compila o app WPF num runner Windows e publica o .exe como artefato para download.
-# Roda automaticamente em push na main e sob demanda (workflow_dispatch).
+#
+# ⚠️ RODA NO PR, NÃO NO PUSH DA MAIN — e a razão é dinheiro (parcela 90). O runner
+# Windows é faturado com multiplicador 2×: um build de ~6min30 custa ~13 minutos da
+# cota. Com os dois gatilhos ligados, TODA mudança pagava esse preço DUAS VEZES —
+# uma no PR e outra no push da main logo depois do merge — pelo MESMO código.
+#
+# E não é aproximadamente o mesmo código: num evento `pull_request` o GitHub faz
+# checkout de `refs/pull/N/merge`, que é o merge do head na base. O que este job
+# compila no PR é EXATAMENTE a árvore que a main vai ter. Rodar de novo depois do
+# merge é recompilar o que já foi compilado.
+#
+# O que se perde: um push DIRETO na main (sem PR) não gera build. Aqui tudo entra
+# por PR; para o caso raro, o `workflow_dispatch` roda em qualquer branch.
+#
+# ⚠️ Este job é um SUPERCONJUNTO do `verificar.yml`: ele roda o espelho de tokens, o
+# `verificar-suite`, os testes E o compilador de marcação do WPF. Por isso o
+# `verificar` não precisa disparar em PR — seria a terceira execução das mesmas
+# três redes no mesmo commit.
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+    # Mudança só de documentação não pode quebrar compilação de XAML — e 13 minutos
+    # de cota por uma vírgula no CLAUDE.md é o gasto mais fácil de cortar deste
+    # repositório. `paths-ignore` só pula quando TODOS os arquivos batem: PR que
+    # mistura código e documento roda normalmente.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   workflow_dispatch:
+
+# Empurrar três correções seguidas para um PR aberto disparava três builds Windows
+# completos, e só o último interessa. Aqui o novo cancela o anterior do MESMO PR.
+concurrency:
+  group: build-exe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

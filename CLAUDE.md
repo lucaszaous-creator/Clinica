@@ -54,9 +54,17 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
 da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
-(`.github/workflows/build-exe.yml`, runner Windows) segue sendo o build oficial dos cinco apps, em
-cada push na `main` **e em cada PR para a `main`** — commit em branch de trabalho não gera build
-sozinho.
+(`.github/workflows/build-exe.yml`, runner Windows) segue sendo o build oficial dos cinco apps, e
+desde a parcela 90 ele dispara **só no PR para a `main`** — commit em branch de trabalho não gera
+build sozinho, e o push da `main` depois do merge também não. ⚠️ **Não é economia às cegas**: num
+evento `pull_request` o GitHub faz checkout de `refs/pull/N/merge`, então o que o PR compila é
+EXATAMENTE a árvore que a `main` vai ter; e o runner Windows é faturado **2×**, de modo que rodar
+os dois gatilhos pagava ~13 minutos de cota duas vezes pelo mesmo código. Pela mesma razão o
+`verificar.yml` perdeu o gatilho de PR: o `build-exe` é um **superconjunto** dele (roda o espelho
+de tokens, o `verificar-suite`, os testes E o compilador de marcação), e com os dois ligados cada
+commit era conferido **três vezes**. O que sobrou: `verificar` em todo push (inclusive na `main`,
+que é a rede caso a base ande entre o PR ficar verde e o merge acontecer) e `build-exe` no PR,
+com `concurrency` nos dois para o push seguinte cancelar o anterior.
 
 **Testar sem publicar**: `build-exe.yml` tem `workflow_dispatch` e roda em qualquer branch,
 gerando os cinco `.exe` PORTÁTEIS — sem `vpk pack`, então `mgr.IsInstalled` é falso e eles não se
