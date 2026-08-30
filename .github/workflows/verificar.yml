@@ -2,10 +2,10 @@ name: Verificar (Linux)
 
 # Rede rápida, em TODA branch.
 #
-# O `build-exe.yml` roda num runner Windows e só dispara em push na main e em PR
-# para a main — commit em branch de trabalho não gerava build nenhum, e o autor
-# só descobria um erro de compilação ao abrir o PR. Este job roda em Linux, em
-# qualquer branch, e fecha três das quatro redes do projeto em poucos minutos:
+# O `build-exe.yml` roda num runner Windows e só dispara no PR para a main —
+# commit em branch de trabalho não gera build nenhum, e o autor só descobriria um
+# erro ao abrir o PR. Este job roda em Linux, em qualquer branch, e fecha três das
+# quatro redes do projeto em poucos minutos:
 #
 #   1. tokens/verificar-espelho.py  — CSS x XAML
 #   2. tools/verificar-suite.py     — XAML, pack URIs, chaves do design system
@@ -16,10 +16,26 @@ name: Verificar (Linux)
 # continua sendo do runner Windows: ela precisa do SDK WindowsDesktop, que não
 # existe em Linux. Este job NÃO o substitui — ele antecipa o que dá para antecipar.
 
+# ⚠️ SEM `pull_request` — e isso NÃO é economia às cegas (parcela 90). O
+# `build-exe.yml` roda no PR e é um SUPERCONJUNTO deste job: ele executa as mesmas
+# três redes e ainda compila o XAML de verdade. Com o gatilho de PR ligado, cada
+# commit era conferido TRÊS vezes — no push da branch, no PR, e no push da main
+# depois do merge. Agora cada commit é conferido uma vez em cada máquina que tem
+# algo novo a dizer sobre ele.
+#
+# O push na main FICA: é a rede que sobra caso a main ande entre o PR ficar verde e
+# o merge acontecer — barata (Linux é 1×) e é o único sinal que a main tem, já que o
+# build Windows passou a rodar só no PR.
+
 on:
   push:
-  pull_request:
   workflow_dispatch:
+
+# Empurrar vários commits seguidos para a mesma branch cancela a conferência
+# anterior: só o topo interessa.
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verificar:
