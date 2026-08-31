@@ -44,6 +44,12 @@
     <Color x:Key="Cor.Vermelho.700">#B91C1C</Color>
     <Color x:Key="Cor.Ciano.100">#E0F2FE</Color>
     <Color x:Key="Cor.Ciano.500">#0EA5E9</Color>
+    <!-- Cores de CATEGORIA (agenda por modalidade, ago/2026). Não são semânticas: fora da
+         faixa verde/laranja/vermelho de propósito, porque a modalidade não é um estado —
+         e laranja na agenda já significa ENCAIXE. -->
+    <Color x:Key="Cor.Violeta.600">#7C3AED</Color>
+    <Color x:Key="Cor.Teal.600">#0D9488</Color>
+    <Color x:Key="Cor.Rosa.600">#DB2777</Color>
 
     <!-- ============ Brushes semânticos ============ -->
     <!-- Acento (primária) -->
@@ -86,6 +92,17 @@
     <SolidColorBrush x:Key="Brush.Erro.Suave" Color="{StaticResource Cor.Vermelho.100}" />
     <SolidColorBrush x:Key="Brush.Info" Color="{StaticResource Cor.Ciano.500}" />
     <SolidColorBrush x:Key="Brush.Info.Suave" Color="{StaticResource Cor.Ciano.100}" />
+
+    <!-- O traço do cartão de horário, por FAMÍLIA de modalidade (pedido da direção,
+         ago/2026: "blocos coloridos por tipo"). A cor sai da família (enum), nunca do
+         código/rótulo da variante — a mesma regra do convênio: a variante cadastrada
+         herda a cor de quem ela deriva. AcupunturaSimples fica com Brush.Acento (a cor
+         que a agenda sempre teve), então o dia comum não muda de cara. O texto do cartão
+         continua dizendo a modalidade: a cor é reforço, não o único portador. -->
+    <SolidColorBrush x:Key="Brush.Modalidade.AcupunturaEletro" Color="{StaticResource Cor.Violeta.600}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.Bsv" Color="{StaticResource Cor.Teal.600}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.BsvAcupuntura" Color="{StaticResource Cor.Ciano.500}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.Consulta" Color="{StaticResource Cor.Rosa.600}" />
 
     <!-- Sidebar clara (estilo Linear) -->
     <SolidColorBrush x:Key="Brush.Sidebar.Fundo" Color="#FFFFFF" />

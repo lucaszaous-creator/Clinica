@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
 
     <!-- ============================================================
          Cartões e agrupadores — flat: borda 1px, raio 12, sem sombra.
@@ -31,6 +32,93 @@
     <Style x:Key="CardKpi.Rotulo" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+    </Style>
+
+    <!--
+      O ícone do cartão de KPI (handoff de design, ago/2026): glifo pequeno À ESQUERDA do
+      rótulo, na MESMA linha — nunca uma fileira própria, que estouraria a altura fixa
+      dos painéis. A conta da fileira mora NAS TELAS, junto do Height que ela justifica
+      (a linha do rótulo mede 24 com o "⋯", 20 sem ele): número repetido aqui apodreceria
+      na primeira mudança de lá.
+
+      A COR não é escolha do ícone: como na barra de proporção, ele repete a que a tela já
+      deu ao NÚMERO do cartão — neutro (acento) por padrão, e semântica só onde o valor já
+      é pintado. Ícone discordando do número sobre a mesma métrica seria invenção.
+
+      Ele entra em TODO CardKpi do sistema, e isso é decisão da direção (ago/2026): a
+      objeção antiga era a aplicação PARCIAL — ícone em 4 de ~20 telas partiria o design
+      system ao meio. Aplicado em todas, ele vira regra: cartão de KPI tem ícone.
+    -->
+    <Style x:Key="CardKpi.Icone" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="Margin" Value="0,0,7,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!--
+      O "⋯" do cartão de KPI (BotaoMenuKpi.cs — o menu e a ação de copiar moram lá, em
+      CÓDIGO). Estilo IMPLÍCITO de propósito: não há themes/generic.xaml em projeto
+      nenhum, e é aqui que o Template vive (a regra da casa). Discreto (opacidade baixa)
+      e sempre visível: recurso que não se anuncia ninguém descobre (parcela 57).
+    -->
+    <Style TargetType="ctrl:BotaoMenuKpi">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Opacity" Value="0.55" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ctrl:BotaoMenuKpi">
+                    <Border x:Name="fundo" Background="Transparent"
+                            CornerRadius="{StaticResource Raio.Pequeno}">
+                        <TextBlock Text="&#xE712;" FontFamily="{StaticResource FonteIcones}"
+                                   FontSize="14" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Superficie.Hover}" />
+                            <Setter Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+      A linha de variação do KPI e o delta do `VariacaoKpi`, portados do shell no MESMO
+      commit (a regra da casa: a cópia que fica para trás é onde a capacidade some). O
+      Dashboard deste app NÃO os usa, e é decisão: os números dele são estoque em aberto
+      AGORA, sem eixo temporal — um "período anterior" ali seria inventado. O par existe
+      para a primeira tela daqui que ganhar um KPI com período não nascer sem ele.
+    -->
+    <Style x:Key="CardKpi.Variacao" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Margin" Value="0,4,0,0" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style x:Key="CardKpi.Delta" TargetType="TextBlock"
+           BasedOn="{StaticResource CardKpi.Variacao}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="ToolTip" Value="{Binding Detalhe}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Leitura}" Value="Boa">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Leitura}" Value="Ruim">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- Título de bloco dentro de um formulário/cartão (escreva o texto em CAIXA ALTA) -->
@@ -133,6 +221,28 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!--
+      A barra de proporção do cartão de KPI — PORTADA do design system da suíte
+      (Componentes/Graficos.xaml), e não uma segunda invenção.
+
+      Os dois design systems não se referenciam (o débito permanente da Fase 4 cancelada),
+      então o que existe lá e é preciso aqui se PORTA, no mesmo commit, com os mesmos
+      valores — foi assim com o `TextoParaVisibilidade` (parcela 61), o `obrigatorio` do
+      PromptWindow (parcela 75) e o `RodaDaPagina` (parcela 90). A cópia que fica para
+      trás é onde a capacidade some.
+
+      Escala 0..1 de propósito: quem calcula a fração é o ViewModel, porque o template não
+      enxerga os irmãos da série.
+    -->
+    <Style x:Key="BarraDado" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+        <Setter Property="BorderThickness" Value="0" />
     </Style>
 
 </ResourceDictionary>

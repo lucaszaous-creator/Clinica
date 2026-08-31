@@ -5,6 +5,7 @@ using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -35,6 +36,14 @@ public sealed class CartaoAgenda
     public required DateTime Fim { get; init; }
 
     public required string Modalidade { get; init; }
+
+    /// <summary>
+    /// A FAMÍLIA da modalidade — é ela que dá a cor ao traço do cartão (ago/2026), nunca
+    /// o rótulo: a variante cadastrada ("Acupuntura (domiciliar)") herda a cor de quem
+    /// ela deriva, a mesma regra do convênio.
+    /// </summary>
+    public required ModalidadeAtendimento ModalidadeFamilia { get; init; }
+
     public required string Sala { get; init; }
 
     /// <summary>
@@ -709,6 +718,7 @@ public sealed partial class AgendaViewModel : ObservableObject
                     // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
                     Modalidade = CatalogoModalidades.Nome(
                         a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+                ModalidadeFamilia = a.ModalidadePrevista,
                 Sala = a.Sala?.Nome ?? "—",
                 Profissional = a.Profissional?.Rotulo ?? "sem profissional",
                 StatusRotulo = Rotular(a.Status),

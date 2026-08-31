@@ -69,6 +69,42 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
     [ObservableProperty] private string _melhoraDor = "—";
 
     /// <summary>
+    /// Os três percentuais desta tela como fração 0..1, para a barra ao lado do número.
+    ///
+    /// Só entram os que JÁ SÃO percentuais — taxa de falta, ocupação e completude. Os
+    /// outros cartões (sessões, pacientes, faltas, melhora da EVA) são contagens e pontos
+    /// de escala: inventar um denominador para ter o desenho daria um número errado com
+    /// cara de exato.
+    ///
+    /// E o par <c>Tem…</c> segue exatamente a mesma condição que faz o número virar "—":
+    /// sem base de cálculo a barra SOME, porque barra vazia ao lado do travessão afirmaria
+    /// ZERO onde o que há é "não medido".
+    /// </summary>
+    [ObservableProperty] private double _noShowFracao;
+    [ObservableProperty] private bool _temNoShow;
+    [ObservableProperty] private double _ocupacaoFracao;
+    [ObservableProperty] private bool _temOcupacao;
+    [ObservableProperty] private double _completudeFracao;
+    [ObservableProperty] private bool _temCompletude;
+
+    /// <summary>
+    /// O delta de cada número contra o trecho anterior equivalente (ago/2026): mês
+    /// corrente vs. mesmo trecho do mês anterior, ano vs. mesmo trecho do ano anterior —
+    /// a régua é o <see cref="TrechoAnterior"/>, com teste. Nulo = sem base, e a tela
+    /// não desenha nada. Taxas comparam em p.p.; contagens são NEUTRAS (mais sessões não
+    /// é "melhor" nem "pior", é volume) — as leituras com direção são falta (subir é
+    /// ruim), ocupação, completude e melhora da EVA (subir é bom).
+    /// </summary>
+    [ObservableProperty] private VariacaoKpi? _variacaoAtendidos;
+    [ObservableProperty] private VariacaoKpi? _variacaoPacientes;
+    [ObservableProperty] private VariacaoKpi? _variacaoFaltas;
+    [ObservableProperty] private VariacaoKpi? _variacaoNoShow;
+    [ObservableProperty] private VariacaoKpi? _variacaoOcupacao;
+    [ObservableProperty] private VariacaoKpi? _variacaoCompletude;
+    [ObservableProperty] private VariacaoKpi? _variacaoEvolucoes;
+    [ObservableProperty] private VariacaoKpi? _variacaoMelhoraDor;
+
+    /// <summary>
     /// Quantas sessões continuam sem evolução. É o número ACIONÁVEL da tela — os outros
     /// descrevem o passado, este ainda dá para resolver hoje — e por isso ele leva à lista.
     /// </summary>
@@ -125,6 +161,13 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
 
             var todos = await indicadores.ProdutividadeAsync(inicio, fim);
 
+            // O trecho anterior equivalente, para o delta. SEQUENCIAL, nunca WhenAll —
+            // mesmo repositório, e o DbContext não aceita duas operações ao mesmo tempo.
+            var trechoAnterior = TrechoAnterior.De(inicio, fim);
+            IReadOnlyList<ProdutividadeProfissional> todosAnterior = trechoAnterior is { } ta
+                ? await indicadores.ProdutividadeAsync(ta.Inicio, ta.Fim)
+                : [];
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
@@ -135,11 +178,20 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
                 ? todos.FirstOrDefault(p => p.ProfissionalId == id)
                 : Somar(todos);
 
+            // O anterior é escolhido pela MESMA régua do atual (mesmo profissional, ou a
+            // soma da clínica) — comparar o meu mês com a soma da casa seria delta entre
+            // duas perguntas diferentes.
+            var meuAnterior = profissionalId is { } idAnt
+                ? todosAnterior.FirstOrDefault(p => p.ProfissionalId == idAnt)
+                : Somar(todosAnterior);
+
             Profissional = profissionalId is null
                 ? "Todos os profissionais"
                 : meu?.Nome ?? "Profissional";
 
-            Preencher(meu);
+            Preencher(meu, meuAnterior, trechoAnterior is { } tb
+                ? $"Trecho anterior equivalente: {tb.Inicio:dd/MM/yyyy} a {tb.Fim:dd/MM/yyyy}"
+                : string.Empty);
 
             // A dívida é de HOJE, não do período: ela é a fila de trabalho, e mostrá-la
             // recortada pelo filtro faria escolher "mês passado" esconder o que está em
@@ -176,8 +228,10 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         }
     }
 
-    private void Preencher(ProdutividadeProfissional? p)
+    private void Preencher(
+        ProdutividadeProfissional? p, ProdutividadeProfissional? anterior, string detalheDelta)
     {
+        const string rotuloDelta = "vs. período anterior";
         // Sem linha no período, a pessoa não trabalhou nele — e isso é "—", nunca zero:
         // 0% de ocupação e "não houve agenda" são coisas diferentes, e a segunda não
         // acusa ninguém de nada. É a mesma regra do resto da suíte.
@@ -188,8 +242,33 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             Atendidos = Pacientes = Faltas = NoShow = Ocupacao = Completude = "—";
             Evolucoes = MelhoraDor = "—";
             LeituraCompletude = string.Empty;
+            // As barras acompanham os números: se eles voltaram a "—", elas somem junto.
+            TemNoShow = TemOcupacao = TemCompletude = false;
+            NoShowFracao = OcupacaoFracao = CompletudeFracao = 0;
+            VariacaoAtendidos = VariacaoPacientes = VariacaoFaltas = VariacaoNoShow = null;
+            VariacaoOcupacao = VariacaoCompletude = VariacaoEvolucoes = VariacaoMelhoraDor = null;
             return;
         }
+
+        VariacaoAtendidos = VariacaoKpi.Relativa(p.Atendidos, anterior?.Atendidos, rotuloDelta, detalheDelta);
+        VariacaoPacientes = VariacaoKpi.Relativa(
+            p.PacientesDistintos, anterior?.PacientesDistintos, rotuloDelta, detalheDelta);
+        VariacaoFaltas = VariacaoKpi.Relativa(
+            p.Faltas, anterior?.Faltas, rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoEvolucoes = VariacaoKpi.Relativa(p.Evolucoes, anterior?.Evolucoes, rotuloDelta, detalheDelta);
+        VariacaoNoShow = VariacaoKpi.EmPontos(
+            p.Fechados > 0 ? p.TaxaNoShow : null,
+            anterior is { Fechados: > 0 } ? anterior.TaxaNoShow : null,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoOcupacao = VariacaoKpi.EmPontos(
+            p.OcupacaoPercentual, anterior?.OcupacaoPercentual,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: false);
+        VariacaoCompletude = VariacaoKpi.EmPontos(
+            p.CompletudeProntuario, anterior?.CompletudeProntuario,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: false);
+        VariacaoMelhoraDor = VariacaoKpi.EmValor(
+            p.MelhoraMediaEva, anterior?.MelhoraMediaEva,
+            "pt", rotuloDelta, detalheDelta, melhorQuandoMenor: false);
 
         Atendidos = p.Atendidos.ToString();
         Pacientes = p.PacientesDistintos.ToString();
@@ -201,6 +280,12 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         NoShow = p.Fechados == 0 ? "—" : $"{p.TaxaNoShow:0.#}%";
         Ocupacao = p.OcupacaoPercentual is { } o ? $"{o:0.#}%" : "—";
 
+        // A MESMA condição do número, para a barra não sobreviver ao travessão.
+        TemNoShow = p.Fechados > 0;
+        NoShowFracao = TemNoShow ? Math.Clamp(p.TaxaNoShow / 100.0, 0, 1) : 0;
+        TemOcupacao = p.OcupacaoPercentual is not null;
+        OcupacaoFracao = p.OcupacaoPercentual is { } oc ? Math.Clamp(oc / 100.0, 0, 1) : 0;
+
         MelhoraDor = p.MelhoraMediaEva is { } eva
             ? $"{eva:0.#} pontos"
             : "—";
@@ -208,6 +293,8 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         if (p.CompletudeProntuario is { } completude)
         {
             Completude = $"{completude:0.#}%";
+            TemCompletude = true;
+            CompletudeFracao = Math.Clamp(completude / 100.0, 0, 1);
             LeituraCompletude = completude switch
             {
                 >= 95 => "Praticamente toda sessão atendida tem registro escrito.",
@@ -220,6 +307,8 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             // Nula, nunca 0% — sem sessão atendida, acusar de negligência quem tirou
             // férias seria o defeito que a parcela 36 já documentou.
             Completude = "—";
+            TemCompletude = false;
+            CompletudeFracao = 0;
             LeituraCompletude = "Nenhuma sessão atendida no período — não há o que medir.";
         }
     }

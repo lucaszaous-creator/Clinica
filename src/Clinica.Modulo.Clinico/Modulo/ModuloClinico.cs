@@ -107,6 +107,12 @@ public sealed class ModuloClinico : IModuloApp
     /// </summary>
     public const string ChavePaciente = "consultorio-paciente";
 
+    /// <summary>
+    /// Ajuda e suporte — tela do SHELL; os QUATRO módulos publicam a MESMA chave
+    /// (<see cref="ChavesSuite.Ajuda"/>), e a dedupe do shell funde no Gerente.
+    /// </summary>
+    public const string ChaveAjuda = ChavesSuite.Ajuda;
+
     public string Nome => "Consultório";
 
     /// <summary>
@@ -242,6 +248,14 @@ public sealed class ModuloClinico : IModuloApp
         {
             Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+
+        // AJUDA E SUPORTE — tela do shell, sem `Requer` de propósito (o padrão é
+        // "sempre visível"): fechar o manual por permissão trancaria quem mais precisa.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897",
+            Grupo = GrupoSidebar.Gestao
         }
     ];
 
@@ -369,6 +383,9 @@ public sealed class ModuloClinico : IModuloApp
                 DataContext = new PacienteWorkspaceViewModel(
                     servicos, servicos.GetRequiredService<PacienteEmFoco>(), AbaDe(chave))
             },
+
+        // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
+        ChaveAjuda => new AjudaView(),
 
         _ => null
     };

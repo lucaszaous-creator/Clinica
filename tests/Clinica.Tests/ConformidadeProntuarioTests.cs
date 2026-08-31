@@ -143,7 +143,8 @@ public class ConformidadeProntuarioTests : IDisposable
             // ⚠️ Entra AQUI no mesmo commit em que a entidade nasce. A rede casa por LISTA
             // DE NOMES, e um método novo que ela não conhece a faria responder "está limpo"
             // — o ponto cego que a parcela 60 pagou caro para descobrir.
-            "RemoverEvolucaoEnfermagemAsync"
+            "RemoverEvolucaoEnfermagemAsync",
+            "RemoverResultadoExameAsync"
         };
 
         var metodos = typeof(Clinica.Application.Abstracoes.IClinicaRepositorio)
@@ -540,6 +541,35 @@ public class ConformidadeProntuarioTests : IDisposable
         await new AnamneseService(_repo).SalvarAsync(p.Id, new AnamnesePaciente
         {
             AntecedentesPessoais = "Apendicectomia em 2015."
+        }, "dra.ana");
+
+        (await _repo.PacienteTemRegistroClinicoAsync(p.Id)).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A NONA raiz (ago/2026): a ficha cujo único registro clínico é um resultado de
+    /// exame estruturado não pode ser removível — mesma regra, mesma razão da anamnese
+    /// logo acima.
+    /// </summary>
+    [Fact]
+    public async Task Paciente_com_RESULTADO_DE_EXAME_nao_pode_ser_removido()
+    {
+        var p = new Paciente
+        {
+            Nome = "Otávio",
+            Convenio = Clinica.Domain.Convenio.UnimedIntercambio,
+            Sexo = Clinica.Domain.Sexo.Masculino
+        };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+
+        await new ResultadoExameService(_repo).RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = p.Id,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Nome = "Hemoglobina glicada",
+            Valor = "6,1",
+            Unidade = "%"
         }, "dra.ana");
 
         (await _repo.PacienteTemRegistroClinicoAsync(p.Id)).Should().BeTrue();

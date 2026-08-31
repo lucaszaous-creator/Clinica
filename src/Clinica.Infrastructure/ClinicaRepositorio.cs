@@ -429,7 +429,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            // e a exclusão levaria por arrasto os antecedentes E as versões deles. É
            // literalmente o cenário que o comentário acima descreve — cometido na parcela
            // seguinte à que o escreveu.
-           || await _db.Anamneses.AnyAsync(a => a.PacienteId == pacienteId, ct);
+           || await _db.Anamneses.AnyAsync(a => a.PacienteId == pacienteId, ct)
+           // A NONA raiz: o resultado de exame estruturado (ago/2026), no MESMO commit em
+           // que a entidade nasceu — a regra que a parcela 60 fixou depois de a oitava
+           // ter sido esquecida com o cenário descrito logo acima.
+           || await _db.ResultadosExame.AnyAsync(r => r.PacienteId == pacienteId, ct);
 
     // ---- Retrato do paciente ----
 
@@ -1125,6 +1129,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
         return await consulta
             .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
+            .ToListAsync(ct);
+    }
+
+    // ---- Resultados de exame estruturados (ago/2026) ----
+
+    public async Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default)
+        => await _db.ResultadosExame.AddAsync(resultado, ct);
+
+    public Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default)
+        => _db.ResultadosExame.FirstOrDefaultAsync(r => r.Id == resultadoId, ct);
+
+    public async Task<IReadOnlyList<ResultadoExame>> ResultadosExameDoPacienteAsync(
+        int pacienteId, bool incluirCancelados = false, CancellationToken ct = default)
+    {
+        // Cancelado fora da lista vigente (a regra da medida, parcela 52): fica no banco
+        // pelos 20 anos, e a exportação e a guarda passam true. O filtro é pela COLUNA —
+        // a derivada `Cancelado` o EF não traduz.
+        var consulta = _db.ResultadosExame.AsNoTracking()
+            .Where(r => r.PacienteId == pacienteId);
+        if (!incluirCancelados)
+            consulta = consulta.Where(r => r.CanceladoEm == null);
+
+        return await consulta
+            .OrderByDescending(r => r.Data).ThenByDescending(r => r.Id)
             .ToListAsync(ct);
     }
 

@@ -50,28 +50,52 @@
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="ENTRADAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
+                            <TextBlock Text="ENTRADAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Entradas}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="SAÍDAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE898;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
+                            <TextBlock Text="SAÍDAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Saidas}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="SALDO REALIZADO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="SALDO REALIZADO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Saldo}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
-                    <TextBlock Text="SALDO COM PREVISTO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="SALDO COM PREVISTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Previsto}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Acento}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>

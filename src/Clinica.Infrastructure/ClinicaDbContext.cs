@@ -42,6 +42,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
+    public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
     public DbSet<ProblemaPaciente> ProblemasPaciente => Set<ProblemaPaciente>();
     public DbSet<AvaliacaoClinica> AvaliacoesClinicas => Set<AvaliacaoClinica>();
     public DbSet<RespostaAvaliacao> RespostasAvaliacao => Set<RespostaAvaliacao>();
@@ -576,6 +577,35 @@ public class ClinicaDbContext : DbContext
 
             e.Ignore(x => x.ValorFormatado);
             e.Ignore(x => x.TemFaixa);
+        });
+
+        // ---- Resultados de exame estruturados (ago/2026) ----
+        b.Entity<ResultadoExame>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(160);
+            // TEXTO por desenho: "não reagente", "< 0,01", "positivo 1/80" — ver a
+            // entidade. A referência e o laboratório vêm COPIADOS do laudo.
+            e.Property(x => x.Valor).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Unidade).HasMaxLength(30);
+            e.Property(x => x.Referencia).HasMaxLength(160);
+            e.Property(x => x.Laboratorio).HasMaxLength(120);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CanceladoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            // Hora de PAREDE: o Npgsql RECUSA DateTime com Kind=Local em coluna
+            // "with time zone" (DatasSemFusoTests cobra).
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+
+            // A leitura é sempre por paciente, em ordem de data (a linha do tempo).
+            e.HasIndex(x => new { x.PacienteId, x.Data });
+
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.ValorComUnidade);
         });
 
         // ---- Lista de problemas (parcela 37) ----

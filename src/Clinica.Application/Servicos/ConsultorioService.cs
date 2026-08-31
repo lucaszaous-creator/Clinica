@@ -490,6 +490,7 @@ public sealed class ConsultorioService
             a.AtendimentoId,
             evolucao?.Id)
         {
+            ModalidadeFamilia = a.ModalidadePrevista,
             EsperaMinutos = a.EsperaMinutos(DateTime.Now),
             ChamadoHaMinutos = a.ChamadoHaMinutos(DateTime.Now),
             Observacoes = string.IsNullOrWhiteSpace(a.Observacoes) ? null : a.Observacoes.Trim(),

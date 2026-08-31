@@ -500,6 +500,20 @@ public interface IClinicaRepositorio
         int pacienteId, string? tipoCodigo = null, bool incluirCanceladas = false,
         CancellationToken ct = default);
 
+    // ---- Resultados de exame estruturados (ago/2026) ----
+
+    Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default);
+
+    Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Resultados do paciente, do mais recente para o mais antigo.
+    /// <paramref name="incluirCancelados"/> é para a EXPORTAÇÃO e a GUARDA — a tela nunca
+    /// lista cancelado como vigente, mas o prontuário sob guarda o contém.
+    /// </summary>
+    Task<IReadOnlyList<ResultadoExame>> ResultadosExameDoPacienteAsync(
+        int pacienteId, bool incluirCancelados = false, CancellationToken ct = default);
+
 
     // ---- Lista de problemas (parcela 37) ----
 

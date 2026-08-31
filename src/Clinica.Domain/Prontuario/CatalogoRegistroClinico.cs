@@ -60,7 +60,14 @@ public enum NaturezaRegistroClinico
     /// catálogo responde não é "quantos fatos há", é "que naturezas de registro clínico este
     /// paciente tem" — e uma anamnese esquecida na exportação sai como prontuário incompleto.
     /// </summary>
-    Anamnese
+    Anamnese,
+
+    /// <summary>
+    /// Resultado de exame ESTRUTURADO (ago/2026): nome, valor, unidade e a referência do
+    /// laudo — o que se consulta e se compara, ao lado do laudo digitalizado (que segue
+    /// sendo Anexo). Imutável; cancela-se com motivo.
+    /// </summary>
+    ResultadoExame
 }
 
 /// <summary>O que o sistema sabe sobre uma natureza: como se chama e quem pode lê-la.</summary>
@@ -106,6 +113,8 @@ public static class CatalogoRegistroClinico
             "avaliação", "avaliações", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.MedidaClinica,
             "medida", "medidas", Permissao.VerProntuario),
+        new(NaturezaRegistroClinico.ResultadoExame,
+            "resultado de exame", "resultados de exame", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.ProblemaPaciente,
             "problema anotado", "problemas anotados", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.Anexo,

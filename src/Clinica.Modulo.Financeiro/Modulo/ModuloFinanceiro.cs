@@ -53,6 +53,12 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveGrupoContas = "financeiro-contas";
     public const string ChaveGrupoRecebimentos = "financeiro-recebimentos";
 
+    /// <summary>
+    /// Ajuda e suporte — tela do SHELL; os QUATRO módulos publicam a MESMA chave
+    /// (<see cref="ChavesSuite.Ajuda"/>), e a dedupe do shell funde no Gerente.
+    /// </summary>
+    public const string ChaveAjuda = ChavesSuite.Ajuda;
+
     public string Nome => "Financeiro";
 
     // Todas exigem VerFinanceiro (parcela 5): dinheiro não aparece para quem só
@@ -189,6 +195,14 @@ public sealed class ModuloFinanceiro : IModuloApp
         {
             Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+
+        // AJUDA E SUPORTE \u2014 tela do shell, sem `Requer` de prop\u00f3sito (o padr\u00e3o \u00e9
+        // "sempre vis\u00edvel"): fechar o manual por permiss\u00e3o trancaria quem mais precisa.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897",
+            Grupo = GrupoSidebar.Gestao
         }
     ];
 
@@ -241,6 +255,8 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
         ChaveTaxas => new TaxasView { DataContext = servicos.GetRequiredService<TaxasViewModel>() },
         ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
+        // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
+        ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
         _ => null
     };
 }

@@ -47,36 +47,107 @@
              O `WrapPanel` dá a cada cartão a largura que ele PEDE (com um piso, para a
              fileira não ficar irregular) e quebra para a linha de baixo quando não couber.
              É também o que o `README.md` manda: KPI não se espalha por largura inteira. -->
+        <!-- A altura é FIXA e igual nos cinco, e isso não é estética: só dois cartões têm
+             barra (as duas taxas, que são as únicas frações reais), e num WrapPanel cada
+             filho fica com a altura que PEDE — a fileira sairia com a base serrilhada.
+             Altura fixa pede teto no texto; aqui os rótulos são literais e medidos, e o
+             valor corta com reticências.
+             A conta dos 132: padding 32 + rótulo com o "⋯" 24 + valor 41 + barra 14 +
+             delta 20 = 131. -->
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TotalGuias}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <!-- O delta é a ÚLTIMA linha do cartão (o desenho do KpiCard do
+                         handoff, e o mesmo do painel da direção). Some sem base: quem
+                         decide texto e cor é o VariacaoKpi da Application, com teste. -->
+                    <TextBlock DataContext="{Binding VariacaoGuias}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
+                            <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
+                    <!-- A barra SOME quando a taxa é "—": barra vazia ao lado do travessão
+                         afirmaria ZERO onde o que há é "não medido".
+                         A COR não é escolha da barra: ela repete a que a tela já deu ao
+                         número acima. Barra de proporção na casa é NEUTRA por padrão (é
+                         assim até no envelhecimento de dívida vencida); o verde só entra
+                         aqui porque o número ao lado já é verde, e as duas discordarem
+                         sobre a mesma taxa é que seria a invenção. -->
+                    <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
+                                 Foreground="{StaticResource Brush.Sucesso}"
+                                 Value="{Binding TaxaBaixaFracao, Mode=OneWay}"
+                                 Visibility="{Binding TemTaxaBaixa, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoTaxaBaixa}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
+                            <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TaxaGlosaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
+                    <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
+                                 Foreground="{StaticResource Brush.Erro}"
+                                 Value="{Binding TaxaGlosaFracao, Mode=OneWay}"
+                                 Visibility="{Binding TemTaxaGlosa, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoTaxaGlosa}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TempoMedioFormatado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock DataContext="{Binding VariacaoTempoMedio}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132">
                 <StackPanel>
-                    <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" />
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso}" />
+                            <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding PendenciasEmAberto}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -109,29 +180,16 @@
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,16">
             <StackPanel>
-                <TextBlock Text="Pendências em aberto por atraso" Style="{StaticResource H3}" Margin="0,0,0,8" />
-                <ItemsControl ItemsSource="{Binding Envelhecimento}">
-                    <!-- Mesma regra dos KPIs acima, que este bloco não tinha recebido: o
-                         UniformGrid dividia a largura em três partes iguais, e num monitor
-                         largo as três faixas ficavam a meio metro uma da outra — deixando
-                         de se ler como um conjunto. O WrapPanel dá a cada uma a largura
-                         que ela pede, com piso para a fileira não sair irregular. -->
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel MinWidth="170" Margin="0,0,24,8">
-                                <TextBlock Text="{Binding Faixa}" Style="{StaticResource Rotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                <TextBlock Text="{Binding Quantidade}" FontSize="{StaticResource Fonte.H2}"
-                                           FontWeight="Bold"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <TextBlock Text="Pendências em aberto por atraso" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,12"
+                           Text="A porcentagem é da fatia de cada faixa no total em aberto." />
+                <!-- Barra rotulada, e não três números soltos: a pergunta desta região é
+                     ONDE está o atraso, e três contagens lado a lado obrigam quem lê a
+                     fazer a proporção de cabeça. O rótulo e o número continuam escritos —
+                     o que entra é a fatia. Todas as faixas aparecem, inclusive as vazias:
+                     aging sem a faixa mais velha lê-se como "não há pendência velha". -->
+                <ItemsControl ItemsSource="{Binding Envelhecimento}"
+                              ItemTemplate="{StaticResource ItemBarraRotulada}" />
             </StackPanel>
         </Border>
 
@@ -204,6 +262,16 @@
                     <!-- Estamos melhorando? A taxa de baixa dos últimos 6 meses. -->
                     <TextBlock Text="Evolução da taxa de baixa" Style="{StaticResource H3}"
                                Margin="16,20,16,8" />
+
+                    <!-- A CURVA e os números, como na tela de Indicadores: a linha mostra a
+                         forma (subiu? recaiu? é ruído?), e a direção também precisa do
+                         número exato, que a lista abaixo continua dando.
+                         O gráfico SOME sem série — área vazia dizendo com o desenho o que a
+                         lista já diz com palavras é o que a regra de leiaute proíbe. -->
+                    <ctrl:GraficoLinha Pontos="{Binding SerieTaxaBaixa}" Height="120"
+                                       Margin="16,0,16,12"
+                                       Cor="{StaticResource Brush.Acento}"
+                                       Visibility="{Binding TemSerie, Converter={StaticResource BoolParaVisibilidade}}" />
 
                     <ItemsControl ItemsSource="{Binding Meses}">
                         <ItemsControl.ItemTemplate>

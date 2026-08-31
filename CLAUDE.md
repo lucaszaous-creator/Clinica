@@ -2381,6 +2381,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 
 ### Convenções
 
+- **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
+  ago/2026, ao aprovar o handoff dos painéis; a referência é `docs/design-system/` e o
+  espelho de tokens conferido no CI). As cinco metades da regra:
+  1. **Valor visual sai de TOKEN, nunca de número solto.** `FontSize` numérico novo, cor
+     em hexadecimal nova e raio/espaçamento inventado são dívida no ato — o mockup e o
+     kit foram gerados DOS tokens do repositório, e um valor fora deles é o primeiro
+     ponto em que as duas coisas param de bater.
+  2. **Antes de desenhar, procure o componente que já existe**: `CardKpi` (anatomia
+     fixa — `CardKpi.Icone` à esquerda do rótulo NA MESMA LINHA, o `BotaoMenuKpi` ("⋯")
+     à direita dela, `CardKpi.Rotulo` 13, `CardKpi.Valor` 28, `BarraDado` de 6 px só
+     onde a fração é real, e `CardKpi.Delta` como ÚLTIMA linha onde há período; o
+     ESTILO tem MinHeight 88 — a altura fixa é decisão POR TELA de painel, com a conta
+     da pilha escrita ao lado do `Height`), `ItemBarraRotulada`, `GraficoLinha`,
+     `Badge.*`, `ChipFiltro`, `EstadoDaTela`, `Card`. Desenho próprio para uma pergunta
+     que um componente já responde é a segunda definição que diverge na primeira
+     correção.
+  3. **Iconografia é Segoe Fluent (`FonteIcones`), com glifo SEMÂNTICO consistente**: a
+     mesma métrica leva o mesmo glifo em todo o sistema (E896 entrada · E898 saída ·
+     E7BA vencido/falta · E73E baixado/atendido · E823 pendente/previsto · E7C3 guia —
+     a tabela completa está em `docs/design-system/tokens.md` §Iconografia). E **a cor do
+     ícone não é escolha do ícone: ela repete a que a tela deu ao NÚMERO** (Acento no
+     neutro; semântica só onde o valor é pintado; Acento.Tint no cartão de acento).
+  4. **Componente ou correção do shell é PORTADO ao design system do faturamento no
+     MESMO commit** — os dois não se referenciam (o débito permanente da Fase 4), e a
+     cópia que fica para trás é onde a capacidade some (parcelas 61, 75, 90).
+  5. **A regra de leiaute do `README.md` continua sendo o portão** — o design system diz
+     COMO cada peça se desenha; as três perguntas do README dizem SE a peça cabe ali.
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`
   implementando `IInstrumentoAvaliacao`, uma linha em `RegistroInstrumentos`, as
   especialidades declaradas e o fluxograma coberto em `InstrumentosAvaliacaoTests` — a

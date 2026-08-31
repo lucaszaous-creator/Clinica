@@ -95,6 +95,39 @@ public sealed partial class PainelViewModel : ObservableObject
     [ObservableProperty] private string _encaixes = "—";
     [ObservableProperty] private string _taxaFalta = "—";
 
+    /// <summary>
+    /// As duas frações REAIS do dia, para a barra do cartão de KPI.
+    ///
+    /// "Atendidos" sobre "Agendados" é o andamento do dia — e o denominador é honesto:
+    /// <c>Agendados</c> conta todo horário que OCUPA a agenda, o realizado inclusive, e
+    /// não o que ainda falta. A taxa de falta já é percentual por definição.
+    ///
+    /// Os outros cartões não ganham barra: "Na recepção", "Encaixes" e "Na lista de
+    /// espera" são contagens sem denominador, e inventar um para ter o desenho daria um
+    /// número errado com cara de exato.
+    ///
+    /// O par <c>Tem…</c> decide se a barra APARECE. Dia sem horário nenhum e dia sem
+    /// nenhum horário concluído não têm base de cálculo, e barra vazia ali afirmaria ZERO
+    /// onde o que há é "não medido".
+    /// </summary>
+    [ObservableProperty] private double _atendidosFracao;
+    [ObservableProperty] private bool _temAtendidos;
+    [ObservableProperty] private double _taxaFaltaFracao;
+    [ObservableProperty] private bool _temTaxaFalta;
+
+    /// <summary>
+    /// O delta contra o MESMO dia da semana anterior — e SÓ em dia encerrado (ago/2026).
+    /// Hoje pela metade contra um dia inteiro apontaria queda em toda manhã: é a mesma
+    /// comparação que o painel da direção recusa (5 dias contra 30). Em dia passado a
+    /// régua é honesta, e a semana (não a véspera) é a base certa: segunda contra domingo
+    /// compararia dias de naturezas diferentes. Nulo = sem delta, e a tela não desenha.
+    /// </summary>
+    [ObservableProperty] private VariacaoKpi? _variacaoAgendados;
+    [ObservableProperty] private VariacaoKpi? _variacaoAtendidos;
+    [ObservableProperty] private VariacaoKpi? _variacaoFaltas;
+    [ObservableProperty] private VariacaoKpi? _variacaoEspera;
+    [ObservableProperty] private VariacaoKpi? _variacaoTaxaFalta;
+
     /// <summary>Feedback inline: fica na tela enquanto o problema existir.</summary>
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -180,10 +213,16 @@ public sealed partial class PainelViewModel : ObservableObject
 
             var resumo = await painel.ResumoAsync(dia);
 
+            // O delta só existe em dia ENCERRADO (ver o comentário das Variacao*), e a
+            // leitura do dia-base é SEQUENCIAL — mesmo repositório do escopo.
+            var comparavel = dia < DateOnly.FromDateTime(DateTime.Today);
+            var resumoAnterior = comparavel ? await painel.ResumoAsync(dia.AddDays(-7)) : null;
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            AplicarResumo(resumo);
+            AplicarResumo(resumo, resumoAnterior,
+                $"Mesmo dia da semana anterior: {dia.AddDays(-7):dddd, dd/MM/yyyy}");
         }
         catch (Exception ex)
         {
@@ -310,8 +349,28 @@ public sealed partial class PainelViewModel : ObservableObject
         MensagemEhErro = true;
     }
 
-    private void AplicarResumo(ResumoDiaRecepcao resumo)
+    private void AplicarResumo(
+        ResumoDiaRecepcao resumo, ResumoDiaRecepcao? anterior, string detalheDelta)
     {
+        const string rotuloDelta = "vs. semana anterior";
+        // Delta só com base honesta: dia-base sem agenda nenhuma não compara com nada.
+        // "Na recepção", "Em atendimento" e "Na lista de espera" NUNCA têm delta — são
+        // estado AO VIVO, e num dia passado valem zero por definição.
+        VariacaoAgendados = VariacaoKpi.Relativa(
+            resumo.Agendados, anterior?.Agendados, rotuloDelta, detalheDelta);
+        VariacaoAtendidos = VariacaoKpi.Relativa(
+            resumo.Atendidos, anterior?.Atendidos, rotuloDelta, detalheDelta);
+        VariacaoFaltas = VariacaoKpi.Relativa(
+            resumo.Faltas, anterior?.Faltas, rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoEspera = VariacaoKpi.EmValor(
+            resumo.Agendados > 0 ? resumo.EsperaMediaMinutos : null,
+            anterior is { Agendados: > 0 } ? anterior.EsperaMediaMinutos : null,
+            "min", rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoTaxaFalta = VariacaoKpi.EmPontos(
+            resumo.Atendidos + resumo.Faltas > 0 ? resumo.TaxaFaltaPercentual : null,
+            anterior is { } a && a.Atendidos + a.Faltas > 0 ? a.TaxaFaltaPercentual : null,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+
         Agendados = resumo.Agendados.ToString();
         NaRecepcao = resumo.NaRecepcao.ToString();
         EmAtendimento = resumo.EmAtendimento.ToString();
@@ -321,6 +380,19 @@ public sealed partial class PainelViewModel : ObservableObject
         ListaDeEspera = resumo.NaListaDeEspera.ToString();
         Encaixes = resumo.Encaixes.ToString();
         TaxaFalta = $"{resumo.TaxaFaltaPercentual}%";
+
+        // O andamento do dia e a taxa de falta como barra — cada uma só quando tem base.
+        TemAtendidos = resumo.Agendados > 0;
+        AtendidosFracao = TemAtendidos
+            ? Math.Clamp(resumo.Atendidos / (double)resumo.Agendados, 0, 1)
+            : 0;
+
+        // A base da taxa de falta é a MESMA do número ao lado: os horários que chegaram
+        // ao fim (atendidos + faltas). Sem nenhum, não há taxa para desenhar.
+        TemTaxaFalta = resumo.Atendidos + resumo.Faltas > 0;
+        TaxaFaltaFracao = TemTaxaFalta
+            ? Math.Clamp(resumo.TaxaFaltaPercentual / 100.0, 0, 1)
+            : 0;
 
         Ocupacao.Clear();
         foreach (var o in resumo.Ocupacao)

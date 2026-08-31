@@ -13,6 +13,19 @@
         <Style x:Key="Kpi" TargetType="StackPanel">
             <Setter Property="Margin" Value="0,0,32,16" />
             <Setter Property="MinWidth" Value="120" />
+            <!-- Piso de altura: só os três percentuais ganham barra, e sem ele a fileira
+                 seguinte do WrapPanel começaria mais alto de um lado que do outro. É PISO
+                 e não altura fixa de propósito — a legenda quebra em duas ou três linhas
+                 conforme a largura, e altura fixa cortaria justamente a mais longa. -->
+            <Setter Property="MinHeight" Value="96" />
+        </Style>
+
+        <!-- A barra ao lado do número, para os KPI que SÃO percentuais. Some quando o
+             número é "—": ali não há zero, há "não medido". -->
+        <Style x:Key="BarraKpi" TargetType="ProgressBar" BasedOn="{StaticResource BarraDado}">
+            <Setter Property="Margin" Value="0,8,0,0" />
+            <Setter Property="MaxWidth" Value="120" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
     </UserControl.Resources>
 
@@ -72,28 +85,57 @@
             <WrapPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <!-- O delta é a ÚLTIMA linha de cada KPI (o desenho do KpiCard do
+                         handoff): compara com o trecho anterior equivalente e SOME sem
+                         base — quem decide texto e leitura é o VariacaoKpi, com teste. -->
                     <TextBlock Text="sessões atendidas" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <TextBlock DataContext="{Binding VariacaoAtendidos}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding Pacientes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="pacientes distintos" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <TextBlock DataContext="{Binding VariacaoPacientes}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="faltas" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <TextBlock DataContext="{Binding VariacaoFaltas}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding NoShow}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="taxa de falta" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <ProgressBar Style="{StaticResource BarraKpi}"
+                                 Value="{Binding NoShowFracao, Mode=OneWay}"
+                                 Visibility="{Binding TemNoShow, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoNoShow}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding Ocupacao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="ocupação da agenda" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <ProgressBar Style="{StaticResource BarraKpi}"
+                                 Value="{Binding OcupacaoFracao, Mode=OneWay}"
+                                 Visibility="{Binding TemOcupacao, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoOcupacao}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </WrapPanel>
 
@@ -106,16 +148,36 @@
                     <TextBlock Text="{Binding Completude}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="completude do prontuário" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <!-- É o número que este módulo existe para mover: a barra dá a régua
+                         que "80%" sozinho não dá. Some sem sessão atendida — nula, nunca
+                         0%, para não acusar de negligência quem tirou férias.
+                         Neutra como todas as barras de proporção da casa: quem diz se o
+                         número é BOM é a frase de leitura logo abaixo, não a cor. -->
+                    <ProgressBar Style="{StaticResource BarraKpi}"
+                                 Value="{Binding CompletudeFracao, Mode=OneWay}"
+                                 Visibility="{Binding TemCompletude, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoCompletude}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding Evolucoes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="evoluções escritas" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <TextBlock DataContext="{Binding VariacaoEvolucoes}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
                     <TextBlock Text="{Binding MelhoraDor}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="melhora média da dor (EVA)" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    <TextBlock DataContext="{Binding VariacaoMelhoraDor}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </WrapPanel>
 

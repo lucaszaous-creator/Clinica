@@ -3,7 +3,10 @@ using System.IO;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
+using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -38,11 +41,21 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly PacienteEmFoco _foco;
+    private readonly IDialogoService _dialogo;
+    private readonly ISnackbarService _snackbar;
 
     /// <summary>Descarte de resposta fora de ordem — a regra da parcela 60.</summary>
     private int _geracaoCarga;
 
     public ObservableCollection<AnexoDoPaciente> Anexos { get; } = [];
+
+    /// <summary>
+    /// Os resultados de exame ESTRUTURADOS (ago/2026) — o valor que se consulta e se
+    /// compara, ao lado dos laudos digitalizados logo abaixo. Um não substitui o outro:
+    /// o anexo é a prova; o resultado é o número que responde "qual era a glicada dele
+    /// em março?" sem abrir laudo por laudo.
+    /// </summary>
+    public ObservableCollection<LinhaResultadoExame> Resultados { get; } = [];
 
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
@@ -50,12 +63,22 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = string.Empty;
 
+    /// <summary>Há resultado estruturado — a região dele SOME vazia (o convite é o botão).</summary>
+    [ObservableProperty] private bool _temResultados;
+
     public bool PodeLer => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
-    public AnexosPacienteViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
+    /// <summary>A metade VISÍVEL da barreira de escrita; quem impede é o Exigir.</summary>
+    public bool PodeRegistrar => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+
+    public AnexosPacienteViewModel(
+        IServiceScopeFactory escopos, PacienteEmFoco foco,
+        IDialogoService dialogo, ISnackbarService snackbar)
     {
         _escopos = escopos;
         _foco = foco;
+        _dialogo = dialogo;
+        _snackbar = snackbar;
         _ = CarregarAsync();
     }
 
@@ -66,6 +89,8 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         if (_foco.PacienteId is not { } id || !PodeLer)
         {
             Anexos.Clear();
+            Resultados.Clear();
+            TemResultados = false;
             Resumo = string.Empty;
             return;
         }
@@ -76,7 +101,9 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         {
             using var escopo = _escopos.CreateScope();
             var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            // SEQUENCIAL, nunca WhenAll: mesmo repositório, mesmo DbContext.
             var lista = await repo.AnexosDoPacienteAsync(id);
+            var exames = await repo.ResultadosExameDoPacienteAsync(id);
 
             if (geracao != _geracaoCarga) return;
 
@@ -86,12 +113,16 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             // sobrescrever a nova.
             Anexos.Clear();
             foreach (var a in lista) Anexos.Add(a);
+            Resultados.Clear();
+            foreach (var r in exames) Resultados.Add(LinhaResultadoExame.De(r));
+            TemResultados = exames.Count > 0;
 
-            Resumo = lista.Count switch
+            Resumo = (lista.Count, exames.Count) switch
             {
-                0 => string.Empty,
-                1 => "1 arquivo no prontuário",
-                _ => $"{lista.Count} arquivos no prontuário"
+                (0, 0) => string.Empty,
+                (var a2, 0) => $"{a2} arquivo(s) no prontuário",
+                (0, var e2) => $"{e2} resultado(s) registrado(s)",
+                var (a2, e2) => $"{e2} resultado(s) registrado(s) · {a2} arquivo(s) no prontuário"
             };
         }
         catch (Exception ex)
@@ -159,4 +190,104 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             MensagemEhErro = true;
         }
     }
+
+    /// <summary>Abre o diálogo de registro — o molde da colheita de medida.</summary>
+    [RelayCommand]
+    private async Task RegistrarResultadoAsync()
+    {
+        if (_foco.PacienteId is not { } id)
+        {
+            // A guarda DIZ por que não dá, em vez de voltar calada (parcela 41).
+            Mensagem = "Escolha um paciente antes de registrar um resultado — ele entra "
+                     + "no prontuário de alguém.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
+            var vm = new ResultadoExameEdicaoViewModel(_escopos, id, _foco.Nome);
+            var janela = new RegistrarResultadoExameWindow(vm)
+            {
+                Owner = JanelaDona.Atual()
+            };
+            if (janela.ShowDialog() != true) return;
+
+            _snackbar.Sucesso("Resultado registrado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — registro de resultado não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// CANCELA o resultado, com motivo — nunca "excluir": registro clínico não se apaga
+    /// (parcela 52), e o rótulo do botão diz o ato verdadeiro.
+    /// </summary>
+    [RelayCommand]
+    private async Task CancelarResultadoAsync(LinhaResultadoExame? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar resultado de exame",
+                $"Por que {linha.Nome} de {linha.Data} está sendo cancelado? Ele sai da "
+                + "lista e fica guardado, com este motivo — sem ele não haveria como "
+                + "distinguir \"não houve exame\" de \"apagaram o valor\".");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
+            using var escopo = _escopos.CreateScope();
+            var servico = escopo.ServiceProvider.GetRequiredService<ResultadoExameService>();
+            await servico.CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Resultado cancelado (guardado no prontuário).");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — resultado não pôde ser cancelado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+}
+
+/// <summary>Uma linha da lista de resultados, já formatada para a tela.</summary>
+public sealed class LinhaResultadoExame
+{
+    public required int Id { get; init; }
+    public required string Data { get; init; }
+    public required string Nome { get; init; }
+    public required string Valor { get; init; }
+
+    /// <summary>"ref.: 4,0 a 5,6 · Lab Vida" — a procedência, quando o laudo a trouxe.</summary>
+    public string? Contexto { get; init; }
+
+    public string? Observacoes { get; init; }
+
+    public static LinhaResultadoExame De(ResultadoExame r) => new()
+    {
+        Id = r.Id,
+        Data = r.Data.ToString("dd/MM/yyyy"),
+        Nome = r.Nome,
+        Valor = r.ValorComUnidade,
+        Contexto = string.Join(" · ", new[]
+        {
+            string.IsNullOrWhiteSpace(r.Referencia) ? null : $"ref.: {r.Referencia}",
+            r.Laboratorio
+        }.Where(p => !string.IsNullOrWhiteSpace(p))) is { Length: > 0 } c ? c : null,
+        Observacoes = r.Observacoes
+    };
 }
