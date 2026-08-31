@@ -58,6 +58,13 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveGrupoAtendimento = "atendimento";
     public const string ChaveGrupoPrescricoes = "receituario";
 
+    /// <summary>
+    /// Ajuda e suporte — tela do SHELL (a única das 18 do handoff de design que não
+    /// existia). Os QUATRO módulos publicam a MESMA chave (<see cref="ChavesSuite.Ajuda"/>):
+    /// dúvida não tem dono, e cada exe carrega um recorte de módulos.
+    /// </summary>
+    public const string ChaveAjuda = ChavesSuite.Ajuda;
+
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
@@ -263,6 +270,17 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChaveRetorno, Rotulo = "Retorno de pacientes", Glifo = "\uE8AF",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.GerenciarCampanhas
+        },
+
+        // AJUDA E SUPORTE \u2014 sem `Requer` de prop\u00F3sito (o padr\u00E3o \u00E9 "sempre vis\u00EDvel"):
+        // fechar o manual por permiss\u00E3o trancaria justamente quem mais precisa dele.
+        // Fica ao FIM da lista deste m\u00F3dulo: ajuda n\u00E3o \u00E9 passo do dia de trabalho. (No
+        // Gerente Geral, que carrega os quatro, a posi\u00E7\u00E3o em GEST\u00C3O segue a ordem de
+        // carregamento dos m\u00F3dulos \u2014 a dedupe fica com a publica\u00E7\u00E3o do primeiro.)
+        new ItemMenuModulo
+        {
+            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897",
+            Grupo = GrupoSidebar.Gestao
         }
     ];
 
@@ -326,6 +344,8 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },
         ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
         ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
+        // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
+        ChaveAjuda => new AjudaView(),
         _ => null
     };
 }

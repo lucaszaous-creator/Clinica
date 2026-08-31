@@ -52,6 +52,12 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveGrupoMarketing = "marketing";
     public const string ChaveGrupoConformidade = "conformidade";
 
+    /// <summary>
+    /// Ajuda e suporte — tela do SHELL; os QUATRO módulos publicam a MESMA chave
+    /// (<see cref="ChavesSuite.Ajuda"/>), e a dedupe do shell funde numa linha só.
+    /// </summary>
+    public const string ChaveAjuda = ChavesSuite.Ajuda;
+
     public string Nome => "Direção";
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
@@ -220,6 +226,14 @@ public sealed class ModuloGerente : IModuloApp
         {
             Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
+        },
+
+        // AJUDA E SUPORTE — tela do shell, sem `Requer` de propósito (o padrão é
+        // "sempre visível"): fechar o manual por permissão trancaria quem mais precisa.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897",
+            Grupo = GrupoSidebar.Gestao
         }
     ];
 
@@ -304,6 +318,8 @@ public sealed class ModuloGerente : IModuloApp
         {
             DataContext = servicos.GetRequiredService<OrigensViewModel>()
         },
+        // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
+        ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),
         _ => null
     };
 }

@@ -127,6 +127,16 @@ public static class ChavesSuite
     public const string Enfermagem = "enfermagem";
 
     /// <summary>
+    /// Ajuda e suporte — o FAQ do shell (`Componentes/AjudaView`), publicado pelos
+    /// QUATRO módulos sob a mesma chave: era a única das 18 telas do handoff de design
+    /// (ago/2026) que não existia em módulo nenhum, e dúvida não tem dono — cada exe
+    /// carrega um recorte de módulos, e a dedupe do shell funde as publicações no
+    /// Gerente Geral. A chave mora aqui pela razão da sala de infusão: literal repetido
+    /// à mão em quatro lugares sempre compila, e a divergência só aparece na clínica.
+    /// </summary>
+    public const string Ajuda = "ajuda";
+
+    /// <summary>
     /// O ATENDIMENTO DE ENFERMAGEM (parcela 88) — a seção do módulo Clínico onde a técnica
     /// escreve a passagem, dentro da tela do paciente.
     ///

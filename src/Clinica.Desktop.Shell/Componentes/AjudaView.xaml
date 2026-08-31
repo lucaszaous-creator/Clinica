@@ -1,0 +1,97 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.AjudaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <!-- AJUDA E SUPORTE.
+
+         Era a única das 18 telas do handoff de design (ago/2026) que não existia em
+         módulo nenhum. Mora no SHELL e os QUATRO módulos a publicam sob a MESMA chave
+         (ChavesSuite.Ajuda), pelo precedente da sala de infusão e dos pacotes: cada exe
+         carrega um recorte de módulos, e dúvida não tem dono — a dedupe do shell funde
+         as quatro publicações numa linha só no Gerente Geral.
+
+         Duas decisões de conteúdo que não são óbvias:
+
+         1. TODA resposta afirma só o que o sistema FAZ. Texto de ajuda é a promessa mais
+            barata de quebrar do repositório: ele não compila contra nada, e uma frase
+            que descreve um botão que não existe é a garantia aparente em prosa. Por isso
+            as respostas falam de REGRAS estáveis (o traço, a permissão, a justificativa)
+            e não de contagens nem de leiaute, que mudam a cada parcela.
+
+         2. NÃO há telefone nem e-mail de suporte. O kit de referência trazia um cartão
+            de contato com dados fictícios; imprimir contato inventado numa tela de
+            produção é o defeito dos dados de exemplo, vestido de ajuda. O canal técnico
+            desta clínica é combinado fora do sistema, e o que a tela entrega é o que o
+            sistema SABE: onde fica o registro técnico que o suporte vai pedir. -->
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,20,24,32" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel.Resources>
+                <!-- Corpo das respostas: quebra sempre (texto longo literal) e recua sob
+                     o cabeçalho do Expander, para a resposta se ler como filha da
+                     pergunta e não como parágrafo solto entre duas perguntas. -->
+                <Style x:Key="Resposta" TargetType="TextBlock">
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+                    <Setter Property="Margin" Value="4,0,28,12" />
+                    <Setter Property="LineHeight" Value="20" />
+                </Style>
+            </StackPanel.Resources>
+
+            <TextBlock Text="Ajuda e suporte" Style="{StaticResource H1}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,16"
+                       Text="As dúvidas mais comuns do dia a dia, e o que fazer quando algo der errado. O que não estiver aqui, pergunte à direção da clínica." />
+
+            <Expander Header="Por que um número aparece como “—” em vez de zero?" IsExpanded="True">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="O traço quer dizer “não medido”: a métrica não teve base de cálculo naquele período — um dia sem horário concluído não tem taxa de falta, um mês sem faturamento não tem margem. 0% e “não medido” são coisas diferentes, e o sistema nunca troca um pelo outro; nas planilhas exportadas o traço sai igual, para a média do Excel não ser calculada sobre um número que não existe." />
+            </Expander>
+
+            <Expander Header="Não encontro um item de menu que deveria existir">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="A sidebar só mostra o que o seu acesso alcança: item que exige uma permissão que o seu usuário não tem simplesmente não aparece. Quem concede é a direção, na tela de Acessos — cada permissão pode ser liberada a uma pessoa específica, num clique, sem mudar o perfil dos colegas. Cada aplicativo também carrega só os módulos do seu posto: uma tela pode existir no Gerente Geral e não existir no aplicativo da Recepção." />
+            </Expander>
+
+            <Expander Header="Como fechar a agenda para férias ou feriado?">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="Na Agenda, use “Fechar agenda…”: o período fica bloqueado e os vãos deixam de ser oferecidos. Fechar não desmarca ninguém — quem já estava marcado dentro do período é devolvido para a recepção remarcar, porque sessão que some sem ninguém avisar o paciente é pior do que o choque de horário. O encaixe continua furando o bloqueio de propósito." />
+            </Expander>
+
+            <Expander Header="Como dar baixa em uma guia de convênio?">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="Dar baixa — registrar que a guia foi efetivada no sistema do convênio — é ato do aplicativo de Faturamento; no Gerente Geral, a fila de Pendências também baixa. O número da guia é conferido contra o formato daquele convênio enquanto você digita (a Unimed só numera com dígitos, por exemplo), para o “O” no lugar do zero não passar e só aparecer no retorno da operadora, semanas depois." />
+            </Expander>
+
+            <Expander Header="O convênio glosou uma guia — e agora?">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="Registre a glosa no aplicativo de Faturamento (Controle de glosas), que monta o recurso e mostra o que mais glosa nesta clínica e como evitar. Cada glosa ganha uma data-limite de recurso vigiada no painel — passado o prazo, não é mais pendência, é prejuízo consumado. A leitura consolidada fica no Gerente Geral." />
+            </Expander>
+
+            <Expander Header="Como exportar dados para o Excel?">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="As telas com o botão “Exportar” geram planilha CSV pronta para o Excel em português — ela abre com as colunas separadas e a acentuação certa. Os lotes TISS exportam XML no padrão ANS. Métrica sem base de cálculo sai como “—” na planilha, igual à tela." />
+            </Expander>
+
+            <Expander Header="O sistema recusou uma ação. Onde vejo o porquê?">
+                <TextBlock Style="{StaticResource Resposta}"
+                           Text="A recusa aparece escrita perto do botão que a causou, e sempre diz o motivo — botão que fica apagado também está dizendo que falta algo (permissão, paciente escolhido, campo obrigatório). Algumas ações pedem justificativa escrita por desenho: divergência no fechamento de caixa, perda de estoque, cancelamento de registro clínico. A justificativa fica guardada e aparece na trilha de auditoria — é ela que responde “quem fez isso, e por quê” depois." />
+            </Expander>
+
+            <!-- O cartão final NÃO repete as perguntas: ele responde a que sobra quando
+                 nada acima serviu. As duas frases são as duas regras da casa que quem
+                 usa precisa conhecer para interpretar uma tela em pane. -->
+            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="Quando algo der errado" Style="{StaticResource H3}" Margin="0,0,0,8" />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,10"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               Text="Falha nunca aparece como sucesso: quando uma leitura não pôde ser feita, a tela mostra “não foi possível verificar” em vez de zeros — um painel dizendo “nenhuma pendência” por causa de uma consulta quebrada seria pior do que um painel que avisa. Se aparecer esse estado, use Atualizar; persistindo, é problema de conexão ou defeito, nunca “não há nada”." />
+                    <TextBlock TextWrapping="Wrap" LineHeight="20"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               Text="Para relatar um problema técnico: anote a hora em que aconteceu e o que estava sendo feito. O sistema guarda um registro técnico em arquivos mensais (erros-ano-mês.txt) na pasta “logs”, ao lado de onde o aplicativo está instalado — e, quando não pode gravar ali, em ClinicaSemDor\logs dentro da pasta do usuário (AppData). É esse arquivo que diz a causa exata, e é o que o suporte vai pedir." />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
