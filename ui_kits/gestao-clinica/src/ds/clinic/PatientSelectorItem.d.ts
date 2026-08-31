@@ -1,0 +1,1 @@
+export interface PatientSelectorItemProps{nome:string;cpf?:string;convenio?:string;foto?:string;carteirinhaVencida?:boolean;selected?:boolean;onClick?:()=>void;style?:React.CSSProperties}

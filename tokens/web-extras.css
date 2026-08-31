@@ -1,0 +1,15 @@
+/* Extras web do DS (não existem no XAML; usados por gráficos, sombras e shell web). */
+:root{
+/* Séries de gráfico — três azuis + cinza de comparação; verde/vermelho ficam reservados à variação */
+--serie-1:var(--azul-600);--serie-2:var(--marca-medio);--serie-3:var(--ciano-500);--serie-comparacao:var(--cinza-300);
+/* Sombras — só popups, tooltips e snackbar (cartões são flat) */
+--sombra-popup:0 12px 32px rgba(17,24,39,.16); /* @kind shadow */
+--sombra-tooltip:0 4px 16px rgba(17,24,39,.12); /* @kind shadow */
+--snackbar-fundo:var(--cinza-900);
+/* Tipografia de painel e rótulos de seção */
+--text-kpi-grande-size:36px; /* @kind font */
+--text-secao-size:11px; /* @kind font */
+--text-secao-tracking:.08em; /* @kind other */
+/* Tabela */
+--table-header-pad:8px 10px; /* @kind spacing */
+}

@@ -1,0 +1,1 @@
+export interface TooltipProps{label:React.ReactNode;children?:React.ReactNode;style?:React.CSSProperties}

@@ -1,0 +1,1 @@
+export interface FichaProps{label:string;children?:React.ReactNode;style?:React.CSSProperties}

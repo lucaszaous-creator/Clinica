@@ -1,0 +1,24 @@
+{
+  "name": "clinica-semdor-gestao-clinica",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "UI kit web da suite de gestao da Clinica SemDor — 4 modulos, 18 telas.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "verificar-icones": "node tools/verificar-icones.mjs",
+    "capturar": "node tools/capturar-telas.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "0.462.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "4.3.4",
+    "playwright": "^1.49.1",
+    "vite": "5.4.11"
+  }
+}
