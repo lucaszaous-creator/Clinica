@@ -2390,10 +2390,12 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
      ponto em que as duas coisas param de bater.
   2. **Antes de desenhar, procure o componente que já existe**: `CardKpi` (anatomia
      fixa — `CardKpi.Icone` à esquerda do rótulo NA MESMA LINHA, `CardKpi.Rotulo` 13,
-     `CardKpi.Valor` 28, `BarraDado` de 6 px só onde a fração é real; altura fixa 112),
-     `ItemBarraRotulada`, `GraficoLinha`, `Badge.*`, `ChipFiltro`, `EstadoDaTela`,
-     `Card`. Desenho próprio para uma pergunta que um componente já responde é a segunda
-     definição que diverge na primeira correção.
+     `CardKpi.Valor` 28, `BarraDado` de 6 px só onde a fração é real; o ESTILO tem
+     MinHeight 88 — o `Height="112"` é decisão das quatro telas de painel, por cartão,
+     e a fileira do ícone cabe nele: 32+20+41+14), `ItemBarraRotulada`, `GraficoLinha`,
+     `Badge.*`, `ChipFiltro`, `EstadoDaTela`, `Card`. Desenho próprio para uma pergunta
+     que um componente já responde é a segunda definição que diverge na primeira
+     correção.
   3. **Iconografia é Segoe Fluent (`FonteIcones`), com glifo SEMÂNTICO consistente**: a
      mesma métrica leva o mesmo glifo em todo o sistema (E896 entrada · E898 saída ·
      E7BA vencido/falta · E73E baixado/atendido · E823 pendente/previsto · E7C3 guia —
