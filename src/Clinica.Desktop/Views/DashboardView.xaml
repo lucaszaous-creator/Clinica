@@ -131,13 +131,19 @@
         <WrapPanel Grid.Row="1" Margin="0,0,0,14">
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Guias em aberto" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="Guias em aberto" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Urgentes (vermelho)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
+                        <TextBlock Text="Urgentes (vermelho)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding CodigosUrgentes}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                     <!-- Quanto da pilha está no vermelho. "3" sozinho não diz se o dia está
@@ -152,7 +158,10 @@
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8A5;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso.Texto}" />
+                        <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding ConsultasARenovar}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -160,8 +169,11 @@
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Background="{StaticResource Brush.Acento}"
                     BorderThickness="0">
                 <StackPanel>
-                    <TextBlock Text="Pendências totais" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Acento.Tint}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Acento.Tint}" />
+                        <TextBlock Text="Pendências totais" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Acento.Tint}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" Foreground="White" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>

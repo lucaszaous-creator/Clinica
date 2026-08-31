@@ -40,7 +40,10 @@
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <TextBlock Text="A RECEBER" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8C7;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="A RECEBER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding AVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="líquido, já descontada a taxa"
                                Style="{StaticResource CardKpi.Variacao}" />
@@ -49,7 +52,10 @@
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <TextBlock Text="ATRASADO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="ATRASADO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <!-- Vermelho só quando há atraso: é a única linha desta tela que pede
                          ação, e o resto é só esperar. -->
                     <TextBlock Text="{Binding Atrasado}" TextTrimming="CharacterEllipsis">
@@ -68,14 +74,20 @@
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <TextBlock Text="TOTAL" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="TOTAL" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <TextBlock Text="PRÓXIMO DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="PRÓXIMO DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Proximo}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>

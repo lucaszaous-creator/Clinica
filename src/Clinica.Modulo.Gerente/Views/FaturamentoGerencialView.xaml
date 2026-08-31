@@ -55,13 +55,19 @@
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TotalGuias}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
+                        <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                     <!-- A barra SOME quando a taxa é "—": barra vazia ao lado do travessão
@@ -79,7 +85,10 @@
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
+                        <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TaxaGlosaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                     <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
@@ -90,13 +99,19 @@
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TempoMedioFormatado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112">
                 <StackPanel>
-                    <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso}" />
+                        <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding PendenciasEmAberto}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>

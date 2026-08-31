@@ -69,15 +69,21 @@
         <WrapPanel Grid.Row="2" Margin="0,0,0,20">
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,12">
                 <StackPanel>
-                    <TextBlock Text="Códigos gerados" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="Códigos gerados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Resumo.TotalCodigos, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Sucesso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Baixados" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                        <TextBlock Text="Baixados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Resumo.Baixados, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso.Forte}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -85,16 +91,22 @@
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Erro.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Pendentes" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Erro.Texto}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro.Texto}" />
+                        <TextBlock Text="Pendentes" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Erro.Texto}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Resumo.Pendentes, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}" BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Taxa de baixa" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Acento.Tint}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Acento.Tint}" />
+                        <TextBlock Text="Taxa de baixa" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Acento.Tint}" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Resumo.TaxaBaixa, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
                                    Foreground="White" TextTrimming="CharacterEllipsis" />
@@ -105,8 +117,11 @@
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Aviso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Taxa de glosa" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Aviso.Texto}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso.Texto}" />
+                        <TextBlock Text="Taxa de glosa" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Aviso.Texto}" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Resumo.TaxaGlosa, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
                                    Foreground="{StaticResource Brush.Aviso.Texto}" TextTrimming="CharacterEllipsis" />
@@ -117,7 +132,10 @@
             </Border>
             <Border Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="Tempo médio de baixa" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="Tempo médio de baixa" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Resumo.TempoMedioBaixaDias, FallbackValue='—', TargetNullValue='—'}"
                                    Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />

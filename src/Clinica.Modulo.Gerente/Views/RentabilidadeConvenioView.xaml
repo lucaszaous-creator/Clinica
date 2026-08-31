@@ -73,7 +73,10 @@
 
             <Border Grid.Column="0" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="GUIAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="GUIAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Guias}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
@@ -81,14 +84,20 @@
 
             <Border Grid.Column="2" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="RECEBIDO (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="RECEBIDO (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="4" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="RETIDO NA FONTE" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE9F9;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="RETIDO NA FONTE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Retido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding PercentualRetido}"
                                Style="{StaticResource CardKpi.Variacao}" />
@@ -97,14 +106,20 @@
 
             <Border Grid.Column="6" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="8" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="GLOSA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="GLOSA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TaxaGlosa}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="das guias efetivadas"
                                Style="{StaticResource CardKpi.Variacao}" />

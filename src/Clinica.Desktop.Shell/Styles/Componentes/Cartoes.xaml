@@ -48,6 +48,27 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
     </Style>
 
+    <!--
+      O ícone do cartão de KPI (handoff de design, ago/2026): glifo pequeno À ESQUERDA do
+      rótulo, na MESMA linha — nunca uma fileira própria, que estouraria a altura fixa de
+      112 px dos painéis (a conta da fileira: padding 32 + rótulo 20 + valor 41 + barra 14).
+
+      A COR não é escolha do ícone: como na barra de proporção, ele repete a que a tela já
+      deu ao NÚMERO do cartão — neutro (acento) por padrão, e semântica só onde o valor já
+      é pintado. Ícone discordando do número sobre a mesma métrica seria invenção.
+
+      Ele entra em TODO CardKpi do sistema, e isso é decisão da direção (ago/2026): a
+      objeção antiga era a aplicação PARCIAL — ícone em 4 de ~20 telas partiria o design
+      system ao meio. Aplicado em todas, ele vira regra: cartão de KPI tem ícone.
+    -->
+    <Style x:Key="CardKpi.Icone" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="Margin" Value="0,0,7,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- ============================================================
          A LINHA DO TEMPO DA AGENDA (parcela 58)
          ============================================================

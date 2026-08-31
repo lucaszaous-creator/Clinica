@@ -311,25 +311,37 @@
                             </WrapPanel.Style>
                             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
-                                    <TextBlock Text="Dor no início" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE95E;" Style="{StaticResource CardKpi.Icone}" />
+                                        <TextBlock Text="Dor no início" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
-                                    <TextBlock Text="Dor atual" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE95E;" Style="{StaticResource CardKpi.Icone}" />
+                                        <TextBlock Text="Dor atual" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
-                                    <TextBlock Text="Ganho no tratamento" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xEB05;" Style="{StaticResource CardKpi.Icone}" />
+                                        <TextBlock Text="Ganho no tratamento" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
                             <Border Style="{StaticResource CardKpi}" MinWidth="200">
                                 <StackPanel>
-                                    <TextBlock Text="Alívio médio" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xEB05;" Style="{StaticResource CardKpi.Icone}" />
+                                        <TextBlock Text="Alívio médio" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>

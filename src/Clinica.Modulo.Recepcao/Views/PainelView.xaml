@@ -61,25 +61,37 @@
         <WrapPanel Margin="0,0,0,16">
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE787;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding Agendados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE77B;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xEB51;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                             <!-- O andamento do dia: atendidos sobre o total que ocupa a
                                  agenda. A barra SOME num dia sem horário nenhum — barra
@@ -91,7 +103,10 @@
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112">
                         <StackPanel>
-                            <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
@@ -103,13 +118,19 @@
                 <WrapPanel Margin="0,0,0,16">
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                             <!-- A base é a MESMA do número ao lado: os horários que
                                  chegaram ao fim. Dia sem nenhum concluído não tem taxa, e
@@ -121,13 +142,19 @@
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
-                            <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112">
                         <StackPanel>
-                            <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8FD;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
                             <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>

@@ -309,15 +309,21 @@
         <WrapPanel Grid.Row="3" Margin="0,0,0,16">
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE787;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TotalAgendados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Sucesso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                        <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TotalRealizados}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso.Forte}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -325,15 +331,21 @@
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Aviso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Aviso.Texto}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso.Texto}" />
+                        <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Aviso.Texto}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TotalFaltas}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
-                    <TextBlock Text="Cancelados" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" />
+                        <TextBlock Text="Cancelados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TotalCancelados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
