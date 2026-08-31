@@ -69,10 +69,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
-                            <TextBlock Text="ENTROU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
+                                <TextBlock Text="ENTROU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding EntradasMes}" Style="{StaticResource CardKpi.Valor}"
                                    Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                         <!-- A comparação é com o MESMO TRECHO do mês anterior. No dia 5,
@@ -101,10 +104,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE898;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
-                            <TextBlock Text="SAIU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE898;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
+                                <TextBlock Text="SAIU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding SaidasMes}" Style="{StaticResource CardKpi.Valor}"
                                    Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="pago e conciliado" Style="{StaticResource CardKpi.Variacao}" />
@@ -113,10 +119,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="SALDO DO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="SALDO DO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding SaldoMes}" TextWrapping="Wrap" HorizontalAlignment="Left">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
@@ -146,10 +155,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="CONTAS VENCIDAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="CONTAS VENCIDAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding ContasVencidas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding ContasVencidasDetalhe}"
                                    Style="{StaticResource CardKpi.Variacao}" />
@@ -158,10 +170,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE8C7;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="SEM DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8C7;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="SEM DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding DepositoAtrasado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding DepositoAtrasadoDetalhe}"
                                    Style="{StaticResource CardKpi.Variacao}" />
@@ -170,10 +185,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="GUIAS NO PRAZO VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="GUIAS NO PRAZO VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding PendenciasFaturamento}"
                                    Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding PendenciasDetalhe}"
@@ -183,10 +201,13 @@
 
                 <Border Style="{StaticResource CardKpi}" MinWidth="200">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="A RECEBER (PREVISTO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <DockPanel>
+                            <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
+                                <TextBlock Text="A RECEBER (PREVISTO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DockPanel>
                         <TextBlock Text="{Binding AReceberPrevisto}"
                                    Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding AReceberDetalhe}"

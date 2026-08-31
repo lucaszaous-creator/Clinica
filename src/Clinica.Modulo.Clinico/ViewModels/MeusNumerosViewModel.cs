@@ -88,6 +88,23 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
     [ObservableProperty] private bool _temCompletude;
 
     /// <summary>
+    /// O delta de cada número contra o trecho anterior equivalente (ago/2026): mês
+    /// corrente vs. mesmo trecho do mês anterior, ano vs. mesmo trecho do ano anterior —
+    /// a régua é o <see cref="TrechoAnterior"/>, com teste. Nulo = sem base, e a tela
+    /// não desenha nada. Taxas comparam em p.p.; contagens são NEUTRAS (mais sessões não
+    /// é "melhor" nem "pior", é volume) — as leituras com direção são falta (subir é
+    /// ruim), ocupação, completude e melhora da EVA (subir é bom).
+    /// </summary>
+    [ObservableProperty] private VariacaoKpi? _variacaoAtendidos;
+    [ObservableProperty] private VariacaoKpi? _variacaoPacientes;
+    [ObservableProperty] private VariacaoKpi? _variacaoFaltas;
+    [ObservableProperty] private VariacaoKpi? _variacaoNoShow;
+    [ObservableProperty] private VariacaoKpi? _variacaoOcupacao;
+    [ObservableProperty] private VariacaoKpi? _variacaoCompletude;
+    [ObservableProperty] private VariacaoKpi? _variacaoEvolucoes;
+    [ObservableProperty] private VariacaoKpi? _variacaoMelhoraDor;
+
+    /// <summary>
     /// Quantas sessões continuam sem evolução. É o número ACIONÁVEL da tela — os outros
     /// descrevem o passado, este ainda dá para resolver hoje — e por isso ele leva à lista.
     /// </summary>
@@ -144,6 +161,13 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
 
             var todos = await indicadores.ProdutividadeAsync(inicio, fim);
 
+            // O trecho anterior equivalente, para o delta. SEQUENCIAL, nunca WhenAll —
+            // mesmo repositório, e o DbContext não aceita duas operações ao mesmo tempo.
+            var trechoAnterior = TrechoAnterior.De(inicio, fim);
+            IReadOnlyList<ProdutividadeProfissional> todosAnterior = trechoAnterior is { } ta
+                ? await indicadores.ProdutividadeAsync(ta.Inicio, ta.Fim)
+                : [];
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
@@ -154,11 +178,20 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
                 ? todos.FirstOrDefault(p => p.ProfissionalId == id)
                 : Somar(todos);
 
+            // O anterior é escolhido pela MESMA régua do atual (mesmo profissional, ou a
+            // soma da clínica) — comparar o meu mês com a soma da casa seria delta entre
+            // duas perguntas diferentes.
+            var meuAnterior = profissionalId is { } idAnt
+                ? todosAnterior.FirstOrDefault(p => p.ProfissionalId == idAnt)
+                : Somar(todosAnterior);
+
             Profissional = profissionalId is null
                 ? "Todos os profissionais"
                 : meu?.Nome ?? "Profissional";
 
-            Preencher(meu);
+            Preencher(meu, meuAnterior, trechoAnterior is { } tb
+                ? $"Trecho anterior equivalente: {tb.Inicio:dd/MM/yyyy} a {tb.Fim:dd/MM/yyyy}"
+                : string.Empty);
 
             // A dívida é de HOJE, não do período: ela é a fila de trabalho, e mostrá-la
             // recortada pelo filtro faria escolher "mês passado" esconder o que está em
@@ -195,8 +228,10 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         }
     }
 
-    private void Preencher(ProdutividadeProfissional? p)
+    private void Preencher(
+        ProdutividadeProfissional? p, ProdutividadeProfissional? anterior, string detalheDelta)
     {
+        const string rotuloDelta = "vs. período anterior";
         // Sem linha no período, a pessoa não trabalhou nele — e isso é "—", nunca zero:
         // 0% de ocupação e "não houve agenda" são coisas diferentes, e a segunda não
         // acusa ninguém de nada. É a mesma regra do resto da suíte.
@@ -210,8 +245,30 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             // As barras acompanham os números: se eles voltaram a "—", elas somem junto.
             TemNoShow = TemOcupacao = TemCompletude = false;
             NoShowFracao = OcupacaoFracao = CompletudeFracao = 0;
+            VariacaoAtendidos = VariacaoPacientes = VariacaoFaltas = VariacaoNoShow = null;
+            VariacaoOcupacao = VariacaoCompletude = VariacaoEvolucoes = VariacaoMelhoraDor = null;
             return;
         }
+
+        VariacaoAtendidos = VariacaoKpi.Relativa(p.Atendidos, anterior?.Atendidos, rotuloDelta, detalheDelta);
+        VariacaoPacientes = VariacaoKpi.Relativa(
+            p.PacientesDistintos, anterior?.PacientesDistintos, rotuloDelta, detalheDelta);
+        VariacaoFaltas = VariacaoKpi.Relativa(
+            p.Faltas, anterior?.Faltas, rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoEvolucoes = VariacaoKpi.Relativa(p.Evolucoes, anterior?.Evolucoes, rotuloDelta, detalheDelta);
+        VariacaoNoShow = VariacaoKpi.EmPontos(
+            p.Fechados > 0 ? p.TaxaNoShow : null,
+            anterior is { Fechados: > 0 } ? anterior.TaxaNoShow : null,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoOcupacao = VariacaoKpi.EmPontos(
+            p.OcupacaoPercentual, anterior?.OcupacaoPercentual,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: false);
+        VariacaoCompletude = VariacaoKpi.EmPontos(
+            p.CompletudeProntuario, anterior?.CompletudeProntuario,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: false);
+        VariacaoMelhoraDor = VariacaoKpi.EmValor(
+            p.MelhoraMediaEva, anterior?.MelhoraMediaEva,
+            "pt", rotuloDelta, detalheDelta, melhorQuandoMenor: false);
 
         Atendidos = p.Atendidos.ToString();
         Pacientes = p.PacientesDistintos.ToString();

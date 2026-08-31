@@ -122,6 +122,18 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
     /// <summary>Pendências em aberto AGORA (não do período) — é o que ainda dá para salvar.</summary>
     [ObservableProperty] private int _pendenciasEmAberto;
 
+    /// <summary>
+    /// O delta de cada cartão contra o trecho anterior equivalente (ago/2026). Nulo =
+    /// sem base, e a tela não desenha seta nenhuma. "Pendentes hoje" NÃO tem delta, e é
+    /// decisão: ele é estoque em aberto AGORA, sem eixo temporal — um "anterior" ali
+    /// seria inventado. A leitura boa/ruim é da MÉTRICA (glosa subindo é ruim, baixa
+    /// subindo é boa, contagem é só um fato) e mora no `VariacaoKpi`, com teste.
+    /// </summary>
+    [ObservableProperty] private VariacaoKpi? _variacaoGuias;
+    [ObservableProperty] private VariacaoKpi? _variacaoTaxaBaixa;
+    [ObservableProperty] private VariacaoKpi? _variacaoTaxaGlosa;
+    [ObservableProperty] private VariacaoKpi? _variacaoTempoMedio;
+
     public FaturamentoGerencialViewModel(IServiceScopeFactory escopos)
     {
         _escopos = escopos;
@@ -223,6 +235,15 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
 
             var relatorio = await relatorios.GerarAsync(inicio, fim, hoje);
+
+            // O trecho anterior equivalente, para o delta dos cartões. SEQUENCIAL, nunca
+            // WhenAll: é o mesmo repositório, e o DbContext não aceita duas operações ao
+            // mesmo tempo (o SQLite dos testes esconde; a rede real não).
+            var trechoAnterior = TrechoAnterior.De(inicio, fim);
+            var relatorioAnterior = trechoAnterior is { } ta
+                ? await relatorios.GerarAsync(ta.Inicio, ta.Fim, hoje)
+                : null;
+
             var meses = await relatorios.ComparativoMensalAsync(hoje, 6);
             var emAberto = await pendencias.CodigosPendentesAsync(hoje);
 
@@ -248,6 +269,25 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             TempoMedioFormatado = relatorio.Resumo.TempoMedioBaixaDias is { } dias
                 ? $"{dias:0.#} dias"
                 : "—";
+
+            var anterior = relatorioAnterior?.Resumo;
+            const string rotuloDelta = "vs. período anterior";
+            var detalheDelta = trechoAnterior is { } t
+                ? $"Trecho anterior equivalente: {PeriodoGerencial.Rotular((t.Inicio, t.Fim))}"
+                : string.Empty;
+            VariacaoGuias = VariacaoKpi.Relativa(
+                TotalGuias, anterior?.TotalCodigos, rotuloDelta, detalheDelta);
+            VariacaoTaxaBaixa = VariacaoKpi.EmPontos(
+                TotalGuias > 0 ? relatorio.Resumo.TaxaBaixa : null,
+                anterior is { TotalCodigos: > 0 } ? anterior.TaxaBaixa : null,
+                rotuloDelta, detalheDelta, melhorQuandoMenor: false);
+            VariacaoTaxaGlosa = VariacaoKpi.EmPontos(
+                relatorio.Resumo.Baixados > 0 ? relatorio.Resumo.TaxaGlosa : null,
+                anterior is { Baixados: > 0 } ? anterior.TaxaGlosa : null,
+                rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+            VariacaoTempoMedio = VariacaoKpi.EmValor(
+                relatorio.Resumo.TempoMedioBaixaDias, anterior?.TempoMedioBaixaDias,
+                "d", rotuloDelta, detalheDelta, melhorQuandoMenor: true);
 
             PorConvenio.Clear();
             foreach (var c in relatorio.PorConvenio)

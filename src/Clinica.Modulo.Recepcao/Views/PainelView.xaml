@@ -57,57 +57,93 @@
              e a fileira quebra quando não couber. -->
         <!-- Altura FIXA e igual: só um cartão desta fileira tem barra (Atendidos, a única
              fração real dela), e num WrapPanel cada filho fica com a altura que PEDE — sem
-             isso a fileira sai com a base serrilhada. -->
+             isso a fileira sai com a base serrilhada.
+             A conta dos 132: padding 32 + rótulo com o "⋯" 24 + valor 41 + barra 14 +
+             delta 20 = 131. -->
         <WrapPanel Margin="0,0,0,16">
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE787;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE787;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding Agendados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <!-- O delta é a ÚLTIMA linha do cartão (o desenho do KpiCard
+                                 do handoff), e só existe em dia ENCERRADO, vs. o mesmo
+                                 dia da semana anterior — ver as Variacao* na ViewModel.
+                                 Cartão AO VIVO (Na recepção, Em atendimento, Lista de
+                                 espera) não ganha delta. -->
+                            <TextBlock DataContext="{Binding VariacaoAgendados}" Style="{StaticResource CardKpi.Delta}">
+                                <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                                     Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                            </TextBlock>
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE77B;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE77B;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xEB51;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xEB51;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+
                             <!-- O andamento do dia: atendidos sobre o total que ocupa a
                                  agenda. A barra SOME num dia sem horário nenhum — barra
                                  vazia ali afirmaria ZERO onde não há o que medir. -->
                             <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
                                          Value="{Binding AtendidosFracao, Mode=OneWay}"
                                          Visibility="{Binding TemAtendidos, Converter={StaticResource BoolParaVisibilidade}}" />
+                            <TextBlock DataContext="{Binding VariacaoAtendidos}" Style="{StaticResource CardKpi.Delta}">
+                                <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                                     Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                            </TextBlock>
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+
+                            <TextBlock DataContext="{Binding VariacaoEspera}" Style="{StaticResource CardKpi.Delta}">
+                                <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                                     Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                            </TextBlock>
                         </StackPanel>
                     </Border>
                 </WrapPanel>
@@ -116,45 +152,67 @@
                      esticava estes quatro até a borda direita, e as duas fileiras saíam
                      com larguras diferentes — parecia grade quebrada porque era. -->
                 <WrapPanel Margin="0,0,0,16">
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+
+                            <TextBlock DataContext="{Binding VariacaoFaltas}" Style="{StaticResource CardKpi.Delta}">
+                                <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                                     Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                            </TextBlock>
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+
                             <!-- A base é a MESMA do número ao lado: os horários que
                                  chegaram ao fim. Dia sem nenhum concluído não tem taxa, e
                                  a barra some em vez de desenhar um zero que ninguém mediu. -->
                             <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
                                          Value="{Binding TaxaFaltaFracao, Mode=OneWay}"
                                          Visibility="{Binding TemTaxaFalta, Converter={StaticResource BoolParaVisibilidade}}" />
+                            <TextBlock DataContext="{Binding VariacaoTaxaFalta}" Style="{StaticResource CardKpi.Delta}">
+                                <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                                     Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                            </TextBlock>
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE710;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE710;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8FD;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <DockPanel>
+                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8FD;" Style="{StaticResource CardKpi.Icone}" />
+                                    <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DockPanel>
                             <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>

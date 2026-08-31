@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Financeiro.Views.ContasView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -40,10 +41,13 @@
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="A PAGAR VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="A PAGAR VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <!-- O vencido em vermelho: é a diferença entre uma agenda de pagamentos
                          e um problema que já aconteceu. -->
                     <TextBlock Text="{Binding APagarVencido}" TextTrimming="CharacterEllipsis">
@@ -62,40 +66,52 @@
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="A PAGAR A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="A PAGAR A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding APagarAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="A RECEBER VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="A RECEBER VENCIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding AReceberVencido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="A RECEBER A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="A RECEBER A VENCER" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding AReceberAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="SALDO PREVISTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="SALDO PREVISTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding SaldoPrevisto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="a receber menos a pagar" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>

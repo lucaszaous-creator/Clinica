@@ -57,30 +57,39 @@
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="ATRASADAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="ATRASADAS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Vermelhas}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Semaforo.Vermelho}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="VENCEM AGORA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="VENCEM AGORA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Amarelas}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Semaforo.Amarelo}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="190">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="EM DIA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="EM DIA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Verdes}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Semaforo.Verde}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>

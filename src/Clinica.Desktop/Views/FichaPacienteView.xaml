@@ -141,21 +141,27 @@
         <WrapPanel Grid.Row="2" Margin="0,0,0,16">
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="Sessões realizadas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="Sessões realizadas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Sucesso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso.Forte}" />
-                        <TextBlock Text="Guias baixadas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Sucesso.Forte}" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                            <TextBlock Text="Guias baixadas" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso.Forte}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -163,21 +169,27 @@
             <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Erro.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro.Texto}" />
-                        <TextBlock Text="Pendentes hoje" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Erro.Texto}" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro.Texto}" />
+                            <TextBlock Text="Pendentes hoje" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center"
+                                       Foreground="{StaticResource Brush.Erro.Texto}" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE787;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="Última sessão" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE787;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="Última sessão" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding UltimaSessao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>

@@ -51,23 +51,38 @@
              barra (as duas taxas, que são as únicas frações reais), e num WrapPanel cada
              filho fica com a altura que PEDE — a fileira sairia com a base serrilhada.
              Altura fixa pede teto no texto; aqui os rótulos são literais e medidos, e o
-             valor corta com reticências. -->
+             valor corta com reticências.
+             A conta dos 132: padding 32 + rótulo com o "⋯" 24 + valor 41 + barra 14 +
+             delta 20 = 131. -->
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7C3;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TotalGuias}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <!-- O delta é a ÚLTIMA linha do cartão (o desenho do KpiCard do
+                         handoff, e o mesmo do painel da direção). Some sem base: quem
+                         decide texto e cor é o VariacaoKpi da Application, com teste. -->
+                    <TextBlock DataContext="{Binding VariacaoGuias}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
-                        <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
+                            <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                     <!-- A barra SOME quando a taxa é "—": barra vazia ao lado do travessão
@@ -81,37 +96,58 @@
                                  Foreground="{StaticResource Brush.Sucesso}"
                                  Value="{Binding TaxaBaixaFracao, Mode=OneWay}"
                                  Visibility="{Binding TemTaxaBaixa, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoTaxaBaixa}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
-                        <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE711;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Erro}" />
+                            <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TaxaGlosaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                     <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
                                  Foreground="{StaticResource Brush.Erro}"
                                  Value="{Binding TaxaGlosaFracao, Mode=OneWay}"
                                  Visibility="{Binding TemTaxaGlosa, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock DataContext="{Binding VariacaoTaxaGlosa}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132" Margin="0,0,12,0">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding TempoMedioFormatado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock DataContext="{Binding VariacaoTempoMedio}" Style="{StaticResource CardKpi.Delta}">
+                        <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
+                             Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
+                    </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="112">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Height="132">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso}" />
-                        <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Aviso}" />
+                            <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding PendenciasEmAberto}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>

@@ -57,6 +57,24 @@ Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding
 
 `FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`, salvar/exportar `E74E`, mensagem/WhatsApp `E8BD`, pessoa `E77B`.
 
+### A cor da agenda por modalidade (ago/2026)
+
+O traço de 3 px do cartão de horário diz a **família** da modalidade (pedido da direção:
+"blocos coloridos por tipo"). A cor sai do enum, nunca do rótulo — a variante cadastrada
+herda a cor de quem deriva (a regra do convênio). Estado vence categoria: encaixe segue
+laranja e cancelado/falta seguem apagados.
+
+| família | brush | cor |
+|---|---|---|
+| AcupunturaSimples | `Brush.Acento` (o padrão de sempre) | `#123A9E` |
+| AcupunturaComEletro | `Brush.Modalidade.AcupunturaEletro` | `#7C3AED` |
+| BsvApenas | `Brush.Modalidade.Bsv` | `#0D9488` |
+| BsvComAcupuntura | `Brush.Modalidade.BsvAcupuntura` | `#0EA5E9` |
+| Consulta | `Brush.Modalidade.Consulta` | `#DB2777` |
+
+A agenda do **faturamento** não recebe isto, e é decisão: a tarja do cartão de lá
+significa STATUS desde sempre, e repintá-la apagaria informação de um app em produção.
+
 ### O glifo semântico do CardKpi (ago/2026)
 
 Todo `CardKpi` leva `CardKpi.Icone` (15 px, à esquerda do rótulo, na mesma linha; a cor

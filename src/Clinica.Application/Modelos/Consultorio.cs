@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Domain.Avaliacoes;
 using Clinica.Domain.Entities;
 
@@ -23,6 +24,14 @@ public sealed record SessaoDoDia(
     int? AtendimentoId,
     int? EvolucaoId)
 {
+    /// <summary>
+    /// A FAMÍLIA da modalidade — dá a cor ao traço do cartão na grade (ago/2026). A cor
+    /// sai do enum e nunca do rótulo, pela regra do convênio: a variante cadastrada herda
+    /// a cor de quem deriva. O default (AcupunturaSimples) é a cor que a agenda sempre
+    /// teve, então quem constrói sem informar não muda a cara de nada.
+    /// </summary>
+    public ModalidadeAtendimento ModalidadeFamilia { get; init; }
+
     /// <summary>
     /// Há quantos minutos o paciente espera (da chegada até ser chamado). Null antes do
     /// check-in — no consultório isso significa "ainda não está no prédio".

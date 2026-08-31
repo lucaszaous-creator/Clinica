@@ -115,6 +115,19 @@ public sealed partial class PainelViewModel : ObservableObject
     [ObservableProperty] private double _taxaFaltaFracao;
     [ObservableProperty] private bool _temTaxaFalta;
 
+    /// <summary>
+    /// O delta contra o MESMO dia da semana anterior — e SÓ em dia encerrado (ago/2026).
+    /// Hoje pela metade contra um dia inteiro apontaria queda em toda manhã: é a mesma
+    /// comparação que o painel da direção recusa (5 dias contra 30). Em dia passado a
+    /// régua é honesta, e a semana (não a véspera) é a base certa: segunda contra domingo
+    /// compararia dias de naturezas diferentes. Nulo = sem delta, e a tela não desenha.
+    /// </summary>
+    [ObservableProperty] private VariacaoKpi? _variacaoAgendados;
+    [ObservableProperty] private VariacaoKpi? _variacaoAtendidos;
+    [ObservableProperty] private VariacaoKpi? _variacaoFaltas;
+    [ObservableProperty] private VariacaoKpi? _variacaoEspera;
+    [ObservableProperty] private VariacaoKpi? _variacaoTaxaFalta;
+
     /// <summary>Feedback inline: fica na tela enquanto o problema existir.</summary>
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -200,10 +213,16 @@ public sealed partial class PainelViewModel : ObservableObject
 
             var resumo = await painel.ResumoAsync(dia);
 
+            // O delta só existe em dia ENCERRADO (ver o comentário das Variacao*), e a
+            // leitura do dia-base é SEQUENCIAL — mesmo repositório do escopo.
+            var comparavel = dia < DateOnly.FromDateTime(DateTime.Today);
+            var resumoAnterior = comparavel ? await painel.ResumoAsync(dia.AddDays(-7)) : null;
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            AplicarResumo(resumo);
+            AplicarResumo(resumo, resumoAnterior,
+                $"Mesmo dia da semana anterior: {dia.AddDays(-7):dddd, dd/MM/yyyy}");
         }
         catch (Exception ex)
         {
@@ -330,8 +349,28 @@ public sealed partial class PainelViewModel : ObservableObject
         MensagemEhErro = true;
     }
 
-    private void AplicarResumo(ResumoDiaRecepcao resumo)
+    private void AplicarResumo(
+        ResumoDiaRecepcao resumo, ResumoDiaRecepcao? anterior, string detalheDelta)
     {
+        const string rotuloDelta = "vs. semana anterior";
+        // Delta só com base honesta: dia-base sem agenda nenhuma não compara com nada.
+        // "Na recepção", "Em atendimento" e "Na lista de espera" NUNCA têm delta — são
+        // estado AO VIVO, e num dia passado valem zero por definição.
+        VariacaoAgendados = VariacaoKpi.Relativa(
+            resumo.Agendados, anterior?.Agendados, rotuloDelta, detalheDelta);
+        VariacaoAtendidos = VariacaoKpi.Relativa(
+            resumo.Atendidos, anterior?.Atendidos, rotuloDelta, detalheDelta);
+        VariacaoFaltas = VariacaoKpi.Relativa(
+            resumo.Faltas, anterior?.Faltas, rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoEspera = VariacaoKpi.EmValor(
+            resumo.Agendados > 0 ? resumo.EsperaMediaMinutos : null,
+            anterior is { Agendados: > 0 } ? anterior.EsperaMediaMinutos : null,
+            "min", rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+        VariacaoTaxaFalta = VariacaoKpi.EmPontos(
+            resumo.Atendidos + resumo.Faltas > 0 ? resumo.TaxaFaltaPercentual : null,
+            anterior is { } a && a.Atendidos + a.Faltas > 0 ? a.TaxaFaltaPercentual : null,
+            rotuloDelta, detalheDelta, melhorQuandoMenor: true);
+
         Agendados = resumo.Agendados.ToString();
         NaRecepcao = resumo.NaRecepcao.ToString();
         EmAtendimento = resumo.EmAtendimento.ToString();

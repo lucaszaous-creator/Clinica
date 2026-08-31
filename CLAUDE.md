@@ -2389,10 +2389,11 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
      kit foram gerados DOS tokens do repositório, e um valor fora deles é o primeiro
      ponto em que as duas coisas param de bater.
   2. **Antes de desenhar, procure o componente que já existe**: `CardKpi` (anatomia
-     fixa — `CardKpi.Icone` à esquerda do rótulo NA MESMA LINHA, `CardKpi.Rotulo` 13,
-     `CardKpi.Valor` 28, `BarraDado` de 6 px só onde a fração é real; o ESTILO tem
-     MinHeight 88 — o `Height="112"` é decisão das quatro telas de painel, por cartão,
-     e a fileira do ícone cabe nele: 32+20+41+14), `ItemBarraRotulada`, `GraficoLinha`,
+     fixa — `CardKpi.Icone` à esquerda do rótulo NA MESMA LINHA, o `BotaoMenuKpi` ("⋯")
+     à direita dela, `CardKpi.Rotulo` 13, `CardKpi.Valor` 28, `BarraDado` de 6 px só
+     onde a fração é real, e `CardKpi.Delta` como ÚLTIMA linha onde há período; o
+     ESTILO tem MinHeight 88 — a altura fixa é decisão POR TELA de painel, com a conta
+     da pilha escrita ao lado do `Height`), `ItemBarraRotulada`, `GraficoLinha`,
      `Badge.*`, `ChipFiltro`, `EstadoDaTela`, `Card`. Desenho próprio para uma pergunta
      que um componente já responde é a segunda definição que diverge na primeira
      correção.

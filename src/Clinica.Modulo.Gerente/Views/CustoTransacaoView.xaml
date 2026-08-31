@@ -70,10 +70,13 @@
 
             <Border Grid.Column="0" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="ENTROU (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="ENTROU (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
@@ -81,10 +84,13 @@
 
             <Border Grid.Column="2" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE8C7;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="MAQUININHA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8C7;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="MAQUININHA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Taxa}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <!-- O percentual embaixo é o que transforma o número em decisão:
                          "R$ 14.200" não diz nada; "3,9% de tudo que entrou" diz. -->
@@ -95,10 +101,13 @@
 
             <Border Grid.Column="4" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE9F9;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="IMPOSTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE9F9;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="IMPOSTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Imposto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding PercentualImposto}"
                                Style="{StaticResource CardKpi.Variacao}" />
@@ -107,10 +116,13 @@
 
             <Border Grid.Column="6" Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
-                        <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <DockPanel>
+                        <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
+                            <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Style="{StaticResource CardKpi.Variacao}">
                         <Run Text="deduções: " />
