@@ -117,10 +117,20 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
+                    <!-- PÍLULA, e não o raio pequeno dos campos de formulário.
+
+                         O desenho é o do design system (`tokens/layout.css`, a variável
+                         `radius-pilula`) e a diferença não é enfeite: o campo de BUSCA
+                         não é um campo do formulário da tela — ele é a mesma coisa em
+                         toda tela, e a forma redonda é o que o separa da coluna de
+                         campos retos que fica logo abaixo dele.
+
+                         O respiro cresceu junto (10→14): num raio de 999 o canto come o
+                         começo do conteúdo, e a lupa encostava na curva. -->
                     <Border x:Name="b" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Raio.Pequeno}">
+                            CornerRadius="{StaticResource Raio.Pilula}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -129,14 +139,15 @@
                             <TextBlock Grid.Column="0" Text="&#xE721;"
                                        FontFamily="{StaticResource FonteIcones}" FontSize="14"
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                       VerticalAlignment="Center" Margin="10,0,0,0" />
+                                       VerticalAlignment="Center" Margin="14,0,0,0" />
                             <TextBlock x:Name="placeholder" Grid.Column="1"
                                        Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                       Margin="8,0,12,0" VerticalAlignment="Center"
+                                       Margin="8,0,16,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
                                        IsHitTestVisible="False" Visibility="Collapsed" />
                             <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1"
-                                          Margin="8,8,12,8" VerticalAlignment="Center" />
+                                          Margin="8,8,16,8" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>

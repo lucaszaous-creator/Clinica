@@ -107,10 +107,21 @@ public sealed partial class PacientesDaClinicaViewModel : ObservableObject
     // `EntregaDoPaciente.AoPostoAsync`, no shell, que resolve o singleton por conta
     // própria e amarra o horário de hoje junto. Guardar aqui uma referência que ninguém
     // lê seria o defeito recorrente do projeto na versão mais barata de cometer.
-    public PacientesDaClinicaViewModel(IServiceScopeFactory escopos)
+    public PacientesDaClinicaViewModel(IServiceScopeFactory escopos, FichaPedida pedida)
     {
         _escopos = escopos;
         _ = CarregarAsync();
+
+        // A pesquisa global (Ctrl+F) escolheu um paciente e mandou abri-lo aqui — no
+        // `Clinica.Clinico.exe` esta é a tela de pacientes que existe. O pedido é
+        // consumido UMA vez: sem isso, voltar à carteira amanhã reabriria a pessoa que
+        // alguém procurou hoje.
+        //
+        // ⚠️ Abrir é a MESMA porta do clique na linha, e de propósito: quem procura pelo
+        // nome quer chegar onde chegaria clicando — inclusive com o horário de hoje
+        // amarrado, que é o que faz a evolução nascer ligada à sessão.
+        if (pedida.Consumir() is { } pedido)
+            _ = AbrirNaSecaoAsync(pedido.Id, pedido.Nome, PostoClinico.ChaveDoAtendimento());
     }
 
     // ⚠️ A busca vai ao SQL, sempre. A lista é o cadastro da clínica cortado no teto, e
@@ -278,13 +289,21 @@ public sealed partial class PacientesDaClinicaViewModel : ObservableObject
     /// continuaria em "Sessões sem evolução" depois de escrita. Duas saídas para o mesmo
     /// gesto, na mesma tela.
     /// </summary>
-    private async Task AbrirNaSecaoAsync(LinhaPacienteClinico? linha, string chave)
-    {
-        if (linha is null) return;
+    private Task AbrirNaSecaoAsync(LinhaPacienteClinico? linha, string chave)
+        => linha is null
+            ? Task.CompletedTask
+            : AbrirNaSecaoAsync(linha.PacienteId, linha.Nome, chave);
 
+    /// <summary>
+    /// A entrega por ID — o caminho que a linha da lista e a PESQUISA GLOBAL compartilham.
+    /// Duas entregas divergiriam na primeira correção, e a que ficasse para trás deixaria
+    /// de amarrar o horário, em silêncio, na porta que ninguém releu.
+    /// </summary>
+    private async Task AbrirNaSecaoAsync(int pacienteId, string nome, string chave)
+    {
         try
         {
-            await EntregaDoPaciente.AoPostoAsync(_escopos, linha.PacienteId, linha.Nome);
+            await EntregaDoPaciente.AoPostoAsync(_escopos, pacienteId, nome);
             NavegacaoSuite.Ir(chave);
         }
         catch (Exception ex)

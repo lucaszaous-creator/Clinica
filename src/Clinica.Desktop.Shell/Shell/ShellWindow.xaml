@@ -89,11 +89,17 @@
             </Setter>
         </Style>
 
-        <!-- Item dentro do painel de categoria. -->
+        <!-- Item dentro do painel de categoria.
+
+             A altura mínima é o token do design system (`tokens/layout.css`, a variável
+             `sidebar-item-height`, 40 px) e não a soma do padding: sem ela a linha fica
+             com 37 px, que é o que o conteúdo pede, e a lista sai 3 px mais densa do que o
+             desenho aprovado. É a mesma regra do CardKpi — valor visual sai de TOKEN. -->
         <Style x:Key="ItemSidebar" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{StaticResource Brush.Sidebar.Texto}" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="MinHeight" Value="40" />
             <Setter Property="Padding" Value="12,9" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Cursor" Value="Hand" />
@@ -178,6 +184,12 @@
                                                   RelativeSource={RelativeSource AncestorType=Window}}"
                                         CommandParameter="{Binding}">
                                     <StackPanel Orientation="Horizontal">
+                                        <!-- Fica no TOKEN, e isso é decisão: a sidebar do
+                                             faturamento desenha este ícone com 16, que não
+                                             existe na escala do design system (24/20/18/14/
+                                             13/12). Igualar por 16 seria copiar a dívida
+                                             para o lado limpo — o valor visual sai da escala,
+                                             e é o faturamento que está fora dela. -->
                                         <TextBlock Text="{Binding Glifo}"
                                                    FontFamily="{StaticResource FonteIcones}"
                                                    FontSize="{StaticResource Fonte.Corpo}" Width="22"
@@ -303,10 +315,10 @@
                     <!-- Pesquisa global: paleta de seções. Enter vai na primeira.
                          Ela ficou MAIS importante depois do rail: é a rota direta para
                          quem já sabe o nome da tela e não quer escolher categoria. -->
-                    <Grid DockPanel.Dock="Right" Width="280" VerticalAlignment="Center"
+                    <Grid DockPanel.Dock="Right" Width="320" VerticalAlignment="Center"
                           Margin="16,0,0,0">
                         <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisa}"
-                                 ctrl:Ajudantes.Placeholder="Ir para… (Ctrl+F)"
+                                 ctrl:Ajudantes.Placeholder="Buscar paciente ou tela…  (Ctrl+F)"
                                  Text="{Binding TextoPesquisa, UpdateSourceTrigger=PropertyChanged}">
                             <TextBox.InputBindings>
                                 <KeyBinding Key="Enter" Command="{Binding NavegarResultadoCommand}" />
@@ -329,7 +341,7 @@
                                                               RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Item.Glifo}"
+                                                    <TextBlock Text="{Binding Glifo}"
                                                                FontFamily="{StaticResource FonteIcones}"
                                                                FontSize="{StaticResource Fonte.Corpo}" Width="22"
                                                                VerticalAlignment="Center"

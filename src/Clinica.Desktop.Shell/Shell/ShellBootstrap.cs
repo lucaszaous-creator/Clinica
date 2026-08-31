@@ -56,6 +56,12 @@ public static class ShellBootstrap
                     sp => sp.GetRequiredService<SnackbarService>());
                 servicos.AddSingleton<IDialogoService, DialogoService>();
 
+                // O bilhete da pesquisa global: quem acha o paciente é o shell, quem abre
+                // a ficha é o módulo, e a navegação entre os dois é por CHAVE — que não
+                // carrega parâmetro. Singleton porque é do PROCESSO, como a sessão; e é um
+                // pedido só, consumido na chegada (ver FichaPedida).
+                servicos.AddSingleton<FichaPedida>();
+
                 foreach (var modulo in lista) modulo.Registrar(servicos);
             })
             .Build();
