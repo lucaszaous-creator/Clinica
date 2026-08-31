@@ -78,6 +78,7 @@ public sealed class TitularDadosService
             [NaturezaRegistroClinico.DocumentoClinico] = "== DOCUMENTOS EMITIDOS ==",
             [NaturezaRegistroClinico.AvaliacaoClinica] = "== AVALIAÇÕES E ESCALAS ==",
             [NaturezaRegistroClinico.MedidaClinica] = "== MEDIDAS ==",
+            [NaturezaRegistroClinico.ResultadoExame] = "== RESULTADOS DE EXAME ==",
             [NaturezaRegistroClinico.ProblemaPaciente] = "== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==",
             [NaturezaRegistroClinico.Anexo] = "== ANEXOS E MAPAS CORPORAIS ==",
             [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS ==",
@@ -262,6 +263,20 @@ public sealed class TitularDadosService
                 + $" {m.Unidade}"
                 + (string.IsNullOrWhiteSpace(m.FaixaNome) ? string.Empty : $" · {m.FaixaNome}")
                 + (m.Cancelada ? " (CANCELADA)" : string.Empty));
+        texto.AppendLine();
+
+        // Resultados de exame estruturados (ago/2026): valor como o laudo o escreve,
+        // com a referência copiada de lá. Cancelado vem marcado, nunca sumindo.
+        texto.AppendLine("== RESULTADOS DE EXAME ==");
+        var exames = await _repo.ResultadosExameDoPacienteAsync(
+            pacienteId, incluirCancelados: true, ct);
+        if (exames.Count == 0) texto.AppendLine("(nenhum)");
+        foreach (var r in exames.OrderBy(r => r.Data))
+            texto.AppendLine(
+                $"- {r.Data.ToString("dd/MM/yyyy", Brasil)} · {r.Nome}: {r.ValorComUnidade}"
+                + (string.IsNullOrWhiteSpace(r.Referencia) ? string.Empty : $" (ref.: {r.Referencia})")
+                + (string.IsNullOrWhiteSpace(r.Laboratorio) ? string.Empty : $" · {r.Laboratorio}")
+                + (r.Cancelado ? " (CANCELADO)" : string.Empty));
         texto.AppendLine();
 
         // A ANAMNESE (parcela 75) — antecedentes, história familiar, hábitos. Entra pelo

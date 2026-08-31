@@ -138,6 +138,8 @@ public sealed class GuardaProntuarioService
             pacienteId, null, incluirCanceladas: true, ct);
         var medidas = await _repo.MedidasDoPacienteAsync(
             pacienteId, null, incluirCanceladas: true, ct);
+        var resultadosExame = await _repo.ResultadosExameDoPacienteAsync(
+            pacienteId, incluirCancelados: true, ct);
         var documentos = await _repo.DocumentosDoPacienteAsync(pacienteId, ct);
         // A lista de problemas também é registro datado do prontuário: um paciente cujo
         // último fato clínico é um problema anotado (uma alergia descoberta, um
@@ -182,6 +184,8 @@ public sealed class GuardaProntuarioService
         foreach (var s in sessoes) candidatos.Add((s.Data, "sessão"));
         foreach (var a in avaliacoes) candidatos.Add((a.Data, "avaliação"));
         foreach (var m in medidas) candidatos.Add((m.Data, "medida"));
+        // O resultado entra pela data do EXAME (a data clínica) — é ela que a guarda usa.
+        foreach (var r in resultadosExame) candidatos.Add((r.Data, "resultado de exame"));
         // DocumentoClinico.Data é a data do ato (a do atestado, a da receita) — é ela
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
@@ -227,6 +231,7 @@ public sealed class GuardaProntuarioService
             [NaturezaRegistroClinico.DocumentoClinico] = documentos.Count,
             [NaturezaRegistroClinico.AvaliacaoClinica] = avaliacoes.Count,
             [NaturezaRegistroClinico.MedidaClinica] = medidas.Count,
+            [NaturezaRegistroClinico.ResultadoExame] = resultadosExame.Count,
             [NaturezaRegistroClinico.ProblemaPaciente] = problemas.Count,
             [NaturezaRegistroClinico.Anexo] = anexos,
             [NaturezaRegistroClinico.MapaCorporal] = mapas,

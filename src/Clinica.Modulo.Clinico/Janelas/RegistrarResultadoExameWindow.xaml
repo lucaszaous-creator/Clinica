@@ -1,0 +1,93 @@
+<Window x:Class="Clinica.Clinico.Janelas.RegistrarResultadoExameWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Registrar resultado de exame" Width="560" Height="520"
+        MinWidth="480" MinHeight="440"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <!-- Registro em DIÁLOGO, pelo molde da colheita de medida: acontece uma vez por laudo
+         que chega, e painel permanente para ato pontual empurra a leitura para a dobra. -->
+    <DockPanel Margin="20">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+            <TextBlock Text="Registrar resultado de exame" Style="{StaticResource DialogoTitulo}" />
+            <TextBlock Text="{Binding Paciente}" Style="{StaticResource TextoSuave}" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" IsCancel="True"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="110" />
+                <Button Content="Registrar" Margin="8,0,0,0" MinWidth="130"
+                        Command="{Binding RegistrarCommand}" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,14,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="Exame" Style="{StaticResource Rotulo}" />
+            <TextBox Text="{Binding NomeNovo, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="0,0,0,12" />
+
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                    <TextBlock Text="Data do exame" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding DataNova}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                    <TextBlock Text="Resultado" Style="{StaticResource Rotulo}" />
+                    <!-- Texto livre por DESENHO: "não reagente", "< 0,01" são resultados
+                         reais — um campo numérico recusaria metade dos laudos. -->
+                    <TextBox Text="{Binding ValorNovo, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Unidade (opcional)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding UnidadeNova, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                    <TextBlock Text="Referência do laudo (opcional)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding ReferenciaNova, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="Laboratório (opcional)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding LaboratorioNovo, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Text="Copie a faixa de referência DO LAUDO — cada laboratório tem a sua, e o sistema não inventa uma." />
+
+            <TextBlock Text="Observação (opcional)" Style="{StaticResource Rotulo}" />
+            <TextBox Text="{Binding ObservacoesNovas, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
+                     VerticalScrollBarVisibility="Auto" />
+          </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

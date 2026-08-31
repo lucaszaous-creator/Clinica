@@ -206,6 +206,18 @@ public class ConjuntoClinicoTests : IDisposable
             HabitosDeVida = "Nega tabagismo. Sedentária."
         }, "dra.ana");
 
+        // O resultado de exame estruturado (ago/2026) — a décima primeira natureza.
+        await new ResultadoExameService(_repo).RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = paciente.Id,
+            Data = Dia,
+            Nome = "Hemoglobina glicada",
+            Valor = "6,1",
+            Unidade = "%",
+            Referencia = "4,0 a 5,6",
+            Laboratorio = "Lab Vida"
+        }, "dra.ana");
+
         return paciente.Id;
     }
 

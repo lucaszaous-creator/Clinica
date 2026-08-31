@@ -6,19 +6,34 @@
 
     <UserControl.Resources>
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock Text="Exames e anexos" Style="{StaticResource H3}" Margin="0,0,0,2" />
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                       Text="Tudo o que foi anexado ao prontuário desta pessoa, do mais recente para o mais antigo. Para anexar um arquivo novo, abra a sessão no Prontuário — o arquivo pertence à consulta em que ele foi discutido." />
-            <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                       Margin="0,6,0,0"
-                       Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
-                                    FallbackValue=Collapsed}" />
-        </StackPanel>
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                <TextBlock Text="Exames e anexos" Style="{StaticResource H3}" Margin="0,0,0,2" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                           Text="Resultados registrados e arquivos anexados, do mais recente para o mais antigo. Para anexar um arquivo novo, abra a sessão no Prontuário — o arquivo pertence à consulta em que ele foi discutido." />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           Margin="0,6,0,0"
+                           Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
+                                        FallbackValue=Collapsed}" />
+            </StackPanel>
+
+            <!-- As DUAS barreiras: o IsEnabled explica; o Exigir do comando impede. -->
+            <Button Grid.Column="1" Content="Registrar resultado…" MinWidth="170"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource BotaoSecundario}"
+                    IsEnabled="{Binding PodeRegistrar}"
+                    Command="{Binding RegistrarResultadoCommand}" />
+        </Grid>
 
         <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a gravidade. -->
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"
@@ -35,6 +50,66 @@
                 </Style>
             </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Os RESULTADOS ESTRUTURADOS (ago/2026), acima dos arquivos. A região SOME
+             quando não há nenhum — o convite é o botão do cabeçalho, e uma caixa vazia
+             dizendo "não há" seria a segunda resposta para a pergunta que o estado vazio
+             dos anexos já responde. O teto com rolagem própria é a regra de quem cresce
+             com o dado (checagem 36): sem ele, vinte resultados empurrariam os anexos
+             para fora da tela. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12"
+                Visibility="{Binding TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="RESULTADOS DE EXAME" Style="{StaticResource CardKpi.Rotulo}"
+                           Margin="0,0,0,8" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="240">
+                    <ItemsControl ItemsSource="{Binding Resultados}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="380" />
+                                            <TextBlock Text=" — " />
+                                            <TextBlock Text="{Binding Valor}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Acento}"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                            <TextBlock Text="{Binding Data}" Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                            <TextBlock Text=" · " Style="{StaticResource TextoSuave}" Margin="0"
+                                                       Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                            <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}" Margin="0"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="420"
+                                                       Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
+                                                   Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                                   Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
+                                    </StackPanel>
+
+                                    <!-- Cancelar com motivo, nunca "excluir" (parcela 52). -->
+                                    <Button Grid.Column="1" Content="Cancelar…" MinWidth="100"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource BotaoPequeno}"
+                                            IsEnabled="{Binding DataContext.PodeRegistrar,
+                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            Command="{Binding DataContext.CancelarResultadoCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
         </Border>
 
         <Border Style="{StaticResource Card}">

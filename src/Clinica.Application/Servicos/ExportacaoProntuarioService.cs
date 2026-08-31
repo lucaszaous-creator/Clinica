@@ -78,6 +78,7 @@ public sealed class ExportacaoProntuarioService
             [NaturezaRegistroClinico.DocumentoClinico] = "prontuario-documentos.csv",
             [NaturezaRegistroClinico.AvaliacaoClinica] = "prontuario-avaliacoes.csv",
             [NaturezaRegistroClinico.MedidaClinica] = "prontuario-medidas.csv",
+            [NaturezaRegistroClinico.ResultadoExame] = "prontuario-exames.csv",
             [NaturezaRegistroClinico.ProblemaPaciente] = "prontuario-problemas.csv",
             [NaturezaRegistroClinico.Anexo] = "prontuario-anexos.csv",
             [NaturezaRegistroClinico.MapaCorporal] = "prontuario-mapa-corporal.csv",
@@ -113,6 +114,9 @@ public sealed class ExportacaoProntuarioService
             "Pontuacao", "PontuacaoMaxima", "Unidade", "Faixa", "Situacao");
         var medidas = Cabecalho("PacienteId", "Paciente", "Data", "Tipo", "Valor",
             "ValorSecundario", "Unidade", "Faixa", "Situacao");
+        var exames = Cabecalho("PacienteId", "Paciente", "Data", "Exame", "Valor",
+            "Unidade", "Referencia", "Laboratorio", "Observacoes", "Situacao",
+            "MotivoCancelamento");
         var documentos = Cabecalho("PacienteId", "Paciente", "Numero", "Tipo", "Data",
             "CodigoVerificacao", "Assinado", "Situacao");
         var anexos = Cabecalho("PacienteId", "SessaoId", "NomeArquivo", "Tipo",
@@ -246,6 +250,14 @@ public sealed class ExportacaoProntuarioService
                     m.ValorSecundario?.ToString("0.##", Fixa), m.Unidade, m.FaixaNome,
                     m.Cancelada ? "Cancelada" : "Vigente");
 
+            // Resultado de exame estruturado (ago/2026): o valor sai como o laudo o
+            // escreve, e o cancelado vem junto, marcado — prontuário sob guarda inteiro.
+            foreach (var r in await _repo.ResultadosExameDoPacienteAsync(
+                         p.Id, incluirCancelados: true, ct))
+                Linha(exames, p.Id, p.Nome, Data(r.Data), r.Nome, r.Valor,
+                    r.Unidade, r.Referencia, r.Laboratorio, r.Observacoes,
+                    r.Cancelado ? "Cancelado" : "Vigente", r.MotivoCancelamento);
+
             if (await _repo.AnamneseDoPacienteAsync(p.Id, ct) is { } an)
             {
                 // A VIGENTE primeiro, depois o que ela já disse — a ordem em que se lê.
@@ -355,6 +367,7 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-sessoes-versoes.csv", versoes.ToString()),
             new("prontuario-avaliacoes.csv", avaliacoes.ToString()),
             new("prontuario-medidas.csv", medidas.ToString()),
+            new("prontuario-exames.csv", exames.ToString()),
             new("prontuario-documentos.csv", documentos.ToString()),
             new("prontuario-anexos.csv", anexos.ToString()),
             new("prontuario-prescricoes.csv", prescricoes.ToString()),
@@ -432,6 +445,8 @@ public sealed class ExportacaoProntuarioService
          - prontuario-sessoes-versoes.csv .... o que cada sessão dizia antes de ser corrigida
          - prontuario-avaliacoes.csv ......... escalas aplicadas (PHQ-9, GAD-7, Katz…)
          - prontuario-medidas.csv ............ medidas seriadas (peso, PA, glicemia…)
+         - prontuario-exames.csv ............. resultados de exame estruturados (valor,
+                                             unidade e a referência do laudo)
          - prontuario-documentos.csv ......... documentos emitidos
          - prontuario-anexos.csv ............. LISTA dos arquivos anexados (ver abaixo)
          - prontuario-prescricoes.csv ........ folhas de infusão (prescrição interna)
