@@ -2379,6 +2379,41 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   atributo de uma grade do Dashboard: ela acusa a linha exata) e contra os três legítimos —
   com o atributo, kanban horizontal, e sem página rolante acima.
 
+- **O MOTIVO ESCRITO DE UMA LIMITAÇÃO TEM PRAZO DE VALIDADE — e este durou 84 parcelas**
+  (parcela 91 — a cliente mandou o print do design system ao lado do sistema: *"o buscar do
+  nosso sistema não está igual"*). A paleta do Ctrl+F da suíte achava **só tela**, e o
+  comentário ao lado explicava por quê: *"buscar paciente daqui exigiria o shell saber qual
+  tela de qual módulo abre uma ficha, e o shell não conhece tela nenhuma"*. A premissa era
+  verdadeira quando foi escrita (parcela 7) e deixou de ser **duas vezes**: a navegação por
+  CHAVE nasceu na 22 e o **pedido pendente** — definido por quem navega, consumido por quem
+  chega — nasceu na 70 (`PreenchimentoNovoAtendimento`). Faltava juntar as duas.
+  ⚠️ **E o faturamento achava paciente pela busca global desde a parcela 45**, com corte no
+  SQL e descarte de resposta fora de ordem: a suíte, que é onde o balcão trabalha, era a
+  **cópia que ficou para trás** — o defeito recorrente do projeto na variante em que o app
+  CONGELADO é o que está certo (a mesma da parcela 69, do `NoPeriodoAsync`).
+  `FichaPedida` é o bilhete de uma viagem só: consumir LIMPA, senão a próxima abertura de
+  Pacientes abriria a ficha de quem alguém procurou ontem. O paciente **só é oferecido
+  quando este executável tem para onde levá-lo** (`DestinoDaFicha`) — resultado que não abre
+  nada é a versão em lista do botão que não faz nada (parcela 41) —, e cada destino abre
+  pela porta que ele já usa no clique da linha, o que manteve **uma** entrega por módulo em
+  vez de uma segunda que esqueceria de amarrar o horário.
+  A lição, que já apareceu com outras roupas (a rede que excluía o faturamento, parcela 51;
+  a premissa do PDF que não se assina duas vezes, parcela 68): **quando um comentário
+  justifica uma AUSÊNCIA, ele é uma medição com data — releia-o antes de repetir a
+  conclusão dele.** O que envelhece não é o motivo, é o mundo em volta.
+  ⚠️ E o gatilho vale registrar: **o print do cliente comparando o design system com a tela
+  é auditoria de graça.** A mesma comparação achou a busca com raio 4 onde o token diz
+  pílula, o item de sidebar com 37 px onde o token diz 40, e o ícone com dois tamanhos nos
+  dois design systems — dívida que nenhuma rede vê porque nada falha.
+  ⚠️ **Igualar dois lados NÃO é copiar o lado sujo**: o ícone do item é 16 no faturamento, e
+  16 não existe na escala do design system (24/20/18/14/13/12). O que se iguala é o valor
+  do TOKEN; o outro lado é que está fora dele.
+  ⚠️ E o `--` do comentário XML mordeu de novo, agora dentro de uma citação de token
+  (`--radius-pilula`): o `verificar-suite` acusou "XAML malformado" em segundos, e o efeito
+  colateral ensina — o dicionário inteiro deixa de parsear, então TODA chave dele passa a
+  "não existir" e a saída enche de erros que não são o defeito. **Ao ler a saída da rede,
+  o primeiro erro a investigar é o do ARQUIVO malformado, nunca os que ele derrubou.**
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

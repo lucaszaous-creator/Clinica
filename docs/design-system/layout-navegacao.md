@@ -100,13 +100,39 @@ Com as duas, o maior painel (FINANCEIRO, 8 itens) cabe inteiro numa tela de 768p
 
 - Alfinete (fixar/soltar, Ctrl+B), breadcrumb `SEÇÃO › Tela`, busca global (Ctrl+F), data
   de hoje e o `Avatar` com o nome de quem está logado, mais "Trocar usuário".
-- **A busca é só de SEÇÕES** — buscar paciente daqui exigiria o shell saber qual tela de
-  qual módulo abre uma ficha, e o shell não conhece tela nenhuma; quem busca paciente é o
-  `SeletorPacienteViewModel`, dentro das telas.
+- **A busca acha TELA e PACIENTE** (parcela 91). Até aqui era só seção, e o motivo escrito
+  aqui ("o shell não conhece tela nenhuma") tinha deixado de valer: a navegação por CHAVE
+  existe desde a parcela 22, e o que faltava era ela carregar SOBRE QUEM — resolvido pelo
+  `FichaPedida`, um pedido pendente consumido por quem monta a tela de pacientes (o mesmo
+  padrão do `PreenchimentoNovoAtendimento`). O faturamento achava paciente pela busca
+  global desde a parcela 45; a suíte, onde o balcão trabalha, era a cópia que ficou para
+  trás.
+  - O paciente entra **assíncrono** (2+ letras, corte de 6 no SQL, descarte de resposta
+    fora de ordem) e **só quando este executável tem para onde levá-lo** — resultado que
+    não abre nada é a versão em lista do botão que não faz nada.
+  - O destino é a ficha da **Recepção** e, num exe que não a carrega, a carteira do
+    **Consultório** — cada uma abre o paciente pela porta que ela já usa no clique da
+    linha, com o horário de hoje amarrado.
+  - Dentro das telas, quem busca paciente continua sendo o `SeletorPacienteViewModel`:
+    esta é a rota de quem está em OUTRA tela e quer chegar a alguém.
 - ⚠️ **A busca indexa o rótulo das ABAS**, e diz o caminho ("Fechamento de caixa — em
   Caixa"). Sem isso a consolidação trocaria um problema de rolagem por um pior: telas que
   se achavam pelo nome sumiriam da busca. Com o rail, ela é a rota direta de quem já sabe
   o nome da tela.
+
+### A anatomia das duas peças (o que o design system fixa)
+
+| peça | token | valor |
+|---|---|---|
+| campo de busca (`CampoPesquisa`) | `Raio.Pilula` / `radius-pilula` | 999 — **pílula**, não o raio 4 dos campos de formulário |
+| respiro interno da busca | — | 14 à esquerda da lupa e 16 à direita (num raio de 999 o canto come o conteúdo) |
+| item da sidebar (`ItemSidebar`) | `sidebar-item-height` | **40 px** de altura mínima |
+| item da sidebar — raio / margem | `Raio.Medio` | 8, com margem 8,1 |
+| item ativo | `Brush.Sidebar.ItemAtivo` + `...TextoAtivo` | fundo `Azul.50`, texto e ícone `Azul.600`, SemiBold |
+| glifo do item | escala do DS | 14 (`Fonte.Corpo`) — o 16 do faturamento está **fora** da escala 24/20/18/14/13/12 e é dívida, não referência |
+
+⚠️ **A forma de pílula não é enfeite**: ela é o que separa a busca — que é a mesma coisa em
+toda tela — da coluna de campos retos do formulário logo abaixo dela.
 
 ## Shell do FATURAMENTO (congelado)
 

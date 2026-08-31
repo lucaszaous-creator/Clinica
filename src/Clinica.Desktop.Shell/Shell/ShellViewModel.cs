@@ -1,3 +1,5 @@
+using Clinica.Application;
+using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
@@ -16,11 +18,23 @@ namespace Clinica.Desktop.Shell;
 /// dentro de um item: achar "Fechamento de caixa" tem de levar a "Caixa" já na 2ª aba, e
 /// para isso o resultado precisa carregar o índice junto.
 /// </summary>
-/// <param name="Item">O item de menu a abrir.</param>
+/// <param name="Item">O item de menu a abrir. <c>null</c> quando a linha é um PACIENTE.</param>
 /// <param name="Aba">Índice da aba dentro do item; 0 quando o item é uma tela só.</param>
-/// <param name="Rotulo">O que casou com o termo — o nome da tela procurada.</param>
+/// <param name="Rotulo">O que casou com o termo — o nome da tela ou do paciente.</param>
 /// <param name="Caminho">O item pai, quando o achado é uma aba. Nulo no item de menu.</param>
-public sealed record ResultadoPesquisa(ItemMenuModulo Item, int Aba, string Rotulo, string? Caminho);
+public sealed record ResultadoPesquisa(ItemMenuModulo? Item, int Aba, string Rotulo, string? Caminho)
+{
+    /// <summary>Quando preenchido, a linha é um PACIENTE e abrir significa abrir a ficha dele.</summary>
+    public int? PacienteId { get; init; }
+
+    /// <summary>
+    /// O glifo da linha. Paciente leva SEMPRE o E77B da tabela de iconografia
+    /// (`docs/design-system/tokens.md`) — e não o do item de destino, que muda conforme o
+    /// executável: no Consultório a ficha abre por "Pacientes" e no balcão por
+    /// "Pacientes / CRM". A mesma coisa procurada não pode mudar de desenho conforme o app.
+    /// </summary>
+    public string Glifo => PacienteId is not null ? "\uE77B" : Item?.Glifo ?? "\uE721";
+}
 
 /// <summary>
 /// Navegação do shell: monta a sidebar a partir dos módulos carregados e troca a
@@ -415,13 +429,22 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Pesquisa global: paleta de seções. Digitar e dar Enter navega para a primeira —
-    /// num app de 15 telas, achar pelo nome é mais rápido do que caçar na sidebar,
-    /// sobretudo com ela recolhida.
+    /// Pesquisa global: paleta de seções <b>e de pacientes</b>. Digitar e dar Enter navega
+    /// para a primeira — num app de 19 telas, achar pelo nome é mais rápido do que caçar
+    /// na sidebar, e mais ainda com o rail, em que a lista mora atrás de uma categoria.
     ///
-    /// Só seções, de propósito: buscar paciente daqui exigiria o shell saber qual tela
-    /// de qual módulo abre uma ficha, e o shell não conhece tela nenhuma. Quem busca
-    /// paciente é o <see cref="Componentes.SeletorPacienteViewModel"/>, dentro das telas.
+    /// ⚠️ O PACIENTE entrou na parcela 91, e o que ele corrige é o defeito recorrente do
+    /// projeto na variante "a capacidade existe num app só": o FATURAMENTO acha paciente
+    /// pela busca global desde a parcela 45 — assíncrono, com corte no SQL e descarte de
+    /// resposta fora de ordem —, e a suíte, que é onde o balcão trabalha, só achava tela.
+    /// O comentário que estava aqui dizia que não dava ("o shell não conhece tela
+    /// nenhuma"), e a premissa envelheceu: a navegação por CHAVE existe desde a parcela 22
+    /// e o pedido pendente (<see cref="FichaPedida"/>) é o que faltava para ela carregar
+    /// SOBRE QUEM — o mesmo padrão do <c>PreenchimentoNovoAtendimento</c>.
+    ///
+    /// O paciente só é oferecido quando ESTE executável tem para onde levá-lo
+    /// (<see cref="DestinoDaFicha"/>): resultado que não abre nada é a versão em lista do
+    /// botão que não faz nada (parcela 41).
     /// </summary>
     partial void OnTextoPesquisaChanged(string value)
     {
@@ -460,6 +483,66 @@ public sealed partial class ShellViewModel : ObservableObject
         }
 
         PesquisaAberta = ResultadosPesquisa.Count > 0;
+
+        // Pacientes entram de forma ASSÍNCRONA (vão ao banco). Duas letras, como no
+        // faturamento: uma varreria a carteira inteira a cada tecla.
+        if (termo.Length >= 2 && DestinoDaFicha() is not null) _ = PesquisarPacientesAsync(termo);
+    }
+
+    /// <summary>Quantos pacientes cabem na paleta sem ela virar uma lista de pacientes.</summary>
+    private const int MaximoPacientesNaPesquisa = 6;
+
+    /// <summary>
+    /// Para onde uma ficha ABRE neste executável, ou <c>null</c> quando não abre em lugar
+    /// nenhum. Sai de <c>Itens</c>, que já está filtrado pela permissão de quem está
+    /// logado — quem não pode ver ficha de paciente não recebe paciente na paleta, e a
+    /// barreira não precisa ser repetida aqui.
+    ///
+    /// A ordem é a do trabalho: no balcão a ficha completa é a da Recepção; no
+    /// `Clinica.Clinico.exe`, que não a carrega, o destino é a carteira do Consultório.
+    /// </summary>
+    private string? DestinoDaFicha()
+    {
+        if (IrPara(ChavesSuite.PacientesRecepcao, apenasConferir: true))
+            return ChavesSuite.PacientesRecepcao;
+
+        return IrPara(ChavesSuite.ConsultorioPacientes, apenasConferir: true)
+            ? ChavesSuite.ConsultorioPacientes
+            : null;
+    }
+
+    private async Task PesquisarPacientesAsync(string termo)
+    {
+        try
+        {
+            // Escopo POR OPERAÇÃO: a janela do shell vive o expediente inteiro, e guardar
+            // um serviço Scoped (com o DbContext dentro) faria a paleta responder, às
+            // cinco da tarde, com o cadastro que ela leu de manhã — a lição da parcela 69,
+            // cobrada hoje pela checagem 37.
+            using var escopo = _servicos.CreateScope();
+            var pacientes = await escopo.ServiceProvider
+                .GetRequiredService<PacienteService>()
+                // O corte vai no SQL, nunca num Take() depois de materializar.
+                .BuscarAsync(termo, limite: MaximoPacientesNaPesquisa);
+
+            // Descarte de resposta fora de ordem: a pessoa continuou digitando enquanto o
+            // banco respondia, e a lista já é de outro termo. Sem isto, num banco remoto a
+            // resposta VELHA chega por último e a paleta mostra o paciente errado sob o
+            // texto certo (parcela 50).
+            if (TextoPesquisa.Trim() != termo) return;
+
+            foreach (var p in pacientes)
+                ResultadosPesquisa.Add(
+                    new ResultadoPesquisa(null, 0, p.Nome, "Pacientes") { PacienteId = p.Id });
+
+            PesquisaAberta = ResultadosPesquisa.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            // Banco fora do ar não pode quebrar a digitação — a paleta segue achando tela.
+            // Mas não passa calada: degradação silenciosa deixa rastro (regra do projeto).
+            Diagnostico.Registrar("Pesquisa global — busca de pacientes falhou", ex);
+        }
     }
 
     [RelayCommand]
@@ -469,6 +552,19 @@ public sealed partial class ShellViewModel : ObservableObject
         if (resultado is null) return;
 
         FecharPesquisa();
+
+        if (resultado.PacienteId is int pacienteId)
+        {
+            // O bilhete é definido ANTES de navegar: quem monta a tela consome no
+            // construtor, e definir depois chegaria tarde para a tela que já subiu.
+            var destino = DestinoDaFicha();
+            if (destino is null) return;
+
+            _servicos.GetService<FichaPedida>()?.Definir(pacienteId, resultado.Rotulo);
+            IrPara(destino, apenasConferir: false);
+            return;
+        }
+
         Navegar(resultado.Item, resultado.Aba);
     }
 

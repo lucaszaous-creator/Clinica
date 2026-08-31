@@ -2,6 +2,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -69,7 +70,8 @@ public sealed partial class PacientesViewModel : ObservableObject
     public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     public PacientesViewModel(
-        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo,
+        FichaPedida pedida)
     {
         _escopos = escopos;
         _snackbar = snackbar;
@@ -84,6 +86,12 @@ public sealed partial class PacientesViewModel : ObservableObject
         Ficha.Alterou += () => _ = Seletor.BuscarAsync(imediato: true);
 
         _ = Seletor.BuscarAsync(imediato: true);
+
+        // A pesquisa global (Ctrl+F) achou o paciente e mandou abrir a ficha dele
+        // (parcela 91). O pedido é consumido UMA vez — um bilhete que sobrasse abriria,
+        // na próxima vez que alguém entrasse em Pacientes, a ficha de quem foi procurado
+        // ontem.
+        if (pedida.Consumir() is { } pedido) AbrirFicha(pedido.Id);
     }
 
     /// <summary>
@@ -95,9 +103,17 @@ public sealed partial class PacientesViewModel : ObservableObject
     private void AoTrocarPaciente(Paciente? paciente)
     {
         if (paciente is null) return;
+        AbrirFicha(paciente.Id);
+    }
 
+    /// <summary>
+    /// Troca a lista pela ficha. UMA definição, porque são DUAS portas — o clique na
+    /// linha e a pesquisa global —, e duas cópias divergiriam na primeira correção.
+    /// </summary>
+    private void AbrirFicha(int pacienteId)
+    {
         MostrandoFicha = true;
-        _ = Ficha.AbrirAsync(paciente.Id);
+        _ = Ficha.AbrirAsync(pacienteId);
     }
 
     /// <summary>
