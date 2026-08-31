@@ -55,32 +55,41 @@
              "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
              saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
              e a fileira quebra quando não couber. -->
+        <!-- Altura FIXA e igual: só um cartão desta fileira tem barra (Atendidos, a única
+             fração real dela), e num WrapPanel cada filho fica com a altura que PEDE — sem
+             isso a fileira sai com a base serrilhada. -->
         <WrapPanel Margin="0,0,0,16">
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding Agendados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <!-- O andamento do dia: atendidos sobre o total que ocupa a
+                                 agenda. A barra SOME num dia sem horário nenhum — barra
+                                 vazia ali afirmaria ZERO onde não há o que medir. -->
+                            <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
+                                         Value="{Binding AtendidosFracao, Mode=OneWay}"
+                                         Visibility="{Binding TemAtendidos, Converter={StaticResource BoolParaVisibilidade}}" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112">
                         <StackPanel>
                             <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
@@ -92,25 +101,31 @@
                      esticava estes quatro até a borda direita, e as duas fileiras saíam
                      com larguras diferentes — parecia grade quebrada porque era. -->
                 <WrapPanel Margin="0,0,0,16">
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <!-- A base é a MESMA do número ao lado: os horários que
+                                 chegaram ao fim. Dia sem nenhum concluído não tem taxa, e
+                                 a barra some em vez de desenhar um zero que ninguém mediu. -->
+                            <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
+                                         Value="{Binding TaxaFaltaFracao, Mode=OneWay}"
+                                         Visibility="{Binding TemTaxaFalta, Converter={StaticResource BoolParaVisibilidade}}" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112">
                         <StackPanel>
                             <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />

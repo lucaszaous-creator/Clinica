@@ -116,6 +116,24 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
     // KPIs do painel
     public int CodigosUrgentes => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
+
+    /// <summary>
+    /// A fatia da pilha que está no VERMELHO, para a barra do cartão de KPI.
+    ///
+    /// O denominador é <c>_todos</c> — a MESMA coleção de onde sai
+    /// <see cref="CodigosUrgentes"/> —, e não <see cref="Total"/>, que é o número do badge
+    /// e soma consultas e glosas: dividir o urgente pelo badge daria uma proporção sobre
+    /// um conjunto ao qual ele não pertence, que é o número errado com cara de exato.
+    ///
+    /// Sem guia em aberto não há proporção: a barra SOME (<see cref="TemUrgentes"/>) em vez
+    /// de desenhar um zero — "nenhuma pendência" é a boa notícia que o estado vazio já dá,
+    /// e uma barra vazia ali se lê como "0% de urgentes num monte que existe".
+    /// </summary>
+    public double UrgentesFracao => _todos.Count == 0
+        ? 0
+        : Math.Clamp((double)CodigosUrgentes / _todos.Count, 0, 1);
+
+    public bool TemUrgentes => _todos.Count > 0;
     public int ConsultasARenovar => Consultas.Count;
 
     /// <summary>Glosas com prazo de recurso correndo e carteirinhas a vencer (seções aparecem só quando há itens).</summary>
@@ -243,6 +261,10 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
         OnPropertyChanged(nameof(CodigosUrgentes));
+        // A barra é DERIVADA das duas linhas acima: sem estas duas notificações ela
+        // ficaria congelada no valor da abertura e mentiria a cada recarga.
+        OnPropertyChanged(nameof(UrgentesFracao));
+        OnPropertyChanged(nameof(TemUrgentes));
         OnPropertyChanged(nameof(ConsultasARenovar));
         OnPropertyChanged(nameof(TemRecursos));
         OnPropertyChanged(nameof(TemCarteirinhas));

@@ -124,28 +124,40 @@
              "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
              saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
              e a fileira quebra quando não couber. -->
+        <!-- Altura FIXA e igual nos quatro: só "Urgentes" tem barra (é a única fração real
+             desta fileira — o urgente sobre as guias em aberto), e num WrapPanel cada
+             filho fica com a altura que PEDE. Sem isso a fileira sai com a base
+             serrilhada, com o cartão do acento destoando dos vizinhos. -->
         <WrapPanel Grid.Row="1" Margin="0,0,0,14">
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Guias em aberto" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Urgentes (vermelho)" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding CodigosUrgentes}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
+                    <!-- Quanto da pilha está no vermelho. "3" sozinho não diz se o dia está
+                         tranquilo ou perdido: 3 de 4 e 3 de 60 são situações opostas, e é
+                         a barra que separa as duas de longe. Some quando não há guia em
+                         aberto — ali não há proporção, e o estado vazio já dá a notícia. -->
+                    <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
+                                 Foreground="{StaticResource Brush.Erro}"
+                                 Value="{Binding UrgentesFracao, Mode=OneWay}"
+                                 Visibility="{Binding TemUrgentes, Converter={StaticResource BoolParaVisibilidade}}" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding ConsultasARenovar}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Acento}"
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="112" Background="{StaticResource Brush.Acento}"
                     BorderThickness="0">
                 <StackPanel>
                     <TextBlock Text="Pendências totais" Style="{StaticResource CardKpi.Rotulo}"

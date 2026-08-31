@@ -135,4 +135,26 @@
         </Setter>
     </Style>
 
+    <!--
+      A barra de proporção do cartão de KPI — PORTADA do design system da suíte
+      (Componentes/Graficos.xaml), e não uma segunda invenção.
+
+      Os dois design systems não se referenciam (o débito permanente da Fase 4 cancelada),
+      então o que existe lá e é preciso aqui se PORTA, no mesmo commit, com os mesmos
+      valores — foi assim com o `TextoParaVisibilidade` (parcela 61), o `obrigatorio` do
+      PromptWindow (parcela 75) e o `RodaDaPagina` (parcela 90). A cópia que fica para
+      trás é onde a capacidade some.
+
+      Escala 0..1 de propósito: quem calcula a fração é o ViewModel, porque o template não
+      enxerga os irmãos da série.
+    -->
+    <Style x:Key="BarraDado" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
 </ResourceDictionary>

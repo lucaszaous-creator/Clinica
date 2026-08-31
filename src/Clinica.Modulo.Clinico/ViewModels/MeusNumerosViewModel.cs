@@ -69,6 +69,25 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
     [ObservableProperty] private string _melhoraDor = "—";
 
     /// <summary>
+    /// Os três percentuais desta tela como fração 0..1, para a barra ao lado do número.
+    ///
+    /// Só entram os que JÁ SÃO percentuais — taxa de falta, ocupação e completude. Os
+    /// outros cartões (sessões, pacientes, faltas, melhora da EVA) são contagens e pontos
+    /// de escala: inventar um denominador para ter o desenho daria um número errado com
+    /// cara de exato.
+    ///
+    /// E o par <c>Tem…</c> segue exatamente a mesma condição que faz o número virar "—":
+    /// sem base de cálculo a barra SOME, porque barra vazia ao lado do travessão afirmaria
+    /// ZERO onde o que há é "não medido".
+    /// </summary>
+    [ObservableProperty] private double _noShowFracao;
+    [ObservableProperty] private bool _temNoShow;
+    [ObservableProperty] private double _ocupacaoFracao;
+    [ObservableProperty] private bool _temOcupacao;
+    [ObservableProperty] private double _completudeFracao;
+    [ObservableProperty] private bool _temCompletude;
+
+    /// <summary>
     /// Quantas sessões continuam sem evolução. É o número ACIONÁVEL da tela — os outros
     /// descrevem o passado, este ainda dá para resolver hoje — e por isso ele leva à lista.
     /// </summary>
@@ -188,6 +207,9 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             Atendidos = Pacientes = Faltas = NoShow = Ocupacao = Completude = "—";
             Evolucoes = MelhoraDor = "—";
             LeituraCompletude = string.Empty;
+            // As barras acompanham os números: se eles voltaram a "—", elas somem junto.
+            TemNoShow = TemOcupacao = TemCompletude = false;
+            NoShowFracao = OcupacaoFracao = CompletudeFracao = 0;
             return;
         }
 
@@ -201,6 +223,12 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         NoShow = p.Fechados == 0 ? "—" : $"{p.TaxaNoShow:0.#}%";
         Ocupacao = p.OcupacaoPercentual is { } o ? $"{o:0.#}%" : "—";
 
+        // A MESMA condição do número, para a barra não sobreviver ao travessão.
+        TemNoShow = p.Fechados > 0;
+        NoShowFracao = TemNoShow ? Math.Clamp(p.TaxaNoShow / 100.0, 0, 1) : 0;
+        TemOcupacao = p.OcupacaoPercentual is not null;
+        OcupacaoFracao = p.OcupacaoPercentual is { } oc ? Math.Clamp(oc / 100.0, 0, 1) : 0;
+
         MelhoraDor = p.MelhoraMediaEva is { } eva
             ? $"{eva:0.#} pontos"
             : "—";
@@ -208,6 +236,8 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         if (p.CompletudeProntuario is { } completude)
         {
             Completude = $"{completude:0.#}%";
+            TemCompletude = true;
+            CompletudeFracao = Math.Clamp(completude / 100.0, 0, 1);
             LeituraCompletude = completude switch
             {
                 >= 95 => "Praticamente toda sessão atendida tem registro escrito.",
@@ -220,6 +250,8 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             // Nula, nunca 0% — sem sessão atendida, acusar de negligência quem tirou
             // férias seria o defeito que a parcela 36 já documentou.
             Completude = "—";
+            TemCompletude = false;
+            CompletudeFracao = 0;
             LeituraCompletude = "Nenhuma sessão atendida no período — não há o que medir.";
         }
     }

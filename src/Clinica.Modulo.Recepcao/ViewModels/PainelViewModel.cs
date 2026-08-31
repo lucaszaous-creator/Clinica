@@ -95,6 +95,26 @@ public sealed partial class PainelViewModel : ObservableObject
     [ObservableProperty] private string _encaixes = "—";
     [ObservableProperty] private string _taxaFalta = "—";
 
+    /// <summary>
+    /// As duas frações REAIS do dia, para a barra do cartão de KPI.
+    ///
+    /// "Atendidos" sobre "Agendados" é o andamento do dia — e o denominador é honesto:
+    /// <c>Agendados</c> conta todo horário que OCUPA a agenda, o realizado inclusive, e
+    /// não o que ainda falta. A taxa de falta já é percentual por definição.
+    ///
+    /// Os outros cartões não ganham barra: "Na recepção", "Encaixes" e "Na lista de
+    /// espera" são contagens sem denominador, e inventar um para ter o desenho daria um
+    /// número errado com cara de exato.
+    ///
+    /// O par <c>Tem…</c> decide se a barra APARECE. Dia sem horário nenhum e dia sem
+    /// nenhum horário concluído não têm base de cálculo, e barra vazia ali afirmaria ZERO
+    /// onde o que há é "não medido".
+    /// </summary>
+    [ObservableProperty] private double _atendidosFracao;
+    [ObservableProperty] private bool _temAtendidos;
+    [ObservableProperty] private double _taxaFaltaFracao;
+    [ObservableProperty] private bool _temTaxaFalta;
+
     /// <summary>Feedback inline: fica na tela enquanto o problema existir.</summary>
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -321,6 +341,19 @@ public sealed partial class PainelViewModel : ObservableObject
         ListaDeEspera = resumo.NaListaDeEspera.ToString();
         Encaixes = resumo.Encaixes.ToString();
         TaxaFalta = $"{resumo.TaxaFaltaPercentual}%";
+
+        // O andamento do dia e a taxa de falta como barra — cada uma só quando tem base.
+        TemAtendidos = resumo.Agendados > 0;
+        AtendidosFracao = TemAtendidos
+            ? Math.Clamp(resumo.Atendidos / (double)resumo.Agendados, 0, 1)
+            : 0;
+
+        // A base da taxa de falta é a MESMA do número ao lado: os horários que chegaram
+        // ao fim (atendidos + faltas). Sem nenhum, não há taxa para desenhar.
+        TemTaxaFalta = resumo.Atendidos + resumo.Faltas > 0;
+        TaxaFaltaFracao = TemTaxaFalta
+            ? Math.Clamp(resumo.TaxaFaltaPercentual / 100.0, 0, 1)
+            : 0;
 
         Ocupacao.Clear();
         foreach (var o in resumo.Ocupacao)
