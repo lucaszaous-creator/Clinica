@@ -2379,6 +2379,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   atributo de uma grade do Dashboard: ela acusa a linha exata) e contra os três legítimos —
   com o atributo, kanban horizontal, e sem página rolante acima.
 
+- **`CornerRadius` 999 no WPF desenha um OVO, não uma pílula** (parcela 91 — o cliente
+  mandou a foto da busca global e dos chips ovais). O CSS trava raio maior que a metade da
+  altura NA metade; o WPF não trava — os arcos saem por inteiro e as bordas de cima e de
+  baixo ficam curvas. O token `Raio.Pilula` (999, espelho fiel do CSS do kit web) era
+  referenciado cru em TREZE lugares dos dois design systems, e ninguém tinha visto porque a
+  deformação cresce com a LARGURA: o badge estreito engana, a busca larga denuncia.
+  Pílula de verdade é **`ctrl:Ajudantes.Pilula="True"`** (nos dois design systems), que
+  mede a altura REAL do Border e aplica raio = metade do menor lado a cada mudança de
+  tamanho; círculo de tamanho FIXO usa raio explícito. O token fica — é o espelho do CSS,
+  onde 999 é correto — com o ⚠️ escrito; quem impede o uso cru é a **checagem 44**,
+  autotestada nas duas formas do defeito (atributo e setter de estilo) e nos dois
+  legítimos (a definição do token e o comentário). A lição que generaliza é a das
+  parcelas 68/79: **valor que atravessa a fronteira entre dois sistemas de desenho (CSS ↔
+  WPF, QuestPDF ↔ PDFsharp) tem a semântica MEDIDA no destino, nunca presumida da origem.**
+
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

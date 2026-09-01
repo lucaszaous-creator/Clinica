@@ -442,9 +442,7 @@
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                    FontSize="{StaticResource Fonte.Tabela}"
                                    VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                        <TextBlock Text="  ›  "
-                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   VerticalAlignment="Center" />
+                        <TextBlock Style="{StaticResource BreadcrumbSeparador}" />
                         <TextBlock Text="{Binding TituloTela}"
                                    Foreground="{StaticResource Brush.Texto.Primario}"
                                    FontWeight="SemiBold"

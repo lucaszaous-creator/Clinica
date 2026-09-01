@@ -50,11 +50,11 @@
                      Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                      Style="{StaticResource CampoPesquisa}"
                      ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — a lista filtra enquanto você digita…" />
-            <ComboBox Grid.Column="1" Margin="12,0,0,0"
+            <ComboBox Grid.Column="1" Margin="12,0,0,0" Style="{StaticResource ComboPilula}"
                       ItemsSource="{Binding FiltrosConvenio}" SelectedItem="{Binding FiltroConvenio}"
                       DisplayMemberPath="Nome"
                       ToolTip="Mostrar só os pacientes de um convênio" />
-            <ComboBox Grid.Column="2" Margin="12,0,0,0"
+            <ComboBox Grid.Column="2" Margin="12,0,0,0" Style="{StaticResource ComboPilula}"
                       ItemsSource="{Binding Ordenacoes}" SelectedItem="{Binding Ordenacao}"
                       ToolTip="Ordem da lista" />
         </Grid>

@@ -3748,6 +3748,64 @@ for _xaml, _deve_pegar, _cenario in _AMOSTRAS_RODA:
             f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
         )
 
+# --------------------------------------------------------------- checagem 44
+# O TOKEN `Raio.Pilula` (999) USADO CRU NUM CornerRadius: NO WPF ISSO DESENHA UM OVO.
+#
+# O CSS trava um raio maior que a metade da altura NA metade — é o que faz o
+# `border-radius: 999px` do kit web desenhar a pílula perfeita. O WPF NÃO trava: os arcos
+# saem por inteiro e as bordas de cima e de baixo ficam CURVAS. O cliente mandou a foto na
+# parcela 91: a busca global e os chips de filtro estavam ovais no sistema inteiro, porque
+# o token (999, espelho fiel do CSS) era referenciado direto em TREZE lugares.
+#
+# Pílula de verdade é `ctrl:Ajudantes.Pilula="True"` (nos dois design systems), que mede a
+# altura REAL do Border; círculo de tamanho FIXO usa o raio explícito (metade do lado). O
+# token continua existindo porque é o espelho do CSS — onde 999 é correto — e o aviso ⚠️
+# escrito nele não impede ninguém: impedir é o trabalho desta checagem.
+#
+# Nenhuma outra rede pega: XAML bem-formado, `compilar-sombra` não lê o corpo, nada lança —
+# só a tela montada mostra, e a deformação cresce com a LARGURA, então o badge estreito
+# engana e a busca larga denuncia. Medido antes de ligar: ZERO ocorrências depois da
+# conversão da parcela 91 — a checagem nasce sem uma linha de ruído.
+USO_DE_RAIO_PILULA = re.compile(r"\{StaticResource\s+Raio\.Pilula\}")
+
+
+def _pilulas_cruas(texto: str) -> list[int]:
+    """Linhas que referenciam o token Raio.Pilula (comentários fora, como sempre)."""
+    limpo = re.sub(
+        r"<!--.*?-->",
+        lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+        texto,
+        flags=re.S,
+    )
+    return [limpo.count("\n", 0, m.start()) + 1 for m in USO_DE_RAIO_PILULA.finditer(limpo)]
+
+
+for f in list(arvores_com_faturamento):
+    for _linha in _pilulas_cruas(f.read_text(encoding="utf-8")):
+        erros.append(
+            f"{rel(f)}:{_linha}: `Raio.Pilula` (999) usado cru — no WPF isso desenha um "
+            f"OVO, não uma pílula (o raio não trava na metade da altura como no CSS). "
+            f"Use `ctrl:Ajudantes.Pilula=\"True\"` no Border, ou raio explícito quando o "
+            f"tamanho é fixo."
+        )
+
+# Autoteste: o caso REAL da parcela 91 nas duas formas, e os dois legítimos.
+for _amostra, _deve_pegar, _cenario in (
+    ('<Border CornerRadius="{StaticResource Raio.Pilula}" />', True,
+     "atributo — o defeito da busca e dos chips"),
+    ('<Setter Property="CornerRadius" Value="{StaticResource Raio.Pilula}" />', True,
+     "setter de estilo — o defeito dos badges"),
+    ('<CornerRadius x:Key="Raio.Pilula">999</CornerRadius>', False,
+     "a definição do token (espelho do CSS)"),
+    ('<!-- pílula de verdade é Ajudantes.Pilula, não {StaticResource Raio.Pilula} -->',
+     False, "só um comentário"),
+):
+    if bool(_pilulas_cruas(_amostra)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 44 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
 
 # ---------------------------------------------------------------------- saída
 for a in avisos:
