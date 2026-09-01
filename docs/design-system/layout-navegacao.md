@@ -7,6 +7,14 @@ Até a parcela 7 a moldura rica existia só no congelado — sidebar recolhível
 breadcrumb —, e foi exatamente isso que o cliente notou ao comparar o sistema com os
 mockups. As duas agora se equivalem; as diferenças que restam estão anotadas abaixo.
 
+> ⚠️ **Superado (set/2026, a pedido do cliente):** o rail + painel descrito abaixo foi
+> substituído pela **sidebar fixa do design system** — 240px, grupos em caixa alta, item
+> com ícone e rótulo, ativo com fundo azul-suave e barra de 3px, Ctrl+B recolhendo para
+> 56px (só ícones) — o MESMO desenho da sidebar do faturamento. O custo conhecido também
+> mudou de lugar: no Gerente Geral a lista completa é mais alta que a janela e ROLA; a
+> pesquisa global (Ctrl+F) segue sendo a rota direta. O texto abaixo fica como registro
+> da decisão anterior e das razões dela.
+
 ## Shell da SUÍTE (Recepção · Consultório · Financeiro · Gerente) — parcela 7, refeito na 55
 
 ```

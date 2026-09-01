@@ -161,7 +161,8 @@
 
     <!-- Busca GLOBAL — a pílula do design system (handoff: a busca da Topbar é SEMPRE uma
          pílula com a lupa dentro; a busca de página fica com o raio 4). O que muda ante o
-         CampoPesquisa é só a forma: mesmo template, raio Pilula — e o padding esquerdo
+         CampoPesquisa é só a forma: mesmo template, raio de pílula real (Ajudantes.Pilula,
+         nunca o token 999 — que no WPF desenha um ovo) — e o padding esquerdo
          acompanha a curva, senão a lupa encosta na borda arredondada. -->
     <Style x:Key="CampoPesquisaPilula" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="Template">
@@ -170,7 +171,7 @@
                     <Border x:Name="b" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource Raio.Pilula}">
+                            ctrl:Ajudantes.Pilula="True">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />

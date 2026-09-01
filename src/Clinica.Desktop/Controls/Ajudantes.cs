@@ -70,6 +70,44 @@ public static class Ajudantes
             e.CancelCommand();
     }
 
+
+    // ==================== Pilula ====================
+
+    /// <summary>
+    /// Faz um <see cref="Border"/> ser uma PÍLULA de verdade: raio = metade do menor lado
+    /// REAL, recalculado a cada mudança de tamanho.
+    ///
+    /// Por que existe: o CSS trava um raio maior que a metade da altura na metade — é o
+    /// que faz o `border-radius: 999px` do design system web desenhar a pílula perfeita.
+    /// O WPF NÃO trava: `CornerRadius="999"` num Border de 36px desenha os arcos por
+    /// inteiro e o resultado é um OVO — as bordas de cima e de baixo saem curvas. O
+    /// cliente mandou a foto: a busca global e os chips de filtro estavam ovais em todo
+    /// o sistema, porque o token `Raio.Pilula` (999, espelho do CSS) era usado direto.
+    /// </summary>
+    public static readonly DependencyProperty PilulaProperty =
+        DependencyProperty.RegisterAttached("Pilula", typeof(bool), typeof(Ajudantes),
+            new PropertyMetadata(false, AoLigarPilula));
+
+    public static bool GetPilula(DependencyObject d) => (bool)d.GetValue(PilulaProperty);
+    public static void SetPilula(DependencyObject d, bool v) => d.SetValue(PilulaProperty, v);
+
+    private static void AoLigarPilula(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not Border borda) return;
+
+        if ((bool)e.NewValue) borda.SizeChanged += AjustarRaioDaPilula;
+        else borda.SizeChanged -= AjustarRaioDaPilula;
+    }
+
+    private static void AjustarRaioDaPilula(object sender, SizeChangedEventArgs e)
+    {
+        var borda = (Border)sender;
+        var raio = Math.Min(borda.ActualWidth, borda.ActualHeight) / 2;
+        // CornerRadius só afeta o DESENHO (não a medida): atribuir aqui não dispara outro
+        // layout, então não há laço de SizeChanged.
+        borda.CornerRadius = new CornerRadius(raio);
+    }
+
     // ==================== RodaDaPagina ====================
 
     /// <summary>

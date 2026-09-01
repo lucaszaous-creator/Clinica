@@ -33,7 +33,7 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="fundo" Background="{StaticResource Brush.Superficie}"
                                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                                CornerRadius="{StaticResource Raio.Pilula}"
+                                ctrl:Ajudantes.Pilula="True"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
@@ -438,7 +438,7 @@
                                    TextTrimming="CharacterEllipsis" MaxWidth="380"
                                    VerticalAlignment="Center" Margin="0,0,10,0" />
                         <Border Grid.Column="2" Background="{StaticResource Brush.Superficie}"
-                                CornerRadius="{StaticResource Raio.Pilula}" Padding="9,2"
+                                ctrl:Ajudantes.Pilula="True" Padding="9,2"
                                 VerticalAlignment="Center" Margin="0,0,10,0">
                             <TextBlock FontSize="{StaticResource Fonte.Legenda}"
                                        FontWeight="SemiBold" MaxWidth="180"

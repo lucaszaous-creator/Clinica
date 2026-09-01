@@ -29,7 +29,7 @@
              ponto já marcado. Remover é pela lista ao lado, onde dá para ler o que se
              está removendo. -->
         <DataTemplate x:Key="MarcadorPonto" DataType="{x:Type comp:PontoMapaItem}">
-            <Border Width="20" Height="20" CornerRadius="{StaticResource Raio.Pilula}"
+            <Border Width="20" Height="20" CornerRadius="10"
                     Background="{StaticResource Brush.Acento}"
                     BorderBrush="{StaticResource Brush.Texto.Invertido}" BorderThickness="1.5">
                 <TextBlock Text="{Binding Numero}" FontWeight="Bold"
