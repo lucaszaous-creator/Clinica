@@ -1,0 +1,1 @@
+export interface ExpanderProps{title:React.ReactNode;defaultOpen?:boolean;children?:React.ReactNode;style?:React.CSSProperties}

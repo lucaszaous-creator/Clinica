@@ -26,3 +26,8 @@ artifacts/
 appsettings.Development.json
 appsettings.*.Local.json
 *.secret.json
+
+## UI kit web (ui_kits/gestao-clinica) — dependências e artefatos de build/captura
+node_modules/
+ui_kits/*/dist/
+ui_kits/*/tools/capturas/

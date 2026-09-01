@@ -454,7 +454,7 @@
                                                 <TextBlock Text="{Binding DiaSemana}" TextAlignment="Center"
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                <Border CornerRadius="{StaticResource Raio.Pilula}" Padding="10,2" Margin="0,4,0,0">
+                                                <Border ctrl:Ajudantes.Pilula="True" Padding="10,2" Margin="0,4,0,0">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
                                                             <Setter Property="Background" Value="Transparent" />

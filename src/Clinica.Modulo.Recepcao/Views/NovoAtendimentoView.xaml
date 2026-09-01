@@ -600,14 +600,20 @@
                                                Titulo="Nenhum atendimento lançado hoje"
                                                Descricao="O avulso e a marcação de hoje entram por aqui. Quem estava na agenda aparece na Fila." />
 
-                            <DockPanel>
+                            <!-- ⚠️ A última coluna é Auto, e Auto SEM medida compartilhada é
+                                 resolvido POR LINHA: o badge de convênio largo ("Unimed Costa
+                                 do Sol (Padrão)") empurrava as colunas daquela linha e o
+                                 cabeçalho, com o rótulo estreito, não batia com linha nenhuma —
+                                 a tabela saía em escada (a lição da parcela 58, checagem 31:
+                                 o escopo é declarado por quem monta a lista). -->
+                            <DockPanel Grid.IsSharedSizeScope="True">
                                 <Grid DockPanel.Dock="Top" Margin="0,0,0,8"
                                       Visibility="{Binding TemLancadosHoje, Converter={StaticResource BoolParaVisibilidade}}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="200" />
                                         <ColumnDefinition Width="130" />
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LancadosHojeConvenio" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE / QUEM LANÇOU" Style="{StaticResource Rotulo}" Margin="0" />
                                     <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
@@ -625,7 +631,7 @@
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="200" />
                                                         <ColumnDefinition Width="130" />
-                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LancadosHojeConvenio" />
                                                     </Grid.ColumnDefinitions>
 
                                                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
@@ -659,8 +665,9 @@
                                                     <TextBlock Grid.Column="2" Text="{Binding Numero}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                                     <Border Grid.Column="3" Style="{StaticResource Badge}"
-                                                            VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Convenio}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                            VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                        <TextBlock Text="{Binding Convenio}" MaxWidth="200"
+                                                                   TextTrimming="CharacterEllipsis" />
                                                     </Border>
 
                                                 </Grid>

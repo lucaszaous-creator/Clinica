@@ -38,7 +38,14 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border x:Name="b" Background="{TemplateBinding Background}"
+                        <Grid>
+                            <!-- Anel de foco do design system: 2px por FORA, sem engrossar a
+                                 borda — engrossar de 1 para 2px empurrava o conteúdo 1px a cada
+                                 foco, e o formulário inteiro "pulava" ao navegar por Tab. -->
+                            <Border x:Name="anelFoco" Margin="-2" BorderThickness="2" Opacity="0"
+                                BorderBrush="{StaticResource Brush.Acento.Suave}"
+                                CornerRadius="6" />
+                        <Border x:Name="b" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Raio.Pequeno}">
@@ -53,13 +60,14 @@
                                           VerticalAlignment="Center" />
                         </Grid>
                     </Border>
+                        </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Text" Value="">
                             <Setter TargetName="placeholder" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
-                            <Setter TargetName="b" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Foco}" />
+                            <Setter TargetName="anelFoco" Property="Opacity" Value="1" />
                             <Setter TargetName="placeholder" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -100,17 +108,25 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="PasswordBox">
-                    <Border x:Name="b" Background="{TemplateBinding Background}"
+                        <Grid>
+                            <!-- Anel de foco do design system: 2px por FORA, sem engrossar a
+                                 borda — engrossar de 1 para 2px empurrava o conteúdo 1px a cada
+                                 foco, e o formulário inteiro "pulava" ao navegar por Tab. -->
+                            <Border x:Name="anelFoco" Margin="-2" BorderThickness="2" Opacity="0"
+                                BorderBrush="{StaticResource Brush.Acento.Suave}"
+                                CornerRadius="6" />
+                        <Border x:Name="b" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Raio.Pequeno}">
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center" />
                     </Border>
+                        </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
-                            <Setter TargetName="b" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Foco}" />
+                            <Setter TargetName="anelFoco" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
@@ -125,12 +141,21 @@
         </Setter>
     </Style>
 
-    <!-- Campo de pesquisa (ícone de lupa à esquerda) -->
+    <!-- Campo de pesquisa DE PÁGINA (lupa 16px dentro, raio 4 — o SearchInput padrão do
+         handoff). A busca GLOBAL usa a variante pílula logo abaixo, como a Topbar do
+         design system. -->
     <Style x:Key="CampoPesquisa" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
-                    <Border x:Name="b" Background="{TemplateBinding Background}"
+                        <Grid>
+                            <!-- Anel de foco do design system: 2px por FORA, sem engrossar a
+                                 borda — engrossar de 1 para 2px empurrava o conteúdo 1px a cada
+                                 foco, e o formulário inteiro "pulava" ao navegar por Tab. -->
+                            <Border x:Name="anelFoco" Margin="-2" BorderThickness="2" Opacity="0"
+                                BorderBrush="{StaticResource Brush.Acento.Suave}"
+                                CornerRadius="6" />
+                        <Border x:Name="b" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Raio.Pequeno}">
@@ -140,9 +165,9 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="&#xE721;"
-                                       FontFamily="{StaticResource FonteIcones}" FontSize="14"
+                                       FontFamily="{StaticResource FonteIcones}" FontSize="16"
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                       VerticalAlignment="Center" Margin="10,0,0,0" />
+                                       VerticalAlignment="Center" Margin="12,0,0,0" />
                             <TextBlock x:Name="placeholder" Grid.Column="1"
                                        Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
@@ -152,13 +177,14 @@
                                           Margin="8,8,12,8" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
+                        </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Text" Value="">
                             <Setter TargetName="placeholder" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
-                            <Setter TargetName="b" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Foco}" />
+                            <Setter TargetName="anelFoco" Property="Opacity" Value="1" />
                             <Setter TargetName="placeholder" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -169,6 +195,64 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- Busca GLOBAL — a pílula do design system (handoff: a busca da Topbar é SEMPRE uma
+         pílula com a lupa dentro; a busca de página fica com o raio 4). O que muda ante o
+         CampoPesquisa é só a forma: mesmo template, raio de pílula real (Ajudantes.Pilula,
+         nunca o token 999 — que no WPF desenha um ovo) — e o padding esquerdo
+         acompanha a curva, senão a lupa encosta na borda arredondada. -->
+    <Style x:Key="CampoPesquisaPilula" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                        <Grid>
+                            <!-- Anel de foco do design system: 2px por FORA, sem engrossar a
+                                 borda — engrossar de 1 para 2px empurrava o conteúdo 1px a cada
+                                 foco, e o formulário inteiro "pulava" ao navegar por Tab. -->
+                            <Border x:Name="anelFoco" Margin="-2" BorderThickness="2" Opacity="0"
+                                BorderBrush="{StaticResource Brush.Acento.Suave}"
+                                ctrl:Ajudantes.Pilula="True" />
+                        <Border x:Name="b" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            ctrl:Ajudantes.Pilula="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="&#xE721;"
+                                       FontFamily="{StaticResource FonteIcones}" FontSize="16"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                       VerticalAlignment="Center" Margin="14,0,0,0" />
+                            <TextBlock x:Name="placeholder" Grid.Column="1"
+                                       Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                       Margin="8,0,14,0" VerticalAlignment="Center"
+                                       IsHitTestVisible="False" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1"
+                                          Margin="8,8,14,8" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                        </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="placeholder" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Foco}" />
+                            <Setter TargetName="anelFoco" Property="Opacity" Value="1" />
+                            <Setter TargetName="placeholder" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 
     <!-- Itens do dropdown do ComboBox -->
     <Style TargetType="ComboBoxItem">
@@ -209,6 +293,11 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ComboBox">
                     <Grid>
+                        <!-- Anel de foco do design system — mesma razão dos campos: engrossar a
+                             borda empurrava o conteúdo 1px a cada foco. -->
+                        <Border x:Name="anelFoco" Margin="-2" BorderThickness="2" Opacity="0"
+                                BorderBrush="{StaticResource Brush.Acento.Suave}"
+                                CornerRadius="6" />
                         <Border x:Name="MainBorder" Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
@@ -249,8 +338,73 @@
                             <Setter TargetName="MainBorder" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                            <Setter TargetName="MainBorder" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
-                            <Setter TargetName="MainBorder" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="MainBorder" Property="BorderBrush" Value="{StaticResource Brush.Foco}" />
+                            <Setter TargetName="anelFoco" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.6" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Select de FILTRO em pílula — o "Select pill" do handoff (novas-telas.md §3:
+         "Filtro de tabela = Select pill"). Só para filtro ao lado de busca ou na ação de
+         um Card; formulário continua no ComboBox reto. O template é autônomo (não herda o
+         do implícito) porque template não se herda por BasedOn. -->
+    <Style x:Key="ComboPilula" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="anelFoco" Margin="-2" BorderThickness="2" Opacity="0"
+                                BorderBrush="{StaticResource Brush.Acento.Suave}"
+                                ctrl:Ajudantes.Pilula="True" />
+                        <Border x:Name="MainBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                ctrl:Ajudantes.Pilula="True" />
+                        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="Transparent">
+                                        <TextBlock Text="&#xE70D;" FontFamily="{StaticResource FonteIcones}"
+                                                   FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Margin="0,0,12,0" Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    </Border>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          Margin="14,0,30,0" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                        <Popup x:Name="PART_Popup" Placement="Bottom" Focusable="False"
+                               IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True"
+                               PopupAnimation="Fade">
+                            <Border Background="{StaticResource Brush.Superficie}"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}"
+                                    MinWidth="{Binding ActualWidth, ElementName=MainBorder}"
+                                    MaxHeight="{TemplateBinding MaxDropDownHeight}" Margin="0,4,8,8" Padding="4">
+                                <ScrollViewer>
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="MainBorder" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="MainBorder" Property="BorderBrush" Value="{StaticResource Brush.Foco}" />
+                            <Setter TargetName="anelFoco" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.6" />

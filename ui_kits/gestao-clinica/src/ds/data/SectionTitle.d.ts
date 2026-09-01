@@ -1,0 +1,1 @@
+export interface SectionTitleProps{children?:React.ReactNode;style?:React.CSSProperties}

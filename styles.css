@@ -1,3 +1,6 @@
 @import "tokens/colors.css";
 @import "tokens/typography.css";
 @import "tokens/layout.css";
+@import "tokens/fonts.css";
+@import "tokens/semantic.css";
+@import "tokens/web-extras.css";

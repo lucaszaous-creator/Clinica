@@ -169,7 +169,7 @@
                 <ControlTemplate TargetType="ToggleButton">
                     <Border x:Name="b" Background="{StaticResource Brush.Superficie}"
                             BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                            CornerRadius="{StaticResource Raio.Pilula}"
+                            ctrl:Ajudantes.Pilula="True"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
                     </Border>

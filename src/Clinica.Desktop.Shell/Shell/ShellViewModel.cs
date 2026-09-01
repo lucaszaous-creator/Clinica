@@ -62,40 +62,18 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Data de hoje na barra superior — a mesma referência de todas as telas.</summary>
     public string DataHoje { get; } = DateTime.Today.ToString("ddd, dd/MM/yyyy");
 
-    // ===== Rail de categorias + painel (parcela 55) =====
+    // ===== Sidebar fixa do design system (era o rail + painel da parcela 55) =====
 
     /// <summary>
-    /// A categoria cujo painel está aberto — <c>null</c> = painel fechado.
-    ///
-    /// Substitui o <c>MenuRecolhido</c> (248 ↔ 56px) porque o problema deixou de ser
-    /// largura: no Gerente Geral a sidebar tinha <b>46 itens</b>, pedia 1.824px de altura
-    /// e a janela dava 610 — recolher para 56px não mostrava um item a mais, só trocava
-    /// rótulo por ícone na mesma lista rolante.
+    /// Sidebar recolhida (240 ↔ 56px, só ícones). A pedido do cliente a suíte voltou à
+    /// sidebar FIXA do mockup — grupos em caixa alta, item com ícone e rótulo, ativo com
+    /// fundo azul-suave e barra de 3px — no lugar do rail com painel por categoria. O
+    /// custo conhecido ficou documentado onde a lista é montada: no Gerente Geral a
+    /// lista completa é mais alta que a janela e ROLA; a busca global (Ctrl+F) continua
+    /// sendo a rota direta de quem já sabe o nome da tela.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PainelDocado))]
-    [NotifyPropertyChangedFor(nameof(PainelFlutuante))]
-    private GrupoMenuModulo? _categoriaAberta;
-
-    /// <summary>
-    /// O painel está FIXADO (empurra o conteúdo) em vez de flutuar por cima.
-    ///
-    /// É a mitigação do defeito conhecido do modelo de flyout: painel que só existe
-    /// enquanto o mouse está em cima é um alvo móvel — sair do corredor entre o ícone e o
-    /// painel fecha o que se estava lendo, e a lista de 7 itens obriga a atravessar meia
-    /// tela sem escapar. Passar o mouse ESPIA; o clique FIXA, e aí o painel não foge.
-    /// Ctrl+B continua sendo o atalho, agora de fixar/soltar.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PainelDocado))]
-    [NotifyPropertyChangedFor(nameof(PainelFlutuante))]
-    private bool _painelFixado;
-
-    /// <summary>Painel ancorado — ocupa coluna e empurra o conteúdo.</summary>
-    public bool PainelDocado => CategoriaAberta is not null && PainelFixado;
-
-    /// <summary>Painel espiado — flutua por cima do conteúdo e some sozinho.</summary>
-    public bool PainelFlutuante => CategoriaAberta is not null && !PainelFixado;
+    private bool _menuRecolhido;
 
     // ===== Pesquisa global =====
 
@@ -301,7 +279,6 @@ public sealed partial class ShellViewModel : ObservableObject
 
         _itemAtual = item;
         foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
-        foreach (var g in Grupos) g.ContemAtual = g.Itens.Contains(item);
 
         var tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
@@ -309,10 +286,6 @@ public sealed partial class ShellViewModel : ObservableObject
         TelaAtual = tela;
         TituloTela = item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(item.Grupo);
-
-        // Escolhida a tela, o painel flutuante já cumpriu o papel dele. Fixado, ele fica:
-        // quem fixou quer a lista à mão para ir à próxima.
-        if (!PainelFixado) CategoriaAberta = null;
     }
 
     /// <summary>Monta a tela de um item simples pedindo ao módulo dono.</summary>
@@ -360,58 +333,39 @@ public sealed partial class ShellViewModel : ObservableObject
         return new TelaComAbas(abas, abaInicial);
     }
 
-    // ===== Rail =====
+    // ===== Sino da topbar =====
 
-    [RelayCommand]
-    private void AbrirCategoria(GrupoMenuModulo? categoria)
-    {
-        // Clicar na categoria já fixada solta o painel — o mesmo botão fecha o que abriu.
-        if (PainelFixado && ReferenceEquals(CategoriaAberta, categoria))
-        {
-            PainelFixado = false;
-            CategoriaAberta = null;
-            return;
-        }
-
-        CategoriaAberta = categoria;
-        PainelFixado = true;
-    }
-
-    /// <summary>Espiar: o painel abre flutuando e some sozinho. Não fixa nada.</summary>
-    public void EspiarCategoria(GrupoMenuModulo? categoria)
-    {
-        if (PainelFixado) return;
-        CategoriaAberta = categoria;
-    }
-
-    [RelayCommand]
-    private void FecharPainel()
-    {
-        CategoriaAberta = null;
-        PainelFixado = false;
-    }
+    /// <summary>Pop-up do sino aberto? A View liga o Popup (StaysOpen=False) aqui.</summary>
+    [ObservableProperty]
+    private bool _avisosAbertos;
 
     /// <summary>
-    /// Ctrl+B: fixa ou solta o painel. Sem categoria escolhida, abre a da tela ativa —
-    /// atalho que abre um painel vazio faria a pessoa concluir que ele não funciona.
+    /// Abre/fecha a lista dos últimos avisos da sessão (o histórico do snackbar — a
+    /// segunda via do que some em 4 segundos). Abrir zera o badge de não lidos: o número
+    /// responde "aconteceu algo desde a última olhada?", não "quantos avisos existem".
     /// </summary>
     [RelayCommand]
-    private void AlternarMenu()
+    private void AbrirAvisos()
     {
-        if (PainelFixado)
-        {
-            PainelFixado = false;
-            CategoriaAberta = null;
-            return;
-        }
-
-        CategoriaAberta ??= Grupos.FirstOrDefault(g => g.ContemAtual) ?? Grupos.FirstOrDefault();
-        if (CategoriaAberta is not null) PainelFixado = true;
+        AvisosAbertos = !AvisosAbertos;
+        if (AvisosAbertos) Snackbar?.MarcarLidos();
     }
 
-    partial void OnCategoriaAbertaChanged(GrupoMenuModulo? oldValue, GrupoMenuModulo? newValue)
+    // ===== Sidebar =====
+
+    /// <summary>Ctrl+B: recolhe a sidebar para 56px (só ícones) ou a expande de volta.</summary>
+    [RelayCommand]
+    private void AlternarMenu() => MenuRecolhido = !MenuRecolhido;
+
+    /// <summary>
+    /// Esc: fecha o que estiver sobreposto à tela — o pop-up do sino e a paleta da
+    /// pesquisa. Sem destino, não faz nada (Esc que "faz algo" invisível confunde).
+    /// </summary>
+    [RelayCommand]
+    private void FecharSobreposicoes()
     {
-        foreach (var g in Grupos) g.EstaAberta = ReferenceEquals(g, newValue);
+        AvisosAbertos = false;
+        PesquisaAberta = false;
     }
 
     /// <summary>

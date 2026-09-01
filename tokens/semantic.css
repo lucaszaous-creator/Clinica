@@ -1,0 +1,14 @@
+/* Apelidos em inglês usados pelos componentes React deste kit.
+   São ponteiros para os tokens do espelho XAML — não declare cor nova aqui. */
+:root{
+--brand:var(--acento);--brand-hover:var(--acento-hover);--brand-soft:var(--acento-suave);--brand-tint:var(--acento-tint);--focus-ring:var(--foco);
+--surface-app:var(--fundo);--surface-card:var(--superficie);--surface-hover:var(--superficie-hover);--surface-row-alt:var(--linha-alt);
+--border:var(--borda);--border-hover:var(--borda-hover);
+--text-title:var(--texto-primario);--text-body:var(--cinza-700);--text-muted:var(--texto-secundario);--text-inverted:var(--texto-invertido);
+--success:var(--sucesso);--success-text:var(--sucesso-forte);--success-tint:var(--sucesso-suave);
+--warning:var(--aviso);--warning-text:var(--aviso-texto);--warning-tint:var(--aviso-suave);
+--danger:var(--erro);--danger-hover:var(--erro-hover);--danger-text:var(--erro-texto);--danger-tint:var(--erro-suave);
+--info-color:var(--info);--info-text:var(--info-texto);--info-tint:var(--info-suave);
+--sidebar-text:var(--sidebar-texto);--sidebar-text-active:var(--sidebar-texto-ativo);--sidebar-subtext:var(--texto-secundario);
+--radius-chip:var(--radius-pilula);
+}

@@ -1,0 +1,1 @@
+export interface ModalProps{title?:React.ReactNode;icon?:string;width?:number;children?:React.ReactNode;footer?:React.ReactNode;onClose?:()=>void}

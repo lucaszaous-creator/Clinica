@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -5,6 +6,16 @@ namespace Clinica.Desktop.Controls;
 
 /// <summary>Tipos de snackbar (definem cor e ícone).</summary>
 public enum TipoSnackbar { Info, Sucesso, Erro }
+
+/// <summary>
+/// Um aviso já exibido — é o que o sino da topbar lista. O snackbar some em 4 segundos
+/// por desenho; quem estava olhando o paciente, e não a tela, perdia o "salvo" ou o erro
+/// para sempre. O sino é a segunda via desses avisos, desta SESSÃO (nada é gravado).
+/// </summary>
+public sealed record AvisoRegistrado(string Mensagem, TipoSnackbar Tipo, DateTime Hora)
+{
+    public string HoraTexto => Hora.ToString("HH:mm");
+}
 
 /// <summary>Notificações transitórias não-bloqueantes (substituem MessageBox informativos).</summary>
 public interface ISnackbarService
@@ -33,6 +44,23 @@ public sealed partial class SnackbarService : ObservableObject, ISnackbarService
     [ObservableProperty]
     private bool _estaVisivel;
 
+    /// <summary>
+    /// Últimos avisos da sessão, do mais recente para o mais antigo (teto de 20 — o sino
+    /// responde "o que acabou de acontecer", não é trilha; a trilha é a auditoria).
+    /// Só o sino da topbar do SHELL consome isto: no faturamento o sino é o de
+    /// pendências, com número vindo do banco — lá esta lista não tem leitor.
+    /// </summary>
+    public ObservableCollection<AvisoRegistrado> Historico { get; } = new();
+
+    /// <summary>Avisos desde a última vez que o sino foi aberto — o número do badge.</summary>
+    [ObservableProperty]
+    private int _naoLidos;
+
+    private const int TetoHistorico = 20;
+
+    /// <summary>Zera o badge. Chamado pela topbar ao abrir o sino (thread de UI).</summary>
+    public void MarcarLidos() => NaoLidos = 0;
+
     public SnackbarService()
     {
         _dispatcher = Dispatcher.CurrentDispatcher;
@@ -60,5 +88,11 @@ public sealed partial class SnackbarService : ObservableObject, ISnackbarService
         Tipo = tipo;
         EstaVisivel = true;
         _timer.Start();
+
+        // Já estamos na thread de UI (marshalado acima) — a coleção pode ser tocada aqui.
+        Historico.Insert(0, new AvisoRegistrado(mensagem, tipo, DateTime.Now));
+        while (Historico.Count > TetoHistorico)
+            Historico.RemoveAt(Historico.Count - 1);
+        NaoLidos++;
     }
 }

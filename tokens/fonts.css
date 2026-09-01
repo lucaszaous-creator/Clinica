@@ -1,0 +1,4 @@
+/* Segoe UI é a fonte nativa do app WPF (FontFamily="Segoe UI"). Fora do Windows,
+   Inter é a substituta aprovada — mesma largura aparente e altura-x próxima.
+   Não há binário de fonte no repositório: nada a empacotar, nada a licenciar. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');

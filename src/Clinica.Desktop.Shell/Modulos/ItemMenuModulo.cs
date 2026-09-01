@@ -204,11 +204,4 @@ public sealed partial class GrupoMenuModulo : ObservableObject
     public string Glifo { get; }
     public IReadOnlyList<ItemMenuModulo> Itens { get; }
 
-    /// <summary>Esta categoria é a do painel aberto — acende o botão no rail.</summary>
-    [ObservableProperty]
-    private bool _estaAberta;
-
-    /// <summary>Esta categoria contém a tela ativa — é a marca de "onde eu estou".</summary>
-    [ObservableProperty]
-    private bool _contemAtual;
 }

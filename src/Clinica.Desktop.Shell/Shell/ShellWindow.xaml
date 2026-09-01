@@ -12,84 +12,13 @@
 
     <Window.InputBindings>
         <KeyBinding Key="B" Modifiers="Control" Command="{Binding AlternarMenuCommand}" />
-        <KeyBinding Key="Escape" Command="{Binding FecharPainelCommand}" />
+        <KeyBinding Key="Escape" Command="{Binding FecharSobreposicoesCommand}" />
     </Window.InputBindings>
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
 
-        <!-- ============================================================
-             CATEGORIA DO RAIL — ícone + nome curto, 56px de largura.
-
-             O nome curto embaixo do ícone é obrigatório, não enfeite: o rail é o único
-             lugar onde a categoria aparece, e ícone sozinho não diz o que é para quem
-             chegou hoje. É a mesma razão que já punha tooltip na sidebar recolhida —
-             só que tooltip exige parar o mouse e esperar, e aqui a pessoa está
-             escolhendo para onde ir.
-             ============================================================ -->
-        <Style x:Key="BotaoCategoria" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource Brush.Sidebar.Texto}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="True" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid Margin="6,2">
-                            <Border x:Name="b" CornerRadius="{StaticResource Raio.Medio}"
-                                    Background="{TemplateBinding Background}" Padding="0,7">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock Text="{Binding Glifo}"
-                                               FontFamily="{StaticResource FonteIcones}"
-                                               FontSize="{StaticResource Fonte.H3}"
-                                               HorizontalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{TemplateBinding Foreground}" />
-                                    <TextBlock Text="{Binding NomeCurto}"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Margin="0,3,0,0" HorizontalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{TemplateBinding Foreground}" />
-                                </StackPanel>
-                            </Border>
-
-                            <!-- A marca de "eu estou aqui". Sem ela o rail não responde à
-                                 pergunta mais básica de uma navegação: em que parte do
-                                 sistema eu estou? A sidebar antiga respondia pelo item
-                                 aceso, que agora vive dentro do painel — e o painel fecha. -->
-                            <Border x:Name="marca" Width="3" HorizontalAlignment="Left"
-                                    Margin="-6,8" CornerRadius="{StaticResource Raio.Pequeno}"
-                                    Background="Transparent" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="b" Property="Background"
-                                        Value="{StaticResource Brush.Sidebar.ItemHover}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="b" Property="Background"
-                                        Value="{StaticResource Brush.Sidebar.ItemHover}" />
-                            </Trigger>
-                            <DataTrigger Binding="{Binding ContemAtual}" Value="True">
-                                <Setter TargetName="marca" Property="Background"
-                                        Value="{StaticResource Brush.Acento}" />
-                                <Setter Property="Foreground"
-                                        Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding EstaAberta}" Value="True">
-                                <Setter TargetName="b" Property="Background"
-                                        Value="{StaticResource Brush.Sidebar.ItemAtivo}" />
-                                <Setter Property="Foreground"
-                                        Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
-                            </DataTrigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Item dentro do painel de categoria. -->
+        <!-- Item de lista leve (hover) — hoje usado pelos resultados da pesquisa global. -->
         <Style x:Key="ItemSidebar" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{StaticResource Brush.Sidebar.Texto}" />
@@ -129,124 +58,179 @@
             </Style.Triggers>
         </Style>
 
-        <!-- O miolo do painel de categoria: título + lista de itens.
-             Um só, usado nas DUAS aparições (ancorado e flutuando) — duas cópias
-             divergiriam na primeira correção. -->
-        <DataTemplate x:Key="PainelCategoria" DataType="{x:Type modulos:GrupoMenuModulo}">
-            <DockPanel>
-                <Grid DockPanel.Dock="Top" Height="66" Margin="20,0,12,0">
-                    <TextBlock Text="{Binding Nome}" VerticalAlignment="Center"
-                               FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+        <!-- Item da sidebar: barra ativa à esquerda, ícone + rótulo; só ícone quando
+             recolhida. É o MESMO desenho do item do faturamento, de propósito — dois
+             desenhos para "o menu do sistema" faziam os dois apps parecerem produtos
+             diferentes. -->
+        <DataTemplate x:Key="ItemDaSidebar" DataType="{x:Type modulos:ItemMenuModulo}">
+            <Button Command="{Binding DataContext.NavegarCommand,
+                              RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="{Binding Rotulo}"
+                    ToolTipService.IsEnabled="{Binding DataContext.MenuRecolhido,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"
+                    Cursor="Hand" Focusable="True" FocusVisualStyle="{x:Null}"
+                    Background="Transparent" BorderThickness="0"
+                    HorizontalContentAlignment="Stretch">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="fundo" Background="{TemplateBinding Background}"
+                                CornerRadius="{StaticResource Raio.Medio}" Height="40" Margin="8,1">
+                            <Grid>
+                                <Border x:Name="barra" Width="3" HorizontalAlignment="Left"
+                                        Background="{StaticResource Brush.Acento}" CornerRadius="2"
+                                        Margin="0,8" Visibility="Collapsed" />
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                            Margin="12,0">
+                                    <TextBlock x:Name="icone" Text="{Binding Glifo}"
+                                               FontFamily="{StaticResource FonteIcones}"
+                                               FontSize="{StaticResource Fonte.Corpo}" Width="22"
+                                               Foreground="{StaticResource Brush.Sidebar.Texto}"
+                                               VerticalAlignment="Center"
+                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <TextBlock x:Name="rotulo" Text="{Binding Rotulo}"
+                                               Margin="8,0,0,0"
+                                               FontSize="{StaticResource Fonte.Corpo}"
+                                               Foreground="{StaticResource Brush.Sidebar.Texto}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="fundo" Property="Background"
+                                        Value="{StaticResource Brush.Sidebar.ItemHover}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="fundo" Property="Background"
+                                        Value="{StaticResource Brush.Sidebar.ItemHover}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding EstaAtivo}" Value="True">
+                                <Setter TargetName="fundo" Property="Background"
+                                        Value="{StaticResource Brush.Sidebar.ItemAtivo}" />
+                                <Setter TargetName="barra" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="icone" Property="Foreground"
+                                        Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                                <Setter TargetName="rotulo" Property="Foreground"
+                                        Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                                <Setter TargetName="rotulo" Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
+                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                         Value="True">
+                                <Setter TargetName="rotulo" Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+        </DataTemplate>
 
-                    <!-- Fixar/soltar fica no painel, e não só no rail: quem espiou já está
-                         com o mouse AQUI, e mandá-lo de volta ao ícone para prender a
-                         lista é o movimento que o modelo de hover cobra caro. -->
-                    <Button HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Style="{StaticResource BotaoIcone}"
-                            Command="{Binding DataContext.AlternarMenuCommand,
-                                      RelativeSource={RelativeSource AncestorType=Window}}"
-                            ToolTip="Manter o menu aberto / soltar (Ctrl+B)">
-                        <TextBlock>
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource Icone}">
-                                    <!-- Alfinete torto = solto; em pé = fixado. O ícone é o
-                                         estado, senão o botão não diz o que vai fazer. -->
-                                    <Setter Property="Text" Value="&#xE718;" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding DataContext.PainelFixado,
-                                                     RelativeSource={RelativeSource AncestorType=Window}}"
-                                                     Value="True">
-                                            <Setter Property="Text" Value="&#xE840;" />
-                                            <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Button>
-                </Grid>
-
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl ItemsSource="{Binding Itens}" Margin="0,0,0,16">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type modulos:ItemMenuModulo}">
-                                <Button Style="{StaticResource ItemSidebar}"
-                                        Command="{Binding DataContext.NavegarCommand,
-                                                  RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Glifo}"
-                                                   FontFamily="{StaticResource FonteIcones}"
-                                                   FontSize="{StaticResource Fonte.Corpo}" Width="22"
-                                                   VerticalAlignment="Center"
-                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                        <TextBlock Text="{Binding Rotulo}"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
+        <!-- Grupo da sidebar: cabeçalho em caixa alta + itens. O cabeçalho some quando a
+             sidebar recolhe — 56px não têm onde escrever "INTELIGÊNCIA". -->
+        <DataTemplate x:Key="GrupoDaSidebar" DataType="{x:Type modulos:GrupoMenuModulo}">
+            <StackPanel>
+                <TextBlock x:Name="cabecalho" Text="{Binding Nome}" Margin="20,14,12,4"
+                           FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                           TextTrimming="CharacterEllipsis" />
+                <ItemsControl ItemsSource="{Binding Itens}"
+                              ItemTemplate="{StaticResource ItemDaSidebar}" Focusable="False" />
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
+                              RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="True">
+                    <Setter TargetName="cabecalho" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ==================== RAIL (56px, sempre visível) ====================
-             Substituiu a sidebar de 248px que listava tudo. No Gerente Geral aquela
-             lista tinha 46 itens e pedia 1.824px de altura numa janela que dá 610 —
-             dois terços do menu só existiam para quem rolasse até eles. -->
-        <Border Grid.Column="0" Width="56" x:Name="Rail"
+        <!-- ==================== SIDEBAR (o desenho do mockup) ====================
+             Fixa, 240px: logo, grupos em CAIXA ALTA, item com ícone e rótulo, ativo com
+             fundo azul-suave e barra de 3px. Ctrl+B recolhe para 56px (só ícones, com
+             tooltip) — a mesma sidebar do faturamento. Substituiu o rail + painel da
+             parcela 55 a pedido do cliente; o custo conhecido fica escrito: no Gerente
+             Geral a lista completa é mais alta que a janela e ROLA, e a pesquisa global
+             (Ctrl+F) segue sendo a rota direta de quem já sabe o nome da tela. -->
+        <Border Grid.Column="0" Width="240"
                 Background="{StaticResource Brush.Sidebar.Fundo}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0"
-                MouseLeave="AoSairDaZonaDoMenu">
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Width" To="56"
+                                                         Duration="{StaticResource Duracao.Normal}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Width" To="240"
+                                                         Duration="{StaticResource Duracao.Normal}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <DockPanel>
+                <!-- A marca: a logo inteira; recolhida, só o símbolo. -->
                 <Grid DockPanel.Dock="Top" Height="66">
-                    <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/simbolo-cor.png"
-                           Height="26" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Height="26" VerticalAlignment="Center">
+                        <Image.Style>
+                            <Style TargetType="Image">
+                                <Setter Property="Source"
+                                        Value="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png" />
+                                <Setter Property="HorizontalAlignment" Value="Left" />
+                                <Setter Property="Margin" Value="20,0,12,0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                        <Setter Property="Source"
+                                                Value="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/simbolo-cor.png" />
+                                        <Setter Property="HorizontalAlignment" Value="Center" />
+                                        <Setter Property="Margin" Value="0" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Image.Style>
+                    </Image>
                 </Grid>
 
-                <ItemsControl ItemsSource="{Binding Grupos}" Margin="0,6,0,0"
-                              KeyboardNavigation.TabNavigation="Local">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type modulos:GrupoMenuModulo}">
-                            <Button Style="{StaticResource BotaoCategoria}"
-                                    Command="{Binding DataContext.AbrirCategoriaCommand,
-                                              RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}"
-                                    ToolTip="{Binding Nome}"
-                                    MouseEnter="AoEntrarNaCategoria" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Grupos}"
+                                  ItemTemplate="{StaticResource GrupoDaSidebar}"
+                                  Focusable="False" Margin="0,0,0,12"
+                                  KeyboardNavigation.TabNavigation="Local" />
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
-        <!-- ==================== PAINEL ANCORADO ====================
-             Ocupa coluna e empurra o conteúdo. A coluna é Auto, então ela vale 0
-             enquanto o painel está Collapsed — é isso que faz o conteúdo recuperar os
-             250px sozinho quando o painel solta. -->
-        <Border Grid.Column="1" Width="250" x:Name="PainelAncorado"
-                Background="{StaticResource Brush.Sidebar.Fundo}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0"
-                Visibility="{Binding PainelDocado, Converter={StaticResource BoolParaVisibilidade}}">
-            <ContentControl Content="{Binding CategoriaAberta}"
-                            ContentTemplate="{StaticResource PainelCategoria}" />
-        </Border>
-
         <!-- ==================== CONTEÚDO ==================== -->
-        <DockPanel Grid.Column="2">
+        <DockPanel Grid.Column="1">
             <Border DockPanel.Dock="Top" Height="56"
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
@@ -254,7 +238,7 @@
 
                     <Button DockPanel.Dock="Left" Style="{StaticResource BotaoIcone}"
                             Command="{Binding AlternarMenuCommand}"
-                            ToolTip="Fixar/soltar o menu (Ctrl+B)"
+                            ToolTip="Recolher/expandir o menu (Ctrl+B)"
                             VerticalAlignment="Center" Margin="0,0,8,0">
                         <TextBlock Text="&#xE700;" Style="{StaticResource Icone}" />
                     </Button>
@@ -295,17 +279,111 @@
                                 ToolTip="Fecha e reabre o sistema na tela de entrada" />
                     </StackPanel>
 
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"
-                               VerticalAlignment="Center" Margin="16,0,0,0"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                    <!-- ===== Sino de notificações (a Topbar do mockup, completa) =====
+                         O número é REAL: avisos do snackbar desde a última olhada. O
+                         snackbar some em 4 segundos por desenho, e quem estava olhando o
+                         paciente perdia o "salvo" — ou o ERRO — para sempre; o sino é a
+                         segunda via, desta sessão. Sino sem número verdadeiro seria o
+                         botão que não faz nada da parcela 41 vestido de enfeite. -->
+                    <Grid DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Button x:Name="Sino" Style="{StaticResource BotaoIcone}"
+                                Command="{Binding AbrirAvisosCommand}"
+                                ToolTip="Notificações — os últimos avisos desta sessão"
+                                AutomationProperties.Name="Notificações">
+                            <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" />
+                        </Button>
+                        <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Margin="0,2,0,0" IsHitTestVisible="False">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource BadgeContador}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Snackbar.NaoLidos, FallbackValue=0}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Snackbar.NaoLidos}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                        </Border>
+
+                        <Popup IsOpen="{Binding AvisosAbertos, Mode=TwoWay}" StaysOpen="False"
+                               PlacementTarget="{Binding ElementName=Sino}" Placement="Bottom"
+                               AllowsTransparency="True" HorizontalOffset="-280" VerticalOffset="4">
+                            <Border Background="{StaticResource Brush.Superficie}"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}" Padding="4"
+                                    Width="340" MaxHeight="380">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Text="AVISOS DESTA SESSÃO"
+                                               Style="{StaticResource Rotulo}" Margin="10,8,10,6" />
+                                    <Grid>
+                                        <TextBlock Text="Nenhum aviso por enquanto — o que o sistema disser aparece aqui."
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   FontSize="{StaticResource Fonte.Tabela}" TextWrapping="Wrap"
+                                                   Margin="10,4,10,10">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Snackbar.Historico.Count, FallbackValue=0}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding Snackbar.Historico}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel Margin="10,4">
+                                                            <TextBlock DockPanel.Dock="Left" Margin="0,1,8,0"
+                                                                       FontFamily="{StaticResource FonteIcones}"
+                                                                       FontSize="{StaticResource Fonte.Tabela}"
+                                                                       VerticalAlignment="Top">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="&#xE946;" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Tipo}" Value="Sucesso">
+                                                                                <Setter Property="Text" Value="&#xE73E;" />
+                                                                                <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Tipo}" Value="Erro">
+                                                                                <Setter Property="Text" Value="&#xE783;" />
+                                                                                <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <TextBlock DockPanel.Dock="Right" Text="{Binding HoraTexto}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                                       VerticalAlignment="Top" Margin="8,1,0,0" />
+                                                            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"
+                                                                       FontSize="{StaticResource Fonte.Tabela}"
+                                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </DockPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
 
                     <!-- Pesquisa global: paleta de seções. Enter vai na primeira.
                          Ela ficou MAIS importante depois do rail: é a rota direta para
                          quem já sabe o nome da tela e não quer escolher categoria. -->
                     <Grid DockPanel.Dock="Right" Width="280" VerticalAlignment="Center"
                           Margin="16,0,0,0">
-                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisa}"
+                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
                                  ctrl:Ajudantes.Placeholder="Ir para… (Ctrl+F)"
                                  Text="{Binding TextoPesquisa, UpdateSourceTrigger=PropertyChanged}">
                             <TextBox.InputBindings>
@@ -353,15 +431,18 @@
                         </Popup>
                     </Grid>
 
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"
+                               VerticalAlignment="Center" Margin="16,0,0,0"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+
                     <!-- Breadcrumb: seção › tela -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{Binding ModuloAtual}"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                    FontSize="{StaticResource Fonte.Tabela}"
                                    VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                        <TextBlock Text="  ›  "
-                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   VerticalAlignment="Center" />
+                        <TextBlock Style="{StaticResource BreadcrumbSeparador}" />
                         <TextBlock Text="{Binding TituloTela}"
                                    Foreground="{StaticResource Brush.Texto.Primario}"
                                    FontWeight="SemiBold"
@@ -375,27 +456,6 @@
             <ContentControl Content="{Binding TelaAtual}" />
         </DockPanel>
 
-        <!-- ===== PAINEL FLUTUANTE (o "espiar") =====
-             ÚLTIMO filho do Grid raiz e com ZIndex: sobreposição posta como irmã num
-             painel linear passa a OCUPAR espaço em vez de sobrepor, e ainda derruba o
-             leiaute em volta — a lição da parcela 50, hoje cobrada pela checagem 25.
-
-             Ele espelha o painel ancorado com o MESMO DataTemplate: o que muda entre os
-             dois é só quem paga a largura. -->
-        <Border Grid.Column="0" Grid.ColumnSpan="3" Panel.ZIndex="50"
-                x:Name="PainelEspiado"
-                Width="250" HorizontalAlignment="Left" Margin="56,0,0,0"
-                Background="{StaticResource Brush.Sidebar.Fundo}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0"
-                Visibility="{Binding PainelFlutuante, Converter={StaticResource BoolParaVisibilidade}}"
-                MouseLeave="AoSairDaZonaDoMenu" MouseEnter="AoEntrarNoPainel">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.16" Direction="0" />
-            </Border.Effect>
-            <ContentControl Content="{Binding CategoriaAberta}"
-                            ContentTemplate="{StaticResource PainelCategoria}" />
-        </Border>
-
         <!-- ===== Snackbar (sobreposto, centro inferior) =====
              ÚLTIMO filho do Grid raiz, e não irmão dentro do DockPanel: sobreposição posta
              num painel linear passa a OCUPAR espaço em vez de sobrepor, e ainda derruba o
@@ -403,7 +463,7 @@
 
              Faltava desde que a suíte nasceu. O serviço existia, era injetado em quase toda
              ViewModel e chamado 143 vezes; só o faturamento tinha onde mostrá-lo. -->
-        <Border Grid.Column="0" Grid.ColumnSpan="3"
+        <Border Grid.Column="0" Grid.ColumnSpan="2"
                 Style="{StaticResource SnackbarBorda}" Panel.ZIndex="100"
                 Visibility="{Binding Snackbar.EstaVisivel, Converter={StaticResource BoolParaVisibilidade}}">
             <StackPanel Orientation="Horizontal">

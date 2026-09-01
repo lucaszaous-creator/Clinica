@@ -159,6 +159,10 @@
     <CornerRadius x:Key="Raio.Pequeno">4</CornerRadius>
     <CornerRadius x:Key="Raio.Medio">8</CornerRadius>
     <CornerRadius x:Key="Raio.Grande">12</CornerRadius>
+    <!-- ⚠️ NÃO use este token em Border: o WPF não trava raio na metade da altura como o
+         CSS, e 999 desenha um OVO (bordas curvas em cima e embaixo — o cliente mandou a
+         foto). Pílula de verdade é ctrl:Ajudantes.Pilula="True", que mede a altura real.
+         O token fica porque é o espelho do CSS do kit web (radius-pilula: 999px). -->
     <CornerRadius x:Key="Raio.Pilula">999</CornerRadius>
 
     <!-- ============ Movimento (microinterações ≤150ms) ============ -->

@@ -1,0 +1,1 @@
+export interface SpinnerProps{size?:number;color?:string;style?:React.CSSProperties}
