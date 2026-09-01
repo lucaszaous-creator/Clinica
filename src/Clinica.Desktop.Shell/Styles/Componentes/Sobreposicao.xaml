@@ -78,4 +78,65 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+
+    <!-- ===== Menu de contexto (o "⋯" dos cartões KPI e da fila) =====
+         Sem template, o WPF desenha o menu do TEMA DO SISTEMA — calha de ícone, realce
+         azul do Windows, moldura própria — dentro de um app plano. É a família do
+         TabControl da parcela 55 e do DatePicker da 56: componente sem Template no
+         design system não fica neutro, fica com a cara do sistema operacional.
+
+         ⚠️ O menu da casa é RASO de propósito (itens diretos, sem submenu): os dois
+         chamadores — BotaoMenuKpi e o "⋯" do cartão da fila — montam itens planos em
+         código. Se um dia nascer um submenu, ESTE template precisa ganhar o Popup da
+         parte de baixo, senão o submenu não abre. -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="HasDropShadow" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            Padding="{TemplateBinding Padding}">
+                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="MenuItem">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="fundo" Background="Transparent"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Superficie.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground"
+                                    Value="{StaticResource Brush.Texto.Secundario}" />
+                            <Setter Property="Opacity" Value="0.7" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

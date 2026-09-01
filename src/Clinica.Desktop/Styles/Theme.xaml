@@ -94,4 +94,31 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
+
+    <!-- Separator plano do design system: 1px na cor de borda. Sem isto o WPF desenha a
+         linha do tema do sistema (entalhada, com folga própria) — sutil, mas é a única
+         linha da tela que não sai dos tokens. -->
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Background="{TemplateBinding Background}" Height="1"
+                            SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ⚠️ Separator DENTRO de menu não usa o estilo implícito acima: o ContextMenu
+         resolve o estilo dele pela chave MenuItem.SeparatorStyleKey (é assim que o WPF
+         prepara os itens de um menu). Sem esta segunda declaração, um separador de menu
+         montado em código sairia com a linha entalhada do tema do sistema dentro de um
+         menu já plano. O BasedOn resolve porque o estilo implícito mora NESTE dicionário. -->
+    <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator"
+           BasedOn="{StaticResource {x:Type Separator}}">
+        <Setter Property="Margin" Value="6,4" />
+    </Style>
+
 </ResourceDictionary>
