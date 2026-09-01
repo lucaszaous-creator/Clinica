@@ -43,6 +43,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
     public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
+    public DbSet<ArquivoResultadoExame> ArquivosResultadoExame => Set<ArquivoResultadoExame>();
     public DbSet<ProblemaPaciente> ProblemasPaciente => Set<ProblemaPaciente>();
     public DbSet<AvaliacaoClinica> AvaliacoesClinicas => Set<AvaliacaoClinica>();
     public DbSet<RespostaAvaliacao> RespostasAvaliacao => Set<RespostaAvaliacao>();
@@ -590,6 +591,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Unidade).HasMaxLength(30);
             e.Property(x => x.Referencia).HasMaxLength(160);
             e.Property(x => x.Laboratorio).HasMaxLength(120);
+            // Metadados do laudo em ARQUIVO; os bytes ficam na tabela 1:1 abaixo.
+            e.Property(x => x.ArquivoNome).HasMaxLength(260);
+            e.Property(x => x.ArquivoTipoConteudo).HasMaxLength(120);
             e.Property(x => x.Observacoes).HasMaxLength(1000);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CanceladoPor).HasMaxLength(80);
@@ -616,6 +620,22 @@ public class ClinicaDbContext : DbContext
 
             e.Ignore(x => x.Cancelado);
             e.Ignore(x => x.ValorComUnidade);
+            e.Ignore(x => x.TemArquivo);
+            e.Ignore(x => x.ResumoDoResultado);
+        });
+
+        // Os BYTES do laudo, à parte — o padrão do retrato do paciente (PacientesFotos):
+        // a lista de resultados é lida a cada abertura de tela, e o PDF só é buscado
+        // quando alguém clica em abrir.
+        b.Entity<ArquivoResultadoExame>(e =>
+        {
+            e.ToTable("ArquivosResultadoExame");
+            e.HasKey(a => a.ResultadoExameId);
+            e.Property(a => a.ResultadoExameId).ValueGeneratedNever();
+            e.Property(a => a.Conteudo).IsRequired();
+            e.HasOne(a => a.Resultado).WithOne(r => r.Arquivo)
+                .HasForeignKey<ArquivoResultadoExame>(a => a.ResultadoExameId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ---- Lista de problemas (parcela 37) ----

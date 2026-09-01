@@ -65,8 +65,12 @@ public sealed record PedidoDeExameLinha(
     public bool EhDisponivel => Situacao == SituacaoPedidoExame.ResultadoDisponivel;
     public bool EhCancelado => Situacao == SituacaoPedidoExame.Cancelado;
 
-    /// <summary>Registrar aparece só no que AGUARDA — o segundo laudo entra pela seção do paciente.</summary>
-    public bool MostraRegistrar => EhAguardando;
+    /// <summary>
+    /// Anexar o laudo aparece em TODO pedido vivo, não só no que aguarda: um pedido de
+    /// vários exames recebe vários laudos, e escondê-lo no primeiro impediria o segundo.
+    /// Só o pedido CANCELADO não recebe — ele não espera nada.
+    /// </summary>
+    public bool MostraRegistrar => !EhCancelado;
     public bool MostraVerResultados => EhDisponivel;
     public bool MostraDetalhes => !EhDisponivel;
 }

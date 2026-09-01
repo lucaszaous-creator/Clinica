@@ -22,16 +22,37 @@ public sealed class ResultadoExameService
     /// reagente" por não ser número seria a regra apertada demais que o projeto rejeita.
     /// </summary>
     public async Task<ResultadoExame> RegistrarAsync(
-        ResultadoExame dados, string? operador = null, CancellationToken ct = default)
+        ResultadoExame dados, string? operador = null, CancellationToken ct = default,
+        byte[]? laudo = null, string? nomeDoArquivo = null, string? tipoDoArquivo = null)
     {
         _ = await _repo.ObterPacienteAsync(dados.PacienteId, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
 
         if (string.IsNullOrWhiteSpace(dados.Nome))
             throw new InvalidOperationException("Diga QUAL exame é — o nome é obrigatório.");
-        if (string.IsNullOrWhiteSpace(dados.Valor))
+        // Valor OU laudo: o laudo que chega por WhatsApp é registro completo por si —
+        // exigir também o número faria a técnica inventar um para conseguir anexar. O que
+        // se recusa é o registro SEM conteúdo nenhum.
+        var temArquivo = laudo is { Length: > 0 };
+        if (string.IsNullOrWhiteSpace(dados.Valor) && !temArquivo)
             throw new InvalidOperationException(
-                "Escreva o resultado como o laudo o escreve — o valor é obrigatório.");
+                "Escreva o resultado como o laudo o escreve, ou anexe o arquivo do laudo.");
+
+        if (laudo is not null)
+        {
+            if (laudo.Length == 0)
+                throw new InvalidOperationException(
+                    "O arquivo do laudo está vazio — confira o que foi escolhido.");
+            // O MESMO teto do anexo de prontuário: dois limites divergiriam na primeira
+            // correção, e o de baixo é o que ninguém lembraria de ajustar.
+            if (laudo.Length > ProntuarioService.TamanhoMaximoAnexo)
+                throw new InvalidOperationException(
+                    "O arquivo do laudo passa de "
+                    + $"{ProntuarioService.TamanhoMaximoAnexo / (1024 * 1024)} MB.");
+            if (string.IsNullOrWhiteSpace(nomeDoArquivo))
+                throw new InvalidOperationException(
+                    "O arquivo do laudo precisa de um nome — é por ele que a folha é achada depois.");
+        }
 
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         if (dados.Data > hoje)
@@ -63,21 +84,31 @@ public sealed class ResultadoExameService
             PedidoDocumentoId = dados.PedidoDocumentoId,
             Data = dados.Data,
             Nome = dados.Nome.Trim(),
-            Valor = dados.Valor.Trim(),
+            Valor = dados.Valor?.Trim() ?? string.Empty,
             Unidade = Aparar(dados.Unidade),
             Referencia = Aparar(dados.Referencia),
             Laboratorio = Aparar(dados.Laboratorio),
             Observacoes = Aparar(dados.Observacoes),
+            // Metadados do laudo: o que não estiver nesta lista não é gravado.
+            ArquivoNome = temArquivo ? Aparar(nomeDoArquivo) : null,
+            ArquivoTipoConteudo = temArquivo ? Aparar(tipoDoArquivo) : null,
+            ArquivoTamanho = temArquivo ? laudo!.Length : null,
             CriadoEm = DateTime.Now,
             CriadoPor = Aparar(operador)
         };
 
         await _repo.AdicionarResultadoExameAsync(resultado, ct);
+        if (temArquivo)
+            // No MESMO SaveChanges do resultado: um laudo gravado sem a linha que o
+            // descreve seria um arquivo órfão, e uma linha que promete arquivo sem ele
+            // seria um botão "abrir laudo" que não abre nada.
+            await _repo.AdicionarArquivoResultadoExameAsync(
+                new ArquivoResultadoExame { Resultado = resultado, Conteudo = laudo! }, ct);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = "ResultadoExameRegistrado",
-            Detalhe = $"{resultado.Nome} = {resultado.ValorComUnidade} em {resultado.Data:dd/MM/yyyy}",
+            Detalhe = $"{resultado.Nome} = {resultado.ResumoDoResultado} em {resultado.Data:dd/MM/yyyy}",
             PacienteId = resultado.PacienteId
         }, ct);
         await _repo.SalvarAsync(ct);
@@ -121,6 +152,10 @@ public sealed class ResultadoExameService
     public Task<IReadOnlyList<ResultadoExame>> DoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         => _repo.ResultadosExameDoPacienteAsync(pacienteId, incluirCancelados: false, ct);
+
+    /// <summary>Os bytes do laudo, sob demanda. Nulo quando o resultado não tem arquivo.</summary>
+    public Task<byte[]?> ConteudoDoLaudoAsync(int resultadoId, CancellationToken ct = default)
+        => _repo.ConteudoDoLaudoAsync(resultadoId, ct);
 
     private static string? Aparar(string? texto)
         => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();

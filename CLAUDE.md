@@ -2421,6 +2421,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Na lista da CLÍNICA inteira (posto sem vínculo/enfermagem) cada linha diz o
   profissional — booleano de estado sem leitor é só uma atribuição (parcela 76).
 
+- **O LAUDO EM ARQUIVO, e por que ele não virou "anexo"** (set/2026 — a clínica recebe o
+  PDF do laboratório por WhatsApp e precisa SUBIR). O caminho óbvio seria o
+  `AnexoProntuario`, que já guarda arquivo clínico — e ele foi MEDIDO e recusado:
+  `EvolucaoId` é obrigatório e `AnexosDoPacienteAsync` resolve o paciente ATRAVÉS da
+  evolução (`a.Evolucao!.PacienteId`), então anexo sem sessão não existe. Aceitá-lo
+  exigiria `AlterColumn` (migration não aditiva) mais uma coluna nova obrigatória com
+  backfill, num app em produção — e o laudo que chega pelo WhatsApp não é de sessão
+  nenhuma: forçá-lo a uma evolução seria inventar uma consulta que não houve.
+  O laudo mora no `ResultadoExame`, que É o que ele registra. As decisões:
+  **os BYTES ficam em tabela 1:1** (`ArquivosResultadoExame`) e só os METADADOS na
+  linha — é o padrão do retrato do paciente (`FotoMiniatura` na linha, `PacientesFotos`
+  à parte), e sem ele toda leitura da lista arrastaria os PDFs pela rede (a lição da
+  parcela 74; a rede de tradução do Npgsql fixa que o SELECT não os traz);
+  **valor OU laudo** — o PDF é registro completo por si, e exigir também o número faria
+  a técnica inventar um para conseguir anexar; o que se recusa é o registro sem conteúdo
+  nenhum; **o teto é o MESMO do anexo de prontuário** (`ProntuarioService.
+  TamanhoMaximoAnexo`), porque dois limites divergem na primeira correção; e o arquivo é
+  gravado no **MESMO `SaveChanges`** do resultado — laudo sem a linha que o descreve é
+  arquivo órfão, e linha que promete arquivo sem ele é um "abrir laudo" que não abre.
+  ⚠️ **Anexar aparece em TODO pedido vivo, não só no que aguarda**: um pedido de vários
+  exames recebe vários laudos, e esconder o botão no primeiro resultado impediria o
+  segundo. Só o pedido CANCELADO não recebe.
+  ⚠️ E a mudança **desatualizou dois textos que ninguém teria relido**: o comentário do
+  modal de resultado dizia que "o resultado estruturado não tem arquivo", e o subtítulo
+  da seção Exames e anexos mandava anexar pela sessão no Prontuário. Os dois foram
+  corrigidos no mesmo commit — **ao dar capacidade nova a um registro, procure o que
+  AFIRMAVA que ela não existia.**
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

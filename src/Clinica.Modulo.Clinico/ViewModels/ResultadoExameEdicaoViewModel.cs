@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
@@ -54,6 +55,17 @@ public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
     /// <summary>Terceiro estado do combo: "não deu para conferir" ≠ "não há pedido".</summary>
     [ObservableProperty] private string? _avisoPedidos;
 
+    // ===== O LAUDO EM ARQUIVO =====
+    // O PDF que chega do laboratório é o que o profissional quer ver; o valor
+    // estruturado acima é o que se compara depois. Os dois são opcionais entre si —
+    // o serviço recusa só o registro SEM conteúdo nenhum.
+    private byte[]? _laudo;
+    private string? _laudoNome;
+    private string? _laudoTipo;
+
+    /// <summary>"laudo.pdf · 1,2 MB" — nulo quando nenhum arquivo foi escolhido.</summary>
+    [ObservableProperty] private string? _laudoEscolhido;
+
     [ObservableProperty] private bool _salvando;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -105,6 +117,60 @@ public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
         }
     }
 
+    /// <summary>Escolhe o arquivo do laudo. Lê os bytes AGORA — o arquivo pode sair da
+    /// pasta antes de a pessoa clicar em Registrar.</summary>
+    [RelayCommand]
+    private async Task EscolherLaudoAsync()
+    {
+        try
+        {
+            var dialogo = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Anexar o laudo do exame",
+                Filter = "Laudos (*.pdf;*.jpg;*.jpeg;*.png)|*.pdf;*.jpg;*.jpeg;*.png"
+                         + "|Todos os arquivos (*.*)|*.*"
+            };
+            if (dialogo.ShowDialog() != true) return;
+
+            var bytes = await File.ReadAllBytesAsync(dialogo.FileName);
+            var extensao = Path.GetExtension(dialogo.FileName).ToLowerInvariant();
+
+            _laudo = bytes;
+            _laudoNome = Path.GetFileName(dialogo.FileName);
+            _laudoTipo = extensao switch
+            {
+                ".pdf" => "application/pdf",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                _ => null
+            };
+            LaudoEscolhido = $"{_laudoNome} · {Peso(bytes.Length)}";
+            Mensagem = null;
+            MensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — o arquivo do laudo não pôde ser lido", ex);
+            Mensagem = "Não deu para ler o arquivo escolhido.";
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>Tira o arquivo escolhido — antes de gravar, escolher errado é só um clique.</summary>
+    [RelayCommand]
+    private void RemoverLaudo()
+    {
+        _laudo = null;
+        _laudoNome = null;
+        _laudoTipo = null;
+        LaudoEscolhido = null;
+    }
+
+    private static string Peso(int bytes) => bytes >= 1024 * 1024
+        ? $"{bytes / 1024d / 1024d:0.#} MB"
+        : $"{Math.Max(1, bytes / 1024)} KB";
+
     [RelayCommand]
     private async Task RegistrarAsync()
     {
@@ -130,7 +196,8 @@ public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
                 Referencia = ReferenciaNova,
                 Laboratorio = LaboratorioNovo,
                 Observacoes = ObservacoesNovas
-            }, SessaoUsuario.Atual.Operador);
+            }, SessaoUsuario.Atual.Operador,
+               laudo: _laudo, nomeDoArquivo: _laudoNome, tipoDoArquivo: _laudoTipo);
 
             Registrado = true;
         }

@@ -124,11 +124,14 @@ public class ProntuariosEExamesTests : IDisposable
         l2.Situacao.Should().Be(SituacaoPedidoExame.ResultadoDisponivel);
         l2.ResultadosVinculados.Should().Be(1);
         l2.MostraVerResultados.Should().BeTrue();
-        l2.MostraRegistrar.Should().BeFalse();
+        l2.MostraRegistrar.Should().BeTrue(
+            "um pedido de vários exames recebe vários laudos — esconder o botão no "
+            + "primeiro resultado impediria o segundo");
 
         var l3 = linhas.Single(l => l.DocumentoId == cancelado);
         l3.Situacao.Should().Be(SituacaoPedidoExame.Cancelado,
             "pedido numerado nunca some — aparece marcado");
+        l3.MostraRegistrar.Should().BeFalse("pedido cancelado não espera laudo nenhum");
     }
 
     [Fact]
@@ -197,6 +200,122 @@ public class ProntuariosEExamesTests : IDisposable
 
         await acao.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*não é um pedido de exame*");
+    }
+
+    // ============================================================
+    // O LAUDO EM ARQUIVO (set/2026)
+    // ============================================================
+
+    [Fact]
+    public async Task Registra_o_laudo_em_ARQUIVO_e_os_bytes_voltam_inteiros()
+    {
+        var paciente = await PacienteAsync("Maria");
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var pedido = await PedidoAsync(paciente, hoje, itens: ["Hemograma"]);
+        var pdf = new byte[] { 0x25, 0x50, 0x44, 0x46, 1, 2, 3 };
+
+        var servico = new ResultadoExameService(_repo);
+        var r = await servico.RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = paciente,
+            PedidoDocumentoId = pedido,
+            Data = hoje,
+            Nome = "Hemograma",
+            Valor = "normal"
+        }, "joana", laudo: pdf, nomeDoArquivo: "laudo.pdf", tipoDoArquivo: "application/pdf");
+
+        r.ArquivoNome.Should().Be("laudo.pdf");
+        r.ArquivoTamanho.Should().Be(pdf.Length);
+        r.TemArquivo.Should().BeTrue();
+
+        // Os bytes voltam pela consulta dedicada — a única que materializa o arquivo.
+        var bytes = await _repo.ConteudoDoLaudoAsync(r.Id);
+        bytes.Should().Equal(pdf);
+
+        // E o pedido passa a ter resultado: a situação da tela segue o mesmo fato.
+        var linhas = await _repo.PedidosDeExameAsync();
+        linhas.Single(l => l.DocumentoId == pedido).Situacao
+            .Should().Be(SituacaoPedidoExame.ResultadoDisponivel);
+    }
+
+    [Fact]
+    public async Task O_laudo_SOZINHO_e_registro_completo_sem_valor_digitado()
+    {
+        var paciente = await PacienteAsync();
+        var servico = new ResultadoExameService(_repo);
+
+        // O PDF que chega do laboratório é registro por si — exigir também o número
+        // faria a técnica inventar um para conseguir anexar.
+        var r = await servico.RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = paciente,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Nome = "Ressonância — coluna lombar",
+            Valor = string.Empty
+        }, laudo: [9, 9, 9], nomeDoArquivo: "resmagnetica.pdf");
+
+        r.Valor.Should().BeEmpty();
+        r.ResumoDoResultado.Should().Contain("resmagnetica.pdf",
+            "a linha precisa dizer o que ela é — vazio não diz nada");
+    }
+
+    [Fact]
+    public async Task Sem_valor_e_sem_arquivo_o_registro_e_RECUSADO()
+    {
+        var paciente = await PacienteAsync();
+        var servico = new ResultadoExameService(_repo);
+
+        var acao = () => servico.RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = paciente,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Nome = "Hemograma",
+            Valor = "   "
+        });
+
+        await acao.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*anexe o arquivo*");
+    }
+
+    [Fact]
+    public async Task Arquivo_acima_do_teto_e_RECUSADO_com_o_MESMO_limite_do_anexo()
+    {
+        var paciente = await PacienteAsync();
+        var servico = new ResultadoExameService(_repo);
+        var gigante = new byte[ProntuarioService.TamanhoMaximoAnexo + 1];
+
+        var acao = () => servico.RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = paciente,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Nome = "Tomografia",
+            Valor = "sem alterações"
+        }, laudo: gigante, nomeDoArquivo: "enorme.pdf");
+
+        await acao.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*MB*");
+    }
+
+    [Fact]
+    public async Task Resultado_SEM_arquivo_nao_promete_laudo_nenhum()
+    {
+        var paciente = await PacienteAsync();
+        var servico = new ResultadoExameService(_repo);
+
+        var r = await servico.RegistrarAsync(new ResultadoExame
+        {
+            PacienteId = paciente,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Nome = "Glicada",
+            Valor = "6,1",
+            Unidade = "%"
+        });
+
+        r.TemArquivo.Should().BeFalse();
+        r.ArquivoNome.Should().BeNull();
+        r.ResumoDoResultado.Should().Be("6,1 %");
+        (await _repo.ConteudoDoLaudoAsync(r.Id)).Should().BeNull(
+            "botão de abrir laudo aceso sobre resultado sem arquivo é o clique que não faz nada");
     }
 
     // ============================================================

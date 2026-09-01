@@ -7,6 +7,7 @@
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
@@ -91,6 +92,17 @@
                                                Margin="0,4,0,0"
                                                Visibility="{Binding Observacoes,
                                                             Converter={StaticResource TextoParaVisibilidade}}" />
+                                    <!-- Só a linha que TEM arquivo mostra o botão: aceso
+                                         sobre um resultado sem laudo, ele não faria nada. -->
+                                    <Button Content="Abrir laudo" HorizontalAlignment="Left"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource BotaoAcaoGridSecundario}"
+                                            ToolTip="{Binding ArquivoNome}"
+                                            Visibility="{Binding TemArquivo,
+                                                         Converter={StaticResource BoolParaVisibilidade}}"
+                                            Command="{Binding DataContext.AbrirLaudoCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

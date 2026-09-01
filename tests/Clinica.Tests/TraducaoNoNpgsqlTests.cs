@@ -231,6 +231,26 @@ public class TraducaoNoNpgsqlTests
     }
 
     /// <summary>
+    /// A lista de resultados do paciente é lida a cada abertura de tela e NÃO pode
+    /// arrastar os PDFs dos laudos — é por isso que os bytes moram em tabela 1:1
+    /// (o padrão do retrato do paciente; a lição da parcela 74).
+    /// </summary>
+    [Fact]
+    public void A_lista_de_resultados_NAO_traz_os_bytes_do_laudo()
+    {
+        using var db = Postgres();
+
+        var sql = db.ResultadosExame.AsNoTracking()
+            .Where(r => r.PacienteId == 1 && r.CanceladoEm == null)
+            .OrderByDescending(r => r.Data)
+            .ToQueryString();
+
+        sql.Should().Contain("ArquivoNome", "os METADADOS ficam na linha do resultado");
+        sql.Should().NotContain("ArquivosResultadoExame",
+            "os BYTES só são buscados por quem clica em abrir o laudo");
+    }
+
+    /// <summary>
     /// A tela de Exames (set/2026): pedidos com a contagem de resultados vigentes numa
     /// subconsulta — compila no Npgsql sem trazer a foto do paciente nem o corpo do
     /// documento.

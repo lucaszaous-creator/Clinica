@@ -163,7 +163,8 @@
 
                                             <StackPanel Grid.Column="4" Orientation="Horizontal"
                                                         HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                <Button Content="Registrar resultado" Margin="0,0,6,0"
+                                                <Button Content="Anexar laudo" Margin="0,0,6,0"
+                                                        ToolTip="Sobe o PDF ou a foto do laudo e registra o resultado — já amarrado a este pedido"
                                                         Style="{StaticResource BotaoAcaoGridSecundario}"
                                                         IsEnabled="{Binding DataContext.PodeRegistrarResultado,
                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}"

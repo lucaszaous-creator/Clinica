@@ -99,6 +99,33 @@
             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                        Text="Copie a faixa de referência DO LAUDO — cada laboratório tem a sua, e o sistema não inventa uma." />
 
+            <!-- O LAUDO EM ARQUIVO: o PDF que chega do laboratório. Opcional em relação
+                 ao valor digitado — dá para registrar só o número, só o arquivo, ou os
+                 dois; o serviço recusa apenas o registro sem conteúdo nenhum. -->
+            <TextBlock Text="Laudo em arquivo (opcional)" Style="{StaticResource Rotulo}" />
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock Text="{Binding LaudoEscolhido, TargetNullValue=Nenhum arquivo escolhido}"
+                               Style="{StaticResource CelulaSuave}" VerticalAlignment="Center" />
+                </Border>
+                <Button Grid.Column="1" Content="Escolher arquivo…" MinWidth="150"
+                        Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center"
+                        Command="{Binding EscolherLaudoCommand}" />
+                <Button Grid.Column="2" Content="Tirar" Margin="8,0,0,0" MinWidth="70"
+                        Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center"
+                        Visibility="{Binding LaudoEscolhido,
+                                     Converter={StaticResource TextoParaVisibilidade}}"
+                        Command="{Binding RemoverLaudoCommand}" />
+            </Grid>
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                       Text="PDF ou foto do laudo, até 10 MB. O arquivo fica no prontuário do paciente e não se apaga — o registro se cancela com motivo." />
+
             <TextBlock Text="Observação (opcional)" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding ObservacoesNovas, UpdateSourceTrigger=PropertyChanged}"
                      TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"

@@ -3,6 +3,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,14 +14,21 @@ namespace Clinica.Clinico.ViewModels;
 
 /// <summary>Um resultado no modal — os campos do laudo como foram registrados.</summary>
 public sealed record ResultadoResumido(
-    string Nome, string Valor, string? Referencia, string? Laboratorio,
-    string DataTexto, string? Observacoes);
+    int Id, string Nome, string Valor, string? Referencia, string? Laboratorio,
+    string DataTexto, string? Observacoes)
+{
+    /// <summary>Nome do arquivo do laudo; nulo quando o registro é só o valor digitado.</summary>
+    public string? ArquivoNome { get; init; }
+    public bool TemArquivo => !string.IsNullOrWhiteSpace(ArquivoNome);
+}
 
 /// <summary>
 /// O modal "Resultado — exame" da tela de Exames (o quick-view do mockup): os resultados
-/// REGISTRADOS que respondem a este pedido, sem sair da lista. O "Baixar PDF" do mockup
-/// não existe aqui de propósito — o resultado estruturado não tem arquivo; o laudo em
-/// arquivo é ANEXO e mora na seção Exames e anexos, atrás do botão de abrir o paciente.
+/// REGISTRADOS que respondem a este pedido, sem sair da lista.
+///
+/// O "Baixar PDF" do mockup é o <b>Abrir laudo</b> daqui, e só aparece na linha que TEM
+/// arquivo: o registro pode ser só o valor digitado ("glicada 6,1"), e um botão de baixar
+/// aceso sobre um resultado sem arquivo seria o clique que não faz nada (parcela 41).
 /// </summary>
 public sealed partial class ResultadosDoPedidoViewModel : ObservableObject
 {
@@ -74,8 +82,8 @@ public sealed partial class ResultadosDoPedidoViewModel : ObservableObject
             Resultados.Clear();
             foreach (var r in doPaciente.Where(r => r.PedidoDocumentoId == _pedido.DocumentoId))
                 Resultados.Add(new ResultadoResumido(
-                    r.Nome, r.ValorComUnidade, r.Referencia, r.Laboratorio,
-                    $"{r.Data:dd/MM/yyyy}", r.Observacoes));
+                    r.Id, r.Nome, r.ResumoDoResultado, r.Referencia, r.Laboratorio,
+                    $"{r.Data:dd/MM/yyyy}", r.Observacoes) { ArquivoNome = r.ArquivoNome });
 
             NaoVerificado = false;
         }
@@ -88,6 +96,55 @@ public sealed partial class ResultadosDoPedidoViewModel : ObservableObject
         finally
         {
             Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Abre o laudo: salva o arquivo onde a pessoa escolher e deixa o Windows abri-lo no
+    /// programa padrão — é o MESMO caminho do anexo de prontuário (não há visualizador
+    /// embutido, e inventar um aqui seria a segunda definição de "abrir arquivo clínico").
+    /// Dado de saúde saindo para arquivo deixa rastro (parcela 60).
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirLaudoAsync(ResultadoResumido? linha)
+    {
+        if (linha is null || !linha.TemArquivo) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir o laudo do exame");
+
+            byte[]? bytes;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<ResultadoExameService>();
+                bytes = await servico.ConteudoDoLaudoAsync(linha.Id);
+
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(_pedido.PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ExportacaoClinica);
+            }
+
+            if (bytes is null || bytes.Length == 0)
+            {
+                // Falha nunca aparece como sucesso: o arquivo prometido pela linha não
+                // está no banco, e dizer "abrindo" mandaria procurar no lugar errado.
+                Mensagem = "O arquivo deste laudo não foi encontrado no banco.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                bytes, ImpressaoPdf.NomeSeguro(linha.ArquivoNome!));
+            Mensagem = erro;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — o laudo não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
         }
     }
 

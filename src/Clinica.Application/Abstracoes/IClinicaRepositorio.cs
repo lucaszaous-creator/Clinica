@@ -504,6 +504,20 @@ public interface IClinicaRepositorio
 
     Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default);
 
+    /// <summary>
+    /// Guarda os BYTES do laudo do resultado (tabela 1:1, o padrão do retrato do
+    /// paciente). Separado do resultado de propósito: a lista de resultados é lida a
+    /// cada abertura de tela e não pode arrastar os PDFs (a lição da parcela 74).
+    /// </summary>
+    Task AdicionarArquivoResultadoExameAsync(
+        ArquivoResultadoExame arquivo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os bytes do laudo, sob demanda — a ÚNICA consulta que materializa o arquivo.
+    /// Nulo quando o resultado não tem laudo anexado.
+    /// </summary>
+    Task<byte[]?> ConteudoDoLaudoAsync(int resultadoId, CancellationToken ct = default);
+
     Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default);
 
     /// <summary>

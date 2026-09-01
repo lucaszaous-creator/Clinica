@@ -1137,6 +1137,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default)
         => await _db.ResultadosExame.AddAsync(resultado, ct);
 
+    public async Task AdicionarArquivoResultadoExameAsync(
+        ArquivoResultadoExame arquivo, CancellationToken ct = default)
+        => await _db.ArquivosResultadoExame.AddAsync(arquivo, ct);
+
+    // A ÚNICA consulta que materializa o laudo — todas as outras leem só os metadados.
+    public Task<byte[]?> ConteudoDoLaudoAsync(int resultadoId, CancellationToken ct = default)
+        => _db.ArquivosResultadoExame.AsNoTracking()
+            .Where(a => a.ResultadoExameId == resultadoId)
+            .Select(a => a.Conteudo)
+            .FirstOrDefaultAsync(ct);
+
     public Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default)
         => _db.ResultadosExame.FirstOrDefaultAsync(r => r.Id == resultadoId, ct);
 
