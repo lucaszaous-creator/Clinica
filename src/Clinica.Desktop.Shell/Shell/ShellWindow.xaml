@@ -295,10 +295,104 @@
                                 ToolTip="Fecha e reabre o sistema na tela de entrada" />
                     </StackPanel>
 
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"
-                               VerticalAlignment="Center" Margin="16,0,0,0"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                    <!-- ===== Sino de notificações (a Topbar do mockup, completa) =====
+                         O número é REAL: avisos do snackbar desde a última olhada. O
+                         snackbar some em 4 segundos por desenho, e quem estava olhando o
+                         paciente perdia o "salvo" — ou o ERRO — para sempre; o sino é a
+                         segunda via, desta sessão. Sino sem número verdadeiro seria o
+                         botão que não faz nada da parcela 41 vestido de enfeite. -->
+                    <Grid DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Button x:Name="Sino" Style="{StaticResource BotaoIcone}"
+                                Command="{Binding AbrirAvisosCommand}"
+                                ToolTip="Notificações — os últimos avisos desta sessão"
+                                AutomationProperties.Name="Notificações">
+                            <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" />
+                        </Button>
+                        <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Margin="0,2,0,0" IsHitTestVisible="False">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource BadgeContador}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Snackbar.NaoLidos, FallbackValue=0}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Snackbar.NaoLidos}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                        </Border>
+
+                        <Popup IsOpen="{Binding AvisosAbertos, Mode=TwoWay}" StaysOpen="False"
+                               PlacementTarget="{Binding ElementName=Sino}" Placement="Bottom"
+                               AllowsTransparency="True" HorizontalOffset="-280" VerticalOffset="4">
+                            <Border Background="{StaticResource Brush.Superficie}"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}" Padding="4"
+                                    Width="340" MaxHeight="380">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Text="AVISOS DESTA SESSÃO"
+                                               Style="{StaticResource Rotulo}" Margin="10,8,10,6" />
+                                    <Grid>
+                                        <TextBlock Text="Nenhum aviso por enquanto — o que o sistema disser aparece aqui."
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   FontSize="{StaticResource Fonte.Tabela}" TextWrapping="Wrap"
+                                                   Margin="10,4,10,10">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Snackbar.Historico.Count, FallbackValue=0}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding Snackbar.Historico}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel Margin="10,4">
+                                                            <TextBlock DockPanel.Dock="Left" Margin="0,1,8,0"
+                                                                       FontFamily="{StaticResource FonteIcones}"
+                                                                       FontSize="{StaticResource Fonte.Tabela}"
+                                                                       VerticalAlignment="Top">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Text" Value="&#xE946;" />
+                                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Tipo}" Value="Sucesso">
+                                                                                <Setter Property="Text" Value="&#xE73E;" />
+                                                                                <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Tipo}" Value="Erro">
+                                                                                <Setter Property="Text" Value="&#xE783;" />
+                                                                                <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <TextBlock DockPanel.Dock="Right" Text="{Binding HoraTexto}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                                       VerticalAlignment="Top" Margin="8,1,0,0" />
+                                                            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"
+                                                                       FontSize="{StaticResource Fonte.Tabela}"
+                                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </DockPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
 
                     <!-- Pesquisa global: paleta de seções. Enter vai na primeira.
                          Ela ficou MAIS importante depois do rail: é a rota direta para
@@ -352,6 +446,11 @@
                             </Border>
                         </Popup>
                     </Grid>
+
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"
+                               VerticalAlignment="Center" Margin="16,0,0,0"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
                     <!-- Breadcrumb: seção › tela -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

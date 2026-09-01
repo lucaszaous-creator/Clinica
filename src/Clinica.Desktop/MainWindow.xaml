@@ -358,10 +358,13 @@
                                 CommandParameter="{x:Static vm:Secao.Parametros}"
                                 ToolTip="Configurações" AutomationProperties.Name="Configurações"
                                 Margin="4,0,0,0" />
-                        <TextBlock Text="&#xE77B;" FontFamily="{StaticResource FonteIcones}" FontSize="16"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   VerticalAlignment="Center" Margin="12,0,4,0"
-                                   ToolTip="Usuário do sistema" />
+                        <!-- O avatar do mockup, com as iniciais de quem FEZ LOGIN — o glifo
+                             genérico de pessoa dizia que "alguém" estava conectado sem dizer
+                             quem, e quem assina a auditoria é o login (parcela 45). O nome e o
+                             "Trocar usuário" continuam no rodapé da sidebar. -->
+                        <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="28"
+                                     VerticalAlignment="Center" Margin="12,0,4,0"
+                                     ToolTip="{Binding UsuarioRotulo}" />
                     </StackPanel>
 
                     <!-- Pesquisa global -->

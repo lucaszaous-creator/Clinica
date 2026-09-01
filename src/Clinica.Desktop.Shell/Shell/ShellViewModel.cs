@@ -360,6 +360,24 @@ public sealed partial class ShellViewModel : ObservableObject
         return new TelaComAbas(abas, abaInicial);
     }
 
+    // ===== Sino da topbar =====
+
+    /// <summary>Pop-up do sino aberto? A View liga o Popup (StaysOpen=False) aqui.</summary>
+    [ObservableProperty]
+    private bool _avisosAbertos;
+
+    /// <summary>
+    /// Abre/fecha a lista dos últimos avisos da sessão (o histórico do snackbar — a
+    /// segunda via do que some em 4 segundos). Abrir zera o badge de não lidos: o número
+    /// responde "aconteceu algo desde a última olhada?", não "quantos avisos existem".
+    /// </summary>
+    [RelayCommand]
+    private void AbrirAvisos()
+    {
+        AvisosAbertos = !AvisosAbertos;
+        if (AvisosAbertos) Snackbar?.MarcarLidos();
+    }
+
     // ===== Rail =====
 
     [RelayCommand]
