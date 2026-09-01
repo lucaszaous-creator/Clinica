@@ -179,9 +179,35 @@ public sealed partial class ExamesViewModel : ObservableObject, ICarregarAoAbrir
     }
 
     /// <summary>
+    /// O quick-view do mockup: os resultados registrados que respondem a ESTE pedido,
+    /// num modal, sem sair da lista. O caminho completo (laudos em arquivo, registrar
+    /// outro) fica no botão de abrir o paciente, dentro dele.
+    /// </summary>
+    [RelayCommand]
+    private void VerResultados(PedidoDeExameLinha? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir os exames do paciente");
+
+            var vm = new ResultadosDoPedidoViewModel(_escopos, _foco, linha);
+            var janela = new ResultadosDoPedidoWindow(vm) { Owner = JanelaDona.Atual() };
+            janela.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — os resultados do pedido não puderam ser abertos", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
     /// Abre o paciente na seção "Exames e anexos" — é lá que moram os resultados, os
-    /// laudos anexados e o registro avulso. "Ver resultados" e "Detalhes" levam ao MESMO
-    /// lugar de propósito: uma resposta, uma tela.
+    /// laudos anexados e o registro avulso.
     /// </summary>
     [RelayCommand]
     private void Abrir(PedidoDeExameLinha? linha)

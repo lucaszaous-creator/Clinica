@@ -176,7 +176,7 @@
                                                         Style="{StaticResource BotaoAcaoGrid}"
                                                         Visibility="{Binding MostraVerResultados,
                                                                      Converter={StaticResource BoolParaVisibilidade}}"
-                                                        Command="{Binding DataContext.AbrirCommand,
+                                                        Command="{Binding DataContext.VerResultadosCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Detalhes"

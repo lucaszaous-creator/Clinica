@@ -195,11 +195,13 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
         }
     }
 
-    /// <summary>Abre a linha: evolução cai no histórico de sessões do paciente; anamnese
-    /// abre a FOLHA emitida (a segunda via devolve o que foi emitido, nunca o que o
-    /// prontuário diz hoje).</summary>
+    /// <summary>
+    /// Abre o QUICK-VIEW do prontuário (o modal do mockup): as evoluções, a anamnese e os
+    /// anexos, sem sair da lista. Linha de anamnese abre já na aba dela, com a 2ª via da
+    /// folha emitida no rodapé; o prontuário completo fica a um botão de distância.
+    /// </summary>
     [RelayCommand]
-    private async Task AbrirAsync(LinhaProntuario? linha)
+    private void Abrir(LinhaProntuario? linha)
     {
         if (linha is null) return;
 
@@ -207,35 +209,14 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir o prontuário");
 
-            if (linha.Natureza == NaturezaLinhaProntuario.Anamnese && linha.DocumentoId is { } docId)
+            var vm = new ResumoProntuarioViewModel(
+                _escopos, _foco, linha.PacienteId, linha.Paciente,
+                linha.Natureza == NaturezaLinhaProntuario.Anamnese ? linha.DocumentoId : null);
+            var janela = new Clinica.Clinico.Janelas.ResumoProntuarioWindow(vm)
             {
-                byte[] pdf;
-                using (var scope = _escopos.CreateScope())
-                {
-                    var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
-                    var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
-                    pdf = await pdfs.GerarAsync(docId, await parametros.ObterPrestadorAsync());
-
-                    // Dado de saúde abrindo por esta porta deixa rastro (parcela 60).
-                    await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
-                        .RegistrarAsync(linha.PacienteId, SessaoUsuario.Atual.Operador,
-                            OrigemAcessoProntuario.Documento);
-                }
-
-                var nome = $"Anamnese-{(linha.Numero ?? "folha").Replace('/', '-')}.pdf";
-                var erro = await ImpressaoPdf.SalvarEAbrirAsync(pdf, ImpressaoPdf.NomeSeguro(nome));
-                Mensagem = erro;
-                MensagemEhErro = erro is not null;
-                return;
-            }
-
-            _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
-                          dataDoHorario: linha.Data);
-            if (!NavegacaoSuite.Ir(ModuloClinico.ChaveProntuario))
-            {
-                Mensagem = "Não deu para abrir o prontuário do paciente.";
-                MensagemEhErro = true;
-            }
+                Owner = JanelaDona.Atual()
+            };
+            janela.ShowDialog();
         }
         catch (Exception ex)
         {
