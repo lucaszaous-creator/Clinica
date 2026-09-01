@@ -1,0 +1,239 @@
+<UserControl x:Class="Clinica.Clinico.Views.ProntuariosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24,20,24,24">
+
+        <!-- Cabeçalho do mockup: título + subtítulo, e as duas ações à direita. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Prontuários" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                           Text="Evoluções e anamneses dos seus atendimentos — e as sessões que ainda estão sem registro." />
+                <TextBlock Text="{Binding MotivoDaLista}" Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           Visibility="{Binding MotivoDaLista,
+                                        Converter={StaticResource TextoParaVisibilidade}}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Liga o recorte "só o que falta assinar" — o número vem da carga. -->
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,0"
+                              IsChecked="{Binding SoAssinaturasPendentes}"
+                              Content="{Binding RotuloPendentes}"
+                              ToolTip="Mostrar só as anamneses que aguardam assinatura" />
+                <Button MinWidth="160" VerticalAlignment="Center"
+                        IsEnabled="{Binding PodeEscrever}"
+                        Command="{Binding NovoProntuarioCommand}"
+                        ToolTip="Abre a tela de atendimento — é lá que a evolução é escrita">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE710;" Style="{StaticResource Icone}" FontSize="{StaticResource Fonte.Legenda}"
+                                   Margin="0,0,6,0" />
+                        <TextBlock Text="Novo prontuário" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a GRAVIDADE (parcela 62). -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="420" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                     Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                     ctrl:Ajudantes.Placeholder="Buscar por paciente…" />
+            <TextBlock Grid.Column="1" Text="{Binding Resumo}"
+                       Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="12,0,0,0"
+                       VerticalAlignment="Center" TextWrapping="Wrap"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
+                <DockPanel>
+                    <!-- Cabeçalho da tabela: as MESMAS colunas (estrela/fixa) das linhas. -->
+                    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Raia}"
+                            CornerRadius="12,12,0,0" Padding="16,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="1*" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="230" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Paciente" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="Data" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="Especialidade" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="Tipo" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="4" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  ctrl:Ajudantes.RodaDaPagina="True">
+                        <ItemsControl ItemsSource="{Binding Linhas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.2*" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="1*" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="230" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                        VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <ctrl:Avatar Tamanho="28" Nome="{Binding Paciente}"
+                                                             VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <!-- Na lista da CLÍNICA inteira cada linha diz de quem
+                                                         é (a regra do posto — parcela 39): misturar os
+                                                         registros de todos sem autoria não se lê. -->
+                                                    <Border Visibility="{Binding DataContext.ListaDaClinica,
+                                                                         RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                                         Converter={StaticResource BoolParaVisibilidade}}">
+                                                        <TextBlock Text="{Binding Profissional}"
+                                                                   Style="{StaticResource CelulaSuave}"
+                                                                   Visibility="{Binding Profissional,
+                                                                                Converter={StaticResource TextoParaVisibilidade}}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                                       Style="{StaticResource CelulaSuave}"
+                                                       Text="{Binding Data, StringFormat=dd/MM/yyyy}" />
+
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                       Margin="0,0,12,0"
+                                                       Text="{Binding Detalhe}"
+                                                       ToolTip="{Binding Detalhe}"
+                                                       TextTrimming="CharacterEllipsis" />
+
+                                            <TextBlock Grid.Column="3" VerticalAlignment="Center"
+                                                       Style="{StaticResource CelulaSuave}"
+                                                       Text="{Binding TipoRotulo}" />
+
+                                            <!-- Um badge por tom; quem decide é o record. -->
+                                            <StackPanel Grid.Column="4" VerticalAlignment="Center"
+                                                        Margin="0,0,12,0">
+                                                <Border Style="{StaticResource Badge.Aviso}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding TomAviso,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Sucesso}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding TomSucesso,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Info}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding TomInfo,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Erro}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding TomErro,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Button Content="Escrever" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        IsEnabled="{Binding DataContext.PodeEscrever,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Visibility="{Binding MostraEscrever,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.EscreverCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Assinar" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        IsEnabled="{Binding DataContext.PodeAssinarDocumento,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Visibility="{Binding MostraAssinar,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.AssinarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Abrir"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Visibility="{Binding MostraAbrir,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.AbrirCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+
+                <ctrl:EstadoDaTela Itens="{Binding Linhas}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE7C3;"
+                                   TextoCarregando="Procurando registros…"
+                                   Titulo="Nenhum registro encontrado"
+                                   Descricao="Evoluções, anamneses e sessões sem registro aparecem aqui. Ajuste a busca ou o recorte de pendências." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

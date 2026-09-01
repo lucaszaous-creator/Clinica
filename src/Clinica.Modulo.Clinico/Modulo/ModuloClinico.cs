@@ -98,6 +98,29 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveMeusNumeros = ChavesSuite.ConsultorioMeusNumeros;
 
     /// <summary>
+    /// A lista plana de PRONTUÁRIOS (set/2026 — o handoff): evoluções, anamneses e as
+    /// sessões sem registro, com busca por paciente. A situação segue o que cada linha É
+    /// no domínio — anamnese tem assinatura de verdade; o pendente da evolução é a
+    /// sessão sem registro ("A escrever"), nunca uma assinatura inventada.
+    /// </summary>
+    public const string ChaveProntuarios = "consultorio-prontuarios";
+
+    /// <summary>
+    /// A tela de EXAMES (set/2026 — o handoff): os pedidos com a situação derivada dos
+    /// resultados REGISTRADOS amarrados a cada um. É a mesma família do 2º código — o
+    /// que foi pedido e ainda não voltou some da cabeça sem uma lista que cobre.
+    /// </summary>
+    public const string ChaveExames = "consultorio-exames";
+
+    /// <summary>
+    /// A seção "Exames e anexos" do paciente, navegável por chave (oculta do menu — só
+    /// existe COM um paciente escolhido). É o destino do "Ver resultados" da tela de
+    /// Exames; sem item declarado, <c>NavegacaoSuite.Ir</c> devolveria false EM SILÊNCIO
+    /// (a regressão da parcela 37, vigiada pela checagem 19).
+    /// </summary>
+    public const string ChaveExamesDoPaciente = "consultorio-exames-anexos";
+
+    /// <summary>
     /// A tela do PACIENTE — identidade no topo, as seções num rail à esquerda.
     ///
     /// As chaves clínicas acima continuam válidas e caem todas aqui, cada uma na
@@ -161,6 +184,19 @@ public sealed class ModuloClinico : IModuloApp
             // navegação de outros módulos, e renomeá-la para arrumar rótulo quebraria o
             // que funciona lá (a regressão da parcela 37, 4ª rodada).
             Chave = ChavePacientesDaClinica, Rotulo = "Pacientes", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        // As duas telas planas do handoff (set/2026). Sob VerProntuario: as listas
+        // carregam nome de paciente com dado de sa\u00FAde ao lado (o que foi pedido, o que
+        // foi escrito) \u2014 \u00E9 o corte da parcela 49.
+        new ItemMenuModulo
+        {
+            Chave = ChaveProntuarios, Rotulo = "Prontu\u00E1rios", Glifo = "\uE7C3",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveExames, Rotulo = "Exames", Glifo = "\uE9D2",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
@@ -249,6 +285,14 @@ public sealed class ModuloClinico : IModuloApp
             Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
         },
+        // O destino do "Ver resultados" da tela de Exames: a seção "Exames e anexos" do
+        // paciente. Oculto porque só existe COM alguém escolhido — como seção ela diz
+        // sozinha a quem pertence; como item abriria em branco (a regra de leiaute).
+        new ItemMenuModulo
+        {
+            Chave = ChaveExamesDoPaciente, Rotulo = "Exames e anexos", Glifo = "\uE9D2",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
 
         // AJUDA E SUPORTE — tela do shell, sem `Requer` de propósito (o padrão é
         // "sempre visível"): fechar o manual por permissão trancaria quem mais precisa.
@@ -301,6 +345,7 @@ public sealed class ModuloClinico : IModuloApp
         {
             ChaveAtendimentoEnfermagem => "Atendimento de enfermagem",
             ChaveProntuario => "Histórico de sessões",
+            ChaveExamesDoPaciente => "Exames e anexos",
             ChaveEvolucaoDor => "Evolução da dor",
             ChaveMedidas => "Medidas",
             ChaveAvaliacoes => "Avaliações",
@@ -334,6 +379,8 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<AnamneseViewModel>();
         servicos.AddTransient<AnexosPacienteViewModel>();
         servicos.AddTransient<PacientesDaClinicaViewModel>();
+        servicos.AddTransient<ProntuariosViewModel>();
+        servicos.AddTransient<ExamesViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
         // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e
         // EscolherCertificadoViewModel são construídos à mão pela tela: eles recebem o
@@ -345,6 +392,8 @@ public sealed class ModuloClinico : IModuloApp
     {
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
         ChavePacientesDaClinica => new PacientesDaClinicaView { DataContext = servicos.GetRequiredService<PacientesDaClinicaViewModel>() },
+        ChaveProntuarios => new ProntuariosView { DataContext = servicos.GetRequiredService<ProntuariosViewModel>() },
+        ChaveExames => new ExamesView { DataContext = servicos.GetRequiredService<ExamesViewModel>() },
         ChaveRegistrosPendentes => new RegistrosPendentesView
         {
             DataContext = servicos.GetRequiredService<RegistrosPendentesViewModel>()
@@ -377,7 +426,7 @@ public sealed class ModuloClinico : IModuloApp
         // A tela do paciente, e as chaves clínicas que caem nela — cada uma na sua
         // seção (ver AbaDe).
         ChavePaciente or ChaveAtendimento or ChaveAtendimentoEnfermagem or ChaveProntuario
-            or ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes
+            or ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes or ChaveExamesDoPaciente
             => new PacienteWorkspaceView
             {
                 DataContext = new PacienteWorkspaceViewModel(

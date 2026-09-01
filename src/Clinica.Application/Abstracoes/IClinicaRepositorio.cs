@@ -1338,6 +1338,26 @@ public interface IClinicaRepositorio
         DateOnly inicio, DateOnly fim, CancellationToken ct = default, int? profissionalId = null);
 
     /// <summary>
+    /// As evoluções do período para a tela de PRONTUÁRIOS — por PROJEÇÃO, sem os textos:
+    /// a lista mostra cinco colunas, e ler a entidade inteira arrastaria meio megabyte de
+    /// prontuário por carga (a lição da parcela 74). Cancelada fica de fora (registro
+    /// desdito mora no histórico do paciente); a regra do filtro de profissional é a
+    /// MESMA de <see cref="EvolucoesNoPeriodoAsync"/> — evolução sem profissional entra.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.LinhaEvolucaoProntuarios>> EvolucoesParaProntuariosAsync(
+        DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os pedidos de exame com a situação DERIVADA DE FATO (a contagem de resultados
+    /// vigentes amarrados a cada um), numa consulta só. Serve à tela de Exames (por
+    /// período e profissional) e ao combo de vínculo do registro de resultado (por
+    /// paciente). Cancelado ENTRA, marcado — pedido numerado nunca some da lista.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.PedidoDeExameLinha>> PedidosDeExameAsync(
+        DateOnly? inicio = null, DateOnly? fim = null, int? profissionalId = null,
+        int? pacienteId = null, CancellationToken ct = default);
+
+    /// <summary>
     /// Quando cada paciente veio pela última vez e se já tem horário futuro — por
     /// PROJEÇÃO, resolvida no banco. É a base do recall, e a pergunta é sobre a base
     /// inteira: trazer todo paciente com o histórico junto arrastaria a tabela de

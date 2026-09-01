@@ -1,0 +1,59 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.EscolherPacienteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Escolher paciente" Width="480" Height="560" MinWidth="420" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <!-- Escolher UMA pessoa para um ato que nasce numa tela SEM paciente em foco (o
+         "Novo pedido de exame" da tela de Exames). A busca é o SeletorPacienteViewModel
+         de sempre — limite no SQL, agrupamento de teclas, descarte fora de ordem; esta
+         janela não reescreve busca nenhuma, só devolve a escolha. -->
+    <DockPanel Margin="20">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock x:Name="TituloTexto" Text="Escolher paciente"
+                       Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                       Text="Busque por nome ou CPF — a lista filtra enquanto você digita." />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Cancelar" IsCancel="True"
+                    Style="{StaticResource BotaoSecundario}" MinWidth="110" Margin="0,0,8,0" />
+            <Button x:Name="BtnEscolher" Content="Escolher" MinWidth="130"
+                    IsDefault="True" IsEnabled="False" Click="Escolher_Click" />
+        </StackPanel>
+
+        <TextBox DockPanel.Dock="Top" x:Name="CampoBusca"
+                 Style="{StaticResource CampoPesquisa}"
+                 Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged}"
+                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+
+        <Grid Margin="0,8,0,0">
+            <ListBox x:Name="Lista"
+                     ItemsSource="{Binding Resultados}"
+                     SelectedItem="{Binding Selecionado}"
+                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                     BorderThickness="1" BorderBrush="{StaticResource Brush.Borda}"
+                     Background="Transparent"
+                     HorizontalContentAlignment="Stretch"
+                     MouseDoubleClick="Lista_MouseDoubleClick" />
+
+            <!-- Falha da busca não é lista vazia: "não achei" e "não consegui procurar"
+                 mandam a pessoa fazer coisas diferentes. -->
+            <Border Style="{StaticResource AlertaPerigo}" VerticalAlignment="Top"
+                    Margin="8" Panel.ZIndex="1"
+                    Visibility="{Binding Erro, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" />
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

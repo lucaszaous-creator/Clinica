@@ -33,6 +33,20 @@ public class ResultadoExame
     public int PacienteId { get; set; }
     public Paciente? Paciente { get; set; }
 
+    /// <summary>
+    /// O PEDIDO DE EXAME que este resultado responde (o DocumentoClinico de tipo
+    /// PedidoExame), quando a clínica o amarrou. É este elo que faz a tela de Exames
+    /// dizer "Aguardando resultado" ou "Resultado disponível" por FATO — sem ele a
+    /// situação seria chute com cara de registro.
+    ///
+    /// Nulo é o caso normal: resultado trazido pelo paciente sem pedido nosso, ou
+    /// registrado antes de o vínculo existir (set/2026). O serviço RECUSA amarrar num
+    /// pedido de OUTRO paciente ou num documento que não é pedido — o vínculo errado
+    /// daria baixa na espera de outra pessoa.
+    /// </summary>
+    public int? PedidoDocumentoId { get; set; }
+    public DocumentoClinico? PedidoDocumento { get; set; }
+
     /// <summary>Data do exame (coleta ou laudo) — a data CLÍNICA, informada.</summary>
     public DateOnly Data { get; set; }
 

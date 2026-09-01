@@ -40,11 +40,27 @@ public sealed class ResultadoExameService
         if (dados.Data.Year < 1900)
             throw new InvalidOperationException("Confira a data do exame — o ano não é plausível.");
 
+        // O vínculo com o pedido é conferido ANTES de gravar: amarrado no pedido de
+        // OUTRO paciente, este resultado daria baixa na espera de outra pessoa — e a
+        // tela de Exames diria "Resultado disponível" sobre um exame que não chegou.
+        if (dados.PedidoDocumentoId is { } pedidoId)
+        {
+            var pedido = await _repo.ObterDocumentoAsync(pedidoId, ct)
+                ?? throw new InvalidOperationException("O pedido de exame informado não existe.");
+            if (pedido.Tipo != TipoDocumentoClinico.PedidoExame)
+                throw new InvalidOperationException(
+                    "O documento informado não é um pedido de exame — o vínculo só vale para pedidos.");
+            if (pedido.PacienteId != dados.PacienteId)
+                throw new InvalidOperationException(
+                    "O pedido informado é de OUTRO paciente — amarrar aqui daria baixa na espera errada.");
+        }
+
         // Entidade NOVA, campo a campo: o que não estiver aqui não é gravado, e é
         // exatamente por isso que a lista é explícita (o lugar 3 da conferência).
         var resultado = new ResultadoExame
         {
             PacienteId = dados.PacienteId,
+            PedidoDocumentoId = dados.PedidoDocumentoId,
             Data = dados.Data,
             Nome = dados.Nome.Trim(),
             Valor = dados.Valor.Trim(),

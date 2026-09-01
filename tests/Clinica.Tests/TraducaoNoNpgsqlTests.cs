@@ -202,4 +202,58 @@ public class TraducaoNoNpgsqlTests
         consultaQuebrada.Should().Throw<InvalidOperationException>()
             .WithMessage("*could not be translated*");
     }
+
+    /// <summary>
+    /// A lista de Prontuários (set/2026): a projeção compila no Npgsql e NÃO arrasta os
+    /// textos da evolução — meio megabyte por carga é o preço de esquecer isto.
+    /// </summary>
+    [Fact]
+    public void Linhas_de_prontuario_traduzem_E_nao_trazem_os_textos()
+    {
+        using var db = Postgres();
+
+        var sql = db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null)
+            .Select(e => new LinhaEvolucaoProntuarios(
+                e.Id, e.PacienteId, e.Paciente!.Nome, e.Data, e.AgendamentoId,
+                e.Agendamento == null
+                    ? (Clinica.Domain.ModalidadeAtendimento?)null
+                    : e.Agendamento.ModalidadePrevista,
+                e.Agendamento == null ? null : e.Agendamento.ModalidadeCodigo,
+                e.Agendamento == null ? null : e.Agendamento.EspecialidadeConsulta,
+                e.Versoes.Count,
+                e.Profissional == null ? null : e.Profissional.Nome))
+            .ToQueryString();
+
+        sql.Should().NotContain("TextoEvolucao",
+            "a lista mostra cinco colunas — o prontuário inteiro fica fora do SELECT");
+        sql.Should().NotContain("HistoriaDoencaAtual");
+    }
+
+    /// <summary>
+    /// A tela de Exames (set/2026): pedidos com a contagem de resultados vigentes numa
+    /// subconsulta — compila no Npgsql sem trazer a foto do paciente nem o corpo do
+    /// documento.
+    /// </summary>
+    [Fact]
+    public void Pedidos_de_exame_traduzem_com_a_contagem_de_resultados()
+    {
+        using var db = Postgres();
+
+        var sql = db.DocumentosClinicos.AsNoTracking()
+            .Where(d => d.Tipo == Clinica.Domain.Entities.TipoDocumentoClinico.PedidoExame)
+            .Select(d => new PedidoDeExameLinha(
+                d.Id, d.Numero, d.PacienteId, d.Paciente!.Nome, d.Data,
+                d.Itens.OrderBy(it => it.Ordem).Select(it => it.Descricao).FirstOrDefault(),
+                d.Itens.Count,
+                db.ResultadosExame.Count(r => r.PedidoDocumentoId == d.Id
+                    && r.CanceladoEm == null),
+                d.CanceladoEm != null,
+                d.Profissional == null ? null : d.Profissional.Nome))
+            .ToQueryString();
+
+        sql.Should().NotContain("FotoMiniatura",
+            "o nome do paciente vem por projeção — a linha inteira dele arrastaria a miniatura");
+        sql.Should().NotContain("\"Corpo\"");
+    }
 }

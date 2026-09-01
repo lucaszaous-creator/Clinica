@@ -2395,6 +2395,32 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   WPF, QuestPDF ↔ PDFsharp) tem a semântica MEDIDA no destino, nunca presumida da origem.**
 
 
+- **AS TELAS PLANAS DE PRONTUÁRIOS E EXAMES, e a situação que só existe se houver FATO**
+  (set/2026 — as duas telas do handoff que faltavam no Consultório). A tela de Exames
+  pede "Aguardando resultado / Resultado disponível", e o domínio não tinha o elo que
+  sustenta a resposta: o laudo entrava como anexo da sessão ou como `ResultadoExame`
+  avulso, sem dizer DE QUAL pedido era. O elo é `ResultadoExame.PedidoDocumentoId`
+  (migration aditiva, nullable — linha antiga fica com nulo, que é a verdade), a situação
+  é DERIVADA da contagem de resultados vigentes amarrados, e o serviço RECUSA amarrar em
+  pedido de OUTRO paciente ou em documento que não é pedido — o vínculo errado daria
+  baixa na espera de outra pessoa. O "Agendado" do mockup ficou de FORA: não há fato de
+  agendamento de exame no domínio, e situação sem fato é a garantia aparente de sempre.
+  ⚠️ **A tela de Prontuários dá a cada linha a situação que ela TEM, não a que o mockup
+  pinta**: anamnese é DOCUMENTO e tem assinatura de verdade ("A assinar" → o fluxo
+  ICP-Brasil existente); evolução NÃO é assinável — o pendente real dela é a sessão sem
+  registro ("A escrever", levando ao atendimento daquele horário). As linhas carregam
+  `EvolucaoId` e `DocumentoId` em campos SEPARADOS (ids são por tabela — parcela 71), e
+  quem pede AÇÃO sobe para o topo. Os montadores são PUROS na Application
+  (`ListaDeProntuarios`, `PedidoDeExameLinha`) — o que a tela afirma mora onde o
+  `dotnet test` alcança. As listas são PROJEÇÕES novas do repositório (sem os textos da
+  evolução, sem a miniatura da foto — a lição da parcela 74), executadas em teste e na
+  rede de tradução do Npgsql. O combo "responde ao pedido" mora na ÚNICA janela de
+  registro de resultado, para as duas portas amarrarem pela mesma regra; e o "Novo pedido
+  de exame" de uma tela SEM paciente em foco pergunta QUEM primeiro
+  (`EscolherPacienteWindow`, no shell — capacidade em porta única é o defeito recorrente).
+  Na lista da CLÍNICA inteira (posto sem vínculo/enfermagem) cada linha diz o
+  profissional — booleano de estado sem leitor é só uma atribuição (parcela 76).
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

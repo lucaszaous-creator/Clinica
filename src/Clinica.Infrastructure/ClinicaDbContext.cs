@@ -601,8 +601,18 @@ public class ClinicaDbContext : DbContext
 
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
 
+            // O pedido que este resultado responde. SetNull, nunca cascata: documento
+            // clínico não se apaga, mas se um dia uma limpeza administrativa o levasse,
+            // o RESULTADO é registro clínico próprio e não pode ir de arrasto (a
+            // cascata da parcela 60).
+            e.HasOne(x => x.PedidoDocumento).WithMany()
+                .HasForeignKey(x => x.PedidoDocumentoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // A leitura é sempre por paciente, em ordem de data (a linha do tempo).
             e.HasIndex(x => new { x.PacienteId, x.Data });
+            // A tela de Exames conta resultados POR PEDIDO — é esta a consulta.
+            e.HasIndex(x => x.PedidoDocumentoId);
 
             e.Ignore(x => x.Cancelado);
             e.Ignore(x => x.ValorComUnidade);

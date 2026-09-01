@@ -1,13 +1,15 @@
 <Window x:Class="Clinica.Clinico.Janelas.RegistrarResultadoExameWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Registrar resultado de exame" Width="560" Height="520"
-        MinWidth="480" MinHeight="440"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Registrar resultado de exame" Width="560" Height="560"
+        MinWidth="480" MinHeight="460"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <!-- Registro em DIÁLOGO, pelo molde da colheita de medida: acontece uma vez por laudo
@@ -38,6 +40,20 @@
             <TextBlock Text="Exame" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding NomeNovo, UpdateSourceTrigger=PropertyChanged}"
                      Margin="0,0,0,12" />
+
+            <!-- O vínculo que faz a tela de Exames dizer "Resultado disponível" por
+                 FATO. Opcional: laudo trazido pelo paciente sem pedido nosso é o caso
+                 normal, e obrigá-lo travaria o registro. -->
+            <TextBlock Text="Responde ao pedido (opcional)" Style="{StaticResource Rotulo}" />
+            <ComboBox ItemsSource="{Binding PedidosDoPaciente}"
+                      SelectedItem="{Binding PedidoEscolhido}"
+                      DisplayMemberPath="Rotulo" Margin="0,0,0,4" />
+            <TextBlock Text="{Binding AvisoPedidos}" Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                       Margin="0,0,0,8"
+                       Visibility="{Binding AvisoPedidos,
+                                    Converter={StaticResource TextoParaVisibilidade}}" />
+            <Border Height="4" />
 
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>

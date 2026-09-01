@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
@@ -7,6 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Clinico.ViewModels;
 
+/// <summary>Uma opção do combo "responde ao pedido": nulo = resultado avulso.</summary>
+public sealed record OpcaoPedidoExame(int? DocumentoId, string Rotulo)
+{
+    public override string ToString() => Rotulo;
+}
+
 /// <summary>
 /// O registro de UM resultado de exame (ago/2026) — em diálogo, pelo molde da colheita de
 /// medida: registrar é ato pontual, e ato pontual não merece painel permanente.
@@ -14,11 +21,19 @@ namespace Clinica.Clinico.ViewModels;
 /// O VALOR é texto livre por desenho (a entidade explica: "não reagente", "&lt; 0,01" são
 /// resultados reais), então aqui não há conversão numérica nenhuma — quem valida
 /// completude e plausibilidade de DATA é o serviço, e a recusa volta inline.
+///
+/// O combo "responde ao pedido" (set/2026) é o que faz a tela de Exames dizer
+/// "Resultado disponível" por FATO. Ele mora AQUI, na janela única de registro, para as
+/// duas portas (a tela de Exames e a seção Exames e anexos) amarrarem pela MESMA regra —
+/// vínculo que só existe numa porta é o defeito recorrente do projeto. E a falha ao
+/// CARREGAR os pedidos não impede registrar: banco lento não pode segurar um laudo na
+/// mão da técnica — vira aviso escrito, nunca silêncio.
 /// </summary>
 public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
+    private readonly int? _pedidoPreSelecionado;
 
     /// <summary>Gravou — é por isso que a janela fecha.</summary>
     public bool Registrado { get; private set; }
@@ -33,16 +48,61 @@ public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _laboratorioNovo;
     [ObservableProperty] private string? _observacoesNovas;
 
+    public ObservableCollection<OpcaoPedidoExame> PedidosDoPaciente { get; } = [];
+    [ObservableProperty] private OpcaoPedidoExame? _pedidoEscolhido;
+
+    /// <summary>Terceiro estado do combo: "não deu para conferir" ≠ "não há pedido".</summary>
+    [ObservableProperty] private string? _avisoPedidos;
+
     [ObservableProperty] private bool _salvando;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
     public ResultadoExameEdicaoViewModel(
-        IServiceScopeFactory escopos, int pacienteId, string paciente)
+        IServiceScopeFactory escopos, int pacienteId, string paciente,
+        int? pedidoDocumentoId = null)
     {
         _escopos = escopos;
         _pacienteId = pacienteId;
+        _pedidoPreSelecionado = pedidoDocumentoId;
         Paciente = paciente;
+
+        _ = CarregarPedidosAsync();
+    }
+
+    private async Task CarregarPedidosAsync()
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var repo = scope.ServiceProvider
+                .GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var pedidos = await repo.PedidosDeExameAsync(pacienteId: _pacienteId);
+
+            PedidosDoPaciente.Clear();
+            PedidosDoPaciente.Add(new OpcaoPedidoExame(null, "— resultado avulso (sem pedido) —"));
+            foreach (var p in pedidos.Where(p => !p.Cancelado))
+            {
+                // O que já tem resultado continua na lista, DITO: um pedido de vários
+                // exames recebe vários laudos, e escondê-lo impediria o segundo.
+                var rotulo = p.ResultadosVinculados > 0
+                    ? $"{p.RotuloDoCombo} (já tem {p.ResultadosVinculados})"
+                    : p.RotuloDoCombo;
+                PedidosDoPaciente.Add(new OpcaoPedidoExame(p.DocumentoId, rotulo));
+            }
+
+            PedidoEscolhido = _pedidoPreSelecionado is { } alvo
+                ? PedidosDoPaciente.FirstOrDefault(o => o.DocumentoId == alvo)
+                    ?? PedidosDoPaciente[0]
+                : PedidosDoPaciente[0];
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — pedidos do paciente não puderam ser listados", ex);
+            AvisoPedidos = "Não deu para listar os pedidos deste paciente — dá para "
+                + "registrar mesmo assim, e o vínculo pode ser feito depois.";
+        }
     }
 
     [RelayCommand]
@@ -62,6 +122,7 @@ public sealed partial class ResultadoExameEdicaoViewModel : ObservableObject
             await servico.RegistrarAsync(new ResultadoExame
             {
                 PacienteId = _pacienteId,
+                PedidoDocumentoId = PedidoEscolhido?.DocumentoId,
                 Data = DateOnly.FromDateTime(DataNova),
                 Nome = NomeNovo ?? string.Empty,
                 Valor = ValorNovo ?? string.Empty,
