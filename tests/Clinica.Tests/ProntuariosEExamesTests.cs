@@ -42,12 +42,20 @@ public class ProntuariosEExamesTests : IDisposable
         return p.Id;
     }
 
+    /// <summary>
+    /// O número do documento é ÚNICO no banco (índice), e a primeira versão o sorteava em
+    /// 1000..9999: com cinco pedidos num teste, a colisão aparece uma vez a cada ~1.600
+    /// rodadas — foi assim que o CI reprovou em 01/09/2026 com o código certo. Teste que
+    /// depende de um número aleatório é sorteio (parcela 67): contador determinístico.
+    /// </summary>
+    private int _numeroDocumento;
+
     private async Task<int> PedidoAsync(
         int pacienteId, DateOnly data, bool cancelado = false, params string[] itens)
     {
         var d = new DocumentoClinico
         {
-            Numero = $"2026/{Random.Shared.Next(1000, 9999)}",
+            Numero = $"2026/{++_numeroDocumento:0000}",
             CodigoVerificacao = Guid.NewGuid().ToString("N")[..8],
             Tipo = TipoDocumentoClinico.PedidoExame,
             PacienteId = pacienteId,
