@@ -380,6 +380,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(c => c.DataBaixa)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.FichaResumida>> FichasResumidasAsync(
+        CancellationToken ct = default)
+        => await _db.Pacientes.AsNoTracking()
+            .Select(p => new Clinica.Application.Modelos.FichaResumida(
+                p.Id, p.Nome, p.Documento, p.DataNascimento, p.ChaveImportacao))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(
         string cpfSoDigitos, CancellationToken ct = default)
     {

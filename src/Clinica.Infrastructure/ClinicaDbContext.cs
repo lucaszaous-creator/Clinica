@@ -105,6 +105,12 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.ModalidadePreferidaCodigo).HasMaxLength(40);
             // Hora de parede (sem fuso), como na Agenda — evita o erro do Npgsql com DateTime local.
             e.Property(p => p.FotoAtualizadaEm).HasColumnType("timestamp without time zone");
+            // A chave de importação é ÚNICA no banco (ao contrário do CPF, parcela 57): a
+            // coluna nasce vazia, então o índice não tem como falhar na criação — e é ele
+            // que impede dois cliques concorrentes em "Importar" de gravar a mesma ficha
+            // duas vezes, que é exatamente o caso que a chave existe para cobrir.
+            e.Property(p => p.ChaveImportacao).HasMaxLength(120);
+            e.HasIndex(p => p.ChaveImportacao).IsUnique();
             e.Ignore(p => p.TemFoto);
             e.Ignore(p => p.CarteirinhaVencida);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);

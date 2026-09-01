@@ -170,6 +170,15 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(string cpfSoDigitos, CancellationToken ct = default);
 
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
+
+    /// <summary>
+    /// A carteira INTEIRA reduzida ao que a importação precisa para reconhecer quem já
+    /// está na base: id, nome, CPF (como gravado — com máscara nas linhas antigas),
+    /// nascimento e a chave de importação. Uma consulta, cinco colunas, sem a
+    /// miniatura da foto (a lição da parcela 74): carregar <see cref="Paciente"/>
+    /// inteiro para comparar CPF traria um JPEG por linha.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.FichaResumida>> FichasResumidasAsync(CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     /// <summary>

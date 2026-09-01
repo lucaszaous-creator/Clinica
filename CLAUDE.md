@@ -2449,6 +2449,30 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   corrigidos no mesmo commit — **ao dar capacidade nova a um registro, procure o que
   AFIRMAVA que ela não existia.**
 
+- **A IMPORTAÇÃO DA CARTEIRA DO SISTEMA ANTERIOR — e a auditoria que ficaria pendurada**
+  (set/2026 — a clínica migrou do Smart Clinic e recebeu a exportação; roteiro em
+  `docs/importar-pacientes.md`). `ImportacaoPacientesService` em dois passos separados de
+  propósito: `PreverAsync` lê o CSV com o mapeamento e diz linha a linha o que VAI acontecer
+  sem gravar; `ExecutarAsync` grava o que a prévia mostrou. As regras: **idempotente pela
+  chave** (`Paciente.ChaveImportacao = IMPORT:{sistema}:{id}`, índice ÚNICO — a coluna nasce
+  vazia, então o índice não tem como falhar na abertura), **quem existe é COMPLETADO e nunca
+  sobrescrito** (CPF com ou sem máscara, ou nome + nascimento; convênio da ficha é mantido),
+  **a criação passa pelo `PacienteService`** (a regra do CPF mora lá), e **convênio do
+  arquivo é TEXTO que a direção aponta para um `ConvenioCadastro`** — sem palpite, porque
+  "Unimed" pode ser Padrão ou Intercâmbio.
+  ⚠️ **Auditoria acrescentada ANTES de um serviço que pode RECUSAR fica pendurada no
+  contexto.** A primeira versão registrava o `EventoAuditoria` e só então chamava
+  `SalvarNovoAsync`; quando ele recusava a ficha (CPF que entrou por outra porta), a linha
+  "PacienteImportado" ficava rastreada e saía gravada junto da ficha SEGUINTE — trilha
+  afirmando uma importação que não houve. Aqui a ordem é ato → trilha → Salvar, com o id
+  da ficha; é uma exceção declarada à regra 7 do compromisso. **E entidade RASTREADA mexida
+  antes de uma recusa sai no próximo Salvar de outra linha** — daí o retrato/restauração
+  na ficha completada. Regra: **num laço que grava N linhas com um `DbContext` só, toda
+  linha que falha tem de deixar o contexto como o encontrou.**
+  ⚠️ O prontuário antigo NÃO entra: `AnexoProntuario.EvolucaoId` é obrigatório e não há
+  onde pendurar um PDF sem inventar uma sessão. Está escrito no roteiro como decisão
+  pendente, não como limitação escondida.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

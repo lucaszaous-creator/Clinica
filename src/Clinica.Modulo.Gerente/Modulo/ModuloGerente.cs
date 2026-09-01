@@ -42,6 +42,13 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveRetencao = "retencao";
     public const string ChaveOrigens = "origens-pacientes";
 
+    /// <summary>
+    /// Importar pacientes do sistema anterior (set/2026). Fica no Gerente e não na
+    /// Recepção porque é ato de MIGRAÇÃO, feito uma vez pela direção — e porque cria
+    /// centenas de fichas num clique, o que não é trabalho de balcão.
+    /// </summary>
+    public const string ChaveImportacao = "importar-pacientes";
+
     // ===== Itens COMPOSTOS (parcela 55) =====
     // A Direção é quem publica os que ATRAVESSAM módulo, porque ela é o único app que
     // carrega todos — e porque, sem ela carregada, cada sub-tela volta a ser item de
@@ -169,6 +176,15 @@ public sealed class ModuloGerente : IModuloApp
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         },
 
+        // ===== PACIENTE =====
+        // A migração da carteira: o bit é o do ATO (cadastrar paciente), não o de gerir
+        // usuários — a direção pode delegar a importação sem entregar os acessos.
+        new ItemMenuModulo
+        {
+            Chave = ChaveImportacao, Rotulo = "Importar pacientes", Glifo = "\uE8B5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.EditarPaciente
+        },
+
         // ===== Sub-telas =====
         // Continuam sendo itens navegáveis — o painel da direção leva a várias delas por
         // chave. Sem `Oculto`: quem as esconde é o item pai, e só onde ele existe.
@@ -256,6 +272,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<MetasViewModel>();
         servicos.AddTransient<RetencaoViewModel>();
         servicos.AddTransient<OrigensViewModel>();
+        servicos.AddTransient<ImportacaoPacientesViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
         // usuário no construtor, como os demais formulários da suíte.
     }
@@ -317,6 +334,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveOrigens => new OrigensView
         {
             DataContext = servicos.GetRequiredService<OrigensViewModel>()
+        },
+        ChaveImportacao => new ImportacaoPacientesView
+        {
+            DataContext = servicos.GetRequiredService<ImportacaoPacientesViewModel>()
         },
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
         ChaveAjuda => new Clinica.Desktop.Shell.Componentes.AjudaView(),

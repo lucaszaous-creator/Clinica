@@ -276,4 +276,17 @@ public class TraducaoNoNpgsqlTests
             "o nome do paciente vem por projeção — a linha inteira dele arrastaria a miniatura");
         sql.Should().NotContain("\"Corpo\"");
     }
+
+    [Fact]
+    public void Fichas_resumidas_da_importacao_traduzem_E_nao_trazem_a_miniatura()
+    {
+        using var db = Postgres();
+
+        var sql = db.Pacientes.AsNoTracking()
+            .Select(p => new FichaResumida(p.Id, p.Nome, p.Documento, p.DataNascimento, p.ChaveImportacao))
+            .ToQueryString();
+
+        sql.Should().Contain("\"ChaveImportacao\"");
+        sql.Should().NotContain("FotoMiniatura", "a carteira inteira é lida de uma vez — um JPEG por linha inviabilizaria");
+    }
 }
