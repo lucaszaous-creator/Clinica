@@ -112,7 +112,9 @@
         </Setter>
     </Style>
 
-    <!-- Campo de pesquisa (ícone de lupa à esquerda) -->
+    <!-- Campo de pesquisa DE PÁGINA (lupa 16px dentro, raio 4 — o SearchInput padrão do
+         handoff). A busca GLOBAL usa a variante pílula logo abaixo, como a Topbar do
+         design system. -->
     <Style x:Key="CampoPesquisa" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="Template">
             <Setter.Value>
@@ -127,9 +129,9 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="&#xE721;"
-                                       FontFamily="{StaticResource FonteIcones}" FontSize="14"
+                                       FontFamily="{StaticResource FonteIcones}" FontSize="16"
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                       VerticalAlignment="Center" Margin="10,0,0,0" />
+                                       VerticalAlignment="Center" Margin="12,0,0,0" />
                             <TextBlock x:Name="placeholder" Grid.Column="1"
                                        Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
@@ -156,6 +158,55 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- Busca GLOBAL — a pílula do design system (handoff: a busca da Topbar é SEMPRE uma
+         pílula com a lupa dentro; a busca de página fica com o raio 4). O que muda ante o
+         CampoPesquisa é só a forma: mesmo template, raio Pilula — e o padding esquerdo
+         acompanha a curva, senão a lupa encosta na borda arredondada. -->
+    <Style x:Key="CampoPesquisaPilula" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="b" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Raio.Pilula}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="&#xE721;"
+                                       FontFamily="{StaticResource FonteIcones}" FontSize="16"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                       VerticalAlignment="Center" Margin="14,0,0,0" />
+                            <TextBlock x:Name="placeholder" Grid.Column="1"
+                                       Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                       Margin="8,0,14,0" VerticalAlignment="Center"
+                                       IsHitTestVisible="False" Visibility="Collapsed" />
+                            <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1"
+                                          Margin="8,8,14,8" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="placeholder" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="b" Property="BorderThickness" Value="2" />
+                            <Setter TargetName="placeholder" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 
     <!-- Itens do dropdown do ComboBox -->
     <Style TargetType="ComboBoxItem">

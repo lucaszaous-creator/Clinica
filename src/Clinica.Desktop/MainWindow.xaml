@@ -366,7 +366,7 @@
 
                     <!-- Pesquisa global -->
                     <Grid VerticalAlignment="Center" Margin="8,0" HorizontalAlignment="Left" MaxWidth="360">
-                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisa}"
+                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
                                  ctrl:Ajudantes.Placeholder="Pesquisar seção ou paciente…  (Ctrl+F)"
                                  Text="{Binding TextoPesquisaGlobal, UpdateSourceTrigger=PropertyChanged}"
                                  MinWidth="280">

@@ -883,12 +883,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 ? "—"
                 : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()),
             Numero = atendimento.Numero ?? $"#{atendimento.Id}",
-            Guias = faturaveis.Count == 1 ? "1 guia" : $"{faturaveis.Count} guias",
+            // "0 guias · todas liberadas" era afirmação falsa: o particular (e a sessão com as
+            // guias suspensas) não tem guia NENHUMA — dizer "todas liberadas" sobre zero é a
+            // garantia aparente de sempre, na conferência do dia (o cliente mandou o print).
+            Guias = faturaveis.Count switch { 0 => "sem guia", 1 => "1 guia", var n => $"{n} guias" },
             Lancamento = DescreverLancamento(atendimento),
             TemPendencia = depois.Count > 0,
-            Pendencia = depois.Count == 0
-                ? "todas liberadas"
-                : $"{depois.Count} libera(m) a partir de {depois[0].DataPrevistaFaturamento:dd/MM}"
+            Pendencia = faturaveis.Count == 0
+                ? "nada vai ao convênio"
+                : depois.Count == 0
+                    ? "todas liberadas"
+                    : $"{depois.Count} libera(m) a partir de {depois[0].DataPrevistaFaturamento:dd/MM}"
         };
     }
 

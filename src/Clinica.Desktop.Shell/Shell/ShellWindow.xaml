@@ -305,7 +305,7 @@
                          quem já sabe o nome da tela e não quer escolher categoria. -->
                     <Grid DockPanel.Dock="Right" Width="280" VerticalAlignment="Center"
                           Margin="16,0,0,0">
-                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisa}"
+                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
                                  ctrl:Ajudantes.Placeholder="Ir para… (Ctrl+F)"
                                  Text="{Binding TextoPesquisa, UpdateSourceTrigger=PropertyChanged}">
                             <TextBox.InputBindings>
