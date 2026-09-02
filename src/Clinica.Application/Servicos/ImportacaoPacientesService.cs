@@ -110,6 +110,7 @@ public sealed class ImportacaoPacientesService
         var chavesNoArquivo = new Dictionary<string, int>(StringComparer.Ordinal);
         var cpfsNoArquivo = new Dictionary<string, int>(StringComparer.Ordinal);
         var linhas = new List<LinhaPrevia>();
+        var semSexo = 0;
 
         for (var i = 0; i < tabela.Linhas.Count; i++)
         {
@@ -170,7 +171,9 @@ public sealed class ImportacaoPacientesService
                 cpf = Cpf.Normalizar(cpfBruto);
                 if (cpfsNoArquivo.TryGetValue(cpf, out var outra))
                 {
-                    linhas.Add(Problema($"CPF repetido no arquivo (já apareceu na linha {outra})."));
+                    linhas.Add(Problema($"CPF repetido no arquivo (já apareceu na linha {outra}): o sistema antigo tem "
+                                        + $"esta pessoa duas vezes. A linha {outra} entra; esta fica de fora — numa segunda "
+                                        + "importação ela completa a ficha que entrou."));
                     continue;
                 }
                 cpfsNoArquivo[cpf] = numero;
@@ -188,14 +191,27 @@ public sealed class ImportacaoPacientesService
             // ---- os demais campos ----
             var nascimento = LerData(Campo(CampoImportacao.DataNascimento), "data de nascimento", avisos, nascimento: true);
             var validade = LerData(Campo(CampoImportacao.ValidadeCarteirinha), "validade da carteirinha", avisos);
-            var sexo = LerSexo(Campo(CampoImportacao.Sexo), mapa.Tem(CampoImportacao.Sexo), avisos);
+            var sexo = LerSexo(Campo(CampoImportacao.Sexo), out var avisoSexo);
+            if (avisoSexo is not null) avisos.Add(avisoSexo);
+            else if (Campo(CampoImportacao.Sexo) is null) semSexo++;
+
+            // Celular primeiro (é o que vai para o WhatsApp); o outro número entra só quando
+            // o celular falta — e, quando os dois existem, o segundo não se perde: vai para
+            // as observações.
             var telefone = LerTelefone(Campo(CampoImportacao.Telefone));
-            var endereco = Cortar(Campo(CampoImportacao.Endereco), 300);
-            var carteirinha = Cortar(Campo(CampoImportacao.Carteirinha), 40);
+            var outroTelefone = LerTelefone(Campo(CampoImportacao.TelefoneAlternativo));
             var observacoes = Campo(CampoImportacao.Observacoes);
+            if (telefone is null) telefone = outroTelefone;
+            else if (outroTelefone is not null && Telefone.Normalizar(outroTelefone) != Telefone.Normalizar(telefone))
+                observacoes = Acrescentar(observacoes, $"Outro telefone: {outroTelefone}");
+
+            var endereco = MontarEndereco(
+                Campo(CampoImportacao.Endereco), Campo(CampoImportacao.EnderecoNumero),
+                Campo(CampoImportacao.EnderecoComplemento), Campo(CampoImportacao.Bairro),
+                Campo(CampoImportacao.Cidade), Campo(CampoImportacao.Estado), Campo(CampoImportacao.Cep));
+            var carteirinha = Cortar(Campo(CampoImportacao.Carteirinha), 40);
             var (origem, indicadoPor, observacaoOrigem) = LerOrigem(Campo(CampoImportacao.Origem));
-            if (observacaoOrigem is not null)
-                observacoes = string.IsNullOrWhiteSpace(observacoes) ? observacaoOrigem : $"{observacoes}\n{observacaoOrigem}";
+            if (observacaoOrigem is not null) observacoes = Acrescentar(observacoes, observacaoOrigem);
 
             // ---- já existe? ----
             FichaResumida? existente = null;
@@ -253,8 +269,45 @@ public sealed class ImportacaoPacientesService
             { Ficha = nova, Chave = chave });
         }
 
+        // O sexo em branco é AVISO GERAL com a contagem, não uma linha de aviso por ficha:
+        // na exportação real do Smart Clinic eram 1.712 de 2.238, e 1.712 avisos iguais
+        // escondem os poucos que importam (data impossível, homônimo).
+        if (semSexo > 0)
+            avisosGerais.Add(semSexo == 1
+                ? "1 ficha sem sexo no arquivo: fica como Masculino — confira na ficha."
+                : $"{semSexo} fichas sem sexo no arquivo: ficam como Masculino — confira nas fichas.");
+
         return new PreviaImportacao(sistema, linhas, avisosGerais);
     }
+
+    /// <summary>
+    /// O endereço da FICHA é uma linha só (é o que a receita imprime — art. 35 da Lei
+    /// 5.991/1973); o Smart Clinic exporta em sete partes. Junta o que existe, na ordem
+    /// em que se escreve num envelope, e pula o que está vazio — "Rua X, , - , /RJ" não é
+    /// endereço. Nulo quando não há parte nenhuma.
+    /// </summary>
+    public static string? MontarEndereco(
+        string? logradouro, string? numero, string? complemento, string? bairro,
+        string? cidade, string? estado, string? cep)
+    {
+        string? L(string? t) => string.IsNullOrWhiteSpace(t) ? null : t.Trim();
+        logradouro = L(logradouro); numero = L(numero); complemento = L(complemento);
+        bairro = L(bairro); cidade = L(cidade); estado = L(estado); cep = L(cep);
+
+        var sb = new StringBuilder();
+        if (logradouro is not null) sb.Append(logradouro);
+        if (numero is not null) sb.Append(sb.Length > 0 ? ", " : "").Append(numero);
+        if (complemento is not null) sb.Append(sb.Length > 0 ? " " : "").Append(complemento);
+        if (bairro is not null) sb.Append(sb.Length > 0 ? " - " : "").Append(bairro);
+        var cidadeUf = cidade is not null && estado is not null ? $"{cidade}/{estado}" : cidade ?? estado;
+        if (cidadeUf is not null) sb.Append(sb.Length > 0 ? ", " : "").Append(cidadeUf);
+        if (cep is not null) sb.Append(sb.Length > 0 ? " - " : "").Append("CEP ").Append(cep);
+
+        return sb.Length == 0 ? null : Cortar(sb.ToString(), 300);
+    }
+
+    private static string? Acrescentar(string? observacoes, string linha)
+        => string.IsNullOrWhiteSpace(observacoes) ? linha : $"{observacoes}\n{linha}";
 
     /// <summary>
     /// Grava o que a prévia mostrou. Linha a linha, pelo <see cref="PacienteService"/>:
@@ -433,6 +486,8 @@ public sealed class ImportacaoPacientesService
     {
         if (string.IsNullOrWhiteSpace(texto)) return null;
         var soData = texto.Trim().Split(' ', 'T')[0];
+        // "0000-00-00" é o vazio de banco MySQL, não uma data mal digitada: silêncio.
+        if (soData.All(c => c == '0' || c == '-' || c == '/')) return null;
         if (!DateOnly.TryParseExact(soData, FormatosData, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d))
         {
             avisos.Add($"{rotulo} \"{texto}\" não foi entendida e ficou em branco.");
@@ -447,14 +502,15 @@ public sealed class ImportacaoPacientesService
         return d;
     }
 
-    public static Sexo LerSexo(string? texto, bool colunaMapeada, List<string> avisos)
+    /// <summary>Em branco devolve o padrão SEM aviso por linha (quem conta é a prévia, no
+    /// aviso geral); valor não reconhecido devolve o aviso.</summary>
+    public static Sexo LerSexo(string? texto, out string? aviso)
     {
+        aviso = null;
         var t = SugestorDeMapeamento.Normalizar(texto ?? string.Empty);
         if (t.StartsWith('f') || t == "mulher") return Sexo.Feminino;
         if (t.StartsWith('m') || t.StartsWith('h')) return Sexo.Masculino;
-        avisos.Add(colunaMapeada && t.Length > 0
-            ? $"Sexo \"{texto}\" não foi entendido — confira na ficha."
-            : "Sexo não informado no arquivo — confira na ficha.");
+        if (t.Length > 0) aviso = $"Sexo \"{texto}\" não foi entendido — confira na ficha.";
         return Sexo.Masculino;
     }
 

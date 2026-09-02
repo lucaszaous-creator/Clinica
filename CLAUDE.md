@@ -2469,9 +2469,20 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   antes de uma recusa sai no próximo Salvar de outra linha** — daí o retrato/restauração
   na ficha completada. Regra: **num laço que grava N linhas com um `DbContext` só, toda
   linha que falha tem de deixar o contexto como o encontrou.**
-  ⚠️ O prontuário antigo NÃO entra: `AnexoProntuario.EvolucaoId` é obrigatório e não há
-  onde pendurar um PDF sem inventar uma sessão. Está escrito no roteiro como decisão
+  ⚠️ O prontuário antigo NÃO entra nesta parcela — e ele **não é PDF**: a exportação real
+  traz o prontuário em TEXTO por paciente (pós-operatório, S-O-A-P, prescrições, anamnese),
+  que cabe no `Evolucao` como registro importado. Está escrito no roteiro como decisão
   pendente, não como limitação escondida.
+  ⚠️ **Sugestão de coluna se mede contra o arquivo REAL, não contra os sinônimos que o
+  autor imagina.** A primeira versão do sugestor, rodada no `pacientes.csv` da clínica,
+  mandou o convênio para `operadora` (a operadora do CELULAR — a prévia oferecia 80
+  números de telefone como convênios a mapear), deixou a carteirinha sem coluna
+  (`numero_convenio`) e escolheu `telefone` (78 preenchidos) em vez de `celular` (2.145).
+  Nenhum teste sintético pegaria: os sinônimos eram os meus. A regra que ficou: a
+  prioridade é do SINÔNIMO dentro de cada campo (o primeiro que existir no arquivo vence),
+  nunca da ordem das colunas; e o cabeçalho real virou teste. E **aviso por linha que se
+  repete em 3 de cada 4 linhas não é aviso** — o sexo em branco virou contagem no aviso
+  geral, senão os 19 avisos que importavam ficavam enterrados em 1.712 iguais.
 
 ### Convenções
 

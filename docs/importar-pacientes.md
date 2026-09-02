@@ -3,6 +3,30 @@
 Tela: **Gerente → Paciente → Importar pacientes** (bit `EditarPaciente`). Roteiro para a
 clínica, e o que o sistema garante — e o que não.
 
+## O que a exportação do Smart Clinic traz (medido em set/2026)
+
+O ZIP vem com 14 CSVs (ponto e vírgula, UTF-8). O que a importação lê é **`pacientes.csv`**
+(55 colunas); a sugestão de colunas foi conferida contra esse cabeçalho e está fixada em
+teste. O que se viu no arquivo real, e como o sistema trata:
+
+- `celular` é o número do WhatsApp (o `telefone` fixo vai para as observações quando os dois
+  existem); `operadora` é a operadora do CELULAR, não convênio — não é sugerida para nada.
+- O endereço vem em sete partes (`endereco`, `numero`, `complemento`, `bairro`, `cidade`,
+  `estado`, `cep`) e é juntado numa linha só, que é o endereço da receita.
+- `convenio` vem em texto livre ("PARTICULAR", "Particular", "BRASEG", erro de digitação e
+  **2.021 em branco**): cada texto é apontado para um convênio daqui no passo 2 — inclusive a
+  linha "(em branco)", que precisa de destino (quase sempre o Particular).
+- `sexo` está vazio em 3 de cada 4 fichas: elas entram como Masculino e a prévia diz quantas.
+- `data_nascimento` em `aaaa-mm-dd`; uma dúzia de datas impossíveis (ano 0085, 2028) fica em
+  branco com aviso. `cpf` com máscara; 31 CPFs repetidos no próprio arquivo (a mesma pessoa
+  cadastrada duas vezes lá): a primeira linha entra, a segunda fica de fora e, numa segunda
+  importação, completa a ficha que entrou.
+- `id_paciente` (hexa de 32 caracteres) vira a chave de idempotência.
+- Não têm onde entrar (a ficha não tem o campo): `email`, `rg`, `profissao`, `estado_civil`,
+  `nome_mae`/`nome_pai`, `tags`, `created_at`.
+
+Os outros CSVs são o **prontuário em texto** (ver "O que NÃO entra").
+
 ## O que a clínica faz
 
 1. **Exportar do Smart Clinic** a lista de pacientes (a exportação de "pacientes"/"cadastro",
@@ -34,10 +58,16 @@ clínica, e o que o sistema garante — e o que não.
 
 ## O que NÃO entra (decisão pendente)
 
-- **Prontuário do sistema antigo.** A entidade de anexo do prontuário exige uma SESSÃO
-  (`AnexoProntuario.EvolucaoId` obrigatório); não há hoje onde pendurar um PDF "histórico do
-  sistema anterior" sem inventar uma sessão que não houve. Entra numa parcela própria, com
-  decisão da direção sobre a forma (PDF por paciente numa natureza nova de registro clínico,
-  com guarda de 20 anos e exportação).
+- **Prontuário do sistema antigo.** Ele NÃO vem em PDF: vem em TEXTO estruturado, por
+  paciente e com data — `pos_operatorio.csv` (4.287 registros de 1.047 pacientes: anamnese,
+  exame físico, conduta), `ficha_soap.csv` (173, nos quatro campos S-O-A-P), `prescricao.csv`
+  (156), `ficha_clinica.csv` (168 anamneses com medicamentos) e `consulta_multi.csv` /
+  `prontuario_personalizado.csv`. Isso cabe no `Evolucao` do sistema (que tem os campos do
+  S-O-A-P desde a parcela 73) como registro IMPORTADO, com procedência e sem autor daqui —
+  e é registro clínico: nasce sob a guarda de 20 anos, entra na exportação e não se apaga.
+  É uma parcela própria, com decisão da direção sobre a forma; a carteira não espera por ela.
+- **A agenda antiga** (`agenda.csv`, 9.456 horários de 2.110 pacientes, com profissional e
+  procedimento): serviria para a data da primeira visita e para "quem parou de vir", que
+  hoje só enxergam o que aconteceu neste sistema. Mesma decisão.
 - **Agenda, financeiro, pacotes e guias** do sistema antigo — a migração pedida é da
   carteira; o resto começa aqui.

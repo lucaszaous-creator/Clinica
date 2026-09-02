@@ -199,7 +199,9 @@ public class ImportacaoPacientesTests : IDisposable
 
         porNumero[9].Destino.Should().Be(DestinoLinha.Criar, "convênio em branco mapeado para Particular");
         porNumero[9].Ficha!.ConvenioCodigo.Should().Be("PARTICULAR");
-        porNumero[9].Avisos.Should().ContainSingle(a => a.Contains("Sexo não informado"));
+        porNumero[9].Avisos.Should().NotContain(a => a.Contains("Sexo"),
+            "sexo em branco é contado no aviso GERAL, não por linha (1.712 de 2.238 no arquivo real)");
+        previa.AvisosGerais.Should().Contain(a => a.Contains("sem sexo"));
 
         previa.Criar.Should().Be(2);
         previa.Completar.Should().Be(1);
@@ -247,9 +249,16 @@ public class ImportacaoPacientesTests : IDisposable
         ImportacaoPacientesService.LerData("05/03/2090", "nascimento", avisos, nascimento: true).Should().BeNull();
         avisos.Should().HaveCount(2);
 
-        ImportacaoPacientesService.LerSexo("Feminino", true, avisos).Should().Be(Sexo.Feminino);
-        ImportacaoPacientesService.LerSexo("m", true, avisos).Should().Be(Sexo.Masculino);
-        ImportacaoPacientesService.LerSexo("Homem", true, avisos).Should().Be(Sexo.Masculino);
+        ImportacaoPacientesService.LerSexo("Feminino", out _).Should().Be(Sexo.Feminino);
+        ImportacaoPacientesService.LerSexo("m", out _).Should().Be(Sexo.Masculino);
+        ImportacaoPacientesService.LerSexo("Homem", out var semAviso).Should().Be(Sexo.Masculino);
+        semAviso.Should().BeNull();
+        ImportacaoPacientesService.LerSexo("", out var emBranco).Should().Be(Sexo.Masculino);
+        emBranco.Should().BeNull("em branco é contado no aviso GERAL, não por linha");
+        ImportacaoPacientesService.LerSexo("S", out var estranho);
+        estranho.Should().Contain("não foi entendido");
+        ImportacaoPacientesService.LerData("0000-00-00", "nascimento", avisos).Should().BeNull();
+        avisos.Should().NotContain(a => a.Contains("0000-00-00"), "o vazio do MySQL não é data mal digitada");
 
         ImportacaoPacientesService.LerOrigem("Indicação: Maria Souza").Should()
             .Be((OrigemPaciente.Indicacao, "Maria Souza", (string?)null));
@@ -393,5 +402,87 @@ public class ImportacaoPacientesTests : IDisposable
         _db.Pacientes.Add(new Paciente { Nome = "B", Convenio = Convenio.Amil, ChaveImportacao = "IMPORT:s:1" });
         var act = () => _db.SaveChanges();
         act.Should().Throw<DbUpdateException>("o índice é único — dois cliques concorrentes não gravam a mesma ficha");
+    }
+
+    /// <summary>
+    /// O cabeçalho REAL da exportação do Smart Clinic (set/2026 — só os nomes das colunas;
+    /// nenhum dado). A primeira versão do sugestor, medida contra ele, mandava o convênio
+    /// para "operadora" (a operadora do CELULAR), deixava a carteirinha sem coluna e
+    /// escolhia "telefone" (78 preenchidos) em vez de "celular" (2.145).
+    /// </summary>
+    [Fact]
+    public void Sugere_o_mapeamento_do_cabecalho_real_do_Smart_Clinic()
+    {
+        string[] colunas =
+        [
+            "id_paciente", "id_contratante", "nome", "data_nascimento", "email", "cpf", "rg", "telefone",
+            "celular", "whatsapp_opt_in", "whatsapp_opt_in_at", "whatsapp_opt_in_source", "whatsapp_opt_out_at",
+            "whatsapp_opt_out_reason", "operadora", "telefone2", "convenio", "numero_convenio",
+            "validade_convenio", "cep", "endereco", "numero", "complemento", "bairro", "cidade", "estado",
+            "profissao", "sexo", "estado_civil", "indicacao", "indicacao_email", "preferencia_contato",
+            "login", "senha", "id_legado", "outro_doc", "obs", "auditoria", "foto", "foto_redimensionada",
+            "thumb", "tel_emergencia", "nome_mae", "nome_pai", "naturalidade", "conjuge", "saldo",
+            "sequencial", "alergia", "codigo_cliente_omie", "data_visualizacao", "tags", "pais",
+            "id_migracao", "created_at"
+        ];
+        var mapa = SugestorDeMapeamento.Sugerir(colunas);
+        string? De(CampoImportacao c) => mapa.ColunaDe(c) is { } i ? colunas[i] : null;
+
+        De(CampoImportacao.IdOrigem).Should().Be("id_paciente");
+        De(CampoImportacao.Nome).Should().Be("nome", "e não nome_mae");
+        De(CampoImportacao.Cpf).Should().Be("cpf");
+        De(CampoImportacao.Telefone).Should().Be("celular", "é o número do WhatsApp");
+        De(CampoImportacao.TelefoneAlternativo).Should().Be("telefone");
+        De(CampoImportacao.DataNascimento).Should().Be("data_nascimento");
+        De(CampoImportacao.Sexo).Should().Be("sexo");
+        De(CampoImportacao.Endereco).Should().Be("endereco");
+        De(CampoImportacao.EnderecoNumero).Should().Be("numero");
+        De(CampoImportacao.EnderecoComplemento).Should().Be("complemento");
+        De(CampoImportacao.Bairro).Should().Be("bairro");
+        De(CampoImportacao.Cidade).Should().Be("cidade");
+        De(CampoImportacao.Estado).Should().Be("estado", "e não estado_civil");
+        De(CampoImportacao.Cep).Should().Be("cep");
+        De(CampoImportacao.Convenio).Should().Be("convenio", "operadora é a do CELULAR");
+        De(CampoImportacao.Carteirinha).Should().Be("numero_convenio");
+        De(CampoImportacao.ValidadeCarteirinha).Should().Be("validade_convenio");
+        De(CampoImportacao.Origem).Should().Be("indicacao");
+        De(CampoImportacao.Observacoes).Should().Be("obs");
+    }
+
+    [Fact]
+    public void Endereco_em_partes_vira_uma_linha_e_pula_o_que_esta_vazio()
+    {
+        ImportacaoPacientesService.MontarEndereco("Rua das Flores", "12", "apto 3", "Centro", "Macaé", "RJ", "27900-000")
+            .Should().Be("Rua das Flores, 12 apto 3 - Centro, Macaé/RJ - CEP 27900-000");
+        ImportacaoPacientesService.MontarEndereco("Rua das Flores", null, "", null, "Macaé", null, null)
+            .Should().Be("Rua das Flores, Macaé");
+        ImportacaoPacientesService.MontarEndereco(null, null, null, null, null, null, null).Should().BeNull();
+        ImportacaoPacientesService.MontarEndereco(null, null, null, "Centro", null, "RJ", null)
+            .Should().Be("Centro, RJ");
+    }
+
+    [Fact]
+    public async Task Celular_vence_o_telefone_e_o_segundo_numero_nao_se_perde()
+    {
+        var csv = "id;nome;telefone;celular;sexo\n"
+                  + "1;Ana Teste;(22) 3333-2222;22999991111;\n"
+                  + "2;Bia Teste;(22) 3333-4444;;F\n"
+                  + "3;Caio Teste;;;\n";
+        var tabela = LeitorCsv.Ler(csv);
+        var mapa = SugestorDeMapeamento.Sugerir(tabela.Colunas);
+        var convenios = new Dictionary<string, ConvenioCadastro>(StringComparer.OrdinalIgnoreCase)
+        {
+            [ImportacaoPacientesService.ConvenioEmBranco] = new() { Codigo = "Particular", Nome = "Particular", Familia = Convenio.Personalizado }
+        };
+        var previa = await _servico.PreverAsync(tabela, mapa, convenios);
+
+        previa.Linhas[0].Ficha!.Telefone.Should().Be("(22) 99999-1111");
+        previa.Linhas[0].Ficha!.Observacoes.Should().Contain("Outro telefone: (22) 3333-2222");
+        previa.Linhas[1].Ficha!.Telefone.Should().Be("(22) 3333-4444", "sem celular, o outro número vale");
+        previa.Linhas[2].Ficha!.Telefone.Should().BeNull();
+
+        // Sexo em branco: nenhuma linha ganha aviso; a prévia conta no aviso geral.
+        previa.Linhas.Should().OnlyContain(l => !l.Avisos.Any(a => a.Contains("Sexo")));
+        previa.AvisosGerais.Should().Contain(a => a.StartsWith("2 fichas sem sexo"));
     }
 }

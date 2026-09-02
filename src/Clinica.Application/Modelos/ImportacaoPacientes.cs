@@ -38,9 +38,18 @@ public enum CampoImportacao
     Nome,
     Cpf,
     Telefone,
+    /// <summary>Segundo telefone: vale quando o principal está vazio; senão vai para as observações.</summary>
+    TelefoneAlternativo,
     DataNascimento,
     Sexo,
+    /// <summary>Logradouro — ou o endereço inteiro, quando o arquivo traz numa célula só.</summary>
     Endereco,
+    EnderecoNumero,
+    EnderecoComplemento,
+    Bairro,
+    Cidade,
+    Estado,
+    Cep,
     Convenio,
     Carteirinha,
     ValidadeCarteirinha,
@@ -58,10 +67,17 @@ public static class CamposImportacao
         CampoImportacao.IdOrigem => "ID no sistema anterior",
         CampoImportacao.Nome => "Nome",
         CampoImportacao.Cpf => "CPF",
-        CampoImportacao.Telefone => "Telefone / WhatsApp",
+        CampoImportacao.Telefone => "Celular / WhatsApp",
+        CampoImportacao.TelefoneAlternativo => "Outro telefone",
         CampoImportacao.DataNascimento => "Data de nascimento",
         CampoImportacao.Sexo => "Sexo",
-        CampoImportacao.Endereco => "Endereço",
+        CampoImportacao.Endereco => "Endereço (rua)",
+        CampoImportacao.EnderecoNumero => "Número",
+        CampoImportacao.EnderecoComplemento => "Complemento",
+        CampoImportacao.Bairro => "Bairro",
+        CampoImportacao.Cidade => "Cidade",
+        CampoImportacao.Estado => "UF",
+        CampoImportacao.Cep => "CEP",
         CampoImportacao.Convenio => "Convênio",
         CampoImportacao.Carteirinha => "Nº da carteirinha",
         CampoImportacao.ValidadeCarteirinha => "Validade da carteirinha",
@@ -80,7 +96,12 @@ public static class CamposImportacao
             "É por ele que a ficha já existente é reconhecida e COMPLETADA em vez de duplicada.",
         CampoImportacao.Convenio =>
             "Cada nome de convênio do arquivo precisa apontar para um convênio cadastrado aqui.",
+        CampoImportacao.Telefone => "O número que vai para o WhatsApp da ficha.",
+        CampoImportacao.TelefoneAlternativo =>
+            "Usado quando o celular está vazio; se os dois existem, vai para as observações.",
         CampoImportacao.Sexo => "Em branco, a ficha fica para conferir.",
+        CampoImportacao.Endereco =>
+            "As partes (número, bairro, cidade…) são juntadas numa linha só — é o endereço da receita.",
         CampoImportacao.Origem => "Indicação, convênio, internet… — alimenta o relatório de origem.",
         _ => "Opcional."
     };
@@ -230,6 +251,13 @@ public static class LeitorCsv
 /// </summary>
 public static class SugestorDeMapeamento
 {
+    /// <summary>
+    /// A ordem DENTRO de cada lista é prioridade: "celular" vence "telefone" para o campo de
+    /// WhatsApp, e "convenio" vence "plano". Medido contra a exportação real do Smart
+    /// Clinic (set/2026): sem prioridade, o campo de convênio caía na coluna "operadora" —
+    /// que ali é a operadora de TELEFONIA —, e a prévia oferecia 80 números de celular
+    /// como nomes de convênio a mapear.
+    /// </summary>
     private static readonly (CampoImportacao Campo, string[] Exatos, string[] Contem)[] Regras =
     [
         (CampoImportacao.Cpf, ["cpf", "documento", "cpfpaciente", "cpfdopaciente"], ["cpf"]),
@@ -241,16 +269,32 @@ public static class SugestorDeMapeamento
             ["validade"]),
         (CampoImportacao.Carteirinha,
             ["carteirinha", "carteira", "numerodacarteirinha", "numerocarteirinha", "ncarteirinha",
-             "matriculaconvenio", "numerocarteira", "numerodoconvenio", "carteiradoconvenio"],
+             "numeroconvenio", "numconvenio", "nconvenio", "numerodoconvenio", "matriculaconvenio",
+             "numerocarteira", "carteiradoconvenio", "carteirinhaconvenio"],
             ["carteir"]),
+        // "operadora" NÃO entra: no Smart Clinic é a operadora do celular.
         (CampoImportacao.Convenio,
-            ["convenio", "plano", "planodesaude", "operadora", "conveniomedico", "nomedoconvenio"],
+            ["convenio", "planodesaude", "plano", "conveniomedico", "nomedoconvenio"],
             ["convenio", "plano"]),
         (CampoImportacao.Telefone,
-            ["telefone", "celular", "whatsapp", "fone", "telefone1", "telefonecelular", "contato", "telcelular"],
-            ["telefone", "celular", "whatsapp"]),
+            ["celular", "whatsapp", "telefonecelular", "telcelular", "celular1", "telefone", "fone",
+             "telefone1", "contato"],
+            ["celular", "whatsapp", "telefone"]),
+        (CampoImportacao.TelefoneAlternativo,
+            ["telefone", "telefonefixo", "telefoneresidencial", "telefone2", "celular2", "outrotelefone",
+             "telefonecomercial", "fone2", "telefonealternativo"],
+            ["telefone", "fone"]),
         (CampoImportacao.Endereco,
             ["endereco", "logradouro", "enderecocompleto", "rua"], ["endereco", "logradouro"]),
+        (CampoImportacao.EnderecoNumero,
+            ["numero", "num", "numeroendereco", "endereconumero", "nro"], []),
+        (CampoImportacao.EnderecoComplemento,
+            ["complemento", "enderecocomplemento", "compl"], ["complemento"]),
+        (CampoImportacao.Bairro, ["bairro"], ["bairro"]),
+        (CampoImportacao.Cidade, ["cidade", "municipio"], ["cidade", "municipio"]),
+        // "estado" só exato: "estadocivil" contém a palavra e não é UF.
+        (CampoImportacao.Estado, ["estado", "uf"], []),
+        (CampoImportacao.Cep, ["cep"], ["cep"]),
         (CampoImportacao.Sexo, ["sexo", "genero"], ["sexo", "genero"]),
         (CampoImportacao.Origem,
             ["origem", "comoconheceu", "indicacao", "comoconheceuaclinica", "canal", "comonosconheceu"],
@@ -271,19 +315,40 @@ public static class SugestorDeMapeamento
         var usadas = new HashSet<int>();
         var normalizadas = colunas.Select(Normalizar).ToArray();
 
-        // Exatos primeiro, para "Validade" não cair em "carteir" nem "Nome do convênio" em "nome".
+        // Exatos primeiro, para "Validade" não cair em "carteir" nem "Nome do convênio" em
+        // "nome" — e, dentro de cada campo, o PRIMEIRO sinônimo que existir no arquivo
+        // vence, não a primeira coluna que casar com qualquer sinônimo.
         foreach (var (campo, exatos, _) in Regras)
         {
-            var i = Array.FindIndex(normalizadas, n => exatos.Contains(n));
-            if (i >= 0 && usadas.Add(i)) mapa.Definir(campo, i);
+            foreach (var sinonimo in exatos)
+            {
+                var i = PrimeiroLivre(normalizadas, usadas, n => n == sinonimo);
+                if (i < 0) continue;
+                usadas.Add(i);
+                mapa.Definir(campo, i);
+                break;
+            }
         }
         foreach (var (campo, _, contem) in Regras)
         {
             if (mapa.Tem(campo)) continue;
-            var i = Array.FindIndex(normalizadas, n => contem.Any(n.Contains));
-            if (i >= 0 && usadas.Add(i)) mapa.Definir(campo, i);
+            foreach (var trecho in contem)
+            {
+                var i = PrimeiroLivre(normalizadas, usadas, n => n.Contains(trecho));
+                if (i < 0) continue;
+                usadas.Add(i);
+                mapa.Definir(campo, i);
+                break;
+            }
         }
         return mapa;
+    }
+
+    private static int PrimeiroLivre(string[] colunas, HashSet<int> usadas, Func<string, bool> casa)
+    {
+        for (var i = 0; i < colunas.Length; i++)
+            if (!usadas.Contains(i) && casa(colunas[i])) return i;
+        return -1;
     }
 
     /// <summary>Sem acento, sem espaço, sem pontuação, minúsculas.</summary>
