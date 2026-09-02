@@ -7,6 +7,23 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+
+        <!-- Uma linha do texto da sessão: SOME quando o campo não foi escrito. Amarrar
+             Text e Visibility na MESMA propriedade (string) é o que evita o
+             `BooleanToVisibilityConverter` sobre texto, que é Collapsed para sempre
+             (parcela 61). Quebra a linha em vez de cortar: aqui se lê com calma.
+             ⚠️ O `TextWrapping` vai ESCRITO em cada tag, e não aqui: a checagem 24 lê a
+             lista de estilos que resolvem a quebra dos DICIONÁRIOS do design system, e
+             um estilo local é invisível para ela — reclamaria de cada linha. -->
+        <Style x:Key="LinhaDaSessao" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+            <Setter Property="Visibility"
+                    Value="{Binding Text, RelativeSource={RelativeSource Self},
+                            Converter={StaticResource TextoParaVisibilidade}}" />
+        </Style>
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
@@ -20,8 +37,21 @@
                 Command="{Binding VerMedidasCommand}" />
         </StackPanel>
 
-            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade (parcela
+                 62). Amarrada a MensagemEhErro, a mensagem que não é erro nunca apareceria. -->
+            <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
             </Border>
 
@@ -254,30 +284,39 @@
                                                     <Run Text="{Binding Profissional, Mode=OneWay}" />
                                                 </TextBlock>
 
-                                                <TextBlock TextWrapping="Wrap" Margin="0,6,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Queixa: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Queixa, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Conduta: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Conduta, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Evolução: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Evolucao, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="Orientações: " FontWeight="SemiBold" />
-                                                    <Run Text="{Binding Orientacoes, Mode=OneWay}" />
-                                                </TextBlock>
+                                                <!-- A SESSÃO INTEIRA, na ordem em que foi
+                                                     escrita (S-O-A-P): a lista mostrava
+                                                     quatro dos doze campos, e o painel do
+                                                     Atendimento mandava vir "ler com calma"
+                                                     aqui o que aqui não existia. Cada linha
+                                                     some quando não foi escrita — o rótulo
+                                                     já vem no texto (compositor único). -->
+                                                <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}"
+                                                           Margin="0,6,0,0" />
+                                                <TextBlock Text="{Binding Historia}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <TextBlock Text="{Binding ExameFisico}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <TextBlock Text="{Binding Hipotese}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <TextBlock Text="{Binding Evolucao}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <TextBlock Text="{Binding Plano}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <TextBlock Text="{Binding Encaminhamento}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}" />
+                                                <!-- O RETORNO fecha a sessão em destaque: é
+                                                     a decisão que a sessão seguinte responde. -->
+                                                <TextBlock Text="{Binding Retorno}" TextWrapping="Wrap"
+                                                           Style="{StaticResource LinhaDaSessao}"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Acento}" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Top">

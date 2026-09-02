@@ -3,45 +3,115 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="Documento clínico" Width="860" Height="680" MinWidth="700" MinHeight="520"
+        Title="{Binding TituloJanela}" Width="860" Height="680" MinWidth="700" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================================
+         A JANELA DE DOCUMENTO — receita, atestado, declaração de comparecimento e
+         pedido de exame, pelas QUATRO portas (ficha, central, Prescrições, Atendimento).
+
+         O que mudou nesta rodada, e por quê
+         ...................................
+         1. A janela dizia "Emitir receita" e NÃO dizia PARA QUEM. O paciente já estava
+            carregado (a conferência legal lê o endereço dele) e nenhuma linha o mostrava
+            — num papel que sai da clínica com o nome de alguém, aberto de uma tela que
+            tem busca de paciente ao lado.
+         2. Era uma PILHA: três faixas `Alerta*` no topo + quatro `Card` com moldura
+            (Modelos, Linhas, Afastamento, Comparecimento) — a colcha de retalhos que o
+            README proíbe. Agora os avisos são UMA superfície com uma linha por aviso
+            (traço de 3 px, peso pela gravidade), e o formulário é UMA superfície com as
+            regiões separadas por rótulo e Separator.
+         3. O CADASTRO de modelo (nome + Guardar) ocupava uma linha inteira em toda
+            receita do dia — cadastro grudado ao lado da operação (parcela 49). O nome
+            virou pergunta no clique; o que fica é a linha de APLICAR, que é a operação.
+         4. As três colunas das linhas eram caixas em branco explicadas por uma legenda
+            ABAIXO da lista. Viraram colunas com cabeçalho e texto-fantasma com exemplo.
+         5. "Emitir e imprimir" com a assinatura marcada prometia o gesto errado: o
+            documento assinado é SALVO E ABERTO (parcela 43). O botão diz o que faz.
+         ============================================================================ -->
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+
+        <!-- Uma LINHA de aviso: traço de 3 px + texto (o padrão das parcelas 47 e 79).
+             Âmbar é o que se lê antes de escrever ou se resolve em trinta segundos. -->
+        <DataTemplate x:Key="LinhaAvisoAtencao">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" CornerRadius="2"
+                        Background="{StaticResource Brush.Semaforo.Amarelo}" />
+                <TextBlock Grid.Column="1" Text="{Binding}" Margin="10,0,0,0" TextWrapping="Wrap" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- Vermelho e negrito é o que muda a conduta AGORA — a colisão com alergia. -->
+        <DataTemplate x:Key="LinhaAvisoGrave">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" CornerRadius="2"
+                        Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                <TextBlock Grid.Column="1" Text="{Binding}" Margin="10,0,0,0" TextWrapping="Wrap"
+                           FontWeight="SemiBold" />
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <DockPanel Margin="24">
 
-        <TextBlock DockPanel.Dock="Top" Text="{Binding TituloJanela}"
-                   Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Margin="0,16,0,0">
-            <!-- Assinar é ESCOLHA do momento, não configuração: o certificado pode não
-                 estar na máquina, e o papel assinado à caneta continua valendo. A caixa
-                 fica junto do botão porque é ele que ela muda. -->
-            <CheckBox Content="Assinar digitalmente (ICP-Brasil)"
-                      IsChecked="{Binding AssinarDigitalmente}"
-                      VerticalAlignment="Center" Margin="0,0,16,0" />
-            <Button x:Name="BtnCancelar" Content="Fechar" Style="{StaticResource BotaoSecundario}"
-                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
-            <Button Content="Emitir e imprimir" Command="{Binding EmitirCommand}"
-                    IsDefault="True" MinWidth="170" />
+        <!-- ===== Título, e PARA QUEM ===== -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding TituloJanela}" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" HorizontalAlignment="Left" />
+            <TextBlock Text="{Binding PacienteTexto}" TextWrapping="Wrap" Margin="0,2,0,0"
+                       FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.Texto.Primario}"
+                       Visibility="{Binding PacienteTexto,
+                                    Converter={StaticResource TextoParaVisibilidade},
+                                    FallbackValue=Collapsed}" />
         </StackPanel>
 
-        <!-- Para onde o QR vai apontar (parcela 63). Só aparece com a assinatura marcada:
-             em papel não há QR, e a frase viraria ruído em toda emissão. -->
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaInfo}" Margin="0,12,0,0"
-                Visibility="{Binding MostrarDestinoDoQr, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="{Binding DestinoDoQr}" TextWrapping="Wrap" />
-        </Border>
+        <!-- ===== Rodapé: a barra de ação, declarada ANTES do miolo ===== -->
+        <Grid DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Ligado a
-             MensagemEhErro, o aviso de ÊXITO (que zera o booleano) sumia junto com o de
-             erro — o defeito que a parcela 62 corrigiu em cinco telas da Recepção e que
-             estava aqui também. -->
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                <!-- Assinar é ESCOLHA do momento, não configuração: o certificado pode não
+                     estar na máquina, e o papel assinado à caneta continua valendo. A caixa
+                     fica junto do botão porque é ele que ela muda. -->
+                <CheckBox Content="Assinar digitalmente (ICP-Brasil)"
+                          IsChecked="{Binding AssinarDigitalmente}" />
+
+                <!-- Para onde o QR vai apontar (parcela 63). Só com a assinatura marcada:
+                     em papel não há QR, e a frase viraria ruído em toda emissão. Linha de
+                     texto, não faixa — é contexto da caixa logo acima. -->
+                <TextBlock Text="{Binding DestinoDoQr}" TextWrapping="Wrap" Margin="0,4,0,0"
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Visibility="{Binding MostrarDestinoDoQr,
+                                        Converter={StaticResource BoolParaVisibilidade}}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="BtnCancelar" Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                        IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+                <Button Content="{Binding TextoBotaoEmitir}" Command="{Binding EmitirCommand}"
+                        IsDefault="True" MinWidth="170" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade (parcela
+             62). Perto dos botões, porque é o Emitir quem mais a escreve. -->
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
                 Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                              FallbackValue=Collapsed}">
@@ -58,173 +128,146 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ===== COLISÃO COM ALERGIA (parcela 40) =====
-             Só aparece quando um item escrito bate com alergia registrada do paciente.
-             É o segundo caso do projeto em que a tela COBRA confirmação em vez de só
-             avisar — o primeiro é a divergência do fechamento de caixa —, e a razão é a
-             mesma: quem decide continua sendo a pessoa, mas isto não pode acontecer sem
-             alguém perceber. O botão de emitir fica apagado até a caixa ser marcada. -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding ColideComAlergia, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
-                <TextBlock Text="ATENÇÃO — esta prescrição bate com uma alergia registrada"
-                           FontWeight="SemiBold" TextWrapping="Wrap" />
-                <ItemsControl ItemsSource="{Binding ColisoesAlergia}" Margin="0,6,0,0">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <CheckBox Content="Eu vi o alerta e assumo esta prescrição"
-                          IsChecked="{Binding AlergiaConferida}" Margin="0,10,0,0" />
-            </StackPanel>
-        </Border>
+        <!-- ============ AVISOS: UMA superfície, uma LINHA por aviso ============
+             A colisão com alergia (parcela 40) vem PRIMEIRO e em vermelho: é a única que
+             trava o botão até alguém dizer que viu. Depois o que o prontuário registra
+             (alergias, uso contínuo — o que se olha ANTES de escrever) e o que a lei exige
+             e ainda falta (parcela 43 — avisa e não impede, salvo na assinatura). A região
+             inteira SOME quando não há aviso. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12" Padding="12,9"
+                Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Medio}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding ColideComAlergia}" Value="False" />
+                                <Condition Binding="{Binding AlertasClinicos.Count}" Value="0" />
+                                <Condition Binding="{Binding ExigenciasLegais.Count}" Value="0" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </MultiDataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
 
-        <!-- ===== O QUE A LEI EXIGE E AINDA FALTA (parcela 43) =====
-             O art. 35 da Lei 5.991/1973 diz o que a receita precisa ter para ser AVIADA,
-             e até aqui a clínica descobria a falta na farmácia, com o paciente na fila.
-             Isto AVISA e não impede — a exceção é a assinatura digital, que recusa, porque
-             assinar sela os bytes e um arquivo impecável de uma receita que a farmácia
-             recusa é pior do que um papel visivelmente incompleto. -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
-                Visibility="{Binding TemExigenciasLegais,
-                             Converter={StaticResource BoolParaVisibilidade}}">
             <StackPanel>
+                <!-- É o segundo caso do projeto em que a tela COBRA confirmação em vez de
+                     só avisar (o primeiro é a divergência do fechamento de caixa): quem
+                     decide continua sendo a pessoa, mas isto não pode acontecer sem alguém
+                     perceber. O botão de emitir fica apagado até a caixa ser marcada. -->
+                <StackPanel Visibility="{Binding ColideComAlergia,
+                                         Converter={StaticResource BoolParaVisibilidade}}">
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" CornerRadius="2"
+                                Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                        <TextBlock Grid.Column="1" Margin="10,0,0,0" TextWrapping="Wrap"
+                                   FontWeight="SemiBold"
+                                   Text="ATENÇÃO — esta prescrição bate com uma alergia registrada" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding ColisoesAlergia}"
+                                  ItemTemplate="{StaticResource LinhaAvisoGrave}" />
+                    <CheckBox Content="Eu vi o alerta e assumo esta prescrição"
+                              IsChecked="{Binding AlergiaConferida}" Margin="13,6,0,6" />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding AlertasClinicos}"
+                              ItemTemplate="{StaticResource LinhaAvisoAtencao}" />
+
                 <TextBlock Text="O que a lei exige e ainda falta neste documento"
-                           FontWeight="SemiBold" TextWrapping="Wrap" />
-                <ItemsControl ItemsSource="{Binding ExigenciasLegais}" Margin="0,6,0,0">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                           FontWeight="SemiBold" TextWrapping="Wrap" Margin="13,6,0,0"
+                           Visibility="{Binding TemExigenciasLegais,
+                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                <ItemsControl ItemsSource="{Binding ExigenciasLegais}"
+                              ItemTemplate="{StaticResource LinhaAvisoAtencao}" />
             </StackPanel>
         </Border>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel>
+        <!-- ============ O FORMULÁRIO: uma superfície, regiões por rótulo ============ -->
+        <Border Style="{StaticResource Card}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
 
-                <!-- ===== O que o prontuário sabe deste paciente =====
-                     Alergias e medicação de uso contínuo, visíveis ANTES de escrever —
-                     é o que se olha para decidir, não uma validação de saída. Some
-                     inteiro quando não há nada registrado: caixa vazia dizendo "nenhuma
-                     alergia" ocuparia a tela para não informar nada. -->
-                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,16"
-                        Visibility="{Binding TemAlertasClinicos,
-                                     Converter={StaticResource BoolParaVisibilidade}}">
-                    <StackPanel>
-                        <TextBlock Text="O prontuário deste paciente registra"
-                                   FontWeight="SemiBold" TextWrapping="Wrap" />
-                        <ItemsControl ItemsSource="{Binding AlertasClinicos}" Margin="0,6,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
+                    <!-- ===== Identificação do documento ===== -->
+                    <Grid>
+                        <!-- Três colunas IGUAIS: o DatePicker tem largura mínima própria e,
+                             numa coluna com metade do peso das vizinhas, ele espremia o campo
+                             e desencontrava a linha. -->
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="180" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" MinWidth="150" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" MinWidth="180" />
+                        </Grid.ColumnDefinitions>
 
-                <!-- ===== Identificação do documento ===== -->
-                <Grid>
-                    <!-- Três colunas IGUAIS: o DatePicker tem largura mínima própria e,
-                         numa coluna com metade do peso das vizinhas, ele espremia o campo
-                         e desencontrava a linha. -->
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="180" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" MinWidth="150" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" MinWidth="180" />
-                    </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Tipo de documento" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}"
+                                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                        </StackPanel>
 
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Tipo de documento" Style="{StaticResource Rotulo}" />
-                        <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}"
-                                  ItemTemplate="{StaticResource ItemRotuloEnum}" />
-                    </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
+                            <DatePicker SelectedDate="{Binding Data}" />
+                        </StackPanel>
 
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
-                        <DatePicker SelectedDate="{Binding Data}" />
-                    </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Quem assina" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
+                                      DisplayMemberPath="Rotulo" />
+                        </StackPanel>
+                    </Grid>
 
-                    <StackPanel Grid.Column="4">
-                        <TextBlock Text="Quem assina" Style="{StaticResource Rotulo}" />
-                        <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
-                                  DisplayMemberPath="Rotulo" />
-                    </StackPanel>
-                </Grid>
-
-                <!-- ===== Modelos ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Modelos" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
-                                   Text="O modelo nasce de um documento que você acabou de escrever. Guardar com um nome já usado corrige o modelo em vez de criar um gêmeo." />
-
+                    <!-- ===== Modelo: a OPERAÇÃO numa linha =====
+                         Aplicar é o que se faz a cada receita; guardar e apagar são
+                         cadastro, e ficam como botão (o nome é perguntado no clique). -->
+                    <TextBlock Text="Começar de um modelo" Style="{StaticResource Rotulo}"
+                               Margin="0,14,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0" ItemsSource="{Binding Modelos}"
+                                  SelectedItem="{Binding ModeloSelecionado}"
+                                  DisplayMemberPath="Nome" VerticalAlignment="Center" />
                         <!-- Botão AO LADO DE CAMPO usa a altura do campo (36), nunca
                              BotaoPequeno (26): a Grid estica o botão baixo até a altura da
-                             linha e ele sai com o padding errado — é o "fora do esquadro"
-                             que dava para ver a olho nu. BotaoPequeno é para linha densa
-                             de tabela, não para barra de formulário. -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ComboBox Grid.Column="0" ItemsSource="{Binding Modelos}"
-                                      SelectedItem="{Binding ModeloSelecionado}"
-                                      DisplayMemberPath="Nome" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
-                                    VerticalAlignment="Center" MinWidth="88"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding AplicarModeloCommand}" />
-                            <!-- Modelo é rascunho de apoio, não registro do que aconteceu:
-                                 apaga-se mesmo. O documento emitido com ele não muda —
-                                 a emissão copia o conteúdo.
-                                 Deixou de ser vermelho SÓLIDO: ação destrutiva que fica
-                                 gritando ao lado de um seletor rouba a atenção do que a
-                                 pessoa veio fazer. Quem protege é a confirmação. -->
-                            <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
-                                    VerticalAlignment="Center" MinWidth="88"
-                                    Style="{StaticResource BotaoSecundarioPerigo}"
-                                    Command="{Binding ExcluirModeloCommand}" />
-                        </Grid>
+                             linha e ele sai com o padding errado (parcela 41). -->
+                        <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
+                                VerticalAlignment="Center" MinWidth="88"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding AplicarModeloCommand}" />
+                        <Button Grid.Column="2" Content="Guardar como modelo…" Margin="8,0,0,0"
+                                VerticalAlignment="Center" MinWidth="170"
+                                Style="{StaticResource BotaoSecundario}"
+                                ToolTip="Guarda o que está na tela como modelo deste tipo de documento. Um nome já usado corrige o modelo em vez de criar um gêmeo."
+                                Command="{Binding SalvarComoModeloCommand}" />
+                        <!-- Modelo é rascunho de apoio, não registro do que aconteceu:
+                             apaga-se mesmo. O documento emitido com ele não muda — a emissão
+                             copia o conteúdo. Contorno, não sólido: ação destrutiva gritando
+                             ao lado de um seletor rouba a atenção do que a pessoa veio fazer;
+                             quem protege é a confirmação. -->
+                        <Button Grid.Column="3" Content="Apagar" Margin="8,0,0,0"
+                                VerticalAlignment="Center" MinWidth="88"
+                                Style="{StaticResource BotaoSecundarioPerigo}"
+                                Command="{Binding ExcluirModeloCommand}" />
+                    </Grid>
 
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="CampoNomeModelo" Grid.Column="0" MaxLength="100"
-                                     VerticalAlignment="Center"
-                                     ctrl:Ajudantes.Placeholder="Nome do modelo" />
-                            <Button Grid.Column="1" Content="Guardar como modelo" Margin="8,0,0,0"
-                                    VerticalAlignment="Center"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding SalvarComoModeloCommand}"
-                                    CommandParameter="{Binding Text, ElementName=CampoNomeModelo}" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                    <Separator Margin="0,16" Background="{StaticResource Brush.Borda}" />
 
-                <!-- ===== Texto ===== -->
-                <TextBlock Text="Título impresso (opcional)" Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
-                <TextBox Text="{Binding Titulo}" MaxLength="200" />
-
-                <TextBlock Text="Texto do documento" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
-                <TextBox Text="{Binding Corpo}" AcceptsReturn="True" Height="110"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="4000" />
-
-                <!-- ===== Linhas (receita e pedido de exame) ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
-                        Visibility="{Binding MostraItens, Converter={StaticResource BoolParaVisibilidade}}">
-                    <StackPanel>
+                    <!-- ===== Linhas (receita e pedido de exame) ===== -->
+                    <StackPanel Visibility="{Binding MostraItens, Converter={StaticResource BoolParaVisibilidade}}">
                         <Grid>
                             <TextBlock Text="{Binding RotuloItens}" Style="{StaticResource H3}" Margin="0"
                                        VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
@@ -234,10 +277,31 @@
                                     Command="{Binding AdicionarItemCommand}" />
                         </Grid>
 
-                        <ItemsControl ItemsSource="{Binding Itens}" Margin="0,8,0,0">
+                        <!-- CABEÇALHO das colunas, nas MESMAS proporções das linhas: é isso
+                             que mantém a régua. A última coluna reserva a largura do botão
+                             Remover (88 + a margem de 8). -->
+                        <Grid Margin="0,10,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2.4*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="2.4*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding RotuloDescricao}"
+                                       Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="Quantidade"
+                                       Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="4" Text="{Binding RotuloDetalhe}"
+                                       Style="{StaticResource Rotulo}" Margin="0" />
+                            <Border Grid.Column="5" Width="96" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Itens}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type comp:LinhaItemDocumento}">
-                                    <Border Padding="0,6"
+                                    <Border Padding="0,5"
                                             BorderBrush="{StaticResource Brush.Borda}"
                                             BorderThickness="0,0,0,1">
                                         <Grid>
@@ -251,11 +315,17 @@
                                             </Grid.ColumnDefinitions>
 
                                             <TextBox Grid.Column="0" Text="{Binding Descricao}" MaxLength="300"
-                                                     VerticalAlignment="Center" />
+                                                     VerticalAlignment="Center"
+                                                     ctrl:Ajudantes.Placeholder="{Binding DataContext.RotuloDescricao,
+                                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                             <TextBox Grid.Column="2" Text="{Binding Quantidade}" MaxLength="60"
-                                                     VerticalAlignment="Center" />
+                                                     VerticalAlignment="Center"
+                                                     ctrl:Ajudantes.Placeholder="{Binding DataContext.DicaQuantidade,
+                                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                                             <TextBox Grid.Column="4" Text="{Binding Detalhe}" MaxLength="1000"
-                                                     VerticalAlignment="Center" />
+                                                     VerticalAlignment="Center"
+                                                     ctrl:Ajudantes.Placeholder="{Binding DataContext.DicaDetalhe,
+                                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
 
                                             <!-- Um "Remover" vermelho sólido por linha faz a
                                                  receita inteira parecer um formulário de erro.
@@ -271,20 +341,10 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-
-                        <TextBlock Margin="0,8,0,0" Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap">
-                            <Run Text="Colunas: o que é · quantidade · " />
-                            <Run Text="{Binding RotuloDetalhe, Mode=OneWay}" />
-                            <Run Text="." />
-                        </TextBlock>
                     </StackPanel>
-                </Border>
 
-                <!-- ===== Atestado ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
-                        Visibility="{Binding MostraAtestado, Converter={StaticResource BoolParaVisibilidade}}">
-                    <StackPanel>
+                    <!-- ===== Atestado ===== -->
+                    <StackPanel Visibility="{Binding MostraAtestado, Converter={StaticResource BoolParaVisibilidade}}">
                         <TextBlock Text="Afastamento" Style="{StaticResource H3}" Margin="0" />
 
                         <Grid Margin="0,8,0,0">
@@ -299,12 +359,13 @@
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Dias de afastamento" Style="{StaticResource Rotulo}" />
                                 <TextBox Text="{Binding DiasAfastamentoTexto, UpdateSourceTrigger=PropertyChanged}"
-                                         MaxLength="4" />
+                                         MaxLength="4" ctrl:Ajudantes.Placeholder="ex.: 3" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="A partir de" Style="{StaticResource Rotulo}" />
-                                <DatePicker SelectedDate="{Binding PeriodoInicio}" />
+                                <DatePicker SelectedDate="{Binding PeriodoInicio}"
+                                            ToolTip="Sai impresso como “A partir de …”. Nasce com a data do documento; a sessão de ontem, atestada hoje, é o caso normal — corrija aqui." />
                             </StackPanel>
 
                             <StackPanel Grid.Column="4">
@@ -331,21 +392,37 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- A crítica dos dias A CADA TECLA (parcela 51): "três" só
+                             estourava no clique de emitir. É a mesma regra que a emissão
+                             aplica — a tela avisa, o serviço impede. -->
+                        <TextBlock Text="{Binding CriticaAfastamento}" TextWrapping="Wrap"
+                                   Margin="0,6,0,0" FontWeight="SemiBold"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Erro}"
+                                   Visibility="{Binding CriticaAfastamento,
+                                                Converter={StaticResource TextoParaVisibilidade},
+                                                FallbackValue=Collapsed}" />
+
                         <CheckBox Margin="0,10,0,0" IsChecked="{Binding CidAutorizado}"
                                   Content="O paciente autorizou imprimir o CID no atestado" />
 
-                        <Border Style="{StaticResource AlertaAviso}" Margin="0,8,0,0"
-                                Visibility="{Binding AvisaCidOmitido, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                        <!-- Linha de aviso, não faixa: o diagnóstico é sigilo do paciente e
+                             só entra no atestado com autorização expressa dele. -->
+                        <Grid Margin="0,8,0,0"
+                              Visibility="{Binding AvisaCidOmitido, Converter={StaticResource BoolParaVisibilidade}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" CornerRadius="2"
+                                    Background="{StaticResource Brush.Semaforo.Amarelo}" />
+                            <TextBlock Grid.Column="1" Margin="10,0,0,0" TextWrapping="Wrap"
                                        Text="O CID NÃO vai sair impresso: o diagnóstico é sigilo do paciente e só entra no atestado com autorização expressa dele." />
-                        </Border>
+                        </Grid>
                     </StackPanel>
-                </Border>
 
-                <!-- ===== Declaração de comparecimento ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
-                        Visibility="{Binding MostraComparecimento, Converter={StaticResource BoolParaVisibilidade}}">
-                    <StackPanel>
+                    <!-- ===== Declaração de comparecimento ===== -->
+                    <StackPanel Visibility="{Binding MostraComparecimento, Converter={StaticResource BoolParaVisibilidade}}">
                         <TextBlock Text="Comparecimento" Style="{StaticResource H3}" Margin="0" />
 
                         <Grid Margin="0,8,0,0">
@@ -364,26 +441,40 @@
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Chegou às" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding HoraChegadaTexto}" MaxLength="5" />
+                                <TextBox Text="{Binding HoraChegadaTexto}" MaxLength="5"
+                                         ctrl:Ajudantes.Placeholder="ex.: 14:30" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="4">
                                 <TextBlock Text="Saiu às" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding HoraSaidaTexto}" MaxLength="5" />
+                                <TextBox Text="{Binding HoraSaidaTexto}" MaxLength="5"
+                                         ctrl:Ajudantes.Placeholder="ex.: 15:10" />
                             </StackPanel>
                         </Grid>
 
                         <TextBlock Margin="0,8,0,0" Style="{StaticResource TextoSuave}"
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
-                                   Text="Horários no formato 14:30. Em branco, a declaração sai sem horário — o que basta para a maioria dos empregadores." />
+                                   Text="Em branco, a declaração sai sem horário — o que basta para a maioria dos empregadores." />
                     </StackPanel>
-                </Border>
 
-                <TextBlock Text="Observações (impressas no rodapé do documento)"
-                           Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
-                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="60"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="1000" />
-            </StackPanel>
-        </ScrollViewer>
+                    <Separator Margin="0,16" Background="{StaticResource Brush.Borda}" />
+
+                    <!-- ===== Texto ===== -->
+                    <TextBlock Text="Título impresso (opcional)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Titulo}" MaxLength="200" />
+
+                    <TextBlock Text="Texto do documento" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+                    <!-- MinHeight, não Height: o atestado de três linhas e a receita com
+                         orientações de vinte cabem no mesmo campo, que cresce com o texto. -->
+                    <TextBox Text="{Binding Corpo}" AcceptsReturn="True" MinHeight="110"
+                             TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="4000" />
+
+                    <TextBlock Text="Observações (impressas no rodapé do documento)"
+                               Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+                    <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" MinHeight="56"
+                             TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="1000" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
     </DockPanel>
 </Window>

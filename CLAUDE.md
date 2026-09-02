@@ -2594,6 +2594,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   found"), e o `Snapshot_do_EF_esta_em_dia` é quem pega; copie a ordem do par
   `ArquivoResultadoExame` → `ResultadoExame`, nos dois arquivos (snapshot e Designer).
 
+- **A JANELA DE DOCUMENTO NÃO DIZIA PARA QUEM — e o "leia o texto inteiro no Histórico"
+  era promessa sem código** (set/2026 — a direção pediu melhorias nas telas de
+  atendimento, prontuário e nos modais de documento clínico). Os dois achados que
+  importam, e nenhum quebrava nada:
+  ⚠️ **O `DocumentoWindow` (receita, atestado, comparecimento, pedido de exame) abria
+  com o título "Emitir receita" e NENHUMA linha com o nome do paciente.** O paciente já
+  estava carregado — a conferência legal lê o endereço dele desde a parcela 43 — e não
+  era mostrado, num papel que sai da clínica com o nome de alguém, aberto por QUATRO
+  portas, uma delas com busca de paciente ao lado (trocar o foco e emitir para quem
+  ficou escolhido é um clique). É a variante do defeito recorrente em que o dado está na
+  memória da própria tela. A janela era também a pilha que o README proíbe (três faixas
+  `Alerta*` + quatro `Card`) com o CADASTRO de modelo (caixa de nome + Guardar) ocupando
+  uma linha em toda receita do dia — virou pergunta no clique (`PerguntarTexto`,
+  obrigatório: modelo sem nome não se acha no combo). As colunas das linhas ganharam
+  CABEÇALHO e texto-fantasma com exemplo — a legenda ficava ABAIXO da lista, depois de a
+  primeira linha já ter sido preenchida às cegas. E o botão passou a dizer o que faz:
+  "Emitir e imprimir" com a assinatura marcada prometia a impressora, quando o assinado
+  é salvo e aberto (parcela 43). A crítica dos dias de afastamento é a cada tecla e a
+  emissão recusa com a MESMA função (`CriticarDias`) — a metade que avisa e a que impede.
+  ⚠️ **O Histórico de sessões mostrava QUATRO dos doze campos** (queixa, conduta,
+  evolução, orientações), enquanto o painel de "Últimas sessões" — corrigido na parcela
+  77 — escrevia em comentário que "o texto inteiro continua na aba Histórico, que é onde
+  se lê com calma". História da doença, exame físico, hipótese com CID, plano, retorno
+  e encaminhamento não eram legíveis POR INTEIRO em lugar nenhum. A parcela 77 corrigiu
+  o primeiro leitor e a lição dela ("campo novo entra em quem MOSTRA a sessão anterior")
+  não alcançou o segundo, a uma aba de distância. Agora os dois leem o MESMO compositor
+  (`ResumoSessaoAnterior`, que ganhou as três linhas que faltavam); a diferença é o
+  CORTE — o painel corta, o histórico quebra —, e corte é decisão de tela. Linha vazia é
+  `string.Empty`, nunca "—": quatro traços em toda sessão viram paisagem.
+  ⚠️ **Estilo LOCAL não conta para a checagem 24.** Ela lê a lista de estilos que
+  resolvem a quebra dos DICIONÁRIOS do design system; um `x:Key` em `UserControl.
+  Resources` com `TextWrapping` é invisível para ela, e ela reclamou de cada linha. O
+  `TextWrapping` vai escrito na tag — e o comentário do estilo diz por quê, senão a
+  próxima pessoa o "arruma" de volta.
+  A lição de método: **quando uma correção escreve "o texto inteiro está em X", abra X e
+  confira** — comentário que aponta para outra tela é promessa sobre um arquivo que
+  ninguém releu (a família da parcela 67).
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

@@ -56,11 +56,35 @@ public class SessaoAnteriorNoAtendimentoTests
 
         r.Retorno.Should().BeEmpty();
         r.Queixa.Should().BeEmpty();
+        r.Historia.Should().BeEmpty();
+        r.ExameFisico.Should().BeEmpty();
         r.Hipotese.Should().BeEmpty();
         r.Conduta.Should().BeEmpty();
         r.Evolucao.Should().BeEmpty();
+        r.Orientacoes.Should().BeEmpty();
         r.Plano.Should().BeEmpty();
         r.Encaminhamento.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Os três que o HISTÓRICO de sessões precisava e o resumo não tinha: história da
+    /// doença, exame físico e orientações. O histórico lê esta MESMA composição — sem estas
+    /// linhas, o texto inteiro da consulta não era legível em lugar nenhum, com o comentário
+    /// do painel jurando que "o texto inteiro continua no Histórico".
+    /// </summary>
+    [Fact]
+    public void A_historia_o_exame_fisico_e_as_orientacoes_entram_rotulados()
+    {
+        var e = Sessao();
+        e.HistoriaDoencaAtual = "Dor há 3 semanas, pior ao sentar.";
+        e.ExameFisico = "Lasègue positivo à direita.";
+        e.Orientacoes = "Calor local, evitar carga.";
+
+        var r = ResumoSessaoAnterior.De(e);
+
+        r.Historia.Should().StartWith("História da doença atual: ").And.Contain("3 semanas");
+        r.ExameFisico.Should().StartWith("Exame físico: ").And.Contain("Lasègue");
+        r.Orientacoes.Should().StartWith("Orientações: ").And.Contain("Calor local");
     }
 
     [Theory]

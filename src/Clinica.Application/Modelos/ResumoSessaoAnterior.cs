@@ -30,15 +30,26 @@ namespace Clinica.Application.Modelos;
 /// As linhas vêm PRONTAS e vazias quando não há conteúdo: a coluna tem ~350 px e três
 /// sessões, e uma linha escrita "—" gasta o mesmo espaço de uma que informa. O texto inteiro
 /// continua na aba "Histórico de sessões", que é onde se lê com calma.
+///
+/// ⚠️ É a MESMA composição que o Histórico de sessões lê. Ele nasceu com os quatro campos
+/// originais e ficou assim por mais quatro parcelas depois de este resumo ter sido corrigido
+/// — ou seja, a frase acima ("o texto inteiro continua no Histórico") era promessa que o
+/// código não cumpria: a história da doença, o exame físico, a hipótese, o plano, o retorno
+/// e o encaminhamento não eram legíveis por inteiro em lugar NENHUM. Duas telas que
+/// respondem à mesma pergunta sobre o mesmo dado leem uma definição só; a diferença entre
+/// elas é o CORTE (o painel corta, o histórico quebra a linha), e corte é decisão de tela.
 /// </summary>
 public sealed record ResumoSessaoAnterior(
     int EvolucaoId,
     string Data,
     string Eva,
     string Queixa,
+    string Historia,
+    string ExameFisico,
     string Hipotese,
     string Conduta,
     string Evolucao,
+    string Orientacoes,
     string Plano,
     string Retorno,
     string Encaminhamento)
@@ -48,9 +59,12 @@ public sealed record ResumoSessaoAnterior(
         Data: e.Data.ToString("dd/MM/yyyy"),
         Eva: e.TemParEva ? $"EVA {e.EvaAntes} \u2192 {e.EvaDepois}" : "EVA n\u00E3o medida",
         Queixa: Rotular("Queixa", e.QueixaPrincipal),
+        Historia: Rotular("Hist\u00F3ria da doen\u00E7a atual", e.HistoriaDoencaAtual),
+        ExameFisico: Rotular("Exame f\u00EDsico", e.ExameFisico),
         Hipotese: DaHipotese(e),
         Conduta: Rotular("Conduta", e.Conduta),
         Evolucao: Rotular("Evolu\u00E7\u00E3o", e.TextoEvolucao),
+        Orientacoes: Rotular("Orienta\u00E7\u00F5es", e.Orientacoes),
         Plano: Rotular("Plano", e.PlanoTerapeutico),
         Retorno: DoRetorno(e),
         Encaminhamento: Rotular("Encaminhado", e.Encaminhamento));

@@ -30,8 +30,21 @@
             </StackPanel>
         </Border>
 
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,14,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade (parcela
+             62) — amarrada a MensagemEhErro, a mensagem que não é erro nunca apareceria. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,14,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 

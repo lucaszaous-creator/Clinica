@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
@@ -14,7 +15,20 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Clinico.ViewModels;
 
-/// <summary>Uma sessão do prontuário, como a lista do consultório a mostra.</summary>
+/// <summary>
+/// Uma sessão do prontuário, como a lista do consultório a mostra.
+///
+/// ⚠️ Os campos de texto vêm do MESMO compositor do painel de "Últimas sessões"
+/// (<see cref="ResumoSessaoAnterior"/>): esta lista nasceu com quatro campos (queixa,
+/// conduta, evolução, orientações) e a sessão passou a ter doze — história da doença,
+/// exame físico, hipótese com CID, plano, retorno sugerido e encaminhamento ficaram
+/// ilegíveis por inteiro em lugar NENHUM, enquanto o painel ao lado do formulário jurava
+/// que "o texto inteiro continua na aba Histórico". Duas telas para a mesma pergunta
+/// leem uma definição só; a diferença é que aqui a linha QUEBRA em vez de cortar.
+///
+/// Linha vazia é <c>string.Empty</c>, nunca "—": quatro traços em toda sessão viram
+/// paisagem, e é a paisagem que faz o olho parar de ler a linha que importa.
+/// </summary>
 public sealed class LinhaSessaoProntuario
 {
     public required int EvolucaoId { get; init; }
@@ -22,9 +36,15 @@ public sealed class LinhaSessaoProntuario
     public required string Profissional { get; init; }
     public required string Eva { get; init; }
     public required string Queixa { get; init; }
+    public required string Historia { get; init; }
+    public required string ExameFisico { get; init; }
+    public required string Hipotese { get; init; }
     public required string Conduta { get; init; }
     public required string Evolucao { get; init; }
     public required string Orientacoes { get; init; }
+    public required string Plano { get; init; }
+    public required string Retorno { get; init; }
+    public required string Encaminhamento { get; init; }
 
     /// <summary>Quantos arquivos a sessão tem — o clipe da linha.</summary>
     public required int Anexos { get; init; }
@@ -54,19 +74,29 @@ public sealed class LinhaSessaoProntuario
         _ => $"{Anexos} anexos"
     };
 
-    public static LinhaSessaoProntuario De(Evolucao e, int anexos, int correcoes) => new()
+    public static LinhaSessaoProntuario De(Evolucao e, int anexos, int correcoes)
     {
-        EvolucaoId = e.Id,
-        Data = e.Data.ToString("dd/MM/yyyy"),
-        Profissional = e.Profissional?.Nome ?? "—",
-        Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
-        Queixa = string.IsNullOrWhiteSpace(e.QueixaPrincipal) ? "—" : e.QueixaPrincipal!,
-        Conduta = string.IsNullOrWhiteSpace(e.Conduta) ? "—" : e.Conduta!,
-        Evolucao = string.IsNullOrWhiteSpace(e.TextoEvolucao) ? "—" : e.TextoEvolucao!,
-        Orientacoes = string.IsNullOrWhiteSpace(e.Orientacoes) ? "—" : e.Orientacoes!,
-        Anexos = anexos,
-        Correcoes = correcoes
-    };
+        var r = ResumoSessaoAnterior.De(e);
+        return new()
+        {
+            EvolucaoId = e.Id,
+            Data = r.Data,
+            Profissional = e.Profissional?.Nome ?? "—",
+            Eva = r.Eva,
+            Queixa = r.Queixa,
+            Historia = r.Historia,
+            ExameFisico = r.ExameFisico,
+            Hipotese = r.Hipotese,
+            Conduta = r.Conduta,
+            Evolucao = r.Evolucao,
+            Orientacoes = r.Orientacoes,
+            Plano = r.Plano,
+            Retorno = r.Retorno,
+            Encaminhamento = r.Encaminhamento,
+            Anexos = anexos,
+            Correcoes = correcoes
+        };
+    }
 }
 
 /// <summary>Uma linha da lista de problemas, com o que a tela precisa desenhar.</summary>

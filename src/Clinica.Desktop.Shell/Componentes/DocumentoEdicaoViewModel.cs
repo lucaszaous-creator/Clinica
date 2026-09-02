@@ -112,6 +112,24 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnDestinoDoQrChanged(string value)
         => OnPropertyChanged(nameof(MostrarDestinoDoQr));
 
+    /// <summary>
+    /// PARA QUEM é o documento — a linha sob o título.
+    ///
+    /// A janela dizia só "Emitir receita": o paciente estava carregado (a conferência legal
+    /// lê o endereço dele) e nenhuma linha o mostrava. Receita, atestado e pedido de exame
+    /// são os papéis que SAEM da clínica com o nome de alguém, e a janela é aberta de
+    /// quatro portas — uma delas com busca de paciente ao lado. É o dado que separa "emiti
+    /// para quem está na cadeira" de "emiti para quem ficou escolhido na tela de trás".
+    /// </summary>
+    [ObservableProperty] private string _pacienteTexto = string.Empty;
+
+    /// <summary>
+    /// O botão diz o que vai acontecer: assinado, o documento é SALVO E ABERTO — nunca vai
+    /// para a impressora (a via impressa de um documento assinado é cópia, parcela 43). Um
+    /// botão "Emitir e imprimir" com a caixa de assinatura marcada prometia o gesto errado.
+    /// </summary>
+    public string TextoBotaoEmitir => AssinarDigitalmente ? "Emitir e assinar" : "Emitir e imprimir";
+
     /// <summary>Só interessa quando vai sair assinatura — em papel não há QR.</summary>
     public bool MostrarDestinoDoQr => AssinarDigitalmente && DestinoDoQr.Length > 0;
 
@@ -122,6 +140,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnAssinarDigitalmenteChanged(bool value)
     {
         OnPropertyChanged(nameof(MostrarDestinoDoQr));
+        OnPropertyChanged(nameof(TextoBotaoEmitir));
         _ = ConferirLegalmenteAsync();
     }
 
@@ -281,6 +300,47 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         : "Indicação clínica";
 
     /// <summary>
+    /// Cabeçalho da primeira coluna das linhas. As três colunas eram caixas em branco com
+    /// uma legenda ABAIXO da lista ("Colunas: o que é · quantidade · posologia") — quem
+    /// preenchia a primeira linha ainda não tinha lido o que cada caixa era.
+    /// </summary>
+    public string RotuloDescricao => TipoSelecionado == TipoDocumentoClinico.Receita
+        ? "Medicamento"
+        : "Exame";
+
+    /// <summary>Texto-fantasma da coluna do meio — o exemplo é o que explica a caixa.</summary>
+    public string DicaQuantidade => TipoSelecionado == TipoDocumentoClinico.Receita
+        ? "ex.: 1 caixa"
+        : "ex.: 1";
+
+    /// <summary>Texto-fantasma da última coluna.</summary>
+    public string DicaDetalhe => TipoSelecionado == TipoDocumentoClinico.Receita
+        ? "ex.: 1 comprimido de 8/8 h por 5 dias"
+        : "ex.: dor lombar há 3 semanas";
+
+    /// <summary>
+    /// A crítica dos dias de afastamento, A CADA TECLA. Antes, "três" ou "3 dias" só
+    /// estourava no clique de emitir (a lição da parcela 51: dica estática não é aviso). A
+    /// regra é UMA — <see cref="CriticarDias"/> — e a emissão recusa com a mesma frase.
+    /// </summary>
+    public string CriticaAfastamento => CriticarDias(DiasAfastamentoTexto) ?? string.Empty;
+
+    /// <summary>
+    /// Nulo quando o texto serve (em branco também serve — dias é opcional no atestado
+    /// por período). Positivo porque "-3 dia(s)" sairia impresso tal e qual.
+    /// </summary>
+    private static string? CriticarDias(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return null;
+        return int.TryParse(texto.Trim(), out var dias) && dias > 0
+            ? null
+            : "Os dias de afastamento devem ser um número inteiro maior que zero.";
+    }
+
+    partial void OnDiasAfastamentoTextoChanged(string? value)
+        => OnPropertyChanged(nameof(CriticaAfastamento));
+
+    /// <summary>
     /// O CID preenchido SEM autorização não sai impresso. A tela avisa antes de a
     /// secretária entregar o papel achando que o diagnóstico foi junto.
     /// </summary>
@@ -320,8 +380,22 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         _escopos = escopos;
         _pacienteId = pacienteId;
         _tipoSelecionado = tipoInicial;
+        PreencherDataDoPeriodo();
         Itens.Add(new LinhaItemDocumento());
         _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// O atestado e a declaração nascem com "a partir de" / "dia do atendimento" = a data
+    /// do documento. É o que o papel diz de qualquer jeito: a declaração cai na data do
+    /// documento quando o campo está vazio, e o atestado sem ela deixa o RH ler a data do
+    /// cabeçalho como início. Mostrar na tela a data que VAI sair é o que permite corrigi-la
+    /// — a sessão de ontem, atestada hoje, é o caso normal. Nunca sobrescreve o que a
+    /// pessoa já escolheu.
+    /// </summary>
+    private void PreencherDataDoPeriodo()
+    {
+        if (MostraAtestado || MostraComparecimento) PeriodoInicio ??= Data;
     }
 
     partial void OnTipoSelecionadoChanged(TipoDocumentoClinico value)
@@ -332,6 +406,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(MostraComparecimento));
         OnPropertyChanged(nameof(RotuloItens));
         OnPropertyChanged(nameof(RotuloDetalhe));
+        OnPropertyChanged(nameof(RotuloDescricao));
+        OnPropertyChanged(nameof(DicaQuantidade));
+        OnPropertyChanged(nameof(DicaDetalhe));
+        PreencherDataDoPeriodo();
         _ = CarregarModelosAsync();
 
         // Nem todo tipo se publica: trocar de Receita para Relatório tem de apagar a
@@ -391,6 +469,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             // Id sozinho não responde se a receita pode ser aviada.
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
             _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
+            PacienteTexto = _paciente switch
+            {
+                null => string.Empty,
+                { DataNascimento: { } nascimento } =>
+                    $"Para {_paciente.Nome} · nascimento {nascimento:dd/MM/yyyy}",
+                _ => $"Para {_paciente.Nome}"
+            };
 
             await CarregarModelosAsync();
             await ConferirLegalmenteAsync();
@@ -499,16 +584,17 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     /// <summary>
     /// Guarda o que está na tela como modelo. Nome repetido sobrescreve: quem salva duas
     /// vezes com o mesmo nome está corrigindo o modelo, não criando um gêmeo.
+    ///
+    /// O nome é PERGUNTADO no clique, e não digitado numa caixa permanente: guardar modelo
+    /// acontece uma vez por mês, e a caixa ocupava uma linha inteira do formulário em toda
+    /// receita do dia — cadastro grudado ao lado da operação (a regra da parcela 49). O
+    /// nome é obrigatório (modelo sem nome não se acha no combo), então a janela recusa o
+    /// vazio e o Cancelar devolve <c>null</c>: desistir sai calado, que é a exceção
+    /// declarada da regra do botão que não faz nada.
     /// </summary>
     [RelayCommand]
-    private async Task SalvarComoModeloAsync(string? nome)
+    private async Task SalvarComoModeloAsync()
     {
-        if (string.IsNullOrWhiteSpace(nome))
-        {
-            Erro("Dê um nome ao modelo antes de guardá-lo.");
-            return;
-        }
-
         try
         {
             // O modelo é o rascunho que a clínica INTEIRA usa — quem pode emitir a folha
@@ -517,12 +603,23 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 CentralDocumentosService.AcessoParaEmitir(TipoSelecionado), "guardar modelo de documento");
 
             using var scope = _escopos.CreateScope();
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+
+            // Com um modelo escolhido no combo, o nome dele vem pré-preenchido: é o caminho
+            // de quem aplicou, ajustou e quer CORRIGIR o modelo, não criar outro.
+            var nome = dialogo.PerguntarTexto(
+                "Guardar como modelo",
+                "Nome do modelo. Guardar com um nome já usado corrige o modelo em vez de "
+                + "criar um gêmeo.",
+                ModeloSelecionado?.Nome ?? Titulo);
+            if (nome is null) return;
+
             var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
             var modelo = new ModeloDocumento
             {
                 Tipo = TipoSelecionado,
-                Nome = nome!,
+                Nome = nome.Trim(),
                 Titulo = Titulo,
                 Corpo = Corpo
             };
@@ -794,9 +891,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         {
             if (!string.IsNullOrWhiteSpace(DiasAfastamentoTexto))
             {
-                if (!int.TryParse(DiasAfastamentoTexto, out var dias))
-                    throw new InvalidOperationException("Os dias de afastamento devem ser um número.");
-                documento.DiasAfastamento = dias;
+                // A MESMA regra que a tela critica a cada tecla — a metade que impede.
+                if (CriticarDias(DiasAfastamentoTexto) is { } critica)
+                    throw new InvalidOperationException(critica);
+                documento.DiasAfastamento = int.Parse(DiasAfastamentoTexto.Trim());
             }
 
             documento.Cid = Cid;
