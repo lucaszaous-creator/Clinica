@@ -111,9 +111,12 @@ pacientes** — nomeados pelo id do arquivo (`164001527.pdf`) — e um índice
 QUAL paciente é cada um. Medido no ZIP real: 756 PDFs de 113 pacientes, todos "Receita
 #número", de 2024 a 2026.
 
-Eles entram nos **ARQUIVOS DA FICHA** de cada paciente (Consultório → paciente → "Exames e
-anexos" → região "Arquivos da ficha"), e não como anexo de sessão: a receita pertence à
-PESSOA, e forçá-la a uma evolução inventaria uma consulta que não houve.
+Eles entram nos **ARQUIVOS DA FICHA** de cada paciente, e não como anexo de sessão: a
+receita pertence à PESSOA, e forçá-la a uma evolução inventaria uma consulta que não houve.
+Onde aparecem: na **ficha do paciente** (Recepção → Pacientes → ficha → aba **Prontuário**,
+chip **Arquivos** da linha do tempo), na tela da **Enfermagem** (mesma linha do tempo) e no
+**Consultório** (paciente → "Exames e anexos" → região "Arquivos da ficha"). A aba Prontuário
+e o chip só existem para quem tem `VerProntuario` — a receita é dado de saúde.
 
 **A ordem importa: este ZIP se importa DEPOIS do pacote de pacientes.** Cada arquivo acha
 a ficha pelo id do paciente no sistema anterior (`IMPORT:smartclinic:{id_paciente}`, a

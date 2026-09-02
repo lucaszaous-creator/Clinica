@@ -374,7 +374,11 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         }
     }
 
-    /// <summary>Abre o arquivo da ficha — o MESMO caminho do laudo; dado de saúde saindo deixa rastro.</summary>
+    /// <summary>
+    /// Abre o arquivo da ficha pelo ponto único do shell (<see cref="ArquivosDaFicha"/>):
+    /// bytes sob demanda e trilha de acesso — o MESMO caminho da ficha da Recepção e da
+    /// tela da Enfermagem, para nenhuma cópia abrir o PDF sem registrar quem leu.
+    /// </summary>
     [RelayCommand]
     private async Task AbrirArquivoDaFichaAsync(LinhaArquivoDaFicha? linha)
     {
@@ -382,28 +386,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir arquivo da ficha");
-
-            byte[]? bytes;
-            using (var escopo = _escopos.CreateScope())
-            {
-                bytes = await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>()
-                    .ConteudoAsync(linha.Id);
-
-                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
-                    .RegistrarAsync(_foco.PacienteId ?? 0, SessaoUsuario.Atual.Operador,
-                        OrigemAcessoProntuario.ExportacaoClinica);
-            }
-
-            if (bytes is null || bytes.Length == 0)
-            {
-                Mensagem = "O arquivo não foi encontrado no banco.";
-                MensagemEhErro = true;
-                return;
-            }
-
-            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                bytes, ImpressaoPdf.NomeSeguro(linha.NomeArquivo));
+            var erro = await Clinica.Desktop.Shell.Componentes.ArquivosDaFicha.AbrirAsync(_escopos, linha.Id);
             Mensagem = erro;
             MensagemEhErro = erro is not null;
         }
@@ -416,7 +399,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         }
     }
 
-    /// <summary>Cancela com motivo, nunca "excluir" (parcela 52).</summary>
+    /// <summary>Cancela com motivo, nunca "excluir" (parcela 52) — pelo mesmo ponto único.</summary>
     [RelayCommand]
     private async Task CancelarArquivoDaFichaAsync(LinhaArquivoDaFicha? linha)
     {
@@ -424,19 +407,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem,
-                "cancelar arquivo da ficha");
-
-            var motivo = _dialogo.PerguntarTexto(
-                "Cancelar arquivo da ficha",
-                $"Por que \"{linha.Titulo}\" ({linha.NomeArquivo}) está sendo cancelado? Ele sai da "
-                + "lista e fica guardado, com este motivo.");
-            if (string.IsNullOrWhiteSpace(motivo)) return;
-
-            using var escopo = _escopos.CreateScope();
-            await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>()
-                .CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
+            if (!await Clinica.Desktop.Shell.Componentes.ArquivosDaFicha.CancelarAsync(_escopos, _dialogo, linha.Id, linha.Titulo)) return;
 
             _snackbar.Info("Arquivo cancelado (guardado no prontuário).");
             await CarregarAsync();
@@ -547,9 +518,7 @@ public sealed class LinhaArquivoDaFicha
         {
             a.Data.ToString("dd/MM/yyyy"),
             a.NomeArquivo,
-            a.Tamanho >= 1024 * 1024
-                ? $"{a.Tamanho / (1024.0 * 1024.0):0.#} MB"
-                : $"{Math.Max(1, a.Tamanho / 1024)} KB",
+            a.TamanhoLegivel,
             a.Importado ? "sistema anterior" : null
         }.Where(p => !string.IsNullOrWhiteSpace(p))),
         Observacoes = a.Observacoes

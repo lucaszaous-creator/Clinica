@@ -2576,6 +2576,17 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   entrou está LISTADO com a razão. O teste da conferência nasceu esperando o contrário e
   a regra já escrita do pacote é que estava certa — duas semânticas de "fechou" no mesmo
   botão fariam a direção ler "conferido" com significados diferentes a cada ZIP.
+  ⚠️ **A LINHA DO TEMPO É O LEITOR DA FICHA — e a natureza nova nasceu fora dela** (o
+  cliente: *"importei a pasta zipada mas não encontrei os arquivos dentro de cada
+  ficha"*). Os oito lugares foram percorridos, o `ConjuntoClinicoTests` ficou verde, e a
+  ficha da Recepção não mostrava nenhuma das 756 receitas: `LinhaDoTempoClinica.Montar`
+  recebe listas TIPADAS, uma por natureza, e o teste dele afirmava as quatro que existiam
+  em vez de percorrer o catálogo — **asserção que enumera à mão é asserção que a próxima
+  natureza não alcança**. A porta que eu tinha construído (a região no Consultório) era a
+  do app do MÉDICO; quem confere a importação abre a ficha no Gerente/Recepção. Agora o
+  arquivo entra no montador, e abrir/cancelar passam por UM ponto do shell
+  (`ArquivosDaFicha`), porque são três portas e a cópia que ficasse para trás abriria o
+  PDF sem registrar quem leu.
   ⚠️ **Snapshot escrito à mão: no 1:1, o bloco de relacionamento do lado DEPENDENTE (o
   que declara `WithOne("Arquivo")`) vem ANTES do principal que chama `Navigation("Arquivo")`**
   — o `BuildModel` roda os blocos em sequência, e a navegação só existe depois do

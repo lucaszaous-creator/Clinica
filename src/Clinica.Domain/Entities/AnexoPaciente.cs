@@ -73,6 +73,12 @@ public class AnexoPaciente
 
     /// <summary>⚠️ Derivada — "importado do sistema anterior" é procedência, não estado.</summary>
     public bool Importado => ChaveImportacao is not null;
+
+    /// <summary>"31 KB" / "1,2 MB" — UMA conta para toda tela que lista o arquivo (a linha do
+    /// tempo da ficha, o Consultório); duas divergiriam na primeira correção.</summary>
+    public string TamanhoLegivel => Tamanho >= 1024 * 1024
+        ? $"{Tamanho / (1024.0 * 1024.0):0.#} MB"
+        : $"{Math.Max(1, Tamanho / 1024)} KB";
 }
 
 /// <summary>

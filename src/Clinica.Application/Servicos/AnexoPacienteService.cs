@@ -132,6 +132,10 @@ public sealed class AnexoPacienteService
         int pacienteId, bool incluirCancelados = false, CancellationToken ct = default)
         => _repo.AnexosDaFichaAsync(pacienteId, incluirCancelados, ct);
 
+    /// <summary>A linha de um arquivo — o nome e o paciente, sem os bytes.</summary>
+    public Task<AnexoPaciente?> ObterAsync(int anexoId, CancellationToken ct = default)
+        => _repo.ObterAnexoPacienteAsync(anexoId, ct);
+
     /// <summary>Os bytes, sob demanda.</summary>
     public Task<byte[]?> ConteudoAsync(int anexoId, CancellationToken ct = default)
         => _repo.ConteudoDoAnexoPacienteAsync(anexoId, ct);

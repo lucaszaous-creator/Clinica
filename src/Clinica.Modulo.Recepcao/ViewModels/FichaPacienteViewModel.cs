@@ -542,9 +542,9 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
             MostrarDocumentos = false,
-            NaturezasComAcao = [NaturezaRegistroClinico.SessaoMedica],
+            NaturezasComAcao = [NaturezaRegistroClinico.SessaoMedica, NaturezaRegistroClinico.ArquivoDaFicha],
             AcessoParaMexer = Permissao.EditarProntuario,
-            AoAbrir = item => AbrirEvolucaoAsync(item.Id),
+            AoAbrir = AbrirRegistroAsync,
             AoCancelar = CancelarRegistroAsync
         };
     }
@@ -559,15 +559,62 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     private Task CancelarRegistroAsync(RegistroClinicoPaciente item) => item.Natureza switch
     {
         NaturezaRegistroClinico.SessaoMedica => CancelarSessaoAsync(item),
+        NaturezaRegistroClinico.ArquivoDaFicha => CancelarArquivoDaFichaAsync(item),
 
         // ⚠️ FALHA ALTO, e não em silêncio. Hoje isto é inalcançável (`NaturezasComAcao`
-        // tem só a sessão médica), mas `TemAcaoCancelar` olha só a lista de naturezas: no
+        // tem só as duas de cima), mas `TemAcaoCancelar` olha só a lista de naturezas: no
         // dia em que alguém acrescentar uma ali, o botão "Cancelar…" acende na linha dela
         // e o clique NÃO FAZ NADA — o defeito da parcela 41 embutido na abstração nova.
         // Estourar aqui é o que faz o próximo `NaturezasComAcao` ser conferido.
         _ => throw new NotSupportedException(
             $"A ficha do paciente não sabe cancelar {CatalogoRegistroClinico.Rotular(item.Natureza)}.")
     };
+
+    /// <summary>Abre o registro escolhido na linha do tempo — ROTEADO PELA NATUREZA, como o cancelar.</summary>
+    private Task AbrirRegistroAsync(RegistroClinicoPaciente item) => item.Natureza switch
+    {
+        NaturezaRegistroClinico.SessaoMedica => AbrirEvolucaoAsync(item.Id),
+        NaturezaRegistroClinico.ArquivoDaFicha => AbrirArquivoDaFichaAsync(item),
+        _ => throw new NotSupportedException(
+            $"A ficha do paciente não sabe abrir {CatalogoRegistroClinico.Rotular(item.Natureza)}.")
+    };
+
+    /// <summary>
+    /// Os ARQUIVOS DA FICHA (set/2026) — a receita importada do sistema anterior, o laudo
+    /// que chegou pelo WhatsApp. Abrir e cancelar passam pelo ponto único do shell
+    /// (<see cref="ArquivosDaFicha"/>), o MESMO do Consultório e da tela da Enfermagem.
+    /// </summary>
+    private async Task AbrirArquivoDaFichaAsync(RegistroClinicoPaciente item)
+    {
+        try
+        {
+            var erro = await ArquivosDaFicha.AbrirAsync(_escopos, item.Id);
+            Mensagem = erro ?? string.Empty;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — arquivo da ficha não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    private async Task CancelarArquivoDaFichaAsync(RegistroClinicoPaciente item)
+    {
+        try
+        {
+            if (!await ArquivosDaFicha.CancelarAsync(_escopos, _dialogo, item.Id, item.Titulo)) return;
+            _snackbar.Info("Arquivo cancelado (guardado no prontuário).");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — arquivo da ficha não pôde ser cancelado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
 
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): abrir duas fichas em sequência

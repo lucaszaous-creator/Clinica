@@ -323,26 +323,36 @@ public class ConjuntoClinicoTests : IDisposable
         var enfermagem = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue);
         var infusoes = await _repo.PrescricoesInternasDoPacienteAsync(pacienteId, int.MaxValue);
         var documentos = await _repo.DocumentosDoPacienteAsync(pacienteId);
+        var arquivos = await _repo.AnexosDaFichaAsync(pacienteId, incluirCancelados: true);
 
         var comAcesso = LinhaDoTempoClinica.Montar(
             Permissao.VerProntuario | Permissao.VerFichaPaciente,
-            sessoes, null, enfermagem, infusoes, documentos);
+            sessoes, null, enfermagem, infusoes, documentos, arquivos);
 
         comAcesso[NaturezaRegistroClinico.SessaoMedica].Should().NotBeEmpty();
         comAcesso[NaturezaRegistroClinico.EvolucaoEnfermagem].Should().NotBeEmpty();
         comAcesso[NaturezaRegistroClinico.PrescricaoInterna].Should().NotBeEmpty();
         comAcesso[NaturezaRegistroClinico.DocumentoClinico].Should().NotBeEmpty();
 
+        // ⚠️ O ARQUIVO DA FICHA (set/2026) nasceu nas outras três leituras e FORA desta —
+        // e este teste ficou verde, porque o montador recebe listas TIPADAS e a asserção
+        // não percorria o catálogo. A clínica importou 756 receitas e a ficha não mostrou
+        // nenhuma. A linha diz o nome do arquivo e a procedência.
+        var arquivo = comAcesso[NaturezaRegistroClinico.ArquivoDaFicha].Should().ContainSingle().Subject;
+        arquivo.Titulo.Should().Be("Receita do sistema anterior");
+        arquivo.Detalhe.Should().Contain("receita-antiga.pdf").And.Contain("Importado do Smart Clinic");
+
         // ⚠️ Nem ler nem desenhar (art. 5º, II): sem `VerProntuario` nada é MONTADO — não
         // é escondido depois de montado, que deixaria o dado de saúde na memória de quem
         // não pode vê-lo.
         var semAcesso = LinhaDoTempoClinica.Montar(
             Permissao.VerFichaPaciente,
-            sessoes, null, enfermagem, infusoes, documentos);
+            sessoes, null, enfermagem, infusoes, documentos, arquivos);
 
         semAcesso[NaturezaRegistroClinico.SessaoMedica].Should().BeEmpty();
         semAcesso[NaturezaRegistroClinico.EvolucaoEnfermagem].Should().BeEmpty();
         semAcesso[NaturezaRegistroClinico.PrescricaoInterna].Should().BeEmpty();
+        semAcesso[NaturezaRegistroClinico.ArquivoDaFicha].Should().BeEmpty("a receita é dado de saúde");
 
         // ⚠️ O DOCUMENTO é a exceção, e é por causa dela que o `PermissaoVer` do catálogo é
         // PISO e não teto: a receita some (dado de saúde), e a declaração de comparecimento

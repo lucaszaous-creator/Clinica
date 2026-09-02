@@ -687,6 +687,7 @@ public class ClinicaDbContext : DbContext
 
             e.Ignore(x => x.Cancelado);
             e.Ignore(x => x.Importado);
+            e.Ignore(x => x.TamanhoLegivel);
         });
 
         b.Entity<ArquivoAnexoPaciente>(e =>
