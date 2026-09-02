@@ -122,13 +122,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     public bool PodeAnexar => _evolucaoId is not null;
 
     /// <summary>Quanto a dor caiu, calculado enquanto o usuário mexe na régua.</summary>
-    public string VariacaoRotulo => (EvaAntes, EvaDepois) switch
-    {
-        (null, _) or (_, null) => "Meça antes e depois para saber se aliviou.",
-        var (a, d) when a > d => $"Aliviou {a - d} ponto(s) nesta sessão.",
-        var (a, d) when a < d => $"Piorou {d - a} ponto(s) nesta sessão.",
-        _ => "Sem mudança nesta sessão."
-    };
+    public string VariacaoRotulo => VariacaoDaDor.Descrever(EvaAntes, EvaDepois);
 
     public event Action? Concluido;
 

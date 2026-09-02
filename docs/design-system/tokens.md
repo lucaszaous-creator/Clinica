@@ -94,4 +94,5 @@ o mesmo glifo em todo o sistema — cartão novo consulta esta tabela antes de i
 | tendência | `EB05` | | atendimento em curso | `EB51` |
 | encaixe / novo | `E710` | | lista / fila | `E8FD` |
 | consultas | `E8A5` | | contas | `E8F1` |
-| ajuda | `E897` | | | |
+| ajuda | `E897` | | assinatura / termo | `E70F` |
+| salvar | `E74E` | | mapa corporal | `E95E` (o de dor) |

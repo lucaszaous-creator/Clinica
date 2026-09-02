@@ -13,54 +13,8 @@
         <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
-        <!-- Régua da EVA: uma casa por valor, do 0 ao 10. No balcão a pergunta é feita
-             em voz alta e a resposta tem de caber num clique — campo de texto aqui é o
-             caminho mais curto para a medida não ser registrada.
-             É um ListBox porque o SelectedItem já dá exatamente a semântica de "um
-             valor escolhido, ou nenhum": nada selecionado = não medida. -->
-        <Style x:Key="CasaEva" TargetType="ListBoxItem">
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="casa" Width="38" Height="34"
-                                CornerRadius="{StaticResource Raio.Pequeno}"
-                                Background="{StaticResource Brush.Superficie}"
-                                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1">
-                            <TextBlock Text="{TemplateBinding Content}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="casa" Property="BorderBrush"
-                                        Value="{StaticResource Brush.Borda.Hover}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="casa" Property="Background"
-                                        Value="{StaticResource Brush.Acento}" />
-                                <Setter TargetName="casa" Property="BorderBrush"
-                                        Value="{StaticResource Brush.Acento}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="ReguaEva" TargetType="ListBox">
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="ItemContainerStyle" Value="{StaticResource CasaEva}" />
-            <Setter Property="ItemsPanel">
-                <Setter.Value>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
+        <!-- A régua da EVA (`ReguaEva`/`CasaEva`) mora no design system do shell desde
+             set/2026 — o Atendimento do Consultório usa a MESMA. -->
     </Window.Resources>
 
     <DockPanel Margin="24">

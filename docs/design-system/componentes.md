@@ -30,6 +30,7 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 - `CampoPesquisa`: TextBox com lupa à esquerda (pesquisa instantânea = `UpdateSourceTrigger=PropertyChanged` + filtro no VM).
 - `ComboBox`/`ComboBoxItem`: flat, popup com sombra leve, seleção azul-suave.
 - `DatePicker`: alinhado aos campos (36px).
+- `ReguaEva` (ListBox) + `CasaEva` (item): a régua de dor 0–10, uma casa de 32×30 por valor; `SelectedItem` é o valor (nulo = não medida). Usada na sessão do Atendimento e na janela de evolução do balcão — não desenhe outra.
 
 ## Seleção (`Selecao.xaml`)
 

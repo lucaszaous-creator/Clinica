@@ -52,12 +52,20 @@ public sealed record ResumoSessaoAnterior(
     string Orientacoes,
     string Plano,
     string Retorno,
-    string Encaminhamento)
+    string Encaminhamento,
+    int? VariacaoEva = null)
 {
+    /// <summary>A dor caiu na sessão — o selo da EVA sai verde.</summary>
+    public bool Melhorou => VariacaoEva > 0;
+
+    /// <summary>A dor subiu na sessão — o selo sai vermelho. Sem par, nem um nem outro.</summary>
+    public bool Piorou => VariacaoEva < 0;
+
     public static ResumoSessaoAnterior De(Evolucao e) => new(
         EvolucaoId: e.Id,
         Data: e.Data.ToString("dd/MM/yyyy"),
         Eva: e.TemParEva ? $"EVA {e.EvaAntes} \u2192 {e.EvaDepois}" : "EVA n\u00E3o medida",
+        VariacaoEva: e.VariacaoEva,
         Queixa: Rotular("Queixa", e.QueixaPrincipal),
         Historia: Rotular("Hist\u00F3ria da doen\u00E7a atual", e.HistoriaDoencaAtual),
         ExameFisico: Rotular("Exame f\u00EDsico", e.ExameFisico),

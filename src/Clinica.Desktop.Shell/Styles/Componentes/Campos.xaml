@@ -554,4 +554,72 @@
         <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
     </Style>
 
+    <!-- ===== Régua da EVA (0 a 10) =====
+         Uma casa por valor. No consultório e no balcão a pergunta é feita em voz alta e a
+         resposta tem de caber num clique — campo de texto (ou combo de números) é o caminho
+         mais curto para a medida não ser registrada. É um ListBox porque o SelectedItem já
+         dá a semântica de "um valor escolhido, ou nenhum": nada selecionado = não medida.
+
+         SUBIU da janela de evolução da Recepção (set/2026) quando a tela de Atendimento do
+         Consultório precisou da mesma régua: duas cópias divergem na primeira correção. A
+         casa tem 32×30 com 3 px de folga — onze casas somam 385 px, o que cabe na coluna
+         mínima do Atendimento (440 − o padding do Card). -->
+    <Style x:Key="CasaEva" TargetType="ListBoxItem">
+        <Setter Property="Margin" Value="0,0,3,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="casa" Width="32" Height="30"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            Background="{StaticResource Brush.Superficie}"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1">
+                        <TextBlock x:Name="valor" Text="{TemplateBinding Content}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="casa" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="casa" Property="Background"
+                                    Value="{StaticResource Brush.Acento.Tint}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="casa" Property="Background"
+                                    Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="casa" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="valor" Property="Foreground"
+                                    Value="{StaticResource Brush.Texto.Invertido}" />
+                        </Trigger>
+                        <!-- Quem só LÊ o prontuário vê a régua apagada, não uma régua que
+                             parece clicável e não responde. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="casa" Property="Opacity" Value="0.55" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ReguaEva" TargetType="ListBox">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource CasaEva}" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ItemsPanel">
+            <Setter.Value>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

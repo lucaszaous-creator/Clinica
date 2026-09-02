@@ -254,8 +254,23 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock Text="{Binding SituacaoSessao}" TextWrapping="Wrap"
-                                   FontWeight="SemiBold" />
+                        <!-- O glifo de "atendimento em curso" (EB51, a tabela do design
+                             system) ao lado da situação: é o que faz a barra verde se ler
+                             como o relógio da sessão, e não como mais uma faixa. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="&#xEB51;" Style="{StaticResource Icone}"
+                                       Margin="0,0,8,0"
+                                       Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                       Visibility="{Binding EmAtendimento,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                            <TextBlock Grid.Column="1" Text="{Binding SituacaoSessao}" TextWrapping="Wrap"
+                                       FontWeight="SemiBold" VerticalAlignment="Center"
+                                       FontSize="{StaticResource Fonte.H3}" />
+                        </Grid>
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
                                    Margin="0,2,0,0"
                                    Text="Finalizar salva a sessão e avisa o balcão. Quem fecha a guia, o pacote e o caixa continua sendo a recepção."

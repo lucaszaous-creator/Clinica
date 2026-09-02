@@ -2632,6 +2632,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   confira** — comentário que aponta para outra tela é promessa sobre um arquivo que
   ninguém releu (a família da parcela 67).
 
+- **"NÃO ESTÁ PROFISSIONAL" — a tela de Atendimento media a dor num COMBO de números**
+  (set/2026, 2ª rodada — a direção reprovou o visual da tela de atendimento). O que a
+  tornava um formulário e não um prontuário, em três pontos:
+  ⚠️ **A EVA era um `ComboBox` de 0 a 10 com 90 px.** "De 0 a 10, quanto dói?" é a
+  primeira pergunta feita em voz alta numa clínica de dor, e a resposta cabia numa lista
+  suspensa que escondia a escala. A janela de evolução do BALCÃO já tinha a régua certa
+  (`ReguaEva`, uma casa por valor) desde a parcela 37 — como recurso LOCAL daquela janela.
+  A régua SUBIU para o design system (`Campos.xaml`) e as duas telas leem a mesma; a
+  frase da variação ("aliviou 5 pontos") também morava só no balcão, dentro da ViewModel,
+  e virou `VariacaoDaDor.Descrever` na Application, com teste. **Componente que uma tela
+  já tem e a outra precisa sobe para o shell — não se copia** (a regra do mapa corporal).
+  ⚠️ **Régua em `ListBox` precisa da porta do "não medida"**: clicar de novo na casa
+  marcada não a desmarca, e sem o botão a EVA marcada por engano ficaria gravada. O
+  balcão já tinha o botão; o Consultório nasceu com `LimparEvaAntes/Depois`.
+  ⚠️ **Quatro botões cinza iguais de 130–160 px leem-se como formulário.** Cada ação
+  ganhou o glifo da tabela de iconografia (E70F termo · E95E mapa · E7C3 documento ·
+  E749 ficha · E74E salvar) — dois glifos novos entraram NA TABELA, porque glifo que só
+  existe numa tela é a segunda definição de sempre.
+  ⚠️ **O selo da EVA das sessões anteriores leva a COR da variação** (verde caiu, vermelho
+  subiu, neutro sem par): `ResumoSessaoAnterior` ganhou `VariacaoEva` com `Melhorou`/
+  `Piorou`, testados — cor errada aqui diria que a sessão passada ajudou quando piorou.
+  A lição de método: **"profissional" numa tela clínica é a peça que o especialista
+  reconhece de longe** — a régua de dor, o relógio da sessão, o selo colorido —, e ela
+  quase sempre já existe em outra tela do sistema. Antes de desenhar, procure onde.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

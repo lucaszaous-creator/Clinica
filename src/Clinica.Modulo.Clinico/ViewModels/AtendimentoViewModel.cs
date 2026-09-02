@@ -188,6 +188,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private int? _evaAntes;
     [ObservableProperty] private int? _evaDepois;
 
+    /// <summary>Quanto a dor caiu, escrito enquanto se mexe na régua — a MESMA frase do balcão.</summary>
+    public string VariacaoRotulo => VariacaoDaDor.Descrever(EvaAntes, EvaDepois);
+
+    partial void OnEvaAntesChanged(int? value) => OnPropertyChanged(nameof(VariacaoRotulo));
+    partial void OnEvaDepoisChanged(int? value) => OnPropertyChanged(nameof(VariacaoRotulo));
+
+    /// <summary>
+    /// "Não medida": a régua é um ListBox, e clicar de novo na casa escolhida não a
+    /// desmarca — sem esta porta, uma EVA marcada por engano ficaria gravada.
+    /// </summary>
+    [RelayCommand]
+    private void LimparEvaAntes() => EvaAntes = null;
+
+    [RelayCommand]
+    private void LimparEvaDepois() => EvaDepois = null;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SubjetivoPreenchido))]
     private string? _queixaPrincipal;

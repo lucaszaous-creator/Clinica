@@ -72,6 +72,38 @@ public class SessaoAnteriorNoAtendimentoTests
     /// linhas, o texto inteiro da consulta não era legível em lugar nenhum, com o comentário
     /// do painel jurando que "o texto inteiro continua no Histórico".
     /// </summary>
+    /// <summary>
+    /// O selo da EVA na lista de sessões anteriores é pintado pela VARIAÇÃO: verde quando
+    /// a dor caiu, vermelho quando subiu, neutro sem par. Cor errada aqui diria ao médico
+    /// que a sessão passada ajudou quando piorou.
+    /// </summary>
+    [Theory]
+    [InlineData(8, 3, true, false)]
+    [InlineData(3, 8, false, true)]
+    [InlineData(5, 5, false, false)]
+    [InlineData(null, 5, false, false)]
+    public void O_selo_da_EVA_segue_a_variacao(int? antes, int? depois, bool melhorou, bool piorou)
+    {
+        var e = Sessao();
+        e.EvaAntes = antes;
+        e.EvaDepois = depois;
+
+        var r = ResumoSessaoAnterior.De(e);
+
+        r.Melhorou.Should().Be(melhorou);
+        r.Piorou.Should().Be(piorou);
+    }
+
+    /// <summary>A frase da régua é UMA para o balcão e o consultório.</summary>
+    [Theory]
+    [InlineData(8, 3, "Aliviou 5 ponto(s) nesta sessão.")]
+    [InlineData(3, 8, "Piorou 5 ponto(s) nesta sessão.")]
+    [InlineData(4, 4, "Sem mudança nesta sessão.")]
+    [InlineData(null, 4, "Meça antes e depois para saber se aliviou.")]
+    [InlineData(4, null, "Meça antes e depois para saber se aliviou.")]
+    public void A_regua_escreve_a_variacao(int? antes, int? depois, string esperado)
+        => VariacaoDaDor.Descrever(antes, depois).Should().Be(esperado);
+
     [Fact]
     public void A_historia_o_exame_fisico_e_as_orientacoes_entram_rotulados()
     {
