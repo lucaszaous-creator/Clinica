@@ -118,6 +118,7 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             var campo = new CampoMapa { Campo = c };
             campo.PropertyChanged += (_, _) =>
             {
+                if (_montandoMapeamento) return;
                 InvalidarPrevia();
                 // Trocou a coluna do convênio: a lista de textos a mapear é OUTRA.
                 if (campo.Campo == CampoImportacao.Convenio) RemontarConvenios();
@@ -259,6 +260,10 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         }
     }
 
+    /// <summary>Enquanto o mapeamento está sendo montado, a troca de coluna não dispara a
+    /// remontagem dos convênios: ela roda uma vez, no fim, com tudo no lugar.</summary>
+    private bool _montandoMapeamento;
+
     private void MontarMapeamento(TabelaImportada tabela)
     {
         _rotulosColunas = RotulosUnicos(tabela.Colunas);
@@ -268,12 +273,11 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         OpcoesColuna.Add(CampoMapa.NaoImportar);
         foreach (var r in _rotulosColunas) OpcoesColuna.Add(r);
 
-        var sugestao = SugestorDeMapeamento.Sugerir(tabela.Colunas);
-        foreach (var campo in Campos)
-            campo.Coluna = sugestao.ColunaDe(campo.Campo) is { } i
-                ? _rotulosColunas[i]
-                : CampoMapa.NaoImportar;
-
+        // ⚠️ As opções de convênio vêm ANTES de atribuir as colunas: atribuir a coluna do
+        // convênio dispara a remontagem da lista de convênios, e ela lê a primeira opção
+        // — no primeiro clique a lista estava vazia e a tela dizia "Index was out of
+        // range" (a clínica viu). No segundo clique a coluna já era a mesma, nada
+        // disparava, e passava — o defeito que só aparece uma vez é o que mais engana.
         OpcoesConvenio.Clear();
         // A primeira opção é o padrão de quem não sabe: a ficha entra "a definir" e o
         // sistema acusa no próximo agendamento/atendimento — a decisão acontece com o
@@ -282,6 +286,20 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             "(definir depois — o sistema avisa no próximo atendimento)", ConvenioCadastro.ADefinir()));
         foreach (var c in _catalogo.Where(c => !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase)))
             OpcoesConvenio.Add(new OpcaoConvenio(c.Nome, c));
+
+        var sugestao = SugestorDeMapeamento.Sugerir(tabela.Colunas);
+        _montandoMapeamento = true;
+        try
+        {
+            foreach (var campo in Campos)
+                campo.Coluna = sugestao.ColunaDe(campo.Campo) is { } i
+                    ? _rotulosColunas[i]
+                    : CampoMapa.NaoImportar;
+        }
+        finally
+        {
+            _montandoMapeamento = false;
+        }
 
         RemontarConvenios();
     }
@@ -347,6 +365,8 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
 
     private OpcaoConvenio Sugerir(string texto)
     {
+        // Sem opções montadas não há o que sugerir — e nunca um índice numa lista vazia.
+        if (OpcoesConvenio.Count == 0) return new OpcaoConvenio("(definir depois — o sistema avisa no próximo atendimento)", ConvenioCadastro.ADefinir());
         var alvo = SugestorDeMapeamento.Normalizar(texto);
         if (alvo.Length == 0) return OpcoesConvenio[0];
         var achado = OpcoesConvenio.Skip(1).FirstOrDefault(o =>
