@@ -428,4 +428,49 @@ public class ImportacaoSmartClinicTests : IDisposable
         _db.Agendamentos.AsNoTracking().Single(a => a.Observacoes!.Contains("Carlos")).ProfissionalId.Should().BeNull();
         _db.Evolucoes.Count().Should().Be(5, "e nada foi duplicado");
     }
+
+    [Fact]
+    public async Task A_conferencia_rele_o_zip_e_diz_o_que_esta_no_sistema_e_o_que_ficou_de_fora_com_motivo()
+    {
+        // Uma linha com CPF inválido no arquivo: é a única que nunca entra sozinha.
+        var pacientes = Pacientes + "p7;c1;Paciente Sete;;;111.111.111-11;;;;;PARTICULAR;;;;;;;;;;;;;;;;;;;\n";
+        var posOp = PosOperatorio + "po6;u1;p7;2025-07-01 09:00:00;;Registro de quem tem CPF inválido;;;PR;2025-07-01 09:00:00;;;;;;\n";
+        var pacote = PacoteSmartClinic.Abrir(Zip(
+            (PacoteSmartClinic.Pacientes, pacientes), (PacoteSmartClinic.PosOperatorio, posOp),
+            (PacoteSmartClinic.Agenda, Agenda)));
+
+        var previa = await _servico.PreverAsync(pacote, Convenios, Hoje);
+        await _servico.ExecutarAsync(previa, "direcao");
+
+        var releitura = await _servico.PreverAsync(pacote, Convenios, Hoje);
+        var itens = ConferenciaSmartClinic.Montar(releitura);
+
+        var fichas = itens.Single(i => i.Rotulo.StartsWith("Fichas"));
+        fichas.NoArquivo.Should().Be(4);
+        fichas.NoSistema.Should().Be(3);
+        fichas.ForaComMotivo.Should().ContainSingle(m => m.Contains("linha 5") && m.Contains("CPF inválido"));
+        fichas.Completo.Should().BeFalse("há uma de fora — e ela está listada com o motivo");
+
+        var posOpItem = itens.Single(i => i.Rotulo.Contains("pós-operatório"));
+        posOpItem.NoArquivo.Should().Be(5);
+        posOpItem.NoSistema.Should().Be(2, "po1 e po2");
+        posOpItem.NaoContam.Should().Be(1, "po3 é vazio");
+        posOpItem.ForaComMotivo.Should().ContainSingle(m => m.Contains("2 registro(s) de paciente que não entrou"),
+            "po4 (p9 não existe) e po6 (p7 tem CPF inválido)");
+
+        var futuros = itens.Single(i => i.Rotulo.Contains("hoje em diante"));
+        futuros.NoArquivo.Should().Be(2);
+        futuros.NoSistema.Should().Be(2);
+        futuros.Completo.Should().BeTrue();
+
+        // Fechou: nada "ainda não gravado" — o que está de fora tem motivo escrito.
+        ConferenciaSmartClinic.Fechou(itens).Should().BeTrue();
+        itens.Should().OnlyContain(i => !i.ForaComMotivo.Any(m => m.Contains("ainda não gravado")));
+
+        // E a conferência de um pacote NÃO importado diz que falta tudo.
+        var antes = ConferenciaSmartClinic.Montar(previa);
+        ConferenciaSmartClinic.Fechou(antes).Should().BeFalse();
+        antes.Single(i => i.Rotulo.Contains("pós-operatório")).ForaComMotivo
+            .Should().Contain(m => m.Contains("ainda não gravado"));
+    }
 }

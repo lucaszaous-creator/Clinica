@@ -75,10 +75,14 @@ public sealed class ImportacaoSmartClinicService
         foreach (var (arquivo, motivo) in pacote.Ignorados)
             avisos.Add($"{arquivo} não foi lido: {motivo}");
 
+        // Os ids antigos que TERMINAM com uma ficha aqui (nova, completada, fundida ou já
+        // importada). A linha com problema (CPF inválido, sem nome) não produz ficha — e o
+        // prontuário e a agenda dela contam como "de paciente que não entrou", com o motivo
+        // na lista das fichas de fora, em vez de "ainda não gravado" para sempre.
         var idsConhecidos = new HashSet<string>(StringComparer.Ordinal);
-        var colId = mapa.ColunaDe(CampoImportacao.IdOrigem)!.Value;
-        foreach (var l in pacientes.Linhas)
-            if (colId < l.Length && !string.IsNullOrWhiteSpace(l[colId])) idsConhecidos.Add(l[colId].Trim());
+        foreach (var l in previaPacientes.Linhas)
+            if (!l.EhProblema && l.Chave is not null)
+                idsConhecidos.Add(l.Chave[(l.Chave.LastIndexOf(':') + 1)..]);
 
         var profissionais = await _repo.ProfissionaisAsync(ct);
         var autoresReconhecidos = new SortedSet<string>(StringComparer.CurrentCultureIgnoreCase);

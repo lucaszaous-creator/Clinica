@@ -19,6 +19,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- ===== Cabeçalho ===== -->
@@ -45,8 +46,35 @@
                 <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
             </Border>
 
+            <!-- ===== CONFERÊNCIA (depois de importar o pacote) =====
+                 A resposta a "funcionou?": o ZIP relido contra o banco, arquivo por arquivo.
+                 Vem ANTES dos passos porque é o que a pessoa procura ao terminar. -->
+            <Border Grid.Row="2" Margin="0,0,0,12"
+                    Visibility="{Binding TemConferencia, Converter={StaticResource BoolParaVisibilidade}}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaSucesso}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ConferenciaFechou}" Value="False">
+                                <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="{Binding ConferenciaTitulo}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <ItemsControl ItemsSource="{Binding Conferencia}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,1" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <!-- ===== 1 · ARQUIVO ===== -->
-            <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="1 · O ARQUIVO" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
@@ -74,7 +102,7 @@
             </Border>
 
             <!-- ===== 2 · COLUNAS E CONVÊNIOS ===== -->
-            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,12"
+            <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,0,0,12"
                     Visibility="{Binding TemArquivo, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel>
                     <TextBlock Text="2 · O QUE CADA COLUNA SIGNIFICA" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
@@ -158,7 +186,7 @@
             </Border>
 
             <!-- ===== 3 · PRÉVIA ===== -->
-            <Border Grid.Row="4" Style="{StaticResource Card}"
+            <Border Grid.Row="5" Style="{StaticResource Card}"
                     Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel>
                     <TextBlock Text="3 · O QUE VAI ACONTECER" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
@@ -260,7 +288,7 @@
                 </StackPanel>
             </Border>
 
-            <ctrl:EstadoDaTela Grid.Row="2" Grid.RowSpan="3"
+            <ctrl:EstadoDaTela Grid.Row="3" Grid.RowSpan="3"
                                Vazio="False"
                                Carregando="{Binding Carregando}"
                                TextoCarregando="{Binding TextoCarregando}" />

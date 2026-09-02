@@ -96,3 +96,71 @@ public sealed record ResultadoSmartClinic(
 /// <summary>Um registro importado sem profissional vinculado, com o texto por onde o
 /// nome do autor se recupera (ver o repositório).</summary>
 public sealed record RegistroImportadoSemProfissional(int Id, string? Texto);
+
+/// <summary>Uma linha da CONFERÊNCIA: quanto o arquivo tem, quanto está no sistema e o que
+/// ficou de fora — com o motivo, para a direção não precisar acreditar.</summary>
+public sealed record ItemConferencia(
+    string Rotulo, int NoArquivo, int NoSistema, IReadOnlyList<string> ForaComMotivo, int NaoContam)
+{
+    /// <summary>Nada ficou de fora sem motivo escrito — o que não entrou é vazio ou tem a
+    /// linha e a razão listadas.</summary>
+    public bool Completo => NoSistema + NaoContam + ForaComMotivo.Count >= NoArquivo && ForaComMotivo.Count == 0;
+
+    public string Resumo => NoSistema == NoArquivo
+        ? $"{Rotulo}: {NoArquivo} de {NoArquivo} no sistema."
+        : $"{Rotulo}: {NoSistema} de {NoArquivo} no sistema"
+          + (NaoContam > 0 ? $" · {NaoContam} não contam (sem conteúdo)" : "")
+          + (ForaComMotivo.Count > 0 ? $" · {ForaComMotivo.Count} de fora (veja o motivo)" : "") + ".";
+}
+
+/// <summary>
+/// A conferência da importação (set/2026 — "como saberei que funcionou toda a
+/// importação?"). Depois de gravar, o sistema RELÊ o mesmo ZIP: a prévia da segunda leitura
+/// diz, registro a registro, o que já está no sistema (pela chave de importação) e o que
+/// não entrou — e isto é a prova, não a mensagem "concluído". Puro: recebe a prévia da
+/// releitura e devolve as linhas.
+/// </summary>
+public static class ConferenciaSmartClinic
+{
+    public static IReadOnlyList<ItemConferencia> Montar(PreviaSmartClinic releitura)
+    {
+        var itens = new List<ItemConferencia>();
+
+        var p = releitura.Pacientes;
+        var fora = p.Linhas.Where(l => l.EhProblema)
+            .Select(l => $"linha {l.Numero} ({l.Nome}): {l.Detalhe}")
+            .ToList();
+        // "Completar" na releitura é ficha que EXISTE no sistema (só não tem a chave desta
+        // linha — a duplicata de lá, ou a ficha que já existia por outro caminho).
+        itens.Add(new ItemConferencia("Fichas (pacientes.csv)", p.Linhas.Count,
+            p.JaImportadas + p.Completar, fora, 0));
+
+        foreach (var a in releitura.Prontuario)
+        {
+            var motivos = new List<string>();
+            if (a.SemPaciente > 0)
+                motivos.Add($"{a.SemPaciente} registro(s) de paciente que não entrou (veja as fichas de fora)");
+            if (a.Novos > 0)
+                motivos.Add($"{a.Novos} registro(s) ainda não gravado(s) — importe de novo");
+            itens.Add(new ItemConferencia(a.Rotulo, a.Registros, a.JaImportados, motivos, a.Vazios));
+        }
+
+        var ag = releitura.Agenda;
+        var motivosAgenda = new List<string>();
+        if (ag.FuturosNovos > 0)
+            motivosAgenda.Add($"{ag.FuturosNovos} horário(s) futuro(s) ainda não gravado(s) — importe de novo");
+        var semFicha = ag.Futuros - ag.FuturosJaImportados - ag.FuturosNovos;
+        if (semFicha > 0)
+            motivosAgenda.Add($"{semFicha} horário(s) de paciente que não entrou (veja as fichas de fora)");
+        itens.Add(new ItemConferencia("Agenda — horários de hoje em diante", ag.Futuros, ag.FuturosJaImportados, motivosAgenda, 0));
+        itens.Add(new ItemConferencia("Agenda — visitas passadas (nas observações das fichas)",
+            ag.Passados, ag.Passados, [], 0));
+
+        return itens;
+    }
+
+    /// <summary>Tudo o que tinha de entrar está no sistema, e o que não entrou tem motivo escrito.</summary>
+    public static bool Fechou(IReadOnlyList<ItemConferencia> itens)
+        => itens.All(i => i.NoSistema + i.NaoContam >= i.NoArquivo || i.ForaComMotivo.Count > 0)
+           && itens.All(i => !i.ForaComMotivo.Any(m => m.Contains("ainda não gravado")));
+}

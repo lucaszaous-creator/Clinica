@@ -91,6 +91,12 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     /// <summary>No modo pacote: o que MAIS entra além das fichas (prontuário por arquivo,
     /// agenda futura, histórico, autores) — uma linha por assunto.</summary>
     public ObservableCollection<string> ResumoPacote { get; } = [];
+    /// <summary>A CONFERÊNCIA depois de importar o pacote: o ZIP relido contra o banco,
+    /// arquivo por arquivo, com o que ficou de fora e o motivo.</summary>
+    public ObservableCollection<string> Conferencia { get; } = [];
+    [ObservableProperty] private bool _temConferencia;
+    [ObservableProperty] private bool _conferenciaFechou;
+    [ObservableProperty] private string _conferenciaTitulo = string.Empty;
     [ObservableProperty] private bool _temPrevia;
     [ObservableProperty] private string _resumoPrevia = string.Empty;
     [ObservableProperty] private string? _avisosGerais;
@@ -129,6 +135,8 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         _previaPacote = null;
         Linhas.Clear();
         ResumoPacote.Clear();
+        Conferencia.Clear();
+        TemConferencia = false;
         TemPrevia = false;
         PodeExecutar = false;
     }
@@ -371,9 +379,7 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             Carregando = true;
 
             var mapa = MapeamentoAtual();
-            var convenios = Convenios
-                .Where(c => c.Escolha?.Cadastro is not null)
-                .ToDictionary(c => c.Texto, c => c.Escolha!.Cadastro!, StringComparer.OrdinalIgnoreCase);
+            var convenios = ConveniosEscolhidos();
 
             PreviaImportacao previa;
             PreviaSmartClinic? previaPacote = null;
@@ -481,7 +487,27 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
                     var erros = r.Pacientes.Erros.Concat(r.Erros).ToList();
                     if (erros.Count > 0)
                         texto += $"\n{erros.Count} erro(s):\n" + string.Join("\n", erros.Take(20)) + (erros.Count > 20 ? "\n…" : "");
+                    if (r.Revinculados > 0)
+                        texto += $"\n{r.Revinculados} registro(s) de rodadas anteriores ganharam o vínculo com a Equipe.";
                     teveErro = r.TeveErro;
+
+                    // A CONFERÊNCIA: relê o mesmo ZIP contra o banco. É a prova de que tudo
+                    // entrou — a mensagem acima diz o que se gravou; esta diz o que FALTA.
+                    TextoCarregando = "Conferindo o que entrou…";
+                    var releitura = await escopo.ServiceProvider.GetRequiredService<ImportacaoSmartClinicService>()
+                        .PreverAsync(_pacote!, ConveniosEscolhidos(), DateOnly.FromDateTime(DateTime.Today));
+                    var itens = ConferenciaSmartClinic.Montar(releitura);
+                    Conferencia.Clear();
+                    foreach (var i in itens)
+                    {
+                        Conferencia.Add((i.Completo ? "✓ " : "✗ ") + i.Resumo);
+                        foreach (var m in i.ForaComMotivo) Conferencia.Add("      – " + m);
+                    }
+                    ConferenciaFechou = ConferenciaSmartClinic.Fechou(itens);
+                    ConferenciaTitulo = ConferenciaFechou
+                        ? "CONFERÊNCIA: fechou — tudo o que tinha de entrar está no sistema; o que ficou de fora está listado com o motivo."
+                        : "CONFERÊNCIA: NÃO fechou — há registro que ainda não entrou. Leia os motivos e importe de novo.";
+                    TemConferencia = true;
                 }
                 else
                 {
@@ -501,7 +527,18 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             MensagemEhErro = teveErro;
 
             // A prévia já foi consumida — o que sobrou de trabalho se descobre gerando outra.
+            // A conferência fica na tela: é ela que responde "funcionou?".
+            var conferencia = Conferencia.ToList();
+            var fechou = ConferenciaFechou;
+            var titulo = ConferenciaTitulo;
             InvalidarPrevia();
+            if (conferencia.Count > 0)
+            {
+                foreach (var c in conferencia) Conferencia.Add(c);
+                ConferenciaFechou = fechou;
+                ConferenciaTitulo = titulo;
+                TemConferencia = true;
+            }
         }
         catch (Exception ex)
         {
@@ -514,6 +551,10 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             Carregando = false;
         }
     }
+
+    private Dictionary<string, ConvenioCadastro> ConveniosEscolhidos() => Convenios
+        .Where(c => c.Escolha?.Cadastro is not null)
+        .ToDictionary(c => c.Texto, c => c.Escolha!.Cadastro!, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>O resumo do pacote em linhas legíveis — uma por assunto, com os números.</summary>
     private static IEnumerable<string> LinhasDoResumo(PreviaSmartClinic p)
