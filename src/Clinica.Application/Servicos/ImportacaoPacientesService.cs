@@ -71,12 +71,20 @@ public sealed class ImportacaoPacientesService
     /// Lê o arquivo com o mapeamento e responde, linha a linha, o que a execução faria.
     /// NÃO grava nada.
     /// </summary>
+    /// <param name="colunasSemCampoNasObservacoes">
+    /// Guardar nas OBSERVAÇÕES da ficha, como "rótulo: valor", toda coluna do arquivo que
+    /// não tem campo aqui (e-mail, RG, profissão, nome da mãe…). É o "não perder nada" da
+    /// migração: a ficha não tem o campo, mas a informação fica legível onde a recepção lê.
+    /// Credencial e coluna interna do sistema antigo (login, senha, ids, foto) nunca entram
+    /// — ver <see cref="ColunaInternaDoSistemaAnterior"/>.
+    /// </param>
     public async Task<PreviaImportacao> PreverAsync(
         TabelaImportada tabela,
         MapeamentoImportacao mapa,
         IReadOnlyDictionary<string, ConvenioCadastro> convenios,
         string sistema = SistemaSmartClinic,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool colunasSemCampoNasObservacoes = false)
     {
         if (mapa.ColunaDe(CampoImportacao.Nome) is null)
             throw new ArgumentException("Diga qual coluna do arquivo tem o NOME do paciente.");
@@ -111,6 +119,17 @@ public sealed class ImportacaoPacientesService
         var cpfsNoArquivo = new Dictionary<string, int>(StringComparer.Ordinal);
         var linhas = new List<LinhaPrevia>();
         var semSexo = 0;
+        var comAlergiaAnotada = 0;
+
+        // As colunas que vão para as observações: as que nenhum campo lê e que não são
+        // internas do sistema antigo.
+        var colunasMapeadas = CamposImportacao.Todos
+            .Select(mapa.ColunaDe).Where(i => i is not null).Select(i => i!.Value).ToHashSet();
+        var colunasExtras = colunasSemCampoNasObservacoes
+            ? Enumerable.Range(0, tabela.Colunas.Count)
+                .Where(i => !colunasMapeadas.Contains(i) && !ColunaInternaDoSistemaAnterior(tabela.Colunas[i]))
+                .ToArray()
+            : [];
 
         for (var i = 0; i < tabela.Linhas.Count; i++)
         {
@@ -213,6 +232,15 @@ public sealed class ImportacaoPacientesService
             var (origem, indicadoPor, observacaoOrigem) = LerOrigem(Campo(CampoImportacao.Origem));
             if (observacaoOrigem is not null) observacoes = Acrescentar(observacoes, observacaoOrigem);
 
+            if (colunasExtras.Length > 0)
+            {
+                var bloco = BlocoDeColunasExtras(tabela, l, colunasExtras, sistema);
+                if (bloco is not null) observacoes = Acrescentar(observacoes, bloco);
+                if (colunasExtras.Any(i => SugestorDeMapeamento.Normalizar(tabela.Colunas[i]) is "alergia" or "alergias"
+                                           && i < l.Length && !string.IsNullOrWhiteSpace(l[i])))
+                    comAlergiaAnotada++;
+            }
+
             // ---- já existe? ----
             FichaResumida? existente = null;
             if (cpf is not null && porCpf.TryGetValue(cpf, out var porDoc))
@@ -276,6 +304,9 @@ public sealed class ImportacaoPacientesService
             avisosGerais.Add(semSexo == 1
                 ? "1 ficha sem sexo no arquivo: fica como Masculino — confira na ficha."
                 : $"{semSexo} fichas sem sexo no arquivo: ficam como Masculino — confira nas fichas.");
+        if (comAlergiaAnotada > 0)
+            avisosGerais.Add($"{comAlergiaAnotada} ficha(s) com alergia anotada no sistema anterior: o texto vai para as "
+                             + "observações — registre na lista de problemas da ficha para o alerta de prescrição valer.");
 
         return new PreviaImportacao(sistema, linhas, avisosGerais);
     }
@@ -308,6 +339,86 @@ public sealed class ImportacaoPacientesService
 
     private static string? Acrescentar(string? observacoes, string linha)
         => string.IsNullOrWhiteSpace(observacoes) ? linha : $"{observacoes}\n{linha}";
+
+    /// <summary>
+    /// Coluna do sistema anterior que NÃO deve ir para as observações: credencial (login,
+    /// senha), arquivo (foto), ids e carimbos internos, flags de opt-in vazias. Nome
+    /// normalizado (sem acento, sem sublinhado).
+    /// </summary>
+    public static bool ColunaInternaDoSistemaAnterior(string coluna)
+    {
+        var n = SugestorDeMapeamento.Normalizar(coluna);
+        return n is "login" or "senha" or "password" or "foto" or "fotoredimensionada" or "thumb"
+            or "idcontratante" or "idmigracao" or "idlegado" or "sequencial" or "datavisualizacao"
+            or "saldo" or "pais" or "whatsappoptin" or "whatsappoptinat" or "whatsappoptinsource"
+            or "whatsappoptoutat" or "whatsappoptoutreason";
+    }
+
+    /// <summary>
+    /// "rótulo: valor" para cada coluna extra preenchida, com o cabeçalho que diz de onde
+    /// veio. Códigos conhecidos são traduzidos (estado civil "CA" → "Casado(a)").
+    /// </summary>
+    public static string? BlocoDeColunasExtras(
+        TabelaImportada tabela, string[] linha, IReadOnlyList<int> colunas, string sistema)
+    {
+        var itens = new List<string>();
+        foreach (var i in colunas)
+        {
+            if (i >= linha.Length || string.IsNullOrWhiteSpace(linha[i])) continue;
+            var nome = SugestorDeMapeamento.Normalizar(tabela.Colunas[i]);
+            var valor = linha[i].Trim();
+            if (nome == "estadocivil") valor = EstadoCivil(valor);
+            else if (nome == "createdat" || nome == "datacadastro")
+            {
+                var avisos = new List<string>();
+                valor = LerData(valor, "data", avisos)?.ToString("dd/MM/yyyy") ?? valor;
+            }
+            itens.Add($"{RotuloDeColuna(tabela.Colunas[i])}: {valor}");
+        }
+        if (itens.Count == 0) return null;
+        return $"— Dados do sistema anterior ({NomeDoSistema(sistema)}) —\n{string.Join("\n", itens)}";
+    }
+
+    public static string NomeDoSistema(string sistema)
+        => sistema == SistemaSmartClinic ? "Smart Clinic" : sistema;
+
+    private static string EstadoCivil(string codigo) => codigo.Trim().ToUpperInvariant() switch
+    {
+        "CA" => "Casado(a)", "SO" => "Solteiro(a)", "VI" => "Viúvo(a)", "DI" => "Divorciado(a)",
+        "SE" => "Separado(a)", "UE" => "União estável", var outro => outro
+    };
+
+    /// <summary>Rótulo legível para uma coluna do arquivo — a tabela cobre o que o Smart
+    /// Clinic exporta; o resto é o nome da coluna com espaços e inicial maiúscula.</summary>
+    public static string RotuloDeColuna(string coluna)
+    {
+        switch (SugestorDeMapeamento.Normalizar(coluna))
+        {
+            case "email": return "E-mail";
+            case "rg": return "RG";
+            case "profissao": return "Profissão";
+            case "estadocivil": return "Estado civil";
+            case "nomemae": return "Nome da mãe";
+            case "nomepai": return "Nome do pai";
+            case "naturalidade": return "Naturalidade";
+            case "conjuge": return "Cônjuge";
+            case "outrodoc": return "Outro documento";
+            case "tags": return "Etiquetas";
+            case "createdat": case "datacadastro": return "Cadastrado no sistema anterior em";
+            case "auditoria": return "Histórico de edições no sistema anterior";
+            case "codigoclienteomie": return "Código no Omie";
+            case "preferenciacontato": return "Preferência de contato";
+            case "telemergencia": return "Telefone de emergência";
+            case "operadora": return "Operadora / outro número";
+            case "telefone2": return "Telefone 2";
+            case "indicacaoemail": return "E-mail de quem indicou";
+            case "alergia": case "alergias": return "Alergia (anotada no sistema anterior)";
+            case "numeroconvenio": return "Número no convênio";
+            case "validadeconvenio": return "Validade do convênio";
+        }
+        var texto = coluna.Trim().Replace('_', ' ');
+        return texto.Length == 0 ? coluna : char.ToUpperInvariant(texto[0]) + texto[1..];
+    }
 
     /// <summary>
     /// Grava o que a prévia mostrou. Linha a linha, pelo <see cref="PacienteService"/>:
@@ -451,8 +562,17 @@ public sealed class ImportacaoPacientesService
             atual.IndicadoPor ??= doArquivo.IndicadoPor;
             feitos.Add("origem");
         }
-        if (string.IsNullOrWhiteSpace(atual.Observacoes) && doArquivo.Observacoes is not null)
-        { atual.Observacoes = doArquivo.Observacoes; feitos.Add("observações"); }
+        // Observações se ACRESCENTAM, nunca substituem: o que a recepção escreveu fica, e
+        // o que o arquivo traz (dados sem campo, histórico de visitas) entra abaixo.
+        if (doArquivo.Observacoes is not null
+            && (string.IsNullOrWhiteSpace(atual.Observacoes)
+                || !atual.Observacoes.Contains(doArquivo.Observacoes, StringComparison.Ordinal)))
+        {
+            atual.Observacoes = string.IsNullOrWhiteSpace(atual.Observacoes)
+                ? doArquivo.Observacoes
+                : $"{atual.Observacoes}\n\n{doArquivo.Observacoes}";
+            feitos.Add("observações");
+        }
         if (atual.ChaveImportacao is null && doArquivo.ChaveImportacao is not null)
         { atual.ChaveImportacao = doArquivo.ChaveImportacao; feitos.Add("chave de importação"); }
 

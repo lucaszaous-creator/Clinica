@@ -382,6 +382,14 @@ public interface IClinicaRepositorio
 
     Task AdicionarEvolucaoAsync(Evolucao evolucao, CancellationToken ct = default);
 
+    /// <summary>As chaves de importação já gravadas em evoluções — o que o mesmo pacote,
+    /// importado de novo, tem de PULAR. Uma coluna, só as não nulas.</summary>
+    Task<IReadOnlySet<string>> ChavesDeImportacaoDeEvolucoesAsync(CancellationToken ct = default);
+
+    /// <summary>As chaves de importação já gravadas em agendamentos (a agenda futura do
+    /// sistema anterior).</summary>
+    Task<IReadOnlySet<string>> ChavesDeImportacaoDeAgendamentosAsync(CancellationToken ct = default);
+
     /// <summary>Evolução com profissional carregado (entidade rastreada, para editar).</summary>
     Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 

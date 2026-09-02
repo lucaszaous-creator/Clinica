@@ -250,6 +250,17 @@ public class Evolucao
     public DateTime? AtualizadoEm { get; set; }
 
     /// <summary>
+    /// Chave de idempotência da importação do sistema anterior (set/2026):
+    /// <c>IMPORT:{sistema}:{arquivo}:{id de lá}</c>. Nula em toda evolução escrita aqui.
+    /// O registro importado é registro clínico como qualquer outro — não se apaga, entra
+    /// na guarda de 20 anos e na exportação; a chave só impede que o mesmo pacote
+    /// importado duas vezes o duplique. Quem escreveu está em <see cref="CriadoPor"/>
+    /// (nome e conselho como o sistema antigo os gravou) e, quando o nome casa com um
+    /// <see cref="Profissional"/> daqui, em <see cref="ProfissionalId"/>.
+    /// </summary>
+    public string? ChaveImportacao { get; set; }
+
+    /// <summary>
     /// Quando a sessão foi CANCELADA. Cancelar não apaga (parcela 52): a linha fica no
     /// prontuário, marcada, com o motivo — é o que a Lei 13.787/2018 chama de integridade
     /// e autenticidade, e é o mesmo padrão do documento clínico, da não conformidade do

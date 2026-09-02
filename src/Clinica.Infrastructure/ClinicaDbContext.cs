@@ -265,6 +265,8 @@ public class ClinicaDbContext : DbContext
             // agenda — evita o erro do Npgsql com DateTime local.
             e.Property(a => a.CriadoPor).HasMaxLength(80);
             e.Property(a => a.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.ChaveImportacao).HasMaxLength(160);
+            e.HasIndex(a => a.ChaveImportacao).IsUnique();
             e.HasKey(a => a.Id);
             // Hora de parede (sem fuso). Evita o erro do Npgsql com DateTime local/unspecified.
             e.Property(a => a.DataHora).HasColumnType("timestamp without time zone");
@@ -478,10 +480,11 @@ public class ClinicaDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
 
-            // Os mesmos tetos da Evolucao — a versão guarda o que ela dizia, então o que
-            // cabia lá tem de caber aqui.
-            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
-            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            // Os mesmos tetos da Evolucao — inclusive os textos alargados (set/2026): a
+            // versão guarda o que a evolução DIZIA, e um teto menor aqui faria a primeira
+            // correção de um registro importado falhar ao guardar o anterior.
+            e.Property(x => x.HistoriaDoencaAtual);
+            e.Property(x => x.ExameFisico);
             e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
             e.Property(x => x.CidSessao).HasMaxLength(20);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
@@ -498,14 +501,23 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.QueixaPrincipal).HasMaxLength(1000);
             // O registro do ATENDIMENTO (parcela 73) — todos anuláveis, todos aditivos: a
             // sessão curta de manutenção continua sendo queixa + conduta.
-            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
-            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            //
+            // Os QUATRO textos longos são `text` desde a importação do Smart Clinic
+            // (set/2026): o prontuário antigo tem 88 registros acima de 4.000 caracteres
+            // (o maior, 11.221), e cortar registro clínico na importação é perder o que a
+            // clínica pediu para não perder. Alargar nunca perde linha; a migration diz isso.
+            e.Property(x => x.HistoriaDoencaAtual);
+            e.Property(x => x.ExameFisico);
             e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
             e.Property(x => x.CidSessao).HasMaxLength(20);
-            e.Property(x => x.Conduta).HasMaxLength(4000);
-            e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
+            e.Property(x => x.Conduta);
+            e.Property(x => x.TextoEvolucao);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
+            // A chave de importação é ÚNICA sobre coluna que nasce vazia (a razão da do
+            // paciente): é ela que impede o mesmo pacote de entrar duas vezes.
+            e.Property(x => x.ChaveImportacao).HasMaxLength(160);
+            e.HasIndex(x => x.ChaveImportacao).IsUnique();
             // O retorno e o encaminhamento (parcela 77). A DATA não precisa de teto, e
             // o `DateOnly` vira `date` e não `timestamp` — o fuso não a alcança.
             e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);

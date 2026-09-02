@@ -1,7 +1,46 @@
-# Importar pacientes do sistema anterior (Smart Clinic)
+# Importar o sistema anterior (Smart Clinic)
 
 Tela: **Gerente → Paciente → Importar pacientes** (bit `EditarPaciente`). Roteiro para a
-clínica, e o que o sistema garante — e o que não.
+clínica, e o que o sistema garante — e o que não. A decisão da direção (set/2026) foi
+**"a cliente não quer perder NADA"**: o ZIP inteiro entra, e cada arquivo tem destino escrito.
+
+## Onde cada arquivo do ZIP cai
+
+| Arquivo | O que é | Destino aqui |
+|---|---|---|
+| `pacientes.csv` | a carteira (2.238 fichas, 55 colunas) | **Ficha do paciente**. O que não tem campo (e-mail, RG, profissão, estado civil, nome dos pais, naturalidade, cônjuge, etiquetas, data de cadastro, histórico de edições…) vai para as **observações** da ficha, com rótulo. Login e senha NÃO entram. |
+| `pos_operatorio.csv` | 4.287 evoluções (anamnese, exame físico, conduta) de 1.047 pacientes | **Evolução** no prontuário, com a data de lá, o texto convertido de HTML e o autor como o sistema antigo gravou (nome + conselho); quando o nome casa com alguém da Equipe, vinculada a ele. |
+| `ficha_soap.csv` | 173 fichas S-O-A-P | Evolução: S → história, O → exame físico, A → hipótese, P → conduta. |
+| `prescricao.csv` | 156 prescrições em texto | Evolução, na conduta, marcada "Prescrição registrada no Smart Clinic". |
+| `ficha_clinica.csv` | 168 anamneses com 140 campos de marcação | Evolução: os itens marcados viram uma lista legível na história ("Marcados na ficha: HAS; Alergias; …"), achados → exame físico, tratamento → conduta. |
+| `consulta_multi.csv` | 106 consultas em formulário (JSON) | Evolução: "pergunta: resposta" por item respondido. |
+| `prontuario_personalizado.csv` | 110 fichas personalizadas | Evolução com o título e os campos. |
+| `ficha_pre_consulta.csv`, `ficha_pedi.csv` | 1 registro cada | Evolução (sinais vitais no exame físico). |
+| `agenda.csv` | 9.456 horários (2020 → nov/2026) | **De hoje em diante → horário na agenda daqui** (a clínica troca de sistema com as próximas semanas já marcadas), com o profissional vinculado quando o nome casa com a Equipe. **Passados → histórico legível na ficha** ("Visitas no sistema anterior: data · procedimento · profissional"). Eles NÃO viram sessão: marcá-los como realizados sem evolução ligada inundaria a dívida de prontuário do médico com milhares de sessões antigas, e criar atendimento inventaria guia. |
+| `contratante.csv`, `contratante_usuario.csv` | a clínica e os 11 usuários (com senha) | Não entram: usuários se criam em Acessos. Os NOMES servem para reconhecer autor e profissional. |
+| `exame.csv` | catálogo de 912 nomes de exame | Não entra: não é dado de paciente (é a lista do dropdown de lá). |
+| `prontuarios_dav.csv` | vazio | — |
+
+Tudo é **idempotente**: ficha, evolução e horário carregam a chave `IMPORT:smartclinic:{arquivo}:{id}`
+(índice único). O mesmo ZIP importado duas vezes só grava o que faltou.
+
+**Importe o pacote DUAS vezes.** O sistema antigo tem 31 pessoas cadastradas duas vezes (mesmo
+CPF); na primeira rodada a segunda linha fica de fora, e o prontuário e os horários dela ficam
+"sem ficha". Na segunda rodada ela COMPLETA a ficha que entrou e os registros dela entram
+(medido na exportação real: 24 evoluções e 1 horário esperam a segunda rodada). A única linha
+que nunca entra sozinha é a do CPF inválido — corrija no arquivo ou apague a célula.
+
+**Cadastre a Equipe ANTES da primeira rodada** com os nomes como o Smart Clinic os escreve
+(a prévia lista os autores e os profissionais que não reconheceu): é na gravação que a
+evolução e o horário ganham o vínculo, e a evolução já gravada não é revinculada — ela
+guarda o nome e o conselho de quem escreveu, como texto.
+
+Medido na exportação real (banco de teste): 2.206 fichas, 4.963 registros de prontuário e
+226 horários futuros em 30 segundos, sem erro.
+
+O que a conversão perde: a **formatação** do HTML (negrito, cor). O conteúdo inteiro fica,
+sem corte — os textos longos do prontuário são coluna `text` desde esta parcela.
+
 
 ## O que a exportação do Smart Clinic traz (medido em set/2026)
 
@@ -56,18 +95,13 @@ Os outros CSVs são o **prontuário em texto** (ver "O que NÃO entra").
 - **Trilha de auditoria** por ficha (`PacienteImportado`, `PacienteCompletadoPorImportacao`)
   e uma linha de resumo por importação.
 
-## O que NÃO entra (decisão pendente)
+## O que fica FORA, e por quê
 
-- **Prontuário do sistema antigo.** Ele NÃO vem em PDF: vem em TEXTO estruturado, por
-  paciente e com data — `pos_operatorio.csv` (4.287 registros de 1.047 pacientes: anamnese,
-  exame físico, conduta), `ficha_soap.csv` (173, nos quatro campos S-O-A-P), `prescricao.csv`
-  (156), `ficha_clinica.csv` (168 anamneses com medicamentos) e `consulta_multi.csv` /
-  `prontuario_personalizado.csv`. Isso cabe no `Evolucao` do sistema (que tem os campos do
-  S-O-A-P desde a parcela 73) como registro IMPORTADO, com procedência e sem autor daqui —
-  e é registro clínico: nasce sob a guarda de 20 anos, entra na exportação e não se apaga.
-  É uma parcela própria, com decisão da direção sobre a forma; a carteira não espera por ela.
-- **A agenda antiga** (`agenda.csv`, 9.456 horários de 2.110 pacientes, com profissional e
-  procedimento): serviria para a data da primeira visita e para "quem parou de vir", que
-  hoje só enxergam o que aconteceu neste sistema. Mesma decisão.
+- **As visitas passadas não viram sessão nem atendimento** (ver a tabela): ficam legíveis
+  na ficha. Consequência honesta: "quem parou de vir", "primeira visita" e o BI só enxergam o
+  que aconteceu NESTE sistema — a data da última visita antiga está nas observações.
+- **Alergia anotada no sistema antigo** (a coluna `alergia`, vazia nesta exportação) iria
+  para as observações com aviso: o alerta de prescrição só lê a lista de problemas da ficha.
+- **Formatação** do HTML (negrito, cor, tabela) — só a forma, nunca o conteúdo.
 - **Agenda, financeiro, pacotes e guias** do sistema antigo — a migração pedida é da
   carteira; o resto começa aqui.

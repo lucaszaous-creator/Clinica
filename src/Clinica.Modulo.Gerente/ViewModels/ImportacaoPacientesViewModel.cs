@@ -55,6 +55,12 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     private TabelaImportada? _tabela;
+
+    /// <summary>O ZIP do Smart Clinic, quando a pessoa escolheu o pacote em vez de um CSV.
+    /// No modo pacote as colunas são as do formato conhecido (fixadas em teste), então o
+    /// passo 2 mostra só os convênios.</summary>
+    private PacoteSmartClinic? _pacote;
+    private PreviaSmartClinic? _previaPacote;
     /// <summary>Um rótulo ÚNICO por coluna do arquivo, na ordem dela — duas colunas "Telefone"
     /// no cabeçalho virariam uma só no combo, e a segunda ficaria inalcançável.</summary>
     private string[] _rotulosColunas = [];
@@ -68,6 +74,10 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     [ObservableProperty] private string? _arquivoNome;
     [ObservableProperty] private string? _arquivoInfo;
     [ObservableProperty] private bool _temArquivo;
+    /// <summary>Modo PACOTE (ZIP do Smart Clinic) × modo CSV avulso — os dois booleanos
+    /// existem porque o XAML não tem conversor de inverso, e a tela mostra blocos diferentes.</summary>
+    [ObservableProperty] private bool _modoPacote;
+    [ObservableProperty] private bool _modoCsv;
 
     // ---- passo 2 ----
     public ObservableCollection<CampoMapa> Campos { get; } = [];
@@ -78,6 +88,9 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
 
     // ---- passo 3 ----
     public ObservableCollection<LinhaPrevia> Linhas { get; } = [];
+    /// <summary>No modo pacote: o que MAIS entra além das fichas (prontuário por arquivo,
+    /// agenda futura, histórico, autores) — uma linha por assunto.</summary>
+    public ObservableCollection<string> ResumoPacote { get; } = [];
     [ObservableProperty] private bool _temPrevia;
     [ObservableProperty] private string _resumoPrevia = string.Empty;
     [ObservableProperty] private string? _avisosGerais;
@@ -113,7 +126,9 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     {
         if (!TemPrevia) return;
         _previa = null;
+        _previaPacote = null;
         Linhas.Clear();
+        ResumoPacote.Clear();
         TemPrevia = false;
         PodeExecutar = false;
     }
@@ -150,6 +165,9 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             }
 
             _tabela = tabela;
+            _pacote = null;
+            ModoPacote = false;
+            ModoCsv = true;
             ArquivoNome = Path.GetFileName(caminho);
             ArquivoInfo = $"{tabela.Linhas.Count} linha(s) · {tabela.Colunas.Count} coluna(s) · "
                           + $"separador: {tabela.SeparadorRotulo} · codificação: {tabela.Codificacao}";
@@ -162,6 +180,69 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar("Gerente — arquivo de importação não pôde ser lido", ex);
             Mensagem = $"Não deu para ler o arquivo: {ex.Message}";
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// O ZIP inteiro do Smart Clinic: a carteira, o prontuário em texto, a agenda futura e o
+    /// que não tem campo. As colunas do pacientes.csv são reconhecidas pelo formato medido
+    /// (e fixado em teste); o que a direção decide é o destino de cada convênio.
+    /// </summary>
+    [RelayCommand]
+    private async Task EscolherPacoteAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "importar pacientes");
+
+            var caminho = ImpressaoPdf.Escolher(
+                "Pacote do Smart Clinic (*.zip)|*.zip|Todos os arquivos|*.*",
+                "Escolha o ZIP que o Smart Clinic entregou");
+            if (caminho is null) return;
+
+            Mensagem = null;
+            TextoCarregando = "Lendo o pacote…";
+            Carregando = true;
+
+            var bytes = await File.ReadAllBytesAsync(caminho);
+            var pacote = PacoteSmartClinic.Abrir(bytes);
+            var pacientes = pacote.Tabela(PacoteSmartClinic.Pacientes)!;
+
+            if (_catalogo.Count == 0)
+            {
+                using var escopo = _escopos.CreateScope();
+                _catalogo = (await escopo.ServiceProvider.GetRequiredService<ConvenioCatalogoService>()
+                        .ListarAsync())
+                    .Where(c => c.Ativo)
+                    .OrderBy(c => c.Nome)
+                    .ToList();
+            }
+
+            _pacote = pacote;
+            _tabela = pacientes;
+            ModoPacote = true;
+            ModoCsv = false;
+            ArquivoNome = Path.GetFileName(caminho);
+            var prontuario = PacoteSmartClinic.ArquivosDeProntuario.Where(pacote.Tem)
+                .Sum(a => pacote.Tabela(a)!.Linhas.Count);
+            ArquivoInfo = $"{pacote.Arquivos.Count} arquivo(s) · {pacientes.Linhas.Count} paciente(s) · "
+                          + $"{prontuario} registro(s) de prontuário · "
+                          + $"{pacote.Tabela(PacoteSmartClinic.Agenda)?.Linhas.Count ?? 0} horário(s) na agenda antiga"
+                          + (pacote.Ignorados.Count > 0 ? $" · {pacote.Ignorados.Count} arquivo(s) ignorado(s)" : "");
+            TemArquivo = true;
+
+            MontarMapeamento(pacientes);
+            InvalidarPrevia();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — pacote do Smart Clinic não pôde ser lido", ex);
+            Mensagem = $"Não deu para ler o pacote: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
@@ -290,14 +371,26 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
                 .ToDictionary(c => c.Texto, c => c.Escolha!.Cadastro!, StringComparer.OrdinalIgnoreCase);
 
             PreviaImportacao previa;
+            PreviaSmartClinic? previaPacote = null;
             using (var escopo = _escopos.CreateScope())
             {
-                previa = await escopo.ServiceProvider.GetRequiredService<ImportacaoPacientesService>()
-                    .PreverAsync(_tabela, mapa, convenios);
+                if (_pacote is not null)
+                {
+                    previaPacote = await escopo.ServiceProvider.GetRequiredService<ImportacaoSmartClinicService>()
+                        .PreverAsync(_pacote, convenios, DateOnly.FromDateTime(DateTime.Today));
+                    previa = previaPacote.Pacientes;
+                }
+                else
+                    previa = await escopo.ServiceProvider.GetRequiredService<ImportacaoPacientesService>()
+                        .PreverAsync(_tabela, mapa, convenios);
             }
             if (geracao != _geracao) return;
 
             _previa = previa;
+            _previaPacote = previaPacote;
+            ResumoPacote.Clear();
+            if (previaPacote is not null)
+                foreach (var linha in LinhasDoResumo(previaPacote)) ResumoPacote.Add(linha);
             Linhas.Clear();
             // Quem pede ação sobe: problema e aviso primeiro, depois o que entra liso.
             foreach (var l in previa.Linhas
@@ -309,12 +402,17 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             ResumoPrevia = $"{previa.Criar} ficha(s) nova(s) · {previa.Completar} já cadastrada(s) a completar · "
                            + $"{previa.JaImportadas} já importada(s) · {previa.Problemas} linha(s) que não entram"
                            + (previa.ComAviso > 0 ? $" · {previa.ComAviso} com aviso" : "");
-            AvisosGerais = previa.AvisosGerais.Count == 0 ? null : string.Join("\n", previa.AvisosGerais);
+            var avisos = previa.AvisosGerais.Concat(previaPacote?.Avisos ?? []).ToList();
+            AvisosGerais = avisos.Count == 0 ? null : string.Join("\n", avisos);
             TemPrevia = true;
-            PodeExecutar = PodeImportar && previa.TemTrabalho;
-            RotuloImportar = previa.TemTrabalho
-                ? $"Importar {previa.Criar + previa.Completar} ficha(s)"
-                : "Nada a importar";
+            var temTrabalho = previaPacote?.TemTrabalho ?? previa.TemTrabalho;
+            PodeExecutar = PodeImportar && temTrabalho;
+            RotuloImportar = !temTrabalho
+                ? "Nada a importar"
+                : previaPacote is null
+                    ? $"Importar {previa.Criar + previa.Completar} ficha(s)"
+                    : $"Importar o pacote ({previa.Criar + previa.Completar} ficha(s) · "
+                      + $"{previaPacote.EvolucoesNovas} registro(s) · {previaPacote.Agenda.FuturosNovos} horário(s))";
         }
         catch (Exception ex)
         {
@@ -334,7 +432,8 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     [RelayCommand]
     private async Task ImportarAsync()
     {
-        if (_previa is null || !_previa.TemTrabalho)
+        var temTrabalho = _previaPacote?.TemTrabalho ?? _previa?.TemTrabalho ?? false;
+        if (_previa is null || !temTrabalho)
         {
             Mensagem = "Gere a prévia antes de importar.";
             MensagemEhErro = true;
@@ -345,32 +444,56 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "importar pacientes");
 
             // Ação em lote diz o tamanho do lote ANTES do clique (parcela 69).
+            var extra = _previaPacote is null
+                ? ""
+                : $" Do prontuário antigo entram {_previaPacote.EvolucoesNovas} registro(s), e {_previaPacote.Agenda.FuturosNovos} "
+                  + "horário(s) futuro(s) da agenda antiga.";
             var confirmou = _dialogo.ConfirmarPerigo("Importar pacientes",
                 $"Vão ser criadas {_previa.Criar} ficha(s) nova(s) e completadas {_previa.Completar} já "
-                + $"cadastrada(s). As {_previa.Problemas} linha(s) com problema ficam de fora.\n\n"
-                + "Não há desfazer em lote: ficha importada por engano se remove uma a uma, pela ficha. "
-                + "Continuar?");
+                + $"cadastrada(s). As {_previa.Problemas} linha(s) com problema ficam de fora.{extra}\n\n"
+                + "Não há desfazer em lote: ficha importada por engano se remove uma a uma, pela ficha; registro "
+                + "clínico importado não se apaga (cancela-se com motivo, como qualquer outro). Continuar?");
             if (!confirmou) return;
 
             Mensagem = null;
             TextoCarregando = "Gravando as fichas…";
             Carregando = true;
 
-            ResultadoImportacao resultado;
+            string texto;
+            bool teveErro;
             using (var escopo = _escopos.CreateScope())
             {
-                resultado = await escopo.ServiceProvider.GetRequiredService<ImportacaoPacientesService>()
-                    .ExecutarAsync(_previa, SessaoUsuario.Atual.Operador);
+                if (_previaPacote is not null)
+                {
+                    // O progresso chega do serviço; o Progress<T> marshala para a thread da tela.
+                    var progresso = new Progress<string>(p => TextoCarregando = p);
+                    var r = await escopo.ServiceProvider.GetRequiredService<ImportacaoSmartClinicService>()
+                        .ExecutarAsync(_previaPacote, SessaoUsuario.Atual.Operador, progresso);
+                    texto = $"Importação concluída: {r.Pacientes.Criados} ficha(s) nova(s), {r.Pacientes.Completados} "
+                            + $"completada(s), {r.Pacientes.Pulados} já existente(s) · {r.EvolucoesCriadas} registro(s) de "
+                            + $"prontuário ({r.EvolucoesPuladas} já importado(s), {r.EvolucoesSemPaciente} sem ficha) · "
+                            + $"{r.AgendamentosCriados} horário(s) futuro(s) ({r.AgendamentosPulados} já importado(s)).";
+                    var erros = r.Pacientes.Erros.Concat(r.Erros).ToList();
+                    if (erros.Count > 0)
+                        texto += $"\n{erros.Count} erro(s):\n" + string.Join("\n", erros.Take(20)) + (erros.Count > 20 ? "\n…" : "");
+                    teveErro = r.TeveErro;
+                }
+                else
+                {
+                    var resultado = await escopo.ServiceProvider.GetRequiredService<ImportacaoPacientesService>()
+                        .ExecutarAsync(_previa, SessaoUsuario.Atual.Operador);
+                    texto = $"Importação concluída: {resultado.Criados} ficha(s) nova(s), "
+                            + $"{resultado.Completados} completada(s), {resultado.Pulados} já existente(s).";
+                    if (resultado.TeveErro)
+                        texto += $"\n{resultado.Erros.Count} linha(s) não gravaram:\n" + string.Join("\n", resultado.Erros.Take(20))
+                                 + (resultado.Erros.Count > 20 ? "\n…" : "");
+                    teveErro = resultado.TeveErro;
+                }
             }
 
-            var texto = $"Importação concluída: {resultado.Criados} ficha(s) nova(s), "
-                        + $"{resultado.Completados} completada(s), {resultado.Pulados} já existente(s).";
-            if (resultado.TeveErro)
-                texto += $"\n{resultado.Erros.Count} linha(s) não gravaram:\n" + string.Join("\n", resultado.Erros.Take(20))
-                         + (resultado.Erros.Count > 20 ? "\n…" : "");
             Mensagem = texto;
             // Meio sucesso não é sucesso (parcela 68): com erro a cor é a de aviso.
-            MensagemEhErro = resultado.TeveErro;
+            MensagemEhErro = teveErro;
 
             // A prévia já foi consumida — o que sobrou de trabalho se descobre gerando outra.
             InvalidarPrevia();
@@ -385,5 +508,24 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         {
             Carregando = false;
         }
+    }
+
+    /// <summary>O resumo do pacote em linhas legíveis — uma por assunto, com os números.</summary>
+    private static IEnumerable<string> LinhasDoResumo(PreviaSmartClinic p)
+    {
+        foreach (var a in p.Prontuario)
+            yield return $"{a.Rotulo}: {a.Registros} registro(s) de {a.Pacientes} paciente(s) — {a.Novos} entram"
+                         + (a.JaImportados > 0 ? $", {a.JaImportados} já importado(s)" : "")
+                         + (a.SemPaciente > 0 ? $", {a.SemPaciente} de paciente que não está no pacote" : "")
+                         + (a.Vazios > 0 ? $", {a.Vazios} vazio(s)" : "") + ".";
+        yield return $"Agenda antiga: {p.Agenda.Futuros} horário(s) de hoje em diante viram horário aqui ({p.Agenda.FuturosNovos} novo(s)"
+                     + (p.Agenda.FuturosJaImportados > 0 ? $", {p.Agenda.FuturosJaImportados} já importado(s)" : "") + "); "
+                     + $"{p.Agenda.Passados} visita(s) passada(s) de {p.Agenda.PacientesComHistorico} paciente(s) ficam como histórico nas observações da ficha.";
+        if (p.AutoresReconhecidos.Count > 0)
+            yield return $"Autores do prontuário reconhecidos na Equipe: {string.Join(", ", p.AutoresReconhecidos)}.";
+        if (p.Agenda.ProfissionaisReconhecidos.Count > 0)
+            yield return $"Profissionais da agenda reconhecidos na Equipe: {string.Join(", ", p.Agenda.ProfissionaisReconhecidos)}.";
+        yield return "Dados sem campo aqui (e-mail, RG, profissão, nome dos pais…) vão para as observações de cada ficha, com rótulo. "
+                     + "Login e senha do sistema antigo não entram.";
     }
 }

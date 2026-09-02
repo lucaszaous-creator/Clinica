@@ -25,7 +25,7 @@
             <StackPanel Grid.Row="0" Margin="0,0,0,16">
                 <TextBlock Text="Importar pacientes" Style="{StaticResource H1}" Margin="0,0,0,2" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                           Text="A carteira do sistema anterior entra aqui em três passos. Nada é gravado antes da prévia: quem já está cadastrado é completado (só os campos vazios), e o mesmo arquivo importado duas vezes não duplica ninguém." />
+                           Text="O sistema anterior entra aqui em três passos. Nada é gravado antes da prévia: quem já está cadastrado é completado (só os campos vazios), e o mesmo arquivo importado duas vezes não duplica nada — nem ficha, nem prontuário, nem horário." />
             </StackPanel>
 
             <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a GRAVIDADE (parcela 62). -->
@@ -50,9 +50,13 @@
                 <StackPanel>
                     <TextBlock Text="1 · O ARQUIVO" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
-                               Text="No Smart Clinic, exporte a lista de pacientes. Se vier em Excel, abra e use Salvar como → “CSV UTF-8 (delimitado por vírgulas)”. A primeira linha precisa ser o cabeçalho com o nome das colunas." />
+                               Text="O Smart Clinic entrega um ZIP com a carteira, o prontuário, a agenda e os cadastros: escolha o ZIP inteiro e tudo o que é dado de paciente entra (fichas, prontuário em texto, agenda futura, e o que não tem campo vai para as observações). Um CSV avulso de pacientes também serve, de qualquer sistema — aí o passo 2 pergunta o que cada coluna significa." />
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="Escolher arquivo…" MinWidth="170" VerticalAlignment="Center"
+                        <Button Content="Escolher o pacote (ZIP) do Smart Clinic…" MinWidth="260" VerticalAlignment="Center"
+                                IsEnabled="{Binding PodeImportar}"
+                                Command="{Binding EscolherPacoteCommand}" />
+                        <Button Content="Ou um CSV de pacientes…" MinWidth="190" VerticalAlignment="Center" Margin="8,0,0,0"
+                                Style="{StaticResource BotaoSecundario}"
                                 IsEnabled="{Binding PodeImportar}"
                                 Command="{Binding EscolherArquivoCommand}" />
                         <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
@@ -74,10 +78,17 @@
                     Visibility="{Binding TemArquivo, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel>
                     <TextBlock Text="2 · O QUE CADA COLUNA SIGNIFICA" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                    <!-- No modo PACOTE as colunas são as do formato conhecido do Smart Clinic
+                         (fixadas em teste): mostrar 19 combos já certos convida a mexer. -->
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding ModoPacote, Converter={StaticResource BoolParaVisibilidade}}"
+                               Text="Formato do Smart Clinic reconhecido: nome, CPF, celular, nascimento, sexo, endereço em partes, convênio, carteirinha e o ID de lá. O que precisa da sua decisão é só o convênio, abaixo." />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding ModoCsv, Converter={StaticResource BoolParaVisibilidade}}"
                                Text="A sugestão já está marcada pelo nome das colunas — confira. Só o nome é obrigatório." />
 
-                    <ItemsControl ItemsSource="{Binding Campos}" Grid.IsSharedSizeScope="True">
+                    <ItemsControl ItemsSource="{Binding Campos}" Grid.IsSharedSizeScope="True"
+                                  Visibility="{Binding ModoCsv, Converter={StaticResource BoolParaVisibilidade}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="0,3">
@@ -101,7 +112,8 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <Separator Margin="0,12" />
+                    <Separator Margin="0,12"
+                               Visibility="{Binding ModoCsv, Converter={StaticResource BoolParaVisibilidade}}" />
 
                     <StackPanel Margin="0,0,0,8">
                         <TextBlock Text="CONVÊNIOS DO ARQUIVO → CONVÊNIOS DAQUI" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
@@ -151,6 +163,15 @@
                 <StackPanel>
                     <TextBlock Text="3 · O QUE VAI ACONTECER" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
                     <TextBlock Text="{Binding ResumoPrevia}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <!-- O que MAIS entra com o pacote: prontuário por arquivo, agenda, autores. -->
+                    <ItemsControl ItemsSource="{Binding ResumoPacote}" Margin="0,0,0,8"
+                                  Visibility="{Binding ModoPacote, Converter={StaticResource BoolParaVisibilidade}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                     <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
                             Visibility="{Binding AvisosGerais, Converter={StaticResource TextoParaVisibilidade}}">
                         <TextBlock Text="{Binding AvisosGerais}" TextWrapping="Wrap" />

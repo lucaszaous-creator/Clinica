@@ -57,20 +57,7 @@ public sealed class ProntuarioService
         // eles, a consulta em que o médico registrou só a anamnese, o exame físico e a
         // hipótese — que é o caso normal da PRIMEIRA consulta, antes de haver conduta —
         // seria recusada como "evolução vazia", e a recusa nomeia campos que ele preencheu.
-        var temTexto = !string.IsNullOrWhiteSpace(dados.QueixaPrincipal)
-                       || !string.IsNullOrWhiteSpace(dados.Conduta)
-                       || !string.IsNullOrWhiteSpace(dados.TextoEvolucao)
-                       || !string.IsNullOrWhiteSpace(dados.Orientacoes)
-                       || !string.IsNullOrWhiteSpace(dados.HistoriaDoencaAtual)
-                       || !string.IsNullOrWhiteSpace(dados.ExameFisico)
-                       || !string.IsNullOrWhiteSpace(dados.HipoteseDiagnostica)
-                       || !string.IsNullOrWhiteSpace(dados.PlanoTerapeutico)
-                       // A sessão que só decide o retorno ou o encaminhamento É uma
-                       // sessão: são afirmações clínicas, não metadados.
-                       || dados.RetornoSugeridoEm is not null
-                       || !string.IsNullOrWhiteSpace(dados.RetornoSugeridoNota)
-                       || !string.IsNullOrWhiteSpace(dados.Encaminhamento);
-        if (!temTexto && dados.EvaAntes is null && dados.EvaDepois is null)
+        if (!TemRegistro(dados))
             throw new InvalidOperationException(
                 "Registre ao menos a dor (EVA) ou um dos campos da evolução.");
 
@@ -463,6 +450,27 @@ public sealed class ProntuarioService
 
         await _repo.SalvarAsync(ct);
     }
+
+    /// <summary>
+    /// A evolução tem ALGUMA COISA registrada? É a única definição — a importação do
+    /// prontuário antigo pergunta a mesma coisa antes de gravar, e duas definições
+    /// divergiriam na primeira correção. A sessão que só decide o retorno ou o
+    /// encaminhamento É uma sessão: são afirmações clínicas, não metadados.
+    /// </summary>
+    public static bool TemRegistro(Evolucao dados)
+        => !string.IsNullOrWhiteSpace(dados.QueixaPrincipal)
+           || !string.IsNullOrWhiteSpace(dados.Conduta)
+           || !string.IsNullOrWhiteSpace(dados.TextoEvolucao)
+           || !string.IsNullOrWhiteSpace(dados.Orientacoes)
+           || !string.IsNullOrWhiteSpace(dados.HistoriaDoencaAtual)
+           || !string.IsNullOrWhiteSpace(dados.ExameFisico)
+           || !string.IsNullOrWhiteSpace(dados.HipoteseDiagnostica)
+           || !string.IsNullOrWhiteSpace(dados.PlanoTerapeutico)
+           || dados.RetornoSugeridoEm is not null
+           || !string.IsNullOrWhiteSpace(dados.RetornoSugeridoNota)
+           || !string.IsNullOrWhiteSpace(dados.Encaminhamento)
+           || dados.EvaAntes is not null
+           || dados.EvaDepois is not null;
 
     private static string? Limpar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

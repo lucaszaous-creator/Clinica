@@ -380,6 +380,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(c => c.DataBaixa)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlySet<string>> ChavesDeImportacaoDeEvolucoesAsync(CancellationToken ct = default)
+        => (await _db.Evolucoes.AsNoTracking()
+                .Where(e => e.ChaveImportacao != null)
+                .Select(e => e.ChaveImportacao!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+    public async Task<IReadOnlySet<string>> ChavesDeImportacaoDeAgendamentosAsync(CancellationToken ct = default)
+        => (await _db.Agendamentos.AsNoTracking()
+                .Where(a => a.ChaveImportacao != null)
+                .Select(a => a.ChaveImportacao!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
     public async Task<IReadOnlyList<Clinica.Application.Modelos.FichaResumida>> FichasResumidasAsync(
         CancellationToken ct = default)
         => await _db.Pacientes.AsNoTracking()

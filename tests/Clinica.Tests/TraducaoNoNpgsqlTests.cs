@@ -289,4 +289,24 @@ public class TraducaoNoNpgsqlTests
         sql.Should().Contain("\"ChaveImportacao\"");
         sql.Should().NotContain("FotoMiniatura", "a carteira inteira é lida de uma vez — um JPEG por linha inviabilizaria");
     }
+
+    [Fact]
+    public void Chaves_de_importacao_do_prontuario_e_da_agenda_traduzem()
+    {
+        using var db = Postgres();
+
+        var evolucoes = db.Evolucoes.AsNoTracking()
+            .Where(e => e.ChaveImportacao != null)
+            .Select(e => e.ChaveImportacao!)
+            .ToQueryString();
+        var agendamentos = db.Agendamentos.AsNoTracking()
+            .Where(a => a.ChaveImportacao != null)
+            .Select(a => a.ChaveImportacao!)
+            .ToQueryString();
+
+        // Só a coluna da chave, nunca o texto da evolução: é a consulta que roda antes de
+        // cada importação, sobre a tabela inteira.
+        evolucoes.Should().Contain("\"ChaveImportacao\"").And.NotContain("TextoEvolucao");
+        agendamentos.Should().Contain("\"ChaveImportacao\"").And.NotContain("Observacoes");
+    }
 }
