@@ -309,4 +309,36 @@ public class TraducaoNoNpgsqlTests
         evolucoes.Should().Contain("\"ChaveImportacao\"").And.NotContain("TextoEvolucao");
         agendamentos.Should().Contain("\"ChaveImportacao\"").And.NotContain("Observacoes");
     }
+
+    /// <summary>
+    /// Os ARQUIVOS DA FICHA (set/2026): a lista de um paciente sai SEM os bytes — eles moram
+    /// na tabela 1:1, como o laudo e o retrato — e o filtro do cancelado é pela COLUNA.
+    /// </summary>
+    [Fact]
+    public void A_lista_de_arquivos_da_ficha_NAO_traz_os_bytes()
+    {
+        using var db = Postgres();
+
+        var sql = db.AnexosPaciente.AsNoTracking()
+            .Where(a => a.PacienteId == 1 && a.CanceladoEm == null)
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
+            .ToQueryString();
+
+        sql.Should().Contain("\"NomeArquivo\"", "os METADADOS ficam na linha");
+        sql.Should().NotContain("ArquivosAnexoPaciente",
+            "os BYTES só são buscados por quem clica em abrir — 756 PDFs numa ficha inviabilizariam a lista");
+    }
+
+    [Fact]
+    public void Chaves_de_importacao_dos_arquivos_da_ficha_traduzem_so_a_coluna()
+    {
+        using var db = Postgres();
+
+        var sql = db.AnexosPaciente.AsNoTracking()
+            .Where(a => a.ChaveImportacao != null)
+            .Select(a => a.ChaveImportacao!)
+            .ToQueryString();
+
+        sql.Should().Contain("\"ChaveImportacao\"").And.NotContain("\"Titulo\"");
+    }
 }

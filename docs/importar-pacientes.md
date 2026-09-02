@@ -103,6 +103,46 @@ Os outros CSVs são o **prontuário em texto** (ver "O que NÃO entra").
 - **Trilha de auditoria** por ficha (`PacienteImportado`, `PacienteCompletadoPorImportacao`)
   e uma linha de resumo por importação.
 
+## O ZIP de arquivos (receitas, laudos, exames em PDF)
+
+A segunda exportação que o Smart Clinic entrega é uma pasta zipada com os **arquivos dos
+pacientes** — nomeados pelo id do arquivo (`164001527.pdf`) — e um índice
+`relacao_arquivos.csv` (`url;id_arquivo;nome_paciente;id_paciente;titulo;data`) que diz de
+QUAL paciente é cada um. Medido no ZIP real: 756 PDFs de 113 pacientes, todos "Receita
+#número", de 2024 a 2026.
+
+Eles entram nos **ARQUIVOS DA FICHA** de cada paciente (Consultório → paciente → "Exames e
+anexos" → região "Arquivos da ficha"), e não como anexo de sessão: a receita pertence à
+PESSOA, e forçá-la a uma evolução inventaria uma consulta que não houve.
+
+**A ordem importa: este ZIP se importa DEPOIS do pacote de pacientes.** Cada arquivo acha
+a ficha pelo id do paciente no sistema anterior (`IMPORT:smartclinic:{id_paciente}`, a
+chave que a importação da carteira gravou). Sem a carteira importada, tudo cai em "sem
+paciente" — e a prévia diz isso, com o aviso de importar o pacote antes e repetir este ZIP.
+
+Como se faz: Gerente → Importar pacientes → **"Ou o ZIP de arquivos (receitas, laudos)…"** →
+Gerar a prévia → ler → Importar. Como sempre, ensaie num banco de teste primeiro.
+
+O que o sistema garante:
+
+- **Prévia sem gravar nada**, linha a linha: entra · já importado · sem paciente · o índice
+  cita um arquivo que não está no ZIP · inválido (sem id, vazio ou acima do teto).
+- **A ficha é achada pelo id do sistema anterior; sem ele, pelo NOME — e só quando o nome é
+  ÚNICO no cadastro.** Homônimo fica de fora com o motivo: pôr a receita na ficha errada,
+  calado, é pior do que deixá-la para conferir à mão.
+- **Idempotente**: cada arquivo guarda a chave `IMPORT:smartclinic:arquivo:{id_arquivo}`
+  (índice único). O mesmo ZIP importado duas vezes não duplica nada — importar de novo é o
+  jeito de completar o que ficou de fora depois de cadastrar o paciente que faltava.
+- **A data é a do documento**, como o sistema anterior a gravou. Ilegível ou futura, o
+  arquivo entra com a data de hoje e a observação DIZ — a data não pode ser o que impede
+  um laudo de chegar à ficha.
+- **O mesmo teto do anexo de prontuário** (10 MB), a mesma validação do anexo pela tela.
+- **Trilha**: uma linha por lote de 40 (`AnexoFichaImportado`) e um resumo por importação —
+  756 linhas de auditoria enterrariam a trilha que existe para ser lida.
+- **Arquivo no ZIP sem linha no índice não entra**, e a prévia lista quais: sem o índice
+  não há como saber de quem é.
+- A **conferência** ao fim relê o ZIP contra o banco pela chave de cada arquivo.
+
 ## O que fica FORA, e por quê
 
 - **As visitas passadas não viram sessão nem atendimento** (ver a tabela): ficam legíveis

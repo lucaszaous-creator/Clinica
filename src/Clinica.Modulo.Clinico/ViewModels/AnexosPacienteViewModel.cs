@@ -57,6 +57,16 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<LinhaResultadoExame> Resultados { get; } = [];
 
+    /// <summary>
+    /// Os ARQUIVOS DA FICHA (set/2026): a receita, o laudo, o PDF que pertence à pessoa e
+    /// não a uma sessão — e o acervo importado do sistema anterior. Diferente do anexo
+    /// logo abaixo, que pende da consulta em que foi recebido.
+    /// </summary>
+    public ObservableCollection<LinhaArquivoDaFicha> ArquivosDaFicha { get; } = [];
+
+    /// <summary>Há arquivo da ficha — a região dele SOME vazia (o convite é o botão).</summary>
+    [ObservableProperty] private bool _temArquivosDaFicha;
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
@@ -70,6 +80,13 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 
     /// <summary>A metade VISÍVEL da barreira de escrita; quem impede é o Exigir.</summary>
     public bool PodeRegistrar => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+
+    /// <summary>
+    /// Anexar arquivo à ficha é dado de saúde entrando: quem escreve prontuário OU quem
+    /// registra enfermagem (a técnica recebe o laudo pelo WhatsApp tanto quanto o médico).
+    /// </summary>
+    public bool PodeAnexar => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem);
 
     public AnexosPacienteViewModel(
         IServiceScopeFactory escopos, PacienteEmFoco foco,
@@ -90,7 +107,9 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         {
             Anexos.Clear();
             Resultados.Clear();
+            ArquivosDaFicha.Clear();
             TemResultados = false;
+            TemArquivosDaFicha = false;
             Resumo = string.Empty;
             return;
         }
@@ -104,6 +123,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             // SEQUENCIAL, nunca WhenAll: mesmo repositório, mesmo DbContext.
             var lista = await repo.AnexosDoPacienteAsync(id);
             var exames = await repo.ResultadosExameDoPacienteAsync(id);
+            var daFicha = await repo.AnexosDaFichaAsync(id);
 
             if (geracao != _geracaoCarga) return;
 
@@ -116,14 +136,15 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             Resultados.Clear();
             foreach (var r in exames) Resultados.Add(LinhaResultadoExame.De(r));
             TemResultados = exames.Count > 0;
+            ArquivosDaFicha.Clear();
+            foreach (var a in daFicha) ArquivosDaFicha.Add(LinhaArquivoDaFicha.De(a));
+            TemArquivosDaFicha = daFicha.Count > 0;
 
-            Resumo = (lista.Count, exames.Count) switch
-            {
-                (0, 0) => string.Empty,
-                (var a2, 0) => $"{a2} arquivo(s) no prontuário",
-                (0, var e2) => $"{e2} resultado(s) registrado(s)",
-                var (a2, e2) => $"{e2} resultado(s) registrado(s) · {a2} arquivo(s) no prontuário"
-            };
+            var partes = new List<string>();
+            if (exames.Count > 0) partes.Add($"{exames.Count} resultado(s) registrado(s)");
+            if (daFicha.Count > 0) partes.Add($"{daFicha.Count} arquivo(s) da ficha");
+            if (lista.Count > 0) partes.Add($"{lista.Count} arquivo(s) anexado(s) a sessões");
+            Resumo = string.Join(" · ", partes);
         }
         catch (Exception ex)
         {
@@ -277,6 +298,166 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     /// CANCELA o resultado, com motivo — nunca "excluir": registro clínico não se apaga
     /// (parcela 52), e o rótulo do botão diz o ato verdadeiro.
     /// </summary>
+    // ============================================================ arquivos da FICHA
+
+    /// <summary>
+    /// Anexa um arquivo à FICHA (set/2026): o laudo que chegou pelo WhatsApp, a receita de
+    /// outro serviço — o que pertence à pessoa e não a uma consulta. Pergunta o que é e a
+    /// data do documento (a data CLÍNICA, nunca a de hoje por padrão silencioso: em branco
+    /// vale hoje, e a pergunta diz isso).
+    /// </summary>
+    [RelayCommand]
+    private async Task AnexarArquivoDaFichaAsync()
+    {
+        if (_foco.PacienteId is not { } pacienteId)
+        {
+            Mensagem = "Escolha o paciente primeiro.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem,
+                "anexar arquivo à ficha do paciente");
+
+            var escolha = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Anexar arquivo à ficha",
+                Filter = "Documentos e imagens|*.pdf;*.jpg;*.jpeg;*.png|Todos os arquivos|*.*"
+            };
+            if (escolha.ShowDialog() != true) return;
+
+            var nome = Path.GetFileName(escolha.FileName);
+            var titulo = _dialogo.PerguntarTexto(
+                "Anexar arquivo à ficha",
+                "O que é este arquivo? (ex.: Ressonância lombar, Receita de outro serviço)",
+                Path.GetFileNameWithoutExtension(nome));
+            if (string.IsNullOrWhiteSpace(titulo)) return;
+
+            // Cancelar não é resposta em branco (checagem 39): `null` é desistir; vazio
+            // é "hoje".
+            var dataTexto = _dialogo.PerguntarTexto(
+                "Data do documento",
+                "Data do documento (dd/mm/aaaa). Deixe em branco se for de hoje.",
+                obrigatorio: false);
+            if (dataTexto is null) return;
+            DateOnly data;
+            if (string.IsNullOrWhiteSpace(dataTexto))
+                data = DateOnly.FromDateTime(DateTime.Today);
+            else if (!DateOnly.TryParseExact(dataTexto.Trim(), "dd/MM/yyyy",
+                         System.Globalization.CultureInfo.InvariantCulture,
+                         System.Globalization.DateTimeStyles.None, out data))
+            {
+                Mensagem = "Data inválida — use dd/mm/aaaa.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(escolha.FileName);
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>().AnexarAsync(
+                pacienteId, data, titulo, nome, bytes,
+                tipoConteudo: TipoConteudoDe(nome),
+                operador: SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Arquivo anexado à ficha.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — arquivo não pôde ser anexado à ficha", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>Abre o arquivo da ficha — o MESMO caminho do laudo; dado de saúde saindo deixa rastro.</summary>
+    [RelayCommand]
+    private async Task AbrirArquivoDaFichaAsync(LinhaArquivoDaFicha? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir arquivo da ficha");
+
+            byte[]? bytes;
+            using (var escopo = _escopos.CreateScope())
+            {
+                bytes = await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>()
+                    .ConteudoAsync(linha.Id);
+
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(_foco.PacienteId ?? 0, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ExportacaoClinica);
+            }
+
+            if (bytes is null || bytes.Length == 0)
+            {
+                Mensagem = "O arquivo não foi encontrado no banco.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                bytes, ImpressaoPdf.NomeSeguro(linha.NomeArquivo));
+            Mensagem = erro;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — arquivo da ficha não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>Cancela com motivo, nunca "excluir" (parcela 52).</summary>
+    [RelayCommand]
+    private async Task CancelarArquivoDaFichaAsync(LinhaArquivoDaFicha? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarProntuario | Permissao.RegistrarEvolucaoEnfermagem,
+                "cancelar arquivo da ficha");
+
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar arquivo da ficha",
+                $"Por que \"{linha.Titulo}\" ({linha.NomeArquivo}) está sendo cancelado? Ele sai da "
+                + "lista e fica guardado, com este motivo.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>()
+                .CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Arquivo cancelado (guardado no prontuário).");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — arquivo da ficha não pôde ser cancelado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    private static string? TipoConteudoDe(string nome) => Path.GetExtension(nome).ToLowerInvariant() switch
+    {
+        ".pdf" => "application/pdf",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        _ => null
+    };
+
     [RelayCommand]
     private async Task CancelarResultadoAsync(LinhaResultadoExame? linha)
     {
@@ -342,5 +523,35 @@ public sealed class LinhaResultadoExame
             r.Laboratorio
         }.Where(p => !string.IsNullOrWhiteSpace(p))) is { Length: > 0 } c ? c : null,
         Observacoes = r.Observacoes
+    };
+}
+
+/// <summary>Uma linha da região "Arquivos da ficha".</summary>
+public sealed class LinhaArquivoDaFicha
+{
+    public required int Id { get; init; }
+    public required string Titulo { get; init; }
+    public required string NomeArquivo { get; init; }
+
+    /// <summary>"26/10/2024 · receita-164001527.pdf · 31 KB · sistema anterior".</summary>
+    public required string Contexto { get; init; }
+
+    public string? Observacoes { get; init; }
+
+    public static LinhaArquivoDaFicha De(AnexoPaciente a) => new()
+    {
+        Id = a.Id,
+        Titulo = a.Titulo,
+        NomeArquivo = a.NomeArquivo,
+        Contexto = string.Join(" · ", new[]
+        {
+            a.Data.ToString("dd/MM/yyyy"),
+            a.NomeArquivo,
+            a.Tamanho >= 1024 * 1024
+                ? $"{a.Tamanho / (1024.0 * 1024.0):0.#} MB"
+                : $"{Math.Max(1, a.Tamanho / 1024)} KB",
+            a.Importado ? "sistema anterior" : null
+        }.Where(p => !string.IsNullOrWhiteSpace(p))),
+        Observacoes = a.Observacoes
     };
 }

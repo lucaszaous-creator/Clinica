@@ -79,6 +79,7 @@ public sealed class TitularDadosService
             [NaturezaRegistroClinico.AvaliacaoClinica] = "== AVALIAÇÕES E ESCALAS ==",
             [NaturezaRegistroClinico.MedidaClinica] = "== MEDIDAS ==",
             [NaturezaRegistroClinico.ResultadoExame] = "== RESULTADOS DE EXAME ==",
+            [NaturezaRegistroClinico.ArquivoDaFicha] = "== ARQUIVOS DA FICHA ==",
             [NaturezaRegistroClinico.ProblemaPaciente] = "== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==",
             [NaturezaRegistroClinico.Anexo] = "== ANEXOS E MAPAS CORPORAIS ==",
             [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS ==",
@@ -277,6 +278,19 @@ public sealed class TitularDadosService
                 + (string.IsNullOrWhiteSpace(r.Referencia) ? string.Empty : $" (ref.: {r.Referencia})")
                 + (string.IsNullOrWhiteSpace(r.Laboratorio) ? string.Empty : $" · {r.Laboratorio}")
                 + (r.Cancelado ? " (CANCELADO)" : string.Empty));
+        texto.AppendLine();
+
+        // Os ARQUIVOS DA FICHA (set/2026): a receita, o laudo, o PDF que pertence à pessoa
+        // e não a uma sessão — inclusive o acervo importado do sistema anterior. Os BYTES
+        // não vão neste texto (é a lista, como a dos anexos); cancelado vem marcado.
+        texto.AppendLine("== ARQUIVOS DA FICHA ==");
+        var arquivosDaFicha = await _repo.AnexosDaFichaAsync(pacienteId, incluirCancelados: true, ct);
+        if (arquivosDaFicha.Count == 0) texto.AppendLine("(nenhum)");
+        foreach (var a in arquivosDaFicha.OrderBy(a => a.Data))
+            texto.AppendLine(
+                $"- {a.Data.ToString("dd/MM/yyyy", Brasil)} · {a.Titulo}: {a.NomeArquivo} ({a.Tamanho} bytes)"
+                + (string.IsNullOrWhiteSpace(a.Observacoes) ? string.Empty : $" · {a.Observacoes}")
+                + (a.Cancelado ? " (CANCELADO)" : string.Empty));
         texto.AppendLine();
 
         // A ANAMNESE (parcela 75) — antecedentes, história familiar, hábitos. Entra pelo

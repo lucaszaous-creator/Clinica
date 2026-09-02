@@ -218,6 +218,13 @@ public class ConjuntoClinicoTests : IDisposable
             Laboratorio = "Lab Vida"
         }, "dra.ana");
 
+        // O ARQUIVO DA FICHA (set/2026) — a décima segunda natureza: a receita do sistema
+        // anterior, o laudo que chegou sem consulta. Pertence à pessoa, não à sessão.
+        await new AnexoPacienteService(_repo).AnexarAsync(
+            paciente.Id, Dia, "Receita do sistema anterior", "receita-antiga.pdf",
+            [0x25, 0x50, 0x44, 0x46], "application/pdf",
+            "Importado do Smart Clinic", "gerente");
+
         return paciente.Id;
     }
 
@@ -304,6 +311,7 @@ public class ConjuntoClinicoTests : IDisposable
         texto.Should().Contain("mapa corporal");
         texto.Should().Contain("Peso");
         texto.Should().Contain("tolerou bem a infusão");
+        texto.Should().Contain("receita-antiga.pdf");
     }
 
     [Fact]

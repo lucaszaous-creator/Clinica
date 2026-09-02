@@ -560,6 +560,29 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ResultadoExame>> ResultadosExameDoPacienteAsync(
         int pacienteId, bool incluirCancelados = false, CancellationToken ct = default);
 
+    // ---- Arquivos da FICHA (set/2026): a receita, o laudo, o PDF que pertence à pessoa ----
+
+    Task AdicionarAnexoPacienteAsync(AnexoPaciente anexo, CancellationToken ct = default);
+
+    /// <summary>Guarda os BYTES do arquivo da ficha (tabela 1:1, o padrão do laudo em arquivo).</summary>
+    Task AdicionarArquivoAnexoPacienteAsync(ArquivoAnexoPaciente arquivo, CancellationToken ct = default);
+
+    /// <summary>Os bytes do arquivo, sob demanda — a ÚNICA consulta que os materializa.</summary>
+    Task<byte[]?> ConteudoDoAnexoPacienteAsync(int anexoId, CancellationToken ct = default);
+
+    Task<AnexoPaciente?> ObterAnexoPacienteAsync(int anexoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os arquivos da ficha do paciente, do mais recente para o mais antigo — SEM os bytes.
+    /// <paramref name="incluirCancelados"/> é para a EXPORTAÇÃO e a GUARDA.
+    /// </summary>
+    Task<IReadOnlyList<AnexoPaciente>> AnexosDaFichaAsync(
+        int pacienteId, bool incluirCancelados = false, CancellationToken ct = default);
+
+    /// <summary>As chaves de importação já gravadas em arquivos da ficha — o que o mesmo
+    /// ZIP, importado de novo, tem de PULAR. Uma coluna, só as não nulas.</summary>
+    Task<IReadOnlySet<string>> ChavesDeImportacaoDeAnexosPacienteAsync(CancellationToken ct = default);
+
 
     // ---- Lista de problemas (parcela 37) ----
 
