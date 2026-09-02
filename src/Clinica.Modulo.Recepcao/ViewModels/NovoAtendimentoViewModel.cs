@@ -408,6 +408,68 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     public bool TemAvisoJaLancado => !string.IsNullOrWhiteSpace(AvisoJaLancado);
 
     /// <summary>
+    /// O HORÁRIO DO DIA que o paciente já tem em aberto (set/2026 — a semana em que a
+    /// agenda importada do Smart Clinic e esta tela passaram a conviver). Quando existe,
+    /// o lançamento é feito SOBRE ele: a modalidade escolhida aqui passa a valer para o
+    /// horário, o check-in é carimbado e a guia nasce nele — em vez de um encaixe ao lado,
+    /// que deixava dois cartões da mesma sessão (o concluído e o importado, parado em
+    /// "Aguardando" para sempre, e ainda levando a evolução importada depois). A caixinha
+    /// <see cref="CriarEncaixeSeparado"/> é a saída para o caso legítimo: sessão de manhã
+    /// e consulta à tarde.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoHorarioDoDia), nameof(UsarHorarioDoDia),
+        nameof(MostrarEscolhaEncaixe), nameof(AvisoHorarioDoDia))]
+    private HorarioEmAberto? _horarioDoDia;
+
+    /// <summary>Quantos a mais além do primeiro — o raro caso de dois horários do mesmo paciente no dia.</summary>
+    private int _outrosHorariosDoDia;
+
+    /// <summary>
+    /// A leitura do horário do dia FALHOU (banco lento). Não pode virar silêncio: sem ela a
+    /// tela voltaria ao encaixe de sempre, que é justamente a duplicata que o aviso existe
+    /// para impedir — então o terceiro estado é escrito.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoHorarioDoDia), nameof(AvisoHorarioDoDia))]
+    private bool _horarioDoDiaNaoVerificado;
+
+    /// <summary>"Não usar esse horário: criar um encaixe separado" — sessão de manhã + consulta à tarde.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UsarHorarioDoDia))]
+    private bool _criarEncaixeSeparado;
+
+    public bool TemAvisoHorarioDoDia => HorarioDoDia is not null || HorarioDoDiaNaoVerificado;
+
+    /// <summary>A caixinha só faz sentido no modo "lançar agora": marcar outro dia é outra decisão.</summary>
+    public bool MostrarEscolhaEncaixe => HorarioDoDia is not null && !MarcarParaDepois;
+
+    /// <summary>O Lançar vai SOBRE o horário do dia (e não cria encaixe).</summary>
+    public bool UsarHorarioDoDia => HorarioDoDia is not null && !MarcarParaDepois && !CriarEncaixeSeparado;
+
+    public string? AvisoHorarioDoDia
+    {
+        get
+        {
+            if (HorarioDoDia is not { } h)
+                return HorarioDoDiaNaoVerificado
+                    ? $"Não foi possível conferir se o paciente já tem horário em {Data:dd/MM}. Se tiver, "
+                      + "lance pela Fila (Chegou → Entrou → Concluir) para não criar um segundo cartão."
+                    : null;
+
+            var outros = _outrosHorariosDoDia > 0 ? $" (e mais {_outrosHorariosDoDia})" : "";
+            return MarcarParaDepois
+                ? $"Já tem horário em {Data:dd/MM}: {h.Descricao}{outros}. Marcar de novo cria um SEGUNDO "
+                  + "horário no mesmo dia."
+                : $"Já tem horário em {Data:dd/MM}: {h.Descricao}{outros}. Ao lançar, o sistema usa ESSE "
+                  + "horário — a modalidade escolhida aqui passa a valer para ele, o check-in é carimbado e "
+                  + "a guia nasce nele. Nenhum encaixe é criado.";
+        }
+    }
+
+    partial void OnCriarEncaixeSeparadoChanged(bool value) => AtualizarRotuloLancar();
+
+    /// <summary>
     /// O RESTO da elegibilidade — dívida vencida, guia glosada, pacote no fim, termo do
     /// procedimento, consentimento (parcela 70, achado da auditoria). O formulário de
     /// agendamento que esta tela substituiu mostrava tudo isso pelo
@@ -525,6 +587,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         _ = PreverAsync();
         _ = ConferirConflitosAsync();
+        OnPropertyChanged(nameof(AvisoHorarioDoDia));
 
         // No modo marcar, trocar o DIA é o gesto normal — e cota, consulta, elegibilidade
         // e a capa respondem PELA DATA. Sem reconferir, a tela mostraria a resposta do
@@ -533,6 +596,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         if (PacienteSelecionado is { } p)
         {
             _ = VerificarJaLancadoNoDiaAsync(p.Id);
+            _ = VerificarHorarioDoDiaAsync(p.Id);
             _ = VerificarAutorizacaoAsync(p.Id);
             _ = VerificarConsultaAsync(p.Id);
             _ = VerificarElegibilidadeAsync(p.Id);
@@ -547,6 +611,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         OnPropertyChanged(nameof(LancarAgora));
         OnPropertyChanged(nameof(TituloPasso2));
         OnPropertyChanged(nameof(SemProfissionalEscolhido));
+        OnPropertyChanged(nameof(UsarHorarioDoDia));
+        OnPropertyChanged(nameof(MostrarEscolhaEncaixe));
+        OnPropertyChanged(nameof(AvisoHorarioDoDia));
         AtualizarRotuloLancar();
         _ = ConferirConflitosAsync();
     }
@@ -940,6 +1007,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         OnPropertyChanged(nameof(PacienteSelecionado));
         AvisoJaLancado = null;
+        HorarioDoDia = null;
+        _outrosHorariosDoDia = 0;
+        HorarioDoDiaNaoVerificado = false;
+        CriarEncaixeSeparado = false;
         AvisoPendencias = null;
         AvisoCarteirinha = null;
         AvisoConsulta = null;
@@ -979,6 +1050,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         _ = VerificarAutorizacaoAsync(value.Id);
         _ = VerificarConsultaAsync(value.Id);
         _ = VerificarJaLancadoNoDiaAsync(value.Id);
+        _ = VerificarHorarioDoDiaAsync(value.Id);
         _ = VerificarElegibilidadeAsync(value.Id);
         _ = ConferirConflitosAsync();
     }
@@ -1064,6 +1136,52 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             if (geracao != _geracaoJaLancado) return;
             LogSuite.Registrar("Novo atendimento — atendimentos do dia do paciente não puderam ser lidos", ex);
             AvisoJaLancado = null;
+        }
+    }
+
+    /// <summary>Descarte de resposta fora de ordem — a leitura dispara por paciente E por data.</summary>
+    private int _geracaoHorarioDoDia;
+
+    /// <summary>
+    /// O horário em aberto que o paciente já tem no dia escolhido — o aviso na ESCOLHA, antes
+    /// do clique. Quando o horário foi marcado por aqui, a modalidade dele já vem selecionada
+    /// (é a intenção de quem marcou); o importado do sistema anterior diz "Consulta" para
+    /// tudo, e aí a modalidade habitual do paciente é o palpite melhor.
+    /// </summary>
+    private async Task VerificarHorarioDoDiaAsync(int pacienteId)
+    {
+        var geracao = ++_geracaoHorarioDoDia;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            var abertos = await agenda.HorariosEmAbertoDoDiaAsync(pacienteId, DateOnly.FromDateTime(Data.Date));
+
+            if (geracao != _geracaoHorarioDoDia || PacienteSelecionado?.Id != pacienteId) return;
+
+            HorarioDoDiaNaoVerificado = false;
+            _outrosHorariosDoDia = Math.Max(0, abertos.Count - 1);
+            HorarioDoDia = abertos.FirstOrDefault();
+            // Só no modo "lançar agora": quem está MARCANDO um segundo horário para o dia
+            // escolhe a modalidade dele, e a do primeiro não é palpite para o segundo.
+            if (!MarcarParaDepois
+                && HorarioDoDia is { Importado: false, ModalidadeCodigo: { } codigo }
+                && Modalidades.FirstOrDefault(m => m.Codigo == codigo) is { } marcada)
+            {
+                ModalidadeSelecionada = marcada;
+                if (ModalidadeConsulta)
+                    EspecialidadeSelecionada = Especialidades.FirstOrDefault(
+                        e => e.Codigo == HorarioDoDia.EspecialidadeConsultaCodigo) ?? EspecialidadeSelecionada;
+            }
+            AtualizarRotuloLancar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoHorarioDoDia) return;
+            LogSuite.Registrar("Novo atendimento — horários do dia do paciente não puderam ser lidos", ex);
+            HorarioDoDia = null;
+            HorarioDoDiaNaoVerificado = true;
+            AtualizarRotuloLancar();
         }
     }
 
@@ -1306,12 +1424,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             return;
         }
 
+        // Sobre o horário do dia o botão DIZ isso: "Lançar no horário das 09h00 e gerar
+        // 2 guias" é o que faz a recepcionista perceber, antes do clique, que não vai
+        // nascer um encaixe.
+        var sobre = UsarHorarioDoDia && HorarioDoDia is { } h ? $" no horário das {h.Hora}" : "";
         RotuloLancar = _totalGuiasPrevia switch
         {
-            null => "Lançar e gerar as guias",
-            0 => "Lançar atendimento",
-            1 => "Lançar e gerar 1 guia",
-            var t => $"Lançar e gerar {t} guias"
+            null => $"Lançar{sobre} e gerar as guias",
+            0 => $"Lançar atendimento{sobre}",
+            1 => $"Lançar{sobre} e gerar 1 guia",
+            var t => $"Lançar{sobre} e gerar {t} guias"
         };
     }
 
@@ -1551,21 +1673,41 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 
-            var (agendamento, lancamento) = await agenda.LancarAvulsoAsync(
-                paciente.Id,
-                Data.Date.Add(hora.ToTimeSpan()),
-                Modalidade,
-                Observacoes,
-                modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
-                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
-                // Quem atendeu. É o que faz o paciente aparecer no "Meu dia" do médico e
-                // a sessão entrar no repasse dele — os dois leem o AGENDAMENTO.
-                profissionalId: Profissional?.Id,
-                operador: SessaoUsuario.Atual.Operador,
-                // A sala vai junto no avulso também: a chamada da Fila anuncia
-                // "para a sala X", e sem ela saía "sala —".
-                salaId: Sala?.Id);
+            // ===== SOBRE O HORÁRIO DO DIA, ou o encaixe de sempre (set/2026) =====
+            //
+            // Quem já tem horário em aberto neste dia é lançado NELE: a modalidade
+            // escolhida aqui passa a valer para o horário, o check-in é carimbado e a guia
+            // nasce pendurada nele — o mesmo gesto atômico, sem um segundo cartão. O
+            // encaixe continua sendo o caminho de quem chegou sem horário (ou de quem
+            // marcou a caixinha "criar um encaixe separado").
+            var horarioUsado = UsarHorarioDoDia ? HorarioDoDia : null;
+            var (agendamento, lancamento) = horarioUsado is not null
+                ? await agenda.LancarNoHorarioAsync(
+                    horarioUsado.AgendamentoId,
+                    Observacoes,
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                    primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+                    // Nulo mantém o profissional/sala que o horário já tem.
+                    profissionalId: Profissional?.Id,
+                    operador: SessaoUsuario.Atual.Operador,
+                    salaId: Sala?.Id)
+                : await agenda.LancarAvulsoAsync(
+                    paciente.Id,
+                    Data.Date.Add(hora.ToTimeSpan()),
+                    Modalidade,
+                    Observacoes,
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                    primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+                    // Quem atendeu. É o que faz o paciente aparecer no "Meu dia" do médico e
+                    // a sessão entrar no repasse dele — os dois leem o AGENDAMENTO.
+                    profissionalId: Profissional?.Id,
+                    operador: SessaoUsuario.Atual.Operador,
+                    // A sala vai junto no avulso também: a chamada da Fila anuncia
+                    // "para a sala X", e sem ela saía "sala —".
+                    salaId: Sala?.Id);
+            var sobreOHorario = horarioUsado is not null;
 
             agendamentoId = agendamento.Id;
 
@@ -1574,8 +1716,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             _ultimoAtendimentoId = lancamento.Atendimento.Id;
             NumeroAtendimento = lancamento.Atendimento.Numero;
-            TituloResultado = $"Atendimento nº {lancamento.Atendimento.Numero} lançado";
+            TituloResultado = $"Atendimento nº {lancamento.Atendimento.Numero} lançado"
+                              + (sobreOHorario ? $" no horário das {agendamento.DataHora:HH'h'mm}" : "");
             Lancado = true;
+
+            // O horário usado deixou de estar em aberto: o aviso some, e o próximo Lançar
+            // para o mesmo paciente volta a ser encaixe (com a capa avisando o repetido).
+            _ = VerificarHorarioDoDiaAsync(paciente.Id);
 
             // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
             // embaixo sem ninguém precisar clicar em Atualizar.

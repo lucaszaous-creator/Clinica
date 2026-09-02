@@ -269,4 +269,165 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
         var r = await _agenda.ConfirmarPresencaAsync(ag.Id);
         r.Atendimento.Codigos.Should().HaveCountGreaterThan(1);
     }
+
+    // ================================================================
+    // O HORÁRIO DO DIA (set/2026)
+    // ================================================================
+
+    /// <summary>
+    /// O horário como o Smart Clinic o entregou (e como a importação o grava): "Consulta",
+    /// sem atendimento, com a observação de procedência.
+    /// </summary>
+    private async Task<Agendamento> HorarioImportadoAsync(int pacienteId, DateTime quando, int? profissionalId = null)
+    {
+        var ag = new Agendamento
+        {
+            PacienteId = pacienteId, DataHora = quando,
+            ModalidadePrevista = ModalidadeAtendimento.Consulta,
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta),
+            Status = StatusAgendamento.Agendado, Origem = OrigemAgendamento.Manual,
+            ProfissionalId = profissionalId,
+            Observacoes = "Importado do Smart Clinic · Consulta",
+            ChaveImportacao = $"IMPORT:smartclinic:agenda:{Guid.NewGuid():N}"
+        };
+        _db.Agendamentos.Add(ag);
+        await _db.SaveChangesAsync();
+        return ag;
+    }
+
+    /// <summary>
+    /// A porta nova: o Novo atendimento reconhece o horário do dia e lança SOBRE ele. A
+    /// modalidade escolhida na tela passa a valer para o horário, o check-in é carimbado e
+    /// a guia nasce nele — e NÃO nasce um encaixe ao lado.
+    /// </summary>
+    [Fact]
+    public async Task Lancar_sobre_o_horario_do_dia_nao_cria_encaixe_e_leva_a_modalidade_escolhida()
+    {
+        var id = await PacienteAsync();
+        var marcado = await HorarioImportadoAsync(id, Quando);
+
+        var (ag, lancamento) = await _agenda.LancarNoHorarioAsync(
+            marcado.Id, "paciente relatou melhora",
+            modalidadeCodigo: nameof(ModalidadeAtendimento.AcupunturaSimples), operador: "recepcao");
+
+        ag.Id.Should().Be(marcado.Id, "é o MESMO horário, não um encaixe");
+        (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Quando))).Should().ContainSingle();
+        ag.Status.Should().Be(StatusAgendamento.Realizado);
+        ag.ChegadaEm.Should().NotBeNull("o paciente está no balcão");
+        ag.ModalidadePrevista.Should().Be(ModalidadeAtendimento.AcupunturaSimples);
+        ag.ModalidadeCodigo.Should().Be(nameof(ModalidadeAtendimento.AcupunturaSimples));
+        ag.Observacoes.Should().Contain("Importado do Smart Clinic").And.Contain("paciente relatou melhora",
+            "a procedência do horário não se perde; a nota da tela entra abaixo");
+
+        lancamento.Atendimento.Modalidade.Should().Be(ModalidadeAtendimento.AcupunturaSimples);
+        lancamento.Atendimento.Codigos.Should().NotBeEmpty();
+        _db.Atendimentos.Count().Should().Be(1);
+        _db.Auditoria.Count(a => a.Acao == "FilaChegada").Should().Be(1);
+        _db.Auditoria.Count(a => a.Acao == "AgendamentoRemarcado" && a.Detalhe!.Contains("modalidade"))
+            .Should().Be(1, "a troca de modalidade ao lançar deixa rastro");
+        _db.Auditoria.Count(a => a.Acao == "PresencaConfirmada").Should().Be(1);
+    }
+
+    /// <summary>Nulo quer dizer "o chamador não sabe": sem código, o horário fica com a modalidade que tem.</summary>
+    [Fact]
+    public async Task Sem_modalidade_informada_o_horario_fica_com_a_que_tinha_e_sem_trilha_de_troca()
+    {
+        var id = await PacienteAsync();
+        var marcado = await HorarioImportadoAsync(id, Quando);
+
+        var (ag, _) = await _agenda.LancarNoHorarioAsync(marcado.Id, null, operador: "recepcao");
+
+        ag.ModalidadeCodigo.Should().Be(nameof(ModalidadeAtendimento.Consulta));
+        _db.Auditoria.Count(a => a.Acao == "AgendamentoRemarcado").Should().Be(0);
+    }
+
+    /// <summary>
+    /// O segundo clique (ou a outra máquina do balcão) é recusado com a frase que diz o
+    /// que fazer — e nada duplica: um horário, um atendimento, um jogo de guias.
+    /// </summary>
+    [Fact]
+    public async Task O_segundo_lancamento_sobre_o_mesmo_horario_e_recusado_e_nada_duplica()
+    {
+        var id = await PacienteAsync();
+        var marcado = await HorarioImportadoAsync(id, Quando);
+        await _agenda.LancarNoHorarioAsync(
+            marcado.Id, null, modalidadeCodigo: nameof(ModalidadeAtendimento.AcupunturaSimples), operador: "recepcao");
+
+        var deNovo = () => _agenda.LancarNoHorarioAsync(
+            marcado.Id, null, modalidadeCodigo: nameof(ModalidadeAtendimento.AcupunturaSimples), operador: "recepcao");
+
+        await deNovo.Should().ThrowAsync<InvalidOperationException>().WithMessage("*já virou atendimento*");
+        _db.Atendimentos.Count().Should().Be(1);
+        _db.Agendamentos.Count().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Horario_cancelado_nao_aceita_lancamento_por_cima()
+    {
+        var id = await PacienteAsync();
+        var marcado = await HorarioImportadoAsync(id, Quando);
+        await _agenda.CancelarAsync(marcado.Id, "recepcao");
+
+        var lancar = () => _agenda.LancarNoHorarioAsync(marcado.Id, null, operador: "recepcao");
+
+        await lancar.Should().ThrowAsync<InvalidOperationException>().WithMessage("*cancelado*");
+        _db.Atendimentos.Count().Should().Be(0);
+    }
+
+    /// <summary>
+    /// A terceira porta produz os MESMOS fatos das outras duas: guia, pacote e caixa. É a
+    /// amarra da esteira única aplicada à porta nova — o fechamento reaproveita o
+    /// atendimento que o lançamento criou, nunca um segundo.
+    /// </summary>
+    [Fact]
+    public async Task Sobre_o_horario_do_dia_produz_os_mesmos_fatos_que_as_outras_duas_portas()
+    {
+        var id = await PacienteAsync();
+        await VenderPacoteAsync(id);
+        var marcado = await HorarioImportadoAsync(id, Quando);
+
+        await _agenda.LancarNoHorarioAsync(
+            marcado.Id, null, modalidadeCodigo: nameof(ModalidadeAtendimento.AcupunturaSimples), operador: "recepcao");
+        var r = await _fechamento.ConcluirAsync(
+            new DecisaoFechamento(marcado.Id, DebitarPacote: true, GerarLancamento: true,
+                Valor: 150m, Forma: FormaPagamento.Dinheiro),
+            operador: "recepcao");
+
+        r.Atendimento.Codigos.Should().NotBeEmpty();
+        r.Consumo.Should().NotBeNull();
+        r.Lancamento.Should().NotBeNull();
+        r.Avisos.Should().BeEmpty();
+        _db.Atendimentos.Count().Should().Be(1, "o fechamento reaproveita o atendimento do lançamento");
+    }
+
+    /// <summary>
+    /// A leitura que alimenta o aviso: só o horário EM ABERTO conta. Cancelado e falta não
+    /// disputam nada; realizado já é atendimento (a capa avisa desse).
+    /// </summary>
+    [Fact]
+    public async Task Horarios_em_aberto_do_dia_ignoram_cancelado_falta_e_realizado()
+    {
+        var id = await PacienteAsync();
+        var ana = new Profissional { Nome = "Ana Autora", NomeCurto = "Dra. Ana" };
+        _db.Profissionais.Add(ana);
+        await _db.SaveChangesAsync();
+
+        var aberto = await HorarioImportadoAsync(id, Quando.AddHours(-6), ana.Id);   // 09:30
+        var cancelado = await HorarioImportadoAsync(id, Quando.AddHours(-5));
+        await _agenda.CancelarAsync(cancelado.Id, "recepcao");
+        var falta = await HorarioImportadoAsync(id, Quando.AddHours(-4));
+        await _agenda.MarcarFaltaAsync(falta.Id, "recepcao");
+        await PeloAvulsoAsync(id, Quando);                                            // realizado
+
+        var abertos = await _agenda.HorariosEmAbertoDoDiaAsync(id, DateOnly.FromDateTime(Quando));
+
+        var h = abertos.Should().ContainSingle().Subject;
+        h.AgendamentoId.Should().Be(aberto.Id);
+        h.Modalidade.Should().Be("Consulta");
+        h.Profissional.Should().Be("Dra. Ana");
+        h.Importado.Should().BeTrue();
+        h.JaChegou.Should().BeFalse();
+        h.ComGuia.Should().BeFalse();
+        h.Descricao.Should().Be("09h30 · Consulta · Dra. Ana · importado do sistema anterior");
+    }
 }

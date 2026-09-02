@@ -248,6 +248,43 @@ As travas contra duplicidade são CAMADAS, e nenhuma sozinha basta: atomicidade 
 mata a acidental), aviso da capa (mata a "por não ver"), pergunta informada (mata a "por
 descuido" sem travar o legítimo), choque de horário da agenda (mata a do agendar).
 
+#### 3.7.1 O horário do DIA: lançar SOBRE ele, não ao lado (set/2026)
+
+A semana da migração do Smart Clinic expôs uma quinta camada que faltava. A carteira
+entrou com 227 horários futuros, todos como "Consulta" (o sistema antigo não guardava a
+modalidade), e a secretária lançaria as sessões desses dias pelo Novo atendimento — que
+até aqui SEMPRE criava um encaixe. Resultado: dois cartões da mesma sessão, o encaixe
+concluído e o importado parado em "Aguardando" para sempre. E não era só ruído: a
+evolução escrita no sistema antigo e importada depois (sem vínculo com horário) é
+distribuída na ordem da hora marcada, e o horário parado, mais cedo, ficava com ela; a
+sessão de verdade continuava em "Sessões sem evolução".
+
+O que a tela faz agora, ao escolher o paciente (e ao trocar a data):
+
+- lê os horários **em aberto** dele no dia (`AgendaService.HorariosEmAbertoDoDiaAsync` —
+  Agendado, presença não confirmada; cancelado, falta e realizado ficam de fora) e mostra
+  a linha amarela "Já tem horário em 02/09: 09h00 · Consulta · Dra. Ana · importado do
+  sistema anterior. Ao lançar, o sistema usa ESSE horário…";
+- o botão passa a dizer **"Lançar no horário das 09h00 e gerar 2 guias"**;
+- o Lançar chama `AgendaService.LancarNoHorarioAsync`: a modalidade escolhida na tela
+  passa a valer para o horário (com trilha `AgendamentoRemarcado` quando mudou), o check-in
+  é carimbado (`ChegadaEm ??=`), e o atendimento com as guias nasce pendurado NESTE
+  horário — o mesmo `ConfirmarNucleoAsync` do avulso e da Fila, um SaveChanges, nenhum
+  encaixe. Com a chave ligada (horário que já tem guias), a modalidade nova regera pelo
+  MESMO `AjustarAoRemarcarAsync` do Remarcar;
+- a caixinha **"Não usar esse horário: criar um encaixe separado"** é a saída para o caso
+  legítimo (sessão de manhã + consulta à tarde). Ela só existe no modo "lançar agora";
+- horário marcado POR AQUI já vem com a modalidade dele selecionada (é a intenção de quem
+  marcou); o importado diz "Consulta" para tudo, e aí a modalidade habitual do paciente é
+  o palpite melhor;
+- a leitura que FALHA não cai em silêncio no encaixe (seria a duplicata que o aviso existe
+  para impedir): a linha diz "não foi possível conferir" e manda lançar pela Fila.
+
+O serviço recusa lançar sobre horário já realizado ("já virou atendimento — provavelmente
+concluído na outra máquina") e sobre cancelado/falta ("reabra pela agenda ou lance como
+encaixe separado"): a tela só oferece horário em aberto, mas a corrida entre as duas
+máquinas do balcão existe (parcela 86).
+
 ## 4. O que NÃO muda — e por quê já estava pronto
 
 1. **O painel de pendências e a rodada bloqueante**: `CodigoFaturamento.EstaPendente`

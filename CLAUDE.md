@@ -2525,6 +2525,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   na Application e é puro** — os compositores recebem a linha e devolvem a evolução, e
   são eles que os testes exercitam.
 
+- **O NOVO ATENDIMENTO RECONHECE O HORÁRIO DO DIA — lançar SOBRE ele, nunca ao lado**
+  (set/2026; o mapa está em `docs/guia-no-agendamento.md` §3.7.1). A semana da migração
+  expôs o buraco: 227 horários importados do Smart Clinic, todos "Consulta", e a
+  secretária lançando as sessões pelo Novo atendimento — que SEMPRE criava um encaixe.
+  A pergunta de duplicidade não disparava (ela olha ATENDIMENTO já registrado, e o
+  horário importado não tem), e sobravam dois cartões da mesma sessão. ⚠️ **E o parado
+  levava a evolução**: a evolução importada depois (sem `AgendamentoId`) é distribuída
+  na ordem da hora marcada (`EvolucaoDoHorario`), o importado das 09h00 vinha antes do
+  encaixe das 09h12 — a sessão de verdade ficava em "Sessões sem evolução".
+  `AgendaService.LancarNoHorarioAsync` é o gesto atômico do avulso aplicado a um horário
+  que JÁ EXISTE: modalidade da tela passa a valer para ele (trilha quando mudou),
+  `ChegadaEm ??=`, e o atendimento nasce pendurado nele pelo MESMO `ConfirmarNucleoAsync`.
+  Com a chave "guia no agendamento" ligada, a modalidade nova regera pelo MESMO
+  `AjustarAoRemarcarAsync` do Remarcar — segunda regra de regeração divergiria.
+  As decisões: **nulo mantém** (sem código de modalidade, sem profissional, sem sala: o
+  horário fica com o que tem — a regra da parcela 68); **a observação do horário não se
+  perde** ("Importado do Smart Clinic · Consulta" fica, a nota da tela entra abaixo);
+  **recusa com frase que diz o que fazer** para realizado (a outra máquina concluiu) e
+  cancelado/falta (reabra ou lance como encaixe); **a caixinha "criar um encaixe
+  separado"** é a saída do caso legítimo e só existe no modo "lançar agora"; **o botão
+  DIZ** "Lançar no horário das 09h00 e gerar 2 guias"; e **leitura que falha escreve o
+  terceiro estado** ("não foi possível conferir — lance pela Fila") em vez de cair no
+  encaixe em silêncio, que é justamente a duplicata que o aviso existe para impedir.
+  A lição que generaliza: **quando uma tela cria um registro que outra tela também cria,
+  pergunte se o registro já EXISTE antes de criar** — a duplicidade que a capa pegava era
+  a de atendimento; a de HORÁRIO passou seis parcelas invisível porque nenhuma das duas
+  telas perguntava à outra.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

@@ -522,4 +522,40 @@ public class GuiaNoAgendamentoTests : IDisposable
         _db.Dispose();
         _conn.Dispose();
     }
+
+    /// <summary>
+    /// O Novo atendimento lança SOBRE o horário do dia (set/2026). Com a chave ligada o
+    /// horário marcado JÁ tem atendimento e guias: a modalidade escolhida na tela regera
+    /// as guias pelo MESMO caminho do Remarcar, a presença é confirmada e o atendimento da
+    /// marcação é reaproveitado — nunca um segundo.
+    /// </summary>
+    [Fact]
+    public async Task Lancar_sobre_o_horario_marcado_com_guia_regera_pela_modalidade_escolhida_e_reaproveita_o_atendimento()
+    {
+        await LigarChaveAsync();
+        var pacienteId = await CriarPacienteAsync();
+        var hoje14 = DateTime.Today.AddHours(14);
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, hoje14, ModalidadeAtendimento.AcupunturaSimples, null, operador: "recepcao");
+        ag.AtendimentoId.Should().NotBeNull("com a chave ligada a guia nasce na marcação");
+        var daMarcacao = _db.Codigos.Count(c => c.AtendimentoId == ag.AtendimentoId);
+        daMarcacao.Should().BeGreaterThan(0);
+
+        var (mesmo, lancamento) = await _agenda.LancarNoHorarioAsync(
+            ag.Id, null, modalidadeCodigo: nameof(ModalidadeAtendimento.AcupunturaComEletro), operador: "recepcao");
+
+        mesmo.Id.Should().Be(ag.Id);
+        mesmo.Status.Should().Be(StatusAgendamento.Realizado);
+        lancamento.Atendimento.Id.Should().Be(ag.AtendimentoId!.Value,
+            "o atendimento da marcação é reaproveitado, nunca um segundo");
+        lancamento.Atendimento.Modalidade.Should().Be(ModalidadeAtendimento.AcupunturaComEletro);
+        _db.Atendimentos.Count().Should().Be(1);
+        _db.Agendamentos.Count().Should().Be(1);
+
+        var codigos = _db.Codigos.Where(c => c.AtendimentoId == ag.AtendimentoId).ToList();
+        codigos.Count(c => c.Status == StatusCodigo.NaoAplicavel).Should().Be(daMarcacao,
+            "as guias da modalidade antiga foram substituídas, não apagadas");
+        codigos.Count(c => c.Status == StatusCodigo.Aberto).Should().Be(2,
+            "acupuntura + eletro gera dois códigos na Unimed Intercâmbio");
+    }
 }
