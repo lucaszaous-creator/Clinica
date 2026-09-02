@@ -393,6 +393,14 @@ public sealed record LinhaPrevia(
     public int? PacienteExistenteId { get; init; }
     public string? Chave { get; init; }
 
+    /// <summary>
+    /// A duplicata do PRÓPRIO arquivo (mesmo CPF de uma linha anterior — o sistema antigo
+    /// tinha a pessoa duas vezes): entra FUNDIDA na ficha que a linha indicada produz, na
+    /// mesma rodada. É o "completar" resolvido na execução, porque a ficha-alvo ainda não
+    /// existe na prévia.
+    /// </summary>
+    public int? FundeNaLinha { get; init; }
+
     public bool EhCriar => Destino == DestinoLinha.Criar;
     public bool EhCompletar => Destino == DestinoLinha.Completar;
     public bool EhJaImportada => Destino == DestinoLinha.JaImportada;
@@ -429,4 +437,9 @@ public sealed record ResultadoImportacao(
     int Criados, int Completados, int Pulados, IReadOnlyList<string> Erros)
 {
     public bool TeveErro => Erros.Count > 0;
+
+    /// <summary>Número da linha do arquivo → id da ficha daqui, para TODA linha que
+    /// terminou com uma ficha (criada, completada, já importada, fundida). É por aqui que o
+    /// prontuário e a agenda do sistema anterior encontram o paciente.</summary>
+    public IReadOnlyDictionary<int, int> IdPorLinha { get; init; } = new Dictionary<int, int>();
 }

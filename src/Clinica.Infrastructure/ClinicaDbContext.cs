@@ -113,6 +113,7 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(p => p.ChaveImportacao).IsUnique();
             e.Ignore(p => p.TemFoto);
             e.Ignore(p => p.CarteirinhaVencida);
+            e.Ignore(p => p.ConvenioADefinir);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);
         });
 

@@ -24,16 +24,24 @@ clínica, e o que o sistema garante — e o que não. A decisão da direção (s
 Tudo é **idempotente**: ficha, evolução e horário carregam a chave `IMPORT:smartclinic:{arquivo}:{id}`
 (índice único). O mesmo ZIP importado duas vezes só grava o que faltou.
 
-**Importe o pacote DUAS vezes.** O sistema antigo tem 31 pessoas cadastradas duas vezes (mesmo
-CPF); na primeira rodada a segunda linha fica de fora, e o prontuário e os horários dela ficam
-"sem ficha". Na segunda rodada ela COMPLETA a ficha que entrou e os registros dela entram
-(medido na exportação real: 24 evoluções e 1 horário esperam a segunda rodada). A única linha
-que nunca entra sozinha é a do CPF inválido — corrija no arquivo ou apague a célula.
+**Uma rodada basta.** O sistema antigo tem 31 pessoas cadastradas duas vezes (mesmo CPF): a
+segunda linha entra FUNDIDA na ficha da primeira, na mesma rodada — só os campos vazios —, e o
+prontuário e os horários dos dois ids antigos caem na mesma ficha. Nada é duplicado e nada
+fica de fora. A única linha que não entra sozinha é a do CPF inválido (uma) — corrija no
+arquivo ou apague a célula. Rodar de novo o mesmo ZIP é seguro e não grava nada duas vezes.
 
-**Cadastre a Equipe ANTES da primeira rodada** com os nomes como o Smart Clinic os escreve
-(a prévia lista os autores e os profissionais que não reconheceu): é na gravação que a
-evolução e o horário ganham o vínculo, e a evolução já gravada não é revinculada — ela
-guarda o nome e o conselho de quem escreveu, como texto.
+**A Equipe NÃO precisa existir antes.** O registro importado guarda o nome e o conselho de
+quem escreveu (como o Smart Clinic gravou), e isso é o que o prontuário mostra. Cadastrar em
+Equipe só importa para quem AINDA trabalha na clínica e vai usar o sistema: aí o horário
+futuro dele aparece no "Meu dia" e a evolução fica vinculada. Pode ser feito DEPOIS — a
+próxima rodada do mesmo ZIP vincula o que estava sem vínculo (a tela diz quantos).
+
+**Convênio: aponte o que souber, deixe o resto "a definir".** As 2.021 fichas sem convênio
+no arquivo entram como **"A definir (importado sem convênio)"** — um convênio do catálogo que
+não gera guia. Quando a pessoa aparecer para marcar ou atender, a elegibilidade acusa em
+VERMELHO ("Convênio a definir") no agendamento, no check-in, no Novo atendimento, na ficha e
+no Consultório; a escolha é feita na ficha, com o paciente na frente. Ninguém decide 2.021
+fichas antes de importar.
 
 Medido na exportação real (banco de teste): 2.206 fichas, 4.963 registros de prontuário e
 226 horários futuros em 30 segundos, sem erro.

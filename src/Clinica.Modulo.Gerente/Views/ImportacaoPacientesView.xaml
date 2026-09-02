@@ -118,7 +118,7 @@
                     <StackPanel Margin="0,0,0,8">
                         <TextBlock Text="CONVÊNIOS DO ARQUIVO → CONVÊNIOS DAQUI" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                                   Text="Cada nome que o arquivo usa precisa apontar para um convênio cadastrado neste sistema — “Unimed” pode ser Padrão ou Intercâmbio, e a diferença é regra de faturamento. Linha sem destino não entra. A lista segue a coluna de convênio escolhida acima." />
+                                   Text="Aponte o que você sabe (“Unimed” pode ser Padrão ou Intercâmbio, e a diferença é regra de faturamento). O que ficar em “definir depois” entra como convênio a definir: o sistema acusa em vermelho no próximo agendamento ou atendimento, e a escolha é feita na ficha, com o paciente na frente. A lista segue a coluna de convênio escolhida acima." />
                     </StackPanel>
 
                     <!-- Lista que cresce com o dado: teto + roda devolvida à página. -->

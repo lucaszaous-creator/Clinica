@@ -43,11 +43,14 @@ public sealed class ImportacaoPacientesService
 
     private readonly IClinicaRepositorio _repo;
     private readonly PacienteService _pacientes;
+    private readonly ConvenioCatalogoService _catalogo;
 
-    public ImportacaoPacientesService(IClinicaRepositorio repo, PacienteService pacientes)
+    public ImportacaoPacientesService(
+        IClinicaRepositorio repo, PacienteService pacientes, ConvenioCatalogoService catalogo)
     {
         _repo = repo;
         _pacientes = pacientes;
+        _catalogo = catalogo;
     }
 
     public static string Chave(string sistema, string idOrigem)
@@ -116,6 +119,7 @@ public sealed class ImportacaoPacientesService
                              + "no passo 2 (a linha \"(em branco)\").");
 
         var chavesNoArquivo = new Dictionary<string, int>(StringComparer.Ordinal);
+        var chavePorLinha = new Dictionary<int, string>();
         var cpfsNoArquivo = new Dictionary<string, int>(StringComparer.Ordinal);
         var linhas = new List<LinhaPrevia>();
         var semSexo = 0;
@@ -167,9 +171,14 @@ public sealed class ImportacaoPacientesService
                     continue;
                 }
                 chavesNoArquivo[chave] = numero;
+                chavePorLinha[numero] = chave;
 
                 if (porChave.TryGetValue(chave, out var ja))
                 {
+                    // O CPF desta linha entra na lista do arquivo mesmo assim: a duplicata
+                    // dela, mais abaixo, precisa saber que já tem par (e que o par já entrou).
+                    if (cpfBruto is not null && Cpf.Valido(cpfBruto))
+                        cpfsNoArquivo.TryAdd(Cpf.Normalizar(cpfBruto), numero);
                     linhas.Add(new LinhaPrevia(numero, nome, cpfFormatado, convenioTexto,
                         DestinoLinha.JaImportada,
                         $"Já entrou numa importação anterior como \"{ja.Nome}\" (ficha #{ja.Id}).", avisos)
@@ -180,6 +189,7 @@ public sealed class ImportacaoPacientesService
 
             // ---- CPF ----
             string? cpf = null;
+            int? fundeNa = null;
             if (cpfBruto is not null)
             {
                 if (!Cpf.Valido(cpfBruto))
@@ -188,14 +198,11 @@ public sealed class ImportacaoPacientesService
                     continue;
                 }
                 cpf = Cpf.Normalizar(cpfBruto);
-                if (cpfsNoArquivo.TryGetValue(cpf, out var outra))
-                {
-                    linhas.Add(Problema($"CPF repetido no arquivo (já apareceu na linha {outra}): o sistema antigo tem "
-                                        + $"esta pessoa duas vezes. A linha {outra} entra; esta fica de fora — numa segunda "
-                                        + "importação ela completa a ficha que entrou."));
-                    continue;
-                }
-                cpfsNoArquivo[cpf] = numero;
+                // O sistema antigo tinha a pessoa DUAS vezes (mesmo CPF de uma linha
+                // anterior): a segunda entra FUNDIDA na ficha que a primeira produz, mais
+                // abaixo — nem outra ficha (partir o histórico, parcela 57), nem de fora.
+                if (cpfsNoArquivo.TryGetValue(cpf, out var outra)) fundeNa = outra;
+                else cpfsNoArquivo[cpf] = numero;
             }
 
             // ---- convênio ----
@@ -241,6 +248,37 @@ public sealed class ImportacaoPacientesService
                     comAlergiaAnotada++;
             }
 
+            var ficha = new Paciente
+            {
+                Nome = nome, Documento = cpf, Telefone = telefone, DataNascimento = nascimento,
+                Endereco = endereco, Carteirinha = carteirinha, ValidadeCarteirinha = validade,
+                Convenio = cadastro.Familia, ConvenioCodigo = cadastro.Codigo, Sexo = sexo,
+                Observacoes = observacoes, Origem = origem, IndicadoPor = indicadoPor,
+                ChaveImportacao = chave
+            };
+
+            if (fundeNa is { } linhaQueEntra)
+            {
+                // A dupla já entrou numa rodada anterior? A ficha da base com este CPF
+                // carrega a chave da PRIMEIRA linha da dupla — então esta é "já importada",
+                // e a prévia não promete trabalho que a execução não faria.
+                if (cpf is not null && porCpf.TryGetValue(cpf, out var jaFundida)
+                    && chavePorLinha.TryGetValue(linhaQueEntra, out var chaveDaPrimeira)
+                    && jaFundida.ChaveImportacao == chaveDaPrimeira)
+                {
+                    linhas.Add(new LinhaPrevia(numero, nome, cpfFormatado, convenioTexto, DestinoLinha.JaImportada,
+                        $"Já entrou numa importação anterior, fundida na ficha #{jaFundida.Id} (mesmo CPF da linha {linhaQueEntra}).",
+                        avisos)
+                    { PacienteExistenteId = jaFundida.Id, Chave = chave });
+                    continue;
+                }
+                linhas.Add(new LinhaPrevia(numero, nome, cpfFormatado, convenioTexto, DestinoLinha.Completar,
+                    $"O sistema antigo tem esta pessoa duas vezes (mesmo CPF da linha {linhaQueEntra}): entra fundida "
+                    + $"na ficha da linha {linhaQueEntra} — só os campos vazios dela.", avisos)
+                { Ficha = ficha, Chave = chave, FundeNaLinha = linhaQueEntra });
+                continue;
+            }
+
             // ---- já existe? ----
             FichaResumida? existente = null;
             if (cpf is not null && porCpf.TryGetValue(cpf, out var porDoc))
@@ -269,14 +307,6 @@ public sealed class ImportacaoPacientesService
                 if (existente.ChaveImportacao is not null && chave is not null && existente.ChaveImportacao != chave)
                     avisos.Add("A ficha já veio de outra importação; a chave dela é mantida.");
 
-                var ficha = new Paciente
-                {
-                    Nome = nome, Documento = cpf, Telefone = telefone, DataNascimento = nascimento,
-                    Endereco = endereco, Carteirinha = carteirinha, ValidadeCarteirinha = validade,
-                    Convenio = cadastro.Familia, ConvenioCodigo = cadastro.Codigo, Sexo = sexo,
-                    Observacoes = observacoes, Origem = origem, IndicadoPor = indicadoPor,
-                    ChaveImportacao = chave
-                };
                 linhas.Add(new LinhaPrevia(numero, nome, cpfFormatado, convenioTexto, DestinoLinha.Completar,
                     $"Já cadastrada como \"{existente.Nome}\" (ficha #{existente.Id}): só os campos vazios dela serão preenchidos; o convênio da ficha é mantido.",
                     avisos)
@@ -284,17 +314,9 @@ public sealed class ImportacaoPacientesService
                 continue;
             }
 
-            var nova = new Paciente
-            {
-                Nome = nome, Documento = cpf, Telefone = telefone, DataNascimento = nascimento,
-                Endereco = endereco, Carteirinha = carteirinha, ValidadeCarteirinha = validade,
-                Convenio = cadastro.Familia, ConvenioCodigo = cadastro.Codigo, Sexo = sexo,
-                Observacoes = observacoes, Origem = origem, IndicadoPor = indicadoPor,
-                ChaveImportacao = chave
-            };
             linhas.Add(new LinhaPrevia(numero, nome, cpfFormatado, convenioTexto, DestinoLinha.Criar,
                 $"Ficha nova · {cadastro.Nome}", avisos)
-            { Ficha = nova, Chave = chave });
+            { Ficha = ficha, Chave = chave });
         }
 
         // O sexo em branco é AVISO GERAL com a contagem, não uma linha de aviso por ficha:
@@ -443,13 +465,21 @@ public sealed class ImportacaoPacientesService
 
         // Reconfere as chaves NO INSTANTE de gravar: a prévia pode ter ficado aberta
         // enquanto outra máquina importava o mesmo arquivo.
-        var chavesJa = (await _repo.FichasResumidasAsync(ct))
-            .Where(f => f.ChaveImportacao is not null)
-            .Select(f => f.ChaveImportacao!)
-            .ToHashSet(StringComparer.Ordinal);
+        var fichasJa = await _repo.FichasResumidasAsync(ct);
+        var idPorChave = fichasJa.Where(f => f.ChaveImportacao is not null)
+            .ToDictionary(f => f.ChaveImportacao!, f => f.Id, StringComparer.Ordinal);
+        var chavesJa = idPorChave.Keys.ToHashSet(StringComparer.Ordinal);
 
         int criados = 0, completados = 0, pulados = previa.JaImportadas;
         var erros = new List<string>();
+        var idPorLinha = new Dictionary<int, int>();
+        foreach (var l in previa.Linhas)
+            if (l.PacienteExistenteId is { } id) idPorLinha[l.Numero] = id;
+
+        // O convênio "a definir" precisa existir no catálogo ANTES da primeira ficha que o
+        // usa: é o catálogo que dá nome a ele nas telas e o que a elegibilidade lê.
+        if (previa.Linhas.Any(l => l.Ficha?.ConvenioADefinir == true))
+            await GarantirConvenioADefinirAsync(ct);
 
         foreach (var linha in previa.Linhas)
         {
@@ -458,6 +488,8 @@ public sealed class ImportacaoPacientesService
             if (linha.Chave is not null && chavesJa.Contains(linha.Chave))
             {
                 pulados++;
+                if (!idPorLinha.ContainsKey(linha.Numero) && idPorChave.TryGetValue(linha.Chave, out var jaId))
+                    idPorLinha[linha.Numero] = jaId;
                 continue;
             }
 
@@ -466,6 +498,7 @@ public sealed class ImportacaoPacientesService
                 if (linha.EhCriar)
                 {
                     var nova = await _pacientes.SalvarNovoAsync(linha.Ficha, ct: ct);
+                    idPorLinha[linha.Numero] = nova.Id;
                     await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
                     {
                         Operador = operador,
@@ -479,8 +512,9 @@ public sealed class ImportacaoPacientesService
                     await _repo.SalvarAsync(ct);
                     criados++;
                 }
-                else if (linha.EhCompletar && linha.PacienteExistenteId is { } id)
+                else if (linha.EhCompletar && (linha.PacienteExistenteId ?? AlvoDaFusao(linha, idPorLinha)) is { } id)
                 {
+                    idPorLinha[linha.Numero] = id;
                     var atual = await _repo.ObterPacienteAsync(id, ct)
                         ?? throw new InvalidOperationException($"A ficha #{id} não existe mais.");
                     // A ficha é RASTREADA: se o serviço recusar depois de ela ter sido
@@ -533,7 +567,27 @@ public sealed class ImportacaoPacientesService
         }, ct);
         await _repo.SalvarAsync(ct);
 
-        return new ResultadoImportacao(criados, completados, pulados, erros);
+        return new ResultadoImportacao(criados, completados, pulados, erros) { IdPorLinha = idPorLinha };
+    }
+
+    /// <summary>A ficha em que a duplicata do arquivo entra: a que a linha indicada produziu
+    /// nesta rodada. Se aquela linha falhou, esta falha junto — e diz por quê.</summary>
+    private static int? AlvoDaFusao(LinhaPrevia linha, IReadOnlyDictionary<int, int> idPorLinha)
+    {
+        if (linha.FundeNaLinha is not { } n) return null;
+        if (idPorLinha.TryGetValue(n, out var id)) return id;
+        throw new InvalidOperationException(
+            $"Esta linha entra fundida na ficha da linha {n}, e a linha {n} não produziu ficha.");
+    }
+
+    /// <summary>Semeia o convênio "A definir" no catálogo, uma vez, e recarrega o cache que
+    /// dá nome a ele nas telas.</summary>
+    public async Task GarantirConvenioADefinirAsync(CancellationToken ct = default)
+    {
+        var existentes = await _repo.ConveniosAsync(ct);
+        if (existentes.Any(c => string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase)))
+            return;
+        await _catalogo.SalvarAsync([ConvenioCadastro.ADefinir()], ct);
     }
 
     /// <summary>

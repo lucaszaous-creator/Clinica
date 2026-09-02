@@ -390,6 +390,21 @@ public interface IClinicaRepositorio
     /// sistema anterior).</summary>
     Task<IReadOnlySet<string>> ChavesDeImportacaoDeAgendamentosAsync(CancellationToken ct = default);
 
+    /// <summary>Evoluções importadas sem profissional vinculado: id e <c>CriadoPor</c> (o nome
+    /// do autor como o sistema antigo gravou). É por ele que a Equipe cadastrada DEPOIS da
+    /// importação ganha o vínculo.</summary>
+    Task<IReadOnlyList<Modelos.RegistroImportadoSemProfissional>> EvolucoesImportadasSemProfissionalAsync(CancellationToken ct = default);
+
+    /// <summary>Agendamentos importados sem profissional: id e <c>Observacoes</c> (onde a
+    /// importação escreveu o nome do profissional que não reconheceu).</summary>
+    Task<IReadOnlyList<Modelos.RegistroImportadoSemProfissional>> AgendamentosImportadosSemProfissionalAsync(CancellationToken ct = default);
+
+    /// <summary>Vincula de uma vez um profissional a evoluções (UPDATE em lote).</summary>
+    Task VincularProfissionalEmEvolucoesAsync(IReadOnlyCollection<int> evolucaoIds, int profissionalId, CancellationToken ct = default);
+
+    /// <summary>Vincula de uma vez um profissional a agendamentos (UPDATE em lote).</summary>
+    Task VincularProfissionalEmAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, int profissionalId, CancellationToken ct = default);
+
     /// <summary>Evolução com profissional carregado (entidade rastreada, para editar).</summary>
     Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 

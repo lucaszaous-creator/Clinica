@@ -52,7 +52,7 @@ public class ImportacaoPacientesTests : IDisposable
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
         _repo = new ClinicaRepositorio(_db);
-        _servico = new ImportacaoPacientesService(_repo, new PacienteService(_repo));
+        _servico = new ImportacaoPacientesService(_repo, new PacienteService(_repo), new ConvenioCatalogoService(_repo));
     }
 
     public void Dispose()

@@ -87,4 +87,12 @@ public sealed record ResultadoSmartClinic(
     IReadOnlyList<string> Erros)
 {
     public bool TeveErro => Erros.Count > 0 || Pacientes.TeveErro;
+
+    /// <summary>Registros importados numa rodada ANTERIOR sem vínculo com a Equipe que
+    /// ganharam o vínculo nesta — a Equipe pode ser cadastrada depois.</summary>
+    public int Revinculados { get; init; }
 }
+
+/// <summary>Um registro importado sem profissional vinculado, com o texto por onde o
+/// nome do autor se recupera (ver o repositório).</summary>
+public sealed record RegistroImportadoSemProfissional(int Id, string? Texto);

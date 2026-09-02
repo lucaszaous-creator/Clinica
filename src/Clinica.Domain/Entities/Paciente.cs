@@ -110,6 +110,11 @@ public class Paciente
     /// </summary>
     public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
 
+    /// <summary>A ficha veio do sistema anterior sem convênio e ninguém escolheu ainda
+    /// (<see cref="ConvenioCadastro.CodigoADefinir"/>). Quem acusa é a elegibilidade.</summary>
+    public bool ConvenioADefinir =>
+        string.Equals(ConvenioCodigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Carteirinha com validade já passada — guia recusada na hora pelo convênio.</summary>
     public bool CarteirinhaVencida =>
         ValidadeCarteirinha is { } validade && validade < DateOnly.FromDateTime(DateTime.Today);

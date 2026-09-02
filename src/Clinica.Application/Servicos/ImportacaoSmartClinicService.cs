@@ -245,21 +245,22 @@ public sealed class ImportacaoSmartClinicService
         progresso?.Report("Gravando as fichas…");
         var pacientes = await _pacientes.ExecutarAsync(previa.Pacientes, operador, ct);
 
-        // id antigo → id daqui: pela chave gravada (fichas novas) ou pela ficha que já
-        // existia (completadas e já importadas).
-        var fichas = await _repo.FichasResumidasAsync(ct);
-        var porChave = fichas.Where(f => f.ChaveImportacao is not null)
-            .ToDictionary(f => f.ChaveImportacao!, f => f.Id, StringComparer.Ordinal);
+        // id antigo → id daqui, por LINHA do arquivo: é o que cobre também a duplicata
+        // fundida (dois ids antigos, uma ficha) e a ficha que já existia.
         var idPorAntigo = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var l in previa.Pacientes.Linhas)
         {
             if (l.Chave is null) continue;
             var idAntigo = l.Chave[(l.Chave.LastIndexOf(':') + 1)..];
-            if (l.PacienteExistenteId is { } existente) idPorAntigo[idAntigo] = existente;
-            else if (porChave.TryGetValue(l.Chave, out var novo)) idPorAntigo[idAntigo] = novo;
+            if (pacientes.IdPorLinha.TryGetValue(l.Numero, out var id)) idPorAntigo[idAntigo] = id;
         }
 
         var erros = new List<string>();
+
+        // A Equipe pode ser cadastrada DEPOIS: o que entrou sem vínculo numa rodada
+        // anterior ganha o vínculo agora, pelo nome que o registro guarda.
+        progresso?.Report("Vinculando a Equipe aos registros importados…");
+        var revinculados = await RevincularAsync(ct);
 
         // ---- prontuário, em lotes ----
         var chavesEvolucoes = (await _repo.ChavesDeImportacaoDeEvolucoesAsync(ct)).ToHashSet(StringComparer.Ordinal);
@@ -327,7 +328,61 @@ public sealed class ImportacaoSmartClinicService
         }, ct);
         await _repo.SalvarAsync(ct);
 
-        return new ResultadoSmartClinic(pacientes, criadas, puladas, semPaciente, agCriados, agPulados, agSemPaciente, erros);
+        return new ResultadoSmartClinic(pacientes, criadas, puladas, semPaciente, agCriados, agPulados, agSemPaciente, erros)
+        {
+            Revinculados = revinculados
+        };
+    }
+
+    /// <summary>
+    /// Registros importados sem vínculo × Equipe de hoje. A evolução guarda o autor em
+    /// <c>CriadoPor</c> ("Nome (CRM 123/RJ)"); o horário guarda o nome no fim da observação.
+    /// Quem casar agora ganha o <c>ProfissionalId</c> — em lote, um UPDATE por profissional.
+    /// </summary>
+    public async Task<int> RevincularAsync(CancellationToken ct = default)
+    {
+        var profissionais = await _repo.ProfissionaisAsync(ct);
+        if (profissionais.Count == 0) return 0;
+        var total = 0;
+
+        var evolucoes = await _repo.EvolucoesImportadasSemProfissionalAsync(ct);
+        foreach (var grupo in evolucoes
+                     .Select(e => (e.Id, Profissional: Casar(profissionais, NomeDoAutor(e.Texto))))
+                     .Where(x => x.Profissional is not null)
+                     .GroupBy(x => x.Profissional!.Id))
+        {
+            var ids = grupo.Select(x => x.Id).ToList();
+            await _repo.VincularProfissionalEmEvolucoesAsync(ids, grupo.Key, ct);
+            total += ids.Count;
+        }
+
+        var agendamentos = await _repo.AgendamentosImportadosSemProfissionalAsync(ct);
+        foreach (var grupo in agendamentos
+                     .Select(a => (a.Id, Profissional: Casar(profissionais, NomeDoProfissionalNaObservacao(a.Texto))))
+                     .Where(x => x.Profissional is not null)
+                     .GroupBy(x => x.Profissional!.Id))
+        {
+            var ids = grupo.Select(x => x.Id).ToList();
+            await _repo.VincularProfissionalEmAgendamentosAsync(ids, grupo.Key, ct);
+            total += ids.Count;
+        }
+        return total;
+    }
+
+    /// <summary>"Ana Autora (CRM 123456/RJ)" → "Ana Autora"; "Smart Clinic" (sem autor) → vazio.</summary>
+    public static string NomeDoAutor(string? criadoPor)
+    {
+        if (string.IsNullOrWhiteSpace(criadoPor) || criadoPor == "Smart Clinic") return string.Empty;
+        var i = criadoPor.IndexOf(" (", StringComparison.Ordinal);
+        return (i > 0 ? criadoPor[..i] : criadoPor).Trim();
+    }
+
+    /// <summary>"Importado do Smart Clinic · Consulta · Nome" → "Nome"; sem o terceiro trecho → vazio.</summary>
+    public static string NomeDoProfissionalNaObservacao(string? observacoes)
+    {
+        if (string.IsNullOrWhiteSpace(observacoes)) return string.Empty;
+        var partes = observacoes.Split(" · ");
+        return partes.Length >= 3 ? partes[^1].Trim() : string.Empty;
     }
 
     private async Task FecharLoteAsync(
@@ -358,6 +413,7 @@ public sealed class ImportacaoSmartClinicService
     /// contido no outro ("Dr. Fulano" × "Fulano de Tal") com pelo menos seis letras.</summary>
     public static Profissional? Casar(IReadOnlyList<Profissional> profissionais, string nome)
     {
+        if (string.IsNullOrWhiteSpace(nome)) return null;
         var alvo = SugestorDeMapeamento.Normalizar(nome.Replace("Dr.", "").Replace("Dra.", "").Replace("Dr ", "").Replace("Dra ", ""));
         if (alvo.Length < 2) return null;
         var exato = profissionais.FirstOrDefault(p => SugestorDeMapeamento.Normalizar(p.Nome) == alvo

@@ -394,6 +394,32 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 .ToListAsync(ct))
             .ToHashSet(StringComparer.Ordinal);
 
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.RegistroImportadoSemProfissional>> EvolucoesImportadasSemProfissionalAsync(
+        CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            .Where(e => e.ChaveImportacao != null && e.ProfissionalId == null)
+            .Select(e => new Clinica.Application.Modelos.RegistroImportadoSemProfissional(e.Id, e.CriadoPor))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.RegistroImportadoSemProfissional>> AgendamentosImportadosSemProfissionalAsync(
+        CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.ChaveImportacao != null && a.ProfissionalId == null)
+            .Select(a => new Clinica.Application.Modelos.RegistroImportadoSemProfissional(a.Id, a.Observacoes))
+            .ToListAsync(ct);
+
+    public async Task VincularProfissionalEmEvolucoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, int profissionalId, CancellationToken ct = default)
+        => await _db.Evolucoes
+            .Where(e => evolucaoIds.Contains(e.Id) && e.ProfissionalId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.ProfissionalId, profissionalId), ct);
+
+    public async Task VincularProfissionalEmAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, int profissionalId, CancellationToken ct = default)
+        => await _db.Agendamentos
+            .Where(a => agendamentoIds.Contains(a.Id) && a.ProfissionalId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.ProfissionalId, profissionalId), ct);
+
     public async Task<IReadOnlyList<Clinica.Application.Modelos.FichaResumida>> FichasResumidasAsync(
         CancellationToken ct = default)
         => await _db.Pacientes.AsNoTracking()

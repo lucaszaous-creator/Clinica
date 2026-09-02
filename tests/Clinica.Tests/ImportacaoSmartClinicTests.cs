@@ -4,6 +4,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -34,7 +35,7 @@ public class ImportacaoSmartClinicTests : IDisposable
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
         _repo = new ClinicaRepositorio(_db);
-        _servico = new ImportacaoSmartClinicService(_repo, new ImportacaoPacientesService(_repo, new PacienteService(_repo)));
+        _servico = new ImportacaoSmartClinicService(_repo, new ImportacaoPacientesService(_repo, new PacienteService(_repo), new ConvenioCatalogoService(_repo)));
     }
 
     public void Dispose()
@@ -336,5 +337,95 @@ public class ImportacaoSmartClinicTests : IDisposable
         (await _repo.PacienteTemRegistroClinicoAsync(um.Id)).Should().BeTrue();
         var acao = () => new PacienteService(_repo).RemoverAsync(um.Id);
         await acao.Should().ThrowAsync<InvalidOperationException>().WithMessage("*20 anos*");
+    }
+
+    // ------------------------------------------------------------------ as objeções da direção
+
+    [Fact]
+    public async Task Duplicata_do_sistema_antigo_entra_fundida_na_MESMA_rodada_com_o_prontuario_dela()
+    {
+        // p1 e p1b são a mesma pessoa (mesmo CPF) cadastrada duas vezes lá; o prontuário
+        // de p1b tem de cair na ficha que p1 produz — numa rodada só.
+        var pacientes = Pacientes + "p1b;c1;Paciente Um (duplicado);;;529.982.247-25;;;;;PARTICULAR;;;;;;;;;;;;;;;;;Obs da duplicata;;\n";
+        var posOp = PosOperatorio + "po5;u1;p1b;2025-07-01 09:00:00;;Registro da ficha duplicada;;;PR;2025-07-01 09:00:00;;;;;;\n";
+        var pacote = PacoteSmartClinic.Abrir(Zip(
+            (PacoteSmartClinic.Pacientes, pacientes), (PacoteSmartClinic.PosOperatorio, posOp)));
+
+        var previa = await _servico.PreverAsync(pacote, Convenios, Hoje);
+        var dup = previa.Pacientes.Linhas.Single(l => l.Nome.Contains("duplicado"));
+        dup.Destino.Should().Be(DestinoLinha.Completar);
+        dup.FundeNaLinha.Should().Be(2, "a primeira ocorrência do CPF é a linha 2 do arquivo");
+        previa.Pacientes.Problemas.Should().Be(0);
+        previa.Prontuario.Single().SemPaciente.Should().Be(1, "po4 aponta para p9, que não existe");
+
+        var r = await _servico.ExecutarAsync(previa, "direcao");
+        r.Pacientes.Criados.Should().Be(3);
+        r.Pacientes.Completados.Should().Be(1, "a duplicata completou a ficha da linha 2");
+        _db.Pacientes.Count(p => p.Documento == "52998224725").Should().Be(1, "UMA ficha para a mesma pessoa");
+        var um = _db.Pacientes.Single(p => p.Documento == "52998224725");
+        um.Observacoes.Should().Contain("Obs da duplicata");
+        _db.Evolucoes.Single(e => e.ChaveImportacao!.EndsWith(":po5")).PacienteId.Should().Be(um.Id,
+            "o registro do id antigo duplicado caiu na ficha fundida");
+        r.EvolucoesSemPaciente.Should().Be(0);
+
+        // Rodar de novo: nada muda.
+        var previa2 = await _servico.PreverAsync(pacote, Convenios, Hoje);
+        previa2.TemTrabalho.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Convenio_nao_apontado_entra_A_DEFINIR_e_a_elegibilidade_acusa_em_vermelho()
+    {
+        var convenios = new Dictionary<string, ConvenioCadastro>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["PARTICULAR"] = Convenios["PARTICULAR"],
+            [ImportacaoPacientesService.ConvenioEmBranco] = ConvenioCadastro.ADefinir()
+        };
+        var previa = await _servico.PreverAsync(PacoteCompleto(), convenios, Hoje);
+        previa.Pacientes.Problemas.Should().Be(0);
+        await _servico.ExecutarAsync(previa, "direcao");
+
+        var dois = _db.Pacientes.Single(p => p.Nome == "Paciente Dois");
+        dois.ConvenioCodigo.Should().Be(ConvenioCadastro.CodigoADefinir);
+        dois.ConvenioADefinir.Should().BeTrue();
+        _db.Convenios.Should().Contain(c => c.Codigo == ConvenioCadastro.CodigoADefinir && !c.GeraGuia,
+            "o catálogo foi semeado — é ele que dá nome ao convênio nas telas");
+        CatalogoConvenios.Nome(dois.ConvenioCodigo, dois.Convenio).Should().Be("A definir (importado sem convênio)");
+
+        var elegibilidade = new ElegibilidadeService(
+            _repo, new AutorizacaoService(_repo), new ConsentimentoService(_repo), new ConsultaService(_repo));
+        var resposta = await elegibilidade.ConferirAsync(dois.Id, Hoje);
+        resposta.TemImpedimento.Should().BeTrue();
+        resposta.Alertas.Should().Contain(a => a.Motivo == ImpedimentoElegibilidade.ConvenioADefinir
+                                               && a.Urgencia == NivelUrgencia.Vermelho);
+
+        var um = _db.Pacientes.Single(p => p.Nome == "Paciente Um");
+        um.ConvenioADefinir.Should().BeFalse("PARTICULAR foi apontado");
+        (await elegibilidade.ConferirAsync(um.Id, Hoje)).Alertas
+            .Should().NotContain(a => a.Motivo == ImpedimentoElegibilidade.ConvenioADefinir);
+    }
+
+    [Fact]
+    public async Task Equipe_cadastrada_DEPOIS_da_importacao_ganha_o_vinculo_na_rodada_seguinte()
+    {
+        var previa = await _servico.PreverAsync(PacoteCompleto(), Convenios, Hoje);
+        previa.AutoresSemCadastro.Should().Contain("Ana Autora", "ainda não há ninguém na Equipe");
+        var r1 = await _servico.ExecutarAsync(previa, "direcao");
+        r1.Revinculados.Should().Be(0);
+        _db.Evolucoes.Where(e => e.ChaveImportacao != null).Should().OnlyContain(e => e.ProfissionalId == null);
+        _db.Agendamentos.Should().OnlyContain(a => a.ProfissionalId == null);
+
+        var anaId = await ProfissionalAsync("Dra. Ana Autora");
+
+        var previa2 = await _servico.PreverAsync(PacoteCompleto(), Convenios, Hoje);
+        var r2 = await _servico.ExecutarAsync(previa2, "direcao");
+        r2.Revinculados.Should().Be(3, "po1 e po2 (dados_medicos de Ana) + 1 horário futuro dela; fc1 e cm1 vieram sem dados_medicos");
+        // AsNoTracking: o vínculo é um UPDATE em lote no banco, e o contexto do teste ainda
+        // guarda as entidades como as gravou — em produção cada operação abre escopo novo.
+        _db.Evolucoes.AsNoTracking().Where(e => e.CriadoPor!.StartsWith("Ana Autora")).Should().OnlyContain(e => e.ProfissionalId == anaId);
+        _db.Evolucoes.AsNoTracking().Single(e => e.CriadoPor == "Bruno Sem Cadastro").ProfissionalId.Should().BeNull();
+        _db.Agendamentos.AsNoTracking().Single(a => a.Observacoes!.Contains("Retorno")).ProfissionalId.Should().Be(anaId);
+        _db.Agendamentos.AsNoTracking().Single(a => a.Observacoes!.Contains("Carlos")).ProfissionalId.Should().BeNull();
+        _db.Evolucoes.Count().Should().Be(5, "e nada foi duplicado");
     }
 }

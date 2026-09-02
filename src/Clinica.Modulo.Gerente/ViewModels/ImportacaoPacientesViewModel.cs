@@ -267,8 +267,13 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
                 : CampoMapa.NaoImportar;
 
         OpcoesConvenio.Clear();
-        OpcoesConvenio.Add(new OpcaoConvenio("(escolha um convênio)", null));
-        foreach (var c in _catalogo) OpcoesConvenio.Add(new OpcaoConvenio(c.Nome, c));
+        // A primeira opção é o padrão de quem não sabe: a ficha entra "a definir" e o
+        // sistema acusa no próximo agendamento/atendimento — a decisão acontece com o
+        // paciente na frente, ficha a ficha, e não 2.021 vezes antes de importar.
+        OpcoesConvenio.Add(new OpcaoConvenio(
+            "(definir depois — o sistema avisa no próximo atendimento)", ConvenioCadastro.ADefinir()));
+        foreach (var c in _catalogo.Where(c => !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase)))
+            OpcoesConvenio.Add(new OpcaoConvenio(c.Nome, c));
 
         RemontarConvenios();
     }

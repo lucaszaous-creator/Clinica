@@ -2504,6 +2504,20 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   enterrariam a trilha), e precisava da mesma pergunta que o `SalvarAsync` faz. Duas
   definições divergiriam na primeira correção. A trilha é uma linha por LOTE; a
   procedência de cada registro está nele (chave e autor).
+  ⚠️ **As três objeções da direção mudaram o desenho, e as três eram sobre DECISÃO FORA
+  DO LUGAR.** (a) "Cadastrar a Equipe antes? Metade nem trabalha mais": o registro guarda
+  o autor como texto, e a rodada seguinte REVINCULA quem foi cadastrado depois
+  (`RevincularAsync`, UPDATE em lote pelo nome em `CriadoPor`/observação) — a ordem
+  deixou de importar. (b) "Apontar convênio? Que o sistema acuse quando o paciente
+  aparecer": nasceu `ConvenioCadastro.ADefinir` (não gera guia) e o alerta VERMELHO no
+  `ElegibilidadeService` — a decisão vai para onde ela é possível, ficha a ficha, com a
+  pessoa na frente, em vez de 2.021 vezes antes de importar. (c) "Importar duas vezes é
+  a duplicação que não queremos": a duplicata do próprio arquivo passou a entrar FUNDIDA
+  na mesma rodada (`LinhaPrevia.FundeNaLinha`, resolvida na execução por
+  `ResultadoImportacao.IdPorLinha`), e o prontuário dos dois ids antigos cai na mesma
+  ficha. A lição: **quando o roteiro pede à pessoa um passo antes ou depois da ferramenta,
+  pergunte se a ferramenta não deveria dar esse passo sozinha** — três "faça isso antes"
+  eram três defeitos de desenho.
   ⚠️ **O JSON do sistema antigo tem quebra de linha CRUA dentro das strings** — a norma
   proíbe e o `JsonDocument` recusa. `ComposicaoSmartClinic.Sanear` escapa só dentro das
   aspas; JSON que ainda assim não se lê vira registro VAZIO na prévia, nunca texto
