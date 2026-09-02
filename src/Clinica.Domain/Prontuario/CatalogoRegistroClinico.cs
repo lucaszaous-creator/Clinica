@@ -67,7 +67,14 @@ public enum NaturezaRegistroClinico
     /// laudo — o que se consulta e se compara, ao lado do laudo digitalizado (que segue
     /// sendo Anexo). Imutável; cancela-se com motivo.
     /// </summary>
-    ResultadoExame
+    ResultadoExame,
+
+    /// <summary>
+    /// O ARQUIVO DA FICHA (set/2026): a receita, o laudo, o exame em PDF que pertence à
+    /// PESSOA e não a uma sessão — o acervo do sistema anterior entra aqui. Diferente de
+    /// <see cref="Anexo"/>, que pende da evolução. Imutável; cancela-se com motivo.
+    /// </summary>
+    ArquivoDaFicha
 }
 
 /// <summary>O que o sistema sabe sobre uma natureza: como se chama e quem pode lê-la.</summary>
@@ -119,6 +126,8 @@ public static class CatalogoRegistroClinico
             "problema anotado", "problemas anotados", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.Anexo,
             "anexo", "anexos", Permissao.VerProntuario),
+        new(NaturezaRegistroClinico.ArquivoDaFicha,
+            "arquivo da ficha", "arquivos da ficha", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.MapaCorporal,
             "mapa corporal", "mapas corporais", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.Anamnese,

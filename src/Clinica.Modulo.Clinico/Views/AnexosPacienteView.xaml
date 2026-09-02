@@ -20,7 +20,7 @@
             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                 <TextBlock Text="Exames e anexos" Style="{StaticResource H3}" Margin="0,0,0,2" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                           Text="Resultados registrados e arquivos anexados, do mais recente para o mais antigo. O laudo de um exame sobe pelo &quot;Registrar resultado&quot; aqui em cima; arquivo que pertence a uma CONSULTA se anexa pela sessão, no Prontuário." />
+                           Text="Resultados registrados, arquivos da ficha e arquivos anexados a sessões, do mais recente para o mais antigo. O laudo de um exame sobe pelo &quot;Registrar resultado&quot;; a receita, o laudo ou o exame que pertence à PESSOA (e não a uma consulta) entra pelo &quot;Anexar arquivo à ficha&quot;; arquivo de uma CONSULTA se anexa pela sessão, no Prontuário." />
                 <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
                            Margin="0,6,0,0"
                            Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
@@ -28,11 +28,16 @@
             </StackPanel>
 
             <!-- As DUAS barreiras: o IsEnabled explica; o Exigir do comando impede. -->
-            <Button Grid.Column="1" Content="Registrar resultado…" MinWidth="170"
-                    VerticalAlignment="Top"
-                    Style="{StaticResource BotaoSecundario}"
-                    IsEnabled="{Binding PodeRegistrar}"
-                    Command="{Binding RegistrarResultadoCommand}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Content="Registrar resultado…" MinWidth="170" Margin="0,0,8,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeRegistrar}"
+                        Command="{Binding RegistrarResultadoCommand}" />
+                <Button Content="Anexar arquivo à ficha…" MinWidth="180"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeAnexar}"
+                        Command="{Binding AnexarArquivoDaFichaCommand}" />
+            </StackPanel>
         </Grid>
 
         <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a gravidade. -->
@@ -125,6 +130,61 @@
             </StackPanel>
         </Border>
 
+        <!-- Os ARQUIVOS DA FICHA (set/2026): o que pertence à pessoa e não a uma sessão —
+             a receita do sistema anterior, o laudo que chegou pelo WhatsApp. SOME quando
+             não há nenhum (o convite é o botão do cabeçalho); teto com rolagem própria,
+             pela regra de quem cresce com o dado (checagem 36). -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12"
+                Visibility="{Binding TemArquivosDaFicha, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="ARQUIVOS DA FICHA" Style="{StaticResource CardKpi.Rotulo}"
+                           Margin="0,0,0,8" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="240"
+                              ctrl:Ajudantes.RodaDaPagina="True">
+                    <ItemsControl ItemsSource="{Binding ArquivosDaFicha}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
+                                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
+                                                   Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                                   Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Button Content="Abrir" MinWidth="90" Margin="0,0,6,0"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                ToolTip="{Binding NomeArquivo}"
+                                                Command="{Binding DataContext.AbrirArquivoDaFichaCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <!-- Cancelar com motivo, nunca "excluir" (parcela 52). -->
+                                        <Button Content="Cancelar…" MinWidth="100"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                IsEnabled="{Binding DataContext.PodeAnexar,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.CancelarArquivoDaFichaCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+
         <Border Style="{StaticResource Card}">
             <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica, e é o ÚLTIMO
                  filho do Grid — na raiz da página ela cobriria o cabeçalho (parcela 58). -->
@@ -172,7 +232,7 @@
                                    Glifo="&#xE8A5;"
                                    TextoCarregando="Lendo os anexos…"
                                    Titulo="Nenhum arquivo anexado"
-                                   Descricao="Laudos, imagens e exames anexados às sessões aparecem aqui. Para anexar, abra a sessão no Prontuário." />
+                                   Descricao="Laudos, imagens e exames anexados às SESSÕES aparecem aqui; para anexar a uma sessão, abra-a no Prontuário. O que pertence à pessoa (receita, laudo avulso) entra pelo &quot;Anexar arquivo à ficha&quot;, acima." />
             </Grid>
         </Border>
     </DockPanel>

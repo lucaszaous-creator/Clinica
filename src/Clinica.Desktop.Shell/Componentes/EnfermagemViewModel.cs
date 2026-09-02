@@ -184,6 +184,30 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
     public bool PodeAbrirFolha => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
 
+    /// <summary>
+    /// Abre o registro escolhido na linha do tempo — só o ARQUIVO DA FICHA tem ação nesta
+    /// tela, e o roteamento pela natureza é o que impede o clique de encostar no id de
+    /// outra tabela. Falha alto para natureza desconhecida (a lição da ficha).
+    /// </summary>
+    private async Task AbrirRegistroAsync(Clinica.Application.Modelos.RegistroClinicoPaciente item)
+    {
+        if (item.Natureza != NaturezaRegistroClinico.ArquivoDaFicha)
+            throw new NotSupportedException(
+                $"A tela da Enfermagem não sabe abrir {CatalogoRegistroClinico.Rotular(item.Natureza)}.");
+        try
+        {
+            var erro = await ArquivosDaFicha.AbrirAsync(_escopos, item.Id);
+            Mensagem = erro;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Enfermagem — arquivo da ficha não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     public EnfermagemViewModel(IServiceScopeFactory escopos, IDialogoService dialogo)
     {
         _escopos = escopos;
@@ -193,7 +217,13 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
-            SecaoInicial = NaturezaRegistroClinico.EvolucaoEnfermagem
+            SecaoInicial = NaturezaRegistroClinico.EvolucaoEnfermagem,
+            // Os ARQUIVOS DA FICHA abrem daqui: a técnica recebe o laudo pelo WhatsApp e
+            // relê o da semana passada com o paciente na frente. Abrir é LEITURA, e a
+            // metade visível segue o bit de ler; cancelar fica com a ficha e o Consultório.
+            NaturezasComAcao = [NaturezaRegistroClinico.ArquivoDaFicha],
+            AcessoParaMexer = Permissao.VerProntuario,
+            AoAbrir = AbrirRegistroAsync
         };
 
         Plano = new PlanoDeCuidadosViewModel(escopos, dialogo);

@@ -95,7 +95,8 @@ public static class LinhaDoTempoClinica
         IReadOnlyDictionary<int, int>? anexosPorSessao = null,
         IEnumerable<EvolucaoEnfermagem>? enfermagem = null,
         IEnumerable<PrescricaoInterna>? infusoes = null,
-        IEnumerable<DocumentoClinico>? documentos = null)
+        IEnumerable<DocumentoClinico>? documentos = null,
+        IEnumerable<AnexoPaciente>? arquivosDaFicha = null)
     {
         var mapa = new Dictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>();
 
@@ -126,6 +127,16 @@ public static class LinhaDoTempoClinica
                 .Where(d => acessos.HasFlag(CentralDocumentosService.AcessoParaVer(d.Tipo)))
                 .Select(DeDocumento)
                 .ToList());
+
+        // Os ARQUIVOS DA FICHA (set/2026): a receita, o laudo, o PDF que pertence à PESSOA
+        // — e o acervo importado do sistema anterior. Entram AQUI porque a linha do tempo
+        // é o leitor da FICHA (Recepção) e da tela da Enfermagem: sem esta entrada, as 756
+        // receitas importadas existiam no banco e a ficha não mostrava nenhuma — a pergunta
+        // do cliente, com o teste do catálogo verde ao lado, porque este montador recebe
+        // listas TIPADAS e o teste não percorria o catálogo.
+        mapa[NaturezaRegistroClinico.ArquivoDaFicha] = Permitido(
+            acessos, NaturezaRegistroClinico.ArquivoDaFicha,
+            () => (arquivosDaFicha ?? []).Select(DeArquivoDaFicha).ToList());
 
         return mapa;
     }
@@ -252,4 +263,22 @@ public static class LinhaDoTempoClinica
             d.Profissional?.Rotulo,
             !d.Cancelado,
             d.Cancelado ? $"CANCELADO — {d.MotivoCancelamento}" : null);
+
+    private static RegistroClinicoPaciente DeArquivoDaFicha(AnexoPaciente a)
+        => new(
+            NaturezaRegistroClinico.ArquivoDaFicha,
+            a.Id,
+            a.Data,
+            null,
+            a.Titulo,
+            string.Join(" · ", new[]
+            {
+                a.NomeArquivo,
+                a.TamanhoLegivel,
+                a.Importado ? "sistema anterior" : null,
+                a.Observacoes
+            }.Where(parte => !string.IsNullOrWhiteSpace(parte))),
+            a.CriadoPor,
+            !a.Cancelado,
+            a.Cancelado ? $"CANCELADO — {a.MotivoCancelamento}" : null);
 }

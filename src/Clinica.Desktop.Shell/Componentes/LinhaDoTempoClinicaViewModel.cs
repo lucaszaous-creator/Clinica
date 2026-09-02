@@ -80,7 +80,8 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
         NaturezaRegistroClinico.SessaoMedica,
         NaturezaRegistroClinico.EvolucaoEnfermagem,
         NaturezaRegistroClinico.PrescricaoInterna,
-        NaturezaRegistroClinico.DocumentoClinico
+        NaturezaRegistroClinico.DocumentoClinico,
+        NaturezaRegistroClinico.ArquivoDaFicha
     ];
 
     /// <summary>Rótulo CURTO do chip — o do catálogo é a frase da contagem, longa demais aqui.</summary>
@@ -90,6 +91,7 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
         NaturezaRegistroClinico.EvolucaoEnfermagem => "Enfermagem",
         NaturezaRegistroClinico.PrescricaoInterna => "Infusões",
         NaturezaRegistroClinico.DocumentoClinico => "Documentos",
+        NaturezaRegistroClinico.ArquivoDaFicha => "Arquivos",
         _ => CatalogoRegistroClinico.Rotular(natureza)
     };
 
@@ -143,7 +145,7 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     public bool MostrarDocumentos { get; init; } = true;
 
     /// <summary>
-    /// As seções que ESTA porta mostra. Vazio = as quatro que o componente conhece.
+    /// As seções que ESTA porta mostra. Vazio = as cinco que o componente conhece.
     ///
     /// ⚠️ Existe porque a aba Prontuário do CONSULTÓRIO mantém a lista rica de sessões que
     /// ela já tinha — com busca no texto, contagem de anexos, correções e os botões da
@@ -297,12 +299,18 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
                 : [];
             if (geracao != _geracaoCarga) return;
 
+            // Os arquivos da ficha, COM os cancelados: cancelado aparece marcado, nunca
+            // sumindo (a regra da central de documentos).
+            var arquivosDaFicha = await servicos.GetRequiredService<AnexoPacienteService>()
+                .DaFichaAsync(pacienteId, incluirCancelados: true);
+            if (geracao != _geracaoCarga) return;
+
             // ⚠️ `Efetivas` e não `Permissoes` cru: sem sessão autenticada `Pode` LIBERA
             // (a regra do projeto), e ler o campo direto faria o componente abrir vazio
             // fora do login — tela vazia se lê como defeito.
             _porNatureza = LinhaDoTempoClinica.Montar(
                 SessaoUsuario.Atual.Efetivas,
-                sessoes, anexos, enfermagem, infusoes, documentos);
+                sessoes, anexos, enfermagem, infusoes, documentos, arquivosDaFicha);
 
             MontarChips();
             Publicar();

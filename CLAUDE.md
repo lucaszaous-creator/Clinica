@@ -2553,6 +2553,47 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   a de atendimento; a de HORÁRIO passou seis parcelas invisível porque nenhuma das duas
   telas perguntava à outra.
 
+- **O ACERVO DE ARQUIVOS DO SISTEMA ANTERIOR, e por que ele não virou "anexo"** (set/2026
+  — a clínica recebeu a segunda exportação: 756 PDFs de receitas de 113 pacientes, com um
+  índice dizendo de quem é cada um). A receita pertence à PESSOA e não a uma sessão, e os
+  dois lugares que já guardam arquivo clínico foram MEDIDOS e recusados: `AnexoProntuario`
+  exige `EvolucaoId` (forçar o PDF a uma evolução inventaria uma consulta que não houve —
+  o argumento do laudo em arquivo) e `ResultadoExame` afirma que aquilo É um resultado —
+  gravar uma receita ali seria mentir sobre a natureza do registro. Nasceu
+  `AnexoPaciente`: a **décima raiz clínica**, no `CatalogoRegistroClinico`, com os oito
+  lugares percorridos no mesmo commit (guarda, exportação, art. 18 II, cascata do excluir,
+  rede de tradução) — o `ConjuntoClinicoTests` é quem cobra.
+  As decisões: bytes em tabela 1:1 (a lista de 756 arquivos não pode arrastar 756 PDFs);
+  **o MESMO teto** do anexo de prontuário; **cancela-se com motivo**, nunca se apaga; a
+  montagem é pública e estática (`AnexoPacienteService.Montar`) porque tem DOIS chamadores —
+  a tela e a importação em lotes — e duas validações divergiriam.
+  ⚠️ **A ficha é achada pelo id do sistema anterior; o NOME só resolve quando é ÚNICO.**
+  Casar "Maria Silva" com uma de duas põe a receita na ficha errada sem falhar em lugar
+  nenhum — a homônima fica de fora COM o motivo. Pela mesma razão o ZIP se importa DEPOIS
+  do pacote de pacientes, e a prévia diz isso em vez de deixar 756 linhas caírem em "sem
+  paciente" caladas.
+  ⚠️ **"Fechou" na conferência não quer dizer "tudo entrou"**: quer dizer que o que não
+  entrou está LISTADO com a razão. O teste da conferência nasceu esperando o contrário e
+  a regra já escrita do pacote é que estava certa — duas semânticas de "fechou" no mesmo
+  botão fariam a direção ler "conferido" com significados diferentes a cada ZIP.
+  ⚠️ **A LINHA DO TEMPO É O LEITOR DA FICHA — e a natureza nova nasceu fora dela** (o
+  cliente: *"importei a pasta zipada mas não encontrei os arquivos dentro de cada
+  ficha"*). Os oito lugares foram percorridos, o `ConjuntoClinicoTests` ficou verde, e a
+  ficha da Recepção não mostrava nenhuma das 756 receitas: `LinhaDoTempoClinica.Montar`
+  recebe listas TIPADAS, uma por natureza, e o teste dele afirmava as quatro que existiam
+  em vez de percorrer o catálogo — **asserção que enumera à mão é asserção que a próxima
+  natureza não alcança**. A porta que eu tinha construído (a região no Consultório) era a
+  do app do MÉDICO; quem confere a importação abre a ficha no Gerente/Recepção. Agora o
+  arquivo entra no montador, e abrir/cancelar passam por UM ponto do shell
+  (`ArquivosDaFicha`), porque são três portas e a cópia que ficasse para trás abriria o
+  PDF sem registrar quem leu.
+  ⚠️ **Snapshot escrito à mão: no 1:1, o bloco de relacionamento do lado DEPENDENTE (o
+  que declara `WithOne("Arquivo")`) vem ANTES do principal que chama `Navigation("Arquivo")`**
+  — o `BuildModel` roda os blocos em sequência, e a navegação só existe depois do
+  `WithOne`. Invertido, o snapshot inteiro LANÇA ao ser carregado ("Navigation … was not
+  found"), e o `Snapshot_do_EF_esta_em_dia` é quem pega; copie a ordem do par
+  `ArquivoResultadoExame` → `ResultadoExame`, nos dois arquivos (snapshot e Designer).
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

@@ -44,6 +44,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
     public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
     public DbSet<ArquivoResultadoExame> ArquivosResultadoExame => Set<ArquivoResultadoExame>();
+    public DbSet<AnexoPaciente> AnexosPaciente => Set<AnexoPaciente>();
+    public DbSet<ArquivoAnexoPaciente> ArquivosAnexoPaciente => Set<ArquivoAnexoPaciente>();
     public DbSet<ProblemaPaciente> ProblemasPaciente => Set<ProblemaPaciente>();
     public DbSet<AvaliacaoClinica> AvaliacoesClinicas => Set<AvaliacaoClinica>();
     public DbSet<RespostaAvaliacao> RespostasAvaliacao => Set<RespostaAvaliacao>();
@@ -654,6 +656,48 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.Conteudo).IsRequired();
             e.HasOne(a => a.Resultado).WithOne(r => r.Arquivo)
                 .HasForeignKey<ArquivoResultadoExame>(a => a.ResultadoExameId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---- Arquivos da FICHA (set/2026): a receita, o laudo, o exame em PDF que
+        // pertence à pessoa e não a uma sessão — o acervo do sistema anterior entra aqui.
+        // Mesmo desenho do laudo em arquivo: metadados na linha, bytes em tabela 1:1. ----
+        b.Entity<AnexoPaciente>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Titulo).IsRequired().HasMaxLength(160);
+            e.Property(x => x.NomeArquivo).IsRequired().HasMaxLength(260);
+            e.Property(x => x.TipoConteudo).HasMaxLength(120);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.ChaveImportacao).HasMaxLength(160);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CanceladoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            // Hora de PAREDE: o Npgsql RECUSA DateTime com Kind=Local em coluna
+            // "with time zone" (DatasSemFusoTests cobra).
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+
+            // A leitura é sempre por paciente, em ordem de data.
+            e.HasIndex(x => new { x.PacienteId, x.Data });
+            // A segunda importação do mesmo ZIP pula o que já entrou — pela chave.
+            e.HasIndex(x => x.ChaveImportacao).IsUnique();
+
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.Importado);
+            e.Ignore(x => x.TamanhoLegivel);
+        });
+
+        b.Entity<ArquivoAnexoPaciente>(e =>
+        {
+            e.ToTable("ArquivosAnexoPaciente");
+            e.HasKey(a => a.AnexoPacienteId);
+            e.Property(a => a.AnexoPacienteId).ValueGeneratedNever();
+            e.Property(a => a.Conteudo).IsRequired();
+            e.HasOne(a => a.Anexo).WithOne(x => x.Arquivo)
+                .HasForeignKey<ArquivoAnexoPaciente>(a => a.AnexoPacienteId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

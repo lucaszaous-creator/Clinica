@@ -81,6 +81,7 @@ public sealed class ExportacaoProntuarioService
             [NaturezaRegistroClinico.ResultadoExame] = "prontuario-exames.csv",
             [NaturezaRegistroClinico.ProblemaPaciente] = "prontuario-problemas.csv",
             [NaturezaRegistroClinico.Anexo] = "prontuario-anexos.csv",
+            [NaturezaRegistroClinico.ArquivoDaFicha] = "prontuario-arquivos-da-ficha.csv",
             [NaturezaRegistroClinico.MapaCorporal] = "prontuario-mapa-corporal.csv",
             [NaturezaRegistroClinico.Anamnese] = "prontuario-anamnese.csv"
         };
@@ -121,6 +122,11 @@ public sealed class ExportacaoProntuarioService
             "CodigoVerificacao", "Assinado", "Situacao");
         var anexos = Cabecalho("PacienteId", "SessaoId", "NomeArquivo", "Tipo",
             "TamanhoBytes", "CriadoEm", "Situacao");
+        // Os ARQUIVOS DA FICHA (set/2026): o que pertence à pessoa e não a uma sessão —
+        // inclusive o acervo importado do sistema anterior. Lista, como a dos anexos.
+        var arquivosDaFicha = Cabecalho("PacienteId", "Paciente", "Data", "Titulo",
+            "NomeArquivo", "TipoConteudo", "TamanhoBytes", "Observacoes", "ChaveImportacao",
+            "CriadoEm", "CriadoPor", "Situacao", "MotivoCancelamento");
         // A folha de infusão e sua EXECUÇÃO. Ficaram de fora da primeira versão, o que
         // contrariava a regra 8 do CLAUDE.md — e a execução é a parte que uma auditoria
         // de enfermagem procura: o que entrou no paciente, a que horas e por quem.
@@ -358,6 +364,13 @@ public sealed class ExportacaoProntuarioService
                     TipoDocumentoInfo.Rotular(d.Tipo), Data(d.Data),
                     d.CodigoVerificacao, d.AssinadoEletronicamente ? "sim" : "não",
                     d.Cancelado ? "Cancelado" : "Válido");
+
+            // Cancelados INCLUÍDOS: continuam sob guarda.
+            foreach (var a in await _repo.AnexosDaFichaAsync(p.Id, incluirCancelados: true, ct))
+                Linha(arquivosDaFicha, p.Id, p.Nome, Data(a.Data), a.Titulo, a.NomeArquivo,
+                    a.TipoConteudo, a.Tamanho, a.Observacoes, a.ChaveImportacao,
+                    a.CriadoEm.ToString("O", Fixa), a.CriadoPor,
+                    a.Cancelado ? "Cancelado" : "Vigente", a.MotivoCancelamento);
         }
 
         return
@@ -370,6 +383,7 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-exames.csv", exames.ToString()),
             new("prontuario-documentos.csv", documentos.ToString()),
             new("prontuario-anexos.csv", anexos.ToString()),
+            new("prontuario-arquivos-da-ficha.csv", arquivosDaFicha.ToString()),
             new("prontuario-prescricoes.csv", prescricoes.ToString()),
             new("prontuario-prescricoes-itens.csv", itensPrescricao.ToString()),
             new("prontuario-prescricoes-checagens.csv", checagens.ToString()),
@@ -449,6 +463,9 @@ public sealed class ExportacaoProntuarioService
                                              unidade e a referência do laudo)
          - prontuario-documentos.csv ......... documentos emitidos
          - prontuario-anexos.csv ............. LISTA dos arquivos anexados (ver abaixo)
+         - prontuario-arquivos-da-ficha.csv .. LISTA dos arquivos da FICHA (receita, laudo,
+                                             exame em PDF que pertence à pessoa e não a uma
+                                             sessão — inclusive o acervo do sistema anterior)
          - prontuario-prescricoes.csv ........ folhas de infusão (prescrição interna)
          - prontuario-prescricoes-itens.csv .. o que foi prescrito em cada folha
          - prontuario-enfermagem............ a evolução de enfermagem: o que foi observado

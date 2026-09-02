@@ -140,6 +140,9 @@ public sealed class GuardaProntuarioService
             pacienteId, null, incluirCanceladas: true, ct);
         var resultadosExame = await _repo.ResultadosExameDoPacienteAsync(
             pacienteId, incluirCancelados: true, ct);
+        // O arquivo da FICHA (set/2026): a receita do sistema anterior é, para muita ficha
+        // importada, o ÚNICO registro clínico — e ele move o prazo pela data do documento.
+        var arquivosDaFicha = await _repo.AnexosDaFichaAsync(pacienteId, incluirCancelados: true, ct);
         var documentos = await _repo.DocumentosDoPacienteAsync(pacienteId, ct);
         // A lista de problemas também é registro datado do prontuário: um paciente cujo
         // último fato clínico é um problema anotado (uma alergia descoberta, um
@@ -186,6 +189,7 @@ public sealed class GuardaProntuarioService
         foreach (var m in medidas) candidatos.Add((m.Data, "medida"));
         // O resultado entra pela data do EXAME (a data clínica) — é ela que a guarda usa.
         foreach (var r in resultadosExame) candidatos.Add((r.Data, "resultado de exame"));
+        foreach (var a in arquivosDaFicha) candidatos.Add((a.Data, "arquivo da ficha"));
         // DocumentoClinico.Data é a data do ato (a do atestado, a da receita) — é ela
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
@@ -232,6 +236,7 @@ public sealed class GuardaProntuarioService
             [NaturezaRegistroClinico.AvaliacaoClinica] = avaliacoes.Count,
             [NaturezaRegistroClinico.MedidaClinica] = medidas.Count,
             [NaturezaRegistroClinico.ResultadoExame] = resultadosExame.Count,
+            [NaturezaRegistroClinico.ArquivoDaFicha] = arquivosDaFicha.Count,
             [NaturezaRegistroClinico.ProblemaPaciente] = problemas.Count,
             [NaturezaRegistroClinico.Anexo] = anexos,
             [NaturezaRegistroClinico.MapaCorporal] = mapas,

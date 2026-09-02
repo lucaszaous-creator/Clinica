@@ -61,6 +61,9 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     /// passo 2 mostra só os convênios.</summary>
     private PacoteSmartClinic? _pacote;
     private PreviaSmartClinic? _previaPacote;
+    /// <summary>O ZIP DE ARQUIVOS (receitas, laudos) do Smart Clinic — o terceiro modo (set/2026).</summary>
+    private PacoteAnexosSmartClinic? _pacoteAnexos;
+    private PreviaAnexosSmartClinic? _previaAnexos;
     /// <summary>Um rótulo ÚNICO por coluna do arquivo, na ordem dela — duas colunas "Telefone"
     /// no cabeçalho virariam uma só no combo, e a segunda ficaria inalcançável.</summary>
     private string[] _rotulosColunas = [];
@@ -78,6 +81,13 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     /// existem porque o XAML não tem conversor de inverso, e a tela mostra blocos diferentes.</summary>
     [ObservableProperty] private bool _modoPacote;
     [ObservableProperty] private bool _modoCsv;
+    /// <summary>O ZIP de ARQUIVOS: sem colunas nem convênios a decidir — o passo 2 some.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarResumoPacote))]
+    private bool _modoAnexos;
+
+    /// <summary>O resumo em linhas serve aos DOIS pacotes (o completo e o de arquivos).</summary>
+    public bool MostrarResumoPacote => ModoPacote || ModoAnexos;
 
     // ---- passo 2 ----
     public ObservableCollection<CampoMapa> Campos { get; } = [];
@@ -134,6 +144,7 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         if (!TemPrevia) return;
         _previa = null;
         _previaPacote = null;
+        _previaAnexos = null;
         Linhas.Clear();
         ResumoPacote.Clear();
         Conferencia.Clear();
@@ -175,7 +186,9 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
 
             _tabela = tabela;
             _pacote = null;
+            _pacoteAnexos = null;
             ModoPacote = false;
+            ModoAnexos = false;
             ModoCsv = true;
             ArquivoNome = Path.GetFileName(caminho);
             ArquivoInfo = $"{tabela.Linhas.Count} linha(s) · {tabela.Colunas.Count} coluna(s) · "
@@ -233,8 +246,10 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             }
 
             _pacote = pacote;
+            _pacoteAnexos = null;
             _tabela = pacientes;
             ModoPacote = true;
+            ModoAnexos = false;
             ModoCsv = false;
             ArquivoNome = Path.GetFileName(caminho);
             var prontuario = PacoteSmartClinic.ArquivosDeProntuario.Where(pacote.Tem)
@@ -377,6 +392,60 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         return achado ?? OpcoesConvenio[0];
     }
 
+    /// <summary>
+    /// O ZIP DE ARQUIVOS do Smart Clinic (set/2026): a pasta de PDFs (receitas, laudos) com o
+    /// índice relacao_arquivos.csv que diz de qual paciente é cada um. Cada arquivo entra
+    /// como ARQUIVO DA FICHA do paciente — pelo id do sistema anterior que a importação
+    /// da carteira gravou. Não há coluna nem convênio a decidir: escolheu, gera a prévia.
+    /// </summary>
+    [RelayCommand]
+    private async Task EscolherAnexosAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "importar pacientes");
+
+            var caminho = ImpressaoPdf.Escolher(
+                "ZIP de arquivos do Smart Clinic (*.zip)|*.zip|Todos os arquivos|*.*",
+                "Escolha o ZIP de arquivos (receitas, laudos) que o Smart Clinic entregou");
+            if (caminho is null) return;
+
+            Mensagem = null;
+            TextoCarregando = "Lendo o ZIP de arquivos…";
+            Carregando = true;
+
+            var bytes = await File.ReadAllBytesAsync(caminho);
+            var pacote = PacoteAnexosSmartClinic.Abrir(bytes);
+
+            _pacoteAnexos = pacote;
+            _pacote = null;
+            _tabela = null;
+            ModoAnexos = true;
+            ModoPacote = false;
+            ModoCsv = false;
+            ArquivoNome = Path.GetFileName(caminho);
+            ArquivoInfo = $"{pacote.Arquivos} arquivo(s) · {pacote.Relacao.Linhas.Count} linha(s) no índice · "
+                          + $"{pacote.BytesTotais / (1024 * 1024)} MB"
+                          + (pacote.SemLinhaNoIndice.Count > 0 ? $" · {pacote.SemLinhaNoIndice.Count} sem linha no índice" : "");
+            TemArquivo = true;
+            Campos.Clear();
+            foreach (var c in CamposImportacao.Todos) Campos.Add(new CampoMapa { Campo = c });
+            Convenios.Clear();
+            TemConvenios = false;
+            InvalidarPrevia();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — ZIP de arquivos do Smart Clinic não pôde ser lido", ex);
+            Mensagem = $"Não deu para ler o ZIP de arquivos: {ex.Message}";
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
     // ============================================================ passo 3 — prévia
 
     private int _geracao;
@@ -384,7 +453,7 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
     [RelayCommand]
     private async Task GerarPreviaAsync()
     {
-        if (_tabela is null)
+        if (_tabela is null && _pacoteAnexos is null)
         {
             Mensagem = "Escolha o arquivo primeiro (passo 1).";
             MensagemEhErro = true;
@@ -397,6 +466,12 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
             Mensagem = null;
             TextoCarregando = "Montando a prévia…";
             Carregando = true;
+
+            if (_pacoteAnexos is { } pacoteAnexos)
+            {
+                await GerarPreviaDosAnexosAsync(pacoteAnexos, geracao);
+                return;
+            }
 
             var mapa = MapeamentoAtual();
             var convenios = ConveniosEscolhidos();
@@ -458,11 +533,52 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         }
     }
 
+    /// <summary>A prévia do ZIP de arquivos: uma linha por assunto, e as linhas de fora uma a uma.</summary>
+    private async Task GerarPreviaDosAnexosAsync(PacoteAnexosSmartClinic pacote, int geracao)
+    {
+        PreviaAnexosSmartClinic previa;
+        using (var escopo = _escopos.CreateScope())
+            previa = await escopo.ServiceProvider.GetRequiredService<ImportacaoAnexosSmartClinicService>()
+                .PreverAsync(pacote);
+        if (geracao != _geracao) return;
+
+        _previaAnexos = previa;
+        _previa = null;
+        _previaPacote = null;
+        Linhas.Clear();
+        ResumoPacote.Clear();
+        ResumoPacote.Add($"Arquivos da ficha: {previa.Novos} entram em {previa.PacientesQueRecebem} ficha(s) "
+                         + $"({previa.BytesNovos / (1024 * 1024)} MB)"
+                         + (previa.JaImportados > 0 ? $" · {previa.JaImportados} já importado(s)" : "")
+                         + (previa.SemPaciente > 0 ? $" · {previa.SemPaciente} sem ficha" : "")
+                         + (previa.SemArquivo > 0 ? $" · {previa.SemArquivo} sem o arquivo no ZIP" : "")
+                         + (previa.Invalidos > 0 ? $" · {previa.Invalidos} inválido(s)" : "") + ".");
+        // Quem pede ação sobe: as linhas de fora, com o motivo, uma a uma (até um teto —
+        // trezentas linhas iguais escondem as três que importam).
+        foreach (var l in previa.Linhas.Where(l => l.EhProblema).Take(60))
+            ResumoPacote.Add($"  • Não entra — linha {l.Numero}, {l.Paciente}, {l.Titulo}: {l.Detalhe}");
+        if (previa.Problemas > 60) ResumoPacote.Add($"  • … e mais {previa.Problemas - 60} linha(s) de fora.");
+        ResumoPacote.Add("Cada arquivo entra em \"Exames e anexos\" da ficha do paciente, com a data do documento e a procedência escrita.");
+
+        ResumoPrevia = $"{previa.Novos} arquivo(s) entram · {previa.JaImportados} já importado(s) · "
+                       + $"{previa.Problemas} linha(s) que não entram";
+        AvisosGerais = previa.Avisos.Count == 0 ? null : string.Join("\n", previa.Avisos);
+        TemPrevia = true;
+        PodeExecutar = PodeImportar && previa.TemTrabalho;
+        RotuloImportar = previa.TemTrabalho ? $"Importar {previa.Novos} arquivo(s)" : "Nada a importar";
+    }
+
     // ============================================================ importar
 
     [RelayCommand]
     private async Task ImportarAsync()
     {
+        if (_previaAnexos is { } previaAnexos)
+        {
+            await ImportarAnexosAsync(previaAnexos);
+            return;
+        }
+
         var temTrabalho = _previaPacote?.TemTrabalho ?? _previa?.TemTrabalho ?? false;
         if (_previa is null || !temTrabalho)
         {
@@ -563,6 +679,83 @@ public sealed partial class ImportacaoPacientesViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Gerente — importação de pacientes falhou", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    /// <summary>Grava o ZIP de arquivos e CONFERE relendo o mesmo ZIP — a mesma prova do pacote.</summary>
+    private async Task ImportarAnexosAsync(PreviaAnexosSmartClinic previa)
+    {
+        if (!previa.TemTrabalho || _pacoteAnexos is not { } pacote)
+        {
+            Mensagem = "Gere a prévia antes de importar.";
+            MensagemEhErro = true;
+            return;
+        }
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "importar pacientes");
+
+            var confirmou = _dialogo.ConfirmarPerigo("Importar arquivos",
+                $"Vão entrar {previa.Novos} arquivo(s) em {previa.PacientesQueRecebem} ficha(s), como arquivos da ficha "
+                + $"(registro clínico). As {previa.Problemas} linha(s) com problema ficam de fora.\n\n"
+                + "Não há desfazer em lote: arquivo importado por engano se cancela um a um, com motivo, "
+                + "pela ficha. Continuar?");
+            if (!confirmou) return;
+
+            Mensagem = null;
+            TextoCarregando = "Gravando os arquivos…";
+            Carregando = true;
+
+            string texto;
+            bool teveErro;
+            using (var escopo = _escopos.CreateScope())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<ImportacaoAnexosSmartClinicService>();
+                var progresso = new Progress<string>(p => TextoCarregando = p);
+                var r = await servico.ExecutarAsync(previa, pacote, SessaoUsuario.Atual.Operador, progresso);
+                texto = $"Importação concluída: {r.Criados} arquivo(s) gravado(s) na ficha, "
+                        + $"{r.Pulados} já importado(s), {r.SemPaciente} sem ficha.";
+                if (r.TeveErro)
+                    texto += $"\n{r.Erros.Count} erro(s):\n" + string.Join("\n", r.Erros.Take(20));
+                teveErro = r.TeveErro;
+
+                TextoCarregando = "Conferindo o que entrou…";
+                var releitura = await servico.PreverAsync(pacote);
+                var itens = ConferenciaAnexosSmartClinic.Montar(releitura);
+                Conferencia.Clear();
+                foreach (var i in itens)
+                {
+                    Conferencia.Add((i.Completo ? "✓ " : "✗ ") + i.Resumo);
+                    foreach (var m in i.ForaComMotivo) Conferencia.Add("      – " + m);
+                }
+                ConferenciaFechou = ConferenciaAnexosSmartClinic.Fechou(itens);
+                ConferenciaTitulo = ConferenciaFechou
+                    ? "CONFERÊNCIA: fechou — todo arquivo do índice está no sistema; o que ficou de fora está listado com o motivo."
+                    : "CONFERÊNCIA: NÃO fechou — há arquivo que ainda não entrou. Leia os motivos e importe de novo.";
+                TemConferencia = true;
+            }
+
+            Mensagem = texto;
+            MensagemEhErro = teveErro;
+
+            var conferencia = Conferencia.ToList();
+            var fechou = ConferenciaFechou;
+            var titulo = ConferenciaTitulo;
+            InvalidarPrevia();
+            foreach (var c in conferencia) Conferencia.Add(c);
+            ConferenciaFechou = fechou;
+            ConferenciaTitulo = titulo;
+            TemConferencia = conferencia.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — importação do ZIP de arquivos falhou", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

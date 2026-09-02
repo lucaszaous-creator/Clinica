@@ -87,6 +87,13 @@
                                 Style="{StaticResource BotaoSecundario}"
                                 IsEnabled="{Binding PodeImportar}"
                                 Command="{Binding EscolherArquivoCommand}" />
+                        <!-- O ZIP DE ARQUIVOS (set/2026): receitas e laudos em PDF, com o índice
+                             que diz de quem é cada um. Entra DEPOIS da carteira: é pelo id de lá
+                             que o arquivo acha a ficha. -->
+                        <Button Content="Ou o ZIP de arquivos (receitas, laudos)…" MinWidth="250" VerticalAlignment="Center" Margin="8,0,0,0"
+                                Style="{StaticResource BotaoSecundario}"
+                                IsEnabled="{Binding PodeImportar}"
+                                Command="{Binding EscolherAnexosCommand}" />
                         <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
                             <TextBlock Text="{Binding ArquivoNome}" FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis"
@@ -98,12 +105,31 @@
                                                     Converter={StaticResource TextoParaVisibilidade}}" />
                         </StackPanel>
                     </StackPanel>
+                    <StackPanel Visibility="{Binding ModoAnexos, Converter={StaticResource BoolParaVisibilidade}}"
+                                Margin="0,12,0,0">
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Text="ZIP de arquivos reconhecido: cada PDF acha a ficha do paciente pelo id do sistema anterior (gravado na importação da carteira) e entra como ARQUIVO DA FICHA, em &quot;Exames e anexos&quot;, com a data do documento. Não há coluna nem convênio a decidir." />
+                        <Button Content="Gerar a prévia" MinWidth="170" HorizontalAlignment="Left"
+                                IsEnabled="{Binding PodeImportar}"
+                                Command="{Binding GerarPreviaCommand}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
             <!-- ===== 2 · COLUNAS E CONVÊNIOS ===== -->
-            <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,0,0,12"
-                    Visibility="{Binding TemArquivo, Converter={StaticResource BoolParaVisibilidade}}">
+            <Border Grid.Row="4" Margin="0,0,0,12">
+                <!-- O passo 2 SOME no modo do ZIP de arquivos: não há o que decidir ali, e
+                     um cartão vazio com "gere a prévia" repetiria o botão do passo 1. -->
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                        <Setter Property="Visibility" Value="{Binding TemArquivo, Converter={StaticResource BoolParaVisibilidade}}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ModoAnexos}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <StackPanel>
                     <TextBlock Text="2 · O QUE CADA COLUNA SIGNIFICA" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
                     <!-- No modo PACOTE as colunas são as do formato conhecido do Smart Clinic
@@ -193,7 +219,7 @@
                     <TextBlock Text="{Binding ResumoPrevia}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
                     <!-- O que MAIS entra com o pacote: prontuário por arquivo, agenda, autores. -->
                     <ItemsControl ItemsSource="{Binding ResumoPacote}" Margin="0,0,0,8"
-                                  Visibility="{Binding ModoPacote, Converter={StaticResource BoolParaVisibilidade}}">
+                                  Visibility="{Binding MostrarResumoPacote, Converter={StaticResource BoolParaVisibilidade}}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />

@@ -480,7 +480,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            // A NONA raiz: o resultado de exame estruturado (ago/2026), no MESMO commit em
            // que a entidade nasceu — a regra que a parcela 60 fixou depois de a oitava
            // ter sido esquecida com o cenário descrito logo acima.
-           || await _db.ResultadosExame.AnyAsync(r => r.PacienteId == pacienteId, ct);
+           || await _db.ResultadosExame.AnyAsync(r => r.PacienteId == pacienteId, ct)
+           // A DÉCIMA raiz: o arquivo da ficha (set/2026) — a receita do sistema anterior é o
+           // único registro clínico de muita ficha importada, e a FK dele é cascata.
+           || await _db.AnexosPaciente.AnyAsync(a => a.PacienteId == pacienteId, ct);
 
     // ---- Retrato do paciente ----
 
@@ -1197,6 +1200,46 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default)
         => _db.ResultadosExame.FirstOrDefaultAsync(r => r.Id == resultadoId, ct);
+
+    // ---- Arquivos da FICHA (set/2026) ----
+
+    public async Task AdicionarAnexoPacienteAsync(AnexoPaciente anexo, CancellationToken ct = default)
+        => await _db.AnexosPaciente.AddAsync(anexo, ct);
+
+    public async Task AdicionarArquivoAnexoPacienteAsync(ArquivoAnexoPaciente arquivo, CancellationToken ct = default)
+        => await _db.ArquivosAnexoPaciente.AddAsync(arquivo, ct);
+
+    // A ÚNICA consulta que materializa os bytes — todas as outras leem só os metadados.
+    public Task<byte[]?> ConteudoDoAnexoPacienteAsync(int anexoId, CancellationToken ct = default)
+        => _db.ArquivosAnexoPaciente.AsNoTracking()
+            .Where(a => a.AnexoPacienteId == anexoId)
+            .Select(a => a.Conteudo)
+            .FirstOrDefaultAsync(ct);
+
+    public Task<AnexoPaciente?> ObterAnexoPacienteAsync(int anexoId, CancellationToken ct = default)
+        => _db.AnexosPaciente.FirstOrDefaultAsync(a => a.Id == anexoId, ct);
+
+    public async Task<IReadOnlyList<AnexoPaciente>> AnexosDaFichaAsync(
+        int pacienteId, bool incluirCancelados = false, CancellationToken ct = default)
+    {
+        // Sem Include do Arquivo: a navegação fica nula, e é isso que mantém a lista leve.
+        // Cancelado fora da lista vigente; o filtro é pela COLUNA (a derivada não traduz).
+        var consulta = _db.AnexosPaciente.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId);
+        if (!incluirCancelados)
+            consulta = consulta.Where(a => a.CanceladoEm == null);
+
+        return await consulta
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlySet<string>> ChavesDeImportacaoDeAnexosPacienteAsync(CancellationToken ct = default)
+        => (await _db.AnexosPaciente.AsNoTracking()
+                .Where(a => a.ChaveImportacao != null)
+                .Select(a => a.ChaveImportacao!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
 
     public async Task<IReadOnlyList<ResultadoExame>> ResultadosExameDoPacienteAsync(
         int pacienteId, bool incluirCancelados = false, CancellationToken ct = default)
