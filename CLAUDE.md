@@ -2395,6 +2395,164 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   WPF, QuestPDF ↔ PDFsharp) tem a semântica MEDIDA no destino, nunca presumida da origem.**
 
 
+- **AS TELAS PLANAS DE PRONTUÁRIOS E EXAMES, e a situação que só existe se houver FATO**
+  (set/2026 — as duas telas do handoff que faltavam no Consultório). A tela de Exames
+  pede "Aguardando resultado / Resultado disponível", e o domínio não tinha o elo que
+  sustenta a resposta: o laudo entrava como anexo da sessão ou como `ResultadoExame`
+  avulso, sem dizer DE QUAL pedido era. O elo é `ResultadoExame.PedidoDocumentoId`
+  (migration aditiva, nullable — linha antiga fica com nulo, que é a verdade), a situação
+  é DERIVADA da contagem de resultados vigentes amarrados, e o serviço RECUSA amarrar em
+  pedido de OUTRO paciente ou em documento que não é pedido — o vínculo errado daria
+  baixa na espera de outra pessoa. O "Agendado" do mockup ficou de FORA: não há fato de
+  agendamento de exame no domínio, e situação sem fato é a garantia aparente de sempre.
+  ⚠️ **A tela de Prontuários dá a cada linha a situação que ela TEM, não a que o mockup
+  pinta**: anamnese é DOCUMENTO e tem assinatura de verdade ("A assinar" → o fluxo
+  ICP-Brasil existente); evolução NÃO é assinável — o pendente real dela é a sessão sem
+  registro ("A escrever", levando ao atendimento daquele horário). As linhas carregam
+  `EvolucaoId` e `DocumentoId` em campos SEPARADOS (ids são por tabela — parcela 71), e
+  quem pede AÇÃO sobe para o topo. Os montadores são PUROS na Application
+  (`ListaDeProntuarios`, `PedidoDeExameLinha`) — o que a tela afirma mora onde o
+  `dotnet test` alcança. As listas são PROJEÇÕES novas do repositório (sem os textos da
+  evolução, sem a miniatura da foto — a lição da parcela 74), executadas em teste e na
+  rede de tradução do Npgsql. O combo "responde ao pedido" mora na ÚNICA janela de
+  registro de resultado, para as duas portas amarrarem pela mesma regra; e o "Novo pedido
+  de exame" de uma tela SEM paciente em foco pergunta QUEM primeiro
+  (`EscolherPacienteWindow`, no shell — capacidade em porta única é o defeito recorrente).
+  Na lista da CLÍNICA inteira (posto sem vínculo/enfermagem) cada linha diz o
+  profissional — booleano de estado sem leitor é só uma atribuição (parcela 76).
+
+- **O LAUDO EM ARQUIVO, e por que ele não virou "anexo"** (set/2026 — a clínica recebe o
+  PDF do laboratório por WhatsApp e precisa SUBIR). O caminho óbvio seria o
+  `AnexoProntuario`, que já guarda arquivo clínico — e ele foi MEDIDO e recusado:
+  `EvolucaoId` é obrigatório e `AnexosDoPacienteAsync` resolve o paciente ATRAVÉS da
+  evolução (`a.Evolucao!.PacienteId`), então anexo sem sessão não existe. Aceitá-lo
+  exigiria `AlterColumn` (migration não aditiva) mais uma coluna nova obrigatória com
+  backfill, num app em produção — e o laudo que chega pelo WhatsApp não é de sessão
+  nenhuma: forçá-lo a uma evolução seria inventar uma consulta que não houve.
+  O laudo mora no `ResultadoExame`, que É o que ele registra. As decisões:
+  **os BYTES ficam em tabela 1:1** (`ArquivosResultadoExame`) e só os METADADOS na
+  linha — é o padrão do retrato do paciente (`FotoMiniatura` na linha, `PacientesFotos`
+  à parte), e sem ele toda leitura da lista arrastaria os PDFs pela rede (a lição da
+  parcela 74; a rede de tradução do Npgsql fixa que o SELECT não os traz);
+  **valor OU laudo** — o PDF é registro completo por si, e exigir também o número faria
+  a técnica inventar um para conseguir anexar; o que se recusa é o registro sem conteúdo
+  nenhum; **o teto é o MESMO do anexo de prontuário** (`ProntuarioService.
+  TamanhoMaximoAnexo`), porque dois limites divergem na primeira correção; e o arquivo é
+  gravado no **MESMO `SaveChanges`** do resultado — laudo sem a linha que o descreve é
+  arquivo órfão, e linha que promete arquivo sem ele é um "abrir laudo" que não abre.
+  ⚠️ **Anexar aparece em TODO pedido vivo, não só no que aguarda**: um pedido de vários
+  exames recebe vários laudos, e esconder o botão no primeiro resultado impediria o
+  segundo. Só o pedido CANCELADO não recebe.
+  ⚠️ E a mudança **desatualizou dois textos que ninguém teria relido**: o comentário do
+  modal de resultado dizia que "o resultado estruturado não tem arquivo", e o subtítulo
+  da seção Exames e anexos mandava anexar pela sessão no Prontuário. Os dois foram
+  corrigidos no mesmo commit — **ao dar capacidade nova a um registro, procure o que
+  AFIRMAVA que ela não existia.**
+
+- **A IMPORTAÇÃO DA CARTEIRA DO SISTEMA ANTERIOR — e a auditoria que ficaria pendurada**
+  (set/2026 — a clínica migrou do Smart Clinic e recebeu a exportação; roteiro em
+  `docs/importar-pacientes.md`). `ImportacaoPacientesService` em dois passos separados de
+  propósito: `PreverAsync` lê o CSV com o mapeamento e diz linha a linha o que VAI acontecer
+  sem gravar; `ExecutarAsync` grava o que a prévia mostrou. As regras: **idempotente pela
+  chave** (`Paciente.ChaveImportacao = IMPORT:{sistema}:{id}`, índice ÚNICO — a coluna nasce
+  vazia, então o índice não tem como falhar na abertura), **quem existe é COMPLETADO e nunca
+  sobrescrito** (CPF com ou sem máscara, ou nome + nascimento; convênio da ficha é mantido),
+  **a criação passa pelo `PacienteService`** (a regra do CPF mora lá), e **convênio do
+  arquivo é TEXTO que a direção aponta para um `ConvenioCadastro`** — sem palpite, porque
+  "Unimed" pode ser Padrão ou Intercâmbio.
+  ⚠️ **Auditoria acrescentada ANTES de um serviço que pode RECUSAR fica pendurada no
+  contexto.** A primeira versão registrava o `EventoAuditoria` e só então chamava
+  `SalvarNovoAsync`; quando ele recusava a ficha (CPF que entrou por outra porta), a linha
+  "PacienteImportado" ficava rastreada e saía gravada junto da ficha SEGUINTE — trilha
+  afirmando uma importação que não houve. Aqui a ordem é ato → trilha → Salvar, com o id
+  da ficha; é uma exceção declarada à regra 7 do compromisso. **E entidade RASTREADA mexida
+  antes de uma recusa sai no próximo Salvar de outra linha** — daí o retrato/restauração
+  na ficha completada. Regra: **num laço que grava N linhas com um `DbContext` só, toda
+  linha que falha tem de deixar o contexto como o encontrou.**
+  ⚠️ O prontuário antigo **não é PDF**: a exportação real traz o prontuário em TEXTO por
+  paciente (pós-operatório, S-O-A-P, prescrições, anamnese), e a direção decidiu **"não
+  perder NADA"** — ver o bloco do PACOTE abaixo.
+  ⚠️ **Sugestão de coluna se mede contra o arquivo REAL, não contra os sinônimos que o
+  autor imagina.** A primeira versão do sugestor, rodada no `pacientes.csv` da clínica,
+  mandou o convênio para `operadora` (a operadora do CELULAR — a prévia oferecia 80
+  números de telefone como convênios a mapear), deixou a carteirinha sem coluna
+  (`numero_convenio`) e escolheu `telefone` (78 preenchidos) em vez de `celular` (2.145).
+  Nenhum teste sintético pegaria: os sinônimos eram os meus. A regra que ficou: a
+  prioridade é do SINÔNIMO dentro de cada campo (o primeiro que existir no arquivo vence),
+  nunca da ordem das colunas; e o cabeçalho real virou teste. E **aviso por linha que se
+  repete em 3 de cada 4 linhas não é aviso** — o sexo em branco virou contagem no aviso
+  geral, senão os 19 avisos que importavam ficavam enterrados em 1.712 iguais.
+
+- **O PACOTE DO SMART CLINIC — "não perder NADA", e o que isso decidiu** (set/2026;
+  `ImportacaoSmartClinicService`, mapa arquivo→destino em `docs/importar-pacientes.md`).
+  O ZIP tem 14 CSVs, e cada um ganhou destino ESCRITO: a carteira vira ficha; os oito
+  arquivos de prontuário viram `Evolucao` (HTML → texto, data de lá, autor como o sistema
+  antigo gravou em `CriadoPor`, vínculo com a Equipe quando o nome casa); a agenda FUTURA
+  vira `Agendamento`; a agenda PASSADA e toda coluna sem campo (e-mail, RG, nome da mãe…)
+  vão para as OBSERVAÇÕES da ficha, com rótulo. Login e senha nunca entram.
+  ⚠️ **Visita passada não vira sessão.** Marcar 9.000 horários antigos como `Realizado`
+  sem evolução ligada inundaria "sessões sem evolução" e o alerta da direção; criar
+  `Atendimento` inventaria guia. Preservar como texto legível na ficha é o que não mente.
+  ⚠️ **Alargar coluna é a saída consciente da checagem 18, e é a certa aqui**: 88
+  registros passavam de 4.000 caracteres, e cortar registro clínico na importação é
+  perder o que a clínica pediu para não perder. Os quatro textos da `Evolucao` (e os da
+  `VersaoEvolucao`, senão a primeira correção de um importado falharia ao guardar o
+  anterior) viraram `text`, com a marca `MIGRATION-NAO-ADITIVA-CONSCIENTE(AlterColumn)`.
+  ⚠️ **A regra do "registro vazio" virou UMA função** (`ProntuarioService.TemRegistro`):
+  a importação grava pelo repositório em LOTES de 200 (4.287 registros um a um, com
+  auditoria cada, seriam minutos num banco remoto — e milhares de linhas de trilha
+  enterrariam a trilha), e precisava da mesma pergunta que o `SalvarAsync` faz. Duas
+  definições divergiriam na primeira correção. A trilha é uma linha por LOTE; a
+  procedência de cada registro está nele (chave e autor).
+  ⚠️ **As três objeções da direção mudaram o desenho, e as três eram sobre DECISÃO FORA
+  DO LUGAR.** (a) "Cadastrar a Equipe antes? Metade nem trabalha mais": o registro guarda
+  o autor como texto, e a rodada seguinte REVINCULA quem foi cadastrado depois
+  (`RevincularAsync`, UPDATE em lote pelo nome em `CriadoPor`/observação) — a ordem
+  deixou de importar. (b) "Apontar convênio? Que o sistema acuse quando o paciente
+  aparecer": nasceu `ConvenioCadastro.ADefinir` (não gera guia) e o alerta VERMELHO no
+  `ElegibilidadeService` — a decisão vai para onde ela é possível, ficha a ficha, com a
+  pessoa na frente, em vez de 2.021 vezes antes de importar. (c) "Importar duas vezes é
+  a duplicação que não queremos": a duplicata do próprio arquivo passou a entrar FUNDIDA
+  na mesma rodada (`LinhaPrevia.FundeNaLinha`, resolvida na execução por
+  `ResultadoImportacao.IdPorLinha`), e o prontuário dos dois ids antigos cai na mesma
+  ficha. A lição: **quando o roteiro pede à pessoa um passo antes ou depois da ferramenta,
+  pergunte se a ferramenta não deveria dar esse passo sozinha** — três "faça isso antes"
+  eram três defeitos de desenho.
+  ⚠️ **O JSON do sistema antigo tem quebra de linha CRUA dentro das strings** — a norma
+  proíbe e o `JsonDocument` recusa. `ComposicaoSmartClinic.Sanear` escapa só dentro das
+  aspas; JSON que ainda assim não se lê vira registro VAZIO na prévia, nunca texto
+  inventado. E `Enum`/HTML/JSON: **tudo o que decide o que o prontuário importado DIZ mora
+  na Application e é puro** — os compositores recebem a linha e devolvem a evolução, e
+  são eles que os testes exercitam.
+
+- **O NOVO ATENDIMENTO RECONHECE O HORÁRIO DO DIA — lançar SOBRE ele, nunca ao lado**
+  (set/2026; o mapa está em `docs/guia-no-agendamento.md` §3.7.1). A semana da migração
+  expôs o buraco: 227 horários importados do Smart Clinic, todos "Consulta", e a
+  secretária lançando as sessões pelo Novo atendimento — que SEMPRE criava um encaixe.
+  A pergunta de duplicidade não disparava (ela olha ATENDIMENTO já registrado, e o
+  horário importado não tem), e sobravam dois cartões da mesma sessão. ⚠️ **E o parado
+  levava a evolução**: a evolução importada depois (sem `AgendamentoId`) é distribuída
+  na ordem da hora marcada (`EvolucaoDoHorario`), o importado das 09h00 vinha antes do
+  encaixe das 09h12 — a sessão de verdade ficava em "Sessões sem evolução".
+  `AgendaService.LancarNoHorarioAsync` é o gesto atômico do avulso aplicado a um horário
+  que JÁ EXISTE: modalidade da tela passa a valer para ele (trilha quando mudou),
+  `ChegadaEm ??=`, e o atendimento nasce pendurado nele pelo MESMO `ConfirmarNucleoAsync`.
+  Com a chave "guia no agendamento" ligada, a modalidade nova regera pelo MESMO
+  `AjustarAoRemarcarAsync` do Remarcar — segunda regra de regeração divergiria.
+  As decisões: **nulo mantém** (sem código de modalidade, sem profissional, sem sala: o
+  horário fica com o que tem — a regra da parcela 68); **a observação do horário não se
+  perde** ("Importado do Smart Clinic · Consulta" fica, a nota da tela entra abaixo);
+  **recusa com frase que diz o que fazer** para realizado (a outra máquina concluiu) e
+  cancelado/falta (reabra ou lance como encaixe); **a caixinha "criar um encaixe
+  separado"** é a saída do caso legítimo e só existe no modo "lançar agora"; **o botão
+  DIZ** "Lançar no horário das 09h00 e gerar 2 guias"; e **leitura que falha escreve o
+  terceiro estado** ("não foi possível conferir — lance pela Fila") em vez de cair no
+  encaixe em silêncio, que é justamente a duplicata que o aviso existe para impedir.
+  A lição que generaliza: **quando uma tela cria um registro que outra tela também cria,
+  pergunte se o registro já EXISTE antes de criar** — a duplicidade que a capa pegava era
+  a de atendimento; a de HORÁRIO passou seis parcelas invisível porque nenhuma das duas
+  telas perguntava à outra.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

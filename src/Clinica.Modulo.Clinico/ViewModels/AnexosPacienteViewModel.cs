@@ -192,6 +192,52 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     }
 
     /// <summary>Abre o diálogo de registro — o molde da colheita de medida.</summary>
+    /// <summary>
+    /// Abre o laudo em arquivo do resultado — o MESMO caminho do anexo: salva onde a
+    /// pessoa escolher e o Windows abre no programa padrão. Dado de saúde saindo para
+    /// arquivo deixa rastro (parcela 60).
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirLaudoAsync(LinhaResultadoExame? linha)
+    {
+        if (linha is null || !linha.TemArquivo) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir o laudo do exame");
+
+            byte[]? bytes;
+            using (var escopo = _escopos.CreateScope())
+            {
+                var servico = escopo.ServiceProvider.GetRequiredService<ResultadoExameService>();
+                bytes = await servico.ConteudoDoLaudoAsync(linha.Id);
+
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(_foco.PacienteId ?? 0, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ExportacaoClinica);
+            }
+
+            if (bytes is null || bytes.Length == 0)
+            {
+                Mensagem = "O arquivo deste laudo não foi encontrado no banco.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                bytes, ImpressaoPdf.NomeSeguro(linha.ArquivoNome!));
+            Mensagem = erro;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — o laudo não pôde ser aberto", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     [RelayCommand]
     private async Task RegistrarResultadoAsync()
     {
@@ -277,12 +323,19 @@ public sealed class LinhaResultadoExame
 
     public string? Observacoes { get; init; }
 
+    /// <summary>Nome do laudo em arquivo; nulo quando o registro é só o valor digitado.</summary>
+    public string? ArquivoNome { get; init; }
+
+    /// <summary>Só a linha que TEM arquivo mostra o botão de abrir (parcela 41).</summary>
+    public bool TemArquivo => !string.IsNullOrWhiteSpace(ArquivoNome);
+
     public static LinhaResultadoExame De(ResultadoExame r) => new()
     {
         Id = r.Id,
+        ArquivoNome = r.ArquivoNome,
         Data = r.Data.ToString("dd/MM/yyyy"),
         Nome = r.Nome,
-        Valor = r.ValorComUnidade,
+        Valor = r.ResumoDoResultado,
         Contexto = string.Join(" · ", new[]
         {
             string.IsNullOrWhiteSpace(r.Referencia) ? null : $"ref.: {r.Referencia}",

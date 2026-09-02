@@ -68,6 +68,22 @@ public class Paciente
     public string? IndicadoPor { get; set; }
 
     /// <summary>
+    /// Chave de IDEMPOTÊNCIA da importação do sistema anterior (set/2026 — a clínica
+    /// migrou do Smart Clinic). Forma: <c>IMPORT:{sistema}:{id de lá}</c>; nula para
+    /// toda ficha cadastrada aqui.
+    ///
+    /// É o que faz a importação poder RODAR DE NOVO: o arquivo exportado é reprocessado
+    /// (a segunda exportação, a linha corrigida, a queda de conexão no meio) e a ficha
+    /// que já entrou por esta chave é PULADA em vez de duplicada. O CPF não serve de
+    /// chave: metade da base do sistema antigo pode não tê-lo, e duas fichas da mesma
+    /// pessoa partem o histórico em dois (parcela 57).
+    ///
+    /// Quem lê é o próprio importador (<c>ImportacaoPacientesService</c>) — a chave é o
+    /// leitor, e a trilha de auditoria a carrega no detalhe de cada ficha criada.
+    /// </summary>
+    public string? ChaveImportacao { get; set; }
+
+    /// <summary>
     /// Miniatura JPEG quadrada (~160px) do retrato. Fica na própria linha do paciente
     /// porque é pequena e alimenta os avatares da lista; a foto cheia mora em
     /// <see cref="Foto"/> (tabela à parte, carregada sob demanda).
@@ -93,6 +109,11 @@ public class Paciente
     /// vistas na lista de pacientes em produção.
     /// </summary>
     public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+
+    /// <summary>A ficha veio do sistema anterior sem convênio e ninguém escolheu ainda
+    /// (<see cref="ConvenioCadastro.CodigoADefinir"/>). Quem acusa é a elegibilidade.</summary>
+    public bool ConvenioADefinir =>
+        string.Equals(ConvenioCodigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Carteirinha com validade já passada — guia recusada na hora pelo convênio.</summary>
     public bool CarteirinhaVencida =>

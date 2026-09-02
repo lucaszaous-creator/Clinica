@@ -329,6 +329,13 @@ public class Agendamento
     /// </summary>
     public string? CriadoPor { get; set; }
 
+    /// <summary>
+    /// Chave de idempotência da importação do sistema anterior (set/2026): só os horários
+    /// FUTUROS da agenda antiga viram horário aqui, e esta chave impede que o mesmo pacote
+    /// importado duas vezes marque duas vezes. Nula em todo horário marcado aqui.
+    /// </summary>
+    public string? ChaveImportacao { get; set; }
+
     /// <summary>Quando foi lançado. Nulo nas linhas anteriores à parcela 58.</summary>
     public DateTime? CriadoEm { get; set; }
 

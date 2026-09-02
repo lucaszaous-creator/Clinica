@@ -1,0 +1,122 @@
+<Window x:Class="Clinica.Clinico.Janelas.ResultadosDoPedidoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Resultado do exame" Width="620" Height="520" MinWidth="520" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <!-- O quick-view do mockup: o laudo registrado, sem sair da lista de Exames. -->
+    <DockPanel Margin="20">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap">
+                <Run Text="Resultado — " /><Run Text="{Binding ExameRotulo, Mode=OneWay}" />
+            </TextBlock>
+            <Grid Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="{Binding Paciente}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="Pedido" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="{Binding PedidoTexto}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <!-- Rodapé ANTES do miolo (a barra é onde está o botão — parcela 47). -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Abrir exames do paciente" MinWidth="190" Margin="0,0,8,0"
+                    ToolTip="Laudos em arquivo, registro de novos resultados e o histórico inteiro"
+                    Command="{Binding AbrirNoPacienteCommand}" />
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Resultados}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource Brush.Superficie}"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}"
+                                    Padding="14,12" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource TextoSuave}"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Margin="0" TextWrapping="Wrap">
+                                        <Run Text="{Binding DataTexto, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text="{Binding Laboratorio, Mode=OneWay,
+                                                    StringFormat=' · {0}'}" />
+                                    </TextBlock>
+                                    <TextBlock TextWrapping="Wrap" Margin="0,6,0,0">
+                                        <Run Text="{Binding Nome, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=": " />
+                                        <Run Text="{Binding Valor, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"
+                                               Style="{StaticResource TextoSuave}"
+                                               Visibility="{Binding Referencia,
+                                                            Converter={StaticResource TextoParaVisibilidade}}">
+                                        <Run Text="Referência do laudo: " /><Run Text="{Binding Referencia, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
+                                               Margin="0,4,0,0"
+                                               Visibility="{Binding Observacoes,
+                                                            Converter={StaticResource TextoParaVisibilidade}}" />
+                                    <!-- Só a linha que TEM arquivo mostra o botão: aceso
+                                         sobre um resultado sem laudo, ele não faria nada. -->
+                                    <Button Content="Abrir laudo" HorizontalAlignment="Left"
+                                            Margin="0,8,0,0"
+                                            Style="{StaticResource BotaoAcaoGridSecundario}"
+                                            ToolTip="{Binding ArquivoNome}"
+                                            Visibility="{Binding TemArquivo,
+                                                         Converter={StaticResource BoolParaVisibilidade}}"
+                                            Command="{Binding DataContext.AbrirLaudoCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <ctrl:EstadoDaTela Itens="{Binding Resultados}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE9D2;"
+                               TextoCarregando="Procurando os resultados…"
+                               Titulo="Nenhum resultado amarrado a este pedido"
+                               Descricao="Registre o laudo pela lista de Exames ou pela seção Exames e anexos do paciente." />
+        </Grid>
+    </DockPanel>
+</Window>

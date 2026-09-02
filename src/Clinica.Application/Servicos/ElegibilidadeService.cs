@@ -89,6 +89,7 @@ public sealed class ElegibilidadeService
 
         var alertas = new List<AlertaElegibilidade>();
 
+        ConferirConvenioADefinir(paciente, alertas);
         ConferirCarteirinha(paciente, referencia, alertas);
         await ConferirConsultaAsync(pacienteId, referencia, alertas, ct);
         await ConferirCotaAsync(pacienteId, referencia, alertas, ct);
@@ -145,6 +146,22 @@ public sealed class ElegibilidadeService
                 NivelUrgencia.Vermelho,
                 $"No termo \"{s.NomeDoTermo}\" o paciente respondeu NÃO em: "
                 + $"{string.Join("; ", s.DeclaracoesNegadas)}."));
+    }
+
+    /// <summary>
+    /// A ficha importada sem convênio (set/2026). Mora AQUI pela razão de sempre: daqui o
+    /// aviso chega ao agendamento, ao check-in, ao Novo atendimento, à ficha e ao
+    /// Consultório — e a direção pediu exatamente isso: em vez de decidir 2.021 fichas
+    /// antes de importar, decidir cada uma quando a pessoa aparecer.
+    /// </summary>
+    private static void ConferirConvenioADefinir(Paciente paciente, List<AlertaElegibilidade> alertas)
+    {
+        if (!paciente.ConvenioADefinir) return;
+        alertas.Add(new AlertaElegibilidade(
+            ImpedimentoElegibilidade.ConvenioADefinir,
+            NivelUrgencia.Vermelho,
+            "Convênio a definir: a ficha veio do sistema anterior sem convênio. Escolha o convênio "
+            + "na ficha antes de marcar — sem ele o atendimento entra sem guia."));
     }
 
     private static void ConferirCarteirinha(

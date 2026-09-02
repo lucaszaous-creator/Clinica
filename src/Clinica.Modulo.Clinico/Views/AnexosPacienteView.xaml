@@ -20,7 +20,7 @@
             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                 <TextBlock Text="Exames e anexos" Style="{StaticResource H3}" Margin="0,0,0,2" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                           Text="Resultados registrados e arquivos anexados, do mais recente para o mais antigo. Para anexar um arquivo novo, abra a sessão no Prontuário — o arquivo pertence à consulta em que ele foi discutido." />
+                           Text="Resultados registrados e arquivos anexados, do mais recente para o mais antigo. O laudo de um exame sobe pelo &quot;Registrar resultado&quot; aqui em cima; arquivo que pertence a uma CONSULTA se anexa pela sessão, no Prontuário." />
                 <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
                            Margin="0,6,0,0"
                            Visibility="{Binding Resumo, Converter={StaticResource TextoParaVisibilidade},
@@ -95,15 +95,28 @@
                                                    Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
                                     </StackPanel>
 
-                                    <!-- Cancelar com motivo, nunca "excluir" (parcela 52). -->
-                                    <Button Grid.Column="1" Content="Cancelar…" MinWidth="100"
-                                            VerticalAlignment="Center"
-                                            Style="{StaticResource BotaoPequeno}"
-                                            IsEnabled="{Binding DataContext.PodeRegistrar,
-                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            Command="{Binding DataContext.CancelarResultadoCommand,
-                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding}" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <!-- Só a linha que TEM laudo mostra o botão: aceso
+                                             sobre um resultado sem arquivo, ele não faria
+                                             nada (parcela 41). -->
+                                        <Button Content="Abrir laudo" MinWidth="100" Margin="0,0,6,0"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                ToolTip="{Binding ArquivoNome}"
+                                                Visibility="{Binding TemArquivo,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.AbrirLaudoCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <!-- Cancelar com motivo, nunca "excluir" (parcela 52). -->
+                                        <Button Content="Cancelar…" MinWidth="100"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                IsEnabled="{Binding DataContext.PodeRegistrar,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.CancelarResultadoCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

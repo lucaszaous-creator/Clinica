@@ -8,6 +8,27 @@ namespace Clinica.Domain.Entities;
 /// </summary>
 public class ConvenioCadastro
 {
+    /// <summary>
+    /// O convênio "A DEFINIR" (set/2026): a ficha que veio do sistema anterior sem convênio
+    /// (2.021 de 2.238 na exportação real) entra com este código em vez de travar a
+    /// importação numa decisão que a direção não tem como tomar ficha a ficha. Não gera
+    /// guia, e o <c>ElegibilidadeService</c> acusa em VERMELHO no próximo agendamento e
+    /// atendimento: a escolha acontece com o paciente na frente, que é onde ela é possível.
+    /// Semeado pela importação no primeiro uso; a clínica pode desativá-lo quando a última
+    /// ficha for resolvida.
+    /// </summary>
+    public const string CodigoADefinir = "ADefinir";
+
+    public static ConvenioCadastro ADefinir() => new()
+    {
+        Codigo = CodigoADefinir,
+        Nome = "A definir (importado sem convênio)",
+        Familia = Convenio.Personalizado,
+        Ativo = true,
+        GeraGuia = false,
+        FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao
+    };
+
     /// <summary>Código único (chave). Para os embutidos, é o nome da família (ex.: "Amil").</summary>
     public string Codigo { get; set; } = string.Empty;
 

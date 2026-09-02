@@ -33,6 +33,20 @@ public class ResultadoExame
     public int PacienteId { get; set; }
     public Paciente? Paciente { get; set; }
 
+    /// <summary>
+    /// O PEDIDO DE EXAME que este resultado responde (o DocumentoClinico de tipo
+    /// PedidoExame), quando a clínica o amarrou. É este elo que faz a tela de Exames
+    /// dizer "Aguardando resultado" ou "Resultado disponível" por FATO — sem ele a
+    /// situação seria chute com cara de registro.
+    ///
+    /// Nulo é o caso normal: resultado trazido pelo paciente sem pedido nosso, ou
+    /// registrado antes de o vínculo existir (set/2026). O serviço RECUSA amarrar num
+    /// pedido de OUTRO paciente ou num documento que não é pedido — o vínculo errado
+    /// daria baixa na espera de outra pessoa.
+    /// </summary>
+    public int? PedidoDocumentoId { get; set; }
+    public DocumentoClinico? PedidoDocumento { get; set; }
+
     /// <summary>Data do exame (coleta ou laudo) — a data CLÍNICA, informada.</summary>
     public DateOnly Data { get; set; }
 
@@ -52,6 +66,29 @@ public class ResultadoExame
 
     public string? Observacoes { get; set; }
 
+    // ===== O LAUDO EM ARQUIVO (set/2026) =====
+    //
+    // O laudo chega por WhatsApp, e-mail ou papel escaneado, e é ELE que o profissional
+    // quer ver — o valor estruturado acima é o que se COMPARA depois. Os dois convivem:
+    // dá para registrar só o número, só o arquivo, ou os dois.
+    //
+    // ⚠️ Os METADADOS ficam aqui e os BYTES moram em <see cref="ArquivoResultadoExame"/>,
+    // tabela 1:1 carregada sob demanda — é o padrão do retrato do paciente
+    // (FotoMiniatura na linha, PacientesFotos à parte). Pôr o byte[] nesta entidade faria
+    // TODA leitura de resultados arrastar os PDFs pela rede, que é a lição da parcela 74.
+
+    /// <summary>Nome do arquivo do laudo, como veio. Nulo = resultado sem arquivo.</summary>
+    public string? ArquivoNome { get; set; }
+
+    /// <summary>MIME do laudo (application/pdf, image/jpeg…) — decide como abrir.</summary>
+    public string? ArquivoTipoConteudo { get; set; }
+
+    /// <summary>Tamanho em bytes, para a tela dizer o peso sem abrir o arquivo.</summary>
+    public int? ArquivoTamanho { get; set; }
+
+    /// <summary>Os bytes do laudo. Só é carregado quando explicitamente pedido.</summary>
+    public ArquivoResultadoExame? Arquivo { get; set; }
+
     public DateTime CriadoEm { get; set; } = DateTime.Now;
     public string? CriadoPor { get; set; }
 
@@ -66,4 +103,34 @@ public class ResultadoExame
     public string ValorComUnidade => string.IsNullOrWhiteSpace(Unidade)
         ? Valor
         : $"{Valor} {Unidade}";
+
+    /// <summary>⚠️ Derivada — em consulta traduzida use a COLUNA (ArquivoNome != null).</summary>
+    public bool TemArquivo => !string.IsNullOrWhiteSpace(ArquivoNome);
+
+    /// <summary>
+    /// O que a tela mostra na linha: o valor digitado, e o NOME DO ARQUIVO quando o
+    /// registro é só o laudo. Vazio seria uma linha que não diz o que ela é.
+    /// </summary>
+    public string ResumoDoResultado => !string.IsNullOrWhiteSpace(Valor)
+        ? ValorComUnidade
+        : TemArquivo ? $"laudo em arquivo — {ArquivoNome}" : "(sem conteúdo)";
+}
+
+/// <summary>
+/// Os BYTES do laudo, em tabela 1:1 com o resultado — o padrão do retrato do paciente:
+/// a lista de resultados é lida a cada abertura de tela, e um PDF de 4 MB por linha
+/// tornaria a leitura impraticável num banco remoto (a lição da parcela 74).
+///
+/// Não há exclusão: o laudo é registro clínico e segue a linha que o guarda — o
+/// resultado se CANCELA com motivo, e o arquivo fica junto (Lei 13.787/2018).
+/// </summary>
+public class ArquivoResultadoExame
+{
+    /// <summary>Chave primária e estrangeira: cada resultado tem no máximo um laudo.</summary>
+    public int ResultadoExameId { get; set; }
+
+    /// <summary>O arquivo como veio — PDF do laboratório, foto do papel, imagem do exame.</summary>
+    public byte[] Conteudo { get; set; } = Array.Empty<byte>();
+
+    public ResultadoExame? Resultado { get; set; }
 }

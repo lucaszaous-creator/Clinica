@@ -1,0 +1,195 @@
+<Window x:Class="Clinica.Clinico.Janelas.ResumoProntuarioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Prontuário" Width="760" Height="640" MinWidth="640" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <!-- O quick-view do mockup: LER sem sair da lista. Não escreve nada — quem escreve é
+         a tela do paciente, atrás do "Abrir prontuário completo". -->
+    <DockPanel Margin="20">
+
+        <!-- Cabeçalho: quem, a linha de identificação e os três destaques do mockup. -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <ctrl:Avatar Tamanho="40" Nome="{Binding Paciente}" VerticalAlignment="Center"
+                             Margin="0,0,12,0" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource DialogoTitulo}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding LinhaIdentificacao}" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding LinhaIdentificacao,
+                                            Converter={StaticResource TextoParaVisibilidade}}" />
+                </StackPanel>
+            </StackPanel>
+
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="Diagnósticos recentes" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="{Binding DiagnosticosTexto, TargetNullValue=—}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                    <TextBlock Text="Plano terapêutico" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="{Binding PlanoTerapeutico, TargetNullValue=—}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Alergias" Style="{StaticResource Rotulo}" />
+                    <!-- A alergia é atributo da PESSOA (parcela 74): destaque em vermelho,
+                         não uma célula igual às outras. -->
+                    <TextBlock Text="{Binding AlergiasTexto, TargetNullValue=Nenhuma registrada}"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Erro}" FontWeight="SemiBold" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <!-- Rodapé ANTES do miolo no DockPanel — senão o miolo rolante come a barra. -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Content="Abrir prontuário completo" MinWidth="200"
+                    Command="{Binding AbrirCompletoCommand}" Margin="0,0,8,0" />
+            <Button Content="2ª via da anamnese" Style="{StaticResource BotaoSecundario}"
+                    MinWidth="160" Margin="0,0,8,0"
+                    ToolTip="A folha EMITIDA, como saiu — nunca remontada do prontuário de hoje"
+                    Visibility="{Binding TemFolhaDeAnamnese,
+                                 Converter={StaticResource BoolParaVisibilidade}}"
+                    Command="{Binding SegundaViaCommand}" />
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Grid>
+            <TabControl Background="Transparent" BorderThickness="0"
+                        SelectedIndex="{Binding AbaInicial, Mode=OneTime}">
+                <TabItem Header="Evoluções">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Nenhuma sessão registrada para este paciente."
+                                       Style="{StaticResource TextoSuave}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding SemEvolucoes,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                            <ItemsControl ItemsSource="{Binding Evolucoes}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <!-- A régua à esquerda é o desenho do mockup: cada
+                                             entrada é um fato datado, não um parágrafo solto. -->
+                                        <Border BorderBrush="{StaticResource Brush.Acento}"
+                                                BorderThickness="3,0,0,0" Padding="12,6"
+                                                Margin="0,0,0,10">
+                                            <StackPanel>
+                                                <TextBlock Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Margin="0" TextWrapping="Wrap">
+                                                    <Run Text="{Binding DataTexto, Mode=OneWay}" FontWeight="SemiBold" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Autor, Mode=OneWay}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Anamnese">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="A anamnese deste paciente ainda não foi escrita."
+                                       Style="{StaticResource TextoSuave}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding SemAnamnese,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                            <ItemsControl ItemsSource="{Binding Anamnese}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,10">
+                                            <TextBlock Text="{Binding Rotulo}" Style="{StaticResource Rotulo}" />
+                                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="Anexos">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Nenhum anexo no prontuário deste paciente."
+                                       Style="{StaticResource TextoSuave}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding SemAnexos,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                            <ItemsControl ItemsSource="{Binding Anexos}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="0,6" BorderBrush="{StaticResource Brush.Borda}"
+                                                BorderThickness="0,0,0,1">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding NomeArquivo}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Contexto}"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Margin="0" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Text="Para baixar ou anexar arquivos, abra o prontuário completo — seção Exames e anexos." />
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+
+            <ctrl:EstadoDaTela Itens="{Binding Evolucoes}"
+                               Carregando="{Binding Carregando}"
+                               Ativo="{Binding Carregando}"
+                               Glifo="&#xE7C3;"
+                               TextoCarregando="Abrindo o prontuário…" />
+        </Grid>
+    </DockPanel>
+</Window>

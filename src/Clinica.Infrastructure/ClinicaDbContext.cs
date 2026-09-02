@@ -43,6 +43,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
     public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
+    public DbSet<ArquivoResultadoExame> ArquivosResultadoExame => Set<ArquivoResultadoExame>();
     public DbSet<ProblemaPaciente> ProblemasPaciente => Set<ProblemaPaciente>();
     public DbSet<AvaliacaoClinica> AvaliacoesClinicas => Set<AvaliacaoClinica>();
     public DbSet<RespostaAvaliacao> RespostasAvaliacao => Set<RespostaAvaliacao>();
@@ -104,8 +105,15 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.ModalidadePreferidaCodigo).HasMaxLength(40);
             // Hora de parede (sem fuso), como na Agenda — evita o erro do Npgsql com DateTime local.
             e.Property(p => p.FotoAtualizadaEm).HasColumnType("timestamp without time zone");
+            // A chave de importação é ÚNICA no banco (ao contrário do CPF, parcela 57): a
+            // coluna nasce vazia, então o índice não tem como falhar na criação — e é ele
+            // que impede dois cliques concorrentes em "Importar" de gravar a mesma ficha
+            // duas vezes, que é exatamente o caso que a chave existe para cobrir.
+            e.Property(p => p.ChaveImportacao).HasMaxLength(120);
+            e.HasIndex(p => p.ChaveImportacao).IsUnique();
             e.Ignore(p => p.TemFoto);
             e.Ignore(p => p.CarteirinhaVencida);
+            e.Ignore(p => p.ConvenioADefinir);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);
         });
 
@@ -258,6 +266,8 @@ public class ClinicaDbContext : DbContext
             // agenda — evita o erro do Npgsql com DateTime local.
             e.Property(a => a.CriadoPor).HasMaxLength(80);
             e.Property(a => a.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.ChaveImportacao).HasMaxLength(160);
+            e.HasIndex(a => a.ChaveImportacao).IsUnique();
             e.HasKey(a => a.Id);
             // Hora de parede (sem fuso). Evita o erro do Npgsql com DateTime local/unspecified.
             e.Property(a => a.DataHora).HasColumnType("timestamp without time zone");
@@ -471,10 +481,11 @@ public class ClinicaDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
 
-            // Os mesmos tetos da Evolucao — a versão guarda o que ela dizia, então o que
-            // cabia lá tem de caber aqui.
-            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
-            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            // Os mesmos tetos da Evolucao — inclusive os textos alargados (set/2026): a
+            // versão guarda o que a evolução DIZIA, e um teto menor aqui faria a primeira
+            // correção de um registro importado falhar ao guardar o anterior.
+            e.Property(x => x.HistoriaDoencaAtual);
+            e.Property(x => x.ExameFisico);
             e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
             e.Property(x => x.CidSessao).HasMaxLength(20);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
@@ -491,14 +502,23 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.QueixaPrincipal).HasMaxLength(1000);
             // O registro do ATENDIMENTO (parcela 73) — todos anuláveis, todos aditivos: a
             // sessão curta de manutenção continua sendo queixa + conduta.
-            e.Property(x => x.HistoriaDoencaAtual).HasMaxLength(4000);
-            e.Property(x => x.ExameFisico).HasMaxLength(4000);
+            //
+            // Os QUATRO textos longos são `text` desde a importação do Smart Clinic
+            // (set/2026): o prontuário antigo tem 88 registros acima de 4.000 caracteres
+            // (o maior, 11.221), e cortar registro clínico na importação é perder o que a
+            // clínica pediu para não perder. Alargar nunca perde linha; a migration diz isso.
+            e.Property(x => x.HistoriaDoencaAtual);
+            e.Property(x => x.ExameFisico);
             e.Property(x => x.HipoteseDiagnostica).HasMaxLength(1000);
             e.Property(x => x.CidSessao).HasMaxLength(20);
-            e.Property(x => x.Conduta).HasMaxLength(4000);
-            e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
+            e.Property(x => x.Conduta);
+            e.Property(x => x.TextoEvolucao);
             e.Property(x => x.Orientacoes).HasMaxLength(2000);
             e.Property(x => x.PlanoTerapeutico).HasMaxLength(1000);
+            // A chave de importação é ÚNICA sobre coluna que nasce vazia (a razão da do
+            // paciente): é ela que impede o mesmo pacote de entrar duas vezes.
+            e.Property(x => x.ChaveImportacao).HasMaxLength(160);
+            e.HasIndex(x => x.ChaveImportacao).IsUnique();
             // O retorno e o encaminhamento (parcela 77). A DATA não precisa de teto, e
             // o `DateOnly` vira `date` e não `timestamp` — o fuso não a alcança.
             e.Property(x => x.RetornoSugeridoNota).HasMaxLength(300);
@@ -590,6 +610,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Unidade).HasMaxLength(30);
             e.Property(x => x.Referencia).HasMaxLength(160);
             e.Property(x => x.Laboratorio).HasMaxLength(120);
+            // Metadados do laudo em ARQUIVO; os bytes ficam na tabela 1:1 abaixo.
+            e.Property(x => x.ArquivoNome).HasMaxLength(260);
+            e.Property(x => x.ArquivoTipoConteudo).HasMaxLength(120);
             e.Property(x => x.Observacoes).HasMaxLength(1000);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CanceladoPor).HasMaxLength(80);
@@ -601,11 +624,37 @@ public class ClinicaDbContext : DbContext
 
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
 
+            // O pedido que este resultado responde. SetNull, nunca cascata: documento
+            // clínico não se apaga, mas se um dia uma limpeza administrativa o levasse,
+            // o RESULTADO é registro clínico próprio e não pode ir de arrasto (a
+            // cascata da parcela 60).
+            e.HasOne(x => x.PedidoDocumento).WithMany()
+                .HasForeignKey(x => x.PedidoDocumentoId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // A leitura é sempre por paciente, em ordem de data (a linha do tempo).
             e.HasIndex(x => new { x.PacienteId, x.Data });
+            // A tela de Exames conta resultados POR PEDIDO — é esta a consulta.
+            e.HasIndex(x => x.PedidoDocumentoId);
 
             e.Ignore(x => x.Cancelado);
             e.Ignore(x => x.ValorComUnidade);
+            e.Ignore(x => x.TemArquivo);
+            e.Ignore(x => x.ResumoDoResultado);
+        });
+
+        // Os BYTES do laudo, à parte — o padrão do retrato do paciente (PacientesFotos):
+        // a lista de resultados é lida a cada abertura de tela, e o PDF só é buscado
+        // quando alguém clica em abrir.
+        b.Entity<ArquivoResultadoExame>(e =>
+        {
+            e.ToTable("ArquivosResultadoExame");
+            e.HasKey(a => a.ResultadoExameId);
+            e.Property(a => a.ResultadoExameId).ValueGeneratedNever();
+            e.Property(a => a.Conteudo).IsRequired();
+            e.HasOne(a => a.Resultado).WithOne(r => r.Arquivo)
+                .HasForeignKey<ArquivoResultadoExame>(a => a.ResultadoExameId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ---- Lista de problemas (parcela 37) ----

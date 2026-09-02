@@ -767,6 +767,7 @@
                                             <MultiDataTrigger>
                                                 <MultiDataTrigger.Conditions>
                                                     <Condition Binding="{Binding TemAvisoJaLancado}" Value="False" />
+                                                    <Condition Binding="{Binding TemAvisoHorarioDoDia}" Value="False" />
                                                     <Condition Binding="{Binding TemAvisoCarteirinha}" Value="False" />
                                                     <Condition Binding="{Binding TemAvisoConsulta}" Value="False" />
                                                     <Condition Binding="{Binding TemSaldoAutorizacao}" Value="False" />
@@ -795,6 +796,28 @@
                                     <TextBlock Grid.Column="1" Text="{Binding AvisoJaLancado}"
                                                Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </Grid>
+
+                                <!-- O HORÁRIO DO DIA (set/2026): o paciente já tem horário em aberto
+                                     neste dia. Lançar USA esse horário em vez de criar um encaixe ao
+                                     lado — uma sessão, um horário. A caixinha é a saída para o caso
+                                     legítimo (sessão de manhã + consulta à tarde). Amarelo, não
+                                     vermelho: não é erro, é o que vai acontecer. -->
+                                <StackPanel Visibility="{Binding TemAvisoHorarioDoDia, Converter={StaticResource BoolParaVisibilidade}}"
+                                            Margin="0,0,0,7">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" CornerRadius="2"
+                                                Background="{StaticResource Brush.Semaforo.Amarelo}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding AvisoHorarioDoDia}"
+                                                   Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    </Grid>
+                                    <CheckBox IsChecked="{Binding CriarEncaixeSeparado}" Margin="13,4,0,0"
+                                              Content="Criar um encaixe separado (o horário continua na agenda)"
+                                              Visibility="{Binding MostrarEscolhaEncaixe, Converter={StaticResource BoolParaVisibilidade}}" />
+                                </StackPanel>
 
                                 <Grid Visibility="{Binding TemAvisoCarteirinha, Converter={StaticResource BoolParaVisibilidade}}"
                                       Margin="0,0,0,7">

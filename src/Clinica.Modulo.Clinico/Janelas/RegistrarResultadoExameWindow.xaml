@@ -1,13 +1,15 @@
 <Window x:Class="Clinica.Clinico.Janelas.RegistrarResultadoExameWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Registrar resultado de exame" Width="560" Height="520"
-        MinWidth="480" MinHeight="440"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Registrar resultado de exame" Width="560" Height="560"
+        MinWidth="480" MinHeight="460"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <!-- Registro em DIÁLOGO, pelo molde da colheita de medida: acontece uma vez por laudo
@@ -38,6 +40,20 @@
             <TextBlock Text="Exame" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding NomeNovo, UpdateSourceTrigger=PropertyChanged}"
                      Margin="0,0,0,12" />
+
+            <!-- O vínculo que faz a tela de Exames dizer "Resultado disponível" por
+                 FATO. Opcional: laudo trazido pelo paciente sem pedido nosso é o caso
+                 normal, e obrigá-lo travaria o registro. -->
+            <TextBlock Text="Responde ao pedido (opcional)" Style="{StaticResource Rotulo}" />
+            <ComboBox ItemsSource="{Binding PedidosDoPaciente}"
+                      SelectedItem="{Binding PedidoEscolhido}"
+                      DisplayMemberPath="Rotulo" Margin="0,0,0,4" />
+            <TextBlock Text="{Binding AvisoPedidos}" Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                       Margin="0,0,0,8"
+                       Visibility="{Binding AvisoPedidos,
+                                    Converter={StaticResource TextoParaVisibilidade}}" />
+            <Border Height="4" />
 
             <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
@@ -82,6 +98,33 @@
             </Grid>
             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                        Text="Copie a faixa de referência DO LAUDO — cada laboratório tem a sua, e o sistema não inventa uma." />
+
+            <!-- O LAUDO EM ARQUIVO: o PDF que chega do laboratório. Opcional em relação
+                 ao valor digitado — dá para registrar só o número, só o arquivo, ou os
+                 dois; o serviço recusa apenas o registro sem conteúdo nenhum. -->
+            <TextBlock Text="Laudo em arquivo (opcional)" Style="{StaticResource Rotulo}" />
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock Text="{Binding LaudoEscolhido, TargetNullValue=Nenhum arquivo escolhido}"
+                               Style="{StaticResource CelulaSuave}" VerticalAlignment="Center" />
+                </Border>
+                <Button Grid.Column="1" Content="Escolher arquivo…" MinWidth="150"
+                        Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center"
+                        Command="{Binding EscolherLaudoCommand}" />
+                <Button Grid.Column="2" Content="Tirar" Margin="8,0,0,0" MinWidth="70"
+                        Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center"
+                        Visibility="{Binding LaudoEscolhido,
+                                     Converter={StaticResource TextoParaVisibilidade}}"
+                        Command="{Binding RemoverLaudoCommand}" />
+            </Grid>
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                       Text="PDF ou foto do laudo, até 10 MB. O arquivo fica no prontuário do paciente e não se apaga — o registro se cancela com motivo." />
 
             <TextBlock Text="Observação (opcional)" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding ObservacoesNovas, UpdateSourceTrigger=PropertyChanged}"

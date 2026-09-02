@@ -170,6 +170,15 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(string cpfSoDigitos, CancellationToken ct = default);
 
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
+
+    /// <summary>
+    /// A carteira INTEIRA reduzida ao que a importação precisa para reconhecer quem já
+    /// está na base: id, nome, CPF (como gravado — com máscara nas linhas antigas),
+    /// nascimento e a chave de importação. Uma consulta, cinco colunas, sem a
+    /// miniatura da foto (a lição da parcela 74): carregar <see cref="Paciente"/>
+    /// inteiro para comparar CPF traria um JPEG por linha.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.FichaResumida>> FichasResumidasAsync(CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     /// <summary>
@@ -373,6 +382,29 @@ public interface IClinicaRepositorio
 
     Task AdicionarEvolucaoAsync(Evolucao evolucao, CancellationToken ct = default);
 
+    /// <summary>As chaves de importação já gravadas em evoluções — o que o mesmo pacote,
+    /// importado de novo, tem de PULAR. Uma coluna, só as não nulas.</summary>
+    Task<IReadOnlySet<string>> ChavesDeImportacaoDeEvolucoesAsync(CancellationToken ct = default);
+
+    /// <summary>As chaves de importação já gravadas em agendamentos (a agenda futura do
+    /// sistema anterior).</summary>
+    Task<IReadOnlySet<string>> ChavesDeImportacaoDeAgendamentosAsync(CancellationToken ct = default);
+
+    /// <summary>Evoluções importadas sem profissional vinculado: id e <c>CriadoPor</c> (o nome
+    /// do autor como o sistema antigo gravou). É por ele que a Equipe cadastrada DEPOIS da
+    /// importação ganha o vínculo.</summary>
+    Task<IReadOnlyList<Modelos.RegistroImportadoSemProfissional>> EvolucoesImportadasSemProfissionalAsync(CancellationToken ct = default);
+
+    /// <summary>Agendamentos importados sem profissional: id e <c>Observacoes</c> (onde a
+    /// importação escreveu o nome do profissional que não reconheceu).</summary>
+    Task<IReadOnlyList<Modelos.RegistroImportadoSemProfissional>> AgendamentosImportadosSemProfissionalAsync(CancellationToken ct = default);
+
+    /// <summary>Vincula de uma vez um profissional a evoluções (UPDATE em lote).</summary>
+    Task VincularProfissionalEmEvolucoesAsync(IReadOnlyCollection<int> evolucaoIds, int profissionalId, CancellationToken ct = default);
+
+    /// <summary>Vincula de uma vez um profissional a agendamentos (UPDATE em lote).</summary>
+    Task VincularProfissionalEmAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, int profissionalId, CancellationToken ct = default);
+
     /// <summary>Evolução com profissional carregado (entidade rastreada, para editar).</summary>
     Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
@@ -503,6 +535,20 @@ public interface IClinicaRepositorio
     // ---- Resultados de exame estruturados (ago/2026) ----
 
     Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default);
+
+    /// <summary>
+    /// Guarda os BYTES do laudo do resultado (tabela 1:1, o padrão do retrato do
+    /// paciente). Separado do resultado de propósito: a lista de resultados é lida a
+    /// cada abertura de tela e não pode arrastar os PDFs (a lição da parcela 74).
+    /// </summary>
+    Task AdicionarArquivoResultadoExameAsync(
+        ArquivoResultadoExame arquivo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os bytes do laudo, sob demanda — a ÚNICA consulta que materializa o arquivo.
+    /// Nulo quando o resultado não tem laudo anexado.
+    /// </summary>
+    Task<byte[]?> ConteudoDoLaudoAsync(int resultadoId, CancellationToken ct = default);
 
     Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default);
 
@@ -1336,6 +1382,26 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default, int? profissionalId = null);
+
+    /// <summary>
+    /// As evoluções do período para a tela de PRONTUÁRIOS — por PROJEÇÃO, sem os textos:
+    /// a lista mostra cinco colunas, e ler a entidade inteira arrastaria meio megabyte de
+    /// prontuário por carga (a lição da parcela 74). Cancelada fica de fora (registro
+    /// desdito mora no histórico do paciente); a regra do filtro de profissional é a
+    /// MESMA de <see cref="EvolucoesNoPeriodoAsync"/> — evolução sem profissional entra.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.LinhaEvolucaoProntuarios>> EvolucoesParaProntuariosAsync(
+        DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os pedidos de exame com a situação DERIVADA DE FATO (a contagem de resultados
+    /// vigentes amarrados a cada um), numa consulta só. Serve à tela de Exames (por
+    /// período e profissional) e ao combo de vínculo do registro de resultado (por
+    /// paciente). Cancelado ENTRA, marcado — pedido numerado nunca some da lista.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.PedidoDeExameLinha>> PedidosDeExameAsync(
+        DateOnly? inicio = null, DateOnly? fim = null, int? profissionalId = null,
+        int? pacienteId = null, CancellationToken ct = default);
 
     /// <summary>
     /// Quando cada paciente veio pela última vez e se já tem horário futuro — por

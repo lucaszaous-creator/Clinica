@@ -199,7 +199,14 @@ public enum ImpedimentoElegibilidade
     /// papel, aqui o papel está completo e o PROCEDIMENTO pode não estar seguro. Fundi-los
     /// faria "resolvido" cobrir os dois, e o segundo não se resolve com assinatura nenhuma.
     /// </summary>
-    DeclaracaoDoTermoNegada
+    DeclaracaoDoTermoNegada,
+
+    /// <summary>
+    /// A ficha veio do sistema anterior sem convênio e ninguém escolheu ainda (set/2026).
+    /// Vermelho porque, sem convênio, o atendimento entra sem guia — e a escolha só é
+    /// possível com o paciente na frente, que é exatamente onde este alerta aparece.
+    /// </summary>
+    ConvenioADefinir
 }
 
 /// <summary>Um alerta de elegibilidade, com a gravidade que a recepção precisa ver.</summary>

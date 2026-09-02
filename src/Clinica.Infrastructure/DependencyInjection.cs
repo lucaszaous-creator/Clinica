@@ -73,6 +73,8 @@ public static class DependencyInjection
         services.AddScoped<ResultadoMensalService>();
         services.AddScoped<RetencaoPacienteService>();
         services.AddScoped<OrigemPacientesService>();
+        services.AddScoped<ImportacaoPacientesService>();
+        services.AddScoped<ImportacaoSmartClinicService>();
         services.AddScoped<RelacionamentoService>();
         services.AddScoped<AgendaPdfService>();
         services.AddScoped<FinanceiroService>();

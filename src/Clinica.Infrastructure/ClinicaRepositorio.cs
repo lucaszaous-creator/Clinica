@@ -380,6 +380,53 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(c => c.DataBaixa)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlySet<string>> ChavesDeImportacaoDeEvolucoesAsync(CancellationToken ct = default)
+        => (await _db.Evolucoes.AsNoTracking()
+                .Where(e => e.ChaveImportacao != null)
+                .Select(e => e.ChaveImportacao!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+    public async Task<IReadOnlySet<string>> ChavesDeImportacaoDeAgendamentosAsync(CancellationToken ct = default)
+        => (await _db.Agendamentos.AsNoTracking()
+                .Where(a => a.ChaveImportacao != null)
+                .Select(a => a.ChaveImportacao!)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.RegistroImportadoSemProfissional>> EvolucoesImportadasSemProfissionalAsync(
+        CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            .Where(e => e.ChaveImportacao != null && e.ProfissionalId == null)
+            .Select(e => new Clinica.Application.Modelos.RegistroImportadoSemProfissional(e.Id, e.CriadoPor))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.RegistroImportadoSemProfissional>> AgendamentosImportadosSemProfissionalAsync(
+        CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.ChaveImportacao != null && a.ProfissionalId == null)
+            .Select(a => new Clinica.Application.Modelos.RegistroImportadoSemProfissional(a.Id, a.Observacoes))
+            .ToListAsync(ct);
+
+    public async Task VincularProfissionalEmEvolucoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, int profissionalId, CancellationToken ct = default)
+        => await _db.Evolucoes
+            .Where(e => evolucaoIds.Contains(e.Id) && e.ProfissionalId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.ProfissionalId, profissionalId), ct);
+
+    public async Task VincularProfissionalEmAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, int profissionalId, CancellationToken ct = default)
+        => await _db.Agendamentos
+            .Where(a => agendamentoIds.Contains(a.Id) && a.ProfissionalId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.ProfissionalId, profissionalId), ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.FichaResumida>> FichasResumidasAsync(
+        CancellationToken ct = default)
+        => await _db.Pacientes.AsNoTracking()
+            .Select(p => new Clinica.Application.Modelos.FichaResumida(
+                p.Id, p.Nome, p.Documento, p.DataNascimento, p.ChaveImportacao))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(
         string cpfSoDigitos, CancellationToken ct = default)
     {
@@ -1136,6 +1183,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default)
         => await _db.ResultadosExame.AddAsync(resultado, ct);
+
+    public async Task AdicionarArquivoResultadoExameAsync(
+        ArquivoResultadoExame arquivo, CancellationToken ct = default)
+        => await _db.ArquivosResultadoExame.AddAsync(arquivo, ct);
+
+    // A ÚNICA consulta que materializa o laudo — todas as outras leem só os metadados.
+    public Task<byte[]?> ConteudoDoLaudoAsync(int resultadoId, CancellationToken ct = default)
+        => _db.ArquivosResultadoExame.AsNoTracking()
+            .Where(a => a.ResultadoExameId == resultadoId)
+            .Select(a => a.Conteudo)
+            .FirstOrDefaultAsync(ct);
 
     public Task<ResultadoExame?> ObterResultadoExameAsync(int resultadoId, CancellationToken ct = default)
         => _db.ResultadosExame.FirstOrDefaultAsync(r => r.Id == resultadoId, ct);
@@ -2501,6 +2559,71 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
         return await consulta
             .OrderBy(e => e.Data).ThenBy(e => e.Id)
+            .ToListAsync(ct);
+    }
+
+    // A lista da tela de PRONTUÁRIOS: projeção sem os textos (a lição da parcela 74 — a
+    // entidade inteira arrasta o prontuário pela rede para mostrar cinco colunas).
+    // Cancelada fora pela COLUNA (a derivada `Cancelada` não traduz); o filtro de
+    // profissional segue a regra de EvolucoesNoPeriodoAsync.
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.LinhaEvolucaoProntuarios>>
+        EvolucoesParaProntuariosAsync(
+            DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default)
+    {
+        var consulta = _db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null && e.Data >= inicio && e.Data <= fim);
+
+        if (profissionalId is { } id)
+            consulta = consulta.Where(e => e.ProfissionalId == id || e.ProfissionalId == null);
+
+        return await consulta
+            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
+            .Select(e => new Clinica.Application.Modelos.LinhaEvolucaoProntuarios(
+                e.Id,
+                e.PacienteId,
+                e.Paciente!.Nome,
+                e.Data,
+                e.AgendamentoId,
+                e.Agendamento == null ? (ModalidadeAtendimento?)null : e.Agendamento.ModalidadePrevista,
+                e.Agendamento == null ? null : e.Agendamento.ModalidadeCodigo,
+                e.Agendamento == null ? null : e.Agendamento.EspecialidadeConsulta,
+                e.Versoes.Count,
+                e.Profissional == null ? null : e.Profissional.Nome))
+            .ToListAsync(ct);
+    }
+
+    // Os pedidos de exame com a situação derivada de FATO: a contagem de resultados
+    // vigentes amarrados a cada um sai numa subconsulta, na MESMA ida ao banco.
+    // Cancelado ENTRA, marcado — pedido numerado nunca some da lista.
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.PedidoDeExameLinha>>
+        PedidosDeExameAsync(
+            DateOnly? inicio = null, DateOnly? fim = null, int? profissionalId = null,
+            int? pacienteId = null, CancellationToken ct = default)
+    {
+        var consulta = _db.DocumentosClinicos.AsNoTracking()
+            .Where(d => d.Tipo == TipoDocumentoClinico.PedidoExame);
+
+        if (inicio is { } i) consulta = consulta.Where(d => d.Data >= i);
+        if (fim is { } f) consulta = consulta.Where(d => d.Data <= f);
+        if (pacienteId is { } p) consulta = consulta.Where(d => d.PacienteId == p);
+        // Pedido sem profissional entra quando se filtra por um — a mesma razão da
+        // evolução: é o documento emitido antes de a clínica cadastrar a equipe.
+        if (profissionalId is { } prof)
+            consulta = consulta.Where(d => d.ProfissionalId == prof || d.ProfissionalId == null);
+
+        return await consulta
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .Select(d => new Clinica.Application.Modelos.PedidoDeExameLinha(
+                d.Id,
+                d.Numero,
+                d.PacienteId,
+                d.Paciente!.Nome,
+                d.Data,
+                d.Itens.OrderBy(it => it.Ordem).Select(it => it.Descricao).FirstOrDefault(),
+                d.Itens.Count,
+                _db.ResultadosExame.Count(r => r.PedidoDocumentoId == d.Id && r.CanceladoEm == null),
+                d.CanceladoEm != null,
+                d.Profissional == null ? null : d.Profissional.Nome))
             .ToListAsync(ct);
     }
 

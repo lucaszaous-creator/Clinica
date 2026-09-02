@@ -1,0 +1,297 @@
+<UserControl x:Class="Clinica.Gerente.Views.ImportacaoPacientesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <!-- Página que cresce com o dado (a lista da prévia): ScrollViewer na raiz, linhas
+         Auto e teto nas listas (checagem 36), com a roda devolvida à página (checagem 43). -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid Margin="24,20,24,24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- ===== Cabeçalho ===== -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                <TextBlock Text="Importar pacientes" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                           Text="O sistema anterior entra aqui em três passos. Nada é gravado antes da prévia: quem já está cadastrado é completado (só os campos vazios), e o mesmo arquivo importado duas vezes não duplica nada — nem ficha, nem prontuário, nem horário." />
+            </StackPanel>
+
+            <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a GRAVIDADE (parcela 62). -->
+            <Border Grid.Row="1" Margin="0,0,0,12"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaSucesso}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- ===== CONFERÊNCIA (depois de importar o pacote) =====
+                 A resposta a "funcionou?": o ZIP relido contra o banco, arquivo por arquivo.
+                 Vem ANTES dos passos porque é o que a pessoa procura ao terminar. -->
+            <Border Grid.Row="2" Margin="0,0,0,12"
+                    Visibility="{Binding TemConferencia, Converter={StaticResource BoolParaVisibilidade}}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaSucesso}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ConferenciaFechou}" Value="False">
+                                <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="{Binding ConferenciaTitulo}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <ItemsControl ItemsSource="{Binding Conferencia}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,1" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 1 · ARQUIVO ===== -->
+            <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="1 · O ARQUIVO" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Text="O Smart Clinic entrega um ZIP com a carteira, o prontuário, a agenda e os cadastros: escolha o ZIP inteiro e tudo o que é dado de paciente entra (fichas, prontuário em texto, agenda futura, e o que não tem campo vai para as observações). Um CSV avulso de pacientes também serve, de qualquer sistema — aí o passo 2 pergunta o que cada coluna significa." />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Escolher o pacote (ZIP) do Smart Clinic…" MinWidth="260" VerticalAlignment="Center"
+                                IsEnabled="{Binding PodeImportar}"
+                                Command="{Binding EscolherPacoteCommand}" />
+                        <Button Content="Ou um CSV de pacientes…" MinWidth="190" VerticalAlignment="Center" Margin="8,0,0,0"
+                                Style="{StaticResource BotaoSecundario}"
+                                IsEnabled="{Binding PodeImportar}"
+                                Command="{Binding EscolherArquivoCommand}" />
+                        <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
+                            <TextBlock Text="{Binding ArquivoNome}" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding ArquivoNome,
+                                                    Converter={StaticResource TextoParaVisibilidade}}" />
+                            <TextBlock Text="{Binding ArquivoInfo}" Style="{StaticResource TextoSuave}"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0" TextWrapping="Wrap"
+                                       Visibility="{Binding ArquivoInfo,
+                                                    Converter={StaticResource TextoParaVisibilidade}}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 2 · COLUNAS E CONVÊNIOS ===== -->
+            <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,0,0,12"
+                    Visibility="{Binding TemArquivo, Converter={StaticResource BoolParaVisibilidade}}">
+                <StackPanel>
+                    <TextBlock Text="2 · O QUE CADA COLUNA SIGNIFICA" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                    <!-- No modo PACOTE as colunas são as do formato conhecido do Smart Clinic
+                         (fixadas em teste): mostrar 19 combos já certos convida a mexer. -->
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding ModoPacote, Converter={StaticResource BoolParaVisibilidade}}"
+                               Text="Formato do Smart Clinic reconhecido: nome, CPF, celular, nascimento, sexo, endereço em partes, convênio, carteirinha e o ID de lá. O que precisa da sua decisão é só o convênio, abaixo." />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding ModoCsv, Converter={StaticResource BoolParaVisibilidade}}"
+                               Text="A sugestão já está marcada pelo nome das colunas — confira. Só o nome é obrigatório." />
+
+                    <ItemsControl ItemsSource="{Binding Campos}" Grid.IsSharedSizeScope="True"
+                                  Visibility="{Binding ModoCsv, Converter={StaticResource BoolParaVisibilidade}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="ImpCampo" />
+                                        <ColumnDefinition Width="260" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Rotulo}" VerticalAlignment="Center"
+                                               Margin="0,0,12,0" TextTrimming="CharacterEllipsis" />
+                                    <ComboBox Grid.Column="1" VerticalAlignment="Center"
+                                              ItemsSource="{Binding DataContext.OpcoesColuna,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                              SelectedItem="{Binding Coluna}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding Dica}" Margin="12,0,0,0"
+                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                               Style="{StaticResource TextoSuave}"
+                                               FontSize="{StaticResource Fonte.Legenda}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Separator Margin="0,12"
+                               Visibility="{Binding ModoCsv, Converter={StaticResource BoolParaVisibilidade}}" />
+
+                    <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="CONVÊNIOS DO ARQUIVO → CONVÊNIOS DAQUI" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                                   Text="Aponte o que você sabe (“Unimed” pode ser Padrão ou Intercâmbio, e a diferença é regra de faturamento). O que ficar em “definir depois” entra como convênio a definir: o sistema acusa em vermelho no próximo agendamento ou atendimento, e a escolha é feita na ficha, com o paciente na frente. A lista segue a coluna de convênio escolhida acima." />
+                    </StackPanel>
+
+                    <!-- Lista que cresce com o dado: teto + roda devolvida à página. -->
+                    <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto"
+                                  ctrl:Ajudantes.RodaDaPagina="True">
+                        <ItemsControl ItemsSource="{Binding Convenios}" Grid.IsSharedSizeScope="True">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ImpConv" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ImpConvQtd" />
+                                            <ColumnDefinition Width="300" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Texto}" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" Margin="0,0,12,0"
+                                                   MaxWidth="320" TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Texto}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding LinhasTexto}"
+                                                   Style="{StaticResource CelulaSuave}"
+                                                   VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <ComboBox Grid.Column="2" VerticalAlignment="Center"
+                                                  DisplayMemberPath="Rotulo"
+                                                  ItemsSource="{Binding DataContext.OpcoesConvenio,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                  SelectedItem="{Binding Escolha}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Button Content="Gerar a prévia" MinWidth="170" HorizontalAlignment="Left" Margin="0,14,0,0"
+                            IsEnabled="{Binding PodeImportar}"
+                            Command="{Binding GerarPreviaCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 3 · PRÉVIA ===== -->
+            <Border Grid.Row="5" Style="{StaticResource Card}"
+                    Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
+                <StackPanel>
+                    <TextBlock Text="3 · O QUE VAI ACONTECER" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                    <TextBlock Text="{Binding ResumoPrevia}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                    <!-- O que MAIS entra com o pacote: prontuário por arquivo, agenda, autores. -->
+                    <ItemsControl ItemsSource="{Binding ResumoPacote}" Margin="0,0,0,8"
+                                  Visibility="{Binding ModoPacote, Converter={StaticResource BoolParaVisibilidade}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
+                            Visibility="{Binding AvisosGerais, Converter={StaticResource TextoParaVisibilidade}}">
+                        <TextBlock Text="{Binding AvisosGerais}" TextWrapping="Wrap" />
+                    </Border>
+
+                    <Border Background="{StaticResource Brush.Raia}" CornerRadius="8,8,0,0" Padding="12,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60" />
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="2*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Linha" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="Nome" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="CPF" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="Destino" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="4" Text="Detalhe" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer MaxHeight="420" VerticalScrollBarVisibility="Auto"
+                                  ctrl:Ajudantes.RodaDaPagina="True">
+                        <ItemsControl ItemsSource="{Binding Linhas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="12,8" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="60" />
+                                                <ColumnDefinition Width="1.2*" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="2*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Numero}"
+                                                       Style="{StaticResource CelulaSuave}" VerticalAlignment="Top" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Nome}" ToolTip="{Binding Nome}"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Top"
+                                                       Margin="0,0,8,0" />
+                                            <TextBlock Grid.Column="2" Text="{Binding CpfFormatado}"
+                                                       Style="{StaticResource CelulaSuave}" VerticalAlignment="Top" />
+                                            <!-- Um badge por destino; quem decide é o record. -->
+                                            <StackPanel Grid.Column="3" VerticalAlignment="Top" Margin="0,0,8,0">
+                                                <Border Style="{StaticResource Badge.Sucesso}" HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhCriar, Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding DestinoRotulo}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Info}" HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhCompletar, Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding DestinoRotulo}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Aviso}" HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhJaImportada, Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding DestinoRotulo}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Erro}" HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhProblema, Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding DestinoRotulo}" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="4" VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding AvisosTexto}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Aviso}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Visibility="{Binding TemAvisos, Converter={StaticResource BoolParaVisibilidade}}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button Content="{Binding RotuloImportar}" MinWidth="200" VerticalAlignment="Center"
+                                IsEnabled="{Binding PodeExecutar}"
+                                Command="{Binding ImportarCommand}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" FontSize="{StaticResource Fonte.Legenda}"
+                                   Margin="12,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="600"
+                                   Text="Linhas “Não entra” ficam de fora; corrija o arquivo ou o mapeamento e gere a prévia de novo." />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <ctrl:EstadoDaTela Grid.Row="3" Grid.RowSpan="3"
+                               Vazio="False"
+                               Carregando="{Binding Carregando}"
+                               TextoCarregando="{Binding TextoCarregando}" />
+        </Grid>
+    </ScrollViewer>
+</UserControl>

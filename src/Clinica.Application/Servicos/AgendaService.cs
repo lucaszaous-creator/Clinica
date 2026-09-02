@@ -7,6 +7,29 @@ using Clinica.Domain.Regras;
 namespace Clinica.Application.Servicos;
 
 /// <summary>
+/// Um horário do paciente ainda EM ABERTO no dia (set/2026): o que o Novo atendimento
+/// mostra ao escolher o paciente, para lançar SOBRE ele em vez de criar um encaixe ao
+/// lado. A frase sai pronta daqui porque quem a lê são dois lugares (o aviso na escolha
+/// e o rótulo do botão), e duas montagens divergiriam.
+/// </summary>
+public sealed record HorarioEmAberto(
+    int AgendamentoId, DateTime DataHora, string Modalidade, string? ModalidadeCodigo,
+    string? EspecialidadeConsultaCodigo, string? Profissional, bool JaChegou, bool ComGuia,
+    bool Importado)
+{
+    /// <summary>"09h00" — a forma que o balcão fala.</summary>
+    public string Hora => DataHora.ToString("HH'h'mm");
+
+    /// <summary>"09h00 · Consulta · Dra. Ana · importado do sistema anterior".</summary>
+    public string Descricao =>
+        $"{Hora} · {Modalidade}"
+        + (Profissional is null ? "" : $" · {Profissional}")
+        + (Importado ? " · importado do sistema anterior" : "")
+        + (JaChegou ? " · já fez check-in" : "")
+        + (ComGuia ? " · guia já gerada na marcação" : "");
+}
+
+/// <summary>
 /// Agenda da recepção. Ao confirmar a presença, gera o atendimento e os códigos de
 /// faturamento — e SÓ isso: a obtenção do 2º código (+24h) é trabalho da secretária no
 /// sistema do convênio, e vive no painel de pendências, não na agenda (ver
@@ -1025,6 +1048,145 @@ public sealed class AgendaService
             $"Check-in às {agora:HH:mm} — encaixe avulso de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
 
         var lancamento = await ConfirmarNucleoAsync(ag, operador, ct);
+        return (ag, lancamento);
+    }
+
+    /// <summary>
+    /// Os horários que o paciente ainda tem EM ABERTO num dia (set/2026 — a semana em que
+    /// a agenda importada do Smart Clinic e o Novo atendimento passaram a conviver).
+    ///
+    /// "Em aberto" é o horário que ainda pode virar a sessão daquele dia:
+    /// <c>Agendado</c>, presença não confirmada. Cancelado e falta não disputam nada;
+    /// realizado já é atendimento — e desse a capa (<see cref="AtendimentoService.CapasDoDiaAsync"/>)
+    /// avisa. No regime "guia no agendamento" o horário marcado JÁ tem atendimento e
+    /// guias e continua em aberto: lançar sobre ele é confirmar a presença, o mesmo
+    /// Concluir da Fila.
+    /// </summary>
+    public async Task<IReadOnlyList<HorarioEmAberto>> HorariosEmAbertoDoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default)
+    {
+        var doDia = await _repo.AgendamentosDoPacienteNoDiaAsync(pacienteId, dia, ct);
+        var abertos = doDia
+            .Where(a => a.Status == StatusAgendamento.Agendado)
+            .OrderBy(a => a.DataHora).ThenBy(a => a.Id)
+            .ToList();
+        if (abertos.Count == 0) return [];
+
+        var profissionais = await _repo.ProfissionaisAsync(ct);
+        return abertos.Select(a => new HorarioEmAberto(
+            a.Id, a.DataHora,
+            CatalogoModalidades.Nome(a.ModalidadeCodigo, a.ModalidadePrevista),
+            a.ModalidadeCodigo, a.EspecialidadeConsultaCodigo,
+            profissionais.FirstOrDefault(p => p.Id == a.ProfissionalId)?.Rotulo,
+            JaChegou: a.ChegadaEm is not null,
+            ComGuia: a.AtendimentoId is not null,
+            Importado: a.ChaveImportacao is not null)).ToList();
+    }
+
+    /// <summary>
+    /// O LANÇAMENTO SOBRE O HORÁRIO DO DIA (set/2026). O Novo atendimento é a porta que o
+    /// balcão usa o dia inteiro, e até aqui ela SEMPRE criava um encaixe — mesmo quando o
+    /// paciente já tinha horário marcado naquele dia. A semana da migração expôs o custo:
+    /// 227 horários vieram do Smart Clinic, todos como "Consulta" (o sistema antigo não
+    /// guardava mais que isso), e lançar por cima deixava DOIS cartões da mesma sessão —
+    /// o encaixe concluído e o importado parado em "Aguardando" para sempre. Não era só
+    /// ruído: a evolução importada depois do dia (sem vínculo com horário) é distribuída
+    /// na ordem da hora marcada, e o horário parado, mais cedo, ficava com ela; a sessão
+    /// de verdade continuava em "Sessões sem evolução".
+    ///
+    /// Este método é o gesto atômico do <see cref="LancarAvulsoAsync"/> aplicado a um
+    /// horário que JÁ EXISTE: a modalidade escolhida na tela passa a valer para ele, o
+    /// check-in é carimbado e o atendimento com as guias nasce pendurado NESTE horário —
+    /// um SaveChanges, nenhum encaixe. Uma sessão, um horário.
+    ///
+    /// Nulo quer dizer "o chamador não sabe" (a regra da parcela 68): sem código de
+    /// modalidade o horário fica com a que tem; sem profissional/sala, os do horário. A
+    /// modalidade nova num horário que JÁ tem guias (chave "guia no agendamento") regera
+    /// pelo MESMO caminho do Remarcar — duas regras de regeração divergiriam na primeira
+    /// correção.
+    /// </summary>
+    public async Task<(Agendamento Agendamento, ResultadoLancamento Lancamento)> LancarNoHorarioAsync(
+        int agendamentoId, string? observacoes, CancellationToken ct = default,
+        string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
+        TipoCodigo? primeiroCodigo = null, int? profissionalId = null, string? operador = null,
+        int? salaId = null)
+    {
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
+
+        // As duas recusas dizem o que fazer. A tela só oferece horário em aberto, mas a
+        // corrida entre as duas máquinas do balcão existe (parcela 86): a outra pode ter
+        // concluído ou cancelado este horário depois de a tela ter lido.
+        if (ag.Status == StatusAgendamento.Realizado)
+            throw new InvalidOperationException(
+                $"O horário das {ag.DataHora:HH:mm} já virou atendimento — provavelmente concluído na "
+                + "outra máquina. Lançar de novo criaria OUTRO jogo de guias; confira na Fila ou na "
+                + "lista de lançados do dia.");
+        if (ag.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+            throw new InvalidOperationException(
+                $"O horário das {ag.DataHora:HH:mm} foi cancelado (ou marcado como falta). Reabra-o "
+                + "pela agenda (Remarcar) ou lance como encaixe separado.");
+
+        var modalidadeAnterior = ag.ModalidadeCodigo;
+        var especialidadeAnterior = ag.EspecialidadeConsultaCodigo;
+        var mudouModalidade = false;
+        if (modalidadeCodigo is not null)
+        {
+            var modalidade = CatalogoModalidades.Base(modalidadeCodigo);
+            var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+            ag.ModalidadePrevista = modalidade;
+            ag.ModalidadeCodigo = modalidadeCodigo;
+            ag.EspecialidadeConsulta = ehConsulta
+                ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
+            ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+            // Qual código sai primeiro anda com a modalidade (a tela só o oferece nas
+            // duplas): vai junto, inclusive para limpar.
+            ag.PrimeiroCodigo = primeiroCodigo;
+            mudouModalidade = modalidadeCodigo != modalidadeAnterior
+                              || (ehConsulta && especialidadeConsultaCodigo != especialidadeAnterior);
+        }
+        if (profissionalId is not null) ag.ProfissionalId = profissionalId;
+        if (salaId is not null) ag.SalaId = salaId;
+        if (!string.IsNullOrWhiteSpace(observacoes))
+        {
+            // A observação do horário ("Importado do Smart Clinic · Consulta", a nota do
+            // balcão ao marcar) não se perde: a da tela entra abaixo dela.
+            var junto = string.IsNullOrWhiteSpace(ag.Observacoes)
+                ? observacoes.Trim()
+                : $"{ag.Observacoes}\n{observacoes.Trim()}";
+            ag.Observacoes = junto.Length <= 500 ? junto : junto[..500];
+        }
+
+        var agora = DateTime.Now;
+        var chegouAgora = ag.ChegadaEm is null;
+        // O paciente está no balcão: o check-in é o fato. Quem já fez check-in pela Fila
+        // fica com a hora de lá.
+        ag.ChegadaEm ??= agora;
+        if (chegouAgora)
+            await AuditarFilaAsync(ag, operador ?? "?", "FilaChegada",
+                $"Check-in às {agora:HH:mm} — lançado pelo Novo atendimento sobre o horário de "
+                + $"{ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+        if (mudouModalidade)
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "AgendamentoRemarcado",
+                Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — modalidade de "
+                          + $"{CatalogoModalidades.Nome(modalidadeAnterior)} para "
+                          + $"{CatalogoModalidades.Nome(ag.ModalidadeCodigo)} ao lançar pelo Novo atendimento",
+                PacienteId = ag.PacienteId
+            }, ct);
+
+        // GUIA NO AGENDAMENTO: o horário marcado com a chave ligada já tem atendimento e
+        // guias; a modalidade nova regera (ou recusa, se algo já saiu da clínica) pelo
+        // mesmo caminho do Remarcar. Sem atendimento, não faz nada — e o núcleo abaixo o
+        // cria pela modalidade que acabou de valer.
+        var avisosGuia = await _atendimentos.AjustarAoRemarcarAsync(
+            ag, DateOnly.FromDateTime(ag.DataHora), mudouModalidade, operador, ct);
+
+        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct);
+        if (avisosGuia.Count > 0)
+            lancamento = lancamento with { Avisos = avisosGuia.Concat(lancamento.Avisos).ToList() };
         return (ag, lancamento);
     }
 

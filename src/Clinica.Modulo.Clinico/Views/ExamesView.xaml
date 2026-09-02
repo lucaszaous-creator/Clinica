@@ -1,0 +1,209 @@
+<UserControl x:Class="Clinica.Clinico.Views.ExamesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24,20,24,24">
+
+        <!-- Cabeçalho do mockup: título + subtítulo à esquerda, a ação primária à direita. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Exames" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                           Text="Pedidos e resultados dos seus pacientes — a situação segue os resultados REGISTRADOS no sistema." />
+                <TextBlock Text="{Binding MotivoDaLista}" Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           Visibility="{Binding MotivoDaLista,
+                                        Converter={StaticResource TextoParaVisibilidade}}" />
+            </StackPanel>
+
+            <Button Grid.Column="1" VerticalAlignment="Center" MinWidth="190"
+                    IsEnabled="{Binding PodeEmitirPedido}"
+                    Command="{Binding NovoPedidoCommand}"
+                    ToolTip="Escolhe o paciente e abre a emissão do pedido — a mesma folha das outras portas">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE710;" Style="{StaticResource Icone}" FontSize="{StaticResource Fonte.Legenda}"
+                               Margin="0,0,6,0" />
+                    <TextBlock Text="Novo pedido de exame" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a GRAVIDADE (parcela 62). -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}"
+                   Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
+                <DockPanel>
+                    <!-- Cabeçalho da tabela: as MESMAS colunas (estrela/fixa) das linhas —
+                         é a proporção igual que mantém a régua, sem Auto por linha. -->
+                    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Raia}"
+                            CornerRadius="12,12,0,0" Padding="16,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="185" />
+                                <ColumnDefinition Width="230" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Paciente" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="Exame" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="Pedido em" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  ctrl:Ajudantes.RodaDaPagina="True">
+                        <ItemsControl ItemsSource="{Binding Pedidos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.2*" />
+                                                <ColumnDefinition Width="1.6*" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="185" />
+                                                <ColumnDefinition Width="230" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                        VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <ctrl:Avatar Tamanho="28" Nome="{Binding Paciente}"
+                                                             VerticalAlignment="Center" Margin="0,0,10,0" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <!-- Na lista da CLÍNICA inteira cada linha diz de quem
+                                                         é (a regra do posto — parcela 39): pedidos de todos
+                                                         os profissionais sem autoria não se leem. -->
+                                                    <Border Visibility="{Binding DataContext.ListaDaClinica,
+                                                                         RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                                         Converter={StaticResource BoolParaVisibilidade}}">
+                                                        <TextBlock Text="{Binding Profissional}"
+                                                                   Style="{StaticResource CelulaSuave}"
+                                                                   Visibility="{Binding Profissional,
+                                                                                Converter={StaticResource TextoParaVisibilidade}}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                                       Margin="0,0,12,0"
+                                                       Text="{Binding ExameRotulo}"
+                                                       ToolTip="{Binding ExameRotulo}"
+                                                       TextTrimming="CharacterEllipsis" />
+
+                                            <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                       Style="{StaticResource CelulaSuave}"
+                                                       Text="{Binding Data, StringFormat=dd/MM/yyyy}" />
+
+                                            <!-- Um badge por estado, com bandeira — o desenho da
+                                                 tela de Prescrições; quem decide é o record. -->
+                                            <StackPanel Grid.Column="3" VerticalAlignment="Center"
+                                                        Margin="0,0,12,0">
+                                                <Border Style="{StaticResource Badge.Aviso}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhAguardando,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Info}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhDisponivel,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Erro}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding EhCancelado,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding SituacaoRotulo}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <Button Content="Anexar laudo" Margin="0,0,6,0"
+                                                        ToolTip="Sobe o PDF ou a foto do laudo e registra o resultado — já amarrado a este pedido"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        IsEnabled="{Binding DataContext.PodeRegistrarResultado,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Visibility="{Binding MostraRegistrar,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.RegistrarResultadoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Ver resultados"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        Visibility="{Binding MostraVerResultados,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.VerResultadosCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Detalhes"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Visibility="{Binding MostraDetalhes,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.AbrirCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+
+                <ctrl:EstadoDaTela Itens="{Binding Pedidos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE9D2;"
+                                   TextoCarregando="Procurando pedidos de exame…"
+                                   Titulo="Nenhum pedido de exame no período"
+                                   Descricao="Os pedidos emitidos aparecem aqui com a situação do resultado. Emita um pelo botão acima." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>
