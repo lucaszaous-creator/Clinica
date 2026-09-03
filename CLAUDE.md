@@ -421,6 +421,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **`Sum(x => (decimal?)x.Valor)` sobre sequência VAZIA devolve 0, não nulo** — foi assim
   que a prévia ofereceu "desfazer entrada de R$ 0,00" num atendimento sem caixa. Conte
   primeiro (`lista.Count > 0 ? lista.Sum(...) : null`). Um teste pegou; a lição fica.
+- **A BUSCA DE PACIENTE VIROU A TELA** (set/2026, mockup 05 aprovado pelo cliente).
+  Enquanto não há paciente escolhido, o Novo atendimento tem UM assunto — quem — e passou a
+  assumir isso: o cabeçalho da página e o passo "1 · QUEM" somem, e no lugar entra uma coluna
+  de **760 px CENTRADA** com a pergunta, a busca e o resultado. Largura explícita, **sem
+  nenhuma coluna estrela na composição**, então não há deserto possível.
+  ⚠️ **`HorizontalAlignment="Left"` NÃO é como se limita largura de conteúdo.** A tentativa
+  anterior fez exatamente isso num Grid com coluna `*`, e piorou os dois lados de uma vez: com
+  esse alinhamento o WPF arranja o elemento pela largura DESEJADA, a estrela encolhe até o
+  conteúdo, e a tabela ficou estreita **e** o deserto continuou. Limite por medida
+  (`Width`/`MaxWidth`) no container que estica.
+  ⚠️ **`--` é PROIBIDO dentro de comentário XML.** Uma régua de hífens sob um título de
+  comentário quebrou o arquivo — e a mensagem do parser aponta a linha seguinte, não a régua.
+  Os comentários deste projeto usam `====` justamente por isso. Vale validar o XAML com
+  `xml.etree` além das três redes: nem `compilar-sombra` nem `verificar-suite` leem o arquivo
+  como XML puro.
+  ⚠️ **A ÚNICA altura de campo fora dos 36 px da suíte é a desta busca (48 = `Espaco.12`).**
+  A regra "não invente altura para dar ênfase" continua valendo e foi ela que reverteu um
+  campo de 40 px duas parcelas atrás — porque lá ele estava numa RÉGUA de campos de 36. Aqui
+  não há formulário: o campo é o único controle da tela, sem vizinho com quem desalinhar.
+  ⚠️ **A listagem alfabética voltou — como escolha.** A pílula "Todos os pacientes"
+  (`ChipFiltro`, que já existia) desliga a sugestão. O defeito nunca foi a lista existir, foi
+  ela CHEGAR sem ninguém pedir, com cara de resposta. Digitar RELIGA a sugestão, senão o modo
+  fica grudado depois que a pessoa busca e apaga o campo.
 - **O SELETOR DE PACIENTE DEIXOU DE DESPEJAR O ALFABETO** (set/2026). Com o campo de busca
   vazio, `BuscarPacientesAsync` não filtra nada — cai direto no `OrderBy(Nome).Take(50)` —,
   e a tela abria com o começo do alfabeto de 2.238 fichas: ACELINO, ADAISE, ADAO. Uma lista

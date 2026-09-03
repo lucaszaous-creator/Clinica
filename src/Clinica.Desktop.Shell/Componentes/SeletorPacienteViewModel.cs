@@ -77,6 +77,39 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     private bool _mostrandoSugestao;
 
     /// <summary>
+    /// A sugestão está LIGADA. Desligá-la devolve, de propósito, a listagem que o campo
+    /// vazio sempre deu — todo mundo em ordem de nome.
+    ///
+    /// Não é o defeito de volta: o defeito era a listagem chegar SEM ninguém pedir, com
+    /// cara de resposta. Pedida, ela é a resposta certa para "quero ver quem existe" — e
+    /// é o que a tela oferece na pílula "Todos os pacientes".
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SugestaoDesligada))]
+    private bool _sugestaoLigada = true;
+
+    /// <summary>O par invertido — a suíte não tem conversor de booleano invertido.</summary>
+    public bool SugestaoDesligada => !SugestaoLigada;
+
+    /// <summary>Volta para a sugestão da tela (o "Com horário hoje").</summary>
+    [RelayCommand]
+    private Task LigarSugestao()
+    {
+        Termo = null;
+        SugestaoLigada = true;
+        return BuscarAsync(imediato: true);
+    }
+
+    /// <summary>Mostra todo mundo, em ordem de nome — a listagem, agora PEDIDA.</summary>
+    [RelayCommand]
+    private Task DesligarSugestao()
+    {
+        Termo = null;
+        SugestaoLigada = false;
+        return BuscarAsync(imediato: true);
+    }
+
+    /// <summary>
     /// O par invertido de <see cref="MostrandoSugestao"/> — a suíte não tem conversor de
     /// booleano invertido, e é o mesmo par de `SemPaciente`/`PacienteEscolhido`.
     ///
@@ -136,7 +169,14 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     partial void OnSelecionadoChanged(Paciente? value) => SelecaoMudou?.Invoke(value);
 
     // Pesquisa instantânea (padrão CampoPesquisa do design system): a tecla reagenda a busca.
-    partial void OnTermoChanged(string? value) => _ = BuscarAsync();
+    partial void OnTermoChanged(string? value)
+    {
+        // Digitar RELIGA a sugestão. Sem isto, quem clicou em "Todos os pacientes", buscou
+        // alguém e apagou o campo voltaria para a lista alfabética — um modo grudado que
+        // ninguém escolheu e que não aparece em lugar nenhum da tela.
+        if (!string.IsNullOrWhiteSpace(value)) SugestaoLigada = true;
+        _ = BuscarAsync();
+    }
 
     /// <summary>
     /// O tamanho do que a lista responde. O aviso do CORTE só aparece quando o resultado
@@ -180,7 +220,9 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
             // Termo vazio COM sugestão: a tela tem algo melhor a mostrar que o alfabeto, e
             // nem chega a consultar a busca. Sem sugestão, o caminho é o de sempre.
-            var usandoSugestao = SugestaoInicial is not null && string.IsNullOrWhiteSpace(Termo);
+            var usandoSugestao = SugestaoInicial is not null
+                                 && SugestaoLigada
+                                 && string.IsNullOrWhiteSpace(Termo);
 
             IReadOnlyList<Paciente> encontrados;
             if (usandoSugestao)
