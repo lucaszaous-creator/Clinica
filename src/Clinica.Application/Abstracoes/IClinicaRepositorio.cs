@@ -1032,10 +1032,30 @@ public interface IClinicaRepositorio
     /// <summary>Todos os pacotes vendidos, com consumos — base dos totais do módulo.</summary>
     Task<IReadOnlyList<PacotePaciente>> PacotesVendidosAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// O horário que aponta para este atendimento — a pergunta REVERSA da amarra
+    /// (parcela 94). Vem RASTREADO: o estorno muta o horário (solta o vínculo, volta a
+    /// Agendado, limpa os carimbos da fila) no mesmo <c>SaveChanges</c> do atendimento.
+    ///
+    /// ⚠️ <c>Agendamentos.AtendimentoId</c> NÃO tem índice, e o mapeamento é
+    /// <c>WithMany()</c> — o banco aceita mais de um horário apontando para o mesmo
+    /// atendimento. Devolve o primeiro por Id. O índice (e a unicidade) é decisão que
+    /// depende de contar as duplicatas em produção primeiro: migration roda na abertura
+    /// do app, e índice único que falha na criação é o faturamento não abrindo.
+    /// </summary>
+    Task<Agendamento?> AgendamentoDoAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
+
     /// <summary>Consumo já registrado para este atendimento? Evita debitar duas vezes.</summary>
     Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default);
 
     Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// O consumo VIVO deste atendimento (parcela 94) — o que o estorno tem de devolver ao
+    /// saldo. Cancelado não conta: o estorno de um atendimento já estornado devolveria a
+    /// sessão duas vezes.
+    /// </summary>
+    Task<ConsumoPacote?> ConsumoDoAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
 
     // ---- Repasse por profissional ----
 

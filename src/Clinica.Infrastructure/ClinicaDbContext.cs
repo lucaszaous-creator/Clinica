@@ -155,6 +155,13 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.LancadoEm).HasColumnType("timestamp without time zone");
             // Quando a sessão ACONTECEU (parcela 70) — a âncora de "realizado".
             e.Property(a => a.RealizadoEm).HasColumnType("timestamp without time zone");
+            // O ESTORNO (parcela 94). `DateTime` exige o tipo sem fuso: o Npgsql recusa
+            // Kind=Local. E a derivada fica de fora do mapeamento — quem a usasse dentro
+            // de um Where traduzido levaria "Translation of member failed" em runtime.
+            e.Property(a => a.EstornadoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.EstornadoPor).HasMaxLength(80);
+            e.Property(a => a.MotivoEstorno).HasMaxLength(300);
+            e.Ignore(a => a.Estornado);
             e.HasKey(a => a.Id);
             e.Property(a => a.Numero).HasMaxLength(30);
             e.HasIndex(a => a.Numero);

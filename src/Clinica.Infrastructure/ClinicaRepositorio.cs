@@ -267,14 +267,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         // esteve LIGADA, existe atendimento de sessão MARCADA (Agendado, RealizadoEm nulo
         // de propósito) e de sessão cancelada — e religar a chave os carimbaria como
         // visita que nunca houve, corrompendo retenção, origem e estreia sem sintoma.
+        // ⚠️ `EstornadoEm == null` NÃO é enfeite (parcela 94). O estorno SOLTA o horário
+        // (para a sessão poder ser relançada limpa), e sem esta cláusula o atendimento
+        // estornado deixa de ter horário apontando para ele — o `Any` dá falso, o `!` o
+        // torna verdadeiro, e ligar a chave "guia no agendamento" o carimbaria como
+        // sessão realizada. Ressurreição silenciosa em BI, retenção e origem.
+        // A COLUNA, nunca a derivada `Estornado`: o EF recusa membro calculado aqui.
         await _db.Atendimentos
             .Where(a => a.RealizadoEm == null
+                        && a.EstornadoEm == null
                         && !_db.Agendamentos.Any(g => g.AtendimentoId == a.Id
                                                       && g.Status != StatusAgendamento.Realizado)
                         && a.LancadoEm != null)
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, a => a.LancadoEm), ct);
         await _db.Atendimentos
             .Where(a => a.RealizadoEm == null
+                        && a.EstornadoEm == null
                         && !_db.Agendamentos.Any(g => g.AtendimentoId == a.Id
                                                       && g.Status != StatusAgendamento.Realizado))
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, DateTime.Now), ct);
@@ -1924,12 +1932,24 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(p => p.DataCompra).ThenByDescending(p => p.Id)
             .ToListAsync(ct);
 
+    public Task<Agendamento?> AgendamentoDoAtendimentoAsync(
+        int atendimentoId, CancellationToken ct = default)
+        // RASTREADO de propósito: quem chama muta o horário no mesmo commit.
+        => _db.Agendamentos
+            .OrderBy(a => a.Id)
+            .FirstOrDefaultAsync(a => a.AtendimentoId == atendimentoId, ct);
+
     public Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default)
         => _db.ConsumosPacote.AsNoTracking()
             .AnyAsync(c => c.AtendimentoId == atendimentoId && c.CanceladoEm == null, ct);
 
     public Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default)
         => _db.ConsumosPacote.FirstOrDefaultAsync(c => c.Id == consumoId, ct);
+
+    public Task<ConsumoPacote?> ConsumoDoAtendimentoAsync(int atendimentoId, CancellationToken ct = default)
+        // A COLUNA `CanceladoEm`, e não a derivada `Cancelado` — o EF recusa a segunda.
+        => _db.ConsumosPacote.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.AtendimentoId == atendimentoId && c.CanceladoEm == null, ct);
 
     // ---- Repasse por profissional ----
 

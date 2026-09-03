@@ -17,6 +17,7 @@ public static class DependencyInjection
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
         services.AddSingleton(new RegistroRegras());
         services.AddScoped<AtendimentoService>();
+        services.AddScoped<EstornoAtendimentoService>();
         services.AddScoped<FaturamentoService>();
         services.AddScoped<PendenciaService>();
         services.AddScoped<RodadaPendenciasService>();
