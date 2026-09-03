@@ -77,6 +77,16 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// <summary>A sugestão foi consultada e veio VAZIA — ninguém tem horário hoje.</summary>
     [ObservableProperty] private bool _sugestaoVazia;
 
+    /// <summary>
+    /// "7 com horário hoje" / "23 encontrados" / "50 encontrados (mostrando os primeiros)".
+    ///
+    /// Existe porque a lista sozinha não diz o TAMANHO do que ela responde, e as duas
+    /// leituras erradas são opostas: sete linhas sem rótulo se leem como "a clínica só tem
+    /// sete pacientes", e cinquenta linhas sem aviso escondem que o corte do SQL cortou —
+    /// quem procura "SILVA" e não acha o seu conclui que a ficha não existe.
+    /// </summary>
+    [ObservableProperty] private string? _resumoDaLista;
+
     public ObservableCollection<Paciente> Resultados { get; } = new();
 
     /// <summary>
@@ -114,6 +124,23 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
     // Pesquisa instantânea (padrão CampoPesquisa do design system): a tecla reagenda a busca.
     partial void OnTermoChanged(string? value) => _ = BuscarAsync();
+
+    /// <summary>
+    /// O tamanho do que a lista responde. O aviso do CORTE só aparece quando o resultado
+    /// bateu exatamente no limite — que é o único caso em que pode haver mais lá fora.
+    /// </summary>
+    private string? DescreverLista(bool sugestao)
+    {
+        if (Resultados.Count == 0) return null;
+
+        if (sugestao)
+            return Resultados.Count == 1 ? "1 paciente" : $"{Resultados.Count} pacientes";
+
+        var no_corte = Limite is { } teto && Resultados.Count >= teto;
+        return no_corte
+            ? $"{Resultados.Count} ou mais — refine a busca"
+            : Resultados.Count == 1 ? "1 encontrado" : $"{Resultados.Count} encontrados";
+    }
 
     /// <summary>Recarrega agora, sem esperar a digitação parar (abertura da tela, botão atualizar).</summary>
     [RelayCommand]
@@ -172,6 +199,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
             Erro = null;
             TemResultados = Resultados.Count > 0;
+            ResumoDaLista = DescreverLista(usandoSugestao);
             Atualizou?.Invoke();
         }
         catch (OperationCanceledException)

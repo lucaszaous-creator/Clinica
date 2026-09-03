@@ -446,6 +446,17 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **Coluna `*` num monitor largo vira deserto.** O nome ficava na esquerda e os crachás
   pendurados na direita, com ~700px de branco no meio — o olho não liga as duas pontas. Teto
   de 1100px na lista; em 1366 (o balcão) não muda nada.
+  ⚠️ **A lista virou TABELA COM MOLDURA E CABEÇALHO** — o mesmo tratamento da prévia da guia.
+  Eram quatro colunas de dado flutuando no branco do cartão, nenhuma dizendo o que era. E o
+  `Grid.IsSharedSizeScope` teve de SUBIR do ListBox para o DockPanel: o cabeçalho é um Grid
+  separado das linhas, e sem dividirem o mesmo escopo ele sai em escada sobre elas (a lição
+  da parcela 58 outra vez).
+  ⚠️ **`MaxHeight` de lista é número INTEIRO de linhas.** Com 300 a sétima linha aparecia
+  fatiada ao meio, e lista cortada no meio de uma linha se lê como defeito, não como
+  rolagem. 332 = 8 de Padding + 6 × 54.
+  ⚠️ **Não invente altura para dar ênfase.** O campo de busca chegou a ganhar 40px enquanto
+  todo campo da suíte tem 36 — medida nova para um efeito que o LUGAR e a LARGURA já dão. Foi
+  revertido antes de virar precedente.
 - **LANÇADOS HOJE VIROU A ABA "LANÇAMENTOS"** (set/2026, pedido do cliente). O bloco morava
   no rodapé do Novo atendimento e estava no lugar errado por três razões que só apareceram
   juntas: comia a altura da tela de lançar (com dois remendos que só existiam por isso —

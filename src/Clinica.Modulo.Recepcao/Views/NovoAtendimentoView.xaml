@@ -150,16 +150,39 @@
                          existe ainda — não há o que resumir de ninguém). -->
                     <Border Style="{StaticResource Card}"
                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-                        <DockPanel>
-                            <!-- `x:Name` para a View poder pôr o foco aqui ao abrir e ao
-                                 voltar para a busca: quem lança quarenta por dia começa
-                                 digitando, e obrigar um clique no campo antes da primeira
-                                 tecla é um gesto por atendimento. -->
-                            <TextBox x:Name="CampoBuscaPaciente" DockPanel.Dock="Top" Margin="0,0,0,10"
-                                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource CampoPesquisa}"
-                                     PreviewKeyDown="AoTeclarNaBusca"
-                                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — ↓ para a lista, Enter para escolher" />
+                        <!-- ⚠️ `Grid.IsSharedSizeScope` MORA AQUI, e não mais no ListBox.
+                             O cabeçalho da lista é um Grid SEPARADO das linhas, e para as
+                             colunas dos dois casarem eles têm de dividir o MESMO escopo. Com
+                             o escopo no ListBox, o cabeçalho ficava de fora e saía em escada
+                             sobre as linhas — a lição da parcela 58, checagem 31. -->
+                        <DockPanel Grid.IsSharedSizeScope="True">
+
+                            <!-- ===== A BUSCA, com o tamanho do que ela responde ao lado.
+                                 O contador não é enfeite: sete linhas sem ele se leem como
+                                 "a clínica só tem sete pacientes", e cinquenta escondem que
+                                 o corte do SQL cortou. -->
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MaxWidth="520" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- `x:Name` para a View poder pôr o foco aqui ao abrir e ao
+                                     voltar para a busca: quem lança quarenta por dia começa
+                                     digitando, e obrigar um clique no campo antes da primeira
+                                     tecla é um gesto por atendimento. -->
+                                <!-- Altura NÃO alterada: todo campo da suíte tem 36px, e um
+                                     campo de 40 aqui seria uma medida inventada para dar
+                                     ênfase. A ênfase vem do lugar e da largura — ele é o
+                                     único controle da tela enquanto não há paciente. -->
+                                <TextBox x:Name="CampoBuscaPaciente" Grid.Column="0"
+                                         Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource CampoPesquisa}"
+                                         PreviewKeyDown="AoTeclarNaBusca"
+                                         ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — ↓ para a lista, Enter para escolher" />
+                                <TextBlock Grid.Column="1" Text="{Binding Seletor.ResumoDaLista}"
+                                           Style="{StaticResource Rotulo}" Margin="16,0,0,0"
+                                           VerticalAlignment="Center" />
+                            </Grid>
 
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}"
                                        Style="{StaticResource TextoSuave}"
@@ -172,9 +195,8 @@
                                  termo não filtra nada e cai no `OrderBy(Nome).Take(50)`.
                                  Uma lista com cara de resposta que não é resposta de
                                  ninguém. Agora ela traz QUEM TEM HORÁRIO HOJE, e o rótulo
-                                 é o que impede a leitura errada oposta: lista curta sem
-                                 rótulo se lê como "a clínica só tem sete pacientes". -->
-                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8"
+                                 é o que impede a leitura errada oposta. -->
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10"
                                         Visibility="{Binding Seletor.MostrandoSugestao,
                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                 <TextBlock Text="{Binding Seletor.RotuloDaSugestao}"
@@ -186,46 +208,90 @@
                             <!-- O terceiro estado da sugestão: consultada e VAZIA. Sem esta
                                  linha, o dia sem agendamento nenhum abre a tela com um
                                  cartão em branco, que se lê como falha. -->
-                            <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4"
-                                       Style="{StaticResource TextoSuave}"
-                                       Text="Ninguém tem horário marcado para hoje. Digite o nome ou o CPF para achar o paciente."
-                                       Visibility="{Binding Seletor.SugestaoVazia,
-                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,4"
+                                    Visibility="{Binding Seletor.SugestaoVazia,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock TextWrapping="Wrap" HorizontalAlignment="Left"
+                                           Text="Ninguém tem horário marcado para hoje. Digite o nome ou o CPF para achar o paciente." />
+                            </Border>
 
-                            <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
-                                 `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
-                                 largura sozinha — a lista deixa de ter colunas e vira uma pilha de
-                                 linhas desalinhadas (checagem 31). -->
-                            <!-- ⚠️ `RodaDaPagina` (parcela 90): esta lista rola por DENTRO e fica
-                                 no meio de uma página que também rola. Sem isto o `ScrollViewer`
-                                 do ListBox COME a roda do mouse — o evento é marcado como
-                                 tratado e nunca sobe —, e a página não rola com o cursor em
-                                 cima da lista, que é o maior alvo da tela.
+                            <!-- ===== A LISTA COMO TABELA (set/2026) =====
+                                 Antes eram linhas flutuando no branco do cartão: quatro
+                                 colunas de dado, nenhuma dizendo o que era, e nada
+                                 marcando onde a lista começa e acaba. A moldura com
+                                 cabeçalho é o mesmo tratamento da prévia da guia — e é o
+                                 que faz uma lista de escolha parecer uma lista de escolha.
 
-                                 Foi o defeito que o cliente relatou como "tela toda cortada":
-                                 o "LANÇADOS HOJE" fica abaixo da dobra, a pessoa gira a roda,
-                                 nada acontece, e a leitura natural é que a tela quebrou.
+                                 ⚠️ TETO DE LARGURA. A coluna do nome é `*`, e num monitor
+                                 de 1920 ela recebia a fatia que sobrava: o nome colado na
+                                 esquerda, telefone e crachás pendurados na direita, e uns
+                                 SETECENTOS PIXELS de branco no meio. O olho não liga as
+                                 duas pontas de uma linha tão larga — é a razão do
+                                 `MaxWidth` do `TextoSuave`, aplicada a uma tabela. Em 1366
+                                 (o monitor do balcão) o teto não muda nada. -->
+                            <Border HorizontalAlignment="Left" MaxWidth="1100"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}"
+                                    Visibility="{Binding Seletor.TemResultados,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                <DockPanel>
+                                    <!-- O cabeçalho repete as MESMAS colunas do
+                                         `ItemPacienteLinha`, inclusive os `SharedSizeGroup`:
+                                         é isso que faz "TELEFONE" cair em cima da coluna do
+                                         telefone em vez de ao lado dela. -->
+                                    <Border DockPanel.Dock="Top"
+                                            Background="{StaticResource Brush.Superficie.Hover}"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1"
+                                            CornerRadius="8,8,0,0" Padding="8,7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
+                                            </Grid.ColumnDefinitions>
+                                            <!-- A coluna do avatar existe VAZIA no cabeçalho, e
+                                                 é ela que empurra "PACIENTE" para cima do nome:
+                                                 o `SharedSizeGroup` copia a largura do retrato. -->
+                                            <Border Grid.Column="0" Width="40" Margin="0,0,14,0" />
+                                            <TextBlock Grid.Column="1" Text="PACIENTE / DOCUMENTO"
+                                                       Style="{StaticResource Rotulo}" Margin="0,0,12,0" />
+                                            <TextBlock Grid.Column="2" Text="TELEFONE"
+                                                       Style="{StaticResource Rotulo}" Margin="0,0,12,0" />
+                                            <TextBlock Grid.Column="3" Text="CONVÊNIO"
+                                                       Style="{StaticResource Rotulo}" Margin="0" />
+                                        </Grid>
+                                    </Border>
 
-                                 ⚠️ E o MinHeight saiu: reservar 180 px de lista vazia empurrava
-                                 a conferência do dia para fora da vista antes de haver o que
-                                 mostrar. Quem decide a altura agora é o conteúdo, até o teto. -->
-                            <!-- ⚠️ TETO DE LARGURA (set/2026). A coluna do nome é `*`, e num
-                                 monitor de 1920 ela recebia a fatia que sobrava: o nome
-                                 ficava colado na esquerda, o telefone e os crachás pendurados
-                                 na direita, e uns SETECENTOS PIXELS de branco no meio. O olho
-                                 não liga as duas pontas de uma linha tão larga — é a mesma
-                                 razão do `MaxWidth` do `TextoSuave`, aplicada a uma tabela.
-                                 Em 1366 (o monitor do balcão) o teto não muda nada. -->
-                            <ListBox x:Name="ListaDePacientes"
-                                     Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
-                                     SelectedItem="{Binding Seletor.Selecionado}"
-                                     ItemTemplate="{StaticResource ItemPacienteLinha}"
-                                     BorderThickness="0" Background="Transparent"
-                                     HorizontalContentAlignment="Stretch"
-                                     HorizontalAlignment="Left" MaxWidth="1100"
-                                     MaxHeight="300"
-                                     ctrl:Ajudantes.RodaDaPagina="True"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                                    <!-- ⚠️ `RodaDaPagina` (parcela 90): esta lista rola por DENTRO
+                                         e fica no meio de uma página que também rola. Sem isto o
+                                         `ScrollViewer` do ListBox COME a roda do mouse — o evento é
+                                         marcado como tratado e nunca sobe —, e a página não rola
+                                         com o cursor em cima da lista, que é o maior alvo da tela.
+
+                                         ⚠️ E o MinHeight saiu: reservar 180 px de lista vazia
+                                         empurrava o resto para fora da vista antes de haver o que
+                                         mostrar. Quem decide a altura agora é o conteúdo, até o teto.
+
+                                         ⚠️ `MaxHeight` 332 = 4+4 de Padding + SEIS linhas de
+                                         54 (avatar 40 + 12 do Padding do ListBoxItem + 2 da
+                                         Margin da linha). O número inteiro de linhas é
+                                         proposital: com 300 a sétima aparecia fatiada ao
+                                         meio, e lista cortada na metade de uma linha se lê
+                                         como defeito, não como rolagem. -->
+                                    <ListBox x:Name="ListaDePacientes"
+                                             ItemsSource="{Binding Seletor.Resultados}"
+                                             SelectedItem="{Binding Seletor.Selecionado}"
+                                             ItemTemplate="{StaticResource ItemPacienteLinha}"
+                                             BorderThickness="0" Background="Transparent"
+                                             HorizontalContentAlignment="Stretch"
+                                             Padding="4"
+                                             MaxHeight="332"
+                                             ctrl:Ajudantes.RodaDaPagina="True"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                                </DockPanel>
+                            </Border>
                         </DockPanel>
                     </Border>
 
