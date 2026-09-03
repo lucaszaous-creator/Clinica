@@ -116,6 +116,9 @@ public class ClinicaDbContext : DbContext
             e.Ignore(p => p.TemFoto);
             e.Ignore(p => p.CarteirinhaVencida);
             e.Ignore(p => p.ConvenioADefinir);
+            e.Ignore(p => p.TemConvenioEscolhido);
+            e.Ignore(p => p.DocumentoFormatado);
+            e.Ignore(p => p.TelefoneFormatado);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);
         });
 

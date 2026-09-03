@@ -151,14 +151,46 @@
                     <Border Style="{StaticResource Card}"
                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
                         <DockPanel>
-                            <TextBox DockPanel.Dock="Top" Margin="0,0,0,10"
+                            <!-- `x:Name` para a View poder pôr o foco aqui ao abrir e ao
+                                 voltar para a busca: quem lança quarenta por dia começa
+                                 digitando, e obrigar um clique no campo antes da primeira
+                                 tecla é um gesto por atendimento. -->
+                            <TextBox x:Name="CampoBuscaPaciente" DockPanel.Dock="Top" Margin="0,0,0,10"
                                      Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource CampoPesquisa}"
-                                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
+                                     PreviewKeyDown="AoTeclarNaBusca"
+                                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — ↓ para a lista, Enter para escolher" />
 
                             <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}"
                                        Style="{StaticResource TextoSuave}"
                                        Foreground="{StaticResource Brush.Erro}" />
+
+                            <!-- A LISTA PRECISA DIZER O QUE ELA É (set/2026).
+
+                                 Com o campo vazio a tela abria despejando o começo do
+                                 alfabeto — ACELINO, ADAISE, ADAO —, porque a busca sem
+                                 termo não filtra nada e cai no `OrderBy(Nome).Take(50)`.
+                                 Uma lista com cara de resposta que não é resposta de
+                                 ninguém. Agora ela traz QUEM TEM HORÁRIO HOJE, e o rótulo
+                                 é o que impede a leitura errada oposta: lista curta sem
+                                 rótulo se lê como "a clínica só tem sete pacientes". -->
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8"
+                                        Visibility="{Binding Seletor.MostrandoSugestao,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="{Binding Seletor.RotuloDaSugestao}"
+                                           Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                           Text="Quem não está na agenda de hoje aparece assim que você digitar o nome ou o CPF." />
+                            </StackPanel>
+
+                            <!-- O terceiro estado da sugestão: consultada e VAZIA. Sem esta
+                                 linha, o dia sem agendamento nenhum abre a tela com um
+                                 cartão em branco, que se lê como falha. -->
+                            <TextBlock DockPanel.Dock="Top" Margin="0,0,0,4"
+                                       Style="{StaticResource TextoSuave}"
+                                       Text="Ninguém tem horário marcado para hoje. Digite o nome ou o CPF para achar o paciente."
+                                       Visibility="{Binding Seletor.SugestaoVazia,
+                                                    Converter={StaticResource BoolParaVisibilidade}}" />
 
                             <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
                                  `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
@@ -177,11 +209,20 @@
                                  ⚠️ E o MinHeight saiu: reservar 180 px de lista vazia empurrava
                                  a conferência do dia para fora da vista antes de haver o que
                                  mostrar. Quem decide a altura agora é o conteúdo, até o teto. -->
-                            <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
+                            <!-- ⚠️ TETO DE LARGURA (set/2026). A coluna do nome é `*`, e num
+                                 monitor de 1920 ela recebia a fatia que sobrava: o nome
+                                 ficava colado na esquerda, o telefone e os crachás pendurados
+                                 na direita, e uns SETECENTOS PIXELS de branco no meio. O olho
+                                 não liga as duas pontas de uma linha tão larga — é a mesma
+                                 razão do `MaxWidth` do `TextoSuave`, aplicada a uma tabela.
+                                 Em 1366 (o monitor do balcão) o teto não muda nada. -->
+                            <ListBox x:Name="ListaDePacientes"
+                                     Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
                                      SelectedItem="{Binding Seletor.Selecionado}"
                                      ItemTemplate="{StaticResource ItemPacienteLinha}"
                                      BorderThickness="0" Background="Transparent"
                                      HorizontalContentAlignment="Stretch"
+                                     HorizontalAlignment="Left" MaxWidth="1100"
                                      MaxHeight="300"
                                      ctrl:Ajudantes.RodaDaPagina="True"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" />

@@ -580,7 +580,51 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         _scopeFactory = scopeFactory;
         Seletor = new SeletorPacienteViewModel(scopeFactory);
         Seletor.SelecaoMudou += AoTrocarPaciente;
+        Seletor.SugestaoInicial = PacientesComHorarioHojeAsync;
+        Seletor.RotuloDaSugestao = "Com horário hoje";
         AtualizarOpcoesPrimeiroCodigo();
+    }
+
+    /// <summary>
+    /// Quem a tela oferece ANTES de alguém digitar: os pacientes que têm horário HOJE.
+    ///
+    /// O que ela substitui
+    /// -------------------
+    /// Nada, e esse era o problema. Com o campo vazio a busca não filtra: cai no
+    /// <c>OrderBy(Nome).Take(50)</c> e a tela abria com o começo do alfabeto de 2.238
+    /// fichas — ACELINO, ADAISE, ADAO. Uma lista que parece resposta e não é de ninguém.
+    ///
+    /// A sugestão é a aposta certa para esta tela: quem chega ao balcão quase sempre tem
+    /// horário marcado, e a parcela 91 já cruza o lançamento com o horário do dia. Quem
+    /// não tem — o avulso de verdade — digita o nome, e aí é a busca de sempre.
+    ///
+    /// Custo: UMA consulta, a mesma que a agenda do dia já faz (<c>Include(Paciente)</c>
+    /// vem junto), sem ida ao banco por linha.
+    /// </summary>
+    private async Task<IReadOnlyList<Paciente>> PacientesComHorarioHojeAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+
+        var hoje = DateTime.Today;
+        var agendamentos = await repo.AgendamentosNoPeriodoAsync(hoje, hoje.AddDays(1).AddTicks(-1), ct);
+
+        // Cancelado e Faltou saem: o horário existe, mas a pessoa não vem — oferecê-la no
+        // topo da lista é sugerir justamente quem não está aqui.
+        //
+        // Realizado FICA: a sessão da manhã não impede a consulta da tarde, e é o paciente
+        // que ainda está na clínica que a recepcionista tem mais chance de lançar em
+        // seguida. O aviso de duplicidade continua sendo dado depois, na escolha.
+        return agendamentos
+            .Where(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+            .Where(a => a.Paciente is not null)
+            .OrderBy(a => a.DataHora)
+            // DistinctBy pelo id: quem tem duas sessões no dia apareceria duas vezes, e
+            // duas linhas idênticas numa lista de escolha é a pessoa perguntando qual das
+            // duas é a certa.
+            .DistinctBy(a => a.PacienteId)
+            .Select(a => a.Paciente!)
+            .ToList();
     }
 
     partial void OnModalidadeSelecionadaChanged(EntradaModalidade? value)

@@ -421,6 +421,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **`Sum(x => (decimal?)x.Valor)` sobre sequência VAZIA devolve 0, não nulo** — foi assim
   que a prévia ofereceu "desfazer entrada de R$ 0,00" num atendimento sem caixa. Conte
   primeiro (`lista.Count > 0 ? lista.Sum(...) : null`). Um teste pegou; a lição fica.
+- **O SELETOR DE PACIENTE DEIXOU DE DESPEJAR O ALFABETO** (set/2026). Com o campo de busca
+  vazio, `BuscarPacientesAsync` não filtra nada — cai direto no `OrderBy(Nome).Take(50)` —,
+  e a tela abria com o começo do alfabeto de 2.238 fichas: ACELINO, ADAISE, ADAO. Uma lista
+  com cara de resposta que não é resposta de ninguém. Agora o Novo atendimento oferece
+  **quem tem horário HOJE** (uma consulta, a mesma da agenda do dia, com `Include(Paciente)`
+  já junto), e a busca continua a de sempre assim que alguém digita.
+  ⚠️ **A correção é OPT-IN (`SugestaoInicial`), e tinha de ser**: dezesseis outras telas usam
+  este seletor, e numa tela de LISTAGEM o despejo alfabético é o certo — é a lista, e ela
+  passa `limite: null`. Mudar o comportamento do componente compartilhado consertaria uma
+  tela e estragaria as outras.
+  ⚠️ **O `Refinar` não se aplica à sugestão**: ele é o refino de um RESULTADO DE BUSCA, e
+  quem monta a sugestão já decidiu o que ela contém — passá-la pelo refino filtraria duas
+  vezes com dois critérios diferentes.
+  ⚠️ **`Cpf.Formatar` fora dos 11 dígitos devolve SÓ OS DÍGITOS** (a segunda vez que esta
+  armadilha aparece, agora em `Paciente.DocumentoFormatado`): o campo se chama `Documento`,
+  a clínica cadastra RG, e um "12.345.678-9" voltaria "123456789". `Telefone.Formatar` não
+  tem o problema — devolve a entrada quando não reconhece o padrão. `DocumentoEhTelefoneNaListaTests`
+  amarra os dois contratos.
+  ⚠️ **Crachá igual em quase toda linha não distingue nada.** 2.021 das 2.238 fichas estão
+  em `ADefinir`, cujo nome de catálogo tem 33 caracteres — o selo saía cortado em "A definir
+  (importado sem conv…" em noventa por cento da lista, gastando uma coluna para não
+  responder nada. Virou um aviso curto ("sem convênio"), com o nome cheio no ToolTip.
+  ⚠️ **Coluna `*` num monitor largo vira deserto.** O nome ficava na esquerda e os crachás
+  pendurados na direita, com ~700px de branco no meio — o olho não liga as duas pontas. Teto
+  de 1100px na lista; em 1366 (o balcão) não muda nada.
 - **LANÇADOS HOJE VIROU A ABA "LANÇAMENTOS"** (set/2026, pedido do cliente). O bloco morava
   no rodapé do Novo atendimento e estava no lugar errado por três razões que só apareceram
   juntas: comia a altura da tela de lançar (com dois remendos que só existiam por isso —

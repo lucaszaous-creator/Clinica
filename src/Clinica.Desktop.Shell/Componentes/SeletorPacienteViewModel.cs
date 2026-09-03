@@ -48,6 +48,35 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// <summary>Refino opcional em memória sobre o que veio do banco (filtro, ordenação alternativa).</summary>
     public Func<IReadOnlyList<Paciente>, IEnumerable<Paciente>>? Refinar { get; set; }
 
+    /// <summary>
+    /// O que mostrar ANTES de alguém digitar. Opcional, e sem ela nada muda.
+    ///
+    /// Por que existe
+    /// -------------
+    /// Com o termo vazio a consulta não filtra nada: <c>BuscarPacientesAsync</c> cai direto
+    /// no <c>OrderBy(Nome).Take(50)</c>. Numa clínica de 2.238 fichas isso abre a tela com o
+    /// começo do ALFABETO — ACELINO, ADAISE, ADAO —, que não é o paciente de ninguém. É
+    /// ruído com cara de conteúdo: a lista parece uma resposta e não é.
+    ///
+    /// Numa tela de LISTAGEM esse mesmo despejo é o certo (é a lista, e ela passa
+    /// <c>limite: null</c>). Por isso a correção é opt-in: só a tela que tem uma sugestão
+    /// MELHOR a fornece, e as outras dezesseis que usam este seletor continuam idênticas.
+    /// </summary>
+    public Func<CancellationToken, Task<IReadOnlyList<Paciente>>>? SugestaoInicial { get; set; }
+
+    /// <summary>
+    /// O que a sugestão É, para a tela poder dizer — "Com horário hoje". Lista sem rótulo
+    /// se lê como resultado de busca, e a pessoa conclui que a clínica só tem sete
+    /// pacientes.
+    /// </summary>
+    public string? RotuloDaSugestao { get; set; }
+
+    /// <summary>A lista atual é a SUGESTÃO, não um resultado de busca.</summary>
+    [ObservableProperty] private bool _mostrandoSugestao;
+
+    /// <summary>A sugestão foi consultada e veio VAZIA — ninguém tem horário hoje.</summary>
+    [ObservableProperty] private bool _sugestaoVazia;
+
     public ObservableCollection<Paciente> Resultados { get; } = new();
 
     /// <summary>
@@ -108,14 +137,34 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
             if (!imediato) await Task.Delay(AtrasoDigitacaoMs, ct);
 
             Buscando = true;
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-            var encontrados = await service.BuscarAsync(Termo, Limite, ct);
+
+            // Termo vazio COM sugestão: a tela tem algo melhor a mostrar que o alfabeto, e
+            // nem chega a consultar a busca. Sem sugestão, o caminho é o de sempre.
+            var usandoSugestao = SugestaoInicial is not null && string.IsNullOrWhiteSpace(Termo);
+
+            IReadOnlyList<Paciente> encontrados;
+            if (usandoSugestao)
+            {
+                encontrados = await SugestaoInicial!(ct);
+            }
+            else
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
+                encontrados = await service.BuscarAsync(Termo, Limite, ct);
+            }
 
             // Resposta fora de ordem: só a busca mais recente pode escrever na lista.
             if (ct.IsCancellationRequested) return;
 
-            var exibir = Refinar is null ? encontrados : Refinar(encontrados);
+            // ⚠️ O `Refinar` NÃO se aplica à sugestão: ele é o refino de um RESULTADO DE
+            // BUSCA (filtrar quem já está na fila, reordenar por última sessão), e quem
+            // monta a sugestão já decidiu o que ela contém. Passá-la pelo refino faria a
+            // tela filtrar duas vezes com dois critérios diferentes.
+            var exibir = usandoSugestao || Refinar is null ? encontrados : Refinar(encontrados);
+
+            MostrandoSugestao = usandoSugestao;
+            SugestaoVazia = usandoSugestao && encontrados.Count == 0;
 
             Resultados.Clear();
             foreach (var p in exibir)
