@@ -123,6 +123,14 @@ public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho);
 /// <summary>Um avulso lançado hoje, na conferência do fim do dia.</summary>
 public sealed class LinhaAvulso
 {
+    /// <summary>
+    /// O atendimento por trás da linha — a porta do ESTORNO (parcela 94). A conferência
+    /// do dia é onde a recepcionista vê o que acabou de lançar, e portanto onde ela
+    /// percebe o engano; obrigá-la a procurar a sessão noutra tela para desfazê-la seria
+    /// pôr a correção longe do momento em que o erro é notado.
+    /// </summary>
+    public required int AtendimentoId { get; init; }
+
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
     public required string Convenio { get; init; }
@@ -954,6 +962,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         return new LinhaAvulso
         {
+            AtendimentoId = atendimento.Id,
             Paciente = paciente?.Nome ?? "—",
             Modalidade = atendimento.ModalidadeCodigo is { } cod
                 ? CatalogoModalidades.Nome(cod)
@@ -1541,6 +1550,45 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Volta para a busca, para trocar o paciente escolhido.</summary>
     [RelayCommand]
     private void TrocarPaciente() => Seletor.Limpar();
+
+    /// <summary>
+    /// ESTORNAR um atendimento da conferência do dia (parcela 94) — a sessão lançada por
+    /// engano.
+    ///
+    /// Mora aqui porque é aqui que o engano é percebido: a lista de lançados de hoje é a
+    /// conferência que a recepcionista faz antes de fechar o balcão. A janela pergunta
+    /// item a item o que desfazer (caixa, pacote, insumo) e recusa quando a guia já saiu
+    /// da clínica — quem decide isso é o <c>EstornoAtendimentoService</c>, não a tela.
+    /// </summary>
+    [RelayCommand]
+    private async Task EstornarAsync(LinhaAvulso? linha)
+    {
+        if (linha is null) return;
+        SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "estornar o atendimento");
+
+        var vm = new EstornoAtendimentoViewModel(_scopeFactory, linha.AtendimentoId);
+        var janela = new Janelas.EstornoAtendimentoWindow(vm) { Owner = JanelaDona.Atual() };
+        janela.ShowDialog();
+
+        if (!vm.Estornado) return;
+
+        // Os avisos das reversões de FORA não podem sumir com a janela: o estorno das
+        // guias está gravado, e o que falhou lá continua para ser resolvido à mão.
+        Avisos.Clear();
+        foreach (var a in vm.Avisos) Avisos.Add(a);
+
+        Avisar($"Atendimento nº {linha.Numero} estornado. O horário dele, se houver, voltou "
+               + "para \"Agendado\" e pode ser lançado de novo.");
+
+        await CarregarDoDiaAsync();
+
+        // A capa do dia e o horário em aberto mudaram junto — a tela tem de refletir.
+        if (PacienteSelecionado is { } p)
+        {
+            _ = VerificarJaLancadoNoDiaAsync(p.Id);
+            _ = VerificarHorarioDoDiaAsync(p.Id);
+        }
+    }
 
     /// <summary>
     /// Abre a escolha do convênio pelo aviso — o mesmo gesto que o Lançar dispara, só que

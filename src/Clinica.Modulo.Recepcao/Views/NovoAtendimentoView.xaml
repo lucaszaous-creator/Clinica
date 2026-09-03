@@ -614,6 +614,7 @@
                                         <ColumnDefinition Width="200" />
                                         <ColumnDefinition Width="130" />
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="LancadosHojeConvenio" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LancadosHojeAcao" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE / QUEM LANÇOU" Style="{StaticResource Rotulo}" Margin="0" />
                                     <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
@@ -632,6 +633,7 @@
                                                         <ColumnDefinition Width="200" />
                                                         <ColumnDefinition Width="130" />
                                                         <ColumnDefinition Width="Auto" SharedSizeGroup="LancadosHojeConvenio" />
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="LancadosHojeAcao" />
                                                     </Grid.ColumnDefinitions>
 
                                                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
@@ -669,6 +671,19 @@
                                                         <TextBlock Text="{Binding Convenio}" MaxWidth="200"
                                                                    TextTrimming="CharacterEllipsis" />
                                                     </Border>
+
+                                                    <!-- ESTORNAR (parcela 94): a correção fica onde o
+                                                         engano é percebido. A janela pergunta o que
+                                                         desfazer e recusa quando a guia já saiu da
+                                                         clínica — a regra é do serviço, não daqui. -->
+                                                    <Button Grid.Column="4" Content="Estornar…"
+                                                            Margin="8,0,0,0" MinHeight="30" MinWidth="96"
+                                                            VerticalAlignment="Center"
+                                                            Style="{StaticResource BotaoSecundario}"
+                                                            ToolTip="Desfazer esta sessão lançada por engano"
+                                                            Command="{Binding DataContext.EstornarCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}" />
 
                                                 </Grid>
                                                 <DataTemplate.Triggers>

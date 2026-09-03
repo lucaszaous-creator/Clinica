@@ -392,6 +392,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `WithOne()` NÃO é de graça**: o EF exige índice ÚNICO para o dependente 1‑1, e migration
   roda na ABERTURA do app — índice único que falha na criação é o faturamento não abrindo.
   Conte as duplicatas pela conciliação antes.
+- **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
+  dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
+  mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.
+  O motivo de não existir é que o lançamento tem **cinco efeitos em três serviços**
+  (atendimento+códigos · NCs reabertas · consulta renovada · carimbo do horário · pacote,
+  insumo e caixa) e só um é a guia. `EstornoAtendimentoService` **pergunta item a item** —
+  as guias saem sempre; caixa, pacote e insumo só se marcados. Recusa quando o fato já saiu
+  da clínica (guia baixada, em lote TISS ou em NC), reusando a trava do
+  `AjustarAoRemarcarAsync`. Bit `LancarAtendimento`: com aquela recusa, o que se desfaz é
+  guia que ainda **não** saiu — corrigir o próprio erro na hora.
+  ⚠️ **NUNCA apaga.** `OnDelete(SetNull)` transformaria um `Remove` em horário ÓRFÃO — o
+  estado de 12/08/2026. O atendimento fica marcado (`EstornadoEm`) e os códigos vão para
+  `NaoAplicavel` com a `MarcaEstorno`.
+  ⚠️ **A ARMADILHA, e por que `EstornadoEm` existe.** O estorno SOLTA o horário (para a
+  sessão poder ser relançada limpa — sem soltar, o `ConfirmarNucleoAsync` reaproveitaria o
+  atendimento anulado e a sessão nova nasceria sem guia faturável, em silêncio). Só que
+  `MarcarAtendimentosSemCarimboComoRealizadosAsync` carimba como realizado todo atendimento
+  sem carimbo **que não tenha horário em outro estado apontando para ele** — e sem horário
+  nenhum, o estornado seria RESSUSCITADO na próxima ativação da chave "guia no
+  agendamento", voltando a contar em BI, retenção e origem. A coluna entra nos DOIS filtros
+  do backfill; `EstornoDeAtendimentoTests.O_backfill_NAO_ressuscita_atendimento_estornado`
+  é o que amarra isso.
+  ⚠️ **NÃO desfaz a consulta renovada** (`StatusConsulta` não tem "cancelada"; desfazer
+  exigiria ressuscitar a anterior, e receita emitida sob a nova ficaria inválida) **nem as
+  NCs reabertas** (o paciente apareceu de verdade). As duas são decisão escrita, não
+  esquecimento.
+  ⚠️ **`Sum(x => (decimal?)x.Valor)` sobre sequência VAZIA devolve 0, não nulo** — foi assim
+  que a prévia ofereceu "desfazer entrada de R$ 0,00" num atendimento sem caixa. Conte
+  primeiro (`lista.Count > 0 ? lista.Sum(...) : null`). Um teste pegou; a lição fica.
 - **SEM CONVÊNIO ESCOLHIDO NÃO NASCE ATENDIMENTO** (parcela 92). A importação do Smart Clinic
   trouxe **2.021 das 2.238 fichas sem convênio**, no código `ConvenioCadastro.CodigoADefinir` —
   que não gera guia. A defesa era o alerta VERMELHO da elegibilidade, e ela não impede nada por

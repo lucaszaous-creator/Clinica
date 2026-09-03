@@ -63,5 +63,36 @@ public class Atendimento
     public DateTime? RealizadoEm { get; set; }
 
 
+    /// <summary>
+    /// Quando este atendimento foi ESTORNADO (parcela 94) — a sessão foi lançada por
+    /// engano e desfeita.
+    ///
+    /// Por que existe uma marca, em vez de apagar a linha
+    /// --------------------------------------------------
+    /// Atendimento é lastro de faturamento: apagá-lo levaria junto os códigos por cascata
+    /// e, pior, o horário que aponta para ele ficaria ÓRFÃO — <c>OnDelete(SetNull)</c>
+    /// deixa <c>Status = Realizado</c> com <c>AtendimentoId</c> nulo, que é o estado dos
+    /// três encaixes de 12/08/2026: o kanban diz "Finalizado", o repasse exclui a sessão
+    /// em silêncio e ninguém detecta. O estorno ANULA e deixa rastro; não apaga nada.
+    ///
+    /// ⚠️ E é esta marca que impede a RESSURREIÇÃO. O backfill do <see cref="RealizadoEm"/>
+    /// (<c>MarcarAtendimentosSemCarimboComoRealizadosAsync</c>) carimba como realizado todo
+    /// atendimento sem carimbo que não tenha um horário em outro estado apontando para ele
+    /// — e o estorno solta o horário justamente para que a sessão possa ser relançada
+    /// limpa. Sem esta coluna no filtro, ligar a chave "guia no agendamento" devolveria
+    /// todo atendimento estornado à contagem de sessões realizadas, corrompendo BI,
+    /// retenção e origem de pacientes sem um sintoma sequer.
+    /// </summary>
+    public DateTime? EstornadoEm { get; set; }
+
+    /// <summary>Quem estornou (o operador do LOGIN, nunca o usuário do Windows).</summary>
+    public string? EstornadoPor { get; set; }
+
+    /// <summary>Por que foi estornado. Obrigatório no ato — é o que fica para quem auditar.</summary>
+    public string? MotivoEstorno { get; set; }
+
+    /// <summary>Atalho de leitura. NUNCA use dentro de um Where traduzido — é derivada.</summary>
+    public bool Estornado => EstornadoEm is not null;
+
     public List<CodigoFaturamento> Codigos { get; set; } = new();
 }
