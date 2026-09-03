@@ -421,6 +421,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **`Sum(x => (decimal?)x.Valor)` sobre sequência VAZIA devolve 0, não nulo** — foi assim
   que a prévia ofereceu "desfazer entrada de R$ 0,00" num atendimento sem caixa. Conte
   primeiro (`lista.Count > 0 ? lista.Sum(...) : null`). Um teste pegou; a lição fica.
+- **A GUIA QUE VAI NASCER, DESENHADA** (set/2026, redesenho aprovado em mockup). A coluna
+  direita do Novo atendimento resumia a prévia em TEXTO — "2 guias · a 2ª libera 09/08" —,
+  e a guia, que é o que a clínica entrega, só virava objeto depois de gravada e noutro app.
+  O número estava certo e mesmo assim passava o erro que mais custa: guia emitida com o
+  campo errado, que volta glosada semanas depois. Agora a coluna desenha o **documento**,
+  com os campos que vão nele — convênio, carteirinha, validade, beneficiário, executante —
+  e os códigos embaixo; o campo que FALTA sai com o fundo do erro, porque no documento o
+  buraco tem de se ver como buraco. **Nenhum campo é inventado**: o `EntradaModalidade` do
+  catálogo tem `Codigo` interno, `Nome` e `Base` — **não há código TISS por modalidade**, e
+  o mockup que os mostrava estava errado. O documento é PRÉVIA: não há número (ele nasce na
+  baixa) e a tarja diz isso.
+  As modalidades saíram dos cartões de 200×130 e viraram **linhas**: para comparar "quantas
+  guias" entre cinco opções em grade o olho salta na diagonal, e em linha os números caem
+  numa COLUNA — que é como se compara número. Cada linha ganhou o traço da FAMÍLIA à
+  esquerda, com os mesmos tokens `Brush.Modalidade.*` do `CartaoDeHorario`: quem vê a agenda
+  o dia inteiro já lê teal como BSV. Os gatilhos de `Escolhida` vêm DEPOIS dos de família,
+  porque gatilho posterior vence e a linha marcada tem de se distinguir das outras quatro.
+  A faixa do paciente passou a carregar **convênio e carteirinha em colunas rotuladas**, no
+  lugar de dois badges do mesmo tamanho da categoria — são os dois campos que decidem se a
+  guia nasce e se o convênio a aceita, e a carteirinha só aparecia quando VENCIA.
+  ⚠️ **O botão continua habilitado sem convênio, e isso é a parcela 92, não um esquecimento**:
+  o clique é que abre a janela de convênios (`VinculoDeConvenio`). Desabilitá-lo devolveria a
+  recusa muda que a parcela 92 aposentou.
+  ⚠️ `CornerRadius="8,8,0,0"` literal na tarja do documento: o WPF **não deriva raio parcial**
+  de um `CornerRadius` do dicionário. Os 8 são `Raio.Medio` — se o token mudar, a tarja fica
+  com uma lasca de fundo na quina.
+  ⚠️ O `verificar-suite` **não resolve estilo local**: um `TextBlock` cujo `TextTrimming` vem
+  de um `Style` declarado no `UserControl.Resources` é acusado do mesmo jeito. Repetir o
+  atributo na tag é o preço, e ele deixa a intenção à vista onde ela é lida.
 - **SEM CONVÊNIO ESCOLHIDO NÃO NASCE ATENDIMENTO** (parcela 92). A importação do Smart Clinic
   trouxe **2.021 das 2.238 fichas sem convênio**, no código `ConvenioCadastro.CodigoADefinir` —
   que não gera guia. A defesa era o alerta VERMELHO da elegibilidade, e ela não impede nada por

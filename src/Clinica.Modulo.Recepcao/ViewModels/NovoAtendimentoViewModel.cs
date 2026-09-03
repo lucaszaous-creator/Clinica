@@ -362,7 +362,19 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// comportamento é o de antes desta correção, que é o melhor disponível: guia
     /// gerada, sessão registrada, e a tela dizendo que ninguém foi apontado.
     /// </summary>
-    [ObservableProperty] private Profissional? _profissional;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExecutanteGuia))]
+    private Profissional? _profissional;
+
+    /// <summary>
+    /// Quem assina a guia da prévia. Sai do profissional escolhido no QUANDO, e diz
+    /// "a definir" enquanto ninguém foi escolhido — que é o estado em que a sessão fica
+    /// sem dono, some do "Meu dia" do médico e cai fora do repasse. O custo já estava
+    /// escrito no aviso amarelo do modo marcar; aqui ele aparece também no documento,
+    /// que é onde a falta tem consequência.
+    /// </summary>
+    public string ExecutanteGuia => Profissional?.Rotulo ?? "a definir";
+
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty]
@@ -535,6 +547,30 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     /// <summary>Nome do convênio do paciente selecionado (resolvido pelo catálogo).</summary>
     [ObservableProperty] private string? _convenioPaciente;
+
+    /// <summary>
+    /// A identificação do paciente numa linha só — documento, telefone e idade —, para a
+    /// FAIXA do topo.
+    ///
+    /// Montada aqui e não na tela porque o "·" entre pedaços que podem faltar é uma
+    /// REGRA, não um leiaute: uma ficha sem telefone sairia "104.009.757-00 ·  · 61 anos"
+    /// se a view concatenasse os `Run` na marra, e ficha sem nenhum dos três sairia com um
+    /// separador solto pendurado.
+    /// </summary>
+    [ObservableProperty] private string? _metaPaciente;
+
+    /// <summary>
+    /// A carteirinha do paciente COMO VAI PARA A GUIA. "—" quando a ficha não tem — e o
+    /// travessão é conteúdo, não vazio: o campo em branco no documento se lê como "ainda
+    /// não carregou", e o travessão se lê como "não há".
+    /// </summary>
+    [ObservableProperty] private string _carteirinhaPaciente = TravessaoDaGuia;
+
+    /// <summary>A validade da carteirinha, pelo mesmo critério da <see cref="CarteirinhaPaciente"/>.</summary>
+    [ObservableProperty] private string _validadePaciente = TravessaoDaGuia;
+
+    /// <summary>O que um campo da guia mostra quando a ficha não tem o dado.</summary>
+    private const string TravessaoDaGuia = "—";
 
     /// <summary>
     /// A ficha está com o convênio "a definir" — e por isso o lançamento é RECUSADO
@@ -1022,6 +1058,45 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
     }
 
+    /// <summary>
+    /// Copia da ficha os campos que a PRÉVIA DA GUIA desenha. Existe como um ponto só
+    /// porque os dois caminhos que trocam o convênio na tela — escolher outro paciente e
+    /// vincular o convênio sem sair daqui — precisam dos mesmos campos atualizados, e um
+    /// deles esquecido deixaria o documento mostrando a carteirinha de quem saiu.
+    /// </summary>
+    private void AtualizarFichaDaGuia(Paciente? p)
+    {
+        MetaPaciente = p is null ? null : MontarMetaDoPaciente(p);
+        CarteirinhaPaciente = string.IsNullOrWhiteSpace(p?.Carteirinha)
+            ? TravessaoDaGuia
+            : p!.Carteirinha!;
+        ValidadePaciente = p?.ValidadeCarteirinha is { } validade
+            ? validade.ToString("dd/MM/yyyy")
+            : TravessaoDaGuia;
+    }
+
+    /// <summary>Documento · telefone · idade, pulando o que a ficha não tem.</summary>
+    private static string MontarMetaDoPaciente(Paciente p)
+    {
+        var partes = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(p.Documento)) partes.Add(p.Documento!);
+        if (!string.IsNullOrWhiteSpace(p.Telefone)) partes.Add(p.Telefone!);
+        if (p.DataNascimento is { } nascimento) partes.Add($"{IdadeEm(nascimento)} anos");
+        return string.Join(" · ", partes);
+    }
+
+    /// <summary>
+    /// Anos completos hoje. O `-1` não é detalhe: sem ele quem faz aniversário em
+    /// dezembro aparece com um ano a mais durante onze meses.
+    /// </summary>
+    private static int IdadeEm(DateOnly nascimento)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var anos = hoje.Year - nascimento.Year;
+        if (nascimento > hoje.AddYears(-anos)) anos--;
+        return anos;
+    }
+
     // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro)
     // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
     private void AoTrocarPaciente(Paciente? value)
@@ -1046,6 +1121,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             ? null
             : CatalogoConvenios.Nome(value.ConvenioCodigo ?? value.Convenio.ToString());
         CategoriaPaciente = value?.Categoria.ToString();
+        AtualizarFichaDaGuia(value);
         // O impedimento aparece com o paciente, não com o clique no botão (parcela 92).
         SemConvenio = value?.ConvenioADefinir == true;
         if (value is null) return;
@@ -1645,6 +1721,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         SemConvenio = false;
         ConvenioPaciente = paciente.ConvenioNome;
         CategoriaPaciente = paciente.Categoria.ToString();
+        AtualizarFichaDaGuia(paciente);
         AvisoCarteirinha = paciente.CarteirinhaVencida
             ? $"A carteirinha de {paciente.Nome} venceu em {paciente.ValidadeCarteirinha:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;

@@ -37,6 +37,38 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
 
+        <!-- ============================================================
+             O PAR RÓTULO/VALOR de dado cadastral, usado na FAIXA do paciente e na
+             PRÉVIA DA GUIA.
+
+             Ele não sai do tema porque o `FichaRotulo`/`FichaValor` do design system
+             mora no dicionário do app de FATURAMENTO, e a suíte tem o seu próprio — e
+             porque o `Rotulo` do tema (13px, semibold) é grande demais para a legenda
+             de uma coluna que divide a faixa com outras cinco: aqui quem carrega o peso
+             é o VALOR, e o rótulo é só a etiqueta em cima dele.
+             ============================================================ -->
+        <Style x:Key="RotuloDado" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="ValorDado" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <!-- O divisor VERTICAL entre duas colunas de dado. O `Separator` do tema é
+             horizontal (altura travada em 1), então a barrinha em pé é um Border. -->
+        <Style x:Key="DivisorVertical" TargetType="Border">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Background" Value="{StaticResource Brush.Borda}" />
+            <Setter Property="Margin" Value="16,2" />
+        </Style>
+
         <!-- O cartão de rádio do QUANDO: o mesmo vocabulário visual do cartão de
              modalidade (borda de acento + fundo suave quando escolhido), com o círculo
              do RadioButton desenhado dentro — o template padrão da suíte é o do rádio
@@ -161,29 +193,75 @@
                          botão, que é onde a decisão acontece. -->
                     <Border Style="{StaticResource Card}"
                             Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
+                        <!-- A faixa carrega o CONTEXTO DE FATURAMENTO, não só a identidade
+                             (set/2026). Convênio e carteirinha eram dois badges colados sob o
+                             nome, do mesmo tamanho da categoria — e são justamente os dois
+                             campos que decidem se a guia nasce e se o convênio a aceita. Em
+                             colunas rotuladas eles passam a se ler de relance, e a carteirinha,
+                             que antes só aparecia quando VENCIA, aparece sempre. -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" MinWidth="150" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+
                             <ctrl:Avatar Grid.Column="0" Tamanho="48" VerticalAlignment="Center"
                                          Margin="0,0,12,0"
                                          Nome="{Binding PacienteSelecionado.Nome}"
                                          Foto="{Binding PacienteSelecionado.FotoMiniatura}" />
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding PacienteSelecionado.Nome}" FontWeight="SemiBold"
+                                           FontSize="{StaticResource Fonte.H3}"
                                            TextTrimming="CharacterEllipsis" />
-                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                    <Border Style="{StaticResource Badge.Info}" Margin="0,0,6,0">
-                                        <TextBlock Text="{Binding ConvenioPaciente}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                    </Border>
-                                    <Border Style="{StaticResource Badge}">
-                                        <TextBlock Text="{Binding CategoriaPaciente}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                    </Border>
-                                </StackPanel>
+                                <!-- Documento · telefone · idade vêm PRONTOS do VM: os
+                                     separadores entre pedaços que podem faltar são regra, não
+                                     leiaute (ficha sem telefone sairia com o "·" pendurado). -->
+                                <TextBlock Text="{Binding MetaPaciente}" Style="{StaticResource CelulaSuave}"
+                                           Margin="0,2,0,0" />
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Trocar" VerticalAlignment="Center"
+
+                            <Border Grid.Column="2" Style="{StaticResource DivisorVertical}" />
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" MaxWidth="200">
+                                <TextBlock Text="CONVÊNIO" Style="{StaticResource RotuloDado}" />
+                                <TextBlock Text="{Binding ConvenioPaciente}" TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <!-- Vermelho quando é "a definir": é o único dado desta faixa
+                                             que IMPEDE o lançamento, e o resto dela é informativo. -->
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource ValorDado}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SemConvenio}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <Border Grid.Column="4" Style="{StaticResource DivisorVertical}" />
+                            <StackPanel Grid.Column="5" VerticalAlignment="Center" MaxWidth="160">
+                                <TextBlock Text="CARTEIRINHA" Style="{StaticResource RotuloDado}" />
+                                <TextBlock Text="{Binding CarteirinhaPaciente}" Style="{StaticResource ValorDado}"
+                                            TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <Border Grid.Column="6" Style="{StaticResource DivisorVertical}" />
+                            <StackPanel Grid.Column="7" VerticalAlignment="Center" MaxWidth="140"
+                                        Margin="0,0,16,0">
+                                <TextBlock Text="CATEGORIA" Style="{StaticResource RotuloDado}" />
+                                <TextBlock Text="{Binding CategoriaPaciente}" Style="{StaticResource ValorDado}"
+                                            TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <Button Grid.Column="8" Content="Trocar" VerticalAlignment="Center"
                                     MinHeight="36" MinWidth="90"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding TrocarPacienteCommand}"
@@ -347,27 +425,37 @@
                         <TextBlock Text="{Binding TituloPasso2}" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
                         <Separator Margin="0,4,0,10" />
 
-                        <!-- Os cartões em LINHA. `Height` FIXA, não `MinHeight`: num WrapPanel
-                             cada filho fica com a altura que pede, e um nome que quebra em duas
-                             linhas deixava a fileira com a base serrilhada. -->
-                        <ItemsControl ItemsSource="{Binding Cartoes}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <!-- WrapPanel e não UniformGrid: numa clínica que cadastrou
-                                         variantes de modalidade a lista passa de cinco, e o
-                                         UniformGrid espremeria todas numa linha até o texto
-                                         virar reticências. -->
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
+                        <!-- ============================================================
+                             AS MODALIDADES EM LINHAS (set/2026), no lugar dos cartões de
+                             200×130 que embrulhavam em três colunas.
+
+                             O cartão grande tinha um defeito de leitura que só aparece com a
+                             lista inteira à vista: para comparar "quantas guias" entre cinco
+                             opções o olho tinha de saltar na diagonal, porque o número morava
+                             no rodapé de cada cartão e os cartões estavam em grade. Em linhas,
+                             os números caem numa COLUNA — que é como se compara número.
+
+                             Cada linha ganhou o TRAÇO DA FAMÍLIA à esquerda, o mesmo do
+                             `CartaoDeHorario` da agenda e com os mesmos tokens: quem vê a
+                             agenda o dia inteiro já lê teal como BSV, e a tela de lançar
+                             passou a falar a mesma língua. O traço é reforço — o nome da
+                             modalidade continua escrito.
+
+                             `Height` fixa continua sendo a regra: nome de modalidade
+                             personalizada que quebrasse em duas linhas deixaria a coluna de
+                             números serrilhada, que é o defeito que o WrapPanel tinha.
+                             ============================================================ -->
+                        <ItemsControl ItemsSource="{Binding Cartoes}" HorizontalAlignment="Left"
+                                      MaxWidth="820">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <!-- `Foreground` e `FontWeight` explícitos: o estilo implícito
                                          de Button é o PRIMÁRIO (fundo de acento, texto invertido),
                                          e Foreground é propriedade HERDADA — sem isto o nome da
-                                         modalidade sairia branco sobre a superfície branca do
-                                         cartão, visível só para quem abre a tela. -->
-                                    <Button Width="200" Height="130" Margin="0,0,10,10"
+                                         modalidade sairia branco sobre a superfície branca da
+                                         linha, visível só para quem abre a tela. -->
+                                    <Button Height="44" Margin="0,0,0,6"
+                                            HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Stretch"
                                             Foreground="{StaticResource Brush.Texto.Primario}"
                                             FontWeight="Normal"
@@ -376,44 +464,69 @@
                                             CommandParameter="{Binding}">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
-                                                <Border x:Name="cx" Padding="14,12"
+                                                <Border x:Name="cx" Padding="13,0,12,0"
                                                         Background="{StaticResource Brush.Superficie}"
                                                         BorderBrush="{StaticResource Brush.Borda}"
                                                         BorderThickness="1"
                                                         CornerRadius="{StaticResource Raio.Medio}">
-                                                    <DockPanel>
-                                                        <!-- O número de guias em BAIXO, grande: é a
-                                                             consequência, e é o que o olho procura
-                                                             ao comparar as opções. -->
-                                                        <StackPanel DockPanel.Dock="Bottom">
-                                                            <TextBlock Text="{Binding QuantasGuias}"
-                                                                       Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                            <TextBlock x:Name="quando" Text="{Binding Quando}"
-                                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                                       TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                                       TextTrimming="CharacterEllipsis" />
-                                                        </StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
 
-                                                        <StackPanel>
-                                                            <!-- Teto de duas linhas: sem ele, o nome de uma
-                                                                 modalidade personalizada empurra o número de
-                                                                 guias para fora do cartão de altura fixa. -->
+                                                        <!-- A caixa de marcação. Desenhada e não um CheckBox
+                                                             porque a linha INTEIRA é o alvo de clique: um
+                                                             CheckBox de verdade traria um segundo alvo, com
+                                                             foco próprio, dentro de um botão. -->
+                                                        <Grid Grid.Column="0" Width="16" Height="16"
+                                                              VerticalAlignment="Center" Margin="0,0,10,0">
+                                                            <Border x:Name="caixa"
+                                                                    CornerRadius="{StaticResource Raio.Pequeno}"
+                                                                    BorderThickness="1"
+                                                                    BorderBrush="{StaticResource Brush.Borda.Hover}"
+                                                                    Background="{StaticResource Brush.Superficie}" />
+                                                            <TextBlock x:Name="visto" Text="&#xE73E;"
+                                                                       Style="{StaticResource Icone}"
+                                                                       FontSize="{StaticResource Fonte.Legenda}" Visibility="Collapsed"
+                                                                       HorizontalAlignment="Center"
+                                                                       Foreground="{StaticResource Brush.Texto.Invertido}" />
+                                                        </Grid>
+
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                                    VerticalAlignment="Center" Margin="0,0,12,0">
                                                             <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                                       TextWrapping="Wrap"
-                                                                       MaxHeight="38"
+                                                                       VerticalAlignment="Center"
                                                                        TextTrimming="CharacterEllipsis" />
                                                             <!-- Ataca o erro mais comum do balcão: lançar a
                                                                  modalidade errada por distração num paciente
                                                                  que faz a mesma coisa há quarenta sessões. -->
-                                                            <TextBlock Text="o de sempre dele"
-                                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                                       Foreground="{StaticResource Brush.Acento}"
-                                                                       Margin="0,2,0,0"
-                                                                       Visibility="{Binding EhHabitual,
-                                                                                    Converter={StaticResource BoolParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                            <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Visibility="{Binding EhHabitual,
+                                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                                <TextBlock Text="o de sempre dele" TextTrimming="CharacterEllipsis" />
+                                                            </Border>
                                                         </StackPanel>
-                                                    </DockPanel>
+
+                                                        <!-- A consequência, em COLUNA: é o que o olho compara
+                                                             entre uma linha e a seguinte. -->
+                                                        <TextBlock Grid.Column="2" Text="{Binding QuantasGuias}"
+                                                                   FontWeight="SemiBold" MinWidth="64"
+                                                                   VerticalAlignment="Center"
+                                                                   TextAlignment="Right" Margin="0,0,14,0"
+                                                                   TextTrimming="CharacterEllipsis" />
+
+                                                        <TextBlock Grid.Column="3" x:Name="quando"
+                                                                   Text="{Binding Quando}" MinWidth="128"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                   VerticalAlignment="Center"
+                                                                   TextAlignment="Right"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </Grid>
                                                 </Border>
 
                                                 <ControlTemplate.Triggers>
@@ -421,13 +534,46 @@
                                                         <Setter TargetName="cx" Property="BorderBrush"
                                                                 Value="{StaticResource Brush.Borda.Hover}" />
                                                     </Trigger>
+
+                                                    <!-- O traço da FAMÍLIA, com os mesmos tokens do cartão de
+                                                         horário da agenda. AcupunturaSimples não tem gatilho:
+                                                         fica na borda neutra, como o dia comum na agenda. -->
+                                                    <DataTrigger Binding="{Binding Entrada.Base}" Value="AcupunturaComEletro">
+                                                        <Setter TargetName="cx" Property="BorderThickness" Value="3,1,1,1" />
+                                                        <Setter TargetName="cx" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Entrada.Base}" Value="BsvApenas">
+                                                        <Setter TargetName="cx" Property="BorderThickness" Value="3,1,1,1" />
+                                                        <Setter TargetName="cx" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Modalidade.Bsv}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Entrada.Base}" Value="BsvComAcupuntura">
+                                                        <Setter TargetName="cx" Property="BorderThickness" Value="3,1,1,1" />
+                                                        <Setter TargetName="cx" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Entrada.Base}" Value="Consulta">
+                                                        <Setter TargetName="cx" Property="BorderThickness" Value="3,1,1,1" />
+                                                        <Setter TargetName="cx" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Modalidade.Consulta}" />
+                                                    </DataTrigger>
+
+                                                    <!-- Depois dos gatilhos de família de propósito: gatilho
+                                                         posterior vence, e ESCOLHIDA tem de vencer CATEGORIA —
+                                                         a linha marcada precisa se distinguir das outras
+                                                         quatro, e a cor da família continua no fundo suave. -->
                                                     <DataTrigger Binding="{Binding Escolhida}" Value="True">
                                                         <Setter TargetName="cx" Property="BorderBrush"
                                                                 Value="{StaticResource Brush.Acento}" />
-                                                        <Setter TargetName="cx" Property="BorderThickness" Value="2" />
+                                                        <Setter TargetName="cx" Property="BorderThickness" Value="3,1,1,1" />
                                                         <Setter TargetName="cx" Property="Background"
                                                                 Value="{StaticResource Brush.Acento.Suave}" />
-                                                        <Setter TargetName="cx" Property="Padding" Value="13,11" />
+                                                        <Setter TargetName="caixa" Property="Background"
+                                                                Value="{StaticResource Brush.Acento}" />
+                                                        <Setter TargetName="caixa" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Acento}" />
+                                                        <Setter TargetName="visto" Property="Visibility" Value="Visible" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding TemSegundoCodigo}" Value="True">
                                                         <Setter TargetName="quando" Property="Foreground"
@@ -963,20 +1109,212 @@
                                 <Separator Margin="0,4,0,12" />
                             </StackPanel>
 
-                            <!-- ===== O QUE VAI SAIR (a prévia, sempre à vista) ===== -->
-                            <StackPanel Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock Text="O QUE VAI SAIR" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                            <!-- ============================================================
+                                 A GUIA QUE VAI NASCER (set/2026).
 
-                                <Border Background="{StaticResource Brush.Acento.Suave}"
+                                 Até aqui a prévia era um resumo em texto — "2 guias · a 2ª
+                                 libera 09/08" — e a GUIA, que é o que a clínica entrega, só
+                                 virava objeto depois de gravada, noutro app. O resumo dizia o
+                                 número certo e mesmo assim deixava passar o erro que mais
+                                 custa: guia emitida com o campo errado, que volta glosada
+                                 semanas depois.
+
+                                 Agora a coluna desenha o DOCUMENTO com os campos que vão nele
+                                 — convênio, carteirinha, validade, beneficiário, executante —
+                                 e a lista de códigos embaixo. Os campos são os da ficha, lidos
+                                 na hora: quem confere passa o olho no que vai ser emitido, e
+                                 não numa frase sobre o que vai ser emitido.
+
+                                 ⚠️ O documento é uma PRÉVIA, não a guia: não há número (ele
+                                 nasce na baixa) e nada foi gravado. O cabeçalho diz isso, e
+                                 continua dizendo depois de qualquer mexida aqui.
+                                 ============================================================ -->
+                            <StackPanel Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="A GUIA QUE VAI NASCER" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+
+                                <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                                         CornerRadius="{StaticResource Raio.Medio}"
-                                        Padding="12,10" Margin="0,0,0,10">
+                                        Background="{StaticResource Brush.Superficie}" Margin="0,0,0,10">
                                     <StackPanel>
-                                        <TextBlock Text="PRÉVIA — NADA FOI GRAVADO AINDA"
-                                                   Style="{StaticResource Rotulo}" Margin="0" />
-                                        <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
-                                                   HorizontalAlignment="Left" Margin="0,4,0,0" />
-                                    </StackPanel>
-                                </Border>
+
+                                        <!-- O cabeçalho do documento. Ele carrega o aviso de que
+                                             nada foi gravado — que antes era a primeira linha do
+                                             bloco azul e agora é a tarja do papel. -->
+                                        <!-- ⚠️ `CornerRadius` literal, e é o único jeito: só as duas
+                                             quinas de cima são arredondadas, e o WPF não deriva um
+                                             raio parcial de um `CornerRadius` do dicionário. Os 8
+                                             são o valor de `Raio.Medio` — se o token mudar, esta
+                                             tarja fica com uma lasca de fundo aparecendo na quina. -->
+                                        <Border Background="{StaticResource Brush.Superficie.Hover}"
+                                                BorderBrush="{StaticResource Brush.Borda}"
+                                                BorderThickness="0,0,0,1"
+                                                CornerRadius="8,8,0,0" Padding="12,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="PRÉVIA — NADA FOI GRAVADO AINDA"
+                                                           Style="{StaticResource Rotulo}" Margin="0"
+                                                           VerticalAlignment="Center" />
+                                                <Border Grid.Column="1" Style="{StaticResource Badge.Erro}"
+                                                        VerticalAlignment="Center" Margin="8,0,0,0"
+                                                        Visibility="{Binding SemConvenio,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="sem convênio" TextTrimming="CharacterEllipsis" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <StackPanel Margin="12,10,12,12">
+
+                                            <!-- Os campos do documento, em duas colunas. O convênio
+                                                 vem PRIMEIRO porque é o que decide se existe guia. -->
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="CONVÊNIO" Style="{StaticResource RotuloDado}" />
+                                                    <!-- O campo que FALTA sai com o fundo do erro, não só
+                                                         com o texto em vermelho: no documento, o buraco
+                                                         tem de se ver como buraco. É o mesmo impedimento
+                                                         que o aviso acima descreve — a diferença é que
+                                                         aqui ele aparece NO lugar onde vai fazer falta. -->
+                                                    <Border Padding="6,3"
+                                                            CornerRadius="{StaticResource Raio.Pequeno}"
+                                                            Margin="0,2,0,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="Transparent" />
+                                                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding SemConvenio}" Value="True">
+                                                                        <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding ConvenioPaciente}" TextTrimming="CharacterEllipsis">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource ValorDado}">
+                                                                    <Setter Property="Margin" Value="0" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding SemConvenio}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="CARTEIRINHA" Style="{StaticResource RotuloDado}" />
+                                                    <Border Padding="6,3" Margin="0,2,0,0"
+                                                            BorderThickness="0,0,0,1"
+                                                            BorderBrush="{StaticResource Brush.Borda}">
+                                                        <TextBlock Text="{Binding CarteirinhaPaciente}" TextTrimming="CharacterEllipsis"
+                                                                   Style="{StaticResource ValorDado}" Margin="0" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="Auto" MinWidth="96" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="BENEFICIÁRIO" Style="{StaticResource RotuloDado}" />
+                                                    <Border Padding="6,3" Margin="0,2,0,0"
+                                                            BorderThickness="0,0,0,1"
+                                                            BorderBrush="{StaticResource Brush.Borda}">
+                                                        <TextBlock Text="{Binding PacienteSelecionado.Nome}" TextTrimming="CharacterEllipsis"
+                                                                   Style="{StaticResource ValorDado}" Margin="0" />
+                                                    </Border>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="VALIDADE" Style="{StaticResource RotuloDado}" />
+                                                    <!-- Âmbar quando VENCIDA: o convênio recusa a guia, e a
+                                                         data é o campo em que isso se vê. -->
+                                                    <Border Padding="6,3" Margin="0,2,0,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="Transparent" />
+                                                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding TemAvisoCarteirinha}" Value="True">
+                                                                        <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding ValidadePaciente}" TextTrimming="CharacterEllipsis">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource ValorDado}">
+                                                                    <Setter Property="Margin" Value="0" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding TemAvisoCarteirinha}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="12" />
+                                                    <ColumnDefinition Width="Auto" MinWidth="96" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="EXECUTANTE" Style="{StaticResource RotuloDado}" />
+                                                    <Border Padding="6,3" Margin="0,2,0,0"
+                                                            BorderThickness="0,0,0,1"
+                                                            BorderBrush="{StaticResource Brush.Borda}">
+                                                        <TextBlock Text="{Binding ExecutanteGuia}" TextTrimming="CharacterEllipsis"
+                                                                   Style="{StaticResource ValorDado}" Margin="0" />
+                                                    </Border>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Nº DA GUIA" Style="{StaticResource RotuloDado}" />
+                                                    <Border Padding="6,3" Margin="0,2,0,0"
+                                                            BorderThickness="0,0,0,1"
+                                                            BorderBrush="{StaticResource Brush.Borda}">
+                                                        <!-- Não é campo vazio: o número da guia nasce na
+                                                             BAIXA, e escrever quando ele aparece evita a
+                                                             pergunta "cadê o número?" no balcão. -->
+                                                        <TextBlock Text="ao baixar" Style="{StaticResource ValorDado}"
+                                                                   Margin="0"
+                                                                   FontWeight="Normal"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    </Border>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
+                                                       HorizontalAlignment="Left" Margin="0,0,0,10"
+                                                       FontWeight="SemiBold" />
+
+                                            <TextBlock Text="CÓDIGOS" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
 
                                 <ItemsControl ItemsSource="{Binding Previa}">
                                     <ItemsControl.ItemTemplate>
@@ -1023,6 +1361,10 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
 
                             </StackPanel>
 
