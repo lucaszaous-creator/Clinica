@@ -74,6 +74,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// <summary>A lista atual é a SUGESTÃO, não um resultado de busca.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
+    [NotifyPropertyChangedFor(nameof(ListandoTodos))]
     private bool _mostrandoSugestao;
 
     /// <summary>
@@ -90,6 +91,17 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
     /// <summary>O par invertido — a suíte não tem conversor de booleano invertido.</summary>
     public bool SugestaoDesligada => !SugestaoLigada;
+
+    /// <summary>
+    /// A lista atual é a LISTAGEM COMPLETA — o modo "Todos os pacientes" de fato à vista.
+    ///
+    /// ⚠️ Não é o mesmo que <see cref="SugestaoDesligada"/>, e a diferença é visível: com
+    /// termo digitado a lista é RESULTADO DE BUSCA, e nenhum dos dois modos está no ar.
+    /// As pílulas amarradas nas flags de configuração (`SugestaoLigada`) ficavam acesas
+    /// sobre uma lista que não era a delas — a tela dizendo "com horário hoje" em cima de
+    /// quatro resultados de "pinheiro". Elas agora seguem o que ESTÁ na tela.
+    /// </summary>
+    public bool ListandoTodos => !MostrandoSugestao && string.IsNullOrWhiteSpace(Termo);
 
     /// <summary>Volta para a sugestão da tela (o "Com horário hoje").</summary>
     [RelayCommand]
@@ -145,7 +157,9 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _temResultados;
 
-    [ObservableProperty] private string? _termo;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ListandoTodos))]
+    private string? _termo;
     [ObservableProperty] private Paciente? _selecionado;
     [ObservableProperty] private bool _buscando;
 

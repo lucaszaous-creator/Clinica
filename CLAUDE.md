@@ -447,6 +447,12 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   nenhum). No leiaute antigo esses vãos ficavam escondidos por um cartão que já era grande;
   numa coluna centrada de 760px eles são a composição. **Regra ampliada: elemento amarrado a
   texto opcional leva `Visibility`, não só o `TextBlock`.**
+  ⚠️ **Pílula de modo segue o que ESTÁ NA TELA, não a flag de configuração.** As duas
+  estavam amarradas em `SugestaoLigada`/`SugestaoDesligada` — que continuam verdadeiras
+  enquanto se digita —, então com um termo no campo a tela dizia "Com horário hoje" aceso
+  sobre uma lista de resultados de busca. Agora seguem `MostrandoSugestao` e `ListandoTodos`,
+  e com termo digitado **nenhuma** acende, que é a verdade: nem um modo nem o outro está no
+  ar. Quem achou isto foi o renderizador de `tools/` — não a leitura do código.
   ⚠️ **A listagem alfabética voltou — como escolha.** A pílula "Todos os pacientes"
   (`ChipFiltro`, que já existia) desliga a sugestão. O defeito nunca foi a lista existir, foi
   ela CHEGAR sem ninguém pedir, com cara de resposta. Digitar RELIGA a sugestão, senão o modo

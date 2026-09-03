@@ -205,12 +205,12 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
                             <ToggleButton Style="{StaticResource ChipFiltro}"
                                           Content="{Binding Seletor.RotuloDaSugestao}"
-                                          IsChecked="{Binding Seletor.SugestaoLigada, Mode=OneWay}"
+                                          IsChecked="{Binding Seletor.MostrandoSugestao, Mode=OneWay}"
                                           Command="{Binding Seletor.LigarSugestaoCommand}"
                                           ToolTip="Os pacientes com horário marcado para hoje" />
                             <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0"
                                           Content="Todos os pacientes"
-                                          IsChecked="{Binding Seletor.SugestaoDesligada, Mode=OneWay}"
+                                          IsChecked="{Binding Seletor.ListandoTodos, Mode=OneWay}"
                                           Command="{Binding Seletor.DesligarSugestaoCommand}"
                                           ToolTip="A ficha de todo mundo, em ordem de nome" />
                         </StackPanel>
