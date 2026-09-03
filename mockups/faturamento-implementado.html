@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Piloto shadcn — como a tela FICOU (Consulta de guias)</title>
+<style>
+/* ============================================================================
+   COMO A TELA FICOU — reprodução em HTML do XAML que foi entregue.
+
+   ⚠️ NÃO É UM SCREENSHOT. O app é WPF e só compila no Windows; este arquivo é a
+   MESMA tela redesenhada em HTML, com os valores lidos um a um de
+   `src/Clinica.Desktop/Styles/Pilot/Tokens.xaml` e a estrutura lida de
+   `src/Clinica.Desktop/Views/ConsultaGuiasView.xaml`. Cada cor, raio, altura,
+   espaçamento e corpo de fonte abaixo é o token que o XAML usa — estão anotados
+   ao lado para conferência.
+
+   O que pode sair diferente na máquina: o DESENHO DA FONTE. O app usa
+   "Segoe UI Variable Text/Display" (Windows 11), que este navegador pode não ter.
+   O resto — geometria, cor, peso e espaçamento — é o mesmo.
+
+   Arquivo único, sem CDN, abre offline.
+   ============================================================================ */
+
+/* ---- TOKENS: cópia fiel de Styles/Pilot/Tokens.xaml ---------------------- */
+:root{
+  /* escala zinc do shadcn */
+  --zinc50:#FAFAFA; --zinc100:#F4F4F5; --zinc200:#E4E4E7; --zinc300:#D4D4D8;
+  --zinc400:#A1A1AA; --zinc500:#71717A; --zinc700:#3F3F46; --zinc900:#18181B; --zinc950:#09090B;
+  /* marca — MESMO valor de Cor.Azul.600 do design system da casa */
+  --marca:#123A9E; --marca-hover:#0A2E86; --marca-tint:#EEF3FC;
+  /* estados */
+  --ok-tint:#F0FDF4; --ok:#15803D;
+  --aviso-tint:#FFFBEB; --aviso:#B45309;
+  --erro-tint:#FEF2F2; --erro:#B91C1C; --erro-forte:#DC2626;
+  /* semânticos */
+  --bg:var(--zinc50); --fg:var(--zinc950);
+  --card:#fff; --muted:var(--zinc100); --muted-fg:var(--zinc500);
+  --border:var(--zinc200); --input:var(--zinc300); --ring:var(--marca);
+  /* raio  (PilRadiusSm/Md/Lg/Full/Topo) */
+  --r-sm:4px; --r-md:6px; --r-lg:8px; --r-full:999px;
+  /* altura (PilAlturaControle / Sm / Linha) */
+  --h:36px; --h-sm:28px; --h-linha:40px;
+  /* fonte (PilFonteH1/H2/Corpo/Tabela/Legenda) */
+  --f-h1:24px; --f-h2:18px; --f-corpo:14px; --f-tabela:13px; --f-legenda:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+     background:#dfe1e4;color:var(--fg);-webkit-font-smoothing:antialiased;padding:26px}
+
+/* ---- moldura de apresentação (NÃO faz parte da tela) --------------------- */
+.nota{max-width:1420px;margin:0 auto 24px;background:#fff;border:1px solid var(--zinc300);
+      border-radius:var(--r-lg);padding:16px 18px;font-size:13px;line-height:1.65;color:var(--zinc700)}
+.nota b{color:var(--fg)}
+.nota code{background:var(--zinc100);padding:1px 5px;border-radius:var(--r-sm);font-size:12px}
+.nota ul{margin:8px 0 0 18px}
+.nota li{margin:3px 0}
+.secao{max-width:1420px;margin:36px auto 10px;font-size:12px;font-weight:700;letter-spacing:.09em;
+       text-transform:uppercase;color:var(--zinc700)}
+.secao span{font-weight:400;letter-spacing:0;text-transform:none;color:var(--zinc500);margin-left:10px}
+.janela{max-width:1420px;margin:0 auto;border:1px solid var(--zinc400);border-radius:10px;overflow:hidden;
+        background:#fff}
+.cromo{background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;font-size:12px;color:var(--zinc500);
+       display:flex;align-items:center;gap:8px}
+.cromo b{color:var(--zinc700);font-weight:600}
+.cromo .sep{color:var(--zinc300)}
+
+/* ============================================================================
+   A TELA. Daqui para baixo tudo espelha o XAML entregue.
+   ============================================================================ */
+.tela{background:var(--bg);padding:24px}                 /* Border PilBackground + Grid Margin=24 */
+
+/* cabeçalho */
+.h1{font-family:"Segoe UI Variable Display","Segoe UI",sans-serif;
+    font-size:var(--f-h1);font-weight:700;line-height:1.15}          /* PilH1 */
+.suave{font-size:var(--f-legenda);color:var(--muted-fg);line-height:1.5}  /* PilSuave */
+.cabecalho{margin-bottom:16px}
+.cabecalho .suave{margin-top:4px;max-width:820px}
+
+/* cartão */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}  /* PilCard */
+.card-limpo{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:0}/* PilCardLimpo */
+.filtros{margin-bottom:16px}
+
+/* rótulo + campo */
+.rotulo{font-size:var(--f-legenda);font-weight:600;color:var(--muted-fg);margin-bottom:6px}  /* PilRotulo */
+.wrap{display:flex;flex-wrap:wrap}
+.campo{margin:0 12px 10px 0}
+.entrada{height:var(--h);border:1px solid var(--input);border-radius:var(--r-md);background:var(--card);
+         padding:0 11px;font-size:var(--f-corpo);color:var(--fg);width:100%;display:flex;align-items:center;
+         font-family:inherit}
+.entrada.fantasma{color:var(--muted-fg)}
+.entrada.busca{padding-left:34px;position:relative}
+.busca-env{position:relative}
+.busca-env svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none}
+.entrada.combo{justify-content:space-between}
+.entrada.foco{border-color:var(--ring);box-shadow:0 0 0 2px var(--ring)}   /* o anel Ring */
+
+/* botões */
+.btn{height:var(--h);border-radius:var(--r-md);padding:0 15px;font-size:var(--f-corpo);font-weight:600;
+     border:0;display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-family:inherit}
+.btn-primario{background:var(--marca);color:#fff}                          /* implícito */
+.btn-outline{background:var(--card);color:var(--fg);border:1px solid var(--input);font-weight:400}
+.btn-sm{height:var(--h-sm);padding:0 10px;font-size:var(--f-legenda);gap:6px}
+.btn-fantasma{background:transparent;color:var(--muted-fg);border:0;font-weight:400}
+.acoes{display:flex;gap:8px;margin-top:6px}
+
+/* faixa do topo do cartão de resultados */
+.faixa{background:var(--card);border-bottom:1px solid var(--border);
+       border-radius:var(--r-lg) var(--r-lg) 0 0;                 /* PilRadiusTopo */
+       padding:13px 15px;display:flex;align-items:center;gap:12px}
+.h2{font-family:"Segoe UI Variable Display","Segoe UI",sans-serif;
+    font-size:var(--f-h2);font-weight:600}                        /* PilH2 */
+
+/* tabela */
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+thead th{background:var(--muted);color:var(--muted-fg);font-size:var(--f-legenda);font-weight:600;
+         text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+tbody td{font-size:var(--f-tabela);padding:9px 12px;border-bottom:1px solid var(--border);
+         height:var(--h-linha);vertical-align:middle;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}   /* TextTrimming */
+tbody tr:hover td{background:var(--muted)}                            /* DataGridRow IsMouseOver */
+tbody tr.sel td{background:var(--marca-tint)}                         /* IsSelected → Accent */
+tbody tr:last-child td{border-bottom:0}
+.c-num{color:var(--muted-fg);font-variant-numeric:tabular-nums}       /* PilColunaNumero */
+.c-suave{color:var(--muted-fg)}                                       /* PilColunaSuave */
+.c-forte{font-weight:600}                                             /* PilColunaForte */
+
+/* badge */
+.badge{display:inline-block;border-radius:var(--r-full);padding:2px 9px;font-size:var(--f-legenda);
+       font-weight:600;background:var(--muted);color:var(--muted-fg);max-width:100%;
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.badge-ok{background:var(--ok-tint);color:var(--ok)}
+.badge-aviso{background:var(--aviso-tint);color:var(--aviso)}
+.badge-erro{background:var(--erro-tint);color:var(--erro)}
+.cel-acoes{display:flex;gap:6px}
+
+/* estado vazio */
+.vazio{padding:64px 24px 40px;text-align:center}
+.vazio .h2{margin-top:12px}
+.vazio .suave{margin-top:4px}
+
+/* folha de controles */
+.folha{background:var(--bg);padding:24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.peca{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px}
+.peca h3{font-size:var(--f-legenda);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+         color:var(--muted-fg);margin-bottom:12px}
+.peca .linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.peca .obs{font-size:var(--f-legenda);color:var(--muted-fg);line-height:1.5;margin-top:10px}
+.peca code{background:var(--zinc100);padding:1px 5px;border-radius:var(--r-sm);font-size:11px}
+.tooltip{background:var(--zinc900);color:var(--zinc50);border:1px solid var(--zinc700);
+         border-radius:var(--r-md);padding:6px 9px;font-size:var(--f-legenda);display:inline-block}
+.barra{width:8px;height:70px;background:transparent;position:relative;border-radius:var(--r-sm)}
+.barra i{position:absolute;left:2px;right:2px;top:10px;height:34px;background:var(--zinc300);
+         border-radius:var(--r-sm);display:block}
+.popup{margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-md);
+       padding:4px;width:200px}
+.popup div{padding:7px 9px;border-radius:var(--r-sm);font-size:var(--f-corpo)}
+.popup div.on{background:var(--marca-tint);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="nota">
+  <b>Como a tela ficou.</b> Reprodução em HTML do XAML entregue — <b>não é um screenshot</b>:
+  o app é WPF e só compila no Windows. Cada valor abaixo foi lido de
+  <code>Styles/Pilot/Tokens.xaml</code> e a estrutura de <code>Views/ConsultaGuiasView.xaml</code>;
+  os comentários do CSS dizem qual token governa cada regra.
+  <ul>
+    <li><b>O que pode sair diferente na sua máquina:</b> o desenho da fonte. O app usa
+        <i>Segoe UI Variable</i> (Windows 11) e cai para <i>Segoe UI</i> no Windows 10.
+        Geometria, cor, peso e espaçamento são os mesmos.</li>
+    <li><b>Os dados são de exemplo</b>, mas os CAMPOS e os estados são os reais: este módulo
+        não tem dinheiro — “baixa” é a guia efetivada no portal do convênio, e os estados são
+        <i>Aberto · Baixado · Não aplicável</i>, com a glosa em coluna própria.</li>
+    <li><b>Só esta tela mudou.</b> O dicionário do piloto não está no <code>App.xaml</code>:
+        as outras doze telas do faturamento continuam exatamente como estavam.</li>
+  </ul>
+</div>
+
+<!-- ======================================================================= -->
+<div class="secao">1 · A tela com resultados <span>o estado normal de trabalho</span></div>
+<div class="janela">
+  <div class="cromo"><b>Faturamento SemDor</b> <span class="sep">›</span> Guias <span class="sep">›</span> Consultar guias
+     &nbsp;&nbsp;<span class="sep">|</span>&nbsp;&nbsp; a faixa acima é o cabeçalho do app, fora do piloto</div>
+  <div class="tela">
+
+    <div class="cabecalho">
+      <div class="h1">Consultar guias</div>
+      <div class="suave">O que foi feito, para quem, e em que situação está cada guia.</div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card filtros">
+      <div class="wrap">
+        <div class="campo" style="width:220px">
+          <div class="rotulo">Paciente (nome ou CPF)</div>
+          <div class="busca-env">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <div class="entrada busca">Duarte</div>
+          </div>
+        </div>
+        <div class="campo" style="width:160px">
+          <div class="rotulo">Nº da guia</div>
+          <div class="entrada"></div>
+        </div>
+        <div class="campo" style="width:220px">
+          <div class="rotulo">Observação da pendência</div>
+          <div class="busca-env">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <div class="entrada busca fantasma">Ex.: portal fora do ar…</div>
+          </div>
+        </div>
+        <div class="campo" style="width:140px">
+          <div class="rotulo">De (atendimento)</div>
+          <div class="entrada combo"><span>31/08/2026</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/>
+              <rect x="3" y="4" width="18" height="18" rx="2"/></svg></div>
+        </div>
+        <div class="campo" style="width:140px">
+          <div class="rotulo">Até</div>
+          <div class="entrada combo"><span class="fantasma" style="color:var(--muted-fg)">dd/mm/aaaa</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4M16 2v4M3 10h18"/>
+              <rect x="3" y="4" width="18" height="18" rx="2"/></svg></div>
+        </div>
+        <div class="campo" style="width:150px">
+          <div class="rotulo">Status</div>
+          <div class="entrada combo"><span>Todos</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round" opacity=".55"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="campo" style="width:200px">
+          <div class="rotulo">Convênio</div>
+          <div class="entrada combo"><span>Todos</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round" opacity=".55"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="campo" style="width:220px">
+          <div class="rotulo">Modalidade</div>
+          <div class="entrada combo"><span>Todas</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round" opacity=".55"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="campo" style="width:180px">
+          <div class="rotulo">Especialidade</div>
+          <div class="entrada combo"><span>Todas</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round" opacity=".55"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+      </div>
+      <div class="acoes">
+        <button class="btn btn-primario">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"
+               stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Buscar</button>
+        <button class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="1.5"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          Limpar</button>
+      </div>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div class="card-limpo">
+      <div class="faixa">
+        <div class="h2">Guias encontradas</div>
+        <div class="suave">7 de 214 — paciente “Duarte” · a partir de 31/08/2026</div>
+      </div>
+      <table>
+        <colgroup>
+          <col style="width:92px"><col style="width:82px"><col style="width:104px"><col style="width:15%">
+          <col style="width:13%"><col style="width:15%"><col style="width:11%"><col style="width:13%">
+          <col style="width:88px"><col style="width:92px"><col style="width:16%"><col style="width:104px">
+          <col style="width:15%"><col style="width:172px">
+        </colgroup>
+        <thead><tr>
+          <th>Data</th><th>Atend. nº</th><th>Lançou por</th><th>Paciente</th><th>Convênio</th>
+          <th>Modalidade</th><th>Especialidade</th><th>Código</th><th>Ordem</th><th>Nº guia</th>
+          <th>Situação</th><th>Glosa</th><th>Observação</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td class="c-num">02/09/2026</td><td class="c-num">1042</td><td class="c-suave">ana.paula</td>
+            <td class="c-forte">Maria Helena Duarte</td><td>Unimed Padrão</td>
+            <td>Acupuntura + eletroacupuntura</td><td class="c-suave">Acupuntura</td><td>Acupuntura</td>
+            <td>1º código</td><td class="c-num">4471203</td>
+            <td><span class="badge badge-ok">Baixado em 02/09/2026 (guia 4471203)</span></td>
+            <td><span class="badge">sem glosa</span></td><td class="c-suave"></td>
+            <td><div class="cel-acoes">
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                <path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8"/></svg>Capa</button>
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>Histórico</button>
+            </div></td>
+          </tr>
+          <tr class="sel">
+            <td class="c-num">02/09/2026</td><td class="c-num">1042</td><td class="c-suave">ana.paula</td>
+            <td class="c-forte">Maria Helena Duarte</td><td>Unimed Padrão</td>
+            <td>Acupuntura + eletroacupuntura</td><td class="c-suave">Acupuntura</td><td>Eletroacupuntura</td>
+            <td>2º código</td><td class="c-num"></td>
+            <td><span class="badge badge-aviso">Aberto — faturar em 03/09/2026</span></td>
+            <td><span class="badge">sem glosa</span></td>
+            <td class="c-suave">app do paciente fora do ar — tentar amanhã</td>
+            <td><div class="cel-acoes">
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                <path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8"/></svg>Capa</button>
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>Histórico</button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="c-num">01/09/2026</td><td class="c-num">1038</td><td class="c-suave">claudia.r</td>
+            <td class="c-forte">José Ribamar de Souza</td><td>Petrobras</td>
+            <td>Acupuntura (apenas)</td><td class="c-suave">Clínica da dor</td><td>Consulta de especialidade</td>
+            <td>1º código</td><td class="c-num">A-88231</td>
+            <td><span class="badge badge-ok">Baixado em 01/09/2026 (guia A-88231)</span></td>
+            <td><span class="badge badge-erro">glosada</span></td>
+            <td class="c-suave">glosa 1707 — reapresentar até 30/09</td>
+            <td><div class="cel-acoes">
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                <path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8"/></svg>Capa</button>
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>Histórico</button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="c-num">01/09/2026</td><td class="c-num">1037</td><td class="c-suave">claudia.r</td>
+            <td class="c-forte">Teresinha Gomes Alencar Duarte</td><td>Sul América</td>
+            <td>BSV + acupuntura</td><td class="c-suave">Acupuntura</td><td>Bsv</td>
+            <td>1º código</td><td class="c-num">SA0043118</td>
+            <td><span class="badge badge-ok">Baixado em 01/09/2026 (guia SA0043118)</span></td>
+            <td><span class="badge badge-erro">reapresentada</span></td>
+            <td class="c-suave">reapresentada em 28/08 — aguardando retorno</td>
+            <td><div class="cel-acoes">
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                <path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8"/></svg>Capa</button>
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>Histórico</button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="c-num">31/08/2026</td><td class="c-num">1031</td><td class="c-suave"></td>
+            <td class="c-forte">Antônio Duarte Filho</td><td>Particular</td>
+            <td>Consulta</td><td class="c-suave">Psiquiatria</td><td>Consulta</td>
+            <td>1º código</td><td class="c-num"></td>
+            <td><span class="badge">Não aplicável</span></td>
+            <td><span class="badge">sem glosa</span></td>
+            <td class="c-suave">particular — não gera guia</td>
+            <td><div class="cel-acoes">
+              <button class="btn btn-outline btn-sm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                <path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8"/></svg>Capa</button>
+              <button class="btn btn-outline btn-sm" disabled style="opacity:.45;cursor:default">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="#09090B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></svg>Histórico</button>
+            </div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ======================================================================= -->
+<div class="secao">2 · A tela vazia <span>o que aparece antes de a busca trazer alguma coisa — e é a primeira impressão</span></div>
+<div class="janela">
+  <div class="tela">
+    <div class="cabecalho">
+      <div class="h1">Consultar guias</div>
+      <div class="suave">O que foi feito, para quem, e em que situação está cada guia.</div>
+    </div>
+    <div class="card filtros">
+      <div class="wrap">
+        <div class="campo" style="width:220px">
+          <div class="rotulo">Paciente (nome ou CPF)</div>
+          <div class="busca-env">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <div class="entrada busca fantasma">Nome ou CPF…</div>
+          </div>
+        </div>
+        <div class="campo" style="width:160px">
+          <div class="rotulo">Nº da guia</div><div class="entrada foco">88231</div>
+        </div>
+        <div class="campo" style="width:150px">
+          <div class="rotulo">Status</div>
+          <div class="entrada combo"><span>Glosado</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round" opacity=".55"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+      </div>
+      <div class="acoes">
+        <button class="btn btn-primario">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"
+               stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Buscar</button>
+        <button class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#09090B" stroke-width="1.5"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          Limpar</button>
+      </div>
+    </div>
+    <div class="card-limpo">
+      <div class="faixa">
+        <div class="h2">Guias encontradas</div>
+        <div class="suave">nenhuma de 214 — nº da guia “88231” · glosado</div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Data</th><th>Atend. nº</th><th>Lançou por</th><th>Paciente</th><th>Convênio</th>
+          <th>Modalidade</th><th>Especialidade</th><th>Código</th><th>Ordem</th><th>Nº guia</th>
+          <th>Situação</th><th>Glosa</th><th>Observação</th><th>Ações</th>
+        </tr></thead>
+      </table>
+      <div class="vazio">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#D4D4D8" stroke-width="1.2"
+             stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <div class="h2">Nenhuma guia encontrada</div>
+        <div class="suave">Ajuste os filtros acima e clique em Buscar.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================= -->
+<div class="secao">3 · As peças, uma a uma <span>cada estado que o XAML declara, com o token que o governa</span></div>
+<div class="janela">
+  <div class="folha">
+
+    <div class="peca">
+      <h3>Botões</h3>
+      <div class="linha">
+        <button class="btn btn-primario">Buscar</button>
+        <button class="btn btn-outline">Limpar</button>
+      </div>
+      <div class="linha">
+        <button class="btn btn-primario" style="background:var(--marca-hover)">passando o mouse</button>
+        <button class="btn btn-primario" style="box-shadow:0 0 0 2px var(--ring),0 0 0 4px #fff">com foco</button>
+      </div>
+      <div class="linha">
+        <button class="btn btn-outline btn-sm">Capa</button>
+        <button class="btn btn-outline btn-sm" style="opacity:.45">Histórico (sem permissão)</button>
+        <button class="btn btn-fantasma">fantasma</button>
+      </div>
+      <div class="obs">Altura <code>36</code> (<code>28</code> na linha da tabela), raio <code>6</code>.
+        O hover é um <b>véu do próprio texto</b> sobre o botão — funciona em qualquer cor de fundo, então
+        o dia em que a marca mudar de azul não deixa quatro hovers errados para trás.</div>
+    </div>
+
+    <div class="peca">
+      <h3>Campos</h3>
+      <div class="linha"><div class="entrada" style="width:100%">Digitado</div></div>
+      <div class="linha"><div class="entrada fantasma" style="width:100%">Texto-fantasma</div></div>
+      <div class="linha"><div class="entrada foco" style="width:100%">Com foco — o anel Ring</div></div>
+      <div class="linha"><div class="entrada" style="width:100%;opacity:.5">Desabilitado</div></div>
+      <div class="obs">Borda <code>zinc-300</code>, raio <code>6</code>, altura <code>36</code>.
+        O anel de foco fica <b>fora</b> da borda (margem negativa) para o texto não pular no Tab.</div>
+    </div>
+
+    <div class="peca">
+      <h3>Seleção aberta</h3>
+      <div class="entrada combo" style="width:200px">
+        <span>Unimed Padrão</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#71717A" stroke-width="1.5"
+             stroke-linecap="round" stroke-linejoin="round" opacity=".55" style="transform:rotate(180deg)">
+          <path d="m6 9 6 6 6-6"/></svg>
+      </div>
+      <div class="popup">
+        <div>Todos</div>
+        <div class="on">Unimed Padrão</div>
+        <div style="background:var(--marca-tint)">Unimed Intercâmbio</div>
+        <div>Petrobras</div>
+        <div>Sul América</div>
+      </div>
+      <div class="obs">O chevron <b>gira</b> ao abrir: é o único sinal, fora do próprio popup, de que o
+        clique foi registrado. Seleção e hover são o <code>Accent</code>, nunca o azul do sistema.</div>
+    </div>
+
+    <div class="peca">
+      <h3>Situação e glosa</h3>
+      <div class="linha">
+        <span class="badge badge-ok">Baixado em 02/09/2026</span>
+        <span class="badge badge-aviso">Aberto — faturar em 03/09</span>
+      </div>
+      <div class="linha">
+        <span class="badge">Não aplicável</span>
+        <span class="badge">sem glosa</span>
+        <span class="badge badge-erro">glosada</span>
+        <span class="badge badge-erro">reapresentada</span>
+      </div>
+      <div class="obs">O par fundo/texto vem SEMPRE junto do token — não há combinação inventada na tela.
+        A cor da glosa carrega a urgência: <b>glosa em aberto é a única linha desta tela que exige ação</b>.</div>
+    </div>
+
+    <div class="peca">
+      <h3>Dica e barra de rolagem</h3>
+      <div class="linha" style="align-items:flex-start;gap:24px">
+        <span class="tooltip">Quem mexeu nesta guia, quando e o quê</span>
+        <div class="barra"><i></i></div>
+      </div>
+      <div class="obs">A dica é o único lugar em que o piloto <b>inverte o contraste</b> — ela flutua sobre
+        superfície branca e precisa se distinguir dela. A barra tem <code>8&nbsp;px</code> e
+        <b>não tem setas</b>: são 34&nbsp;px de cromo permanente que ninguém clica desde que existe roda de mouse.</div>
+    </div>
+
+    <div class="peca">
+      <h3>Cartão e tabela</h3>
+      <div class="card-limpo" style="margin-bottom:10px">
+        <div class="faixa" style="padding:10px 12px"><div class="h2" style="font-size:14px">Guias encontradas</div></div>
+        <table><thead><tr><th>Paciente</th><th>Nº guia</th></tr></thead>
+          <tbody><tr><td class="c-forte">Maria Helena Duarte</td><td class="c-num">4471203</td></tr>
+                 <tr><td class="c-forte">José Ribamar</td><td class="c-num">A-88231</td></tr></tbody></table>
+      </div>
+      <div class="obs"><b>Borda, nunca sombra</b> — é a diferença de leitura mais visível entre o shadcn e o
+        material design, e o motivo de a sombra estar proibida no piloto. Sem zebra: o shadcn separa por
+        linha. O número usa <b>dígito de largura fixa</b>, senão a coluna dança de linha para linha.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="nota" style="margin-top:32px">
+  <b>Onde ver de verdade.</b> A tela roda no app de faturamento em
+  <b>Guias › Consultar guias</b>. As outras telas do módulo continuam com o design system da casa —
+  é isso que permite comparar as duas lado a lado no mesmo executável e decidir se o piloto vale para
+  o sistema inteiro.
+</div>
+
+</body>
+</html>

@@ -217,9 +217,16 @@
                                 <DataGridTextColumn Header="Código" Width="*"
                                                     ElementStyle="{StaticResource PilColunaTexto}"
                                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" />
+                                <!-- ⚠️ Esta coluna também escrevia o enum cru — "Primeiro",
+                                     "Segundo" —, e é a mais cara das duas: o 1º/2º código é o
+                                     ASSUNTO do produto, e o rótulo do domínio já dizia "1º
+                                     código"/"2º código" desde sempre. O `EnumDescricao` cai no
+                                     `RotulosEnum.De` e resolve. Achado ao desenhar o HTML da
+                                     tela pronta: o defeito estava na coluna VIZINHA à que a
+                                     mesma rodada corrigiu. -->
                                 <DataGridTextColumn Header="Ordem" Width="Auto"
-                                                    ElementStyle="{StaticResource PilColunaNumero}"
-                                                    Binding="{Binding Ordem}" />
+                                                    ElementStyle="{StaticResource PilColunaTexto}"
+                                                    Binding="{Binding Ordem, Converter={StaticResource EnumDescricao}}" />
                                 <DataGridTextColumn Header="Nº guia" Width="Auto"
                                                     ElementStyle="{StaticResource PilColunaNumero}"
                                                     Binding="{Binding NumeroGuiaReal}" />
