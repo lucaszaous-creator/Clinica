@@ -392,6 +392,31 @@ public class TraducaoNoNpgsqlTests
     }
 
     /// <summary>
+    /// A tela de LANÇAMENTOS lê os atendimentos do período com DUAS coleções (códigos e
+    /// paciente) e filtra por <c>EstornadoEm IS NULL</c> — a COLUNA, não a propriedade
+    /// derivada <c>Estornado</c>, que é exatamente o membro calculado que o EF recusa em
+    /// runtime sem quebrar o build.
+    /// </summary>
+    [Fact]
+    public void Atendimentos_do_periodo_traduzem_e_excluem_estornado_pela_coluna()
+    {
+        using var db = Postgres();
+
+        var sql = db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Include(a => a.Paciente)
+            .Where(a => a.Data >= new DateOnly(2026, 9, 1)
+                        && a.Data <= new DateOnly(2026, 9, 30)
+                        && a.EstornadoEm == null)
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
+            .ToQueryString();
+
+        sql.Should().Contain("\"EstornadoEm\" IS NULL",
+            "o filtro é pela coluna — `Estornado` é derivada e o EF recusaria em runtime");
+        sql.Should().Contain("LEFT JOIN", "paciente e códigos viram junção");
+    }
+
+    /// <summary>
     /// O casamento "há sessão neste dia?" é um <c>Contains</c> sobre uma lista de ids mais
     /// a coleção de códigos. Uma consulta só para a fila inteira — por linha seria uma ida
     /// ao banco por horário parado, e a fila da migração tem centenas.

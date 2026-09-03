@@ -421,6 +421,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **`Sum(x => (decimal?)x.Valor)` sobre sequência VAZIA devolve 0, não nulo** — foi assim
   que a prévia ofereceu "desfazer entrada de R$ 0,00" num atendimento sem caixa. Conte
   primeiro (`lista.Count > 0 ? lista.Sum(...) : null`). Um teste pegou; a lição fica.
+- **LANÇADOS HOJE VIROU A ABA "LANÇAMENTOS"** (set/2026, pedido do cliente). O bloco morava
+  no rodapé do Novo atendimento e estava no lugar errado por três razões que só apareceram
+  juntas: comia a altura da tela de lançar (com dois remendos que só existiam por isso —
+  teto de 300px e `RodaDaPagina`, senão a lista comia a roda do mouse), não tinha onde
+  receber um filtro, e respondia só pelo dia de hoje. O item "Atendimento" **já era
+  composto**, então a mudança foi acrescentar a terceira `AbaMenu`, não inventar estrutura.
+  A tela nova tem período livre (teto de 366 dias — passou disso a pergunta é outra, e a
+  resposta é a Consulta de guias do faturamento), quatro filtros (convênio, modalidade,
+  quem lançou, só com guia por liberar) e `DataGrid` com virtualização de verdade, que o
+  `ItemsControl` de antes não tinha.
+  ⚠️ **A leitura passou a ser de `Atendimentos`, não da agenda.** A versão antiga lia os
+  agendamentos do dia e ia buscar o atendimento de cada um — N+1 que num dia de 30 sessões
+  custava 31 idas ao banco, e num período de um mês custaria centenas. **O filtro
+  `EstornadoEm == null` não é enfeite**: pela agenda o estornado sumia de graça (o estorno
+  SOLTA o horário); pela fonte direta ele voltaria a aparecer.
+  ⚠️ **`TelaComAbas` monta cada aba UMA vez e a guarda.** O estorno foi junto para a aba
+  nova, e sem gancho a tela de lançar continuaria dizendo "já lançado hoje" sobre um
+  atendimento recém-estornado. `NovoAtendimentoView` escuta `IsVisibleChanged` e chama
+  `RevalidarPacienteEscolhido()` **só na volta** — reler nas duas pontas dobraria as
+  consultas a cada troca de aba. Visibilidade é assunto da VIEW: a ViewModel não tem como
+  saber que sumiu da vista.
+  ⚠️ **ComboBox cuja `ItemsSource` é LIMPA escreve NULL na propriedade do `SelectedItem`.**
+  Os filtros são `string?` por causa disso: declarados não-anuláveis, o filtro passava um
+  instante com null — que não é "Todos" — e escondia a lista inteira. `Livre(null)` e
+  `Livre("Todos")` são a mesma coisa.
+  ⚠️ **O que se perdeu, e é decisão:** lançar não recarrega mais a lista com a linha nova
+  logo abaixo. A troca se sustenta porque a coluna direita já mostra o desfecho e porque a
+  lista responde outra pergunta, noutro momento — a conferência antes de fechar o balcão.
 - **A GUIA QUE VAI NASCER, DESENHADA** (set/2026, redesenho aprovado em mockup). A coluna
   direita do Novo atendimento resumia a prévia em TEXTO — "2 guias · a 2ª libera 09/08" —,
   e a guia, que é o que a clínica entrega, só virava objeto depois de gravada e noutro app.
