@@ -2009,6 +2009,47 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // ---- Conciliação da agenda (parcela 93) ----
+
+    public async Task<IReadOnlyList<Agendamento>> HorariosEmAbertoVencidosAsync(
+        DateTime desde, DateTime ate, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Where(a => a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= desde && a.DataHora < ate)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Agendamento>> HorariosRealizadosSemAtendimentoAsync(
+        DateTime desde, DateTime ate, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            // A COLUNA, nunca uma propriedade derivada: o EF traduz esta comparação e
+            // recusaria em runtime um `is null` sobre membro calculado.
+            .Where(a => a.Status == StatusAgendamento.Realizado
+                        && a.AtendimentoId == null
+                        && a.DataHora >= desde && a.DataHora < ate)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Atendimento>> AtendimentosDosPacientesNoPeriodoAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly inicio, DateOnly fim,
+        CancellationToken ct = default)
+    {
+        // Conjunto vazio não vira `IN ()` — que o Npgsql traduz para uma consulta sempre
+        // falsa, mas paga a ida ao banco para descobrir isso.
+        if (pacienteIds.Count == 0) return [];
+
+        return await _db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Where(a => pacienteIds.Contains(a.PacienteId)
+                        && a.Data >= inicio && a.Data <= fim)
+            .OrderBy(a => a.Data).ThenBy(a => a.Id)
+            .ToListAsync(ct);
+    }
+
     // ---- Taxas de cartao (parcela 9) ----
 
     public async Task<IReadOnlyList<TaxaCartao>> TaxasCartaoAsync(

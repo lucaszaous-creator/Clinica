@@ -365,6 +365,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca
   adicione campos de dinheiro/pagamento.
+- **A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz** (parcela 93). A
+  clínica não trabalha o check-in pela agenda: a recepcionista vai direto ao Novo
+  atendimento. A parcela 91 fez o lançamento reconhecer o **horário do dia** e nascer
+  pendurado nele (`AgendaService.LancarNoHorarioAsync`) — mas só quando a **data bate**, e a
+  agenda importada do Smart Clinic está nas datas do sistema antigo. O que não bate vira
+  encaixe, e o horário fica "Aguardando" para sempre: infla a ocupação, entra no "Meu dia"
+  do médico e **captura a evolução importada** (distribuída pela ordem da hora marcada),
+  deixando a sessão real em "Sessões sem evolução".
+  `ConciliacaoAgendaService` é a LEITURA que transforma isso em fila de trabalho, e ela não
+  decide nada: ausência de clique não é prova de falta.
+  ⚠️ **A pergunta tem TRÊS respostas, e a do meio é a maior do backlog.** Faltou
+  (`MarcarFaltaAsync`) · aconteceu e ninguém lançou (`LancarNoHorarioAsync`, que já data o
+  atendimento pela data **do horário**, não pela de hoje) · **aconteceu e já foi lançada por
+  fora** — e aqui lançar criaria um SEGUNDO jogo de guias para a mesma sessão. Por isso a
+  linha carrega `HorarioParado.TemSessaoNoDia` e o botão de lançar fica **apagado**, com a
+  frase ao lado (botão cinza sem explicação vira "o sistema travou", parcela 41).
+  **Encerrar esse horário pede um `StatusAgendamento` NOVO** e é por isso que ficou de fora:
+  `Cancelado` é contado por `IndicadoresService` e `RelacionamentoService` (uma sessão que
+  ACONTECEU inflaria o indicador de cancelamento) e `Faltou` culparia o paciente. O enum é
+  gravado como TEXTO, então acrescentar é seguro para as linhas salvas — o custo são os
+  **107 usos em 23 arquivos**, e principalmente as comparações NEGATIVAS
+  (`is not (Cancelado or Faltou)`), onde um valor novo cai do lado "ativo" sem ninguém
+  perceber. É parcela própria.
+  ⚠️ **`WithMany()` no mapeamento de `Agendamento.Atendimento` NÃO é descuido, e trocar por
+  `WithOne()` NÃO é de graça**: o EF exige índice ÚNICO para o dependente 1‑1, e migration
+  roda na ABERTURA do app — índice único que falha na criação é o faturamento não abrindo.
+  Conte as duplicatas pela conciliação antes.
 - **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
   dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
   mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.

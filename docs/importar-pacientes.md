@@ -63,6 +63,12 @@ guia" desmarcado (Configurações → Convênios). Particular **não** é o mesm
 convênio: é uma escolha registrada, e continua sendo lançado normalmente — a sessão fica no
 histórico e nos indicadores, sem mandar guia a operadora nenhuma.
 
+**Os horários importados que ficarem para trás têm tela própria.** A agenda antiga está nas
+datas do sistema antigo, e o paciente aparece no dia que aparece: quando não bate, o
+atendimento vira encaixe e o horário importado fica "Aguardando". **Recepção → Agenda →
+"Conciliar agenda…"** lista esses horários e pergunta o que houve — ver
+`docs/conciliacao-da-agenda.md`.
+
 **Marcar por telefone continua funcionando** com a chave "guia no agendamento" desligada: aí a
 marcação não cria atendimento nenhum, e o convênio é pedido no dia da sessão, que é quando o
 paciente está lá para responder.

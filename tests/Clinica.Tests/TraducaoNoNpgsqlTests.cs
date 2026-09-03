@@ -1,4 +1,5 @@
 using Clinica.Application.Modelos;
+using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -340,5 +341,76 @@ public class TraducaoNoNpgsqlTests
             .ToQueryString();
 
         sql.Should().Contain("\"ChaveImportacao\"").And.NotContain("\"Titulo\"");
+    }
+
+    // ---- Conciliação da agenda (parcela 93) ----
+
+    /// <summary>
+    /// A fila de horários parados junta DUAS navegações (paciente e profissional) com um
+    /// filtro de enum gravado como TEXTO. É a forma que o Npgsql precisa aceitar para a
+    /// tela abrir na clínica.
+    /// </summary>
+    [Fact]
+    public void Horarios_em_aberto_vencidos_traduzem()
+    {
+        using var db = Postgres();
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Where(a => a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= new DateTime(2026, 5, 1)
+                        && a.DataHora < new DateTime(2026, 9, 8))
+            .OrderBy(a => a.DataHora)
+            .ToQueryString();
+
+        sql.Should().Contain("LEFT JOIN", "as duas navegações viram junção");
+        sql.Should().Contain("'Agendado'", "o enum é gravado como texto neste banco");
+    }
+
+    /// <summary>
+    /// O ÓRFÃO filtra por <c>AtendimentoId IS NULL</c> — a COLUNA. A tentação era usar uma
+    /// propriedade derivada ("SemAtendimento"), e é exatamente o defeito que esta suíte
+    /// nasceu para pegar: o EF recusa membro calculado em runtime, sem quebrar o build.
+    /// </summary>
+    [Fact]
+    public void Horarios_realizados_sem_atendimento_traduzem_pela_coluna()
+    {
+        using var db = Postgres();
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Where(a => a.Status == StatusAgendamento.Realizado
+                        && a.AtendimentoId == null
+                        && a.DataHora >= new DateTime(2026, 5, 1)
+                        && a.DataHora < new DateTime(2026, 9, 11))
+            .ToQueryString();
+
+        sql.Should().Contain("\"AtendimentoId\" IS NULL");
+        sql.Should().Contain("'Realizado'");
+    }
+
+    /// <summary>
+    /// O casamento "há sessão neste dia?" é um <c>Contains</c> sobre uma lista de ids mais
+    /// a coleção de códigos. Uma consulta só para a fila inteira — por linha seria uma ida
+    /// ao banco por horário parado, e a fila da migração tem centenas.
+    /// </summary>
+    [Fact]
+    public void Atendimentos_de_um_conjunto_de_pacientes_traduzem()
+    {
+        using var db = Postgres();
+        var ids = new[] { 1, 2, 3 };
+
+        var sql = db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Where(a => ids.Contains(a.PacienteId)
+                        && a.Data >= new DateOnly(2026, 5, 1)
+                        && a.Data <= new DateOnly(2026, 9, 8))
+            .OrderBy(a => a.Data).ThenBy(a => a.Id)
+            .ToQueryString();
+
+        sql.Should().Contain("\"PacienteId\"");
+        sql.Should().Contain("\"Codigos\"", "a coleção vem junto — é ela que conta as guias faturáveis");
     }
 }
