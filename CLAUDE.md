@@ -457,6 +457,17 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **Não invente altura para dar ênfase.** O campo de busca chegou a ganhar 40px enquanto
   todo campo da suíte tem 36 — medida nova para um efeito que o LUGAR e a LARGURA já dão. Foi
   revertido antes de virar precedente.
+  ⚠️ **Lista de escolha SEM estado vazio é tela quebrada.** Com a moldura, a tabela some junto
+  com as linhas: digitar um nome que não existe deixava o cartão em BRANCO. O `EstadoDaTela`
+  entra com `Ativo="{Binding Seletor.BuscandoPorTermo}"` — desligado enquanto a lista é a
+  sugestão, porque ali o que falta não é o paciente, é o horário de hoje, e "nenhum paciente
+  encontrado" num dia sem agenda é frase falsa sobre uma clínica de 2.238 fichas.
+  ⚠️ **A LIÇÃO DE MÉTODO desta parcela: `PacientesView` já tinha o cabeçalho de quatro
+  colunas com os mesmos `SharedSizeGroup` e o mesmo `EstadoDaTela`** — eu desenhei do zero o
+  que estava a um arquivo de distância. Duas telas da mesma suíte listando pacientes com caras
+  diferentes é o defeito que este documento descreve como "faz a recepcionista achar que abriu
+  outro programa". Antes de desenhar lista, procure a irmã dela. **Débito aberto:** a de
+  Pacientes segue com o cabeçalho solto, sem a moldura — as duas ainda não são iguais.
 - **LANÇADOS HOJE VIROU A ABA "LANÇAMENTOS"** (set/2026, pedido do cliente). O bloco morava
   no rodapé do Novo atendimento e estava no lugar errado por três razões que só apareceram
   juntas: comia a altura da tela de lançar (com dois remendos que só existiam por isso —

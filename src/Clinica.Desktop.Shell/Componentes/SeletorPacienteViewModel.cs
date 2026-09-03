@@ -72,7 +72,20 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     public string? RotuloDaSugestao { get; set; }
 
     /// <summary>A lista atual é a SUGESTÃO, não um resultado de busca.</summary>
-    [ObservableProperty] private bool _mostrandoSugestao;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
+    private bool _mostrandoSugestao;
+
+    /// <summary>
+    /// O par invertido de <see cref="MostrandoSugestao"/> — a suíte não tem conversor de
+    /// booleano invertido, e é o mesmo par de `SemPaciente`/`PacienteEscolhido`.
+    ///
+    /// Ele existe para o `EstadoDaTela` da tela: o "nenhum paciente encontrado" é a
+    /// resposta certa para uma BUSCA que não achou, e a resposta errada para uma sugestão
+    /// vazia — ali o que falta não é o paciente, é o horário de hoje, e a frase tem de
+    /// dizer isso.
+    /// </summary>
+    public bool BuscandoPorTermo => !MostrandoSugestao;
 
     /// <summary>A sugestão foi consultada e veio VAZIA — ninguém tem horário hoje.</summary>
     [ObservableProperty] private bool _sugestaoVazia;

@@ -229,8 +229,25 @@
                                  duas pontas de uma linha tão larga — é a razão do
                                  `MaxWidth` do `TextoSuave`, aplicada a uma tabela. Em 1366
                                  (o monitor do balcão) o teto não muda nada. -->
-                            <Border HorizontalAlignment="Left" MaxWidth="1100"
-                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            <!-- ⚠️ O `EstadoDaTela` responde pela BUSCA que não achou nada —
+                                 e só por ela. `Ativo` desligado enquanto a lista é a
+                                 sugestão: ali o que falta não é o paciente, é o horário de
+                                 hoje, e quem diz isso é o alerta acima. "Nenhum paciente
+                                 encontrado" num dia sem agenda seria uma frase falsa sobre
+                                 uma clínica de 2.238 fichas.
+                                 Sem ele, digitar um nome que não existe dava BRANCO: a
+                                 moldura da tabela some junto com as linhas, e sobra o
+                                 cartão vazio — que se lê como tela quebrada. -->
+                            <Grid HorizontalAlignment="Left" MaxWidth="1100">
+                                <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                                   Itens="{Binding Seletor.Resultados}"
+                                                   Carregando="{Binding Seletor.Buscando}"
+                                                   Ativo="{Binding Seletor.BuscandoPorTermo}"
+                                                   Glifo="&#xE77B;"
+                                                   Titulo="Nenhum paciente encontrado"
+                                                   Descricao="Confira o nome ou tente pelo CPF. Quem ainda não tem ficha entra em Pacientes → Novo paciente." />
+
+                            <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                                     CornerRadius="{StaticResource Raio.Medio}"
                                     Visibility="{Binding Seletor.TemResultados,
                                                  Converter={StaticResource BoolParaVisibilidade}}">
@@ -255,7 +272,13 @@
                                                  é ela que empurra "PACIENTE" para cima do nome:
                                                  o `SharedSizeGroup` copia a largura do retrato. -->
                                             <Border Grid.Column="0" Width="40" Margin="0,0,14,0" />
-                                            <TextBlock Grid.Column="1" Text="PACIENTE / DOCUMENTO"
+                                            <!-- "PACIENTE", e não "PACIENTE / DOCUMENTO": é o
+                                                 rótulo que a tela de Pacientes já usa sobre a
+                                                 MESMA coluna. Duas telas da suíte com
+                                                 cabeçalhos diferentes sobre a mesma lista é o
+                                                 que faz a recepcionista achar que abriu outro
+                                                 programa. -->
+                                            <TextBlock Grid.Column="1" Text="PACIENTE"
                                                        Style="{StaticResource Rotulo}" Margin="0,0,12,0" />
                                             <TextBlock Grid.Column="2" Text="TELEFONE"
                                                        Style="{StaticResource Rotulo}" Margin="0,0,12,0" />
@@ -292,6 +315,7 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                                 </DockPanel>
                             </Border>
+                            </Grid>
                         </DockPanel>
                     </Border>
 
