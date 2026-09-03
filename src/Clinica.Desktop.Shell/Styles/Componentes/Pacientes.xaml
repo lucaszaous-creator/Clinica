@@ -55,10 +55,45 @@
                     </Border.Visibility>
                     <TextBlock Text="Carteirinha vencida" />
                 </Border>
+                <!-- ⚠️ "A DEFINIR" NÃO É NOME DE CONVÊNIO, é uma PENDÊNCIA da ficha.
+                     O nome que a importação semeia tem 34 caracteres ("A definir
+                     (importado sem convênio)") e saía cortado no meio da palavra em TODA
+                     linha da lista — "A definir (importado sem conv…", seis vezes
+                     empilhadas —, escrito com a tipografia de um convênio de verdade.
+                     `Paciente.ConvenioADefinir` existe desde a importação e nenhuma tela o
+                     lia: dado calculado sem leitor, na variante em que o leitor errado
+                     mostra a coisa certa com a cara errada.
+                     Aqui ele vira selo de AVISO, curto e inteiro — é uma tarefa do balcão
+                     (escolher o convênio na ficha), não o nome da operadora. -->
+                <Border Style="{StaticResource Badge.Aviso}"
+                        ToolTip="A ficha veio do sistema anterior sem convênio. Escolha o convênio na ficha — sem ele o atendimento entra sem guia.">
+                    <Border.Visibility>
+                        <Binding Path="ConvenioADefinir">
+                            <Binding.Converter>
+                                <BooleanToVisibilityConverter />
+                            </Binding.Converter>
+                        </Binding>
+                    </Border.Visibility>
+                    <TextBlock Text="Convênio a definir" />
+                </Border>
+
                 <!-- `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
                      WPF o escreveria com `ToString()` — "UnimedIntercambio" no crachá, e
                      "Personalizado" no lugar do nome que a clínica cadastrou. -->
-                <Border Style="{StaticResource Badge}">
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <!-- Os dois selos são exclusivos: o de aviso SUBSTITUI o
+                                     nome, senão a linha diria a pendência e o nome longo
+                                     cortado logo ao lado. -->
+                                <DataTrigger Binding="{Binding ConvenioADefinir}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <TextBlock Text="{Binding ConvenioNome}" MaxWidth="180"
                                TextTrimming="CharacterEllipsis"
                                ToolTip="{Binding ConvenioNome}" />
@@ -133,10 +168,45 @@
                     </Border.Visibility>
                     <TextBlock Text="Carteirinha vencida" />
                 </Border>
+                <!-- ⚠️ "A DEFINIR" NÃO É NOME DE CONVÊNIO, é uma PENDÊNCIA da ficha.
+                     O nome que a importação semeia tem 34 caracteres ("A definir
+                     (importado sem convênio)") e saía cortado no meio da palavra em TODA
+                     linha da lista — "A definir (importado sem conv…", seis vezes
+                     empilhadas —, escrito com a tipografia de um convênio de verdade.
+                     `Paciente.ConvenioADefinir` existe desde a importação e nenhuma tela o
+                     lia: dado calculado sem leitor, na variante em que o leitor errado
+                     mostra a coisa certa com a cara errada.
+                     Aqui ele vira selo de AVISO, curto e inteiro — é uma tarefa do balcão
+                     (escolher o convênio na ficha), não o nome da operadora. -->
+                <Border Style="{StaticResource Badge.Aviso}"
+                        ToolTip="A ficha veio do sistema anterior sem convênio. Escolha o convênio na ficha — sem ele o atendimento entra sem guia.">
+                    <Border.Visibility>
+                        <Binding Path="ConvenioADefinir">
+                            <Binding.Converter>
+                                <BooleanToVisibilityConverter />
+                            </Binding.Converter>
+                        </Binding>
+                    </Border.Visibility>
+                    <TextBlock Text="Convênio a definir" />
+                </Border>
+
                 <!-- `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
                      WPF o escreveria com `ToString()` — "UnimedIntercambio" no crachá, e
                      "Personalizado" no lugar do nome que a clínica cadastrou. -->
-                <Border Style="{StaticResource Badge}">
+                <Border>
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <!-- Os dois selos são exclusivos: o de aviso SUBSTITUI o
+                                     nome, senão a linha diria a pendência e o nome longo
+                                     cortado logo ao lado. -->
+                                <DataTrigger Binding="{Binding ConvenioADefinir}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <TextBlock Text="{Binding ConvenioNome}" MaxWidth="180"
                                TextTrimming="CharacterEllipsis"
                                ToolTip="{Binding ConvenioNome}" />

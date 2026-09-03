@@ -2657,6 +2657,49 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   reconhece de longe** — a régua de dor, o relógio da sessão, o selo colorido —, e ela
   quase sempre já existe em outra tela do sistema. Antes de desenhar, procure onde.
 
+- **O "NOVO ATENDIMENTO" NÃO PARECIA UM FLUXO — e a lista escrevia o nome do convênio
+  cortado no meio da palavra, seis vezes** (set/2026, 3ª rodada — a direção mandou os dois
+  prints e pediu "reformulação visual extrema"). O leiaute em duas colunas era o aprovado
+  em mockup na parcela 70 e não estava errado; o que estava errado eram as PEÇAS dentro
+  dele, e cada uma tem uma regra deste arquivo por trás:
+  ⚠️ **Os três passos eram `Rotulo` cinza de 12 px com um `Separator`** — a mesma
+  tipografia do rótulo de um campo qualquer. Numa tela cuja razão de existir é um fluxo de
+  três etapas, isso não se lê como etapa: lê-se como formulário corrido. Cada passo ganhou
+  o NÚMERO num disco de acento, o título em corpo de seção, e a RESPOSTA ao lado
+  (o paciente escolhido, "hoje às 14:30 · Ana", a modalidade) — quem rola até os cartões
+  perdia de vista o que tinha escolhido lá em cima. O número saiu de `TituloPasso2`, senão
+  a tela diria "3 3 · O que foi feito".
+  ⚠️ **"A definir (importado sem convênio)" não é nome de convênio, é PENDÊNCIA** — e
+  saía como selo neutro cortado ("A definir (importado sem conv…") em TODA linha da busca,
+  com a tipografia de uma operadora de verdade. `Paciente.ConvenioADefinir` existe desde a
+  importação e **nenhuma tela o lia**: dado calculado sem leitor, na variante em que o
+  leitor errado mostra a coisa certa com a cara errada. Virou selo de AVISO curto e
+  inteiro ("Convênio a definir"), que SUBSTITUI o nome — os dois juntos diriam a pendência
+  e o nome cortado ao lado.
+  ⚠️ **"0 guias · tudo hoje" é uma frase que se contradiz.** Era o que os cinco cartões
+  de modalidade escreviam para o paciente sem convênio que gere guia — na tela em que a
+  recepcionista decide. Zero guias não é "tudo hoje": não sai NADA hoje. Virou "Sem guia ·
+  a sessão fica registrada", que é o que de fato acontece e é o que ela precisa saber
+  antes de clicar. **Ao escrever o texto de um estado, percorra os valores de borda: o
+  zero costuma ser o que a frase do caso normal não cobre.**
+  ⚠️ **O botão apagado não explicava nada.** A regra da casa é "duas barreiras: o
+  `IsEnabled` explica, o `Exigir` impede" — e no lugar da ação principal da tela havia um
+  retângulo cinza mudo. Quem não tem `LancarAtendimento` conclui que o sistema quebrou e
+  liga para o suporte, em vez de falar com a direção, que resolve num clique em Acessos.
+  Agora a frase nomeia o bit e o lugar.
+  ⚠️ **Lista de largura inteira sem cabeçalho de coluna vira um vão branco.** O telefone
+  ficava a 700 px do nome e o meio não se lia como coluna — se lia como espaço sobrando.
+  O cabeçalho (PACIENTE · TELEFONE · CONVÊNIO) é o que separa uma tabela de uma lista, e a
+  conferência do dia, na mesma tela, já o tinha. O escopo de medida compartilhada sobe
+  para o pai comum, senão o cabeçalho não entra nele.
+  ⚠️ E o **cartão de modalidade tinha 40 px de VÃO MORTO** (200×130 com o nome numa linha
+  e o número ancorado embaixo). Cinco caixas quase vazias lado a lado são a primeira coisa
+  que se lê como inacabado; a altura caiu para 108 e o número ficou no mesmo token.
+  A lição de método: **quando o leiaute já foi aprovado e a tela continua parecendo
+  amadora, o defeito está nas PEÇAS, não na grade** — e quase sempre é uma destas quatro:
+  rótulo sem hierarquia, dado cortado no meio, frase que se contradiz num caso de borda, e
+  botão mudo.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

@@ -167,6 +167,23 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Metade VISÍVEL da permissão: lançar atendimento CRIA as guias pela regra do convênio.</summary>
     public bool PodeLancar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
 
+    /// <summary>
+    /// Por que o botão está apagado — a metade que EXPLICA (parcela 41).
+    ///
+    /// A regra do projeto é "duas barreiras: o IsEnabled explica, o Exigir impede", e aqui
+    /// o IsEnabled não explicava nada: quem não tem o bit via um retângulo cinza no lugar
+    /// da ação principal da tela, sem uma palavra sobre o motivo — que é justamente o
+    /// desfecho que faz a pessoa ligar para o suporte em vez de falar com a direção.
+    ///
+    /// Vazio quando o botão está aceso: frase permanente sob um botão que funciona é ruído.
+    /// </summary>
+    public string MotivoNaoPodeLancar => PodeLancar
+        ? string.Empty
+        : "Seu acesso não permite lançar atendimento. Peça o bit \u201CLançar atendimento\u201D "
+          + "à direção, em Acessos.";
+
+    public bool TemMotivoNaoPodeLancar => !PodeLancar;
+
     private readonly IServiceScopeFactory _scopeFactory;
 
     /// <summary>Busca de paciente compartilhada (mesmo limite e mesmo comportamento das outras telas).</summary>
@@ -333,7 +350,33 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// Cabeçalho do passo da modalidade (o 3, desde que o QUANDO virou o passo 2 no
     /// redesenho) — "FOI feito" mentiria sobre uma sessão marcada para semana que vem.
     /// </summary>
-    public string TituloPasso2 => MarcarParaDepois ? "3 · O QUE SERÁ FEITO" : "3 · O QUE FOI FEITO";
+    /// <summary>
+    /// O título do passo 3. O NÚMERO saiu do texto (set/2026): ele mora no disco do
+    /// cabeçalho de passo, e repeti-lo aqui daria "3 3 · O que foi feito".
+    /// </summary>
+    public string TituloPasso2 => MarcarParaDepois ? "O que será feito" : "O que foi feito";
+
+    /// <summary>
+    /// A resposta do passo 2, ao lado do título: "hoje às 14:30, com Ana" ou
+    /// "21/08/2026 às 09:00". Quem rola até os cartões de modalidade perde o passo 2 de
+    /// vista, e é ele que decide se a guia nasce hoje ou na data marcada.
+    ///
+    /// Mora aqui e não no XAML porque é uma frase que PULA o que não existe (sem
+    /// profissional escolhido, "com …" não aparece) — frase feita de bindings
+    /// concatenados não sabe pular, e sai com um vão no meio.
+    /// </summary>
+    public string ResumoQuando
+    {
+        get
+        {
+            var dia = Data.Date == DateTime.Today
+                ? "hoje"
+                : Data.ToString("dd/MM/yyyy");
+
+            var quem = Profissional is { } p ? $" \u00B7 {p.Rotulo}" : string.Empty;
+            return $"{dia} \u00E0s {Hora}{quem}";
+        }
+    }
 
     [ObservableProperty] private DateTime _data = DateTime.Today;
 
@@ -588,6 +631,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         _ = PreverAsync();
         _ = ConferirConflitosAsync();
         OnPropertyChanged(nameof(AvisoHorarioDoDia));
+        OnPropertyChanged(nameof(ResumoQuando));
 
         // No modo marcar, trocar o DIA é o gesto normal — e cota, consulta, elegibilidade
         // e a capa respondem PELA DATA. Sem reconferir, a tela mostraria a resposta do
@@ -626,13 +670,18 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     // A crítica de choque segue TODAS as entradas que o produzem (hora, duração,
     // profissional, sala) — a mesma regra da prévia, aplicada ao outro aviso da tela.
-    partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
+    partial void OnHoraChanged(string value)
+    {
+        OnPropertyChanged(nameof(ResumoQuando));
+        _ = ConferirConflitosAsync();
+    }
     partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();
     partial void OnSalaChanged(Sala? value) => _ = ConferirConflitosAsync();
 
     partial void OnProfissionalChanged(Profissional? value)
     {
         OnPropertyChanged(nameof(SemProfissionalEscolhido));
+        OnPropertyChanged(nameof(ResumoQuando));
         _ = ConferirConflitosAsync();
     }
 
@@ -1461,11 +1510,25 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             }
 
             var total = p.GuiasHoje + p.GuiasDepois;
-            cartao.QuantasGuias = total == 1 ? "1 guia" : $"{total} guias";
+
+            // ⚠️ ZERO guias não é "tudo hoje" — não sai NADA hoje. Era o que os cinco
+            // cartões escreviam para o paciente sem convênio que gere guia (o "A definir"
+            // da importação, e o particular): "0 guias · tudo hoje", uma frase que se
+            // contradiz na tela em que a recepcionista decide. O que é verdade nesse caso
+            // é que a SESSÃO fica registrada e nenhuma guia nasce — e é isso que ela
+            // precisa saber antes de clicar.
+            cartao.QuantasGuias = total switch
+            {
+                0 => "Sem guia",
+                1 => "1 guia",
+                _ => $"{total} guias"
+            };
             cartao.TemSegundoCodigo = p.GuiasDepois > 0;
-            cartao.Quando = p.LiberaEm is { } quando
-                ? $"a 2ª libera {quando:dd/MM}"
-                : "tudo hoje";
+            cartao.Quando = total == 0
+                ? "a sessão fica registrada"
+                : p.LiberaEm is { } quando
+                    ? $"a 2ª libera {quando:dd/MM}"
+                    : "tudo hoje";
         }
     }
 

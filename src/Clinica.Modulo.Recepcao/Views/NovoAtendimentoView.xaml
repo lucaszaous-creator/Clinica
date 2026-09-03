@@ -36,6 +36,57 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+
+        <!-- ===== O CABEÇALHO DE PASSO (set/2026) =====
+             Os três passos eram `Rotulo` cinza de 12 px com um `Separator` embaixo — a
+             mesma tipografia do rótulo de um campo qualquer. Numa tela cuja razão de
+             existir é um fluxo de três etapas, isso não se lê como etapa: lê-se como
+             formulário corrido, e é o que fazia a tela parecer inacabada.
+
+             Agora cada passo tem o NÚMERO num disco de acento e o título em corpo de
+             seção. É a peça que faz um assistente parecer um assistente — e ela é LOCAL
+             de propósito: uma tela só usa; se uma segunda precisar, sobe para o design
+             system (a regra do mapa corporal). -->
+        <Style x:Key="DiscoDoPasso" TargetType="Border">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Background" Value="{StaticResource Brush.Acento}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+        </Style>
+
+        <Style x:Key="NumeroDoPasso" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Invertido}" />
+        </Style>
+
+        <Style x:Key="TituloDoPasso" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.H3}" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <!-- A resposta do passo, ao lado do título: "ACELINO CALDAS JUNIOR",
+             "hoje, 20:13", "Acupuntura + eletroacupuntura". Sem ela o passo já respondido
+             fica com a mesma cara do que ainda não foi — e quem rola a tela perde de vista
+             o que escolheu lá em cima. -->
+        <!-- ⚠️ O `TextTrimming` vai ESCRITO em cada tag, e não aqui: a checagem 24 lê a
+             lista de estilos que resolvem o corte nos DICIONÁRIOS do design system, e um
+             estilo local é invisível para ela. -->
+        <Style x:Key="RespostaDoPasso" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="12,0,0,0" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
 
         <!-- O cartão de rádio do QUANDO: o mesmo vocabulário visual do cartão de
              modalidade (borda de acento + fundo suave quando escolhido), com o círculo
@@ -111,14 +162,28 @@
                 <StackPanel>
 
                     <!-- ============ 1 · QUEM ============ -->
-                    <TextBlock Text="1 · QUEM" Style="{StaticResource Rotulo}" Margin="0" />
-                    <Separator Margin="0,4,0,10" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Style="{StaticResource DiscoDoPasso}">
+                            <TextBlock Text="1" Style="{StaticResource NumeroDoPasso}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="Quem" Style="{StaticResource TituloDoPasso}" />
+                        <TextBlock Grid.Column="2" Style="{StaticResource RespostaDoPasso}"
+                                   Text="{Binding PacienteSelecionado.Nome}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding PacienteEscolhido,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+                    </Grid>
 
                     <!-- Sem paciente: a busca com a LARGURA da tela (a coluna direita não
                          existe ainda — não há o que resumir de ninguém). -->
                     <Border Style="{StaticResource Card}"
                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-                        <DockPanel>
+                        <DockPanel Grid.IsSharedSizeScope="True">
                             <TextBox DockPanel.Dock="Top" Margin="0,0,0,10"
                                      Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource CampoPesquisa}"
@@ -145,7 +210,33 @@
                                  ⚠️ E o MinHeight saiu: reservar 180 px de lista vazia empurrava
                                  a conferência do dia para fora da vista antes de haver o que
                                  mostrar. Quem decide a altura agora é o conteúdo, até o teto. -->
-                            <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
+                            <!-- ⚠️ CABEÇALHO DE COLUNA (set/2026). A lista tem quatro colunas
+                                 e nenhuma dizia o que era: numa tela de largura inteira o
+                                 telefone ficava a 700 px do nome, com um vão branco no meio
+                                 que não se lê como coluna — se lê como espaço sobrando. É a
+                                 diferença entre uma lista e uma tabela, e é o que a
+                                 conferência do dia, logo abaixo, já fazia.
+
+                                 As definições são as MESMAS do `ItemPacienteLinha`, e o
+                                 escopo de medida compartilhada subiu para o DockPanel para o
+                                 cabeçalho entrar nele — as colunas `Auto` (avatar e selos)
+                                 batem por `SharedSizeGroup`, e a fixa de 160 por construção. -->
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,6"
+                                  Visibility="{Binding Seletor.TemResultados,
+                                               Converter={StaticResource BoolParaVisibilidade}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="40" Margin="0,0,14,0" />
+                                <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                            </Grid>
+
+                            <ListBox ItemsSource="{Binding Seletor.Resultados}"
                                      SelectedItem="{Binding Seletor.Selecionado}"
                                      ItemTemplate="{StaticResource ItemPacienteLinha}"
                                      BorderThickness="0" Background="Transparent"
@@ -197,8 +288,20 @@
                              A escolha vira dois CARTÕES, e os campos de data/hora moram
                              DENTRO dela — antes ficavam no cabeçalho da seção, longe do
                              rádio que decide o que significam. -->
-                        <TextBlock Text="2 · QUANDO" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
-                        <Separator Margin="0,4,0,10" />
+                        <Grid Margin="0,22,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource DiscoDoPasso}">
+                                <TextBlock Text="2" Style="{StaticResource NumeroDoPasso}" />
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="Quando" Style="{StaticResource TituloDoPasso}" />
+                            <TextBlock Grid.Column="2" Text="{Binding ResumoQuando}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Style="{StaticResource RespostaDoPasso}" />
+                        </Grid>
 
                         <!-- WrapPanel, não StackPanel horizontal: o horizontal nunca dobra a
                              linha, e numa janela estreita o segundo cartão sairia decepado
@@ -344,8 +447,22 @@
                         </StackPanel>
 
                         <!-- ============ 3 · O QUE SERÁ/FOI FEITO ============ -->
-                        <TextBlock Text="{Binding TituloPasso2}" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
-                        <Separator Margin="0,4,0,10" />
+                        <Grid Margin="0,22,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource DiscoDoPasso}">
+                                <TextBlock Text="3" Style="{StaticResource NumeroDoPasso}" />
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding TituloPasso2}"
+                                       TextWrapping="Wrap"
+                                       Style="{StaticResource TituloDoPasso}" />
+                            <TextBlock Grid.Column="2" Text="{Binding ModalidadeSelecionada.Nome}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Style="{StaticResource RespostaDoPasso}" />
+                        </Grid>
 
                         <!-- Os cartões em LINHA. `Height` FIXA, não `MinHeight`: num WrapPanel
                              cada filho fica com a altura que pede, e um nome que quebra em duas
@@ -367,7 +484,12 @@
                                          e Foreground é propriedade HERDADA — sem isto o nome da
                                          modalidade sairia branco sobre a superfície branca do
                                          cartão, visível só para quem abre a tela. -->
-                                    <Button Width="200" Height="130" Margin="0,0,10,10"
+                                    <!-- 108 e não 130: o cartão tinha ~40 px de VÃO MORTO
+                                         entre o nome e o número, porque o DockPanel ancora
+                                         o número embaixo e o nome ocupa uma linha. Cinco
+                                         caixas de 200×130 quase vazias lado a lado são a
+                                         primeira coisa que se lê como inacabado. -->
+                                    <Button Width="200" Height="108" Margin="0,0,10,10"
                                             HorizontalContentAlignment="Stretch"
                                             Foreground="{StaticResource Brush.Texto.Primario}"
                                             FontWeight="Normal"
@@ -386,8 +508,14 @@
                                                              consequência, e é o que o olho procura
                                                              ao comparar as opções. -->
                                                         <StackPanel DockPanel.Dock="Bottom">
+                                                            <!-- 16 e não H3 (18): o número é a
+                                                                 consequência, não o assunto do
+                                                                 cartão — o assunto é a modalidade,
+                                                                 e "0 guias" em 18 px negrito
+                                                                 gritava mais alto que o nome dela. -->
                                                             <TextBlock Text="{Binding QuantasGuias}"
-                                                                       Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                                       Style="{StaticResource H3}" Margin="0"
+                                                                       TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                             <TextBlock x:Name="quando" Text="{Binding Quando}"
                                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
@@ -704,6 +832,16 @@
                     Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
                 <DockPanel>
 
+                    <!-- O painel DIZ o que é. Sem título ele era um cartão branco solto
+                         ao lado do formulário: quem chega na tela não sabe se aquilo é
+                         parte do passo 3 ou outra coisa. -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock Text="Conferir e lançar" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Text="O que o sistema achou deste paciente, e o que vai sair do clique." />
+                        <Separator Margin="0,10,0,0" />
+                    </StackPanel>
+
                     <!-- A ação, ancorada. Quem decide se a MENSAGEM aparece é o texto;
                          quem decide a cor é a gravidade (parcela 62). -->
                     <StackPanel DockPanel.Dock="Bottom">
@@ -749,6 +887,18 @@
                         <Button Content="Lançar outro" MinHeight="44"
                                 Command="{Binding NovoLancamentoCommand}"
                                 Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
+                        <!-- ⚠️ A metade que EXPLICA (parcela 41). "IsEnabled explica" é a
+                             regra da casa, e um retângulo cinza no lugar da ação principal
+                             da tela não explica nada: quem não tem o bit conclui que o
+                             sistema quebrou e liga para o suporte, em vez de falar com a
+                             direção — que é quem resolve, num clique, em Acessos. -->
+                        <TextBlock Text="{Binding MotivoNaoPodeLancar}" TextWrapping="Wrap"
+                                   Margin="0,8,0,0" HorizontalAlignment="Left"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Aviso}"
+                                   Visibility="{Binding TemMotivoNaoPodeLancar,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+
                         <Button Content="Limpar" MinHeight="36" Margin="0,8,0,0"
                                 HorizontalAlignment="Left" MinWidth="110"
                                 Style="{StaticResource BotaoSecundario}"
