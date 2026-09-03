@@ -215,16 +215,26 @@
                                           ToolTip="A ficha de todo mundo, em ordem de nome" />
                         </StackPanel>
 
+                        <!-- Some quando não há o que contar: `Rotulo` vazio ainda gasta a
+                             altura de uma linha mais os 24px de margem. -->
                         <TextBlock Text="{Binding Seletor.ResumoDaLista}"
                                    Style="{StaticResource Rotulo}" Margin="0,16,0,8"
-                                   TextAlignment="Center" HorizontalAlignment="Center" />
+                                   TextAlignment="Center" HorizontalAlignment="Center"
+                                   Visibility="{Binding Seletor.TemResultados,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
 
                         <!-- ⚠️ O `EstadoDaTela` responde pela BUSCA que não achou nada — e só
                              por ela. `Ativo` desligado enquanto a lista é a sugestão: ali o
                              que falta não é o paciente, é o horário de hoje, e quem diz isso
                              é o alerta abaixo. "Nenhum paciente encontrado" num dia sem
                              agenda seria frase falsa sobre uma clínica de 2.238 fichas. -->
-                        <Grid MinHeight="120">
+                        <!-- ⚠️ SEM `MinHeight`. Ele reservava 120px de altura mesmo com os
+                             dois filhos colapsados — que é o caso do dia sem agendamento
+                             nenhum: o `EstadoDaTela` está desligado (`Ativo`) e a moldura
+                             sumiu com as linhas. Sobrava um vão em branco antes do alerta,
+                             no meio de uma composição centrada onde todo vão se vê. Quem dá
+                             altura enquanto carrega é o próprio `EstadoDaTela`. -->
+                        <Grid>
                             <ctrl:EstadoDaTela Panel.ZIndex="1"
                                                Itens="{Binding Seletor.Resultados}"
                                                Carregando="{Binding Seletor.Buscando}"
@@ -274,7 +284,9 @@
 
                         <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
                                    Foreground="{StaticResource Brush.Erro}"
-                                   TextAlignment="Center" HorizontalAlignment="Center" />
+                                   TextAlignment="Center" HorizontalAlignment="Center"
+                                   Visibility="{Binding Seletor.TemErro,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
                     </StackPanel>
 
                     <!-- Escolhido: a identidade numa faixa compacta. Os AVISOS saíram

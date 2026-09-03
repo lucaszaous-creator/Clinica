@@ -440,6 +440,13 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A regra "não invente altura para dar ênfase" continua valendo e foi ela que reverteu um
   campo de 40 px duas parcelas atrás — porque lá ele estava numa RÉGUA de campos de 36. Aqui
   não há formulário: o campo é o único controle da tela, sem vizinho com quem desalinhar.
+  ⚠️ **NUMA COMPOSIÇÃO CENTRADA, TODO VÃO EM BRANCO APARECE** — e a regra do `TextBlock`
+  vazio (que já estava escrita duas parcelas acima) foi violada TRÊS vezes neste mesmo
+  arquivo: o resumo da lista, a linha de erro e um `MinHeight="120"` no container do
+  resultado, que reservava altura mesmo com os dois filhos colapsados (o dia sem agendamento
+  nenhum). No leiaute antigo esses vãos ficavam escondidos por um cartão que já era grande;
+  numa coluna centrada de 760px eles são a composição. **Regra ampliada: elemento amarrado a
+  texto opcional leva `Visibility`, não só o `TextBlock`.**
   ⚠️ **A listagem alfabética voltou — como escolha.** A pílula "Todos os pacientes"
   (`ChipFiltro`, que já existia) desliga a sugestão. O defeito nunca foi a lista existir, foi
   ela CHEGAR sem ninguém pedir, com cara de resposta. Digitar RELIGA a sugestão, senão o modo

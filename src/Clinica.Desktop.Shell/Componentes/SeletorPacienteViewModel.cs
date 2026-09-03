@@ -158,7 +158,16 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     public bool Editavel => !Travado;
 
     /// <summary>Falha de busca — a lista fica como estava e a tela avisa em vez de emudecer.</summary>
-    [ObservableProperty] private string? _erro;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemErro))]
+    private string? _erro;
+
+    /// <summary>
+    /// Há erro a mostrar. Existe para a tela ESCONDER a linha quando não há — `TextBlock`
+    /// com texto vazio ainda ocupa a altura de uma linha, e numa composição centrada cada
+    /// vão em branco aparece.
+    /// </summary>
+    public bool TemErro => !string.IsNullOrWhiteSpace(Erro);
 
     /// <summary>Disparado quando a escolha muda (a tela reage: avisos, modalidade habitual…).</summary>
     public event Action<Paciente?>? SelecaoMudou;
