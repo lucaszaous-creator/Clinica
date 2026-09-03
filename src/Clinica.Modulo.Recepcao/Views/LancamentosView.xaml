@@ -172,7 +172,9 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="" Width="Auto">
+                        <!-- `CanUserSort=False`: cabeçalho vazio que responde ao clique é alvo morto —
+                             a pessoa clica, nada acontece, e a tabela parece quebrada. -->
+                        <DataGridTemplateColumn Header="" Width="Auto" CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <!-- ESTORNAR (parcela 94): a correção fica onde o engano é
@@ -182,8 +184,6 @@
                                     <Button Content="Estornar…" Margin="8,0"
                                             Style="{StaticResource BotaoAcaoGridPerigo}"
                                             ToolTip="Desfazer esta sessão lançada por engano"
-                                            IsEnabled="{Binding DataContext.PodeEstornar,
-                                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             Command="{Binding DataContext.EstornarCommand,
                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}" />

@@ -446,6 +446,16 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Os filtros são `string?` por causa disso: declarados não-anuláveis, o filtro passava um
   instante com null — que não é "Todos" — e escondia a lista inteira. `Livre(null)` e
   `Livre("Todos")` são a mesma coisa.
+  ⚠️ **O gancho de visibilidade vale nos DOIS lados**, e esquecer o segundo é o mesmo
+  defeito espelhado: quem abrisse a conferência, voltasse para lançar e voltasse de novo
+  veria a lista de ANTES do lançamento. `LancamentosView` relê ao ficar visível — mas **só
+  quando o período inclui hoje**: a sessão lançada na aba do lado nasce com a data daquela
+  tela, então um período antigo não pode ter mudado, e reconsultá-lo a cada troca de aba
+  pagaria até 366 dias de consulta para não mudar nada.
+  ⚠️ **Botão que nunca pode nascer apagado não leva `IsEnabled`** (a lição da parcela 41
+  pelo avesso): o "Estornar…" ganhou um `IsEnabled` ligado à permissão, e o ITEM inteiro já
+  exige a mesma — quem chega à aba sempre a tem. Ligação morta que sugere um estado que não
+  existe. A guarda de verdade é o `Exigir` dentro do comando, como sempre foi.
   ⚠️ **O que se perdeu, e é decisão:** lançar não recarrega mais a lista com a linha nova
   logo abaixo. A troca se sustenta porque a coluna direita já mostra o desfecho e porque a
   lista responde outra pergunta, noutro momento — a conferência antes de fechar o balcão.

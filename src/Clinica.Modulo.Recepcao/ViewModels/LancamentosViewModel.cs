@@ -106,9 +106,6 @@ public partial class LancamentosViewModel : ObservableObject, ICarregarAoAbrir
     public LancamentosViewModel(IServiceScopeFactory scopeFactory)
         => _scopeFactory = scopeFactory;
 
-    /// <summary>Metade VISÍVEL da permissão do estorno; a recusa de verdade é do serviço.</summary>
-    public bool PodeEstornar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
-
     public ObservableCollection<LinhaLancamento> Linhas { get; } = [];
 
     /// <summary>As opções dos combos, tiradas do que foi carregado — sem consulta extra.</summary>
