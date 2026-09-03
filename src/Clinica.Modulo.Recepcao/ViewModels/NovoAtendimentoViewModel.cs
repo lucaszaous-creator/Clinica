@@ -364,6 +364,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExecutanteGuia))]
+    [NotifyPropertyChangedFor(nameof(ExecutanteADefinir))]
     private Profissional? _profissional;
 
     /// <summary>
@@ -374,6 +375,21 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// que é onde a falta tem consequência.
     /// </summary>
     public string ExecutanteGuia => Profissional?.Rotulo ?? "a definir";
+
+    /// <summary>
+    /// Ninguém escolhido em "Quem atende", HAVENDO quem escolher. É o que faz a prévia
+    /// MARCAR o campo do executante em vez de escrever "a definir" com a mesma cara de um
+    /// dado preenchido — e o vazio dele é o único da guia que custa dinheiro a quem
+    /// atendeu: sessão sem profissional some do "Meu dia" do médico e fica fora do
+    /// repasse.
+    ///
+    /// ⚠️ Não é o <see cref="SemProfissionalEscolhido"/>: aquele só vale no modo MARCAR
+    /// (é o aviso amarelo de lá). Este vale nos dois modos, porque a guia é a mesma.
+    /// A condição `Count > 0` é a mesma dele, e pela mesma razão: numa clínica que não
+    /// cadastrou ninguém o campo ficaria marcado sem que houvesse o que fazer, e a tela
+    /// já diz isso em palavras logo acima.
+    /// </summary>
+    public bool ExecutanteADefinir => Profissional is null && Profissionais.Count > 0;
 
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
@@ -837,6 +853,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             OnPropertyChanged(nameof(SemProfissionaisCadastrados));
             OnPropertyChanged(nameof(TemProfissionaisCadastrados));
             OnPropertyChanged(nameof(SemProfissionalEscolhido));
+            // `ExecutanteADefinir` lê `Profissionais.Count`, e a lista acabou de chegar:
+            // sem esta linha o campo da guia ficaria sem marca até o próximo toque no
+            // combo — que é justamente o toque que a marca existe para provocar.
+            OnPropertyChanged(nameof(ExecutanteADefinir));
         }
         catch (Exception ex)
         {
@@ -1075,14 +1095,33 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             : TravessaoDaGuia;
     }
 
-    /// <summary>Documento · telefone · idade, pulando o que a ficha não tem.</summary>
-    private static string MontarMetaDoPaciente(Paciente p)
+    /// <summary>
+    /// Documento · telefone · idade, pulando o que a ficha não tem. Devolve NULO quando
+    /// não sobrou nada: string vazia num TextBlock ainda ocupa a altura de uma linha, e a
+    /// ficha incompleta — que a importação do Smart Clinic produziu às centenas — abriria
+    /// um buraco debaixo do nome.
+    /// </summary>
+    private static string? MontarMetaDoPaciente(Paciente p)
     {
         var partes = new List<string>(3);
-        if (!string.IsNullOrWhiteSpace(p.Documento)) partes.Add(p.Documento!);
-        if (!string.IsNullOrWhiteSpace(p.Telefone)) partes.Add(p.Telefone!);
+        if (!string.IsNullOrWhiteSpace(p.Documento)) partes.Add(FormatarDocumento(p.Documento!));
+        if (!string.IsNullOrWhiteSpace(p.Telefone)) partes.Add(Telefone.Formatar(p.Telefone));
         if (p.DataNascimento is { } nascimento) partes.Add($"{IdadeEm(nascimento)} anos");
-        return string.Join(" · ", partes);
+        return partes.Count == 0 ? null : string.Join(" · ", partes);
+    }
+
+    /// <summary>
+    /// O documento como se lê, não como está gravado.
+    ///
+    /// ⚠️ NÃO é `Cpf.Formatar` direto: fora dos 11 dígitos ele devolve SÓ OS DÍGITOS, e o
+    /// campo se chama `Documento`, não `Cpf` — uma ficha com RG "12.345.678-9" voltaria
+    /// "123456789", que é a pontuação de um documento de verdade sendo apagada na
+    /// exibição. Formata quando é CPF; no resto, o que está na ficha é o que se mostra.
+    /// </summary>
+    private static string FormatarDocumento(string documento)
+    {
+        var digitos = Cpf.Normalizar(documento);
+        return digitos.Length == 11 ? Cpf.Formatar(digitos) : documento.Trim();
     }
 
     /// <summary>

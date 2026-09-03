@@ -450,6 +450,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ O `verificar-suite` **não resolve estilo local**: um `TextBlock` cujo `TextTrimming` vem
   de um `Style` declarado no `UserControl.Resources` é acusado do mesmo jeito. Repetir o
   atributo na tag é o preço, e ele deixa a intenção à vista onde ela é lida.
+  ⚠️ **`Cpf.Formatar` fora dos 11 dígitos devolve SÓ OS DÍGITOS**, e o campo da ficha se
+  chama `Documento`, não `Cpf`: passar um RG "12.345.678-9" por ele volta "123456789" — a
+  pontuação de um documento de verdade apagada na exibição. Formate quando `Normalizar`
+  der 11; no resto, mostre o que está gravado. (`Telefone.Formatar` não tem o problema —
+  devolve a entrada quando não reconhece o padrão.)
+  ⚠️ **String vazia num `TextBlock` ocupa a altura de uma linha.** A meta do paciente
+  (documento · telefone · idade) devolve NULO quando a ficha não tem nenhum dos três, e
+  não `string.Empty`: a importação do Smart Clinic produziu fichas incompletas às centenas,
+  e cada uma abriria um buraco debaixo do nome.
+  ⚠️ **`ExecutanteADefinir` não é `SemProfissionalEscolhido`.** Aquele só vale no modo
+  MARCAR — é o aviso amarelo de lá. O campo do executante na guia vale nos DOIS modos,
+  porque a guia é a mesma, e sem a marca o "a definir" saía com a mesma cara de um dado
+  preenchido: o único campo cujo vazio custa dinheiro a quem atendeu era o que menos
+  aparecia. Âmbar e não vermelho — sem executante a guia nasce; o que se perde é o
+  repasse. (O aviso em PALAVRAS no modo avulso continua não existindo: é a pendência
+  antiga de estender `SemProfissionalEscolhido`, que segue de pé.)
 - **SEM CONVÊNIO ESCOLHIDO NÃO NASCE ATENDIMENTO** (parcela 92). A importação do Smart Clinic
   trouxe **2.021 das 2.238 fichas sem convênio**, no código `ConvenioCadastro.CodigoADefinir` —
   que não gera guia. A defesa era o alerta VERMELHO da elegibilidade, e ela não impede nada por
