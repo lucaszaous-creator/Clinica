@@ -1268,6 +1268,30 @@ public sealed partial class AgendaViewModel : ObservableObject
     }
 
     /// <summary>
+    /// A CONCILIAÇÃO da agenda (parcela 93): o que ficou pendurado entre o horário e a
+    /// sessão. Mora ao lado da rodada de confirmação porque é a mesma natureza de
+    /// trabalho — uma fila que se percorre de tempos em tempos, e não a tela do dia.
+    ///
+    /// Abre em JANELA, e não como item de menu, pela regra de leiaute do README: é o que
+    /// a recepção FAZ de vez em quando, não o que ela VÊ o dia inteiro.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConciliarAgendaAsync()
+    {
+        var vm = new ConciliacaoAgendaViewModel(_escopos, _dialogo);
+        var janela = new Janelas.ConciliacaoAgendaWindow(vm)
+        {
+            Owner = Dono()
+        };
+
+        janela.ShowDialog();
+
+        // Resolver um horário parado muda a agenda de OUTRO dia — mas pode ter lançado
+        // atendimento, e o dia aberto aqui precisa refletir o que existe agora.
+        await CarregarAsync();
+    }
+
+    /// <summary>
     /// Cancela o que ainda está marcado da série — o "o paciente desistiu no meio do
     /// tratamento". Sessão já atendida não é tocada: ela é fato, e apagá-la da agenda
     /// esconderia um atendimento que aconteceu.
