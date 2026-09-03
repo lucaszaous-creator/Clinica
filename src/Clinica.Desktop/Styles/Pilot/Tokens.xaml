@@ -1,0 +1,191 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ============================================================================
+         PILOTO DE REDESIGN — TOKENS (linguagem visual do shadcn/ui em XAML nativo)
+
+         O que é, e o que NÃO é
+         ......................
+         Um segundo conjunto de tokens, ISOLADO, para experimentar a estética do
+         shadcn no módulo de faturamento antes de decidir se ela vale para o sistema
+         inteiro. Ele NÃO substitui o design system da casa (`Styles/Tokens.xaml`) —
+         convive com ele enquanto o piloto durar.
+
+         ⚠️ ISOLAMENTO — a regra mais importante deste piloto:
+         1. Este dicionário NÃO é mesclado no `App.xaml`. Ele entra apenas nos
+            `Resources` da View do faturamento que participa do piloto.
+         2. Toda chave leva o prefixo `Pil`, para não colidir com nenhuma chave do
+            design system existente nem sombreá-la por acidente.
+         3. Nada aqui altera estilo, controle ou recurso compartilhado. Uma tela que
+            não mescle este dicionário continua exatamente como estava.
+
+         ⚠️ POR QUE MORA EM `Styles/Pilot/` E NÃO EM `Themes/Pilot/`:
+         o `verificar-suite.py` (checagem 2c, parcela 57) coleta as chaves válidas do
+         faturamento varrendo os XAML cujo caminho contém `Styles` — chave que ele não
+         acha vira erro de CI, e chave inexistente é
+         `ResourceReferenceKeyNotFoundException` NA MONTAGEM DA TELA. Fora de `Styles/`
+         o piloto nasceria reprovando o CI e, pior, sem rede. A checagem 11 (cor em
+         hexadecimal fora dos tokens) usa o mesmo critério — é aqui que os hexa podem
+         morar. O isolamento não muda: o que isola é NÃO estar no `App.xaml`.
+
+         A VARIANTE — B (claro, com o accent da clínica)
+         ...............................................
+         A neutra do shadcn tem o primário PRETO. Num sistema que já tem marca (a gota
+         azul da SemDor, `#123A9E`), primário preto apaga a identidade que a clínica
+         paga para ter; e a variante dark não serve a um balcão sob luz de teto. Por
+         isso o piloto sai na B: a geometria e o espaçamento são do shadcn, a COR de
+         ação continua sendo a da marca — e é exatamente o mesmo `#123A9E` que o
+         `Styles/Tokens.xaml` já usa como `Cor.Azul.600`, para as duas linguagens não
+         discordarem sobre o azul da casa.
+
+         O que a estética do shadcn decide, e que este arquivo carrega:
+         - superfície branca sobre fundo levemente cinza, separada por BORDA de 1 px —
+           nunca por sombra (é a diferença de leitura mais visível entre shadcn e
+           material design, e o motivo de `DropShadowEffect` estar proibido no piloto);
+         - neutros FRIOS de baixa saturação (zinc), não os cinzas azulados do DS atual;
+         - raio pequeno e consistente (4 / 6 / 8), nunca o 12 do cartão atual;
+         - o foco é um anel na cor `Ring`, e ele é a única cor forte fora da ação.
+         ============================================================================ -->
+
+    <!-- ============================================================
+         1. CORES PRIMITIVAS
+         Escala zinc do shadcn + o azul da marca. Nomeadas pelo VALOR;
+         o significado vem na seção 2.
+         ============================================================ -->
+    <Color x:Key="PilZinc50">#FAFAFA</Color>
+    <Color x:Key="PilZinc100">#F4F4F5</Color>
+    <Color x:Key="PilZinc200">#E4E4E7</Color>
+    <Color x:Key="PilZinc300">#D4D4D8</Color>
+    <Color x:Key="PilZinc400">#A1A1AA</Color>
+    <Color x:Key="PilZinc500">#71717A</Color>
+    <Color x:Key="PilZinc700">#3F3F46</Color>
+    <Color x:Key="PilZinc900">#18181B</Color>
+    <Color x:Key="PilZinc950">#09090B</Color>
+
+    <!-- O azul SemDor. MESMO valor de `Cor.Azul.600` do design system da casa: duas
+         linguagens visuais no mesmo executável podem divergir em tudo, menos na cor
+         da marca. -->
+    <Color x:Key="PilMarca">#123A9E</Color>
+    <Color x:Key="PilMarcaHover">#0A2E86</Color>
+    <Color x:Key="PilMarcaTint">#EEF3FC</Color>
+
+    <!-- Estados. Os tints são claros o bastante para texto escuro por cima passar em
+         contraste — é o que faz o badge do shadcn ser legível sem borda. -->
+    <Color x:Key="PilOkTint">#F0FDF4</Color>
+    <Color x:Key="PilOk">#15803D</Color>
+    <Color x:Key="PilAvisoTint">#FFFBEB</Color>
+    <Color x:Key="PilAviso">#B45309</Color>
+    <Color x:Key="PilDestrutivoTint">#FEF2F2</Color>
+    <Color x:Key="PilDestrutivo">#B91C1C</Color>
+    <Color x:Key="PilDestrutivoForte">#DC2626</Color>
+
+    <!-- ============================================================
+         2. BRUSHES SEMÂNTICOS — as chaves espelham as do shadcn
+         (background, foreground, card, muted, border, input, primary,
+         secondary, accent, destructive, ring), para quem conhece a
+         biblioteca reconhecer o mapeamento de imediato.
+         ============================================================ -->
+
+    <!-- A página. No shadcn `background` é branco puro e o cartão também; aqui o fundo
+         é o zinc-50 para o cartão branco ter de onde se destacar — sem sombra, a única
+         separação disponível é borda + um degrau de valor. -->
+    <SolidColorBrush x:Key="PilBackgroundBrush" Color="{StaticResource PilZinc50}" />
+    <SolidColorBrush x:Key="PilForegroundBrush" Color="{StaticResource PilZinc950}" />
+
+    <SolidColorBrush x:Key="PilCardBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PilCardForegroundBrush" Color="{StaticResource PilZinc950}" />
+
+    <!-- `Muted` é o fundo de cabeçalho de tabela e de área secundária;
+         `MutedForeground` é TODO texto de apoio (rótulo, legenda, célula fraca). -->
+    <SolidColorBrush x:Key="PilMutedBrush" Color="{StaticResource PilZinc100}" />
+    <SolidColorBrush x:Key="PilMutedForegroundBrush" Color="{StaticResource PilZinc500}" />
+
+    <SolidColorBrush x:Key="PilBorderBrush" Color="{StaticResource PilZinc200}" />
+    <SolidColorBrush x:Key="PilInputBrush" Color="{StaticResource PilZinc300}" />
+
+    <SolidColorBrush x:Key="PilPrimaryBrush" Color="{StaticResource PilMarca}" />
+    <SolidColorBrush x:Key="PilPrimaryHoverBrush" Color="{StaticResource PilMarcaHover}" />
+    <SolidColorBrush x:Key="PilPrimaryForegroundBrush" Color="#FFFFFF" />
+
+    <!-- `Secondary` é o botão de contorno preenchido; `Accent` é o realce de hover
+         (linha de tabela, item de combo) — no shadcn os dois são o mesmo cinza claro,
+         e aqui o accent puxa para o tint da marca por ser a única superfície em que a
+         cor de marca aparece sem ser ação. -->
+    <SolidColorBrush x:Key="PilSecondaryBrush" Color="{StaticResource PilZinc100}" />
+    <SolidColorBrush x:Key="PilAccentBrush" Color="{StaticResource PilMarcaTint}" />
+
+    <SolidColorBrush x:Key="PilDestructiveBrush" Color="{StaticResource PilDestrutivoForte}" />
+    <SolidColorBrush x:Key="PilDestructiveForegroundBrush" Color="#FFFFFF" />
+
+    <!-- O anel de foco. É a única cor forte fora da ação, e é o que torna a navegação
+         por teclado utilizável — daí `FocusVisualStyle` ser anulado nos templates: o
+         pontilhado do WPF some, este anel toma o lugar. -->
+    <SolidColorBrush x:Key="PilRingBrush" Color="{StaticResource PilMarca}" />
+
+    <!-- Estados de badge — o par tint/texto sempre junto, para não haver combinação
+         inventada na tela. -->
+    <SolidColorBrush x:Key="PilOkTintBrush" Color="{StaticResource PilOkTint}" />
+    <SolidColorBrush x:Key="PilOkForegroundBrush" Color="{StaticResource PilOk}" />
+    <SolidColorBrush x:Key="PilWarnTintBrush" Color="{StaticResource PilAvisoTint}" />
+    <SolidColorBrush x:Key="PilWarnForegroundBrush" Color="{StaticResource PilAviso}" />
+    <SolidColorBrush x:Key="PilDestructiveTintBrush" Color="{StaticResource PilDestrutivoTint}" />
+    <SolidColorBrush x:Key="PilDestructiveTextBrush" Color="{StaticResource PilDestrutivo}" />
+
+    <!-- Transparente nomeado: o template do botão fantasma precisa de um pincel, e
+         `Transparent` cru num Setter perde o significado na leitura. -->
+    <SolidColorBrush x:Key="PilTransparentBrush" Color="Transparent" />
+
+    <!-- ============================================================
+         3. RAIO
+         O shadcn tem UM raio base (0.5rem = 8) e deriva sm/md dele.
+         O cartão do DS atual usa 12 — o piloto usa 8, e é uma das
+         diferenças que a direção vai ver de imediato.
+         ============================================================ -->
+    <CornerRadius x:Key="PilRadiusSm">4</CornerRadius>
+    <CornerRadius x:Key="PilRadiusMd">6</CornerRadius>
+    <CornerRadius x:Key="PilRadiusLg">8</CornerRadius>
+    <CornerRadius x:Key="PilRadiusFull">999</CornerRadius>
+
+    <!-- Só os cantos de cima. Serve à faixa que encosta no topo de um cartão: o `Border`
+         do WPF NÃO recorta o filho pelo `CornerRadius` (nem com `ClipToBounds`, que
+         recorta pelo retângulo do leiaute), então uma faixa opaca lá dentro desenha
+         canto QUADRADO por cima do canto arredondado do cartão. Quem arredonda é a
+         própria faixa. -->
+    <CornerRadius x:Key="PilRadiusTopo">8,8,0,0</CornerRadius>
+
+    <!-- ============================================================
+         4. ESPAÇAMENTO E ALTURA
+         Alturas de controle iguais às do shadcn (h-9 = 36), para os
+         campos e os botões alinharem numa barra de filtros sem ajuste
+         manual — que é de onde vem o "fora do esquadro".
+         ============================================================ -->
+    <Thickness x:Key="PilPadCard">16</Thickness>
+    <Thickness x:Key="PilPadCampo">11,0,11,0</Thickness>
+    <Thickness x:Key="PilPadBotao">15,0,15,0</Thickness>
+    <Thickness x:Key="PilPadBotaoSm">10,0,10,0</Thickness>
+    <Thickness x:Key="PilPadCelula">12,9,12,9</Thickness>
+    <Thickness x:Key="PilPadBadge">9,2,9,2</Thickness>
+
+    <sys:Double x:Key="PilAlturaControle">36</sys:Double>
+    <sys:Double x:Key="PilAlturaControleSm">28</sys:Double>
+    <sys:Double x:Key="PilAlturaLinha">40</sys:Double>
+
+    <!-- ============================================================
+         5. TIPOGRAFIA
+         Segoe UI Variable é a fonte do Windows 11 e cai para Segoe UI
+         no Windows 10 — o balcão da clínica tem as duas gerações de
+         máquina. Display para título (desenhada para corpo grande),
+         Text para o resto. NÃO usamos Inter: exigiria embutir o .ttf.
+         ============================================================ -->
+    <FontFamily x:Key="PilFonte">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="PilFonteDisplay">Segoe UI Variable Display, Segoe UI</FontFamily>
+
+    <sys:Double x:Key="PilFonteH1">24</sys:Double>
+    <sys:Double x:Key="PilFonteH2">18</sys:Double>
+    <sys:Double x:Key="PilFonteKpi">28</sys:Double>
+    <sys:Double x:Key="PilFonteCorpo">14</sys:Double>
+    <sys:Double x:Key="PilFonteTabela">13</sys:Double>
+    <sys:Double x:Key="PilFonteLegenda">12</sys:Double>
+
+</ResourceDictionary>

@@ -1,0 +1,75 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============================================================================
+         PILOTO — ÍCONES (Lucide, convertidos à mão para Geometry)
+
+         Por que Geometry e não a fonte de ícones
+         ........................................
+         O sistema usa Segoe Fluent Icons (glifos), e ela continua valendo fora do
+         piloto. O shadcn usa Lucide: traço de 2 px numa grade de 24, pontas
+         arredondadas — é um desenho MAIS FINO e mais aberto que o glifo do Windows, e
+         essa diferença é metade do que se reconhece como "a estética do shadcn".
+         Glifo não dá para afinar; Path com Stroke, dá.
+
+         Sem NuGet e sem icon font, como pedido: cada ícone é o `d` do SVG do Lucide
+         reescrito em sintaxe de path do WPF. Só os que ESTA tela usa — ícone que a tela
+         não desenha é peso morto no dicionário.
+
+         ⚠️ São geometrias de TRAÇO, não de preenchimento. Quem as desenha usa
+         `Stroke` + `StrokeThickness`, nunca `Fill` — com Fill elas saem como manchas.
+         O `PilIcone`/`PilIconeSm` (em Controls.xaml) já fazem isso; use-os.
+
+         A conversão, para quem for acrescentar um ícone:
+         - `<circle cx cy r>`  → dois arcos de 180°: "M cx-r cy A r r 0 1 0 cx+r cy
+                                  A r r 0 1 0 cx-r cy"
+         - `<rect x y w h rx>` → linhas + `A rx rx 0 0 1` em cada canto
+         - `<path d>`          → o mesmo `d`, trocando os comandos relativos por
+                                  absolutos (o WPF aceita os dois, mas absoluto é o que
+                                  se relê seis meses depois)
+         O viewBox é sempre 0 0 24 24, e quem escala é o `Stretch="Uniform"` do Path.
+         ============================================================================ -->
+
+    <!-- Busca (lucide: search) — o botão Buscar e o estado vazio da tela. -->
+    <Geometry x:Key="PilIconeBusca">
+        M 3 11 A 8 8 0 1 0 19 11 A 8 8 0 1 0 3 11
+        M 21 21 L 16.65 16.65
+    </Geometry>
+
+    <!-- Limpar (lucide: x) — zera os filtros. -->
+    <Geometry x:Key="PilIconeLimpar">
+        M 18 6 L 6 18
+        M 6 6 L 18 18
+    </Geometry>
+
+    <!-- Chevron (lucide: chevron-down) — a seta do ComboBox. -->
+    <Geometry x:Key="PilIconeChevron">
+        M 6 9 L 12 15 L 18 9
+    </Geometry>
+
+    <!-- Calendário (lucide: calendar) — o botão do DatePicker. -->
+    <Geometry x:Key="PilIconeCalendario">
+        M 8 2 L 8 6
+        M 16 2 L 16 6
+        M 3 10 L 21 10
+        M 5 4 L 19 4 A 2 2 0 0 1 21 6 L 21 20 A 2 2 0 0 1 19 22
+        L 5 22 A 2 2 0 0 1 3 20 L 3 6 A 2 2 0 0 1 5 4 Z
+    </Geometry>
+
+    <!-- Documento (lucide: file-text) — a capa de faturamento da guia. -->
+    <Geometry x:Key="PilIconeGuia">
+        M 15 2 L 6 2 A 2 2 0 0 0 4 4 L 4 20 A 2 2 0 0 0 6 22 L 18 22
+        A 2 2 0 0 0 20 20 L 20 7 Z
+        M 14 2 L 14 6 A 2 2 0 0 0 16 8 L 20 8
+        M 16 13 L 8 13
+        M 16 17 L 8 17
+    </Geometry>
+
+    <!-- Histórico (lucide: history) — a trilha de auditoria da guia. -->
+    <Geometry x:Key="PilIconeHistorico">
+        M 3 12 A 9 9 0 1 0 12 3 A 9.75 9.75 0 0 0 5.26 5.74 L 3 8
+        M 3 3 L 3 8 L 8 8
+        M 12 7 L 12 12 L 16 14
+    </Geometry>
+
+</ResourceDictionary>

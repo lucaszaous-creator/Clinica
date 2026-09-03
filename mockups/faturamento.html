@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Piloto shadcn — Consulta de guias (faturamento)</title>
+<style>
+/* ============================================================================
+   MOCKUP DO PILOTO — arquivo único, sem CDN, abre offline.
+   NÃO é entregável: existe para a direção escolher A, B ou C.
+
+   ⚠️ TODOS OS CAMPOS SÃO REAIS, levantados nas ViewModels do módulo
+   (Fase 0). Este módulo NÃO TEM DINHEIRO — é decisão de produto registrada
+   no CLAUDE.md: "Faturamento ≠ recebíveis; nunca adicione campos de
+   dinheiro/pagamento". "Baixa" = a secretária efetivou a guia no sistema do
+   convênio. Por isso os cartões contam GUIAS, não reais, e o status é
+   Aberto/Baixado/Glosado — não "pago".
+   ============================================================================ */
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+     background:#e9eaec;padding:28px;color:#0a0a0a;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1320px;margin:0 auto}
+.legenda{max-width:1320px;margin:0 auto 26px;font-size:13px;line-height:1.6;color:#3f3f46;
+         background:#fff;border:1px solid #d4d4d8;border-radius:8px;padding:16px 18px}
+.legenda b{color:#0a0a0a}
+.legenda code{background:#f4f4f5;padding:1px 5px;border-radius:4px;font-size:12px}
+.rotulo{max-width:1320px;margin:34px auto 10px;font-size:12px;font-weight:700;
+        letter-spacing:.09em;text-transform:uppercase;color:#52525b}
+.rotulo span{font-weight:400;letter-spacing:0;text-transform:none;color:#71717a;margin-left:8px}
+
+/* ---------- tokens por variante (espelham os de shadcn) ---------- */
+.v{--bg:#ffffff;--fg:#0a0a0a;--card:#ffffff;--card-fg:#0a0a0a;
+   --muted:#f5f5f5;--muted-fg:#737373;--border:#e5e5e5;--input:#e5e5e5;
+   --primary:#171717;--primary-fg:#fafafa;--secondary:#f5f5f5;--accent:#f5f5f5;
+   --destructive:#ef4444;--ring:#a3a3a3;
+   --ok-bg:#f0fdf4;--ok-fg:#15803d;--warn-bg:#fffbeb;--warn-fg:#b45309;
+   --bad-bg:#fef2f2;--bad-fg:#b91c1c;
+   --radius:8px;--radius-md:6px;--radius-sm:4px}
+
+/* B — claro com o azul da marca SemDor (#123A9E, o mesmo Cor.Azul.600 do app) */
+.v.b{--primary:#123A9E;--primary-fg:#ffffff;--ring:#123A9E;
+     --accent:#eef3fc;--muted:#f6f8fc;--border:#e3e8f0;--input:#e3e8f0}
+
+/* C — dark */
+.v.c{--bg:#09090b;--fg:#fafafa;--card:#09090b;--card-fg:#fafafa;
+     --muted:#18181b;--muted-fg:#a1a1aa;--border:#27272a;--input:#27272a;
+     --primary:#5E87D9;--primary-fg:#0a0a0a;--secondary:#27272a;--accent:#18181b;
+     --destructive:#7f1d1d;--ring:#5E87D9;
+     --ok-bg:#052e16;--ok-fg:#4ade80;--warn-bg:#3f2d0a;--warn-fg:#fbbf24;
+     --bad-bg:#450a0a;--bad-fg:#f87171}
+
+.v{background:var(--bg);color:var(--fg);border:1px solid var(--border);
+   border-radius:12px;padding:26px;max-width:1320px;margin:0 auto}
+
+/* ---------- tipografia ---------- */
+.h1{font-family:"Segoe UI Variable Display","Segoe UI",sans-serif;
+    font-size:24px;font-weight:700;letter-spacing:-.02em}
+.sub{font-size:13px;color:var(--muted-fg);margin-top:3px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted-fg);margin-bottom:6px;display:block}
+
+/* ---------- card: BORDA, nunca sombra (é a estética do shadcn) ---------- */
+.card{background:var(--card);color:var(--card-fg);border:1px solid var(--border);
+      border-radius:var(--radius)}
+
+/* ---------- kpi ---------- */
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}
+.kpi{flex:1 1 190px;padding:15px 16px}
+.kpi .k{font-size:12px;font-weight:600;color:var(--muted-fg);display:flex;
+        align-items:center;gap:7px}
+.kpi .n{font-size:28px;font-weight:700;margin-top:7px;letter-spacing:-.02em;
+        font-variant-numeric:tabular-nums}
+.kpi.dest{background:var(--primary);border-color:var(--primary)}
+.kpi.dest .k,.kpi.dest .n{color:var(--primary-fg)}
+.kpi .bar{height:6px;border-radius:999px;background:var(--muted);margin-top:11px;overflow:hidden}
+.kpi .bar i{display:block;height:100%;background:var(--destructive);border-radius:999px}
+
+/* ---------- filtros ---------- */
+.filtros{padding:16px;margin-bottom:14px}
+.grid{display:flex;gap:10px;flex-wrap:wrap}
+.f{display:flex;flex-direction:column}
+.ctl{height:36px;border:1px solid var(--input);background:var(--bg);color:var(--fg);
+     border-radius:var(--radius-md);padding:0 11px;font-size:14px;display:flex;
+     align-items:center;font-family:inherit}
+.ctl.ph{color:var(--muted-fg)}
+.ctl.sel{justify-content:space-between;gap:10px}
+.chev{opacity:.5}
+
+/* ---------- botões ---------- */
+.btns{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.btn{height:36px;padding:0 15px;border-radius:var(--radius-md);font-size:14px;
+     font-weight:600;border:1px solid transparent;display:inline-flex;align-items:center;
+     gap:7px;cursor:pointer;font-family:inherit}
+.btn.primary{background:var(--primary);color:var(--primary-fg)}
+.btn.outline{background:transparent;color:var(--fg);border-color:var(--input)}
+.btn.ghost{background:transparent;color:var(--muted-fg);border-color:transparent}
+.btn.destructive{background:var(--destructive);color:#fff}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.resumo{font-size:13px;color:var(--muted-fg);margin-left:6px}
+
+/* ---------- tabela ---------- */
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--muted);color:var(--muted-fg);font-size:12px;font-weight:600;
+         text-align:left;padding:9px 12px;white-space:nowrap}
+thead th:first-child{border-top-left-radius:var(--radius)}
+thead th:last-child{border-top-right-radius:var(--radius)}
+tbody td{padding:10px 12px;border-top:1px solid var(--border);vertical-align:middle}
+tbody tr:hover td{background:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.forte{font-weight:600}
+.fraco{color:var(--muted-fg)}
+
+/* ---------- badge ---------- */
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;
+       font-weight:600;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.badge.warn{background:var(--warn-bg);color:var(--warn-fg)}
+.badge.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.badge.neutro{background:var(--muted);color:var(--muted-fg)}
+
+.rodape{display:flex;justify-content:space-between;align-items:center;
+        padding:11px 14px;border-top:1px solid var(--border);font-size:13px;color:var(--muted-fg)}
+svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round}
+</style>
+</head>
+<body>
+
+<div class="legenda">
+  <b>Piloto de redesign — Consulta de guias (módulo de faturamento).</b><br>
+  Três variantes da MESMA tela, com os campos reais do sistema. Escolha uma e ela vira o
+  XAML.<br><br>
+  ⚠️ <b>Este módulo não tem dinheiro, e isso é decisão de produto</b>, não lacuna: no
+  <code>CLAUDE.md</code> — <i>"Faturamento ≠ recebíveis; nunca adicione campos de
+  dinheiro/pagamento"</i>. <b>Baixa</b> = a secretária efetivou a guia no sistema do
+  convênio. Por isso os cartões contam <b>guias</b>, e o status é
+  <code>Aberto · Baixado · Glosado</code> — não "pago". Dinheiro existe no módulo
+  <b>Financeiro</b>, que é outro executável.<br><br>
+  <b>A</b> shadcn neutro (preto/branco) · <b>B</b> claro com o azul SemDor
+  <code>#123A9E</code> · <b>C</b> dark.
+</div>
+
+<!-- ==================== A ==================== -->
+<div class="rotulo">Variante A — shadcn neutro <span>primário preto, sem cor de marca</span></div>
+<div class="wrap"><div class="v a" id="A"></div></div>
+
+<!-- ==================== B ==================== -->
+<div class="rotulo">Variante B — claro com o accent da clínica <span>primário #123A9E, o azul da logo SemDor</span></div>
+<div class="wrap"><div class="v b" id="B"></div></div>
+
+<!-- ==================== C ==================== -->
+<div class="rotulo">Variante C — dark <span>mesma estrutura, paleta zinc</span></div>
+<div class="wrap"><div class="v c" id="C"></div></div>
+
+<script>
+/* Uma função monta as três — se as variantes divergissem de estrutura, a comparação
+   deixaria de ser sobre a COR, que é o que se está escolhendo. */
+const ico = {
+  busca:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  limpar:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  chev:'<path d="m6 9 6 6 6-6"/>',
+  guia:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  alerta:'<path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  agenda:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  relogio:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  historico:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>'
+};
+const svg = p => `<svg viewBox="0 0 24 24">${p}</svg>`;
+
+/* Dados de exemplo com a FORMA real das colunas do grid (14 colunas na tela;
+   aqui as 9 que decidem o visual — as demais seguem o mesmo tratamento). */
+const linhas = [
+  ['02/09/2026','2026-000460','flavia@','GUSTAVO SANTOS GONÇALVES','Unimed Costa do Sol','Acupuntura + eletro','Acupuntura','1º','30201017','ok','Baixada',''],
+  ['02/09/2026','2026-000460','flavia@','GUSTAVO SANTOS GONÇALVES','Unimed Costa do Sol','Acupuntura + eletro','Eletroacupuntura','2º','—','warn','Libera 03/09','portal fora do ar'],
+  ['02/09/2026','2026-000459','flavia@','SHANA CAVARARO LOPES JUNGER','Unimed Costa do Sol','Acupuntura + eletro','Acupuntura','1º','30201033','ok','Baixada',''],
+  ['01/09/2026','2026-000458','flavia@','Renata Costa da Silva','Unimed Costa do Sol','Consulta','Consulta','1º','30101012','bad','Glosada — 1707','aguardando recurso'],
+  ['01/09/2026','2026-000457','ana@','SHANA CAVARARO LOPES JUNGER','Unimed Costa do Sol','BSV (apenas)','BSV','1º','30201025','ok','Baixada',''],
+  ['29/08/2026','2026-000451','ana@','ADELAIDE MARIA CAETANO','Amil','Acupuntura (apenas)','Acupuntura','1º','—','warn','Em aberto há 5 dias','']
+];
+
+const filtros = [
+  ['Paciente (nome ou CPF)',220,'Nome ou CPF…',0],
+  ['Nº da guia',150,'',0],
+  ['Observação da pendência',210,'Ex.: portal fora do ar…',0],
+  ['De (atendimento)',140,'01/08/2026',0],
+  ['Até',140,'02/09/2026',0],
+  ['Status',150,'Todos',1],
+  ['Convênio',190,'Todos',1],
+  ['Modalidade',180,'Todas',1],
+  ['Especialidade',170,'Todas',1]
+];
+
+function montar(el){
+  el.innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+    <div>
+      <div class="h1">Consultar guias</div>
+      <div class="sub">Tudo o que foi gerado — em aberto, baixado e glosado.</div>
+    </div>
+    <div class="btns" style="margin:0">
+      <button class="btn outline">${svg(ico.guia)} Exportar CSV</button>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="card kpi">
+      <div class="k">${svg(ico.guia)} Guias em aberto</div><div class="n">27</div>
+    </div>
+    <div class="card kpi">
+      <div class="k">${svg(ico.alerta)} Urgentes (vermelho)</div><div class="n">6</div>
+      <div class="bar"><i style="width:22%"></i></div>
+    </div>
+    <div class="card kpi">
+      <div class="k">${svg(ico.agenda)} Consultas a renovar</div><div class="n">4</div>
+    </div>
+    <div class="card kpi dest">
+      <div class="k">${svg(ico.relogio)} Pendências totais</div><div class="n">31</div>
+    </div>
+  </div>
+
+  <div class="card filtros">
+    <div class="grid">
+      ${filtros.map(([t,w,ph,sel])=>`
+        <div class="f" style="width:${w}px">
+          <span class="lbl">${t}</span>
+          <div class="ctl ${sel?'sel':''} ${ph&&!sel?'ph':''}">
+            <span>${ph||'&nbsp;'}</span>${sel?`<span class="chev">${svg(ico.chev)}</span>`:''}
+          </div>
+        </div>`).join('')}
+    </div>
+    <div class="btns">
+      <button class="btn primary">${svg(ico.busca)} Buscar</button>
+      <button class="btn ghost">${svg(ico.limpar)} Limpar</button>
+      <span class="resumo">6 guias · 4 baixadas · 1 glosada · período 01/08 a 02/09</span>
+    </div>
+  </div>
+
+  <div class="card" style="overflow:hidden">
+    <table>
+      <thead><tr>
+        <th>Data</th><th>Atend. nº</th><th>Lançou por</th><th>Paciente</th>
+        <th>Convênio</th><th>Modalidade</th><th>Código</th><th>Ordem</th>
+        <th>Nº guia</th><th>Situação</th><th>Observação</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${linhas.map(l=>`<tr>
+          <td class="num fraco">${l[0]}</td>
+          <td class="num fraco">${l[1]}</td>
+          <td class="fraco">${l[2]}</td>
+          <td class="forte">${l[3]}</td>
+          <td>${l[4]}</td>
+          <td class="fraco">${l[5]}</td>
+          <td>${l[6]}</td>
+          <td class="num">${l[7]}</td>
+          <td class="num">${l[8]}</td>
+          <td><span class="badge ${l[9]}">${l[10]}</span></td>
+          <td class="fraco">${l[11]||'—'}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn outline sm">Capa</button>
+            <button class="btn outline sm">${svg(ico.historico)} Histórico</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="rodape">
+      <span>6 de 6 guias no período</span>
+      <span>Ordenado por data do atendimento</span>
+    </div>
+  </div>`;
+}
+['A','B','C'].forEach(id => montar(document.getElementById(id)));
+</script>
+</body>
+</html>

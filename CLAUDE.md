@@ -2700,6 +2700,60 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   rótulo sem hierarquia, dado cortado no meio, frase que se contradiz num caso de borda, e
   botão mudo.
 
+- **O PILOTO shadcn/ui NO FATURAMENTO — e o que faz dele um piloto e não uma reforma**
+  (set/2026; tokens, controles e ícones em `src/Clinica.Desktop/Styles/Pilot/`, mockup
+  offline em `mockups/faturamento.html`). A direção quer avaliar a estética do shadcn no
+  app que fatura a clínica antes de decidir por todo o sistema, e a decisão que governa
+  tudo é o ISOLAMENTO: **o dicionário do piloto NÃO entra no `App.xaml`** — ele é mesclado
+  nos `Resources` da View piloto, e a resolução de recurso do WPF (de dentro para fora)
+  é o que faz os estilos IMPLÍCITOS de lá valerem só naquela tela. Tirar aquela linha
+  devolve a tela ao design system da casa sem tocar em mais nada; nenhum outro app da
+  suíte é alcançado. Toda chave leva o prefixo `Pil`, para não sombrear chave nenhuma por
+  acidente.
+  ⚠️ **Ele mora em `Styles/Pilot/` e NÃO em `Themes/Pilot/`, e isso não é gosto**: a
+  checagem 2c coleta as chaves válidas do faturamento varrendo os XAML cujo caminho contém
+  `Styles`, e a 11 usa o mesmo critério para deixar o hexadecimal morar nos tokens. Fora
+  de `Styles/`, o piloto nasceria reprovando o CI e — pior — SEM REDE: chave que não existe
+  é `ResourceReferenceKeyNotFoundException` na montagem da tela. O que isola é não estar no
+  `App.xaml`, nunca o nome da pasta.
+  **A tela escolhida é a Consulta de guias**, e é uma só de propósito: ela exercita TODOS
+  os controles do piloto (nove filtros com TextBox/ComboBox/DatePicker, grade de catorze
+  colunas, badges, botões de linha, ScrollBar, ToolTip) — uma segunda tela custaria o dobro
+  da revisão sem acrescentar um tipo de evidência. Uma tela inteira e impecável é o que se
+  aprova ou reprova; duas pela metade, não.
+  ⚠️ **Estilo implícito novo SOMBREIA o da casa, e a capacidade que o de baixo dava some
+  em silêncio.** O `TextBox` do piloto sombreia o `Campos.xaml`, que é quem DESENHA o
+  `ctrl:Ajudantes.Placeholder`: sem reescrever o texto-fantasma no template novo, as duas
+  caixas de busca da tela perderiam o placeholder — XAML bem-formado, binding válido, nada
+  falha, e só quem abre a tela vê. Pela mesma razão nasceu o `PilCampoBusca` (o equivalente
+  do `CampoPesquisa`). A regra: **ao sombreiar um estilo implícito, liste o que o estilo
+  antigo DESENHAVA, não só o que ele pintava.**
+  ⚠️ **`Border` do WPF não recorta o filho pelo `CornerRadius` — nem com `ClipToBounds`,
+  que recorta pelo RETÂNGULO do leiaute.** Um filho opaco encostando no canto de um cartão
+  arredondado desenha um quadrado por cima da curva: 8×8 px que quem escreve não vê e quem
+  usa vê todo dia. As duas saídas, e o piloto usa as duas: quem encosta no TOPO arredonda
+  sozinho (`PilRadiusTopo` = `8,8,0,0`) e quem encosta no resto é TRANSPARENTE, deixando o
+  cartão pintar a superfície (é por isso que a linha e o fundo do `DataGrid` do piloto não
+  pintam branco). O comentário que eu tinha escrito ali afirmava que o `ClipToBounds`
+  resolvia — comentário que promete o que o código não faz, a armadilha da parcela 67,
+  cometida dentro da correção dela.
+  ⚠️ **A coluna "Glosa" escrevia o enum cru na tela.** `Binding="{Binding Glosa}"` faz o
+  WPF chamar `ToString()`: "SemGlosa", "Reapresentada". É o defeito da parcela 41 na
+  variante que a **checagem 20 não pega — ela só olha `ComboBox`** —, e estava em produção
+  na tela que a direção usa para auditar. Passou a sair pelo `EnumDescricao` (que delega ao
+  rotulador do domínio), com a COR carregando a urgência: glosa em aberto é a única linha
+  desta tela que exige ação do faturista.
+  **O que o piloto NÃO trouxe, e é decisão**: nada de sombra (`DropShadowEffect` proibido —
+  a separação de superfície do shadcn é 1 px de borda mais um degrau de valor; sombra aqui
+  não seria "shadcn com um extra", seria material design); nada de Inter (exigiria embutir
+  o `.ttf`); nada de NuGet — os ícones são `Geometry` do Lucide convertidas à mão, e o
+  primário continua sendo o `#123A9E` da marca, o MESMO valor de `Cor.Azul.600`, porque
+  duas linguagens visuais no mesmo executável podem divergir em tudo menos na cor da marca;
+  e **nada de cartão de KPI**, porque a tela não tem um número para pôr nele (o faturamento
+  não tem dinheiro, e a Consulta de guias responde por LISTA) — estilo sem consumidor é o
+  defeito que este projeto chama pelo nome, e ele nasce quando o Dashboard entrar no piloto,
+  junto do leitor que o consome.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

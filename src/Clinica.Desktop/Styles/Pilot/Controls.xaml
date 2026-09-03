@@ -1,0 +1,1025 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:prim="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+                    xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+
+    <!-- ============================================================================
+         PILOTO — CONTROLES (estética shadcn/ui em XAML nativo)
+
+         ⚠️ ISOLAMENTO. Este dicionário NÃO entra no `App.xaml`. Ele é mesclado nos
+         `Resources` da View do piloto, e é isso que faz os estilos IMPLÍCITOS daqui
+         (Button, TextBox, ComboBox, DatePicker, DataGrid, ScrollBar, ToolTip) valerem
+         SÓ dentro daquela tela: a resolução de recurso do WPF é de dentro para fora, e
+         um implícito declarado na View vence o do App.xaml sem alterá-lo. Fora da View,
+         nada muda — nenhum outro módulo é tocado.
+
+         Ele mescla o `Tokens.xaml` do piloto, e não o contrário: assim a View mescla UM
+         arquivo, e este dicionário continua autossuficiente se alguém o abrir sozinho
+         (a lição da checagem 2b — o conteúdo de um ControlTemplate é interpretado no
+         escopo do dicionário que o declara, não no App.xaml).
+
+         AS SEIS REGRAS QUE ESTE ARQUIVO NÃO NEGOCIA
+         ...........................................
+         1. CARTÃO É BORDA, NUNCA SOMBRA. `DropShadowEffect` é proibido no piloto — a
+            separação de superfície do shadcn é 1 px de borda mais um degrau de valor.
+            Sombra aqui não seria "shadcn com um extra": seria material design.
+         2. RAIO EXIGE `ControlTemplate` com `Border` na raiz. `CornerRadius` não existe
+            em Button/TextBox/ComboBox — quem tem a propriedade é o Border de dentro.
+         3. `SnapsToDevicePixels` + `UseLayoutRounding` onde há borda de 1 px. Sem eles,
+            em 125%/150% de escala (a máquina do balcão) a borda cai entre dois pixels
+            físicos e sai cinza-clara de um lado e some do outro.
+         4. FOCO É O ANEL `Ring`, com `FocusVisualStyle="{x:Null}"` para o pontilhado do
+            WPF sair da frente. Anular sem repor seria tirar a navegação por teclado.
+         5. Os estados vêm do TEMPLATE (`ControlTemplate.Triggers`), não de Setters no
+            Style: gatilho de Style não alcança elemento nomeado do template, e é assim
+            que um hover "não funciona" sem erro nenhum.
+         6. Número que se compara em coluna leva `Typography.NumeralAlignment="Tabular"`
+            — dígito de largura fixa. Sem isso "1" e "8" têm larguras diferentes e a
+            coluna de nº da guia dança de linha para linha.
+         ============================================================================ -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Tokens.xaml" />
+        <ResourceDictionary Source="Icons.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- ============================================================================
+         0. ÍCONE — o Path que desenha as Geometry do Lucide.
+
+         Traço, nunca preenchimento (ver o cabeçalho de Icons.xaml). `1.6` e não `2`
+         porque o traço do Lucide é medido numa grade de 24 e nós desenhamos em 15:
+         mantido em 2, ele engrossaria proporcionalmente e o ícone sairia pesado ao lado
+         de um texto de 14. A cor vem por herança (`TextElement.Foreground` do botão),
+         que é o que faz o ícone acompanhar o estado do controle sem um gatilho próprio.
+         ============================================================================ -->
+    <Style x:Key="PilIcone" TargetType="Path">
+        <Setter Property="Width" Value="15" />
+        <Setter Property="Height" Value="15" />
+        <Setter Property="Stretch" Value="Uniform" />
+        <Setter Property="StrokeThickness" Value="1.6" />
+        <Setter Property="StrokeStartLineCap" Value="Round" />
+        <Setter Property="StrokeEndLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Stroke" Value="{Binding (TextElement.Foreground),
+                                          RelativeSource={RelativeSource Self}}" />
+    </Style>
+
+    <Style x:Key="PilIconeSm" TargetType="Path" BasedOn="{StaticResource PilIcone}">
+        <Setter Property="Width" Value="13" />
+        <Setter Property="Height" Value="13" />
+        <Setter Property="StrokeThickness" Value="1.5" />
+    </Style>
+
+    <!-- ============================================================================
+         1. BUTTON
+
+         Um template único para as quatro variantes: o que muda entre elas é
+         Background/Foreground/BorderBrush, e o HOVER é um VÉU do próprio Foreground
+         sobre o botão. Véu funciona em QUALQUER cor de fundo — com uma cor de hover
+         fixa por variante, o dia em que a marca mudar de azul deixa quatro hovers
+         errados para trás.
+         ============================================================================ -->
+    <ControlTemplate x:Key="PilTemplateBotao" TargetType="ButtonBase">
+        <Grid>
+            <!-- O anel FORA da borda (Margin negativa) para não comer 2 px do conteúdo
+                 quando aparece — anel que empurra o texto faz a tela "pular" no Tab. -->
+            <Border x:Name="anel" Margin="-2" CornerRadius="{DynamicResource PilRadiusLg}"
+                    BorderThickness="2" BorderBrush="{DynamicResource PilRingBrush}"
+                    Opacity="0" SnapsToDevicePixels="True" />
+
+            <Border x:Name="raiz"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{DynamicResource PilRadiusMd}"
+                    SnapsToDevicePixels="True" UseLayoutRounding="True">
+                <Grid>
+                    <Border x:Name="veu" Background="{TemplateBinding Foreground}" Opacity="0"
+                            CornerRadius="{DynamicResource PilRadiusMd}" />
+                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      RecognizesAccessKey="True" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="veu" Property="Opacity" Value="0.09" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="veu" Property="Opacity" Value="0.16" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="anel" Property="Opacity" Value="1" />
+            </Trigger>
+            <!-- Desabilitado: 45% no conjunto. O botão continua LEGÍVEL (dá para ler o
+                 rótulo e entender o que ele faria) e claramente inativo. -->
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="raiz" Property="Opacity" Value="0.45" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- Implícito = PRIMARY. Dentro da View do piloto, todo Button sem Style explícito
+         é a ação primária — que é o padrão do shadcn e o do design system da casa. -->
+    <Style TargetType="Button">
+        <Setter Property="Height" Value="{DynamicResource PilAlturaControle}" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadBotao}" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteCorpo}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="{DynamicResource PilPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilPrimaryForegroundBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template" Value="{StaticResource PilTemplateBotao}" />
+    </Style>
+
+    <!-- Outline: a ação secundária de peso igual (Limpar, Exportar). -->
+    <Style x:Key="PilBotaoOutline" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{DynamicResource PilCardBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilInputBrush}" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+
+    <!-- Ghost: a ação de menor peso, sem moldura. É o que impede uma barra com quatro
+         botões de contorno de parecer quatro ações igualmente importantes. -->
+    <Style x:Key="PilBotaoGhost" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+
+    <Style x:Key="PilBotaoDestrutivo" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{DynamicResource PilDestructiveBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilDestructiveForegroundBrush}" />
+    </Style>
+
+    <!-- Pequeno, para a coluna de AÇÕES da tabela: 28 px é a altura que cabe numa linha
+         densa sem esticá-la (a altura da linha é 40). -->
+    <Style x:Key="PilBotaoSm" TargetType="Button" BasedOn="{StaticResource PilBotaoOutline}">
+        <Setter Property="Height" Value="{DynamicResource PilAlturaControleSm}" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadBotaoSm}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteLegenda}" />
+    </Style>
+
+    <!-- ============================================================================
+         2. TEXTBOX
+
+         O `PART_ContentHost` é obrigatório: é onde o WPF põe o editor de texto. Sem ele
+         no template, o campo desenha a moldura e não aceita digitação — e nada falha.
+         ============================================================================ -->
+    <Style TargetType="TextBox">
+        <Setter Property="Height" Value="{DynamicResource PilAlturaControle}" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadCampo}" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteCorpo}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource PilCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilInputBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CaretBrush" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource PilPrimaryBrush}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid>
+                        <Border x:Name="anel" Margin="-2"
+                                CornerRadius="{DynamicResource PilRadiusLg}"
+                                BorderThickness="2" BorderBrush="{DynamicResource PilRingBrush}"
+                                Opacity="0" SnapsToDevicePixels="True" />
+                        <Border x:Name="raiz"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource PilRadiusMd}"
+                                SnapsToDevicePixels="True" UseLayoutRounding="True">
+                            <Grid>
+                                <!-- ⚠️ O texto-fantasma é `ctrl:Ajudantes.Placeholder`, e quem
+                                     o DESENHA é o template. O estilo implícito do piloto
+                                     sombreia o da casa dentro desta tela: sem estas quatro
+                                     linhas, as duas caixas de busca da Consulta de guias
+                                     perderiam o placeholder — sem erro, sem aviso, e só quem
+                                     abre a tela veria. -->
+                                <TextBlock x:Name="fantasma"
+                                           Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
+                                           Foreground="{DynamicResource PilMutedForegroundBrush}"
+                                           Margin="{TemplateBinding Padding}"
+                                           VerticalAlignment="Center" IsHitTestVisible="False"
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="Collapsed" />
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Hidden" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="fantasma" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilZinc400Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="anel" Property="Opacity" Value="1" />
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilRingBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="raiz" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ⚠️ `PilZinc400` é uma COR, não um Brush — o hover acima precisa de Brush.
+         Declarado aqui, junto de quem o usa, para não poluir o Tokens com um pincel que
+         só o estado de hover consome. -->
+    <SolidColorBrush x:Key="PilZinc400Brush" Color="{StaticResource PilZinc400}" />
+
+    <!-- Campo de busca — o equivalente do `CampoPesquisa` da casa, redesenhado com o
+         ícone do Lucide no lugar do glifo. Existe porque a tela JÁ tinha dois campos
+         assim: piloto que troca a estética e devolve a tela com menos do que ela tinha é
+         piloto que se avalia por engano. O ícone é `IsHitTestVisible="False"` para o
+         clique em cima dele cair no campo, e não no nada. -->
+    <Style x:Key="PilCampoBusca" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Padding" Value="34,0,11,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid>
+                        <Border x:Name="anel" Margin="-2"
+                                CornerRadius="{DynamicResource PilRadiusLg}"
+                                BorderThickness="2" BorderBrush="{DynamicResource PilRingBrush}"
+                                Opacity="0" SnapsToDevicePixels="True" />
+                        <Border x:Name="raiz"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource PilRadiusMd}"
+                                SnapsToDevicePixels="True" UseLayoutRounding="True">
+                            <Grid>
+                                <Path x:Name="lupa" Data="{DynamicResource PilIconeBusca}"
+                                      Style="{StaticResource PilIconeSm}"
+                                      Stroke="{DynamicResource PilMutedForegroundBrush}"
+                                      HorizontalAlignment="Left" Margin="11,0,0,0"
+                                      IsHitTestVisible="False" />
+                                <TextBlock x:Name="fantasma"
+                                           Text="{TemplateBinding ctrl:Ajudantes.Placeholder}"
+                                           Foreground="{DynamicResource PilMutedForegroundBrush}"
+                                           Margin="{TemplateBinding Padding}"
+                                           VerticalAlignment="Center" IsHitTestVisible="False"
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="Collapsed" />
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Hidden" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="fantasma" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilZinc400Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="anel" Property="Opacity" Value="1" />
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilRingBrush}" />
+                            <Setter TargetName="lupa" Property="Stroke"
+                                    Value="{DynamicResource PilForegroundBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="raiz" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================================
+         3. COMBOBOX
+
+         O template precisa de `PART_Popup` e de um ToggleButton que o abra. NÃO precisa
+         de `PART_EditableTextBox`: os três combos desta tela são de seleção
+         (`IsEditable=False`, o padrão) — ele só é obrigatório quando o combo é editável,
+         e declará-lo aqui seria carregar uma peça que ninguém usa.
+
+         O ToggleButton cobre as duas colunas e recebe o clique; o ContentPresenter e o
+         chevron desenham por cima com `IsHitTestVisible="False"`, para não interceptá-lo.
+         ============================================================================ -->
+    <Style x:Key="PilComboToggle" TargetType="ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="ClickMode" Value="Press" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{DynamicResource PilTransparentBrush}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="Height" Value="{DynamicResource PilAlturaControle}" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadCampo}" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteCorpo}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource PilCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilInputBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <Border x:Name="anel" Margin="-2"
+                                CornerRadius="{DynamicResource PilRadiusLg}"
+                                BorderThickness="2" BorderBrush="{DynamicResource PilRingBrush}"
+                                Opacity="0" SnapsToDevicePixels="True" />
+
+                        <Border x:Name="raiz"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource PilRadiusMd}"
+                                SnapsToDevicePixels="True" UseLayoutRounding="True">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <ToggleButton Grid.ColumnSpan="2"
+                                              Style="{StaticResource PilComboToggle}"
+                                              IsChecked="{Binding IsDropDownOpen,
+                                                          RelativeSource={RelativeSource TemplatedParent},
+                                                          Mode=TwoWay}" />
+
+                                <ContentPresenter Grid.Column="0" IsHitTestVisible="False"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  VerticalAlignment="Center"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+
+                                <Path x:Name="chevron" Grid.Column="1" IsHitTestVisible="False"
+                                      Data="{StaticResource PilIconeChevron}"
+                                      Style="{StaticResource PilIconeSm}"
+                                      Margin="0,0,10,0" Opacity="0.55"
+                                      Stroke="{DynamicResource PilMutedForegroundBrush}"
+                                      RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <RotateTransform Angle="0" />
+                                    </Path.RenderTransform>
+                                </Path>
+
+                                <Popup x:Name="PART_Popup" Grid.ColumnSpan="2"
+                                       AllowsTransparency="True" Focusable="False"
+                                       Placement="Bottom" VerticalOffset="4"
+                                       PopupAnimation="None"
+                                       IsOpen="{TemplateBinding IsDropDownOpen}">
+                                    <!-- Borda, nunca sombra — a mesma regra do cartão.
+                                         MinWidth casado com a largura do combo para o
+                                         popup não sair mais estreito que o campo. -->
+                                    <Border Background="{DynamicResource PilCardBrush}"
+                                            BorderBrush="{DynamicResource PilBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="{DynamicResource PilRadiusMd}"
+                                            Padding="4"
+                                            MinWidth="{TemplateBinding ActualWidth}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                            SnapsToDevicePixels="True">
+                                        <ScrollViewer>
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <!-- O chevron aponta para cima com o popup aberto. É o único
+                             sinal, fora do próprio popup, de que o clique foi
+                             registrado — sem ele o combo aberto é indistinguível do
+                             fechado quando a lista abre para fora da vista. -->
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="chevron" Property="RenderTransform">
+                                <Setter.Value>
+                                    <RotateTransform Angle="180" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilZinc400Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="anel" Property="Opacity" Value="1" />
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilRingBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="raiz" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Item do popup: seleção é fundo `Accent`, não o azul de sistema do WPF. -->
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Padding" Value="9,7,9,7" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteCorpo}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="raiz" Background="{DynamicResource PilTransparentBrush}"
+                            CornerRadius="{DynamicResource PilRadiusSm}"
+                            Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="raiz" Property="Background"
+                                    Value="{DynamicResource PilAccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="raiz" Property="Background"
+                                    Value="{DynamicResource PilAccentBrush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================================
+         4. DATEPICKER
+
+         ⚠️ O campo de texto de um DatePicker é `DatePickerTextBox`, um TIPO PRÓPRIO —
+         o estilo implícito de `TextBox` NÃO o alcança. É o defeito que a parcela 56
+         achou no design system da casa: sem estilo próprio, o WPF desenha ali a moldura
+         3D do Aero ao lado de campos planos.
+
+         O CALENDÁRIO DO POPUP FICA COM O TEMA PADRÃO, e é decisão: retemplá-lo exige
+         `CalendarItem`, `CalendarButton` e `CalendarDayButton`, cujos gatilhos só
+         falham em RUNTIME e nenhuma rede local compila XAML. O campo — que é o que fica
+         na tela o tempo todo — está resolvido; o popup aparece por três segundos.
+         ============================================================================ -->
+    <Style TargetType="prim:DatePickerTextBox">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteCorpo}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource PilPrimaryBrush}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="prim:DatePickerTextBox">
+                    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Hidden" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="DatePicker">
+        <Setter Property="Height" Value="{DynamicResource PilAlturaControle}" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteCorpo}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource PilCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilInputBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePicker">
+                    <Grid>
+                        <Border x:Name="anel" Margin="-2"
+                                CornerRadius="{DynamicResource PilRadiusLg}"
+                                BorderThickness="2" BorderBrush="{DynamicResource PilRingBrush}"
+                                Opacity="0" SnapsToDevicePixels="True" />
+
+                        <Border x:Name="raiz"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource PilRadiusMd}"
+                                SnapsToDevicePixels="True" UseLayoutRounding="True">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <prim:DatePickerTextBox x:Name="PART_TextBox" Grid.Column="0"
+                                                        Margin="{DynamicResource PilPadCampo}"
+                                                        VerticalAlignment="Center" />
+
+                                <!-- A dica de formato. O `PART_Watermark` do
+                                     `DatePickerTextBox` fica de fora de propósito: o
+                                     conteúdo dele é a string interna do framework, e
+                                     amarrá-la exigiria uma propriedade que não é pública.
+                                     Aqui a dica é NOSSA, some ao foco (senão ela ficaria
+                                     por baixo do que está sendo digitado, porque
+                                     `SelectedDate` só é preenchida quando a data fecha) e
+                                     não intercepta clique. -->
+                                <TextBlock x:Name="dica" Grid.Column="0" Text="dd/mm/aaaa"
+                                           Margin="{DynamicResource PilPadCampo}"
+                                           VerticalAlignment="Center" IsHitTestVisible="False"
+                                           FontFamily="{DynamicResource PilFonte}"
+                                           FontSize="{DynamicResource PilFonteCorpo}"
+                                           Foreground="{DynamicResource PilMutedForegroundBrush}"
+                                           Visibility="Collapsed" />
+
+                                <!-- O botão do calendário é FANTASMA: um contorno aqui
+                                     daria duas molduras dentro do mesmo campo. -->
+                                <Button x:Name="PART_Button" Grid.Column="1"
+                                        Width="30" Height="26" Margin="0,0,4,0"
+                                        Style="{StaticResource PilBotaoGhost}"
+                                        Padding="0" Focusable="False">
+                                    <Path Data="{StaticResource PilIconeCalendario}"
+                                          Style="{StaticResource PilIconeSm}"
+                                          Stroke="{DynamicResource PilMutedForegroundBrush}" />
+                                </Button>
+
+                                <Popup x:Name="PART_Popup" AllowsTransparency="True"
+                                       Placement="Bottom" VerticalOffset="4"
+                                       StaysOpen="False" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <!-- A condição é o TEXTO do campo, não `SelectedDate`: uma data
+                             digitada pela metade deixa `SelectedDate` nula com texto na
+                             tela, e a dica sairia POR CIMA do que a pessoa está
+                             escrevendo. -->
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding Text, ElementName=PART_TextBox}" Value="" />
+                                <Condition Binding="{Binding IsKeyboardFocusWithin,
+                                                     RelativeSource={RelativeSource TemplatedParent}}"
+                                           Value="False" />
+                            </MultiDataTrigger.Conditions>
+                            <Setter TargetName="dica" Property="Visibility" Value="Visible" />
+                        </MultiDataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilZinc400Brush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="anel" Property="Opacity" Value="1" />
+                            <Setter TargetName="raiz" Property="BorderBrush"
+                                    Value="{DynamicResource PilRingBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="raiz" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================================
+         5. SCROLLBAR — slim de 8 px, thumb arredondado, SEM SETAS.
+
+         As setas são 34 px de cromo permanente que ninguém clica desde que existe roda
+         de mouse. Sem elas o Track ocupa a barra inteira e a rolagem continua igual.
+         ============================================================================ -->
+    <Style x:Key="PilThumb" TargetType="prim:Thumb">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="prim:Thumb">
+                    <Border x:Name="t" Background="{DynamicResource PilZinc300Brush}"
+                            CornerRadius="{DynamicResource PilRadiusSm}" Margin="2" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="t" Property="Background"
+                                    Value="{DynamicResource PilZinc400Brush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <SolidColorBrush x:Key="PilZinc300Brush" Color="{StaticResource PilZinc300}" />
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="Width" Value="8" />
+        <Setter Property="MinWidth" Value="8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="{TemplateBinding Background}">
+                        <prim:Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <prim:Track.Thumb>
+                                <prim:Thumb Style="{StaticResource PilThumb}" />
+                            </prim:Track.Thumb>
+                            <!-- Os RepeatButton do trilho existem (é o clique na área
+                                 vazia = página), mas invisíveis: são o "sem setas". -->
+                            <prim:Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0"
+                                              Focusable="False" />
+                            </prim:Track.IncreaseRepeatButton>
+                            <prim:Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0"
+                                              Focusable="False" />
+                            </prim:Track.DecreaseRepeatButton>
+                        </prim:Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Height" Value="8" />
+                <Setter Property="MinHeight" Value="8" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="{TemplateBinding Background}">
+                                <prim:Track x:Name="PART_Track" IsDirectionReversed="False">
+                                    <prim:Track.Thumb>
+                                        <prim:Thumb Style="{StaticResource PilThumb}" />
+                                    </prim:Track.Thumb>
+                                    <prim:Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageRightCommand"
+                                                      Opacity="0" Focusable="False" />
+                                    </prim:Track.IncreaseRepeatButton>
+                                    <prim:Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageLeftCommand"
+                                                      Opacity="0" Focusable="False" />
+                                    </prim:Track.DecreaseRepeatButton>
+                                </prim:Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============================================================================
+         6. TOOLTIP — superfície escura, texto claro, borda. É o único lugar em que o
+         piloto inverte o contraste, e é de propósito: a dica precisa se distinguir da
+         superfície branca sobre a qual ela flutua.
+         ============================================================================ -->
+    <SolidColorBrush x:Key="PilTooltipBrush" Color="{StaticResource PilZinc900}" />
+
+    <Style TargetType="ToolTip">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteLegenda}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilZinc50Brush}" />
+        <Setter Property="Background" Value="{DynamicResource PilTooltipBrush}" />
+        <Setter Property="Padding" Value="9,6,9,6" />
+        <Setter Property="HasDropShadow" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{DynamicResource PilZinc700Brush}" BorderThickness="1"
+                            CornerRadius="{DynamicResource PilRadiusMd}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <SolidColorBrush x:Key="PilZinc50Brush" Color="{StaticResource PilZinc50}" />
+    <SolidColorBrush x:Key="PilZinc700Brush" Color="{StaticResource PilZinc700}" />
+
+    <!-- ============================================================================
+         7. DATAGRID
+
+         `GridLinesVisibility=None` + separador só na BASE da linha (BorderThickness
+         0,0,0,1 no RowStyle): a grade completa do WPF desenha uma malha que compete
+         com o dado. Sem zebra — o shadcn separa por linha, não por faixa —, e sem a
+         seleção azul do sistema, que aqui vira o `Accent`.
+         ============================================================================ -->
+    <Style TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="{DynamicResource PilMutedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteLegenda}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="12,9,12,9" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridColumnHeader">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource PilBorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" />
+                        </Border>
+                        <!-- O "pegador" de redimensionar. Sem ele a coluna deixa de ser
+                             arrastável — e isso não avisa, só para de funcionar. -->
+                        <prim:Thumb x:Name="PART_RightHeaderGripper"
+                                    HorizontalAlignment="Right" Width="6"
+                                    Cursor="SizeWE" Opacity="0"
+                                    Style="{StaticResource PilThumb}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ⚠️ Linha TRANSPARENTE, e não branca. Quem pinta a superfície é o cartão, que é
+         quem tem o `CornerRadius` — linha branca desenharia canto quadrado por cima da
+         curva do cartão nas duas pontas de baixo. Hover e seleção continuam pintando,
+         porque eles vêm dos gatilhos abaixo. -->
+    <Style TargetType="DataGridRow">
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="MinHeight" Value="{DynamicResource PilAlturaLinha}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource PilMutedBrush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource PilAccentBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- A célula não pinta nada: quem pinta é a LINHA. Célula com fundo próprio some
+         com o hover da linha inteira, que é o que dá o rastro horizontal na leitura. -->
+    <Style TargetType="DataGridCell">
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadCelula}" />
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteTabela}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <!-- Selecionada, a célula continua transparente: sem isto o WPF pinta o
+                 azul de sistema por cima do Accent da linha. -->
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="DataGrid">
+        <Setter Property="Background" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="CanUserDeleteRows" Value="False" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="SelectionUnit" Value="FullRow" />
+        <Setter Property="RowHeaderWidth" Value="0" />
+        <Setter Property="EnableRowVirtualization" Value="True" />
+        <Setter Property="VerticalGridLinesBrush" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource PilTransparentBrush}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    </Style>
+
+    <!-- ============================================================================
+         8. CARD e BADGE — os dois "componentes" do shadcn que não são controle.
+         ============================================================================ -->
+
+    <!-- ⚠️ BORDA, NUNCA SOMBRA. Raio Lg (8), não o 12 do cartão do design system. -->
+    <Style x:Key="PilCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource PilCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PilBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource PilRadiusLg}" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadCard}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+    </Style>
+
+    <!-- Cartão sem padding: para o que encosta na borda (a tabela, cujo cabeçalho vai
+         de ponta a ponta).
+
+         ⚠️ NÃO há recorte arredondado aqui, e é preciso saber disso para usá-lo: o
+         `Border` do WPF desenha o PRÓPRIO fundo com o `CornerRadius` e NÃO recorta o
+         filho por ele — `ClipToBounds` recorta pelo retângulo do leiaute, não pela
+         curva. Quem encosta no topo arredonda com `PilRadiusTopo`; quem encosta no
+         resto é TRANSPARENTE e deixa este cartão pintar a superfície (é por isso que a
+         linha e o fundo do DataGrid do piloto não pintam branco). Um filho opaco
+         encostando num canto desenha um quadrado por cima da curva — 8×8 px que quem
+         desenhou a tela não vê e quem a usa vê todo dia. -->
+    <Style x:Key="PilCardLimpo" TargetType="Border" BasedOn="{StaticResource PilCard}">
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <Style x:Key="PilBadge" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource PilMutedBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource PilRadiusFull}" />
+        <Setter Property="Padding" Value="{DynamicResource PilPadBadge}" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="TextElement.FontSize" Value="{DynamicResource PilFonteLegenda}" />
+        <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="PilBadgeOk" TargetType="Border" BasedOn="{StaticResource PilBadge}">
+        <Setter Property="Background" Value="{DynamicResource PilOkTintBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource PilOkForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="PilBadgeAviso" TargetType="Border" BasedOn="{StaticResource PilBadge}">
+        <Setter Property="Background" Value="{DynamicResource PilWarnTintBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource PilWarnForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="PilBadgeErro" TargetType="Border" BasedOn="{StaticResource PilBadge}">
+        <Setter Property="Background" Value="{DynamicResource PilDestructiveTintBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource PilDestructiveTextBrush}" />
+    </Style>
+
+    <!-- ============================================================================
+         9. TIPOGRAFIA DA TELA
+         ============================================================================ -->
+    <Style x:Key="PilH1" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonteDisplay}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteH1}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="PilH2" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonteDisplay}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteH2}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- O texto de apoio: subtítulo, resumo, legenda. -->
+    <Style x:Key="PilSuave" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteLegenda}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- O rótulo acima de um campo. 12 SemiBold em `MutedForeground` — no shadcn o
+         label não é caixa alta; o peso é que o separa do valor. -->
+    <Style x:Key="PilRotulo" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteLegenda}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!-- ============================================================================
+         10. CÉLULAS DE TABELA
+
+         ⚠️ O CARTÃO DE KPI NÃO ESTÁ AQUI, e é decisão. O mockup mostra três, e a tela
+         do piloto não tem UM número para pôr neles: o faturamento não tem dinheiro
+         (a regra mais antiga do módulo — "baixa" é a guia efetivada no portal, não um
+         recebimento) e a Consulta de guias responde por LISTA, não por contador — o
+         recorte dela é a frase do `Resumo`. Estilo sem consumidor é exatamente o defeito
+         que este projeto chama pelo nome; ele nasce quando o Dashboard entrar no piloto,
+         junto do leitor que o consome.
+         ============================================================================ -->
+
+    <!-- Célula de tabela com número (nº da guia, nº do atendimento, data): tabular, e
+         cortada com reticências — a coluna tem largura fixa e quebrar em duas linhas
+         desalinharia a altura da linha inteira. -->
+    <Style x:Key="PilCelulaNumero" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteTabela}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="PilCelulaSuave" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteTabela}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilMutedForegroundBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="PilCelula" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource PilFonte}" />
+        <Setter Property="FontSize" Value="{DynamicResource PilFonteTabela}" />
+        <Setter Property="Foreground" Value="{DynamicResource PilForegroundBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <Style x:Key="PilCelulaForte" TargetType="TextBlock" BasedOn="{StaticResource PilCelula}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- ============================================================================
+         11. COLUNAS DO DATAGRID
+         `ElementStyle` de `DataGridTextColumn` recebe um Style de TextBlock; sem ele a
+         célula herda o padrão do WPF e ignora tudo o que está acima.
+         ============================================================================ -->
+    <Style x:Key="PilColunaTexto" TargetType="TextBlock" BasedOn="{StaticResource PilCelula}" />
+    <Style x:Key="PilColunaSuave" TargetType="TextBlock" BasedOn="{StaticResource PilCelulaSuave}" />
+    <Style x:Key="PilColunaNumero" TargetType="TextBlock" BasedOn="{StaticResource PilCelulaNumero}" />
+    <Style x:Key="PilColunaForte" TargetType="TextBlock" BasedOn="{StaticResource PilCelulaForte}" />
+
+</ResourceDictionary>
