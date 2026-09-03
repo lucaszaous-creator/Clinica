@@ -1053,6 +1053,27 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(
                 Permissao.LancarAtendimento, "lançar o atendimento e gerar as guias");
 
+            // ===== SEM CONVÊNIO NÃO SE LANÇA (parcela 92) =====
+            //
+            // Concluir aqui é o que CRIA o atendimento, então é aqui que a regra do
+            // serviço (`AtendimentoService.MontarAsync`) recusaria — e recusaria por
+            // exceção, que nesta tela vira `_snackbar.Erro`: quatro segundos para uma
+            // frase que pede uma decisão, no único momento do mês em que o paciente está
+            // presente para tomá-la. Perguntar antes é o que transforma a recusa em
+            // resposta, e esta é a porta que a clínica usa o dia inteiro.
+            if (!await VinculoDeConvenio.GarantirAsync(_escopos, c.PacienteId, SessaoUsuario.Atual.Operador))
+            {
+                // Diálogo, não snackbar: é erro que exige correção, e o caminho tem de
+                // continuar na tela enquanto a recepcionista resolve.
+                _dialogo.Aviso($"Sem convênio — {c.Paciente}",
+                    $"{c.Paciente} está com o convênio \"a definir\" (a ficha veio do sistema "
+                    + "anterior sem convênio), e sem convênio o atendimento não gera guia.\n\n"
+                    + "A sessão NÃO foi concluída. Escolha o convênio do paciente — pelo botão "
+                    + "Concluir de novo, ou na ficha dele — e conclua em seguida. Quem paga do "
+                    + "bolso entra no convênio particular.");
+                return;
+            }
+
             RegistroAtendimento registro;
             using (var scope = _escopos.CreateScope())
             {

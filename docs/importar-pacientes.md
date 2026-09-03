@@ -40,8 +40,32 @@ próxima rodada do mesmo ZIP vincula o que estava sem vínculo (a tela diz quant
 no arquivo entram como **"A definir (importado sem convênio)"** — um convênio do catálogo que
 não gera guia. Quando a pessoa aparecer para marcar ou atender, a elegibilidade acusa em
 VERMELHO ("Convênio a definir") no agendamento, no check-in, no Novo atendimento, na ficha e
-no Consultório; a escolha é feita na ficha, com o paciente na frente. Ninguém decide 2.021
-fichas antes de importar.
+no Consultório; a escolha é feita com o paciente na frente. Ninguém decide 2.021 fichas antes
+de importar.
+
+⛔ **E, desde set/2026, o atendimento dessa ficha NÃO é lançado enquanto o convênio não for
+escolhido.** O alerta vermelho sozinho não bastava: a sessão era lançada por cima dele, os
+códigos nasciam "não aplicável", a tela dizia "Atendimento registrado" e o faturamento não
+via guia nenhuma — a diferença só aparecia no fim do mês. A recusa mora no serviço que monta
+o atendimento, então vale para **todas** as portas: o Novo atendimento, o Concluir da Fila e
+a marcação com "guia no agendamento" ligada.
+
+**A escolha acontece no lugar onde a recusa aparece.** No **Novo atendimento** e no
+**Concluir** da Fila, o sistema abre a janela *"Qual é o convênio?"* com os convênios
+cadastrados; escolhido um (e, se quiser, a carteirinha e a validade — os dois são opcionais e,
+em branco, preservam o que a ficha já tinha), a ficha é atualizada e o lançamento segue no
+mesmo clique. Não é preciso abrir a ficha nem perder o paciente de vista. No Novo atendimento
+o aviso vermelho já traz o botão **"Escolher convênio…"**, para resolver antes mesmo de tentar
+lançar.
+
+**Quem paga do bolso entra no convênio PARTICULAR**, que é uma entrada do catálogo com "gera
+guia" desmarcado (Configurações → Convênios). Particular **não** é o mesmo que ficha sem
+convênio: é uma escolha registrada, e continua sendo lançado normalmente — a sessão fica no
+histórico e nos indicadores, sem mandar guia a operadora nenhuma.
+
+**Marcar por telefone continua funcionando** com a chave "guia no agendamento" desligada: aí a
+marcação não cria atendimento nenhum, e o convênio é pedido no dia da sessão, que é quando o
+paciente está lá para responder.
 
 Medido na exportação real (banco de teste): 2.206 fichas, 4.963 registros de prontuário e
 226 horários futuros em 30 segundos, sem erro.

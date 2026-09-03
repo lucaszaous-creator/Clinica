@@ -423,9 +423,27 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             {
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
                 if (await parametros.GuiaNoAgendamentoAsync())
+                {
                     SessaoUsuario.Atual.Exigir(
                         Permissao.EditarAgenda | Permissao.LancarAtendimento,
                         "marcar atendimento gerando as guias");
+
+                    // ===== SEM CONVÊNIO NÃO NASCE ATENDIMENTO (parcela 92) =====
+                    //
+                    // Só DENTRO da chave, e a condição é a mesma do `Exigir` logo acima:
+                    // com ela ligada, marcar CRIA o atendimento e as guias — e é isso que
+                    // `AtendimentoService.MontarAsync` recusa. Com ela desligada, marcar
+                    // não cria atendimento nenhum, e exigir o convênio aqui travaria quem
+                    // marca retorno por telefone numa resposta que não tem em mãos.
+                    if (!VinculoDeConvenio.Garantir(
+                            _escopos, paciente, SessaoUsuario.Atual.Operador))
+                    {
+                        Erro($"{paciente.Nome} está sem convênio, e com \"guia no agendamento\" "
+                             + "ligada marcar já gera as guias. Escolha o convênio do paciente "
+                             + "para marcar — quem paga do bolso entra no convênio particular.");
+                        return;
+                    }
+                }
             }
 
             if (_agendamentoId is not null)

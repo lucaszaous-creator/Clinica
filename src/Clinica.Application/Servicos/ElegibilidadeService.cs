@@ -153,6 +153,13 @@ public sealed class ElegibilidadeService
     /// aviso chega ao agendamento, ao check-in, ao Novo atendimento, à ficha e ao
     /// Consultório — e a direção pediu exatamente isso: em vez de decidir 2.021 fichas
     /// antes de importar, decidir cada uma quando a pessoa aparecer.
+    ///
+    /// ⚠️ É o ÚNICO alerta desta classe que corresponde a uma recusa de verdade (parcela
+    /// 92): <c>AtendimentoService.MontarAsync</c> não monta atendimento para esta ficha.
+    /// A frase mudou junto — dizer "entra sem guia" descreveria o comportamento anterior,
+    /// e comentário (ou aviso) que não bate com o código o torna invisível para quem lê.
+    /// O contrato da CLASSE segue o mesmo: quem impede é o serviço do atendimento; aqui
+    /// continua sendo informação, e ela chega às cinco telas que já a mostravam.
     /// </summary>
     private static void ConferirConvenioADefinir(Paciente paciente, List<AlertaElegibilidade> alertas)
     {
@@ -160,8 +167,9 @@ public sealed class ElegibilidadeService
         alertas.Add(new AlertaElegibilidade(
             ImpedimentoElegibilidade.ConvenioADefinir,
             NivelUrgencia.Vermelho,
-            "Convênio a definir: a ficha veio do sistema anterior sem convênio. Escolha o convênio "
-            + "na ficha antes de marcar — sem ele o atendimento entra sem guia."));
+            "Convênio a definir: a ficha veio do sistema anterior sem convênio, e sem convênio "
+            + "o atendimento NÃO pode ser lançado (não geraria guia). Escolha o convênio do "
+            + "paciente — quem paga do bolso entra no convênio particular."));
     }
 
     private static void ConferirCarteirinha(

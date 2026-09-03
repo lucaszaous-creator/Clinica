@@ -75,6 +75,49 @@ public sealed record PreviaLancamento(
 }
 
 /// <summary>
+/// O paciente ainda não tem convênio ESCOLHIDO, e por isso não há atendimento a criar
+/// (parcela 92).
+///
+/// Por que é EXCEÇÃO, e não aviso
+/// ------------------------------
+/// A importação do sistema anterior (set/2026) trouxe 2.021 das 2.238 fichas sem convênio,
+/// todas com o código <see cref="ConvenioCadastro.CodigoADefinir"/>. Esse convênio NÃO gera
+/// guia — é o que o <c>ADefinir()</c> declara —, então cada sessão lançada sob ele nascia
+/// com código <see cref="StatusCodigo.NaoAplicavel"/>: a tela dizia "Atendimento registrado",
+/// o faturamento não via guia nenhuma, e a diferença só aparecia no fim do mês.
+///
+/// Até aqui a única defesa era o alerta VERMELHO da elegibilidade — e o
+/// <c>ElegibilidadeService</c> é, por contrato, o serviço que "NUNCA impede o atendimento:
+/// quem decide é a clínica". A direção decidiu (set/2026): <b>o convênio passa a ser
+/// condição para lançar</b>. Aviso que não impede é aviso que se aprende a fechar.
+///
+/// ⚠️ Isto NÃO é "particular". O particular é um convênio DE VERDADE do catálogo, com
+/// <see cref="ConvenioCadastro.GeraGuia"/> desmarcado (parcela 60): quem paga do bolso tem
+/// escolha registrada, e continua lançando normalmente. O que esta exceção recusa é a ficha
+/// em que <b>ninguém escolheu ainda</b> — que é uma pergunta em aberto, não uma resposta.
+///
+/// Quem a captura é a TELA, para oferecer a escolha na hora (a janela de convênios do Novo
+/// atendimento). Ela carrega o paciente porque é isso que a tela precisa para perguntar.
+/// </summary>
+public sealed class ConvenioNaoDefinidoException : InvalidOperationException
+{
+    public ConvenioNaoDefinidoException(int pacienteId, string pacienteNome)
+        : base($"{pacienteNome} está com o convênio A DEFINIR — a ficha veio do sistema "
+               + "anterior sem convênio. Escolha o convênio do paciente antes de lançar: sem "
+               + "ele o atendimento não gera guia, e a sessão não chega ao faturamento. "
+               + "Quem paga do bolso é lançado no convênio PARTICULAR do catálogo, que é uma "
+               + "escolha registrada — não é o mesmo que ficha sem convênio.")
+    {
+        PacienteId = pacienteId;
+        PacienteNome = pacienteNome;
+    }
+
+    public int PacienteId { get; }
+
+    public string PacienteNome { get; }
+}
+
+/// <summary>
 /// Lança um atendimento e gera automaticamente os códigos de faturamento pela regra do convênio.
 /// É aqui que o 2º código nasce já com data prevista de +24h — para nunca ser esquecido.
 /// </summary>
@@ -149,6 +192,19 @@ public sealed class AtendimentoService
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
+
+        // ===== SEM CONVÊNIO ESCOLHIDO NÃO NASCE ATENDIMENTO (parcela 92) =====
+        //
+        // A recusa mora AQUI, e não na tela, pela razão de sempre: esta é a montagem por
+        // onde TODAS as portas passam — o avulso do balcão, o lançamento sobre o horário
+        // do dia, a confirmação de presença da Fila e a marcação com "guia no
+        // agendamento" ligado. Escrever a conferência em cada tela deixaria as outras
+        // passando, e o que passa por elas é exatamente o que a direção mandou impedir:
+        // sessão gravada sem guia, calada.
+        //
+        // Ver <see cref="ConvenioNaoDefinidoException"/> para o porquê de ser recusa.
+        if (paciente.ConvenioADefinir)
+            throw new ConvenioNaoDefinidoException(paciente.Id, paciente.Nome);
 
         // Variante do catálogo: a base (comportamento no motor de regras) vem do código.
         // Sem código, usa o enum recebido (chamadas legadas e modalidades embutidas).

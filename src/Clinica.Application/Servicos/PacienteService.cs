@@ -22,6 +22,15 @@ public sealed class PacienteService
     public Task<Paciente?> ObterComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteComHistoricoAsync(pacienteId, ct);
 
+    /// <summary>
+    /// A FICHA sozinha, sem atendimentos nem consultas. É o que basta para responder
+    /// perguntas sobre o cadastro — "qual é o convênio deste paciente?" — e é meio
+    /// megabyte a menos por pergunta do que <see cref="ObterComHistoricoAsync"/>, que
+    /// arrasta o histórico inteiro por não ter alternativa.
+    /// </summary>
+    public Task<Paciente?> ObterAsync(int pacienteId, CancellationToken ct = default)
+        => _repo.ObterPacienteAsync(pacienteId, ct);
+
     /// <summary>Consultas autorizadas do paciente (ciclo de renovação), da mais recente para a mais antiga.</summary>
     public async Task<IReadOnlyList<Consulta>> ConsultasAsync(int pacienteId, CancellationToken ct = default)
         => (await _repo.ConsultasDoPacienteAsync(pacienteId, ct))
@@ -49,6 +58,86 @@ public sealed class PacienteService
         if (!categoriaManual)
             paciente.Categoria = CategoriaConvenio.Base(paciente.Convenio, paciente.PossuiApp);
         await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// Vincula o CONVÊNIO a uma ficha que estava sem ele (parcela 92).
+    ///
+    /// Por que existe um método só para isto
+    /// -------------------------------------
+    /// A ficha importada do sistema anterior entra com o convênio
+    /// <see cref="ConvenioCadastro.CodigoADefinir"/>, que não gera guia — 2.021 das 2.238
+    /// fichas em set/2026. Desde a parcela 92 o lançamento do atendimento é RECUSADO
+    /// enquanto a escolha não é feita (<c>ConvenioNaoDefinidoException</c>), e a escolha
+    /// acontece com o paciente na frente do balcão: no meio do lançamento, não numa
+    /// segunda visita à ficha.
+    ///
+    /// O caminho antigo — abrir a ficha inteira e salvar — continua existindo e é o de
+    /// <see cref="AtualizarAsync"/>. Ele não serve para o balcão: carrega e regrava as
+    /// 20 e tantas colunas da ficha a partir de um formulário que a recepcionista não
+    /// abriu, e o que ela quer responder é UMA pergunta.
+    ///
+    /// ⚠️ A carteirinha é OPCIONAL e só é escrita quando vem preenchida. Passar nulo
+    /// PRESERVA a que já estava lá: a janela do balcão pergunta as duas coisas juntas, e
+    /// quem só resolve o convênio não pode apagar em silêncio um número que alguém já
+    /// tinha digitado. Para limpar de verdade, é a ficha (que mostra o campo).
+    /// </summary>
+    /// <param name="convenioCodigo">Código do catálogo. "A definir" é recusado — é a
+    /// pergunta, não a resposta.</param>
+    public async Task<Paciente> DefinirConvenioAsync(
+        int pacienteId, string convenioCodigo, string? carteirinha = null,
+        DateOnly? validadeCarteirinha = null, string? operador = null,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(convenioCodigo))
+            throw new ArgumentException("Escolha o convênio do paciente.");
+
+        var codigo = convenioCodigo.Trim();
+
+        // Gravar "A definir" por cima de "A definir" daria uma tela de sucesso e um
+        // lançamento que continua sendo recusado logo em seguida — o pior par possível.
+        if (string.Equals(codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                "\"A definir\" é a ausência de convênio, não um convênio. Escolha a operadora "
+                + "do paciente — ou o convênio PARTICULAR, para quem paga do bolso.");
+
+        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
+            ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
+
+        // O nome ANTERIOR sai do catálogo — menos no caso "a definir", que é o caso
+        // normal aqui: `CatalogoConvenios` não reconhece esse código quando o cache está
+        // frio (a abertura do app, um teste), e o caminho de baixo dele devolveria o nome
+        // de uma operadora QUALQUER. Nome errado na trilha é pior do que nome genérico:
+        // ela existe para responder "de onde veio esta ficha?".
+        var anterior = paciente.ConvenioADefinir
+            ? "A definir (sem convênio)"
+            : paciente.ConvenioNome;
+
+        // A FAMÍLIA (a regra de faturamento) sai do catálogo pelo código — nunca do enum
+        // digitado pela tela. É o mesmo par que toda entidade carrega, e resolver só pelo
+        // enum faria toda operadora cadastrada pela clínica virar "Personalizado".
+        paciente.ConvenioCodigo = codigo;
+        paciente.Convenio = CatalogoConvenios.Familia(codigo);
+
+        if (!string.IsNullOrWhiteSpace(carteirinha))
+            paciente.Carteirinha = carteirinha.Trim();
+        if (validadeCarteirinha is not null)
+            paciente.ValidadeCarteirinha = validadeCarteirinha;
+
+        // A categoria é DERIVADA do convênio + app, como no cadastro. Deixá-la para trás
+        // manteria na ficha o semáforo do convênio que não existe mais.
+        paciente.Categoria = CategoriaConvenio.Base(paciente.Convenio, paciente.PossuiApp);
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador.Trim(),
+            Acao = "ConvenioDefinido",
+            Detalhe = $"{paciente.Nome}: {anterior} → {paciente.ConvenioNome}",
+            PacienteId = paciente.Id
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return paciente;
     }
 
     /// <summary>
