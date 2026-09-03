@@ -1,7 +1,10 @@
 # Estornar um atendimento
 
-Porta: **Recepção → Novo atendimento → conferência "lançados hoje" → "Estornar…"**
-(bit `LancarAtendimento`).
+Porta: **Recepção → Atendimento → aba "Lançamentos" → "Estornar…"** (bit `LancarAtendimento`).
+
+> A conferência morava no rodapé do "Novo atendimento" e chamava-se "lançados hoje". Em
+> set/2026 virou aba própria, com período livre e filtros — a porta do estorno foi junto,
+> porque ela continua sendo o lugar onde o engano é percebido.
 
 Desfaz uma sessão lançada por engano — o paciente errado, a sessão que não aconteceu, o
 duplo lançamento.

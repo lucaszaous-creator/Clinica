@@ -21,6 +21,12 @@
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Feedback.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
+    <!-- Nomeado, e não mais um `<BooleanToVisibilityConverter/>` solto dentro de cada
+         `Border.Visibility`: o crachá de convênio passou a ser um PAR (o aviso de quem não
+         tem, o nome de quem tem), e a instância inline teria de ser repetida quatro vezes
+         entre os dois templates. -->
+    <BooleanToVisibilityConverter x:Key="BoolParaVisibilidadePacientes" />
+
     <DataTemplate x:Key="ItemPacienteSeletor">
         <Grid Margin="0,2">
             <Grid.ColumnDefinitions>
@@ -36,7 +42,7 @@
                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
                            Foreground="{StaticResource Brush.Texto.Primario}"
                            TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding Documento}"
+                <TextBlock Text="{Binding DocumentoFormatado}"
                            FontSize="{StaticResource Fonte.Legenda}"
                            Foreground="{StaticResource Brush.Texto.Secundario}"
                            Margin="0,2,0,0" />
@@ -55,10 +61,28 @@
                     </Border.Visibility>
                     <TextBlock Text="Carteirinha vencida" />
                 </Border>
-                <!-- `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
+                <!-- ⚠️ A FICHA SEM CONVÊNIO NÃO MOSTRA O NOME DO "convênio" (set/2026).
+                     A importação do Smart Clinic deixou 2.021 das 2.238 fichas no código
+                     `ADefinir`, cujo nome de catálogo é "A definir (importado sem
+                     convênio)" — 33 caracteres que, no crachá de 180px, saíam cortados em
+                     "A definir (importado sem conv…" em NOVENTA POR CENTO das linhas da
+                     lista. Um selo idêntico em quase toda linha não distingue nada: ele
+                     ocupa a largura de uma coluna para não responder pergunta nenhuma.
+                     Aqui ele vira um AVISO curto — que é o que o dado quer dizer — e o
+                     nome cheio fica no ToolTip, para quem precisar conferir.
+
+                     `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
                      WPF o escreveria com `ToString()` — "UnimedIntercambio" no crachá, e
                      "Personalizado" no lugar do nome que a clínica cadastrou. -->
-                <Border Style="{StaticResource Badge}">
+                <Border Style="{StaticResource Badge.Aviso}"
+                        ToolTip="{Binding ConvenioNome}"
+                        Visibility="{Binding ConvenioADefinir,
+                                     Converter={StaticResource BoolParaVisibilidadePacientes}}">
+                    <TextBlock Text="sem convênio" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <Border Style="{StaticResource Badge}"
+                        Visibility="{Binding TemConvenioEscolhido,
+                                     Converter={StaticResource BoolParaVisibilidadePacientes}}">
                     <TextBlock Text="{Binding ConvenioNome}" MaxWidth="180"
                                TextTrimming="CharacterEllipsis"
                                ToolTip="{Binding ConvenioNome}" />
@@ -111,13 +135,13 @@
                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
                            Foreground="{StaticResource Brush.Texto.Primario}"
                            TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding Documento}"
+                <TextBlock Text="{Binding DocumentoFormatado}"
                            FontSize="{StaticResource Fonte.Legenda}"
                            Foreground="{StaticResource Brush.Texto.Secundario}"
                            Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
-            <TextBlock Grid.Column="2" Text="{Binding Telefone}" VerticalAlignment="Center"
+            <TextBlock Grid.Column="2" Text="{Binding TelefoneFormatado}" VerticalAlignment="Center"
                        Foreground="{StaticResource Brush.Texto.Secundario}"
                        TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
 
@@ -133,10 +157,28 @@
                     </Border.Visibility>
                     <TextBlock Text="Carteirinha vencida" />
                 </Border>
-                <!-- `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
+                <!-- ⚠️ A FICHA SEM CONVÊNIO NÃO MOSTRA O NOME DO "convênio" (set/2026).
+                     A importação do Smart Clinic deixou 2.021 das 2.238 fichas no código
+                     `ADefinir`, cujo nome de catálogo é "A definir (importado sem
+                     convênio)" — 33 caracteres que, no crachá de 180px, saíam cortados em
+                     "A definir (importado sem conv…" em NOVENTA POR CENTO das linhas da
+                     lista. Um selo idêntico em quase toda linha não distingue nada: ele
+                     ocupa a largura de uma coluna para não responder pergunta nenhuma.
+                     Aqui ele vira um AVISO curto — que é o que o dado quer dizer — e o
+                     nome cheio fica no ToolTip, para quem precisar conferir.
+
+                     `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
                      WPF o escreveria com `ToString()` — "UnimedIntercambio" no crachá, e
                      "Personalizado" no lugar do nome que a clínica cadastrou. -->
-                <Border Style="{StaticResource Badge}">
+                <Border Style="{StaticResource Badge.Aviso}"
+                        ToolTip="{Binding ConvenioNome}"
+                        Visibility="{Binding ConvenioADefinir,
+                                     Converter={StaticResource BoolParaVisibilidadePacientes}}">
+                    <TextBlock Text="sem convênio" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <Border Style="{StaticResource Badge}"
+                        Visibility="{Binding TemConvenioEscolhido,
+                                     Converter={StaticResource BoolParaVisibilidadePacientes}}">
                     <TextBlock Text="{Binding ConvenioNome}" MaxWidth="180"
                                TextTrimming="CharacterEllipsis"
                                ToolTip="{Binding ConvenioNome}" />

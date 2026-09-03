@@ -421,6 +421,172 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ **`Sum(x => (decimal?)x.Valor)` sobre sequência VAZIA devolve 0, não nulo** — foi assim
   que a prévia ofereceu "desfazer entrada de R$ 0,00" num atendimento sem caixa. Conte
   primeiro (`lista.Count > 0 ? lista.Sum(...) : null`). Um teste pegou; a lição fica.
+- **A BUSCA DE PACIENTE VIROU A TELA** (set/2026, mockup 05 aprovado pelo cliente).
+  Enquanto não há paciente escolhido, o Novo atendimento tem UM assunto — quem — e passou a
+  assumir isso: o cabeçalho da página e o passo "1 · QUEM" somem, e no lugar entra uma coluna
+  de **760 px CENTRADA** com a pergunta, a busca e o resultado. Largura explícita, **sem
+  nenhuma coluna estrela na composição**, então não há deserto possível.
+  ⚠️ **`HorizontalAlignment="Left"` NÃO é como se limita largura de conteúdo.** A tentativa
+  anterior fez exatamente isso num Grid com coluna `*`, e piorou os dois lados de uma vez: com
+  esse alinhamento o WPF arranja o elemento pela largura DESEJADA, a estrela encolhe até o
+  conteúdo, e a tabela ficou estreita **e** o deserto continuou. Limite por medida
+  (`Width`/`MaxWidth`) no container que estica.
+  ⚠️ **`--` é PROIBIDO dentro de comentário XML.** Uma régua de hífens sob um título de
+  comentário quebrou o arquivo — e a mensagem do parser aponta a linha seguinte, não a régua.
+  Os comentários deste projeto usam `====` justamente por isso. Vale validar o XAML com
+  `xml.etree` além das três redes: nem `compilar-sombra` nem `verificar-suite` leem o arquivo
+  como XML puro.
+  ⚠️ **A ÚNICA altura de campo fora dos 36 px da suíte é a desta busca (48 = `Espaco.12`).**
+  A regra "não invente altura para dar ênfase" continua valendo e foi ela que reverteu um
+  campo de 40 px duas parcelas atrás — porque lá ele estava numa RÉGUA de campos de 36. Aqui
+  não há formulário: o campo é o único controle da tela, sem vizinho com quem desalinhar.
+  ⚠️ **NUMA COMPOSIÇÃO CENTRADA, TODO VÃO EM BRANCO APARECE** — e a regra do `TextBlock`
+  vazio (que já estava escrita duas parcelas acima) foi violada TRÊS vezes neste mesmo
+  arquivo: o resumo da lista, a linha de erro e um `MinHeight="120"` no container do
+  resultado, que reservava altura mesmo com os dois filhos colapsados (o dia sem agendamento
+  nenhum). No leiaute antigo esses vãos ficavam escondidos por um cartão que já era grande;
+  numa coluna centrada de 760px eles são a composição. **Regra ampliada: elemento amarrado a
+  texto opcional leva `Visibility`, não só o `TextBlock`.**
+  ⚠️ **Pílula de modo segue o que ESTÁ NA TELA, não a flag de configuração.** As duas
+  estavam amarradas em `SugestaoLigada`/`SugestaoDesligada` — que continuam verdadeiras
+  enquanto se digita —, então com um termo no campo a tela dizia "Com horário hoje" aceso
+  sobre uma lista de resultados de busca. Agora seguem `MostrandoSugestao` e `ListandoTodos`,
+  e com termo digitado **nenhuma** acende, que é a verdade: nem um modo nem o outro está no
+  ar. Quem achou isto foi o renderizador de `tools/` — não a leitura do código.
+  ⚠️ **A listagem alfabética voltou — como escolha.** A pílula "Todos os pacientes"
+  (`ChipFiltro`, que já existia) desliga a sugestão. O defeito nunca foi a lista existir, foi
+  ela CHEGAR sem ninguém pedir, com cara de resposta. Digitar RELIGA a sugestão, senão o modo
+  fica grudado depois que a pessoa busca e apaga o campo.
+- **O SELETOR DE PACIENTE DEIXOU DE DESPEJAR O ALFABETO** (set/2026). Com o campo de busca
+  vazio, `BuscarPacientesAsync` não filtra nada — cai direto no `OrderBy(Nome).Take(50)` —,
+  e a tela abria com o começo do alfabeto de 2.238 fichas: ACELINO, ADAISE, ADAO. Uma lista
+  com cara de resposta que não é resposta de ninguém. Agora o Novo atendimento oferece
+  **quem tem horário HOJE** (uma consulta, a mesma da agenda do dia, com `Include(Paciente)`
+  já junto), e a busca continua a de sempre assim que alguém digita.
+  ⚠️ **A correção é OPT-IN (`SugestaoInicial`), e tinha de ser**: dezesseis outras telas usam
+  este seletor, e numa tela de LISTAGEM o despejo alfabético é o certo — é a lista, e ela
+  passa `limite: null`. Mudar o comportamento do componente compartilhado consertaria uma
+  tela e estragaria as outras.
+  ⚠️ **O `Refinar` não se aplica à sugestão**: ele é o refino de um RESULTADO DE BUSCA, e
+  quem monta a sugestão já decidiu o que ela contém — passá-la pelo refino filtraria duas
+  vezes com dois critérios diferentes.
+  ⚠️ **`Cpf.Formatar` fora dos 11 dígitos devolve SÓ OS DÍGITOS** (a segunda vez que esta
+  armadilha aparece, agora em `Paciente.DocumentoFormatado`): o campo se chama `Documento`,
+  a clínica cadastra RG, e um "12.345.678-9" voltaria "123456789". `Telefone.Formatar` não
+  tem o problema — devolve a entrada quando não reconhece o padrão. `DocumentoEhTelefoneNaListaTests`
+  amarra os dois contratos.
+  ⚠️ **Crachá igual em quase toda linha não distingue nada.** 2.021 das 2.238 fichas estão
+  em `ADefinir`, cujo nome de catálogo tem 33 caracteres — o selo saía cortado em "A definir
+  (importado sem conv…" em noventa por cento da lista, gastando uma coluna para não
+  responder nada. Virou um aviso curto ("sem convênio"), com o nome cheio no ToolTip.
+  ⚠️ **Coluna `*` num monitor largo vira deserto.** O nome ficava na esquerda e os crachás
+  pendurados na direita, com ~700px de branco no meio — o olho não liga as duas pontas. Teto
+  de 1100px na lista; em 1366 (o balcão) não muda nada.
+  ⚠️ **A lista virou TABELA COM MOLDURA E CABEÇALHO** — o mesmo tratamento da prévia da guia.
+  Eram quatro colunas de dado flutuando no branco do cartão, nenhuma dizendo o que era. E o
+  `Grid.IsSharedSizeScope` teve de SUBIR do ListBox para o DockPanel: o cabeçalho é um Grid
+  separado das linhas, e sem dividirem o mesmo escopo ele sai em escada sobre elas (a lição
+  da parcela 58 outra vez).
+  ⚠️ **`MaxHeight` de lista é número INTEIRO de linhas.** Com 300 a sétima linha aparecia
+  fatiada ao meio, e lista cortada no meio de uma linha se lê como defeito, não como
+  rolagem. 332 = 8 de Padding + 6 × 54.
+  ⚠️ **Não invente altura para dar ênfase.** O campo de busca chegou a ganhar 40px enquanto
+  todo campo da suíte tem 36 — medida nova para um efeito que o LUGAR e a LARGURA já dão. Foi
+  revertido antes de virar precedente.
+  ⚠️ **Lista de escolha SEM estado vazio é tela quebrada.** Com a moldura, a tabela some junto
+  com as linhas: digitar um nome que não existe deixava o cartão em BRANCO. O `EstadoDaTela`
+  entra com `Ativo="{Binding Seletor.BuscandoPorTermo}"` — desligado enquanto a lista é a
+  sugestão, porque ali o que falta não é o paciente, é o horário de hoje, e "nenhum paciente
+  encontrado" num dia sem agenda é frase falsa sobre uma clínica de 2.238 fichas.
+  ⚠️ **A LIÇÃO DE MÉTODO desta parcela: `PacientesView` já tinha o cabeçalho de quatro
+  colunas com os mesmos `SharedSizeGroup` e o mesmo `EstadoDaTela`** — eu desenhei do zero o
+  que estava a um arquivo de distância. Duas telas da mesma suíte listando pacientes com caras
+  diferentes é o defeito que este documento descreve como "faz a recepcionista achar que abriu
+  outro programa". Antes de desenhar lista, procure a irmã dela. **Débito aberto:** a de
+  Pacientes segue com o cabeçalho solto, sem a moldura — as duas ainda não são iguais.
+- **LANÇADOS HOJE VIROU A ABA "LANÇAMENTOS"** (set/2026, pedido do cliente). O bloco morava
+  no rodapé do Novo atendimento e estava no lugar errado por três razões que só apareceram
+  juntas: comia a altura da tela de lançar (com dois remendos que só existiam por isso —
+  teto de 300px e `RodaDaPagina`, senão a lista comia a roda do mouse), não tinha onde
+  receber um filtro, e respondia só pelo dia de hoje. O item "Atendimento" **já era
+  composto**, então a mudança foi acrescentar a terceira `AbaMenu`, não inventar estrutura.
+  A tela nova tem período livre (teto de 366 dias — passou disso a pergunta é outra, e a
+  resposta é a Consulta de guias do faturamento), quatro filtros (convênio, modalidade,
+  quem lançou, só com guia por liberar) e `DataGrid` com virtualização de verdade, que o
+  `ItemsControl` de antes não tinha.
+  ⚠️ **A leitura passou a ser de `Atendimentos`, não da agenda.** A versão antiga lia os
+  agendamentos do dia e ia buscar o atendimento de cada um — N+1 que num dia de 30 sessões
+  custava 31 idas ao banco, e num período de um mês custaria centenas. **O filtro
+  `EstornadoEm == null` não é enfeite**: pela agenda o estornado sumia de graça (o estorno
+  SOLTA o horário); pela fonte direta ele voltaria a aparecer.
+  ⚠️ **`TelaComAbas` monta cada aba UMA vez e a guarda.** O estorno foi junto para a aba
+  nova, e sem gancho a tela de lançar continuaria dizendo "já lançado hoje" sobre um
+  atendimento recém-estornado. `NovoAtendimentoView` escuta `IsVisibleChanged` e chama
+  `RevalidarPacienteEscolhido()` **só na volta** — reler nas duas pontas dobraria as
+  consultas a cada troca de aba. Visibilidade é assunto da VIEW: a ViewModel não tem como
+  saber que sumiu da vista.
+  ⚠️ **ComboBox cuja `ItemsSource` é LIMPA escreve NULL na propriedade do `SelectedItem`.**
+  Os filtros são `string?` por causa disso: declarados não-anuláveis, o filtro passava um
+  instante com null — que não é "Todos" — e escondia a lista inteira. `Livre(null)` e
+  `Livre("Todos")` são a mesma coisa.
+  ⚠️ **O gancho de visibilidade vale nos DOIS lados**, e esquecer o segundo é o mesmo
+  defeito espelhado: quem abrisse a conferência, voltasse para lançar e voltasse de novo
+  veria a lista de ANTES do lançamento. `LancamentosView` relê ao ficar visível — mas **só
+  quando o período inclui hoje**: a sessão lançada na aba do lado nasce com a data daquela
+  tela, então um período antigo não pode ter mudado, e reconsultá-lo a cada troca de aba
+  pagaria até 366 dias de consulta para não mudar nada.
+  ⚠️ **Botão que nunca pode nascer apagado não leva `IsEnabled`** (a lição da parcela 41
+  pelo avesso): o "Estornar…" ganhou um `IsEnabled` ligado à permissão, e o ITEM inteiro já
+  exige a mesma — quem chega à aba sempre a tem. Ligação morta que sugere um estado que não
+  existe. A guarda de verdade é o `Exigir` dentro do comando, como sempre foi.
+  ⚠️ **O que se perdeu, e é decisão:** lançar não recarrega mais a lista com a linha nova
+  logo abaixo. A troca se sustenta porque a coluna direita já mostra o desfecho e porque a
+  lista responde outra pergunta, noutro momento — a conferência antes de fechar o balcão.
+- **A GUIA QUE VAI NASCER, DESENHADA** (set/2026, redesenho aprovado em mockup). A coluna
+  direita do Novo atendimento resumia a prévia em TEXTO — "2 guias · a 2ª libera 09/08" —,
+  e a guia, que é o que a clínica entrega, só virava objeto depois de gravada e noutro app.
+  O número estava certo e mesmo assim passava o erro que mais custa: guia emitida com o
+  campo errado, que volta glosada semanas depois. Agora a coluna desenha o **documento**,
+  com os campos que vão nele — convênio, carteirinha, validade, beneficiário, executante —
+  e os códigos embaixo; o campo que FALTA sai com o fundo do erro, porque no documento o
+  buraco tem de se ver como buraco. **Nenhum campo é inventado**: o `EntradaModalidade` do
+  catálogo tem `Codigo` interno, `Nome` e `Base` — **não há código TISS por modalidade**, e
+  o mockup que os mostrava estava errado. O documento é PRÉVIA: não há número (ele nasce na
+  baixa) e a tarja diz isso.
+  As modalidades saíram dos cartões de 200×130 e viraram **linhas**: para comparar "quantas
+  guias" entre cinco opções em grade o olho salta na diagonal, e em linha os números caem
+  numa COLUNA — que é como se compara número. Cada linha ganhou o traço da FAMÍLIA à
+  esquerda, com os mesmos tokens `Brush.Modalidade.*` do `CartaoDeHorario`: quem vê a agenda
+  o dia inteiro já lê teal como BSV. Os gatilhos de `Escolhida` vêm DEPOIS dos de família,
+  porque gatilho posterior vence e a linha marcada tem de se distinguir das outras quatro.
+  A faixa do paciente passou a carregar **convênio e carteirinha em colunas rotuladas**, no
+  lugar de dois badges do mesmo tamanho da categoria — são os dois campos que decidem se a
+  guia nasce e se o convênio a aceita, e a carteirinha só aparecia quando VENCIA.
+  ⚠️ **O botão continua habilitado sem convênio, e isso é a parcela 92, não um esquecimento**:
+  o clique é que abre a janela de convênios (`VinculoDeConvenio`). Desabilitá-lo devolveria a
+  recusa muda que a parcela 92 aposentou.
+  ⚠️ `CornerRadius="8,8,0,0"` literal na tarja do documento: o WPF **não deriva raio parcial**
+  de um `CornerRadius` do dicionário. Os 8 são `Raio.Medio` — se o token mudar, a tarja fica
+  com uma lasca de fundo na quina.
+  ⚠️ O `verificar-suite` **não resolve estilo local**: um `TextBlock` cujo `TextTrimming` vem
+  de um `Style` declarado no `UserControl.Resources` é acusado do mesmo jeito. Repetir o
+  atributo na tag é o preço, e ele deixa a intenção à vista onde ela é lida.
+  ⚠️ **`Cpf.Formatar` fora dos 11 dígitos devolve SÓ OS DÍGITOS**, e o campo da ficha se
+  chama `Documento`, não `Cpf`: passar um RG "12.345.678-9" por ele volta "123456789" — a
+  pontuação de um documento de verdade apagada na exibição. Formate quando `Normalizar`
+  der 11; no resto, mostre o que está gravado. (`Telefone.Formatar` não tem o problema —
+  devolve a entrada quando não reconhece o padrão.)
+  ⚠️ **String vazia num `TextBlock` ocupa a altura de uma linha.** A meta do paciente
+  (documento · telefone · idade) devolve NULO quando a ficha não tem nenhum dos três, e
+  não `string.Empty`: a importação do Smart Clinic produziu fichas incompletas às centenas,
+  e cada uma abriria um buraco debaixo do nome.
+  ⚠️ **`ExecutanteADefinir` não é `SemProfissionalEscolhido`.** Aquele só vale no modo
+  MARCAR — é o aviso amarelo de lá. O campo do executante na guia vale nos DOIS modos,
+  porque a guia é a mesma, e sem a marca o "a definir" saía com a mesma cara de um dado
+  preenchido: o único campo cujo vazio custa dinheiro a quem atendeu era o que menos
+  aparecia. Âmbar e não vermelho — sem executante a guia nasce; o que se perde é o
+  repasse. (O aviso em PALAVRAS no modo avulso continua não existindo: é a pendência
+  antiga de estender `SemProfissionalEscolhido`, que segue de pé.)
 - **SEM CONVÊNIO ESCOLHIDO NÃO NASCE ATENDIMENTO** (parcela 92). A importação do Smart Clinic
   trouxe **2.021 das 2.238 fichas sem convênio**, no código `ConvenioCadastro.CodigoADefinir` —
   que não gera guia. A defesa era o alerta VERMELHO da elegibilidade, e ela não impede nada por

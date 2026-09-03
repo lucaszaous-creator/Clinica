@@ -48,6 +48,103 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// <summary>Refino opcional em memória sobre o que veio do banco (filtro, ordenação alternativa).</summary>
     public Func<IReadOnlyList<Paciente>, IEnumerable<Paciente>>? Refinar { get; set; }
 
+    /// <summary>
+    /// O que mostrar ANTES de alguém digitar. Opcional, e sem ela nada muda.
+    ///
+    /// Por que existe
+    /// -------------
+    /// Com o termo vazio a consulta não filtra nada: <c>BuscarPacientesAsync</c> cai direto
+    /// no <c>OrderBy(Nome).Take(50)</c>. Numa clínica de 2.238 fichas isso abre a tela com o
+    /// começo do ALFABETO — ACELINO, ADAISE, ADAO —, que não é o paciente de ninguém. É
+    /// ruído com cara de conteúdo: a lista parece uma resposta e não é.
+    ///
+    /// Numa tela de LISTAGEM esse mesmo despejo é o certo (é a lista, e ela passa
+    /// <c>limite: null</c>). Por isso a correção é opt-in: só a tela que tem uma sugestão
+    /// MELHOR a fornece, e as outras dezesseis que usam este seletor continuam idênticas.
+    /// </summary>
+    public Func<CancellationToken, Task<IReadOnlyList<Paciente>>>? SugestaoInicial { get; set; }
+
+    /// <summary>
+    /// O que a sugestão É, para a tela poder dizer — "Com horário hoje". Lista sem rótulo
+    /// se lê como resultado de busca, e a pessoa conclui que a clínica só tem sete
+    /// pacientes.
+    /// </summary>
+    public string? RotuloDaSugestao { get; set; }
+
+    /// <summary>A lista atual é a SUGESTÃO, não um resultado de busca.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
+    [NotifyPropertyChangedFor(nameof(ListandoTodos))]
+    private bool _mostrandoSugestao;
+
+    /// <summary>
+    /// A sugestão está LIGADA. Desligá-la devolve, de propósito, a listagem que o campo
+    /// vazio sempre deu — todo mundo em ordem de nome.
+    ///
+    /// Não é o defeito de volta: o defeito era a listagem chegar SEM ninguém pedir, com
+    /// cara de resposta. Pedida, ela é a resposta certa para "quero ver quem existe" — e
+    /// é o que a tela oferece na pílula "Todos os pacientes".
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SugestaoDesligada))]
+    private bool _sugestaoLigada = true;
+
+    /// <summary>O par invertido — a suíte não tem conversor de booleano invertido.</summary>
+    public bool SugestaoDesligada => !SugestaoLigada;
+
+    /// <summary>
+    /// A lista atual é a LISTAGEM COMPLETA — o modo "Todos os pacientes" de fato à vista.
+    ///
+    /// ⚠️ Não é o mesmo que <see cref="SugestaoDesligada"/>, e a diferença é visível: com
+    /// termo digitado a lista é RESULTADO DE BUSCA, e nenhum dos dois modos está no ar.
+    /// As pílulas amarradas nas flags de configuração (`SugestaoLigada`) ficavam acesas
+    /// sobre uma lista que não era a delas — a tela dizendo "com horário hoje" em cima de
+    /// quatro resultados de "pinheiro". Elas agora seguem o que ESTÁ na tela.
+    /// </summary>
+    public bool ListandoTodos => !MostrandoSugestao && string.IsNullOrWhiteSpace(Termo);
+
+    /// <summary>Volta para a sugestão da tela (o "Com horário hoje").</summary>
+    [RelayCommand]
+    private Task LigarSugestao()
+    {
+        Termo = null;
+        SugestaoLigada = true;
+        return BuscarAsync(imediato: true);
+    }
+
+    /// <summary>Mostra todo mundo, em ordem de nome — a listagem, agora PEDIDA.</summary>
+    [RelayCommand]
+    private Task DesligarSugestao()
+    {
+        Termo = null;
+        SugestaoLigada = false;
+        return BuscarAsync(imediato: true);
+    }
+
+    /// <summary>
+    /// O par invertido de <see cref="MostrandoSugestao"/> — a suíte não tem conversor de
+    /// booleano invertido, e é o mesmo par de `SemPaciente`/`PacienteEscolhido`.
+    ///
+    /// Ele existe para o `EstadoDaTela` da tela: o "nenhum paciente encontrado" é a
+    /// resposta certa para uma BUSCA que não achou, e a resposta errada para uma sugestão
+    /// vazia — ali o que falta não é o paciente, é o horário de hoje, e a frase tem de
+    /// dizer isso.
+    /// </summary>
+    public bool BuscandoPorTermo => !MostrandoSugestao;
+
+    /// <summary>A sugestão foi consultada e veio VAZIA — ninguém tem horário hoje.</summary>
+    [ObservableProperty] private bool _sugestaoVazia;
+
+    /// <summary>
+    /// "7 com horário hoje" / "23 encontrados" / "50 encontrados (mostrando os primeiros)".
+    ///
+    /// Existe porque a lista sozinha não diz o TAMANHO do que ela responde, e as duas
+    /// leituras erradas são opostas: sete linhas sem rótulo se leem como "a clínica só tem
+    /// sete pacientes", e cinquenta linhas sem aviso escondem que o corte do SQL cortou —
+    /// quem procura "SILVA" e não acha o seu conclui que a ficha não existe.
+    /// </summary>
+    [ObservableProperty] private string? _resumoDaLista;
+
     public ObservableCollection<Paciente> Resultados { get; } = new();
 
     /// <summary>
@@ -60,7 +157,9 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _temResultados;
 
-    [ObservableProperty] private string? _termo;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ListandoTodos))]
+    private string? _termo;
     [ObservableProperty] private Paciente? _selecionado;
     [ObservableProperty] private bool _buscando;
 
@@ -73,7 +172,16 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     public bool Editavel => !Travado;
 
     /// <summary>Falha de busca — a lista fica como estava e a tela avisa em vez de emudecer.</summary>
-    [ObservableProperty] private string? _erro;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemErro))]
+    private string? _erro;
+
+    /// <summary>
+    /// Há erro a mostrar. Existe para a tela ESCONDER a linha quando não há — `TextBlock`
+    /// com texto vazio ainda ocupa a altura de uma linha, e numa composição centrada cada
+    /// vão em branco aparece.
+    /// </summary>
+    public bool TemErro => !string.IsNullOrWhiteSpace(Erro);
 
     /// <summary>Disparado quando a escolha muda (a tela reage: avisos, modalidade habitual…).</summary>
     public event Action<Paciente?>? SelecaoMudou;
@@ -84,7 +192,31 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     partial void OnSelecionadoChanged(Paciente? value) => SelecaoMudou?.Invoke(value);
 
     // Pesquisa instantânea (padrão CampoPesquisa do design system): a tecla reagenda a busca.
-    partial void OnTermoChanged(string? value) => _ = BuscarAsync();
+    partial void OnTermoChanged(string? value)
+    {
+        // Digitar RELIGA a sugestão. Sem isto, quem clicou em "Todos os pacientes", buscou
+        // alguém e apagou o campo voltaria para a lista alfabética — um modo grudado que
+        // ninguém escolheu e que não aparece em lugar nenhum da tela.
+        if (!string.IsNullOrWhiteSpace(value)) SugestaoLigada = true;
+        _ = BuscarAsync();
+    }
+
+    /// <summary>
+    /// O tamanho do que a lista responde. O aviso do CORTE só aparece quando o resultado
+    /// bateu exatamente no limite — que é o único caso em que pode haver mais lá fora.
+    /// </summary>
+    private string? DescreverLista(bool sugestao)
+    {
+        if (Resultados.Count == 0) return null;
+
+        if (sugestao)
+            return Resultados.Count == 1 ? "1 paciente" : $"{Resultados.Count} pacientes";
+
+        var no_corte = Limite is { } teto && Resultados.Count >= teto;
+        return no_corte
+            ? $"{Resultados.Count} ou mais — refine a busca"
+            : Resultados.Count == 1 ? "1 encontrado" : $"{Resultados.Count} encontrados";
+    }
 
     /// <summary>Recarrega agora, sem esperar a digitação parar (abertura da tela, botão atualizar).</summary>
     [RelayCommand]
@@ -108,14 +240,36 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
             if (!imediato) await Task.Delay(AtrasoDigitacaoMs, ct);
 
             Buscando = true;
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-            var encontrados = await service.BuscarAsync(Termo, Limite, ct);
+
+            // Termo vazio COM sugestão: a tela tem algo melhor a mostrar que o alfabeto, e
+            // nem chega a consultar a busca. Sem sugestão, o caminho é o de sempre.
+            var usandoSugestao = SugestaoInicial is not null
+                                 && SugestaoLigada
+                                 && string.IsNullOrWhiteSpace(Termo);
+
+            IReadOnlyList<Paciente> encontrados;
+            if (usandoSugestao)
+            {
+                encontrados = await SugestaoInicial!(ct);
+            }
+            else
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
+                encontrados = await service.BuscarAsync(Termo, Limite, ct);
+            }
 
             // Resposta fora de ordem: só a busca mais recente pode escrever na lista.
             if (ct.IsCancellationRequested) return;
 
-            var exibir = Refinar is null ? encontrados : Refinar(encontrados);
+            // ⚠️ O `Refinar` NÃO se aplica à sugestão: ele é o refino de um RESULTADO DE
+            // BUSCA (filtrar quem já está na fila, reordenar por última sessão), e quem
+            // monta a sugestão já decidiu o que ela contém. Passá-la pelo refino faria a
+            // tela filtrar duas vezes com dois critérios diferentes.
+            var exibir = usandoSugestao || Refinar is null ? encontrados : Refinar(encontrados);
+
+            MostrandoSugestao = usandoSugestao;
+            SugestaoVazia = usandoSugestao && encontrados.Count == 0;
 
             Resultados.Clear();
             foreach (var p in exibir)
@@ -123,6 +277,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
             Erro = null;
             TemResultados = Resultados.Count > 0;
+            ResumoDaLista = DescreverLista(usandoSugestao);
             Atualizou?.Invoke();
         }
         catch (OperationCanceledException)

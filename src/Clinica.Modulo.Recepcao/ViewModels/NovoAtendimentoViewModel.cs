@@ -120,34 +120,6 @@ public sealed record LinhaPrevia(
 /// <summary>Um alerta de elegibilidade na tela, com a urgência para a cor do traço.</summary>
 public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho);
 
-/// <summary>Um avulso lançado hoje, na conferência do fim do dia.</summary>
-public sealed class LinhaAvulso
-{
-    /// <summary>
-    /// O atendimento por trás da linha — a porta do ESTORNO (parcela 94). A conferência
-    /// do dia é onde a recepcionista vê o que acabou de lançar, e portanto onde ela
-    /// percebe o engano; obrigá-la a procurar a sessão noutra tela para desfazê-la seria
-    /// pôr a correção longe do momento em que o erro é notado.
-    /// </summary>
-    public required int AtendimentoId { get; init; }
-
-    public required string Paciente { get; init; }
-    public required string Modalidade { get; init; }
-    public required string Convenio { get; init; }
-    public required string Numero { get; init; }
-    public required string Guias { get; init; }
-    public required string Pendencia { get; init; }
-    public required bool TemPendencia { get; init; }
-
-    /// <summary>
-    /// Quem LANÇOU, e a que horas (parcela 58).
-    ///
-    /// A conferência do dia é onde a pergunta da direção nasce — "quem lançou isso?" —, e
-    /// até aqui a resposta só existia na trilha de auditoria, noutra tela e noutro app.
-    /// </summary>
-    public required string Lancamento { get; init; }
-}
-
 /// <summary>
 /// Lança um atendimento AVULSO — o paciente que não estava na agenda. O motor de regras
 /// gera os códigos do convênio na hora, inclusive o 2º código de +24h.
@@ -185,34 +157,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     public ObservableCollection<CodigoLancado> CodigosGerados { get; } = new();
     public ObservableCollection<string> Avisos { get; } = new();
-
-    /// <summary>
-    /// A conferência do fim do dia: os avulsos que JÁ foram lançados hoje. Ela vive na
-    /// mesma tela do lançamento de propósito — quem lança é quem confere, e até aqui não
-    /// havia onde conferir: era preciso abrir o app de faturamento, que é de outra pessoa.
-    /// </summary>
-    public ObservableCollection<LinhaAvulso> LancadosHoje { get; } = new();
-
-    /// <summary>Carregando o registro do dia — separado do <see cref="Ocupado"/> do lançamento.</summary>
-    [ObservableProperty] private bool _carregandoDia;
-
-    /// <summary>
-    /// A leitura do registro FALHOU — o terceiro estado. Lista vazia por erro é idêntica a
-    /// lista vazia por não ter havido avulso nenhum, e as duas levam a conclusões opostas.
-    /// </summary>
-    [ObservableProperty] private bool _naoVerificado;
-
-    /// <summary>
-    /// Erro do REGISTRO, separado do <c>Mensagem</c> do formulário: um banco lento na
-    /// leitura da conferência não pode apagar da barra o "Selecione a modalidade".
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TemAvisoRegistro))]
-    private string? _avisoRegistro;
-
-    public bool TemAvisoRegistro => !string.IsNullOrWhiteSpace(AvisoRegistro);
-
-    public bool TemLancadosHoje => LancadosHoje.Count > 0;
 
     /// <summary>Placar das baixas do atendimento recém-lançado ("1 de 2 guias baixadas…").</summary>
     [ObservableProperty]
@@ -362,7 +306,35 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// comportamento é o de antes desta correção, que é o melhor disponível: guia
     /// gerada, sessão registrada, e a tela dizendo que ninguém foi apontado.
     /// </summary>
-    [ObservableProperty] private Profissional? _profissional;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExecutanteGuia))]
+    [NotifyPropertyChangedFor(nameof(ExecutanteADefinir))]
+    private Profissional? _profissional;
+
+    /// <summary>
+    /// Quem assina a guia da prévia. Sai do profissional escolhido no QUANDO, e diz
+    /// "a definir" enquanto ninguém foi escolhido — que é o estado em que a sessão fica
+    /// sem dono, some do "Meu dia" do médico e cai fora do repasse. O custo já estava
+    /// escrito no aviso amarelo do modo marcar; aqui ele aparece também no documento,
+    /// que é onde a falta tem consequência.
+    /// </summary>
+    public string ExecutanteGuia => Profissional?.Rotulo ?? "a definir";
+
+    /// <summary>
+    /// Ninguém escolhido em "Quem atende", HAVENDO quem escolher. É o que faz a prévia
+    /// MARCAR o campo do executante em vez de escrever "a definir" com a mesma cara de um
+    /// dado preenchido — e o vazio dele é o único da guia que custa dinheiro a quem
+    /// atendeu: sessão sem profissional some do "Meu dia" do médico e fica fora do
+    /// repasse.
+    ///
+    /// ⚠️ Não é o <see cref="SemProfissionalEscolhido"/>: aquele só vale no modo MARCAR
+    /// (é o aviso amarelo de lá). Este vale nos dois modos, porque a guia é a mesma.
+    /// A condição `Count > 0` é a mesma dele, e pela mesma razão: numa clínica que não
+    /// cadastrou ninguém o campo ficaria marcado sem que houvesse o que fazer, e a tela
+    /// já diz isso em palavras logo acima.
+    /// </summary>
+    public bool ExecutanteADefinir => Profissional is null && Profissionais.Count > 0;
+
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty]
@@ -537,6 +509,30 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [ObservableProperty] private string? _convenioPaciente;
 
     /// <summary>
+    /// A identificação do paciente numa linha só — documento, telefone e idade —, para a
+    /// FAIXA do topo.
+    ///
+    /// Montada aqui e não na tela porque o "·" entre pedaços que podem faltar é uma
+    /// REGRA, não um leiaute: uma ficha sem telefone sairia "104.009.757-00 ·  · 61 anos"
+    /// se a view concatenasse os `Run` na marra, e ficha sem nenhum dos três sairia com um
+    /// separador solto pendurado.
+    /// </summary>
+    [ObservableProperty] private string? _metaPaciente;
+
+    /// <summary>
+    /// A carteirinha do paciente COMO VAI PARA A GUIA. "—" quando a ficha não tem — e o
+    /// travessão é conteúdo, não vazio: o campo em branco no documento se lê como "ainda
+    /// não carregou", e o travessão se lê como "não há".
+    /// </summary>
+    [ObservableProperty] private string _carteirinhaPaciente = TravessaoDaGuia;
+
+    /// <summary>A validade da carteirinha, pelo mesmo critério da <see cref="CarteirinhaPaciente"/>.</summary>
+    [ObservableProperty] private string _validadePaciente = TravessaoDaGuia;
+
+    /// <summary>O que um campo da guia mostra quando a ficha não tem o dado.</summary>
+    private const string TravessaoDaGuia = "—";
+
+    /// <summary>
     /// A ficha está com o convênio "a definir" — e por isso o lançamento é RECUSADO
     /// enquanto ninguém escolher (parcela 92).
     ///
@@ -584,7 +580,51 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         _scopeFactory = scopeFactory;
         Seletor = new SeletorPacienteViewModel(scopeFactory);
         Seletor.SelecaoMudou += AoTrocarPaciente;
+        Seletor.SugestaoInicial = PacientesComHorarioHojeAsync;
+        Seletor.RotuloDaSugestao = "Com horário hoje";
         AtualizarOpcoesPrimeiroCodigo();
+    }
+
+    /// <summary>
+    /// Quem a tela oferece ANTES de alguém digitar: os pacientes que têm horário HOJE.
+    ///
+    /// O que ela substitui
+    /// -------------------
+    /// Nada, e esse era o problema. Com o campo vazio a busca não filtra: cai no
+    /// <c>OrderBy(Nome).Take(50)</c> e a tela abria com o começo do alfabeto de 2.238
+    /// fichas — ACELINO, ADAISE, ADAO. Uma lista que parece resposta e não é de ninguém.
+    ///
+    /// A sugestão é a aposta certa para esta tela: quem chega ao balcão quase sempre tem
+    /// horário marcado, e a parcela 91 já cruza o lançamento com o horário do dia. Quem
+    /// não tem — o avulso de verdade — digita o nome, e aí é a busca de sempre.
+    ///
+    /// Custo: UMA consulta, a mesma que a agenda do dia já faz (<c>Include(Paciente)</c>
+    /// vem junto), sem ida ao banco por linha.
+    /// </summary>
+    private async Task<IReadOnlyList<Paciente>> PacientesComHorarioHojeAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+
+        var hoje = DateTime.Today;
+        var agendamentos = await repo.AgendamentosNoPeriodoAsync(hoje, hoje.AddDays(1).AddTicks(-1), ct);
+
+        // Cancelado e Faltou saem: o horário existe, mas a pessoa não vem — oferecê-la no
+        // topo da lista é sugerir justamente quem não está aqui.
+        //
+        // Realizado FICA: a sessão da manhã não impede a consulta da tarde, e é o paciente
+        // que ainda está na clínica que a recepcionista tem mais chance de lançar em
+        // seguida. O aviso de duplicidade continua sendo dado depois, na escolha.
+        return agendamentos
+            .Where(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+            .Where(a => a.Paciente is not null)
+            .OrderBy(a => a.DataHora)
+            // DistinctBy pelo id: quem tem duas sessões no dia apareceria duas vezes, e
+            // duas linhas idênticas numa lista de escolha é a pessoa perguntando qual das
+            // duas é a certa.
+            .DistinctBy(a => a.PacienteId)
+            .Select(a => a.Paciente!)
+            .ToList();
     }
 
     partial void OnModalidadeSelecionadaChanged(EntradaModalidade? value)
@@ -767,7 +807,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         await LerChaveGuiaNaMarcacaoAsync();
         ConsumirPreenchimento();
         await Seletor.BuscarAsync(imediato: true);
-        await CarregarDoDiaAsync();
     }
 
     /// <summary>
@@ -801,6 +840,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             OnPropertyChanged(nameof(SemProfissionaisCadastrados));
             OnPropertyChanged(nameof(TemProfissionaisCadastrados));
             OnPropertyChanged(nameof(SemProfissionalEscolhido));
+            // `ExecutanteADefinir` lê `Profissionais.Count`, e a lista acabou de chegar:
+            // sem esta linha o campo da guia ficaria sem marca até o próximo toque no
+            // combo — que é justamente o toque que a marca existe para provocar.
+            OnPropertyChanged(nameof(ExecutanteADefinir));
         }
         catch (Exception ex)
         {
@@ -868,140 +911,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// bool invertido, e criar um para um uso só seria mais peça para manter.</summary>
     public bool TemProfissionaisCadastrados => Profissionais.Count > 0;
 
-    /// <summary>
-    /// Os atendimentos do dia — a conferência de quem lançou o quê.
-    ///
-    /// ⚠️ Desde a parcela 60 ela mostra os atendimentos do dia INTEIRO, e não só os
-    /// "avulsos". Antes o recorte era possível porque o avulso criava um agendamento com
-    /// um par próprio (<c>Manual</c> + hora 9h fixo) que o distinguia de quem veio pela
-    /// Fila. Esse par era o fantasma: um horário em que ninguém foi atendido, sem
-    /// profissional, contando na ocupação do dia.
-    ///
-    /// Com as duas portas na mesma esteira o par deixou de existir — e deixou de fazer
-    /// falta: a pergunta que a recepcionista faz olhando esta lista é "o que saiu hoje e
-    /// quem lançou", não "por qual botão isto entrou".
-    /// </summary>
-    [RelayCommand]
-    public async Task CarregarDoDiaAsync()
-    {
-        var geracao = ++_geracaoDia;
-
-        try
-        {
-            CarregandoDia = true;
-            NaoVerificado = false;
-            AvisoRegistro = null;
-
-            using var scope = _scopeFactory.CreateScope();
-            var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
-
-            var hoje = DateTime.Today;
-            var agendamentos = await repo.AgendamentosNoPeriodoAsync(hoje, hoje.AddDays(1).AddTicks(-1));
-            if (geracao != _geracaoDia) return;
-
-            // Monta em lista local e só ENTÃO publica: entre o Clear e o último Add não
-            // pode haver await. Esta carga roda depois de CADA lançamento, então duas no
-            // ar ao mesmo tempo é o caso normal de quem atende dois seguidos — e
-            // intercaladas elas repetiam linhas na conferência do dia.
-            var linhas = new List<LinhaAvulso>();
-            foreach (var ag in agendamentos
-                         .Where(a => a.AtendimentoId is not null)
-                         .OrderByDescending(a => a.AtendimentoId))
-            {
-                var atendimento = await repo.ObterAtendimentoAsync(ag.AtendimentoId!.Value);
-                if (geracao != _geracaoDia) return;
-                if (atendimento is null) continue;
-
-                linhas.Add(MontarLinhaAvulso(atendimento, hoje));
-            }
-
-            LancadosHoje.Clear();
-            foreach (var linha in linhas) LancadosHoje.Add(linha);
-        }
-        catch (Exception ex)
-        {
-            if (geracao != _geracaoDia) return;
-            NaoVerificado = true;
-            LogSuite.Registrar("Novo atendimento — avulsos do dia não puderam ser lidos", ex);
-            AvisoRegistro = $"Não foi possível ler os atendimentos de hoje: {ex.Message}";
-        }
-        finally
-        {
-            // A carga superada não apaga o "Carregando" da que ainda está no ar.
-            if (geracao == _geracaoDia)
-            {
-                CarregandoDia = false;
-                OnPropertyChanged(nameof(TemLancadosHoje));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Descarte de resposta fora de ordem para a lista de LANÇADOS HOJE (parcela 50). É
-    /// um contador SEPARADO do da prévia: as duas leituras são independentes, e um
-    /// contador só faria o lançamento de um atendimento cancelar a prévia que a
-    /// recepcionista está montando para o próximo paciente.
-    /// </summary>
-    private int _geracaoDia;
-
-    private static LinhaAvulso MontarLinhaAvulso(Atendimento atendimento, DateTime hoje)
-    {
-        var faturaveis = atendimento.Codigos
-            .Where(c => c.Status != StatusCodigo.NaoAplicavel)
-            .ToList();
-
-        // A guia que só libera depois é o assunto do produto. Ela vem marcada aqui também,
-        // na conferência do fim do dia: é a última chance de alguém notar antes de o dia
-        // fechar e a guia virar pendência de amanhã.
-        var depois = faturaveis
-            .Where(c => !c.Baixado && c.DataPrevistaFaturamento > DateOnly.FromDateTime(hoje))
-            .OrderBy(c => c.DataPrevistaFaturamento)
-            .ToList();
-
-        var paciente = atendimento.Paciente;
-
-        return new LinhaAvulso
-        {
-            AtendimentoId = atendimento.Id,
-            Paciente = paciente?.Nome ?? "—",
-            Modalidade = atendimento.ModalidadeCodigo is { } cod
-                ? CatalogoModalidades.Nome(cod)
-                : ModalidadeInfo.NomeExibicao(atendimento.Modalidade),
-            Convenio = paciente is null
-                ? "—"
-                : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()),
-            Numero = atendimento.Numero ?? $"#{atendimento.Id}",
-            // "0 guias · todas liberadas" era afirmação falsa: o particular (e a sessão com as
-            // guias suspensas) não tem guia NENHUMA — dizer "todas liberadas" sobre zero é a
-            // garantia aparente de sempre, na conferência do dia (o cliente mandou o print).
-            Guias = faturaveis.Count switch { 0 => "sem guia", 1 => "1 guia", var n => $"{n} guias" },
-            Lancamento = DescreverLancamento(atendimento),
-            TemPendencia = depois.Count > 0,
-            Pendencia = faturaveis.Count == 0
-                ? "nada vai ao convênio"
-                : depois.Count == 0
-                    ? "todas liberadas"
-                    : $"{depois.Count} libera(m) a partir de {depois[0].DataPrevistaFaturamento:dd/MM}"
-        };
-    }
-
-    /// <summary>
-    /// "Lançado por Ana às 14:32" — a autoria na conferência do dia (parcela 58).
-    ///
-    /// A hora sozinha basta aqui: a lista é de HOJE, e escrever a data por extenso em
-    /// vinte linhas do mesmo dia gastaria a largura da coluna repetindo o que o título da
-    /// seção já diz.
-    /// </summary>
-    private static string DescreverLancamento(Atendimento atendimento)
-    {
-        if (string.IsNullOrWhiteSpace(atendimento.LancadoPor))
-            return "sem registro de quem lançou";
-
-        return atendimento.LancadoEm is { } quando
-            ? $"por {atendimento.LancadoPor} às {quando:HH:mm}"
-            : $"por {atendimento.LancadoPor}";
-    }
-
     /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
     private void CarregarCatalogos()
     {
@@ -1020,6 +929,64 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         foreach (var e in CatalogoEspecialidades.Ativas)
             Especialidades.Add(e);
         EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
+    }
+
+    /// <summary>
+    /// Copia da ficha os campos que a PRÉVIA DA GUIA desenha. Existe como um ponto só
+    /// porque os dois caminhos que trocam o convênio na tela — escolher outro paciente e
+    /// vincular o convênio sem sair daqui — precisam dos mesmos campos atualizados, e um
+    /// deles esquecido deixaria o documento mostrando a carteirinha de quem saiu.
+    /// </summary>
+    private void AtualizarFichaDaGuia(Paciente? p)
+    {
+        MetaPaciente = p is null ? null : MontarMetaDoPaciente(p);
+        CarteirinhaPaciente = string.IsNullOrWhiteSpace(p?.Carteirinha)
+            ? TravessaoDaGuia
+            : p!.Carteirinha!;
+        ValidadePaciente = p?.ValidadeCarteirinha is { } validade
+            ? validade.ToString("dd/MM/yyyy")
+            : TravessaoDaGuia;
+    }
+
+    /// <summary>
+    /// Documento · telefone · idade, pulando o que a ficha não tem. Devolve NULO quando
+    /// não sobrou nada: string vazia num TextBlock ainda ocupa a altura de uma linha, e a
+    /// ficha incompleta — que a importação do Smart Clinic produziu às centenas — abriria
+    /// um buraco debaixo do nome.
+    /// </summary>
+    private static string? MontarMetaDoPaciente(Paciente p)
+    {
+        var partes = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(p.Documento)) partes.Add(FormatarDocumento(p.Documento!));
+        if (!string.IsNullOrWhiteSpace(p.Telefone)) partes.Add(Telefone.Formatar(p.Telefone));
+        if (p.DataNascimento is { } nascimento) partes.Add($"{IdadeEm(nascimento)} anos");
+        return partes.Count == 0 ? null : string.Join(" · ", partes);
+    }
+
+    /// <summary>
+    /// O documento como se lê, não como está gravado.
+    ///
+    /// ⚠️ NÃO é `Cpf.Formatar` direto: fora dos 11 dígitos ele devolve SÓ OS DÍGITOS, e o
+    /// campo se chama `Documento`, não `Cpf` — uma ficha com RG "12.345.678-9" voltaria
+    /// "123456789", que é a pontuação de um documento de verdade sendo apagada na
+    /// exibição. Formata quando é CPF; no resto, o que está na ficha é o que se mostra.
+    /// </summary>
+    private static string FormatarDocumento(string documento)
+    {
+        var digitos = Cpf.Normalizar(documento);
+        return digitos.Length == 11 ? Cpf.Formatar(digitos) : documento.Trim();
+    }
+
+    /// <summary>
+    /// Anos completos hoje. O `-1` não é detalhe: sem ele quem faz aniversário em
+    /// dezembro aparece com um ano a mais durante onze meses.
+    /// </summary>
+    private static int IdadeEm(DateOnly nascimento)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var anos = hoje.Year - nascimento.Year;
+        if (nascimento > hoje.AddYears(-anos)) anos--;
+        return anos;
     }
 
     // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro)
@@ -1046,6 +1013,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             ? null
             : CatalogoConvenios.Nome(value.ConvenioCodigo ?? value.Convenio.ToString());
         CategoriaPaciente = value?.Categoria.ToString();
+        AtualizarFichaDaGuia(value);
         // O impedimento aparece com o paciente, não com o clique no botão (parcela 92).
         SemConvenio = value?.ConvenioADefinir == true;
         if (value is null) return;
@@ -1552,42 +1520,26 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     private void TrocarPaciente() => Seletor.Limpar();
 
     /// <summary>
-    /// ESTORNAR um atendimento da conferência do dia (parcela 94) — a sessão lançada por
-    /// engano.
+    /// Relê o que MUDOU FORA desta tela sobre o paciente que está escolhido — a capa do
+    /// "já lançado hoje" e o horário em aberto do dia.
     ///
-    /// Mora aqui porque é aqui que o engano é percebido: a lista de lançados de hoje é a
-    /// conferência que a recepcionista faz antes de fechar o balcão. A janela pergunta
-    /// item a item o que desfazer (caixa, pacote, insumo) e recusa quando a guia já saiu
-    /// da clínica — quem decide isso é o <c>EstornoAtendimentoService</c>, não a tela.
+    /// Por que ela existe (set/2026)
+    /// -----------------------------
+    /// A conferência do dia mudou-se para a aba "Lançamentos", e o ESTORNO foi junto. O
+    /// <c>TelaComAbas</c> monta cada aba UMA vez e a guarda: voltar para cá não reconstrói
+    /// nada, e sem esta releitura a tela continuaria dizendo "já lançado hoje" sobre um
+    /// atendimento que a aba do lado acabou de estornar — e escondendo o horário que o
+    /// estorno devolveu para a agenda.
+    ///
+    /// Quem chama é a View, quando volta a ficar visível. Duas leituras, e só quando há
+    /// paciente escolhido: sem ele não há o que revalidar.
     /// </summary>
-    [RelayCommand]
-    private async Task EstornarAsync(LinhaAvulso? linha)
+    public void RevalidarPacienteEscolhido()
     {
-        if (linha is null) return;
-        SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "estornar o atendimento");
+        if (PacienteSelecionado is not { } paciente) return;
 
-        var vm = new EstornoAtendimentoViewModel(_scopeFactory, linha.AtendimentoId);
-        var janela = new Janelas.EstornoAtendimentoWindow(vm) { Owner = JanelaDona.Atual() };
-        janela.ShowDialog();
-
-        if (!vm.Estornado) return;
-
-        // Os avisos das reversões de FORA não podem sumir com a janela: o estorno das
-        // guias está gravado, e o que falhou lá continua para ser resolvido à mão.
-        Avisos.Clear();
-        foreach (var a in vm.Avisos) Avisos.Add(a);
-
-        Avisar($"Atendimento nº {linha.Numero} estornado. O horário dele, se houver, voltou "
-               + "para \"Agendado\" e pode ser lançado de novo.");
-
-        await CarregarDoDiaAsync();
-
-        // A capa do dia e o horário em aberto mudaram junto — a tela tem de refletir.
-        if (PacienteSelecionado is { } p)
-        {
-            _ = VerificarJaLancadoNoDiaAsync(p.Id);
-            _ = VerificarHorarioDoDiaAsync(p.Id);
-        }
+        _ = VerificarJaLancadoNoDiaAsync(paciente.Id);
+        _ = VerificarHorarioDoDiaAsync(paciente.Id);
     }
 
     /// <summary>
@@ -1645,6 +1597,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         SemConvenio = false;
         ConvenioPaciente = paciente.ConvenioNome;
         CategoriaPaciente = paciente.Categoria.ToString();
+        AtualizarFichaDaGuia(paciente);
         AvisoCarteirinha = paciente.CarteirinhaVencida
             ? $"A carteirinha de {paciente.Nome} venceu em {paciente.ValidadeCarteirinha:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;
@@ -1870,9 +1823,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             // para o mesmo paciente volta a ser encaixe (com a capa avisando o repetido).
             _ = VerificarHorarioDoDiaAsync(paciente.Id);
 
-            // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
-            // embaixo sem ninguém precisar clicar em Atualizar.
-            await CarregarDoDiaAsync();
         }
         catch (Exception ex)
         {
@@ -1947,7 +1897,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             // Os avisos do fechamento são a parte que não pode ser escondida: a sessão
             // pode ter sido concluída e o pacote NÃO ter debitado.
             foreach (var a in resultado.Avisos) Avisos.Add(a);
-            await CarregarDoDiaAsync();
         }
         catch (Exception ex)
         {
@@ -2101,9 +2050,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 await PerguntarComprovanteAsync(scope, ag.Id, paciente.Nome, dataHora);
             }
 
-            // Uma marcação para HOJE aparece na conferência do dia (a de outro dia, não —
-            // e a lista diz "hoje" no título de propósito).
-            if (Data.Date == DateTime.Today) await CarregarDoDiaAsync();
         }
         catch (Exception ex)
         {

@@ -1236,6 +1236,24 @@ public interface IClinicaRepositorio
         IReadOnlyCollection<int> pacienteIds, DateOnly inicio, DateOnly fim,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// TODOS os atendimentos de um período, com os códigos e o paciente — a tela de
+    /// LANÇAMENTOS da Recepção (set/2026).
+    ///
+    /// ⚠️ Ela lê <c>Atendimentos</c> direto, e não a agenda. A conferência do dia fazia o
+    /// contrário: lia os agendamentos do dia e, para cada um com <c>AtendimentoId</c>,
+    /// ia buscar o atendimento — um N+1 que num dia de 30 sessões custava 31 idas ao
+    /// banco. Num PERÍODO livre isso vira centenas. E a fonte direta é mais fiel à
+    /// pergunta: "o que saiu neste período e quem lançou" é sobre o ATENDIMENTO, não
+    /// sobre por qual porta ele entrou.
+    ///
+    /// ⚠️ <b>Estornado fica de fora</b>, e isso preserva o comportamento que a leitura
+    /// pela agenda tinha de graça: o estorno SOLTA o horário, então o atendimento
+    /// anulado sumia da lista sozinho. Sem este filtro ele voltaria a aparecer.
+    /// </summary>
+    Task<IReadOnlyList<Atendimento>> AtendimentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     // ---- Estoque ----
 
     Task<IReadOnlyList<ItemEstoque>> ItensEstoqueAsync(

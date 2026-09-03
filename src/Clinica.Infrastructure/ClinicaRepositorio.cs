@@ -2050,6 +2050,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Atendimento>> AtendimentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Include(a => a.Paciente)
+            .Where(a => a.Data >= inicio && a.Data <= fim && a.EstornadoEm == null)
+            // Do mais recente para o mais antigo: a conferência começa pelo que acabou de
+            // sair. `Id` desempata dentro do dia — `Data` é DateOnly e não guarda a hora.
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+
     // ---- Taxas de cartao (parcela 9) ----
 
     public async Task<IReadOnlyList<TaxaCartao>> TaxasCartaoAsync(

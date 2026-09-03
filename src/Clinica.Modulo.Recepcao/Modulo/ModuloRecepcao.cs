@@ -22,6 +22,9 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveFila = "fila";
     public const string ChaveNovoAtendimento = "novo-atendimento";
     public const string ChaveConsultas = "consultas";
+
+    /// <summary>A conferência do que foi lançado — aba de "Atendimento" (set/2026).</summary>
+    public const string ChaveLancamentos = "lancamentos";
     public const string ChavePacientes = ChavesSuite.PacientesRecepcao;
     public const string ChaveProntuario = "prontuario";
     public const string ChavePrescricoes = ChavesSuite.PrescricoesRecepcao;
@@ -171,6 +174,7 @@ public sealed class ModuloRecepcao : IModuloApp
             Abas =
             [
                 new AbaMenu("Novo atendimento", ChaveNovoAtendimento),
+                new AbaMenu("Lan\u00E7amentos", ChaveLancamentos),
                 new AbaMenu("Consultas de conv\u00EAnio", ChaveConsultas)
             ]
         },
@@ -252,6 +256,14 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveConsultas, Rotulo = "Consultas (conv\u00EAnio)", Glifo = "\uE8A5",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
         },
+        // A confer\u00EAncia do que foi lan\u00E7ado. Item declarado porque a checagem 28 exige
+        // que toda chave de `AbaMenu` seja item de algum m\u00F3dulo \u2014 quem o esconde da
+        // sidebar \u00E9 o PAI ("Atendimento"), e s\u00F3 onde o pai existe.
+        new ItemMenuModulo
+        {
+            Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+        },
         new ItemMenuModulo
         {
             Chave = ChavePrescricoes, Rotulo = "Receitu\u00E1rio", Glifo = "\uE8A5",
@@ -297,6 +309,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<PacientesViewModel>();
         servicos.AddTransient<NovoAtendimentoViewModel>();
         servicos.AddTransient<ConsultasViewModel>();
+        servicos.AddTransient<LancamentosViewModel>();
         servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
@@ -322,6 +335,10 @@ public sealed class ModuloRecepcao : IModuloApp
             DataContext = servicos.GetRequiredService<NovoAtendimentoViewModel>()
         },
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
+        ChaveLancamentos => new LancamentosView
+        {
+            DataContext = servicos.GetRequiredService<LancamentosViewModel>()
+        },
         ChaveRetorno => new RetornoView { DataContext = servicos.GetRequiredService<RetornoViewModel>() },
         ChaveSalaInfusao => new SalaInfusaoView
         {

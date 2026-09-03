@@ -192,7 +192,8 @@ zero.**
 |---|---|---|
 | Dados, convênio e carteirinha | ✅ | `PacienteEdicaoViewModel` (Recepção) |
 | **Conciliação da agenda** — horários parados e realizados sem atendimento, com as três respostas | ✅ | `ConciliacaoAgendaService`, `ConciliacaoAgendaWindow` (Recepção → Agenda) — parcela 93 · `docs/conciliacao-da-agenda.md` |
-| **Estornar atendimento** — desfaz a sessão lançada por engano, item a item, sem apagar nada | ✅ | `EstornoAtendimentoService`, `EstornoAtendimentoWindow` (Recepção → Novo atendimento) — parcela 94 · `docs/estorno-de-atendimento.md` |
+| **Estornar atendimento** — desfaz a sessão lançada por engano, item a item, sem apagar nada | ✅ | `EstornoAtendimentoService`, `EstornoAtendimentoWindow` (Recepção → Atendimento → Lançamentos) — parcela 94 · `docs/estorno-de-atendimento.md` |
+| **Lançamentos** — os atendimentos de um período, com filtros de convênio, modalidade, quem lançou e guia pendente | ✅ | `LancamentosViewModel`, `LancamentosView` (Recepção → Atendimento → Lançamentos) — set/2026 |
 | **Convênio é condição para lançar** — sem ele o atendimento é recusado, e a escolha acontece no lançamento | ✅ | `AtendimentoService.MontarAsync` (a recusa), `EscolhaDeConvenioWindow` + `VinculoDeConvenio` (a janela) — parcela 92 |
 | Foto pela webcam | ✅ | `Desktop.Shell/Componentes/CameraServico`, `Retrato` |
 | Histórico de sessões e guias | ✅ | `FichaPacienteViewModel` (Recepção): sessões, guias em aberto, última sessão |

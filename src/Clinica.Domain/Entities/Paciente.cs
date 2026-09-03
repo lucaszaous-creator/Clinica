@@ -115,9 +115,48 @@ public class Paciente
     public bool ConvenioADefinir =>
         string.Equals(ConvenioCodigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// O par de <see cref="ConvenioADefinir"/>. São duas propriedades porque nem a suíte
+    /// nem o faturamento têm conversor de booleano invertido, e é o mesmo par que as telas
+    /// já usam (<c>SemPaciente</c>/<c>PacienteEscolhido</c>) — criar um conversor para um
+    /// uso só seria mais peça para manter.
+    /// </summary>
+    public bool TemConvenioEscolhido => !ConvenioADefinir;
+
     /// <summary>Carteirinha com validade já passada — guia recusada na hora pelo convênio.</summary>
     public bool CarteirinhaVencida =>
         ValidadeCarteirinha is { } validade && validade < DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>
+    /// O documento COMO SE LÊ. Toda lista de escolha amarrava <c>Documento</c> direto e
+    /// mostrava "10400975700" — onze dígitos colados, que ninguém confere de relance e
+    /// ninguém compara com o cartão na mão do paciente.
+    ///
+    /// ⚠️ NÃO é <c>Cpf.Formatar</c> direto: fora dos 11 dígitos ele devolve SÓ OS DÍGITOS,
+    /// e o campo se chama <see cref="Documento"/>, não CPF — uma ficha com RG "12.345.678-9"
+    /// voltaria "123456789", com a pontuação de um documento de verdade apagada na
+    /// exibição. Formata quando é CPF; no resto, mostra o que está gravado.
+    /// </summary>
+    public string DocumentoFormatado
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Documento)) return string.Empty;
+            var digitos = Cpf.Normalizar(Documento);
+            return digitos.Length == 11 ? Cpf.Formatar(digitos) : Documento.Trim();
+        }
+    }
+
+    /// <summary>
+    /// O telefone como se lê. <c>Telefone.Formatar</c> é seguro para qualquer entrada — o
+    /// que não reconhece volta como está —, então vale também para a ficha que já foi
+    /// gravada com máscara.
+    ///
+    /// ⚠️ O nome do TIPO vem qualificado porque a PROPRIEDADE <see cref="Telefone"/> o
+    /// esconde dentro desta classe: `Telefone.Formatar(...)` aqui resolveria para a string,
+    /// não para o utilitário.
+    /// </summary>
+    public string TelefoneFormatado => Clinica.Domain.Telefone.Formatar(Telefone);
 
     public List<Atendimento> Atendimentos { get; set; } = new();
 
