@@ -1187,6 +1187,35 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
 
+    // ---- Conciliação da agenda (parcela 93) ----
+
+    /// <summary>
+    /// Horários que continuam EM ABERTO com a data já passada — o horário que ninguém
+    /// resolveu. Enquanto a clínica não usa o check-in, é o estado normal de quem foi
+    /// atendido por fora da agenda; passada a carência, vira pergunta.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> HorariosEmAbertoVencidosAsync(
+        DateTime desde, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Horários marcados como REALIZADOS que não apontam para atendimento nenhum — o
+    /// órfão. É o estado do incidente de 12/08/2026, e ninguém o detectava: o repasse
+    /// exige <c>AtendimentoId</c> e some com a sessão em silêncio, enquanto a etapa do
+    /// kanban (derivada do STATUS) continua dizendo "Finalizado".
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> HorariosRealizadosSemAtendimentoAsync(
+        DateTime desde, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Atendimentos de um CONJUNTO de pacientes num período — a leitura que responde, em
+    /// uma consulta só, "este horário parado tem uma sessão lançada por fora no mesmo
+    /// dia?". Por conjunto, e não por paciente: a conciliação varre meses de agenda, e
+    /// perguntar linha a linha seria uma ida ao banco por horário parado.
+    /// </summary>
+    Task<IReadOnlyList<Atendimento>> AtendimentosDosPacientesNoPeriodoAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly inicio, DateOnly fim,
+        CancellationToken ct = default);
+
     // ---- Estoque ----
 
     Task<IReadOnlyList<ItemEstoque>> ItensEstoqueAsync(

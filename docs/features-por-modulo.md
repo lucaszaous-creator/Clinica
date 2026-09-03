@@ -191,6 +191,7 @@ zero.**
 | Item | Estado | Onde |
 |---|---|---|
 | Dados, convênio e carteirinha | ✅ | `PacienteEdicaoViewModel` (Recepção) |
+| **Conciliação da agenda** — horários parados e realizados sem atendimento, com as três respostas | ✅ | `ConciliacaoAgendaService`, `ConciliacaoAgendaWindow` (Recepção → Agenda) — parcela 93 · `docs/conciliacao-da-agenda.md` |
 | **Convênio é condição para lançar** — sem ele o atendimento é recusado, e a escolha acontece no lançamento | ✅ | `AtendimentoService.MontarAsync` (a recusa), `EscolhaDeConvenioWindow` + `VinculoDeConvenio` (a janela) — parcela 92 |
 | Foto pela webcam | ✅ | `Desktop.Shell/Componentes/CameraServico`, `Retrato` |
 | Histórico de sessões e guias | ✅ | `FichaPacienteViewModel` (Recepção): sessões, guias em aberto, última sessão |

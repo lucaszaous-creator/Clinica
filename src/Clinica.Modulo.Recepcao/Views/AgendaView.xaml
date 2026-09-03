@@ -245,6 +245,13 @@
                         Style="{StaticResource BotaoSecundario}"
                         VerticalAlignment="Center"
                         Command="{Binding ConfirmarSessoesCommand}" />
+                <!-- O que ficou pendurado entre a agenda e os atendimentos (parcela
+                     93). Fila de tempos em tempos, então JANELA — não item de menu. -->
+                <Button Content="Conciliar agenda…" Margin="8,0,0,4"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Center"
+                        ToolTip="Horários cuja data passou e ninguém resolveu"
+                        Command="{Binding ConciliarAgendaCommand}" />
                 <!-- A folha que o profissional leva para a sala. Toda clínica imprime
                      essa folha; nesta, a secretária copiava a agenda num bloco. -->
                 <Button Content="Imprimir folha" Margin="8,0,0,4"
