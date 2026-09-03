@@ -365,6 +365,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca
   adicione campos de dinheiro/pagamento.
+- **SEM CONVÊNIO ESCOLHIDO NÃO NASCE ATENDIMENTO** (parcela 92). A importação do Smart Clinic
+  trouxe **2.021 das 2.238 fichas sem convênio**, no código `ConvenioCadastro.CodigoADefinir` —
+  que não gera guia. A defesa era o alerta VERMELHO da elegibilidade, e ela não impede nada por
+  contrato ("quem decide é a clínica"): a sessão era lançada por cima do vermelho, os códigos
+  nasciam `NaoAplicavel`, a tela dizia "Atendimento registrado" e o faturamento não via guia
+  nenhuma. Nada falhava — é o defeito do segundo tipo, o que **deixa de fazer o que promete**.
+  A recusa (`ConvenioNaoDefinidoException`) mora em **`AtendimentoService.MontarAsync`**, a
+  montagem por onde TODAS as portas passam: avulso do balcão, lançamento sobre o horário do dia,
+  `ConfirmarPresencaAsync` da Fila e `AgendarAsync` com "guia no agendamento" ligado. Escrevê-la
+  numa tela cobriria uma e deixaria três passando.
+  **Recusar sem oferecer a saída seria trocar guia perdida por balcão travado**, então a metade
+  visível é `VinculoDeConvenio` + `EscolhaDeConvenioWindow` (Shell): as telas perguntam ANTES,
+  na hora, e a ficha é atualizada no mesmo clique — é o `ColetaDeTermo` de novo, e pela mesma
+  razão (várias portas, uma montagem só). Quem pergunta: Novo atendimento (o aviso já traz o
+  botão) e o Concluir da Fila. O faturamento (`Clinica.Desktop`) só mostra a mensagem — ele não
+  referencia o shell, é o débito permanente da Fase 4.
+  ⚠️ **Três assimetrias deliberadas.** (a) **PARTICULAR não é "sem convênio"**: é escolha
+  registrada (`ConvenioCadastro.GeraGuia` desmarcado, parcela 60) e continua lançando.
+  (b) **Marcar por telefone com a chave desligada continua passando**: aí a marcação não cria
+  atendimento nenhum, e exigir o convênio ali travaria quem marca sem ter a resposta em mãos —
+  a condição vale exatamente onde o atendimento nasce, e a UI espelha isso
+  (`!MarcarParaDepois || GuiaNaMarcacao`). (c) **A carteirinha da janela é opcional e, em
+  branco, PRESERVA a da ficha** — a janela responde uma pergunta, não regrava a ficha.
 - **O número da guia tem FORMA, e ela é do convênio** (`RegraNumeroGuia`, `ConvenioCadastro.
   FormatoNumeroGuia`, parcela 45): a Unimed numera só com dígitos; Petrobras, Amil e Sul América
   misturam letra e número. O que se pega com isso é o erro que o olho não vê — o **"O" digitado no

@@ -766,6 +766,7 @@
                                         <Style.Triggers>
                                             <MultiDataTrigger>
                                                 <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding SemConvenio}" Value="False" />
                                                     <Condition Binding="{Binding TemAvisoJaLancado}" Value="False" />
                                                     <Condition Binding="{Binding TemAvisoHorarioDoDia}" Value="False" />
                                                     <Condition Binding="{Binding TemAvisoCarteirinha}" Value="False" />
@@ -781,6 +782,30 @@
                                 </StackPanel.Style>
 
                                 <TextBlock Text="ANTES DE LANÇAR" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+
+                                <!-- SEM CONVÊNIO (parcela 92) — o único aviso desta
+                                     coluna que IMPEDE. Por isso ele traz o botão que o
+                                     resolve: o aviso sozinho já existia (o alerta
+                                     vermelho da elegibilidade) e 2.021 fichas passaram
+                                     por cima dele. -->
+                                <Grid Visibility="{Binding SemConvenio, Converter={StaticResource BoolParaVisibilidade}}"
+                                      Margin="0,0,0,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="2"
+                                            Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                                    <TextBlock Grid.Column="1" Margin="10,0,10,0"
+                                               TextWrapping="Wrap" HorizontalAlignment="Left"
+                                               Text="Sem convênio vinculado — o atendimento não gera guia e não pode ser lançado. Escolha o convênio do paciente (particular, para quem paga do bolso)." />
+                                    <Button Grid.Column="2" Content="Escolher convênio…"
+                                            VerticalAlignment="Top" MinHeight="32" MinWidth="150"
+                                            Style="{StaticResource BotaoSecundario}"
+                                            Command="{Binding EscolherConvenioCommand}"
+                                            ToolTip="Vincular o convênio sem sair desta tela" />
+                                </Grid>
 
                                 <!-- A capa do que o paciente JÁ tem no dia escolhido (parcela
                                      70): número, modalidade, quem lançou e as baixas — o aviso

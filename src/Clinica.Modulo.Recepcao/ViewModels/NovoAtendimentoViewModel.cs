@@ -528,6 +528,18 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Nome do convênio do paciente selecionado (resolvido pelo catálogo).</summary>
     [ObservableProperty] private string? _convenioPaciente;
 
+    /// <summary>
+    /// A ficha está com o convênio "a definir" — e por isso o lançamento é RECUSADO
+    /// enquanto ninguém escolher (parcela 92).
+    ///
+    /// É o único aviso desta tela que IMPEDE, e por isso ele não se parece com os outros:
+    /// os demais informam ("carteirinha vence em 12 dias", "3 guias pendentes") e a
+    /// decisão continua sendo da clínica. Este vem com o BOTÃO que o resolve, porque o
+    /// aviso sozinho é o que já existia — o alerta vermelho da elegibilidade — e foi
+    /// justamente ele que 2.021 fichas atravessaram.
+    /// </summary>
+    [ObservableProperty] private bool _semConvenio;
+
     /// <summary>Categoria do paciente (semáforo do cadastro), como TEXTO — o conversor de cor é do faturamento.</summary>
     [ObservableProperty] private string? _categoriaPaciente;
 
@@ -1025,6 +1037,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             ? null
             : CatalogoConvenios.Nome(value.ConvenioCodigo ?? value.Convenio.ToString());
         CategoriaPaciente = value?.Categoria.ToString();
+        // O impedimento aparece com o paciente, não com o clique no botão (parcela 92).
+        SemConvenio = value?.ConvenioADefinir == true;
         if (value is null) return;
 
         // Pré-seleciona a modalidade habitual do paciente: primeiro pelo código salvo, senão pela base.
@@ -1528,6 +1542,74 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [RelayCommand]
     private void TrocarPaciente() => Seletor.Limpar();
 
+    /// <summary>
+    /// Abre a escolha do convênio pelo aviso — o mesmo gesto que o Lançar dispara, só que
+    /// sem esperar o clique no botão de lançar.
+    ///
+    /// Existe porque a recepcionista VÊ o problema assim que escolhe o paciente, e
+    /// obrigá-la a clicar em "Lançar" para ser recusada — e só então poder resolver —
+    /// seria transformar a recusa em ritual.
+    /// </summary>
+    [RelayCommand]
+    private void EscolherConvenio()
+    {
+        if (PacienteSelecionado is not { } paciente) return;
+        if (!paciente.ConvenioADefinir) return;
+
+        if (VinculoDeConvenio.Garantir(_scopeFactory, paciente, SessaoUsuario.Atual.Operador))
+            AoConvenioVinculado(paciente);
+    }
+
+    /// <summary>
+    /// A condição do lançamento: o paciente tem convênio ESCOLHIDO? Quando não tem,
+    /// pergunta na hora (<see cref="VinculoDeConvenio"/>) em vez de recusar e pronto.
+    ///
+    /// ⚠️ Isto NÃO é a regra — a regra está em <c>AtendimentoService.MontarAsync</c>, que
+    /// recusa a montagem venha ela de onde vier. Isto é a metade VISÍVEL: a que faz a
+    /// recusa chegar como uma pergunta respondível, e não como um erro no fim.
+    /// </summary>
+    private bool GarantirConvenioDoPaciente(Paciente paciente)
+    {
+        if (!paciente.ConvenioADefinir) return true;
+
+        if (!VinculoDeConvenio.Garantir(_scopeFactory, paciente, SessaoUsuario.Atual.Operador))
+        {
+            Avisar($"{paciente.Nome} está sem convênio, e sem convênio o atendimento não gera "
+                   + "guia. Escolha o convênio para lançar — quem paga do bolso entra no "
+                   + "convênio particular.", erro: true);
+            return false;
+        }
+
+        AoConvenioVinculado(paciente);
+        return true;
+    }
+
+    /// <summary>
+    /// A ficha acabou de ganhar convênio: o que a tela mostra sobre ele muda junto.
+    ///
+    /// A PRÉVIA é a parte que não pode ficar para trás — a mesma modalidade gera 2 guias
+    /// na Unimed Intercâmbio e 1 na Amil, e ela tinha sido calculada com o convênio que
+    /// não gerava nenhuma. Botão prometendo "Lançar atendimento" (o rótulo do zero guias)
+    /// sobre um convênio que gera duas é a tela mentindo com toda a cara de verdade.
+    /// </summary>
+    private void AoConvenioVinculado(Paciente paciente)
+    {
+        SemConvenio = false;
+        ConvenioPaciente = paciente.ConvenioNome;
+        CategoriaPaciente = paciente.Categoria.ToString();
+        AvisoCarteirinha = paciente.CarteirinhaVencida
+            ? $"A carteirinha de {paciente.Nome} venceu em {paciente.ValidadeCarteirinha:dd/MM/yyyy} — o convênio pode recusar a guia."
+            : null;
+
+        _ultimaPrevia = null;
+        MontarCartoes();
+        _ = PreverAsync();
+
+        // O alerta vermelho "Convênio a definir" vem do ElegibilidadeService e sai da
+        // lista sozinho na releitura — apagá-lo à mão aqui seria uma segunda verdade.
+        _ = VerificarElegibilidadeAsync(paciente.Id);
+    }
+
     /// <summary>Zera a tela para lançar outro atendimento, sem sair da seção.</summary>
     [RelayCommand]
     private void NovoLancamento()
@@ -1623,6 +1705,22 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             Avisar("Informe a hora da sessão no formato HH:mm.", erro: true);
             return;
         }
+
+        // ===== SEM CONVÊNIO NÃO SE LANÇA (parcela 92) =====
+        //
+        // Antes das perguntas seguintes (o repetido do dia, o choque de horário) e antes
+        // de qualquer gravação: é a CONDIÇÃO do lançamento, não um aviso a mais.
+        //
+        // A condição vale exatamente onde o ATENDIMENTO nasce, que é onde o serviço
+        // recusa: sempre no "o paciente está aqui", e no "marcar dia e horário" só com a
+        // chave "guia no agendamento" ligada — aí o atendimento e as guias nascem junto
+        // do horário. Com a chave desligada, marcar não cria atendimento nenhum, e exigir
+        // o convênio ali seria travar quem marca retorno POR TELEFONE numa resposta que
+        // essa pessoa não tem em mãos. A decisão da direção sobre as fichas importadas
+        // continua valendo: a escolha acontece com o paciente na frente — e é no dia da
+        // sessão que ela é feita, pela Fila ou por esta tela.
+        var vaiNascerAtendimento = !MarcarParaDepois || GuiaNaMarcacao;
+        if (vaiNascerAtendimento && !GarantirConvenioDoPaciente(paciente)) return;
 
         // ===== O MODO MARCAR (parcela 70) =====
         //
