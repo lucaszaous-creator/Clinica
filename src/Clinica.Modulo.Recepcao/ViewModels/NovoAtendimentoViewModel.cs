@@ -1954,6 +1954,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             return;
         }
 
+        // A metade VISÍVEL da recusa que mora no `AgendaService` (parcela 95). O aviso
+        // amarelo desta tela já dizia o custo desde a parcela 69 e deixava salvar; agora
+        // que o horário marcado É a agenda do médico, ele impede — e a frase chega aqui,
+        // no clique, em vez de vir como exceção do serviço.
+        if (SemProfissionalEscolhido)
+        {
+            Avisar("Escolha quem vai atender: o horário marcado precisa de dono para "
+                   + "aparecer na agenda do profissional e entrar no repasse.", erro: true);
+            return;
+        }
+
         var quantas = 0;
         var intervalo = 0;
         if (EmSerie)

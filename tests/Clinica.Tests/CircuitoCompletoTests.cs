@@ -44,6 +44,13 @@ public class CircuitoCompletoTests : IDisposable
 
     private static readonly DateOnly Dia = new(2026, 8, 12);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public CircuitoCompletoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -51,6 +58,10 @@ public class CircuitoCompletoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
 
         var atendimentos = new AtendimentoService(_repo);
@@ -82,7 +93,7 @@ public class CircuitoCompletoTests : IDisposable
 
     private Task<Agendamento> MarcarAsync(int pacienteId, TimeOnly hora)
         => _agenda.AgendarAsync(pacienteId, Dia.ToDateTime(hora),
-            ModalidadeAtendimento.AcupunturaComEletro, null);
+            ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
     private async Task<int> CriarInsumoAsync(decimal saldoInicial)
     {
@@ -334,7 +345,7 @@ public class CircuitoCompletoTests : IDisposable
 
         // --- o paciente volta ---
         var segunda = await _agenda.AgendarAsync(pacienteId, Dia.AddDays(30).ToDateTime(new TimeOnly(9, 0)),
-            ModalidadeAtendimento.AcupunturaComEletro, null);
+            ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         await _fechamento.ConcluirAsync(new DecisaoFechamento(segunda.Id, DebitarPacote: false));
 
         (await rodada.NaoConformidadesAsync())
@@ -545,7 +556,7 @@ public class CircuitoCompletoTests : IDisposable
         // convênio. É o mesmo fluxo do circuito 1 — aqui só não se escreve a evolução.
         var agendamento = await _agenda.AgendarAsync(
             paciente, ontem.ToDateTime(new TimeOnly(9, 0)),
-            ModalidadeAtendimento.AcupunturaComEletro, null);
+            ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         await _agenda.ConfirmarPresencaAsync(agendamento.Id);
 
         var painel = await MontarPainel().MontarAsync(Dia);

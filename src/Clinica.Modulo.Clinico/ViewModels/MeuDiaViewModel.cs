@@ -718,10 +718,11 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// Desfaz o "entrou" clicado por engano — um passo por vez, como no balcão: apagar
     /// mais de um carimbo de uma vez inventaria uma linha do tempo que não aconteceu.
     ///
-    /// FINALIZAR continua não existindo aqui, e é decisão: concluir a sessão são quatro
-    /// fatos do mesmo ato (guia, pacote, insumo, caixa — <c>FechamentoSessaoService</c>),
-    /// e três deles são do balcão. O médico encerra escrevendo a evolução; quem fecha a
-    /// sessão é quem fecha a conta.
+    /// FINALIZAR não fica no QUADRO, e continua sendo decisão: finalizar é o desfecho de
+    /// um atendimento que se acabou de escrever, e o botão dele mora na tela do paciente,
+    /// ao lado do que foi registrado. Desde a parcela 95 ele CONCLUI a sessão (carimba a
+    /// presença e gera as guias); o que segue no balcão é o dinheiro — pacote, insumo e
+    /// caixa —, que aparece na fila como fechamento pendente.
     /// </summary>
     [RelayCommand]
     private async Task VoltarEtapaAsync(LinhaSessao? linha)
@@ -762,8 +763,11 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     ///
     /// As transições legais são EXATAMENTE as dos botões — não uma segunda regra escrita
     /// aqui. O que o quadro do médico NÃO faz continua não fazendo pelo arrasto: check-in
-    /// (é do balcão, com a conferência de elegibilidade) e conclusão (quatro fatos do
-    /// mesmo ato, três do balcão). Movimento impossível não é silêncio — a tela DIZ.
+    /// (é do balcão, com a conferência de elegibilidade) e conclusão — que desde a parcela
+    /// 95 é dele, mas se faz DENTRO do atendimento, no botão que grava a sessão junto.
+    /// Arrastar para FINALIZADO concluiria uma sessão sem passar pelo registro clínico,
+    /// que é o gesto que este módulo existe para não permitir. Movimento impossível não é
+    /// silêncio — a tela DIZ, e diz onde se faz.
     /// </summary>
     public async Task MoverParaAsync(LinhaSessao? linha, EtapaFila alvo)
     {
@@ -793,8 +797,9 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             Mensagem = alvo switch
             {
                 EtapaFila.Finalizado =>
-                    "Concluir a sessão é do balcão (Finalizar, na fila): junto da guia "
-                    + "saem o pacote, o insumo e o caixa.",
+                    "Concluir se faz no atendimento, não no quadro: abra o paciente em "
+                    + "\"Atender\" e use \"Finalizar atendimento\" — é lá que a sessão "
+                    + "gravada e a guia saem juntas.",
                 EtapaFila.Chegou when linha.Etapa == EtapaFila.Aguardando =>
                     "O check-in é do balcão — é lá que carteirinha e cota são conferidas "
                     + "com o paciente na frente.",
@@ -835,9 +840,25 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// Chama o paciente para o atendimento: fixa o foco do posto e abre a tela de
     /// atendimento. É o único caminho em que a evolução nasce ligada ao AGENDAMENTO —
     /// e é esse vínculo que faz a sessão sair da lista de pendências depois de escrita.
+    ///
+    /// ⚠️ ELE CARIMBA A ENTRADA NA SALA (parcela 95). O fluxo que a direção pediu é de um
+    /// clique — "cai na agenda do médico, ele clica em atender e faz o atendimento" —, e
+    /// até aqui este botão só abria o prontuário: o cartão ficava parado em AGUARDANDO
+    /// enquanto o paciente estava na cadeira, e mover a fila era um segundo clique que
+    /// ninguém dava. O quadro do balcão então mentia sobre quem estava ocupado, e a
+    /// espera do paciente continuava correndo depois de ele ter entrado.
+    ///
+    /// O que se carimba é FATO: quem clica em Atender está com a pessoa na frente. É o
+    /// mesmo <c>IniciarAtendimentoAsync</c> do botão "Entrou" (que continua existindo, para
+    /// quem quer mover a fila sem abrir o prontuário), e o desfazer é o "Voltar" de sempre.
+    ///
+    /// ⚠️ Falhar o carimbo NÃO impede abrir o prontuário: ler o registro do paciente que
+    /// está na sala não pode depender de o banco ter respondido a uma escrita de fila. A
+    /// falha vira aviso na tela e linha no log — nunca silêncio, que faria o médico
+    /// atender achando que o balcão foi avisado.
     /// </summary>
     [RelayCommand]
-    private void Atender(LinhaSessao? linha)
+    private async Task AtenderAsync(LinhaSessao? linha)
     {
         if (linha is null) return;
 
@@ -852,11 +873,52 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             return;
         }
 
+        // A ENTRADA NA SALA, antes de abrir a tela. Só quando há o que carimbar: o
+        // horário é de HOJE (a fila corre só hoje — abrir a sessão de ontem pela dívida
+        // de prontuário não pode mover fila nenhuma), está em aberto e ainda não começou.
+        if (linha.EhHoje && linha.Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado)
+            await CarimbarEntradaAsync(linha);
+
         _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
                       linha.AtendimentoId, linha.Data);
         // A seção de escrita de QUEM clicou: quem consulta cai no S-O-A-P, quem
         // executa cai na passagem de enfermagem. Uma palavra, dois destinos certos.
         NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento());
+    }
+
+    /// <summary>
+    /// O carimbo de entrada do <see cref="AtenderAsync"/> — separado porque ele não pode
+    /// derrubar a abertura do prontuário, e porque a permissão dele é a da FILA, que não é
+    /// a mesma de abrir o registro.
+    /// </summary>
+    private async Task CarimbarEntradaAsync(LinhaSessao linha)
+    {
+        // Sem o bit da fila, atender continua valendo — o que não acontece é o recado ao
+        // balcão. Recusa CALADA aqui seria o pior dos dois mundos: o médico atenderia
+        // achando que o quadro andou.
+        if (!SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila))
+        {
+            Mensagem = "Prontuário aberto. O balcão não foi avisado de que o paciente "
+                       + "entrou: o seu acesso não move a fila do dia.";
+            MensagemEhErro = false;
+            return;
+        }
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.IniciarAtendimentoAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — entrada não pôde ser carimbada ao atender", ex);
+            Mensagem = "Prontuário aberto, mas o balcão não foi avisado de que o paciente "
+                       + $"entrou na sala: {ex.Message}";
+            MensagemEhErro = true;
+        }
     }
 
     /// <summary>Abre a tela das sessões sem evolução — a dívida de prontuário.</summary>

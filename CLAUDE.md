@@ -3126,6 +3126,79 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   assimetria está nos dados, não no caminho** — e aí a pergunta certa deixa de ser "o que
   esta tela faz de diferente" e passa a ser "o que este REGISTRO tem que o outro não tem".
 
+- **ATENDER É UM CLIQUE, E FINALIZAR ENCERRA O ASSUNTO — a simplificação do fluxo do
+  médico** (parcela 95; o mapa está em `docs/guia-no-agendamento.md` §4). A cliente
+  descreveu o que quer em uma linha — *"secretária agenda → cai na agenda do médico
+  respectivo → ele clica em atender e faz o atendimento"* — e mandou o print do Smart
+  Clinic, onde a linha da agenda tem o status ali, a coluna PRONTUÁRIO dizendo "Pendente"
+  e o botão ATENDER. O que o print fecha, e é o que decidiu a parcela: **não existe um
+  passo de conclusão pelo balcão**.
+  As três emendas, e o que cada uma paga:
+  **(a) Marcar EXIGE quem vai atender** (`AgendaService.AgendarAsync`). A primeira seta do
+  fluxo só existe com esse campo: "Meu dia" e "Minha semana" filtram por `ProfissionalId`,
+  e o repasse lê quem atendeu do AGENDAMENTO. Até aqui a tela AVISAVA o custo e deixava
+  salvar (parcela 69) — com o horário virando a agenda do médico, avisar deixou de bastar.
+  ⚠️ **O ENCAIXE continua passando**, e é a assimetria deliberada: encaixe é o paciente que
+  está no balcão AGORA, e recusá-lo travaria quem chegou sem hora marcada quando a
+  recepcionista ainda não sabe quem vai pegar. É onde o aviso funciona — com a pessoa na
+  frente.
+  **(b) "Atender" carimba a ENTRADA NA SALA.** Ele só abria o prontuário: o cartão ficava
+  parado em AGUARDANDO enquanto o paciente estava na cadeira, o quadro do balcão mentia
+  sobre quem estava ocupado e a espera continuava correndo depois de a pessoa ter entrado.
+  Quem clica em Atender está com ela na frente — o carimbo é FATO. ⚠️ Falhar o carimbo
+  **não impede abrir o prontuário**: ler o registro de quem está na sala não pode depender
+  de uma escrita de fila ter respondido; vira aviso, nunca silêncio.
+  **(c) "Finalizar atendimento" CONCLUI** (carimba a presença e gera as guias). O
+  argumento da parcela 61 — *concluir são quatro fatos e três são do balcão* — continua
+  verdadeiro para pacote, insumo e caixa, e **não se sustentava para a GUIA**, que é o fato
+  do atendimento. A medição fechou a decisão: no caso mais comum (convênio, sem pacote, sem
+  insumo) `RegistroAtendimento.TemDecisao` é **falso**, e o Concluir do balcão não abria
+  janela nenhuma — era um clique para carimbar o que o médico já sabia.
+  ⚠️ **O que o balcão continua fazendo é o DINHEIRO, e ele precisou de PORTA**: a raia
+  FINALIZADO ganhou "Fechar sessão", que abre a MESMA janela de fechamento. Nada foi
+  reimplementado — `FechamentoSessaoService.GarantirAtendimentoAsync` já sabia reaproveitar
+  a presença confirmada desde a parcela 65. Sem essa porta, o pacote da sessão que acabou
+  de acontecer não teria por onde debitar: alerta sem porta é pior que alerta nenhum.
+  ⚠️ **E a pendência SOME quando é resolvida** (`AtendimentosComFechamentoAsync`, em LOTE —
+  uma ida por cartão daria trinta a cada batida do relógio do quadro). Botão que fica aceso
+  para sempre em toda sessão do dia ensina a ignorar a coluna, que é a lição da parcela 68.
+  ⚠️ **A ORDEM dos três passos é amarra, não estilo**: grava a sessão → encerra → conclui.
+  Falhar o passo 3 não desfaz os dois primeiros, e cada desfecho tem frase própria — a
+  exceção pode vir do `Exigir`, do carimbo ou da conclusão, e a diferença entre elas é o
+  que a pessoa precisa fazer em seguida. E `EncerrarAtendimentoAsync` recusa horário que já
+  saiu de `Agendado`, então concluir antes deixaria a sessão sem o carimbo de fim: há teste
+  fixando as duas pontas.
+  ⚠️ **Concluir é IRREVERSÍVEL por ali**: com a presença carimbada, desfazer é ESTORNO, e
+  por isso o "Reabrir atendimento" SOME da tela (`PodeReabrir`) — botão que só existe para
+  levar recusa é o defeito da parcela 41.
+  ⚠️ **A permissão foi junto porque o ATO mudou de lugar**: `PerfilAcesso.Profissional`
+  passou a receber `LancarAtendimento` — é o bit que nomeia "criar o atendimento e, com
+  ele, as guias". É a lição da parcela 69 pelo outro lado (lá o bit existia e não guardava
+  a porta nova; aqui a porta nasceu e o bit precisava vir junto), e é ACRÉSCIMO: ninguém
+  que atendia ontem perde nada, e a direção continua podendo tirá-lo de uma pessoa
+  específica em Acessos. `EditarAgenda` **não** veio junto — marcar horário de terceiros
+  continua sendo do balcão, e há teste que falha se alguém o incluir de raspão.
+  ⚠️ **O CONVÊNIO "a definir" é perguntado ANTES de concluir**, pelo `VinculoDeConvenio` do
+  shell — o MESMO ponto único do Concluir da Fila. Com a chave "guia no agendamento"
+  desligada (o caso da clínica), é o clique do médico que gera a guia, e a importação
+  deixou 2.021 fichas sem convênio: sem a pergunta, a recusa da parcela 92 chegaria por
+  exceção na cara de quem não é dono do cadastro. Desistir não é erro — a sessão fica
+  gravada e encerrada, e a fila conclui depois.
+  ⚠️ **O custo medido, e ele foi pago**: a recusa de (a) quebrou **129 testes** de uma vez —
+  `AgendarAsync` é o construtor de horário de todo o projeto, e os cenários criavam
+  horários sem dono porque a regra permitia. Dois deles existiam para provar o contrário
+  (`Agendar_SemProfissionalNemSala_NuncaEhBarrado`, `Folha_do_dia_aguenta_agendamento_sem_
+  profissional_nem_sala`) e foram REESCRITOS, não remendados: o primeiro virou o par
+  recusa/encaixe da regra nova, o segundo passou a criar o horário como encaixe — porque a
+  folha continua tendo de aguentar os encaixes e os horários importados sem profissional.
+  **Quando uma regra nova quebra um teste que existia para provar o contrário, o teste é
+  parte da mudança, não um obstáculo a contornar.**
+  ⚠️ E o efeito colateral que a correção em massa produziu vale a lição: com todos os
+  cenários passando a usar o MESMO profissional, dois horários no mesmo instante viraram
+  **choque de verdade**. Semear um dado no fixture muda o mundo dos vizinhos — o helper do
+  fechamento passou a andar uma hora por chamada, e os testes de contagem de profissional
+  ficaram sem a semente.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

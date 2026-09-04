@@ -36,6 +36,13 @@ public class FechamentoSessaoTests : IDisposable
     private static readonly DateTime Sessao = new(2026, 8, 20, 14, 0, 0);
     private static DateOnly Dia => DateOnly.FromDateTime(Sessao);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public FechamentoSessaoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -43,6 +50,10 @@ public class FechamentoSessaoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
 
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
@@ -62,12 +73,20 @@ public class FechamentoSessaoTests : IDisposable
         return p.Id;
     }
 
+    /// <summary>
+    /// Marca uma sessão para o profissional padrão do fixture. Cada chamada anda uma hora:
+    /// com dono, dois horários no MESMO instante são choque de verdade (parcela 95), e o
+    /// que estes testes querem é uma sessão a mais, não um encaixe.
+    /// </summary>
     private async Task<int> AgendarAsync(int pacienteId)
     {
         var ag = await _agenda.AgendarAsync(
-            pacienteId, Sessao, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, Sessao.AddHours(_marcados++), ModalidadeAtendimento.AcupunturaComEletro,
+            null, profissionalId: _profPadrao);
         return ag.Id;
     }
+
+    private int _marcados;
 
     private async Task<PacotePaciente> VenderPacoteAsync(
         int pacienteId, int sessoes = 10, DateOnly? validoAte = null)

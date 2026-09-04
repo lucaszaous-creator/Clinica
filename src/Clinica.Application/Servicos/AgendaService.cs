@@ -82,8 +82,34 @@ public sealed class AgendaService
         if (duracaoMinutos is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
 
-        // Só valida choque quando há recurso disputado. Sem profissional nem sala — o
-        // caminho do faturamento — nada muda: ele avisa na tela e marca assim mesmo.
+        // ===== QUEM VAI ATENDER É OBRIGATÓRIO NA MARCAÇÃO (parcela 95) =====
+        //
+        // O fluxo que a direção pediu é "a secretária marca → cai na agenda do médico
+        // respectivo → ele clica em atender". A primeira seta só existe com este campo:
+        // o "Meu dia" e a "Minha semana" filtram por `ProfissionalId`, então horário sem
+        // dono não aparece na agenda de NINGUÉM — e fica de fora do REPASSE, que lê quem
+        // atendeu do agendamento porque `Atendimento` não guarda profissional. Até aqui a
+        // tela AVISAVA o custo e deixava salvar (parcela 69); com o atendimento saindo da
+        // agenda do profissional, avisar deixou de bastar: o horário sem dono não é um
+        // horário pior, é um horário que o fluxo inteiro não alcança.
+        //
+        // ⚠️ O ENCAIXE continua passando, e é a assimetria deliberada. Encaixe é o
+        // paciente que está NO BALCÃO agora (o lançamento avulso vira encaixe desde a
+        // parcela 60): recusá-lo travaria quem chegou sem hora marcada quando a
+        // recepcionista ainda não sabe quem vai pegar — e ali a tela avisa o custo com a
+        // pessoa na frente, que é onde o aviso funciona. O que se exige é do horário
+        // MARCADO, que existe justamente para cair na agenda de alguém.
+        //
+        // A recusa mora aqui, e não nas telas, pela razão de sempre: são CINCO portas de
+        // marcação (as duas da Recepção, a série, a lista de espera e a agenda do
+        // faturamento), e validar em uma cobre uma e deixa quatro passando.
+        if (!encaixe && profissionalId is null)
+            throw new InvalidOperationException(
+                "Escolha quem vai atender. Sem profissional o horário não aparece na agenda "
+                + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
+
+        // Só valida choque quando há recurso disputado. Sem sala e sem profissional — o
+        // encaixe que a recepção lança com o paciente no balcão — nada há para disputar.
         await GarantirSemChoqueAsync(
             dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, encaixe, ct);
 

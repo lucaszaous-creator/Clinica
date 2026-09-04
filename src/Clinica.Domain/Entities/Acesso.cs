@@ -440,11 +440,23 @@ public static class PerfisAcesso
         // Não mexe em agenda de terceiros nem em dinheiro. MovimentarFila e não
         // EditarAgenda: chamar o próprio paciente é o gesto central do quadro dele;
         // marcar e remarcar horário continua sendo do balcão.
+        //
+        // ⚠️ `LancarAtendimento` entrou na parcela 95 porque o ATO MUDOU DE LUGAR: o
+        // "Finalizar atendimento" do Consultório passou a concluir a sessão — carimba a
+        // presença e gera as guias —, e esse é exatamente o ato que este bit nomeia
+        // ("criar o atendimento — e, com ele, as guias"). Sem ele o botão levaria recusa
+        // em toda finalização. É a lição da parcela 69 pelo outro lado: lá o bit existia e
+        // não guardava a porta nova; aqui a porta nasceu e o bit precisava vir junto.
+        //
+        // Isto ACRESCENTA capacidade a quem já atendia, nunca tira (regra 3 do bloco do
+        // faturamento) — e continua sendo removível numa pessoa específica em Acessos, que
+        // é o que a granularidade da parcela 49 existe para permitir.
         PerfilAcesso.Profissional =>
             Permissao.VerAgenda | Permissao.MovimentarFila |
             Permissao.VerFichaPaciente |
             Permissao.VerProntuario | Permissao.EditarProntuario |
             Permissao.VerDocumentos |
+            Permissao.LancarAtendimento |
             Permissao.ColherAssinaturaPaciente |
             Permissao.Prescrever,
 

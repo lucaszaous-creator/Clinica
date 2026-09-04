@@ -21,6 +21,13 @@ public class AjustesFluxoTests : IDisposable
     private readonly ClinicaDbContext _db;
     private readonly ClinicaRepositorio _repo;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AjustesFluxoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -28,6 +35,10 @@ public class AjustesFluxoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
     }
 
@@ -167,7 +178,7 @@ public class AjustesFluxoTests : IDisposable
 
         var ag = await agenda.AgendarAsync(
             paciente.Id, quando, ModalidadeAtendimento.AcupunturaComEletro, null,
-            encaixe: true, operador: "recepcao");
+            encaixe: true, operador: "recepcao", profissionalId: _profPadrao);
         var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
 
         var naAgenda = (await _db.Agendamentos.AsNoTracking().ToListAsync())

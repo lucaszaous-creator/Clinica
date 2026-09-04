@@ -409,6 +409,17 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             return;
         }
 
+        // A metade VISÍVEL da recusa do `AgendaService` (parcela 95): horário MARCADO
+        // precisa de dono, porque é dele que a agenda do médico é feita. O encaixe fica
+        // de fora — é o paciente já no balcão —, e a remarcação também: mover um horário
+        // não escolhe quem atende, e os antigos podem não ter ninguém.
+        if (!Encaixe && _agendamentoId is null && Profissional is null)
+        {
+            Erro("Escolha quem vai atender: sem profissional o horário não aparece na "
+                 + "agenda de ninguém e fica fora do repasse.");
+            return;
+        }
+
         try
         {
             Salvando = true;

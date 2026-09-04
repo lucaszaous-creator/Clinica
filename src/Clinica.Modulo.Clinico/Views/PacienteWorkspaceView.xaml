@@ -259,7 +259,7 @@
                                    FontWeight="SemiBold" />
                         <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
                                    Margin="0,2,0,0"
-                                   Text="Finalizar salva a sessão e avisa o balcão. Quem fecha a guia, o pacote e o caixa continua sendo a recepção."
+                                   Text="Finalizar salva a sessão, encerra o horário e gera a guia. O que segue no balcão é o dinheiro: pacote, insumo e caixa."
                                    Visibility="{Binding EmAtendimento,
                                                 Converter={StaticResource BoolParaVisibilidade}}" />
                     </StackPanel>
@@ -283,7 +283,7 @@
                                 Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding ReabrirSessaoCommand}"
                                 IsEnabled="{Binding PodeMoverFila}"
-                                Visibility="{Binding SessaoEncerrada,
+                                Visibility="{Binding PodeReabrir,
                                              Converter={StaticResource BoolParaVisibilidade}}" />
                     </StackPanel>
                 </Grid>

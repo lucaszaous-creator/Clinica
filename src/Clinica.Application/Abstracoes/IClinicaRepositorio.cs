@@ -1048,6 +1048,26 @@ public interface IClinicaRepositorio
     /// <summary>Consumo já registrado para este atendimento? Evita debitar duas vezes.</summary>
     Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Quais destes atendimentos JÁ TIVERAM fechamento — pacote debitado, dinheiro lançado
+    /// ou insumo baixado (parcela 95).
+    ///
+    /// Nasceu quando o "Finalizar" do Consultório passou a concluir a sessão: a fila do
+    /// balcão deixou de ser o lugar onde a sessão é carimbada e passou a ser o lugar onde
+    /// o DINHEIRO dela é resolvido — e "resolver" precisa de um fim, senão o botão fica
+    /// aceso para sempre em toda sessão do dia e ensina a ignorar a coluna (a lição da
+    /// parcela 68: pendência que não some é pendência que ninguém lê).
+    ///
+    /// ⚠️ É EM LOTE de propósito: a alternativa é uma ida ao banco por cartão, e o quadro
+    /// do dia tem trinta deles e relê a cada minuto. Três consultas por quadro, não noventa.
+    ///
+    /// Cancelado não conta em nenhuma das três: consumo cancelado devolveu a sessão ao
+    /// pacote e lançamento cancelado saiu dos totais — nos dois casos o que havia sido
+    /// fechado foi DESFEITO, e a sessão volta a pedir decisão.
+    /// </summary>
+    Task<IReadOnlyList<int>> AtendimentosComFechamentoAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
+
     Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default);
 
     /// <summary>

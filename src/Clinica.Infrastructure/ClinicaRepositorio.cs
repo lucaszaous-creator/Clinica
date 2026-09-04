@@ -1943,6 +1943,44 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.ConsumosPacote.AsNoTracking()
             .AnyAsync(c => c.AtendimentoId == atendimentoId && c.CanceladoEm == null, ct);
 
+    /// <summary>
+    /// Ver o contrato em <c>IClinicaRepositorio</c>. Três consultas, não uma por cartão.
+    ///
+    /// ⚠️ As COLUNAS, nunca as derivadas (`Cancelado` de <c>ConsumoPacote</c> e
+    /// <c>LancamentoFinanceiro.Ativo</c> não são mapeadas, e o EF recusa em RUNTIME —
+    /// a tradução só se prova executando).
+    /// </summary>
+    public async Task<IReadOnlyList<int>> AtendimentosComFechamentoAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(atendimentoIds);
+        if (atendimentoIds.Count == 0) return [];
+
+        var ids = atendimentoIds.Distinct().ToList();
+
+        var comPacote = await _db.ConsumosPacote.AsNoTracking()
+            .Where(c => c.AtendimentoId != null && ids.Contains(c.AtendimentoId!.Value)
+                        && c.CanceladoEm == null)
+            .Select(c => c.AtendimentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var comDinheiro = await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId != null && ids.Contains(l.AtendimentoId!.Value)
+                        && l.Status != StatusLancamento.Cancelado)
+            .Select(l => l.AtendimentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var comInsumo = await _db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.AtendimentoId != null && ids.Contains(m.AtendimentoId!.Value))
+            .Select(m => m.AtendimentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return comPacote.Union(comDinheiro).Union(comInsumo).ToList();
+    }
+
     public Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default)
         => _db.ConsumosPacote.FirstOrDefaultAsync(c => c.Id == consumoId, ct);
 

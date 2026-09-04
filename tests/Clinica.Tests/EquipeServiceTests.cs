@@ -22,6 +22,7 @@ public class EquipeServiceTests : IDisposable
     private readonly EquipeService _equipe;
     private readonly AgendaService _agenda;
 
+
     public EquipeServiceTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -331,9 +332,11 @@ public class EquipeServiceTests : IDisposable
     public async Task ExcluirSala_ComAgenda_Recusa()
     {
         var sala = await _equipe.SalvarSalaAsync(new Sala { Nome = "Consultório 1" });
+        var profissional = await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Dra. Ana" });
         var pacienteId = await CriarPacienteAsync();
         await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 8, 3, 9, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null, salaId: sala.Id);
+            ModalidadeAtendimento.AcupunturaSimples, null, salaId: sala.Id,
+            profissionalId: profissional.Id);
 
         var acao = () => _equipe.ExcluirSalaAsync(sala.Id);
 

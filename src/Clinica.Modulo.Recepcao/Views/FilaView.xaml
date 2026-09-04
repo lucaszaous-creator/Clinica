@@ -255,7 +255,11 @@
                         <!-- O rótulo muda com a etapa, e o BIT muda junto: "Chegou",
                              "Chamar" e "Entrou" são movimento de fila (EditarAgenda OU
                              MovimentarFila); "Concluir" é do balcão e pede EditarAgenda
-                             estrito, a mesma conta do Exigir em FinalizarAsync. -->
+                             estrito, a mesma conta do Exigir em FinalizarAsync.
+                             "Fechar sessão" (parcela 95) aparece na raia FINALIZADO
+                             enquanto o dinheiro da sessão concluída pelo Consultório não
+                             foi resolvido — pacote, insumo e caixa —, e pede o bit da
+                             agenda como os três primeiros. -->
                         <Button DockPanel.Dock="Right" Content="{Binding ProximoPasso}"
                                 VerticalAlignment="Center"
                                 Visibility="{Binding TemProximoPasso,

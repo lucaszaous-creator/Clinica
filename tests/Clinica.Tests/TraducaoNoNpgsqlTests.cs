@@ -1,4 +1,5 @@
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using FluentAssertions;
@@ -437,5 +438,43 @@ public class TraducaoNoNpgsqlTests
 
         sql.Should().Contain("\"PacienteId\"");
         sql.Should().Contain("\"Codigos\"", "a coleção vem junto — é ela que conta as guias faturáveis");
+    }
+
+    /// <summary>
+    /// "Quais destas sessões já tiveram fechamento?" (parcela 95) — três consultas com
+    /// <c>Contains</c> sobre a lista de atendimentos do dia, uma por tabela de dinheiro.
+    ///
+    /// ⚠️ O que este teste protege é o filtro pela COLUNA: <c>ConsumoPacote.Cancelado</c> e
+    /// <c>LancamentoFinanceiro.Ativo</c> são DERIVADAS e não mapeadas — usá-las faria o
+    /// quadro da fila estourar em runtime, na clínica, com o SQLite dos testes verde.
+    /// </summary>
+    [Fact]
+    public void Fechamentos_de_um_conjunto_de_atendimentos_traduzem()
+    {
+        using var db = Postgres();
+        var ids = new[] { 1, 2, 3 };
+
+        db.ConsumosPacote.AsNoTracking()
+            .Where(c => c.AtendimentoId != null && ids.Contains(c.AtendimentoId!.Value)
+                        && c.CanceladoEm == null)
+            .Select(c => c.AtendimentoId!.Value)
+            .Distinct()
+            .ToQueryString()
+            .Should().Contain("\"CanceladoEm\" IS NULL");
+
+        db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId != null && ids.Contains(l.AtendimentoId!.Value)
+                        && l.Status != StatusLancamento.Cancelado)
+            .Select(l => l.AtendimentoId!.Value)
+            .Distinct()
+            .ToQueryString()
+            .Should().Contain("\"Status\"");
+
+        db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.AtendimentoId != null && ids.Contains(m.AtendimentoId!.Value))
+            .Select(m => m.AtendimentoId!.Value)
+            .Distinct()
+            .ToQueryString()
+            .Should().Contain("\"AtendimentoId\"");
     }
 }
