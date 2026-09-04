@@ -17,6 +17,21 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Clinico.ViewModels;
 
 /// <summary>
+/// Um chip da régua de Exames e anexos: o rótulo e QUANTOS há ali dentro.
+/// A contagem ANTES do clique é o que faz o chip valer.
+/// </summary>
+public sealed partial class ChipExame : ObservableObject
+{
+    public required string Chave { get; init; }
+    public required string Rotulo { get; init; }
+    public required int Quantidade { get; init; }
+
+    [ObservableProperty] private bool _marcado;
+
+    public string Texto => $"{Rotulo} ({Quantidade})";
+}
+
+/// <summary>
 /// EXAMES E ANEXOS do paciente — a seção que faltava (parcela 74).
 ///
 /// O que ela corrige
@@ -65,7 +80,71 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     public ObservableCollection<LinhaArquivoDaFicha> ArquivosDaFicha { get; } = [];
 
     /// <summary>Há arquivo da ficha — a região dele SOME vazia (o convite é o botão).</summary>
-    [ObservableProperty] private bool _temArquivosDaFicha;
+    // ==================== O QUE FALTAVA: O PEDIDO ====================
+    //
+    // A tela mostrava resultado e arquivo — o que JÁ VOLTOU. "Eu pedi a ressonância; ela
+    // chegou?" não se respondia em tela nenhuma do Consultório: o pedido some numa lista da
+    // clínica inteira e o laudo entra por outra porta. Aqui os dois viram a mesma linha, e
+    // é o pedido AGUARDANDO que abre a tela.
+    //
+    // ⚠️ A situação é DERIVADA DE FATO (a contagem de resultados vigentes amarrados ao
+    // pedido), nunca um campo: "aguardando" sem o vínculo seria chute com cara de registro.
+
+    /// <summary>Os pedidos de exame deste paciente que ainda não têm resultado amarrado.</summary>
+    public ObservableCollection<PedidoDeExameLinha> PedidosAguardando { get; } = [];
+
+    /// <summary>A régua de chips: uma lista por vez, com a contagem antes do clique.</summary>
+    public ObservableCollection<ChipExame> Chips { get; } = [];
+
+    [ObservableProperty] private string _secaoEscolhida = SecaoAguardando;
+
+    public const string SecaoAguardando = "Aguardando";
+    public const string SecaoResultados = "Resultados";
+    public const string SecaoArquivos = "Arquivos";
+    public const string SecaoSessoes = "Sessoes";
+
+    public bool MostrandoAguardando => SecaoEscolhida == SecaoAguardando;
+    public bool MostrandoResultados => SecaoEscolhida == SecaoResultados;
+    public bool MostrandoArquivos => SecaoEscolhida == SecaoArquivos;
+    public bool MostrandoSessoes => SecaoEscolhida == SecaoSessoes;
+
+    [RelayCommand]
+    private void EscolherSecao(ChipExame? chip)
+    {
+        if (chip is null) return;
+        SecaoEscolhida = chip.Chave;
+    }
+
+    partial void OnSecaoEscolhidaChanged(string value)
+    {
+        foreach (var chip in Chips) chip.Marcado = chip.Chave == SecaoEscolhida;
+        OnPropertyChanged(nameof(MostrandoAguardando));
+        OnPropertyChanged(nameof(MostrandoResultados));
+        OnPropertyChanged(nameof(MostrandoArquivos));
+        OnPropertyChanged(nameof(MostrandoSessoes));
+    }
+
+    /// <summary>
+    /// Remonta a régua com as contagens.
+    ///
+    /// ⚠️ A seção escolhida NÃO se move sozinha quando ela esvazia: a lista vazia com o
+    /// chip marcado responde "não há nada aqui", e pular para outra faria a tela trocar de
+    /// assunto sem ninguém pedir. O que ela faz é abrir em "Aguardando" quando há pedido
+    /// esperando — que é a pergunta que trouxe a pessoa à tela.
+    /// </summary>
+    private void MontarChips(bool primeiraCarga)
+    {
+        Chips.Clear();
+        Chips.Add(new ChipExame { Chave = SecaoAguardando, Rotulo = "Aguardando", Quantidade = PedidosAguardando.Count });
+        Chips.Add(new ChipExame { Chave = SecaoResultados, Rotulo = "Com resultado", Quantidade = Resultados.Count });
+        Chips.Add(new ChipExame { Chave = SecaoArquivos, Rotulo = "Arquivos da ficha", Quantidade = ArquivosDaFicha.Count });
+        Chips.Add(new ChipExame { Chave = SecaoSessoes, Rotulo = "Anexos de sessão", Quantidade = Anexos.Count });
+
+        if (primeiraCarga)
+            SecaoEscolhida = PedidosAguardando.Count > 0 ? SecaoAguardando : SecaoResultados;
+
+        foreach (var chip in Chips) chip.Marcado = chip.Chave == SecaoEscolhida;
+    }
 
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
@@ -74,7 +153,8 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     [ObservableProperty] private string _resumo = string.Empty;
 
     /// <summary>Há resultado estruturado — a região dele SOME vazia (o convite é o botão).</summary>
-    [ObservableProperty] private bool _temResultados;
+    /// <summary>A tela ainda não escolheu a seção de abertura — ver <c>MontarChips</c>.</summary>
+    private bool _primeiraCarga = true;
 
     public bool PodeLer => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
@@ -108,8 +188,8 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             Anexos.Clear();
             Resultados.Clear();
             ArquivosDaFicha.Clear();
-            TemResultados = false;
-            TemArquivosDaFicha = false;
+            PedidosAguardando.Clear();
+            Chips.Clear();
             Resumo = string.Empty;
             return;
         }
@@ -124,6 +204,7 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             var lista = await repo.AnexosDoPacienteAsync(id);
             var exames = await repo.ResultadosExameDoPacienteAsync(id);
             var daFicha = await repo.AnexosDaFichaAsync(id);
+            var pedidos = await repo.PedidosDeExameAsync(pacienteId: id);
 
             if (geracao != _geracaoCarga) return;
 
@@ -135,12 +216,22 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             foreach (var a in lista) Anexos.Add(a);
             Resultados.Clear();
             foreach (var r in exames) Resultados.Add(LinhaResultadoExame.De(r));
-            TemResultados = exames.Count > 0;
             ArquivosDaFicha.Clear();
             foreach (var a in daFicha) ArquivosDaFicha.Add(LinhaArquivoDaFicha.De(a));
-            TemArquivosDaFicha = daFicha.Count > 0;
+
+            // Só o que AGUARDA: o pedido que já voltou está na lista de resultados, e
+            // repeti-lo aqui faria a régua contar o mesmo exame duas vezes. Cancelado
+            // também fica de fora — ele não espera nada.
+            PedidosAguardando.Clear();
+            foreach (var pedido in pedidos.Where(x => x.Situacao == SituacaoPedidoExame.AguardandoResultado))
+                PedidosAguardando.Add(pedido);
+
+            MontarChips(primeiraCarga: _primeiraCarga);
+            _primeiraCarga = false;
 
             var partes = new List<string>();
+            if (PedidosAguardando.Count > 0)
+                partes.Add($"{PedidosAguardando.Count} pedido(s) aguardando resultado");
             if (exames.Count > 0) partes.Add($"{exames.Count} resultado(s) registrado(s)");
             if (daFicha.Count > 0) partes.Add($"{daFicha.Count} arquivo(s) da ficha");
             if (lista.Count > 0) partes.Add($"{lista.Count} arquivo(s) anexado(s) a sessões");
@@ -260,7 +351,21 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RegistrarResultadoAsync()
+    private Task RegistrarResultadoAsync() => AbrirRegistroAsync(null);
+
+    /// <summary>
+    /// Anexar o laudo NA LINHA do pedido — com o pedido já escolhido na janela.
+    ///
+    /// É o gesto que a tela existe para dar: o PDF chega pelo WhatsApp e quem o recebe
+    /// está olhando a linha "aguardando há 7 dias". Sem o pedido pré-selecionado, o botão
+    /// da linha abriria a mesma janela genérica e a pessoa teria de reencontrar ali o
+    /// pedido que ela acabou de clicar.
+    /// </summary>
+    [RelayCommand]
+    private Task AnexarLaudoAsync(PedidoDeExameLinha? pedido)
+        => pedido is null ? Task.CompletedTask : AbrirRegistroAsync(pedido.DocumentoId);
+
+    private async Task AbrirRegistroAsync(int? pedidoDocumentoId)
     {
         if (_foco.PacienteId is not { } id)
         {
@@ -275,7 +380,8 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            var vm = new ResultadoExameEdicaoViewModel(_escopos, id, _foco.Nome);
+            var vm = new ResultadoExameEdicaoViewModel(
+                _escopos, id, _foco.Nome, pedidoDocumentoId);
             var janela = new RegistrarResultadoExameWindow(vm)
             {
                 Owner = JanelaDona.Atual()

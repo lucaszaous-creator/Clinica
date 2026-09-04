@@ -7,16 +7,6 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
-
-        <!-- Um campo da anamnese. Em LEITURA é texto corrido; em EDIÇÃO é caixa. A troca
-             acontece no mesmo lugar da tela para o olho não perder a linha. -->
-        <Style x:Key="CampoAnamnese" TargetType="TextBox">
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="AcceptsReturn" Value="True" />
-            <Setter Property="MinHeight" Value="64" />
-            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-            <Setter Property="Margin" Value="0,0,0,12" />
-        </Style>
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
@@ -90,45 +80,48 @@
 
             <Border Grid.Column="0" Style="{StaticResource Card}">
                 <Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <TextBlock Text="Antecedentes pessoais" Style="{StaticResource Rotulo}" />
-                            <TextBox Style="{StaticResource CampoAnamnese}"
-                                     IsReadOnly="{Binding SomenteLeitura}"
-                                     Text="{Binding AntecedentesPessoais, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Doenças prévias, internações, cirurgias, fraturas." />
+                    <!-- ============ ÂNCORAS + UMA FOLHA ============
+                         (mockup 01). Eram SEIS caixas empilhadas numa rolagem: achar onde
+                         se parou era rolar, e as vazias gastavam meia tela cada uma para
+                         não dizer nada. A régua diz o que já foi escrito e o que está em
+                         branco; a folha mostra UMA seção, do tamanho da tela.
 
-                            <TextBlock Text="Antecedentes familiares" Style="{StaticResource Rotulo}" />
-                            <TextBox Style="{StaticResource CampoAnamnese}"
-                                     IsReadOnly="{Binding SomenteLeitura}"
-                                     Text="{Binding AntecedentesFamiliares, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="O que decide conduta é o parentesco e a idade do evento — “pai infartou aos 58” pesa diferente de “avô aos 89”." />
+                         ⚠️ Os seis campos continuam sendo seis colunas. Ao contrário da
+                         sessão, aqui a divisão por assunto é usada de verdade: é assim que
+                         a anamnese sai no papel que o convênio pede. -->
+                    <DockPanel>
+                        <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Secoes}"
+                                      Margin="0,0,0,10">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ToggleButton Style="{StaticResource ChipFiltro}"
+                                                  Margin="0,0,8,6"
+                                                  Content="{Binding Texto}"
+                                                  IsChecked="{Binding Marcado, Mode=OneWay}"
+                                                  Command="{Binding DataContext.AbrirSecaoCommand,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                  CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
-                            <TextBlock Text="Hábitos de vida" Style="{StaticResource Rotulo}" />
-                            <TextBox Style="{StaticResource CampoAnamnese}"
-                                     IsReadOnly="{Binding SomenteLeitura}"
-                                     Text="{Binding HabitosDeVida, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Tabagismo, etilismo, atividade física, sono, alimentação." />
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding RotuloDaSecao}"
+                                   Style="{StaticResource Rotulo}" />
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding DicaDaSecao}"
+                                   TextWrapping="Wrap" Margin="0,0,0,6"
+                                   Style="{StaticResource TextoSuave}" />
 
-                            <TextBlock Text="Interrogatório sintomatológico" Style="{StaticResource Rotulo}" />
-                            <TextBox Style="{StaticResource CampoAnamnese}"
-                                     IsReadOnly="{Binding SomenteLeitura}"
-                                     Text="{Binding RevisaoDeSistemas, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="A varredura por aparelhos que a primeira consulta faz e as seguintes não repetem." />
-
-                            <TextBlock Text="História obstétrica (quando se aplica)"
-                                       Style="{StaticResource Rotulo}" />
-                            <TextBox Style="{StaticResource CampoAnamnese}"
-                                     IsReadOnly="{Binding SomenteLeitura}"
-                                     Text="{Binding HistoriaObstetrica, UpdateSourceTrigger=PropertyChanged}" />
-
-                            <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
-                            <TextBox Style="{StaticResource CampoAnamnese}"
-                                     IsReadOnly="{Binding SomenteLeitura}"
-                                     Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="Profissão, com quem mora, quem cuida, o que a pessoa espera do tratamento." />
-                        </StackPanel>
-                    </ScrollViewer>
+                        <TextBox Text="{Binding TextoDaSecao, UpdateSourceTrigger=PropertyChanged}"
+                                 IsReadOnly="{Binding SomenteLeitura}"
+                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="200"
+                                 VerticalContentAlignment="Top"
+                                 VerticalScrollBarVisibility="Auto" />
+                    </DockPanel>
 
                     <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica, e é o
                          ÚLTIMO filho do Grid (parcela 58). Vazio: nunca foi colhida. -->

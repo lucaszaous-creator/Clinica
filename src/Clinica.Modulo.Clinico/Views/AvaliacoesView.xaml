@@ -14,10 +14,27 @@
              cabeçalho da tela, uma vez, acima das abas. -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
                 HorizontalAlignment="Right" Margin="0,0,0,14">
-            <ComboBox ItemsSource="{Binding Instrumentos}"
-                  SelectedItem="{Binding Instrumento}"
-                  DisplayMemberPath="Nome" MinWidth="260" MaxWidth="340"
-                  VerticalAlignment="Center" />
+            <!-- As escalas como CHIPS (mockup 01): a escolhida e as alternativas à vista
+                 ao mesmo tempo. Num ComboBox era preciso abrir a lista para saber que
+                 existem cinco, e a marcada sumia quando ela fechava. -->
+            <ItemsControl ItemsSource="{Binding Chips}" VerticalAlignment="Center"
+                          Margin="0,0,8,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,4"
+                                      Content="{Binding Nome}"
+                                      IsChecked="{Binding Marcado, Mode=OneWay}"
+                                      Command="{Binding DataContext.EscolherCommand,
+                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                      CommandParameter="{Binding}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
             <!-- O IsEnabled cobre as TRÊS pré-condições da guarda (escala + paciente +
                  permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
             <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"

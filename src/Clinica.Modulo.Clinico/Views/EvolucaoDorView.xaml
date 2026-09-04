@@ -37,37 +37,52 @@
                  repetido em dois deles. -->
             <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
                 <StackPanel>
-                    <!-- "—" quando falta base: 0 e "não medido" são coisas diferentes,
-                         e a diferença aqui decide se o tratamento continua. Juntas à
-                         esquerda, porque cinco números espalhados por mil e trezentos
-                         pixels viram cinco traços perdidos. -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <StackPanel Margin="0,0,26,0">
-                            <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding DorInicial}" TextWrapping="Wrap"
-                                       Style="{StaticResource CardKpi.Valor}" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,26,0">
-                            <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding DorAtual}" TextWrapping="Wrap"
-                                       Style="{StaticResource CardKpi.Valor}" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,26,0">
-                            <TextBlock Text="GANHO" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding GanhoAcumulado}" TextWrapping="Wrap"
-                                       Style="{StaticResource CardKpi.Valor}" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,26,0">
-                            <TextBlock Text="REDUÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding Reducao}" TextWrapping="Wrap"
-                                       Style="{StaticResource CardKpi.Valor}" />
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding AlivioMedio}" TextWrapping="Wrap"
-                                       Style="{StaticResource CardKpi.Valor}" />
-                        </StackPanel>
-                    </StackPanel>
+                    <!-- ============ TRÊS NÚMEROS, NÃO CINCO ============
+                         (mockup 01). Eram cinco caixas, e duas delas diziam a mesma coisa:
+                         "ganho 5 pontos" e "redução 62%" são a MESMA subtração escrita de
+                         dois jeitos, e dois números para um fato fazem quem lê procurar a
+                         diferença entre eles. O ganho virou o DELTA do número de hoje, que
+                         é onde ele responde "está funcionando?".
+
+                         "—" quando falta base: 0 e "não medido" são coisas diferentes, e a
+                         diferença aqui decide se o tratamento continua. Cartões, e não
+                         números soltos, porque é o componente que a casa já tem — e em
+                         WrapPanel, que dá a cada um o que ele pede e quebra a fileira
+                         quando não couber (a lição da parcela 50). -->
+                    <WrapPanel Margin="0,0,0,10">
+                        <Border Style="{StaticResource CardKpi}" MinWidth="170" Margin="0,0,10,10">
+                            <StackPanel>
+                                <TextBlock Text="DOR AO CHEGAR" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding DorInicial}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="na primeira sessão medida"
+                                           Style="{StaticResource CardKpi.Delta}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardKpi}" MinWidth="170" Margin="0,0,10,10">
+                            <StackPanel>
+                                <TextBlock Text="DOR AO SAIR" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding DorAtual}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                                <!-- O ganho acumulado É o delta deste número: ele responde
+                                     "quanto melhorou desde o começo", que é a pergunta que
+                                     a caixa separada respondia longe do valor. -->
+                                <TextBlock Text="{Binding GanhoAcumulado}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Delta}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource CardKpi}" MinWidth="170" Margin="0,0,10,10">
+                            <StackPanel>
+                                <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding AlivioMedio}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="por sessão com o par medido"
+                                           Style="{StaticResource CardKpi.Delta}" />
+                            </StackPanel>
+                        </Border>
+                    </WrapPanel>
 
                     <!-- Quando a tendência PREOCUPA ela já está no alerta lá em cima —
                          repetir a mesma frase aqui era a tela dizendo a mesma coisa em

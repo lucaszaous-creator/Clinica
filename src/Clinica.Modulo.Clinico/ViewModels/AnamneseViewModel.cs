@@ -21,6 +21,24 @@ public sealed class LinhaVersaoAnamnese
 }
 
 /// <summary>
+/// Uma âncora da anamnese: o rótulo, se ela é a aberta e se ainda está em branco.
+/// </summary>
+public sealed partial class ChipAnamnese : ObservableObject
+{
+    public required string Chave { get; init; }
+    public required string Rotulo { get; init; }
+
+    [ObservableProperty] private bool _marcado;
+
+    /// <summary>Nada escrito ainda — o chip diz isso em vez de a página abrir um vão.</summary>
+    [ObservableProperty] private bool _emBranco = true;
+
+    public string Texto => EmBranco ? $"{Rotulo} · em branco" : Rotulo;
+
+    partial void OnEmBrancoChanged(bool value) => OnPropertyChanged(nameof(Texto));
+}
+
+/// <summary>
 /// A ANAMNESE do paciente na tela de quem atende (parcela 75).
 ///
 /// Ver <see cref="AnamnesePaciente"/> para por que ela não é a evolução com mais campos nem
@@ -81,6 +99,158 @@ public sealed partial class AnamneseViewModel : ObservableObject
     [ObservableProperty] private string _revisaoDeSistemas = string.Empty;
     [ObservableProperty] private string _observacoes = string.Empty;
 
+    // ==================== AS ÂNCORAS (mockup 01) ====================
+    //
+    // Eram seis caixas de texto empilhadas numa rolagem: achar onde parou era rolar, e as
+    // vazias ocupavam meia tela cada uma para não dizer nada. Agora a régua diz o que já
+    // foi escrito e o que está em branco, e a folha mostra UMA seção — do tamanho da tela,
+    // como a do atendimento.
+    //
+    // ⚠️ Os SEIS campos continuam sendo seis colunas no banco. Ao contrário da sessão, aqui
+    // a divisão por assunto é usada de verdade: é assim que a anamnese sai no papel que o
+    // convênio pede, separada por tópico.
+
+    /// <summary>As seções da anamnese, na ordem em que se escreve.</summary>
+    public ObservableCollection<ChipAnamnese> Secoes { get; } = [];
+
+    [ObservableProperty] private string _secaoEscolhida = ChaveAntecedentesPessoais;
+
+    public const string ChaveAntecedentesPessoais = "AntecedentesPessoais";
+    public const string ChaveAntecedentesFamiliares = "AntecedentesFamiliares";
+    public const string ChaveHabitosDeVida = "HabitosDeVida";
+    public const string ChaveRevisaoDeSistemas = "RevisaoDeSistemas";
+    public const string ChaveHistoriaObstetrica = "HistoriaObstetrica";
+    public const string ChaveObservacoes = "Observacoes";
+
+    /// <summary>
+    /// O texto da seção escolhida — a folha. Ler e escrever caem no campo certo, e é isso
+    /// que permite UMA caixa no lugar de seis.
+    /// </summary>
+    public string TextoDaSecao
+    {
+        get => SecaoEscolhida switch
+        {
+            ChaveAntecedentesFamiliares => AntecedentesFamiliares,
+            ChaveHabitosDeVida => HabitosDeVida,
+            ChaveRevisaoDeSistemas => RevisaoDeSistemas,
+            ChaveHistoriaObstetrica => HistoriaObstetrica,
+            ChaveObservacoes => Observacoes,
+            _ => AntecedentesPessoais
+        };
+        set
+        {
+            // ⚠️ A marca existe para o gancho abaixo NÃO reemitir `TextoDaSecao` enquanto a
+            // pessoa digita: o campo escreve no ViewModel a cada tecla, e devolver o valor
+            // à caixa no meio da digitação é como se perde a posição do cursor.
+            _escrevendoNaFolha = true;
+            switch (SecaoEscolhida)
+            {
+                case ChaveAntecedentesFamiliares: AntecedentesFamiliares = value; break;
+                case ChaveHabitosDeVida: HabitosDeVida = value; break;
+                case ChaveRevisaoDeSistemas: RevisaoDeSistemas = value; break;
+                case ChaveHistoriaObstetrica: HistoriaObstetrica = value; break;
+                case ChaveObservacoes: Observacoes = value; break;
+                default: AntecedentesPessoais = value; break;
+            }
+            _escrevendoNaFolha = false;
+        }
+    }
+
+    private bool _escrevendoNaFolha;
+
+    /// <summary>O rótulo e a dica da seção aberta — o que o rótulo da caixa dizia.</summary>
+    public string RotuloDaSecao =>
+        Secoes.FirstOrDefault(c => c.Chave == SecaoEscolhida)?.Rotulo ?? "Anamnese";
+
+    public string DicaDaSecao => SecaoEscolhida switch
+    {
+        ChaveAntecedentesFamiliares =>
+            "O que decide conduta é o parentesco e a idade do evento — “pai infartou aos 58” pesa diferente de “avô aos 89”.",
+        ChaveHabitosDeVida => "Tabagismo, etilismo, atividade física, sono, alimentação.",
+        ChaveRevisaoDeSistemas =>
+            "A varredura por aparelhos que a primeira consulta faz e as seguintes não repetem.",
+        ChaveHistoriaObstetrica => "Quando se aplica.",
+        ChaveObservacoes =>
+            "Profissão, com quem mora, quem cuida, o que a pessoa espera do tratamento.",
+        _ => "Doenças prévias, internações, cirurgias, fraturas."
+    };
+
+    /// <summary>Trocar de seção pelo chip.</summary>
+    [RelayCommand]
+    private void AbrirSecao(ChipAnamnese? chip)
+    {
+        if (chip is null) return;
+        SecaoEscolhida = chip.Chave;
+    }
+
+    partial void OnSecaoEscolhidaChanged(string value)
+    {
+        MarcarSecoes();
+        OnPropertyChanged(nameof(TextoDaSecao));
+        OnPropertyChanged(nameof(RotuloDaSecao));
+        OnPropertyChanged(nameof(DicaDaSecao));
+    }
+
+    /// <summary>
+    /// Monta e atualiza a régua. O "em branco" é o que faz a âncora valer: ele diz o que
+    /// falta escrever sem abrir um vão vazio na página.
+    /// </summary>
+    private void MarcarSecoes()
+    {
+        if (Secoes.Count == 0)
+        {
+            Secoes.Add(new ChipAnamnese { Chave = ChaveAntecedentesPessoais, Rotulo = "Antecedentes pessoais" });
+            Secoes.Add(new ChipAnamnese { Chave = ChaveAntecedentesFamiliares, Rotulo = "Antecedentes familiares" });
+            Secoes.Add(new ChipAnamnese { Chave = ChaveHabitosDeVida, Rotulo = "Hábitos de vida" });
+            Secoes.Add(new ChipAnamnese { Chave = ChaveRevisaoDeSistemas, Rotulo = "Interrogatório" });
+            Secoes.Add(new ChipAnamnese { Chave = ChaveHistoriaObstetrica, Rotulo = "História obstétrica" });
+            Secoes.Add(new ChipAnamnese { Chave = ChaveObservacoes, Rotulo = "Observações" });
+        }
+
+        foreach (var chip in Secoes)
+        {
+            chip.Marcado = chip.Chave == SecaoEscolhida;
+            chip.EmBranco = string.IsNullOrWhiteSpace(chip.Chave switch
+            {
+                ChaveAntecedentesFamiliares => AntecedentesFamiliares,
+                ChaveHabitosDeVida => HabitosDeVida,
+                ChaveRevisaoDeSistemas => RevisaoDeSistemas,
+                ChaveHistoriaObstetrica => HistoriaObstetrica,
+                ChaveObservacoes => Observacoes,
+                _ => AntecedentesPessoais
+            });
+        }
+    }
+
+    /// <summary>
+    /// Qualquer campo mudou: a régua reconta o que está em branco e a folha reflete o
+    /// campo certo.
+    ///
+    /// ⚠️ Gancho único em vez de seis pares de `NotifyPropertyChangedFor`: atributo
+    /// repetido seis vezes é atributo que a sétima seção não ganha, e aí a âncora passa a
+    /// dizer "em branco" sobre um campo escrito.
+    /// </summary>
+    private static readonly string[] CamposDaAnamnese =
+    [
+        nameof(AntecedentesPessoais), nameof(AntecedentesFamiliares), nameof(HabitosDeVida),
+        nameof(RevisaoDeSistemas), nameof(HistoriaObstetrica), nameof(Observacoes)
+    ];
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.PropertyName is not { } nome) return;
+        if (Array.IndexOf(CamposDaAnamnese, nome) < 0) return;
+
+        MarcarSecoes();
+
+        // Só quando o campo mudou POR FORA — ao carregar a anamnese do banco, por exemplo.
+        // Durante a digitação, devolver o valor à caixa é como se perde a posição do
+        // cursor; ver a marca no setter de TextoDaSecao.
+        if (!_escrevendoNaFolha) OnPropertyChanged(nameof(TextoDaSecao));
+    }
+
     /// <summary>
     /// "Revisada em 12/03/2026 por dra.ana" — e a idade dela, que é o que faz alguém decidir
     /// se vale reperguntar. Anamnese de três anos atrás não está errada; está VELHA.
@@ -99,6 +269,12 @@ public sealed partial class AnamneseViewModel : ObservableObject
         _escopos = escopos;
         _foco = foco;
         _dialogo = dialogo;
+
+        // ⚠️ A régua tem de ser montada AQUI: `SecaoEscolhida` é inicializada no campo, e
+        // inicializador de campo não emite PropertyChanged — sem esta linha a tela abriria
+        // sem âncora nenhuma, com a folha funcionando e sem como trocar de seção.
+        MarcarSecoes();
+
         _ = CarregarAsync();
     }
 

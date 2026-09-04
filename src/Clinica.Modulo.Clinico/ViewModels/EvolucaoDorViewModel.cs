@@ -84,7 +84,6 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
     [ObservableProperty] private string _dorAtual = "—";
     [ObservableProperty] private string _ganhoAcumulado = "—";
     [ObservableProperty] private string _alivioMedio = "—";
-    [ObservableProperty] private string _reducao = "—";
 
     [ObservableProperty] private string _resumo = string.Empty;
 
@@ -173,7 +172,7 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
 
         if (dor.SessoesComMedida == 0)
         {
-            DorInicial = DorAtual = GanhoAcumulado = AlivioMedio = Reducao = "—";
+            DorInicial = DorAtual = GanhoAcumulado = AlivioMedio = "—";
             Tendencia = string.Empty;
             TendenciaPreocupa = false;
             Resumo = dor.SessoesRegistradas == 0
@@ -190,12 +189,6 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
             : "—";
         AlivioMedio = $"{dor.AlivioMedioPorSessao:0.#} por sessão";
 
-        // A redução percentual é a frase que o paciente entende ("caiu 60%"). Só existe
-        // com dor inicial maior que zero: quem começou em 0 não tem de quanto cair, e
-        // dividir por zero produziria um número que a tela mostraria com cara de exato.
-        Reducao = dor.DorInicial is { } inicial and > 0 && dor.GanhoAcumulado is { } g
-            ? $"{100.0 * g / inicial:0}%"
-            : "—";
 
         Resumo = $"{dor.SessoesComMedida} de {dor.SessoesRegistradas} sessão(ões) com EVA medida.";
 

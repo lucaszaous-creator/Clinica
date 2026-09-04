@@ -520,3 +520,98 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedNam
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ConjuntoClinico"
 python3 tools/verificar-suite.py    # a checagem 38, com autoteste
 ```
+
+---
+
+# Parte IV — a FOLHA ÚNICA (set/2026, mockup 01)
+
+## 21. O pedido, e o que ele derrubou
+
+A direção olhou a tela de atendimento e escreveu: *"São coisas não tão profissionais que
+eram aceitáveis no começo do projeto. Hoje em dia não são aceitas e nem devem ser aceitas.
+Pode diminuir a quantidade de campos tanto para o médico quanto para a enfermeira e deixar
+campos de texto livre para escrever o que quiser durante a sessão, é melhor segundo eles.
+Lembrando que precisamos também dos campos de imprimir a sessão do atendimento tanto
+quanto salvar."*
+
+Foram desenhados **cinco mockups** (`docs/mockups/atendimento-cinco-desenhos.html`) e a
+direção aprovou o **01 — Folha única**. As outras telas do Consultório vieram na mesma
+língua num segundo desenho (`docs/mockups/prontuario-folha-unica.html`), também aprovado.
+
+O que foi MEDIDO antes de desenhar, e que justifica o tamanho da mudança:
+
+| | antes | depois |
+|---|---|---|
+| campos na tela do médico | 12, em quatro abas | 1 (a folha) + 4 números na tira |
+| campos na tela da enfermagem | 16 | 1 (a folha) + a tira de sinais vitais |
+| altura do campo de escrever da enfermagem | **90 px de teto** | o que sobra da tela |
+| botões na barra do médico | 4 — e o 4º saía CORTADO a 1366 px | 4, com o Imprimir no rodapé |
+| cartões empilhados em Exames e anexos | 3 | 1 superfície com régua de chips |
+| botões por linha em Prescrições | 6 | 1 + o "⋯" |
+| itens do rail | 9 numa lista corrida | 10 em três grupos |
+
+## 22. A regra que governa a redução
+
+**Reduzir a TELA nunca é reduzir o REGISTRO.** Nenhuma coluna foi apagada: os doze campos
+da sessão continuam no banco (guarda de 20 anos, Lei 13.787/2018), continuam saindo no
+relatório do convênio separados por assunto, e continuam editáveis — atrás da linha
+"Detalhar em campos separados…" ao pé da folha.
+
+⚠️ **E a linha ANUNCIA quantos a sessão aberta já tem** (`CamposDetalhados`,
+`SeloDetalhe`). Sem esse selo, a sessão de 27/08 — que tem hipótese, conduta e exame
+preenchidos — sumiria de VISTA sem sumir do banco, que é o pior dos dois mundos e o defeito
+recorrente do projeto cometido pela própria reforma que o corrige.
+
+## 23. Por que o detalhe é JANELA, e não um bloco recolhido
+
+Um bloco recolhido na própria tela cresce com o dado e disputa altura com a folha, e **filho
+ancorado que não cabe é DECEPADO** (parcela 79, nesta mesma tela). Do outro lado da clínica
+a consulta da COFEN já abre em janela desde a parcela 88, 5ª rodada — o mesmo gesto, o mesmo
+desenho, e duas telas irmãs que se parecem.
+
+A janela edita o **MESMO ViewModel** e **não grava nada**: quem grava é o "Salvar sessão" da
+tela de trás, e o rodapé dela escreve isso. Duas cópias do mesmo registro dariam duas
+verdades sobre a mesma sessão.
+
+## 24. A promessa do mockup que o código NÃO cumpre
+
+O desenho trazia, no rodapé, *"salva sozinha a cada pausa"*. **A folha não salva sozinha, e
+é decisão:** cada gravação de uma evolução que já existe cria uma `VersaoEvolucao` (parcela
+52), e salvar a cada pausa encheria o prontuário de dezenas de versões por sessão — o
+registro passaria a mentir sobre quantas vezes ele foi corrigido.
+
+No lugar da promessa, o rodapé diz o que houve: **"Última gravação às 14h37"**
+(`UltimaGravacao`, limpa na troca de paciente). Prometer na tela o que o código não faz é a
+garantia aparente que este projeto recusa desde a parcela 3 — inclusive quando a promessa
+está num mockup aprovado.
+
+## 25. Onde o desenho aprovado NÃO foi seguido, e por quê
+
+Três desvios, todos declarados:
+
+1. **O Histórico não FUNDIU as duas listas.** O mockup desenhava uma linha do tempo única
+   com sessão médica, enfermagem, infusão e documento na mesma tabela. A lista rica de
+   sessões tem busca no texto, contagem de anexos, marca de correção e os botões da linha —
+   e os ids são **por tabela**, então um "cancelar" na linha errada cancelaria o registro de
+   outra pessoa, sem estourar nada (o defeito que `PacientesView.xaml` documenta desde a
+   parcela 71). A tela funde a **vista** — uma superfície, a busca no topo, as sessões
+   preenchendo, a linha do tempo ancorada embaixo com teto —, nunca as listas.
+2. **"Salvar e finalizar" continuou sendo dois atos.** O mockup punha um botão só. Finalizar
+   carimba `FimAtendimentoEm` e avisa o balcão que a sala vagou; se todo Salvar finalizasse,
+   salvar no meio da consulta mandaria o recado errado. O Finalizar continua na faixa da
+   sessão, onde já mora — e ele **já salva a evolução antes de carimbar** (parcela 74).
+3. **Os chips de Medidas e Avaliações não trazem CONTAGEM.** O desenho mostrava "Peso · 6" e
+   "Oswestry · nunca aplicada". Contar por tipo exige uma consulta que hoje não existe, e
+   inventar o número seria pior que não mostrá-lo. Fica como pendência.
+
+## 26. Como conferir que continua valendo
+
+```bash
+python3 tools/compilar-sombra.py      # o C# das dez telas WPF
+python3 tools/verificar-suite.py      # XAML, chaves, o rail e a checagem 38
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
+```
+
+E, na tela: abrir uma sessão ANTIGA (com queixa e conduta preenchidas) e conferir que o selo
+da linha do detalhe diz quantos campos ela tem. Se ele não disser, o dado continua no banco e
+sumiu da vista — que é exatamente o que a parte 22 existe para impedir.

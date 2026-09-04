@@ -101,10 +101,34 @@
                             <TextBlock Grid.Column="0" Text="Acompanhar"
                                        Style="{StaticResource H3}" Margin="0,0,10,0"
                                        VerticalAlignment="Center" />
-                            <ComboBox Grid.Column="1" ItemsSource="{Binding TiposAcompanhaveis}"
-                                      SelectedItem="{Binding TipoAcompanhado}"
-                                      DisplayMemberPath="Nome" MaxWidth="280"
-                                      HorizontalAlignment="Left" VerticalAlignment="Center" />
+                            <!-- ============ AS MEDIDAS COMO CHIPS ============
+                                 (mockup 01). Era um ComboBox: para saber que existem sete
+                                 medidas acompanháveis era preciso ABRIR a lista, e a que
+                                 está escolhida some assim que ela fecha. Em chips a
+                                 escolha e as alternativas ficam à vista ao mesmo tempo —
+                                 é o mesmo componente da linha do tempo e do painel de
+                                 pendências.
+                                 ⚠️ WrapPanel dentro do painel, não docado: docado ele é
+                                 medido com largura infinita e nunca quebra (checagem 32). -->
+                            <ItemsControl Grid.Column="1" ItemsSource="{Binding Chips}"
+                                          Margin="0,0,10,0" VerticalAlignment="Center">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ToggleButton Style="{StaticResource ChipFiltro}"
+                                                      Margin="0,0,8,4"
+                                                      Content="{Binding Nome}"
+                                                      IsChecked="{Binding Marcado, Mode=OneWay}"
+                                                      Command="{Binding DataContext.AcompanharCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                      CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                             <Button Grid.Column="2" Content="Exportar CSV" MinWidth="130"
                                     VerticalAlignment="Center"
                                     Style="{StaticResource BotaoSecundario}"
