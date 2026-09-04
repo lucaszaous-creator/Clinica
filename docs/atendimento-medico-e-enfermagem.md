@@ -87,6 +87,14 @@ sidebar dele** — pela linha do tempo, sob `VerProntuario`, que ele já tem.
 `PermissoesFaturamentoTests.Medico_e_enfermagem_LEEM_o_mesmo_e_ESCREVEM_coisas_diferentes`
 falha se alguém juntar os dois lados de volta.
 
+**E o rail da tela do paciente mostra a seção de ESCRITA de quem está logado** (parcela
+95): a enfermeira não vê "Atendimento" (o S-O-A-P, cujo Salvar ela não pode), o médico não
+vê "Atendimento de enfermagem" (cujo Registrar ele não pode), e quem tem os dois lados vê
+as duas. A LEITURA não muda — cada lado continua relendo o outro pela aba de dentro do seu
+atendimento. A decisão é `PerfisAcesso.SecoesDeEscritaDoPosto`, no domínio, e a linha
+escondida **colapsa** em vez de sair da lista: o índice do rail é a régua do TabControl, e
+filtrar a vista faria o clique abrir a seção do vizinho.
+
 ---
 
 ## 5. A linha do tempo clínica — um componente, três portas

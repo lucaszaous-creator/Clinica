@@ -563,6 +563,34 @@ public static class PerfisAcesso
     }
 
     /// <summary>
+    /// Quais seções de ESCRITA a tela do paciente mostra no rail (parcela 95): a do
+    /// médico (S-O-A-P) e/ou a da enfermagem (a passagem).
+    ///
+    /// Até aqui as duas apareciam para todo mundo: a enfermeira via "Atendimento", cujo
+    /// Salvar ela não pode, e o médico via "Atendimento de enfermagem", cujo Registrar
+    /// ele não pode. Seção que a pessoa não alcança SOME, não fica apagada (parcela 59) —
+    /// e é a mesma bifurcação do <c>ChaveDoAtendimento</c>: uma palavra, dois destinos.
+    ///
+    /// ⚠️ A LEITURA não muda com isto: o médico continua lendo a passagem de enfermagem
+    /// (a aba "Enfermagem e infusões" do atendimento dele) e a enfermeira continua lendo
+    /// a sessão médica (a aba "Conduta médica e infusões" da passagem). O que some é a
+    /// seção de ESCREVER do outro lado — o XY da parcela 72 fica inteiro.
+    ///
+    /// Quem tem os dois lados (o Gerente Geral) vê as duas. Sem sessão autenticada,
+    /// <c>Efetivas</c> devolve <see cref="Todas"/> e as duas aparecem — tela vazia se lê
+    /// como defeito.
+    /// </summary>
+    public static (bool Medico, bool Enfermagem) SecoesDeEscritaDoPosto(Permissao efetivas)
+    {
+        var escreveEnfermagem = (efetivas & (Permissao.RegistrarEvolucaoEnfermagem
+                                             | Permissao.ChecarPrescricao)) != Permissao.Nenhuma;
+
+        // A seção do médico some só para quem escreve SÓ pela enfermagem — o mesmo corte
+        // de `EscreveComoEnfermagem`, para o rail e o "Atender" não discordarem.
+        return (Medico: !EscreveComoEnfermagem(efetivas), Enfermagem: escreveEnfermagem);
+    }
+
+    /// <summary>
     /// De quem é a lista que as telas do POSTO clínico mostram — o dia, a semana, a
     /// carteira, a dívida de prontuário e os números.
     ///

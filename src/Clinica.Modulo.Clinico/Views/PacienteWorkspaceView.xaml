@@ -48,6 +48,13 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,1" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <!-- A seção de escrita do OUTRO lado some (parcela 95). COLAPSA, nunca sai da
+                 lista: o índice do rail é a régua do TabControl (ver ItemDoRail). -->
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Oculta}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">

@@ -3199,6 +3199,41 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   fechamento passou a andar uma hora por chamada, e os testes de contagem de profissional
   ficaram sem a semente.
 
+- **A SIDEBAR DO CONSULTÓRIO NUNCA TINHA USADO AS SUB-ABAS DO SHELL** (parcela 95, 2ª
+  parte — a direção pediu para *"organizar abas, sub-abas e opções dentro do módulo
+  clínico"*). Doze itens soltos, e o mecanismo da parcela 55 (`ItemMenuModulo.Abas`) usado
+  pela Recepção e pelo Financeiro e nunca por este módulo. Viraram seis: Minha agenda
+  (Hoje · Semana · Sem evolução), Enfermagem (Sala de infusão · Passagens), Pacientes (Em
+  tratamento · Registros · Exames), Prescrições (Receitas e documentos · Infusão), Meus
+  números, Ajuda. A régua foi a de sempre: **um item por PERGUNTA, as telas de sempre como
+  abas, nenhuma chave de navegação mudando** — a sub-tela continua sendo item e o pai a
+  esconde do menu.
+  ⚠️ **Composto com o mesmo rótulo em dois módulos precisa da MESMA chave** — senão o
+  Gerente Geral, que carrega os dois, mostra "Pacientes" e "Pacientes" lado a lado (a
+  duplicata da checagem 45, que só funde por CHAVE). As chaves de grupo `pacientes` e
+  `receituario` subiram para `ChavesSuite`, e no Gerente vence o composto da Recepção,
+  carregada antes, cujas abas contêm as do Consultório. Onde o rótulo não podia ser o
+  mesmo, mudou: "Minha agenda", porque a Recepção publica "Agenda".
+  ⚠️ **`Requer` do composto é o bit MAIS FROUXO, e quem filtra são as abas.** `Pode` com
+  bits somados é um E: `ChecarPrescricao | RegistrarEvolucaoEnfermagem` no item
+  "Enfermagem" deixaria de fora a técnica que só checa. Com `VerAgenda` o item entra para
+  todos e as abas entram só para quem tem o bit de cada uma; sem aba nenhuma o composto
+  some sozinho — é assim que o médico não o vê.
+  ⚠️ **A abertura do app sem `Inicial` é o PRIMEIRO item declarado no primeiro grupo** —
+  o composto "Minha agenda" foi declarado antes do "Meu dia" de propósito, e a ordem de
+  declaração dentro do grupo é leiaute.
+  ⚠️ **O rail da tela do paciente esconde a seção de ESCRITA do outro lado** (a enfermeira
+  não vê o S-O-A-P, o médico não vê a passagem; quem tem os dois vê as duas). A decisão é
+  `PerfisAcesso.SecoesDeEscritaDoPosto`, no domínio e com teste. E a linha escondida
+  **COLAPSA — nunca sai da lista**: o `SelectedIndex` do rail é o índice da lista e a régua
+  do TabControl, e filtrar a vista deslocaria os índices para o clique abrir a seção do
+  vizinho, sem erro nenhum (a regressão da checagem 38). O índice a esconder sai do MESMO
+  mapa da navegação (`AbaDe`, que virou público), e não de um rótulo escrito à mão.
+  **O que NÃO foi mexido, e é decisão**: as abas internas do Atendimento (A sessão de hoje ·
+  Sessões anteriores · Enfermagem e infusões) vêm de mockup aprovado (parcelas 74-77) e
+  não havia pedido específico — reorganizar leiaute aprovado sem pedido é o caminho da
+  sétima reprovação.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

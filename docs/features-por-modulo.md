@@ -1509,6 +1509,32 @@ O mesmo tratamento foi aplicado à **fila da Recepção**, que tinha o defeito i
 shell justamente porque os dois quadros o usam — copiar faria as duas versões divergirem
 na primeira correção.
 
+## Parcela 95 — a sidebar do Consultório: de doze itens soltos a seis, com sub-abas
+
+O módulo nunca tinha usado as sub-abas que o shell tem desde a parcela 55. Doze itens
+soltos em três grupos: "Prescrições" e "Prescrição de infusão" vizinhos quase homônimos, a
+enfermagem espalhada por GESTÃO e PACIENTE, INTELIGÊNCIA com um item só.
+
+| Grupo | Item | Sub-abas | Chave |
+|---|---|---|---|
+| GESTÃO | **Minha agenda** (abertura) | Hoje · Semana · Sem evolução | `consultorio-agenda` |
+| GESTÃO | **Enfermagem** | Sala de infusão · Passagens | `consultorio-enfermagem` |
+| GESTÃO | Ajuda e suporte | — | `ajuda` |
+| PACIENTE | **Pacientes** | Em tratamento · Registros e pendências · Exames | `pacientes` (a mesma da Recepção) |
+| PACIENTE | **Prescrições** | Receitas e documentos · Infusão | `receituario` (a mesma da Recepção) |
+| INTELIGÊNCIA | Meus números | — | `consultorio-meus-numeros` |
+
+Nenhuma tela sumiu e nenhuma chave de navegação mudou: a sub-tela continua sendo item, e
+`NavegacaoSuite.Ir` com a chave dela abre o pai na aba certa. "Pacientes" e "Prescrições"
+usam a **mesma chave** dos compostos da Recepção (subiram para `ChavesSuite`) para a dedupe
+do shell fundi-los no Gerente Geral em vez de mostrar dois itens homônimos — a duplicata da
+checagem 45. "Minha agenda" é "Minha" pela mesma razão: a Recepção publica "Agenda".
+
+O rail da tela do paciente passou a mostrar só a seção de escrita de quem está logado
+(§ em `docs/atendimento-medico-e-enfermagem.md`). As abas internas do atendimento (A sessão
+de hoje · Sessões anteriores · Enfermagem e infusões) não mudaram: foram desenhadas com
+mockup aprovado nas parcelas 74-77 e não havia pedido específico sobre elas.
+
 ## Parcela 39 — a sidebar do Consultório tinha três itens
 
 E não porque o app do médico seja simples: **as portas estavam no módulo errado.** É a

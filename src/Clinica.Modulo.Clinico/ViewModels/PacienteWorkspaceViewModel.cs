@@ -77,8 +77,20 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// — a MESMA lista que resolve o índice de navegação de outros módulos, e é por isso
     /// que o rótulo lido pelo usuário não tem como divergir dele.
     /// </summary>
-    public IReadOnlyList<ModuloClinico.SecaoDoPaciente> Secoes { get; } =
-        ModuloClinico.RailDoPaciente();
+    public IReadOnlyList<ItemDoRail> Secoes { get; }
+
+    /// <summary>
+    /// Uma linha do rail: a seção e se ela está ESCONDIDA para quem está logado (parcela
+    /// 95 — a seção de escrita do outro lado some: a enfermeira não vê o S-O-A-P, o
+    /// médico não vê a passagem; ver <c>PerfisAcesso.SecoesDeEscritaDoPosto</c>).
+    ///
+    /// ⚠️ Esconder é COLAPSAR o item, nunca tirá-lo da lista: o `SelectedIndex` do rail é
+    /// o índice desta lista e a régua do TabControl ao lado — filtrar a vista deslocaria
+    /// os índices e o clique abriria a seção do vizinho, sem erro nenhum (a regressão
+    /// que a checagem 38 vigia). A seção continua existindo e continua navegável por
+    /// chave; só não ocupa linha.
+    /// </summary>
+    public sealed record ItemDoRail(string Rotulo, string Grupo, bool Oculta);
 
     /// <summary>
     /// As mesmas seções, agrupadas para o rail desenhar os três cabeçalhos.
@@ -231,9 +243,21 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     {
         _foco = foco;
 
+        // A decisão de QUEM vê qual seção de escrita mora no domínio, para o dotnet test
+        // alcançar; aqui só se aplica. O índice da seção sai do MESMO mapa que a
+        // navegação usa (`AbaDe`), e não de um rótulo escrito à mão.
+        var (medico, enfermagem) = PerfisAcesso.SecoesDeEscritaDoPosto(SessaoUsuario.Atual.Efetivas);
+        var secaoMedico = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
+        var secaoEnfermagem = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimentoEnfermagem);
+        Secoes = ModuloClinico.RailDoPaciente()
+            .Select((secao, i) => new ItemDoRail(
+                secao.Rotulo, secao.Grupo,
+                Oculta: (i == secaoMedico && !medico) || (i == secaoEnfermagem && !enfermagem)))
+            .ToList();
+
         SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
         SecoesAgrupadas.GroupDescriptions.Add(
-            new PropertyGroupDescription(nameof(ModuloClinico.SecaoDoPaciente.Grupo)));
+            new PropertyGroupDescription(nameof(ItemDoRail.Grupo)));
         AbaAtual = aba;
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();

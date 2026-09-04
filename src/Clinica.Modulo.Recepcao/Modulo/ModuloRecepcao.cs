@@ -57,9 +57,13 @@ public sealed class ModuloRecepcao : IModuloApp
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     public const string ChaveGrupoAgenda = "agenda";
-    public const string ChaveGrupoPacientes = "pacientes";
+    // ⚠️ "Pacientes" e "Prescrições" vêm da ChavesSuite desde a parcela 95: o Consultório
+    // publica compostos com o mesmo rótulo, e a dedupe do shell só funde por CHAVE —
+    // literal à mão nos dois módulos era a duplicata da checagem 45 esperando para
+    // acontecer no Gerente Geral.
+    public const string ChaveGrupoPacientes = ChavesSuite.GrupoPacientes;
     public const string ChaveGrupoAtendimento = "atendimento";
-    public const string ChaveGrupoPrescricoes = "receituario";
+    public const string ChaveGrupoPrescricoes = ChavesSuite.GrupoPrescricoes;
 
     /// <summary>
     /// O item composto "Prontuário" (set/2026). Junta a leitura POR PACIENTE (a tela
