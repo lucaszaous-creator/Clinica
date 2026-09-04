@@ -157,6 +157,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     public MedidasViewModel Medidas { get; }
     public AvaliacoesViewModel Avaliacoes { get; }
 
+    /// <summary>
+    /// A aba de dentro de "Acompanhamento" (parcela 95): 0 dor · 1 medidas · 2 avaliações.
+    /// Vem de <c>ModuloClinico.SubAbaDe</c> quando se entra por uma das três chaves.
+    /// </summary>
+    [ObservableProperty] private int _subAbaAcompanhamento;
+
     /// <summary>Aba aberta. É por ela que a chave de navegação escolhe onde cair.</summary>
     [ObservableProperty] private int _abaAtual;
 
@@ -239,9 +245,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         Permissao.EditarAgenda | Permissao.MovimentarFila);
 
     public PacienteWorkspaceViewModel(
-        IServiceProvider servicos, PacienteEmFoco foco, int aba = 0)
+        IServiceProvider servicos, PacienteEmFoco foco, int aba = 0, int subAba = 0)
     {
         _foco = foco;
+        SubAbaAcompanhamento = subAba;
 
         // A decisão de QUEM vê qual seção de escrita mora no domínio, para o dotnet test
         // alcançar; aqui só se aplica. O índice da seção sai do MESMO mapa que a

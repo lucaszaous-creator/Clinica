@@ -379,14 +379,10 @@
                 <TabItem Header="Prescrições e documentos">
                     <views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" />
                 </TabItem>
-                <TabItem Header="Evolução da dor">
-                    <views:EvolucaoDorView DataContext="{Binding Dor}" />
-                </TabItem>
-                <TabItem Header="Medidas">
-                    <views:MedidasView DataContext="{Binding Medidas}" />
-                </TabItem>
-                <TabItem Header="Avaliações">
-                    <views:AvaliacoesView DataContext="{Binding Avaliacoes}" />
+                <!-- Dor, medidas e avaliações numa seção só (parcela 95). O DataContext
+                     é herdado: a view lê Dor/Medidas/Avaliacoes e SubAbaAcompanhamento. -->
+                <TabItem Header="Acompanhamento">
+                    <views:AcompanhamentoView />
                 </TabItem>
             </TabControl>
         </DockPanel>

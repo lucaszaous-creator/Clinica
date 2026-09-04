@@ -118,7 +118,9 @@ public sealed class ModuloRecepcao : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveFila, Rotulo = "Recep\u00E7\u00E3o / Check-in", Glifo = "\uE8FD",
+            // "Fila do dia" (parcela 95): era "Recepção / Check-in" — item que precisa de dois
+            // nomes é item que ainda não decidiu o que é, e a direção pediu simples.
+            Chave = ChaveFila, Rotulo = "Fila do dia", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).
@@ -274,7 +276,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // sala de infusão na parcela 48, e os dois módulos publicam a MESMA chave.
         new ItemMenuModulo
         {
-            Chave = ChavePacotes, Rotulo = "Pacotes / Sessões", Glifo = "",
+            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
 

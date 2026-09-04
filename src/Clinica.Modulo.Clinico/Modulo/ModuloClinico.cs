@@ -427,17 +427,22 @@ public sealed class ModuloClinico : IModuloApp
         "Histórico",
         "Exames e anexos",
         "Prescrições e documentos",
-        "Evolução da dor",
-        "Medidas",
-        "Avaliações"
+        "Acompanhamento"
     ];
 
     /// <summary>
     /// O GRUPO de cada seção no rail, na mesma ordem de <see cref="SecoesDoPaciente"/>.
     ///
     /// Nove itens numa lista corrida davam a "Anamnese" — escrita uma vez na vida — o mesmo
-    /// peso de "Atendimento", aberto vinte vezes por dia. Em três grupos, a barra passa a
-    /// dizer QUANDO se usa cada uma: o que se faz agora, o que o paciente já tem, e a curva.
+    /// peso de "Atendimento", aberto vinte vezes por dia. Em grupos, a barra passa a dizer
+    /// QUANDO se usa cada uma: o que se faz agora e o que o paciente já tem.
+    ///
+    /// ⚠️ "Evolução da dor", "Medidas" e "Avaliações" viraram UMA seção, "Acompanhamento",
+    /// com as três como abas internas (parcela 95 — a direção: "quanto mais simples,
+    /// melhor"). Eram três linhas do rail para uma pergunta só, "como está indo" — e o
+    /// grupo de três itens virou um item do grupo Paciente. As três chaves de navegação
+    /// continuam valendo: <see cref="AbaDe"/> leva à seção e <see cref="SubAbaDe"/> à aba
+    /// de dentro.
     ///
     /// ⚠️ A lista é a MESMA de cima, casada por posição, e é daqui que o rail se monta — não
     /// há uma segunda lista de rótulos no XAML. Foi assim que a divergência entre o índice
@@ -453,9 +458,7 @@ public sealed class ModuloClinico : IModuloApp
         "Paciente",
         "Paciente",
         "Paciente",
-        "Acompanhamento",
-        "Acompanhamento",
-        "Acompanhamento"
+        "Paciente"
     ];
 
     /// <summary>Uma linha do rail: o rótulo que se lê e o grupo em que ela mora.</summary>
@@ -519,15 +522,27 @@ public sealed class ModuloClinico : IModuloApp
             ChaveAtendimentoEnfermagem => "Atendimento de enfermagem",
             ChaveProntuario => "Histórico",
             ChaveExamesDoPaciente => "Exames e anexos",
-            ChaveEvolucaoDor => "Evolução da dor",
-            ChaveMedidas => "Medidas",
-            ChaveAvaliacoes => "Avaliações",
+            ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes => "Acompanhamento",
             _ => "Atendimento"
         };
 
         var i = SecoesDoPaciente.ToList().IndexOf(nome);
         return i < 0 ? 0 : i;
     }
+
+    /// <summary>
+    /// A ABA DE DENTRO da seção "Acompanhamento" (parcela 95): dor, medidas ou
+    /// avaliações. As três chaves são contrato de navegação de outros módulos (o painel
+    /// da direção, a carteira), e continuam caindo cada uma na sua tela — só que a tela
+    /// agora mora dentro de uma seção só. Chave que não é de acompanhamento cai na
+    /// primeira aba, que é a dor: é a que a acupuntura, a especialidade da casa, mais lê.
+    /// </summary>
+    public static int SubAbaDe(string chave) => chave switch
+    {
+        ChaveMedidas => 1,
+        ChaveAvaliacoes => 2,
+        _ => 0
+    };
 
     public void Registrar(IServiceCollection servicos)
     {
@@ -604,7 +619,8 @@ public sealed class ModuloClinico : IModuloApp
             => new PacienteWorkspaceView
             {
                 DataContext = new PacienteWorkspaceViewModel(
-                    servicos, servicos.GetRequiredService<PacienteEmFoco>(), AbaDe(chave))
+                    servicos, servicos.GetRequiredService<PacienteEmFoco>(),
+                    AbaDe(chave), SubAbaDe(chave))
             },
 
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.

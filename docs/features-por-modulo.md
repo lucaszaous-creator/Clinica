@@ -1059,7 +1059,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 |---|---|---|---|
 | **GESTÃO** · Início | Recepção | ✅ | `PainelView` |
 | **GESTÃO** · Agenda | Recepção | ✅ | `AgendaView` |
-| **GESTÃO** · Recepção / Check-in | Recepção | ✅ | `FilaView` (kanban) |
+| **GESTÃO** · Fila do dia (era "Recepção / Check-in" até a parcela 95) | Recepção | ✅ | `FilaView` (kanban) |
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
@@ -1068,7 +1068,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
-| **FINANCEIRO** · Pacotes / Sessões | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
+| **FINANCEIRO** · Pacotes (era "Pacotes / Sessões" até a parcela 95) | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
 | **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
 | **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |
@@ -1508,6 +1508,16 @@ O mesmo tratamento foi aplicado à **fila da Recepção**, que tinha o defeito i
 (cinco `Card` emoldurados + resumo repetindo as contagens). O `CabecalhoRaia` nasceu no
 shell justamente porque os dois quadros o usam — copiar faria as duas versões divergirem
 na primeira correção.
+
+## Parcela 95 — o "Meu dia" do médico como LISTA
+
+O quadro de cinco raias (parcela 38, redesenhado na 87 por paridade com a fila do balcão)
+virou uma lista na ordem da hora — a agenda do Smart Clinic que a cliente mandou como
+referência: HORÁRIO · PACIENTE · STATUS (com a hora do fato: "chegou às 14:40 · espera 12
+min") · PRONTUÁRIO (Pendente / Escrito) · ações. Cancelado e falta ficam na lista, apagados.
+As transições de fila (chamar, desfazer, voltar) continuam na linha; "Chamar próximo" no
+cabeçalho; o arrasto entre raias morreu com as raias. `SessaoDoDia` ganhou os três
+carimbos (`ChegadaEm`, `InicioAtendimentoEm`, `FimAtendimentoEm`) que a coluna STATUS lê.
 
 ## Parcela 95 — a sidebar do Consultório: de doze itens soltos a seis, com sub-abas
 

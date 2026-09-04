@@ -45,6 +45,15 @@ public sealed record SessaoDoDia(
     public int? ChamadoHaMinutos { get; init; }
 
     /// <summary>
+    /// Os carimbos da fila, para a LISTA do dia dizer "chegou às 14:40" e "concluído às
+    /// 15:20" na linha (parcela 95 — o quadro do médico virou lista, como a agenda do
+    /// Smart Clinic que a cliente usava). Nulos quando o fato ainda não aconteceu.
+    /// </summary>
+    public DateTime? ChegadaEm { get; init; }
+    public DateTime? InicioAtendimentoEm { get; init; }
+    public DateTime? FimAtendimentoEm { get; init; }
+
+    /// <summary>
     /// O recado que a recepção escreveu no horário ("chega 10 min atrasada", "trazer o
     /// laudo"). Nulo quando não há. Viajava até o balcão e nunca chegava a quem atende —
     /// o campo existia no <c>Agendamento</c> desde a parcela 1 e esta projeção não o

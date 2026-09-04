@@ -8,202 +8,6 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
-        <!-- ===== A RAIA do quadro =====
-             Cinco raias, um template. A raia NÃO é um Card com borda: cinco cartões
-             emoldurados lado a lado leem-se como cinco telas costuradas, e era esse o
-             defeito. Aqui a raia é uma faixa de fundo levíssima, sem borda, com o rótulo
-             e a contagem por cima — o que o olho reconhece é UM quadro com cinco faixas.
-
-             Raia vazia mostra um traço, nunca vão branco: quatro raias vazias sem marca
-             nenhuma viram um buraco de mil pixels ao lado da única que tem conteúdo. -->
-        <!-- AllowDrop: a raia é o alvo do cartão arrastado (parcela 61) — os handlers
-             moram no code-behind, como na fila do balcão. -->
-        <!-- `Brush.Raia` (redesenho de ago/2026): um degrau acima do fundo da página —
-             raia da mesma cor do fundo fazia o quadro deixar de se ler como quadro. -->
-        <Style x:Key="RaiaDoQuadro" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Raia}" />
-            <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
-            <Setter Property="Padding" Value="10,10,10,4" />
-            <Setter Property="Margin" Value="0,0,10,0" />
-            <Setter Property="AllowDrop" Value="True" />
-        </Style>
-
-        <!-- ===== O cartão =====
-             Um só para as cinco raias: é a MESMA pessoa em etapas diferentes, e cinco
-             templates divergiriam na primeira correção. O que muda por raia são os
-             botões, e eles se acendem pelo estado do próprio cartão. -->
-        <DataTemplate x:Key="CartaoDoDia">
-            <Border Padding="12,10" Margin="0,0,0,8"
-                    CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1"
-                    PreviewMouseLeftButtonDown="AoPressionarCartao"
-                    MouseMove="AoMoverSobreCartao">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
-                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
-                        <Style.Triggers>
-                            <!-- Chamada que demora é o profissional PARADO esperando. -->
-                            <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
-                                <Setter Property="Background"
-                                        Value="{StaticResource Brush.Erro.Suave}" />
-                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-
-                <StackPanel>
-                    <!-- Nome GRANDE, hora como contexto — a mesma hierarquia da fila do
-                         balcão (redesenho de ago/2026): dois quadros da mesma agenda com
-                         desenhos diferentes se leem como dois sistemas. -->
-                    <TextBlock Text="{Binding Paciente}"
-                               FontSize="{StaticResource Fonte.Corpo}"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
-
-                    <TextBlock Style="{StaticResource TextoSuave}"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
-                               TextWrapping="NoWrap">
-                        <Run Text="{Binding Hora, Mode=OneWay}" FontWeight="SemiBold" />
-                        <Run Text="·" />
-                        <Run Text="{Binding Modalidade, Mode=OneWay}" />
-                        <Run Text="· sala" />
-                        <Run Text="{Binding Local, Mode=OneWay}" />
-                    </TextBlock>
-
-                    <!-- O recado que a recepção escreveu no horário ("trazer o laudo",
-                         "avisar que chega atrasada"). O campo existia desde a parcela 1 e
-                         nunca chegava a quem atende. Só aparece quando há — linha vazia
-                         permanente desalinha os cartões da raia. -->
-                    <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
-                               TextWrapping="Wrap" FontStyle="Italic"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               HorizontalAlignment="Left"
-                               ToolTip="Recado escrito pela recepção neste horário"
-                               Visibility="{Binding Observacoes,
-                                            Converter={StaticResource TextoParaVisibilidade},
-                                            FallbackValue=Collapsed}" />
-
-                    <!-- Espera e chamada: os dois números que decidem o próximo passo.
-                         Só aparecem quando existem — rótulo vazio ocupando linha faz
-                         cartões da mesma raia terem alturas diferentes sem motivo. -->
-                    <TextBlock Text="{Binding Espera}" Margin="0,2,0,0"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <Trigger Property="Text" Value="">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <TextBlock Text="{Binding ChamadoHa}" Margin="0,2,0,0" FontWeight="SemiBold"
-                               TextWrapping="Wrap"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Erro}">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <Trigger Property="Text" Value="">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <WrapPanel Margin="0,6,0,0">
-                        <!-- AVISO, como na fila do balcão: o mesmo fato com duas cores
-                             nos dois quadros se lia como dois fatos (redesenho ago/2026). -->
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,6,4"
-                                Visibility="{Binding Encaixe,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Encaixe" />
-                        </Border>
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,6,4"
-                                Visibility="{Binding RegistroPendente,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Sem evolução" />
-                        </Border>
-                        <!-- Cancelado / falta: fica na coluna, MARCADO. Sem o selo, a raia
-                             "aguardando" contava como gente por vir quem já desmarcou — o
-                             mesmo selo que a "Minha semana" já usava ao lado. -->
-                        <Border Style="{StaticResource Badge}" Margin="0,0,6,4"
-                                Visibility="{Binding ForaDaFila,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" />
-                        </Border>
-                    </WrapPanel>
-
-                    <!-- UMA ação principal por cartão. As secundárias só aparecem na raia
-                         em que servem: "Chamar" na recepção, "Desfazer" depois de chamado.
-                         Quatro botões acesos em todo cartão é o que faz uma coluna de
-                         vinte cartões parecer um formulário. -->
-                    <WrapPanel Margin="0,4,0,0">
-                        <Button Content="Chamar" Margin="0,0,6,4"
-                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                Visibility="{Binding PodeChamar,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.ChamarCommand,
-                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Desfazer" Margin="0,0,6,4"
-                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                Visibility="{Binding PodeDesfazerChamada,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.DesfazerChamadaCommand,
-                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding}" />
-                        <!-- As transições que faltavam (parcela 61): sem elas a coluna EM
-                             ATENDIMENTO do quadro do médico só enchia se o BALCÃO clicasse. -->
-                        <Button Content="Entrou" Margin="0,0,6,4"
-                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                ToolTip="O paciente entrou na sala. Entrar sem ter sido chamado carimba a chamada junto."
-                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                Visibility="{Binding PodeEntrar,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.EntrarCommand,
-                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Voltar" Margin="0,0,6,4"
-                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                ToolTip="Desfaz o &quot;entrou&quot; clicado por engano — um passo por vez."
-                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                Visibility="{Binding PodeVoltarEtapa,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.VoltarEtapaCommand,
-                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding}" />
-                        <!-- A tela de destino exige VerProntuario: sem o bit, a navegação
-                             falharia em silêncio — o IsEnabled é a metade que explica, a
-                             guarda no comando é a que impede (parcela 41). -->
-                        <Button Content="{Binding RotuloRegistro}" Margin="0,0,0,4"
-                                Style="{StaticResource BotaoAcaoGrid}"
-                                IsEnabled="{Binding DataContext.PodeVerProntuario,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                ToolTipService.ShowOnDisabled="True"
-                                ToolTip="Abrir o atendimento mostra o prontuário — exige a permissão Ver prontuário"
-                                Command="{Binding DataContext.AtenderCommand,
-                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding}" />
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
-        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Margin="24,20,24,24">
@@ -245,7 +49,7 @@
                            FontSize="{StaticResource Fonte.Legenda}"
                            Visibility="{Binding ListaDaClinica,
                                         Converter={StaticResource BoolParaVisibilidade}}"
-                           Text="Neste modo o &quot;Chamar próximo&quot; fica desligado: o primeiro da fila pode ser paciente de outro profissional — chame pelo cartão dele no quadro." />
+                           Text="Neste modo o &quot;Chamar próximo&quot; fica desligado: o primeiro da fila pode ser paciente de outro profissional — chame pela linha dele na lista." />
 
                 <!-- Férias, feriado, folga: o dia fechado aparecia como dia VAZIO, que se
                      lê como "ninguém marcou". Linha de texto, não faixa — contexto
@@ -345,122 +149,203 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ============ O QUADRO ============
-             Agora com a tela inteira. As raias saem de `Agendamento.Etapa`, derivada dos
-             carimbos de hora — as MESMAS que a fila do balcão usa. Não há sincronização
-             entre os módulos: os dois leem a mesma tabela. -->
-        <Grid>
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled">
-                <Grid MinWidth="1080">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                    </Grid.ColumnDefinitions>
+        <!-- ============ A LISTA DO DIA (parcela 95) ============
+             Uma linha por horário, na ordem da hora — a agenda do Smart Clinic que a
+             cliente usava, e o que ela pediu: "quanto mais simples, melhor". O quadro de
+             cinco raias respondia à pergunta do balcão; o médico tem oito horários e
+             pergunta "quem é o próximo e o que eu já escrevi". A etapa continua saindo dos
+             MESMOS carimbos que a fila do balcão lê: nenhuma sincronização, a mesma tabela.
 
-                    <!-- Tag = o EtapaFila alvo do arrasto. Todas as cinco recebem o solto,
-                         mesmo as que não aceitam movimento (aguardando, finalizados):
-                         movimento impossível não é silêncio — o ViewModel diz por quê. -->
-                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}" Tag="Aguardando"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <!-- As mesmas cores de estado da fila do balcão (redesenho de
-                                 ago/2026): dois quadros da mesma agenda, um vocabulário. -->
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="AGUARDANDO"
-                                                Ponto="{StaticResource Brush.Acento}"
-                                                Itens="{Binding Aguardando}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Aguardando}"
-                                              ItemTemplate="{StaticResource CartaoDoDia}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+             ⚠️ Não envolver a DataGrid num ScrollViewer: quebra a virtualização, e não há
+             página rolante acima dela — a roda fica com a tabela. -->
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <!-- NaoVerificado ligado (parcela 61): banco fora do ar não pode desenhar
+                     "Nenhum horário" — falha com cara de dia vazio, na abertura do médico. -->
+                <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                   Vazio="{Binding QuadroVazio}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE787;"
+                                   TextoCarregando="Montando o seu dia…"
+                                   Titulo="Nenhum horário marcado neste dia"
+                                   Descricao="Os horários aparecem aqui assim que a recepção marcar." />
 
-                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}" Tag="Chegou"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="NA RECEPÇÃO"
-                                                Ponto="{StaticResource Brush.Aviso}"
-                                                PilulaFundo="{StaticResource Brush.Aviso.Suave}"
-                                                PilulaTexto="{StaticResource Brush.Aviso}"
-                                                Itens="{Binding NaRecepcao}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding NaRecepcao}"
-                                              ItemTemplate="{StaticResource CartaoDoDia}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+                <DataGrid ItemsSource="{Binding Sessoes}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          CanUserSortColumns="False" SelectionMode="Single">
+                    <DataGrid.RowStyle>
+                        <!-- Cancelado e falta ficam na lista, APAGADOS — nunca somem: linha
+                             ausente se confunde com horário que nunca existiu. -->
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="HORÁRIO" Width="110" Binding="{Binding Hora}" />
 
-                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}" Tag="Chamado"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="CHAMADO"
-                                                Ponto="{StaticResource Brush.Erro}"
-                                                PilulaFundo="{StaticResource Brush.Erro.Suave}"
-                                                PilulaTexto="{StaticResource Brush.Erro}"
-                                                Itens="{Binding Chamados}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Chamados}"
-                                              ItemTemplate="{StaticResource CartaoDoDia}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+                        <DataGridTemplateColumn Header="PACIENTE" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Right" Margin="8,0,0,0"
+                                                    Style="{StaticResource Badge.Aviso}"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding Encaixe,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Encaixe" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
+                                        <TextBlock Style="{StaticResource CelulaSuave}" Margin="0,2,0,0">
+                                            <Run Text="{Binding Modalidade, Mode=OneWay}" />
+                                            <Run Text="· sala" />
+                                            <Run Text="{Binding Local, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <!-- O recado do balcão: só quando há — linha vazia em toda
+                                             linha desalinharia a tabela inteira. -->
+                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
+                                                   Style="{StaticResource CelulaSuave}" FontStyle="Italic"
+                                                   ToolTip="Recado escrito pela recepção neste horário"
+                                                   Visibility="{Binding Observacoes,
+                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                FallbackValue=Collapsed}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}" Tag="EmAtendimento"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="EM ATENDIMENTO"
-                                                Ponto="{StaticResource Brush.Sucesso}"
-                                                PilulaFundo="{StaticResource Brush.Sucesso.Suave}"
-                                                PilulaTexto="{StaticResource Brush.Sucesso.Forte}"
-                                                Itens="{Binding EmAtendimento}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding EmAtendimento}"
-                                              ItemTemplate="{StaticResource CartaoDoDia}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+                        <!-- STATUS: a etapa em uma palavra, e a hora do fato embaixo. As
+                             cores são as das raias de antes (e as da fila do balcão): dois
+                             leitores da mesma agenda, um vocabulário. -->
+                        <DataGridTemplateColumn Header="STATUS" Width="200">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <Border x:Name="pilula" HorizontalAlignment="Left"
+                                                Style="{StaticResource Badge}">
+                                            <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
+                                                   Visibility="{Binding StatusDetalhe,
+                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                FallbackValue=Collapsed}" />
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Aviso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Erro}" />
+                                        </DataTrigger>
+                                        <!-- Chamada demorada: o balcão ainda não trouxe a pessoa,
+                                             e é o profissional que está parado esperando. -->
+                                        <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
+                                            <Setter TargetName="detalhe" Property="Foreground"
+                                                    Value="{StaticResource Brush.Erro}" />
+                                            <Setter TargetName="detalhe" Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Sucesso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="Finalizado">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Info}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0"
-                            Tag="Finalizado"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <!-- Singular, como no balcão: os dois quadros divergiam só
-                                 aqui, e diferença sem razão se lê como razão escondida. -->
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADO"
-                                                Ponto="{StaticResource Brush.Borda.Hover}"
-                                                PilulaFundo="{StaticResource Brush.Borda}"
-                                                PilulaTexto="{StaticResource Brush.Texto.Secundario}"
-                                                Itens="{Binding Finalizados}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Finalizados}"
-                                              ItemTemplate="{StaticResource CartaoDoDia}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-            </ScrollViewer>
+                        <!-- PRONTUÁRIO: a coluna do print. "Pendente" em âmbar é o assunto do
+                             módulo — a sessão que aconteceu e ninguém escreveu. -->
+                        <DataGridTemplateColumn Header="PRONTUÁRIO" Width="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock x:Name="prontuario" Text="{Binding Prontuario}"
+                                               VerticalAlignment="Center" Margin="0,6,8,6"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding ProntuarioPendente}" Value="True">
+                                            <Setter TargetName="prontuario" Property="Foreground"
+                                                    Value="{StaticResource Brush.Aviso}" />
+                                            <Setter TargetName="prontuario" Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-            <!-- O vazio é do QUADRO INTEIRO: raia vazia sozinha é rotina do dia, e cada
-                 uma já diz "—" no lugar dela. -->
-            <!-- NaoVerificado ligado (parcela 61): sem ele, banco fora do ar desenhava
-                 "Nenhum horário marcado" — falha com cara de dia vazio, na tela de
-                 abertura do médico. Era a ÚNICA tela do módulo sem esta ligação. -->
-            <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
-                               Carregando="{Binding Carregando}"
-                               NaoVerificado="{Binding NaoVerificado}"
-                               Glifo="&#xE787;"
-                               TextoCarregando="Montando o seu dia…"
-                               Titulo="Nenhum horário marcado neste dia"
-                               Descricao="Os horários aparecem aqui assim que a recepção marcar." />
-        </Grid>
+                        <!-- AÇÕES: uma principal (Atender) e as de fila só na etapa em que
+                             servem. `CanUserSort=False`: cabeçalho vazio que responde ao
+                             clique é alvo morto. -->
+                        <DataGridTemplateColumn Header="" Width="Auto" CanUserSort="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                                Margin="8,0">
+                                        <Button Content="Chamar" Margin="0,0,6,0"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Visibility="{Binding PodeChamar,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.ChamarCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="Desfazer chamada" Margin="0,0,6,0"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Visibility="{Binding PodeDesfazerChamada,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.DesfazerChamadaCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="Voltar" Margin="0,0,6,0"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                ToolTip="Desfaz o &quot;entrou&quot; — um passo por vez."
+                                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Visibility="{Binding PodeVoltarEtapa,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.VoltarEtapaCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <!-- "Atender" carimba a entrada e abre o prontuário
+                                             (parcela 95) — o "Entrou" à parte deixou de ser
+                                             necessário. A tela de destino exige VerProntuario:
+                                             o IsEnabled explica, a guarda do comando impede. -->
+                                        <Button Content="{Binding RotuloRegistro}"
+                                                Style="{StaticResource BotaoAcaoGrid}"
+                                                IsEnabled="{Binding DataContext.PodeVerProntuario,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Visibility="{Binding PodeAtender,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                ToolTipService.ShowOnDisabled="True"
+                                                ToolTip="Abrir o atendimento mostra o prontuário — exige a permissão Ver prontuário"
+                                                Command="{Binding DataContext.AtenderCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
     </DockPanel>
 </UserControl>

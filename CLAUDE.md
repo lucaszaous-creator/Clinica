@@ -3234,6 +3234,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   não havia pedido específico — reorganizar leiaute aprovado sem pedido é o caminho da
   sétima reprovação.
 
+- **O "MEU DIA" DO MÉDICO VOLTOU A SER LISTA — e não é a lista que a parcela 38
+  aposentou** (parcela 95, 3ª parte; a direção: *"quanto mais simples, melhor"*). O quadro
+  de cinco raias foi feito por PARIDADE com a fila do balcão (parcela 87), e as raias
+  respondem à pergunta do BALCÃO, que administra vinte pessoas em cinco estados. O médico
+  tem oito horários e uma pergunta: *quem é o próximo e o que eu já escrevi*. O print do
+  Smart Clinic que a cliente mandou é exatamente isso — uma linha por horário, o status
+  ali, a coluna PRONTUÁRIO e o botão ATENDER.
+  ⚠️ **A lista corrida da parcela 38 não respondia "quem posso chamar agora" porque não
+  tinha a coluna de STATUS com a hora do fato** ("No local · chegou às 14:40 · espera 12
+  min"). É ela que substitui as raias, e ela sai dos MESMOS carimbos que a fila do balcão
+  lê (`SessaoDoDia` ganhou `ChegadaEm`/`InicioAtendimentoEm`/`FimAtendimentoEm`). Nenhuma
+  sincronização mudou: os dois leem a mesma tabela.
+  O que a lista NÃO perdeu: cancelado e falta continuam na lista, APAGADOS (a regra da
+  folha do dia); as transições (chamar, desfazer, voltar) continuam na linha, na etapa em
+  que servem; "Chamar próximo" continua no cabeçalho. O que perdeu foi o ARRASTO, que numa
+  lista não tem para onde ir — e o code-behind de 140 linhas foi junto.
+  ⚠️ **"Iniciar atendimento" na barra da tela do paciente NÃO era redundante**, apesar de o
+  Atender do Meu dia carimbar a entrada desde a 1ª parte: a enfermagem chega ao paciente
+  pela tela da Enfermagem (shell), que não carimba — a barra é o caminho dela. Eu tinha
+  anunciado a remoção; a conferência de quem CHEGA à barra por outra porta é que a salvou.
+  **Antes de tirar um botão "redundante", liste as portas que chegam à tela sem passar
+  pelo botão que o tornou redundante.**
+  Junto: os rótulos com barra da Recepção ("Recepção / Check-in" → "Fila do dia";
+  "Pacotes / Sessões" → "Pacotes", nos DOIS módulos que publicam a chave). Item que precisa
+  de dois nomes é item que ainda não decidiu o que é.
+
+- **O RAIL DA TELA DO PACIENTE: dez seções viraram oito, e a checagem 38 decidiu COMO**
+  (parcela 95, 4ª parte). "Evolução da dor", "Medidas" e "Avaliações" eram três linhas do
+  rail para uma pergunta ("como está indo"); viraram a seção "Acompanhamento", com as três
+  como abas internas — e o grupo de três itens virou um item do grupo Paciente. As três
+  chaves de navegação continuam valendo (`AbaDe` leva à seção, `SubAbaDe` à aba de dentro).
+  ⚠️ **As abas de dentro moram numa View PRÓPRIA (`AcompanhamentoView`), não em `TabItem`
+  aninhados no workspace.** A checagem 38 conta os `<TabItem` do XAML do workspace contra
+  as seções declaradas no C# — uma por seção — e um `TabControl` aninhado ali inflaria a
+  contagem para 11 contra 8. A saída não foi afrouxar a checagem: foi compor um nível, que
+  é o nível que a checagem de rolagem também segue. **Quando uma rede reprova um desenho
+  legítimo, a primeira pergunta é se há uma composição que a rede já entende.**
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

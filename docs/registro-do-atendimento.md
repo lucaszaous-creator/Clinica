@@ -345,6 +345,13 @@ As sete seções, num **rail vertical**:
 | 5 | Medidas | os números seriados |
 | 6 | Avaliações | as escalas |
 
+> **Parcela 95:** as linhas 4, 5 e 6 viraram UMA seção, "Acompanhamento", com as três como
+> abas internas (`AcompanhamentoView`) — três linhas do rail para a pergunta "como está
+> indo" não era simples. As três chaves de navegação continuam valendo
+> (`ModuloClinico.AbaDe` + `SubAbaDe`). E o rail passou a mostrar só a seção de escrita de
+> quem está logado (o médico não vê "Atendimento de enfermagem"; a enfermeira não vê
+> "Atendimento").
+
 ⚠️ **Vertical, e não abas**: o `TabPanel` do WPF **espreme** as abas quando julga que a
 régua não cabe — é o defeito da parcela 50, "Convê", "Prontu", "Documer" — e sete rótulos
 quebrariam a régua em duas linhas mesmo com `WrapPanel`.
@@ -578,7 +585,7 @@ O que foi MEDIDO antes de desenhar, e que justifica o tamanho da mudança:
 | botões na barra do médico | 4 — e o 4º saía CORTADO a 1366 px | 4, com o Imprimir no rodapé |
 | cartões empilhados em Exames e anexos | 3 | 1 superfície com régua de chips |
 | botões por linha em Prescrições | 6 | 1 + o "⋯" |
-| itens do rail | 9 numa lista corrida | 10 em três grupos |
+| itens do rail | 9 numa lista corrida | 10 em três grupos (8 em dois desde a parcela 95) |
 
 ## 22. A regra que governa a redução
 
