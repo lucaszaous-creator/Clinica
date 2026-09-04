@@ -1,0 +1,477 @@
+<title>Dois desenhos para o balcão</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 28px 80px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:70ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:52px 0}
+
+.placar{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden; margin:34px 0 0}
+.placar div{background:var(--sup); padding:18px 20px}
+.placar .n{font-family:"IBM Plex Mono",monospace; font-size:30px; font-weight:600; letter-spacing:-.03em; line-height:1.1; font-variant-numeric:tabular-nums}
+.placar .n s{color:var(--mudo); font-weight:400; font-size:22px; margin-right:8px}
+.placar .r{font-size:13px; color:var(--mudo); margin-top:4px}
+
+.regras{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:2px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.regras li{background:var(--sup); padding:16px 20px; display:grid; grid-template-columns:26px 1fr; gap:14px; align-items:start}
+.regras .marca{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--acento); padding-top:3px}
+.regras b{font-weight:600}
+.regras span.txt{font-size:14.5px; line-height:1.55; color:var(--tinta-2)}
+
+.opcao{margin-top:56px; scroll-margin-top:20px}
+.op-topo{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.op-letra{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px; background:var(--acento); color:var(--sobre-acento); border-radius:6px; padding:3px 9px; letter-spacing:.04em}
+.contador{margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--mudo); border:1px solid var(--fio-forte); border-radius:999px; padding:4px 12px; white-space:nowrap}
+.contador b{color:var(--tinta); font-weight:600}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; line-height:1.6; color:var(--tinta-2); max-width:72ch; margin:0 0 22px}
+.cap{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin:22px 0 8px}
+.cap b{color:var(--tinta); font-weight:600}
+
+.analise{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; margin-top:20px}
+.bloco{border-left:3px solid var(--fio-forte); padding:2px 0 2px 16px}
+.bloco.g{border-color:var(--ganho)} .bloco.c{border-color:var(--custo)} .bloco.e{border-color:var(--acento)}
+.bloco h4{margin:0 0 6px; font-size:11.5px; font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo)}
+.bloco.g h4{color:var(--ganho)} .bloco.c h4{color:var(--custo)} .bloco.e h4{color:var(--acento)}
+.bloco p{font-size:14.5px; line-height:1.55; color:var(--tinta-2); margin:0 0 8px}
+.bloco p:last-child{margin:0}
+
+.reco{background:var(--sup); border:1px solid var(--fio); border-top:3px solid var(--acento); border-radius:12px; padding:28px 30px; margin-top:30px; box-shadow:var(--sombra)}
+.reco h2{margin-bottom:12px}
+.perguntas{list-style:none; padding:0; margin:18px 0 0; display:grid; gap:12px}
+.perguntas li{display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.perguntas .q{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--acento); font-weight:600; padding-top:2px}
+.nota{font-size:13px; color:var(--mudo); font-style:italic; font-family:"IBM Plex Serif",Georgia,serif; margin-top:14px}
+
+/* ======================================================================
+   A TELA — render fiel do app. Paleta FIXA (o app é claro), tokens do
+   repositório: tokens/colors.css.
+   ====================================================================== */
+.moldura{overflow-x:auto; border-radius:12px; background:var(--sup-2); padding:0}
+.tela{
+  --acento:#123A9E; --acento-suave:#EEF3FC; --acento-tint:#D8E3F7;
+  --fundo:#F8FAFC; --superficie:#FFFFFF; --superficie-hover:#F1F5F9; --raia:#F3F4F6;
+  --borda:#E5E7EB; --borda-hover:#D1D5DB;
+  --texto-primario:#111827; --texto-secundario:#6B7280; --texto-corpo:#374151;
+  --sucesso:#16A34A; --sucesso-forte:#15803D; --sucesso-suave:#DCFCE7;
+  --aviso:#EA580C; --aviso-texto:#C2410C; --aviso-suave:#FFEDD5;
+  --erro:#DC2626; --erro-texto:#B91C1C; --erro-suave:#FEE2E2;
+  --info:#0EA5E9; --info-texto:#0369A1; --info-suave:#E0F2FE;
+  --bsv:#0D9488; --eletro:#7C3AED; --consulta:#DB2777;
+  min-width:1000px; background:var(--fundo); color:var(--texto-primario);
+  font-family:"Segoe UI",Inter,system-ui,sans-serif; font-size:14px; line-height:1.45;
+  border:1px solid #C3C9D6; border-radius:12px; overflow:hidden; box-shadow:var(--sombra);
+}
+.tela *{box-sizing:border-box}
+.tela .abas{display:flex; gap:2px; background:var(--superficie); border-bottom:1px solid var(--borda); padding:8px 20px 0}
+.tela .abas div{padding:8px 14px 10px; font-size:13.5px; color:var(--texto-corpo); border-bottom:2px solid transparent}
+.tela .abas div.on{color:var(--acento); font-weight:600; border-bottom-color:var(--acento)}
+.tela .pagina{padding:16px 20px 20px}
+.tela .h1{font-size:20px; font-weight:700; letter-spacing:-.01em; margin:0 0 2px}
+.tela .sub{font-size:12.5px; color:var(--texto-secundario); margin:0 0 14px}
+.tela .col2{display:flex; gap:16px; align-items:flex-start}
+.tela .esq{flex:1; min-width:0}
+.tela .dir{width:360px; flex:none}
+.tela .rot{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); margin:14px 0 6px; padding-bottom:4px; border-bottom:1px solid var(--borda)}
+.tela .rot:first-child{margin-top:0}
+
+/* faixa do paciente */
+.tela .faixa{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:14px}
+.tela .av{width:36px; height:36px; border-radius:999px; background:var(--acento-suave); color:var(--acento); font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none}
+.tela .faixa .nome{font-size:15px; font-weight:600}
+.tela .faixa .meta{font-size:12px; color:var(--texto-secundario)}
+.tela .faixa .dado{display:flex; flex-direction:column; padding-left:16px; border-left:1px solid var(--borda)}
+.tela .faixa .dado .k{font-size:11px; color:var(--texto-secundario); font-weight:600}
+.tela .faixa .dado .v{font-size:13px; font-weight:600}
+.tela .faixa .troca{margin-left:auto; color:var(--acento); font-weight:600; font-size:12.5px}
+
+/* campos */
+.tela .linha{display:flex; gap:14px; flex-wrap:wrap; margin-top:10px}
+.tela .cp{display:flex; flex-direction:column; gap:4px}
+.tela .cp .k{font-size:12.5px; font-weight:600; color:var(--texto-corpo)}
+.tela .cp .in{height:36px; border:1px solid var(--borda-hover); border-radius:4px; background:#fff; padding:0 10px; display:flex; align-items:center; font-size:13.5px; gap:8px}
+.tela .cp .in .cv{margin-left:auto; color:var(--texto-secundario); font-size:11px}
+.tela .cp .in.ta{height:60px; align-items:flex-start; padding-top:7px; color:#9AA3B2}
+.tela .cp.ok .in{border-color:var(--borda)}
+.tela .check{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--texto-corpo); margin-top:10px}
+.tela .check .bx{width:16px; height:16px; border:1px solid var(--borda-hover); border-radius:3px; background:#fff}
+
+/* modalidades em linha */
+.tela .mods{border:1px solid var(--borda); border-radius:8px; background:var(--superficie); overflow:hidden; margin-top:6px}
+.tela .mod{display:grid; grid-template-columns:4px 1fr auto auto; gap:12px; align-items:center; padding:9px 14px 9px 0; border-bottom:1px solid var(--borda); font-size:13.5px}
+.tela .mod:last-child{border-bottom:0}
+.tela .mod .tr{width:4px; height:100%; min-height:28px; background:var(--acento)}
+.tela .mod .tr.e{background:var(--eletro)} .tela .mod .tr.b{background:var(--bsv)} .tela .mod .tr.c{background:var(--consulta)}
+.tela .mod .n{font-weight:600}
+.tela .mod .g{font-variant-numeric:tabular-nums; color:var(--texto-corpo); font-size:13px}
+.tela .mod .rd{width:16px; height:16px; border-radius:999px; border:1px solid var(--borda-hover); background:#fff}
+.tela .mod.on{background:var(--acento-suave)}
+.tela .mod.on .rd{border:5px solid var(--acento)}
+
+/* coluna da direita */
+.tela .painel{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:12px 14px}
+.tela .painel + .painel{margin-top:12px}
+.tela .painel .rot{margin-top:0}
+.tela .av-lin{display:flex; gap:10px; align-items:center; padding:7px 0 7px 10px; border-left:3px solid var(--aviso); font-size:12.5px; color:var(--texto-corpo)}
+.tela .av-lin + .av-lin{border-top:1px solid var(--borda)}
+.tela .av-lin.perigo{border-left-color:var(--erro)}
+.tela .av-lin b{font-weight:600}
+.tela .av-lin .acao{margin-left:auto; color:var(--acento); font-weight:600; font-size:12px; white-space:nowrap}
+.tela .guia-lin{display:flex; align-items:center; gap:10px; font-size:13px}
+.tela .guia-lin .n{font-weight:700; font-size:15px}
+.tela .guia-lin .ver{margin-left:auto; color:var(--acento); font-weight:600; font-size:12.5px; white-space:nowrap}
+.tela .guia-lin .quieto{color:var(--texto-secundario)}
+.tela .btn{border:1px solid var(--borda-hover); background:#fff; color:var(--texto-corpo); border-radius:8px; padding:9px 14px; font-size:13.5px; font-weight:500; display:inline-flex; align-items:center; justify-content:center; gap:7px; white-space:nowrap}
+.tela .btn.pri{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600; width:100%; min-height:44px; font-size:14px}
+.tela .btn.wide{width:100%}
+.tela .dica{font-size:12px; color:var(--texto-secundario); margin-top:8px; line-height:1.45}
+
+/* o documento (prévia da guia), quando aberto */
+.tela .doc{border:1px solid var(--borda); border-radius:8px; background:var(--superficie); margin-top:10px; overflow:hidden}
+.tela .doc .tarja{background:var(--superficie-hover); border-bottom:1px solid var(--borda); padding:7px 12px; font-size:11.5px; color:var(--texto-secundario); display:flex}
+.tela .doc .tarja b{color:var(--texto-primario); font-weight:600}
+.tela .doc .tarja span{margin-left:auto}
+.tela .doc .grade{display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; padding:10px 12px}
+.tela .doc .kv .k{font-size:11px; color:var(--texto-secundario); font-weight:600}
+.tela .doc .kv .v{font-size:13px; font-weight:600}
+.tela .doc .kv.falta .v{background:var(--erro-suave); color:var(--erro-texto); display:inline-block; padding:0 6px; border-radius:3px}
+.tela .doc .cod{border-top:1px solid var(--borda); padding:8px 12px; font-size:12.5px; display:grid; grid-template-columns:1fr auto; gap:4px 12px}
+.tela .doc .cod .q{color:var(--texto-secundario)}
+
+/* ---- fila / cartões ---- */
+.tela .raias{display:flex; gap:12px; padding:16px 20px 20px; overflow-x:auto}
+.tela .raia{background:var(--raia); border-radius:8px; padding:10px; width:300px; flex:none}
+.tela .raia .cab{display:flex; align-items:center; gap:8px; font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--texto-corpo); padding:2px 4px 10px}
+.tela .raia .cab .pt{width:8px; height:8px; border-radius:999px; background:var(--texto-secundario)}
+.tela .raia .cab .pt.a{background:var(--aviso)} .tela .raia .cab .pt.v{background:var(--sucesso)} .tela .raia .cab .pt.e{background:var(--erro)}
+.tela .raia .cab .ct{margin-left:auto; background:#fff; border-radius:999px; padding:1px 8px; font-size:11px; color:var(--texto-secundario); letter-spacing:0}
+.tela .cartao{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:10px 12px; margin-bottom:8px; border-left:4px solid var(--acento)}
+.tela .cartao.enc{border-left-color:var(--aviso)}
+.tela .cartao.dem{background:var(--erro-suave)}
+.tela .cartao .topo{display:flex; gap:10px; align-items:center}
+.tela .cartao .av{width:32px; height:32px; font-size:12px}
+.tela .cartao .nm{font-size:14.5px; font-weight:600; line-height:1.2}
+.tela .cartao .sl{font-size:12px; color:var(--texto-secundario); margin-top:2px; display:flex; gap:5px; align-items:center}
+.tela .cartao .sl .ok{color:var(--sucesso-forte); font-weight:700}
+.tela .cartao .ctx{font-size:12px; color:var(--texto-secundario); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tela .cartao .cham{font-size:12px; font-weight:600; color:var(--erro); margin-top:6px}
+.tela .selos{display:flex; flex-wrap:wrap; gap:4px; margin-top:8px}
+.tela .selo{font-size:11px; font-weight:600; border-radius:999px; padding:2px 9px; background:var(--superficie-hover); color:var(--texto-corpo)}
+.tela .selo.err{background:var(--erro-suave); color:var(--erro-texto)}
+.tela .selo.avi{background:var(--aviso-suave); color:var(--aviso-texto)}
+.tela .selo.inf{background:var(--info-suave); color:var(--info-texto)}
+.tela .selo.suc{background:var(--sucesso-suave); color:var(--sucesso-forte)}
+.tela .acoes{display:flex; gap:6px; margin-top:8px}
+.tela .acoes .btn{padding:5px 10px; font-size:12.5px; flex:1}
+.tela .acoes .btn.pri{min-height:0; font-size:12.5px; width:auto}
+.tela .acoes .mais{flex:none; width:30px; padding:5px 0}
+.tela .faixa-chamando{margin:16px 20px 0; background:var(--erro-suave); border:1px solid #FCA5A5; border-radius:8px; padding:9px 14px; font-size:13px; display:flex; gap:10px; align-items:center}
+.tela .faixa-chamando b{font-weight:700}
+.tela .faixa-chamando .btn{margin-left:auto; padding:5px 12px; font-size:12.5px}
+.lado-a-lado{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+@media (max-width:900px){.lado-a-lado{grid-template-columns:1fr}}
+.tela.mini{min-width:0}
+.tela.mini .raias{padding:14px}
+.tela.mini .raia{width:100%}
+
+@media (max-width:720px){
+  .wrap{padding:34px 16px 60px}
+  h1{font-size:32px}
+  .contador{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Clínica SemDor · Módulo Recepção · setembro de 2026</p>
+  <h1>Dois desenhos para o balcão</h1>
+  <p class="lede">A cliente disse: <em>quanto mais simples, melhor</em>. Dos itens que eu apontei como “ainda não tão simples”, estes dois são os que mais aliviam a recepção — e os dois mexem em telas que ela já viu e aprovou. Por isso vêm desenhados antes de uma linha de código. Nada aqui é decisão tomada: é proposta para ela dizer sim, não, ou “assim, mas…”.</p>
+
+  <div class="placar">
+    <div><div class="n">3 + 1</div><div class="r">passos e uma escolha no meio do Novo atendimento — e a escolha muda seis campos de lugar</div></div>
+    <div><div class="n">2</div><div class="r">blocos sempre abertos na coluna direita, um deles o documento inteiro da guia</div></div>
+    <div><div class="n">8</div><div class="r">selos que um cartão da fila pode carregar ao mesmo tempo</div></div>
+    <div><div class="n">1</div><div class="r">olhada — o tempo que a recepcionista tem para ler o cartão com o paciente na frente</div></div>
+  </div>
+
+  <h2 style="margin-top:44px">O que nenhum dos dois desenhos muda</h2>
+  <ul class="regras">
+    <li><span class="marca">01</span><span class="txt"><b>A guia continua nascendo onde nasce hoje.</b> No lançamento com o paciente presente ela nasce no clique; no horário marcado, nasce quando o médico finalizar (a chave “guia no agendamento” está desligada). Os desenhos mexem em <em>como se pergunta</em>, não em <em>o que se grava</em>.</span></li>
+    <li><span class="marca">02</span><span class="txt"><b>Nenhum aviso some.</b> Carteirinha vencida, consulta a renovar, cota, pacote, termo, dívida e “sem convênio” continuam onde estão. O que muda é quantos deles viram <em>selo</em> no cartão — não quantos existem.</span></li>
+    <li><span class="marca">03</span><span class="txt"><b>Nenhum dado deixa de ser visível.</b> O que sai do relance vai para a dica do cartão (passar o mouse) ou para a janela que já abre ao clicar. Selo a menos não é informação a menos.</span></li>
+    <li><span class="marca">04</span><span class="txt"><b>Os caminhos existentes continuam valendo.</b> O clique no vão da agenda continua caindo no formulário já preenchido; o “⋯” do cartão continua abrindo tudo o que abre hoje.</span></li>
+  </ul>
+
+  <!-- ===================================================================== A -->
+  <section class="opcao" id="a">
+    <div class="op-topo">
+      <span class="op-letra">A</span>
+      <h2>Marcar é uma aba, lançar é outra</h2>
+      <span class="contador">hoje <b>3 passos + 1 escolha</b> · proposta <b>2 abas de 2 passos</b></span>
+    </div>
+    <p class="tese">O Novo atendimento pergunta <strong>QUANDO</strong> no meio do formulário — dois cartões de rádio — e a resposta faz seis campos aparecerem ou sumirem (duração, sala, sessões, intervalo, encaixe, e o botão troca de nome). Quem marca por telefone não está lançando; quem lança com o paciente na frente não escolhe sala nem série. São <em>duas perguntas</em>, e pergunta a mais é aba, pela regra da casa. O item “Atendimento” já é composto (Novo atendimento · Consultas · Lançamentos): a proposta é a primeira aba virar duas.</p>
+
+    <p class="cap"><b>Proposta</b> · aba LANÇAR — o paciente está aqui</p>
+    <div class="moldura"><div class="tela">
+      <div class="abas"><div class="on">Lançar</div><div>Marcar</div><div>Consultas</div><div>Lançamentos</div></div>
+      <div class="pagina">
+        <div class="h1">Lançar atendimento</div>
+        <div class="sub">O paciente está no balcão. Entra como encaixe com o check-in feito, e a guia nasce agora.</div>
+        <div class="col2">
+          <div class="esq">
+            <div class="rot">1 · Quem</div>
+            <div class="faixa">
+              <div class="av">MS</div>
+              <div><div class="nome">Maria da Silva</div><div class="meta">412.***.***-10 · (22) 99812-3344 · 61 anos</div></div>
+              <div class="dado"><span class="k">Convênio</span><span class="v">Unimed Costa do Sol</span></div>
+              <div class="dado"><span class="k">Carteirinha</span><span class="v">0012 3456 7890 · válida até 12/2026</span></div>
+              <span class="troca">Trocar</span>
+            </div>
+
+            <div class="rot">2 · O que foi feito</div>
+            <div class="mods">
+              <div class="mod on"><div class="tr"></div><div class="n">Acupuntura simples</div><div class="g">2 guias · a 2ª libera 05/09</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr e"></div><div class="n">Acupuntura com eletro</div><div class="g">2 guias · a 2ª libera 05/09</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr b"></div><div class="n">BSV</div><div class="g">1 guia · hoje</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr b"></div><div class="n">BSV com acupuntura</div><div class="g">2 guias · a 2ª libera 05/09</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr c"></div><div class="n">Consulta</div><div class="g">1 guia · hoje</div><div class="rd"></div></div>
+            </div>
+            <div class="linha">
+              <div class="cp ok" style="width:160px"><span class="k">Data</span><div class="in">04/09/2026<span class="cv">▾</span></div></div>
+              <div class="cp" style="width:260px"><span class="k">Quem atendeu</span><div class="in">Dra. Ana Beatriz<span class="cv">▾</span></div></div>
+              <div class="cp" style="width:220px"><span class="k">Qual código libera primeiro?</span><div class="in">Acupuntura (padrão)<span class="cv">▾</span></div></div>
+            </div>
+            <div class="linha"><div class="cp" style="width:100%"><span class="k">Observações</span><div class="in ta">Só se houver algo a dizer ao faturamento</div></div></div>
+          </div>
+
+          <div class="dir">
+            <div class="painel">
+              <div class="rot">Antes de lançar</div>
+              <div class="av-lin"><span><b>Consulta vence em 5 dias</b> — renove com ela aqui</span><span class="acao">Renovar</span></div>
+              <div class="av-lin"><span><b>Cota:</b> 8 de 10 sessões autorizadas usadas</span></div>
+            </div>
+            <div class="painel">
+              <div class="rot">A guia</div>
+              <div class="guia-lin"><span class="n">2 guias</span><span class="quieto">Acupuntura · a 2ª libera 05/09</span><span class="ver">Ver a guia ▸</span></div>
+              <div class="dica">O documento abre ao clicar — com convênio, carteirinha, beneficiário, executante e os códigos, como hoje. Ele não some: sai da frente.</div>
+            </div>
+            <div class="painel" style="margin-top:12px">
+              <div class="btn pri">Lançar e gerar 2 guias</div>
+              <div class="dica">Encaixe às 09:41 com o check-in feito. Pacote, insumo e caixa continuam no Finalizar da fila.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <p class="cap"><b>Proposta</b> · aba MARCAR — dia e horário</p>
+    <div class="moldura"><div class="tela">
+      <div class="abas"><div>Lançar</div><div class="on">Marcar</div><div>Consultas</div><div>Lançamentos</div></div>
+      <div class="pagina">
+        <div class="h1">Marcar horário</div>
+        <div class="sub">O paciente não está aqui. O horário entra na agenda de quem atende; a guia nasce quando ele finalizar o atendimento.</div>
+        <div class="col2">
+          <div class="esq">
+            <div class="rot">1 · Quem</div>
+            <div class="faixa">
+              <div class="av">MS</div>
+              <div><div class="nome">Maria da Silva</div><div class="meta">412.***.***-10 · (22) 99812-3344 · 61 anos</div></div>
+              <div class="dado"><span class="k">Convênio</span><span class="v">Unimed Costa do Sol</span></div>
+              <span class="troca">Trocar</span>
+            </div>
+
+            <div class="rot">2 · Quando e com quem</div>
+            <div class="linha">
+              <div class="cp" style="width:160px"><span class="k">Data</span><div class="in">10/09/2026<span class="cv">▾</span></div></div>
+              <div class="cp" style="width:110px"><span class="k">Hora</span><div class="in">14:00</div></div>
+              <div class="cp" style="width:240px"><span class="k">Quem atende</span><div class="in">Dra. Ana Beatriz<span class="cv">▾</span></div></div>
+              <div class="cp" style="width:120px"><span class="k">Duração (min)</span><div class="in">30</div></div>
+              <div class="cp" style="width:150px"><span class="k">Sala</span><div class="in">Sala 2<span class="cv">▾</span></div></div>
+            </div>
+            <div class="linha">
+              <div class="cp" style="width:110px"><span class="k">Sessões</span><div class="in">1</div></div>
+              <div class="cp" style="width:130px"><span class="k">A cada (dias)</span><div class="in">7</div></div>
+            </div>
+            <div class="check"><span class="bx"></span> Encaixe — marcar por cima de um horário ocupado</div>
+
+            <div class="rot">3 · O que será feito</div>
+            <div class="mods">
+              <div class="mod on"><div class="tr"></div><div class="n">Acupuntura simples</div><div class="g">&nbsp;</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr e"></div><div class="n">Acupuntura com eletro</div><div class="g">&nbsp;</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr b"></div><div class="n">BSV</div><div class="g">&nbsp;</div><div class="rd"></div></div>
+              <div class="mod"><div class="tr c"></div><div class="n">Consulta</div><div class="g">&nbsp;</div><div class="rd"></div></div>
+            </div>
+            <div class="linha"><div class="cp" style="width:100%"><span class="k">Observações</span><div class="in ta">Recado para quem atende</div></div></div>
+          </div>
+
+          <div class="dir">
+            <div class="painel">
+              <div class="rot">Antes de marcar</div>
+              <div class="av-lin"><span><b>Quinta 10/09 às 14:00 está livre</b> para Dra. Ana e para a Sala 2</span></div>
+              <div class="av-lin"><span><b>Consulta vence em 5 dias</b> — combine a renovação para o dia</span></div>
+            </div>
+            <div class="painel" style="margin-top:12px">
+              <div class="btn pri">Marcar quinta 10/09 às 14:00</div>
+              <div class="dica">Sem prévia de guia nesta aba: com a chave “guia no agendamento” desligada, a guia nasce no Finalizar do médico. A aba diz isso em vez de mostrar um documento que ainda não existe.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que a recepção ganha</h4>
+        <p>Cada aba tem só os campos do seu modo — nada aparece ou some no meio do preenchimento. O botão diz o que vai acontecer (“Lançar e gerar 2 guias” · “Marcar quinta 10/09 às 14:00”).</p>
+        <p>A coluna direita encolhe para o que decide o clique: os avisos e uma linha de guia. O documento continua a um clique, com a mesma cara de hoje.</p></div>
+      <div class="bloco c"><h4>O que custa</h4>
+        <p>A tela aprovada em mockup (“A guia que vai nascer, desenhada”) passa a abrir com a guia <em>recolhida</em>. Quem gostava de ver o documento antes de clicar vai ter um clique a mais — é o ponto que precisa do sim da cliente.</p>
+        <p>O clique no vão da agenda cai na aba Marcar já preenchida; o “Lançar outro” volta para a aba Lançar. Dois caminhos, cada um com o seu destino.</p></div>
+      <div class="bloco e"><h4>Variante, se ela preferir</h4>
+        <p><b>A′ — só recolher a guia, sem separar as abas.</b> Mantém os três passos e o rádio, e troca o documento por “2 guias · Ver a guia ▸”. Alivia a coluna direita e não mexe na esquerda. Meio caminho: menos ganho, menos mudança.</p></div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== B -->
+  <section class="opcao" id="b">
+    <div class="op-topo">
+      <span class="op-letra">B</span>
+      <h2>Três selos, não oito</h2>
+      <span class="contador">hoje <b>até 8 selos</b> · proposta <b>no máximo 3</b>, por ordem fixa</span>
+    </div>
+    <p class="tese">O cartão da fila pode carregar oito selos ao mesmo tempo: atraso, confirmação, pacote, encerramento, guia pendente, termo pendente, encaixe e o “retorno do 2º código” legado. Cada um foi acrescentado por uma boa razão — e somados viram uma tela dentro do cartão, que a recepcionista lê de relance com o paciente na frente. A proposta não tira informação: define <em>o que merece selo</em>, e manda o resto para a linha de contexto ou para a dica.</p>
+
+    <p class="cap"><b>A regra</b> · quem vira selo, e em que ordem</p>
+    <ul class="regras">
+      <li><span class="marca">1º</span><span class="txt"><b>Impede o passo</b> — <span style="color:var(--custo);font-weight:600">Termo pendente</span>. Sem ele o procedimento para na maca. Sempre primeiro, sempre vermelho.</span></li>
+      <li><span class="marca">2º</span><span class="txt"><b>Cobra agora, com o paciente aqui</b> — <span style="color:var(--custo);font-weight:600">Guia pendente</span> (o documento que só é barato pedir agora) e <span style="color:var(--atencao);font-weight:600">Última do pacote</span>, que só acende quando esta é a última ou a penúltima sessão. “Pacote 3/10” não é aviso: é contexto, e vai para a linha de texto.</span></li>
+      <li><span class="marca">3º</span><span class="txt"><b>Estado da coluna</b> — <span style="color:var(--atencao);font-weight:600">Atrasado 12 min</span> só em AGUARDANDO; <span style="color:var(--ganho);font-weight:600">Encerrado às 14:32</span> só em EM ATENDIMENTO. Fora da coluna certa, o selo não diz nada.</span></li>
+      <li><span class="marca">—</span><span class="txt"><b>Sai do selo e vira texto</b>: <b>Confirmou</b> vira um ✓ ao lado da hora (sem ✓ = foi avisado e não respondeu; a dica explica). <b>Encaixe</b> é a tarja laranja que a agenda já usa. <b>Pacote 3/10</b> vai para a linha “Acupuntura · Dra. Ana · Sala 2 · pacote 3/10”. <b>Retorno do 2º código</b> (legado) fica só na dica — é marca para a clínica limpar, não aviso para o balcão.</span></li>
+    </ul>
+
+    <p class="cap"><b>Lado a lado</b> · o mesmo paciente, o mesmo minuto</p>
+    <div class="lado-a-lado">
+      <div>
+        <p class="cap" style="margin-top:0">Hoje</p>
+        <div class="moldura"><div class="tela mini"><div class="raias">
+          <div class="raia">
+            <div class="cab"><span class="pt"></span>Aguardando<span class="ct">3</span></div>
+            <div class="cartao enc">
+              <div class="topo"><div class="av">MS</div><div><div class="nm">Maria da Silva</div><div class="sl">14:30 · Unimed Costa do Sol</div></div></div>
+              <div class="ctx">Acupuntura · Dra. Ana Beatriz · Sala 2</div>
+              <div class="selos"><span class="selo avi">Atrasado 12 min</span><span class="selo">Não confirmou</span><span class="selo inf">Pacote 3/10</span><span class="selo err">Guia pendente</span><span class="selo err">Termo pendente</span><span class="selo avi">Encaixe</span></div>
+              <div class="acoes"><div class="btn pri">Chegou</div><div class="btn mais">⋯</div></div>
+            </div>
+            <div class="cartao">
+              <div class="topo"><div class="av">JP</div><div><div class="nm">João Pedro Antunes</div><div class="sl">15:00 · Particular</div></div></div>
+              <div class="ctx">BSV · Dr. Carlos · Sala 1</div>
+              <div class="selos"><span class="selo suc">Confirmou</span><span class="selo inf">Pacote 9/10</span><span class="selo err">Termo pendente</span></div>
+              <div class="acoes"><div class="btn pri">Chegou</div><div class="btn mais">⋯</div></div>
+            </div>
+          </div>
+          <div class="raia">
+            <div class="cab"><span class="pt v"></span>Em atendimento<span class="ct">1</span></div>
+            <div class="cartao">
+              <div class="topo"><div class="av">RL</div><div><div class="nm">Rosa Lima</div><div class="sl">14:00 · Sul América</div></div></div>
+              <div class="ctx">Consulta · Dra. Ana Beatriz · Sala 2</div>
+              <div class="selos"><span class="selo suc">Confirmou</span><span class="selo suc">Encerrado às 14:32</span><span class="selo err">Guia pendente</span><span class="selo inf">Retorno do 2º código</span></div>
+              <div class="acoes"><div class="btn pri">Concluir</div><div class="btn mais">⋯</div></div>
+            </div>
+          </div>
+        </div></div></div>
+      </div>
+      <div>
+        <p class="cap" style="margin-top:0">Proposta</p>
+        <div class="moldura"><div class="tela mini"><div class="raias">
+          <div class="raia">
+            <div class="cab"><span class="pt"></span>Aguardando<span class="ct">3</span></div>
+            <div class="cartao enc">
+              <div class="topo"><div class="av">MS</div><div><div class="nm">Maria da Silva</div><div class="sl">14:30 · Unimed Costa do Sol</div></div></div>
+              <div class="ctx">Acupuntura · Dra. Ana Beatriz · Sala 2 · pacote 3/10 · encaixe</div>
+              <div class="selos"><span class="selo err">Termo pendente</span><span class="selo err">Guia pendente</span><span class="selo avi">Atrasado 12 min</span></div>
+              <div class="acoes"><div class="btn pri">Chegou</div><div class="btn mais">⋯</div></div>
+            </div>
+            <div class="cartao">
+              <div class="topo"><div class="av">JP</div><div><div class="nm">João Pedro Antunes</div><div class="sl"><span class="ok">✓</span>15:00 · Particular</div></div></div>
+              <div class="ctx">BSV · Dr. Carlos · Sala 1 · pacote 9/10</div>
+              <div class="selos"><span class="selo err">Termo pendente</span><span class="selo avi">Última do pacote</span></div>
+              <div class="acoes"><div class="btn pri">Chegou</div><div class="btn mais">⋯</div></div>
+            </div>
+          </div>
+          <div class="raia">
+            <div class="cab"><span class="pt v"></span>Em atendimento<span class="ct">1</span></div>
+            <div class="cartao">
+              <div class="topo"><div class="av">RL</div><div><div class="nm">Rosa Lima</div><div class="sl"><span class="ok">✓</span>14:00 · Sul América</div></div></div>
+              <div class="ctx">Consulta · Dra. Ana Beatriz · Sala 2</div>
+              <div class="selos"><span class="selo err">Guia pendente</span><span class="selo suc">Encerrado às 14:32</span></div>
+              <div class="acoes"><div class="btn pri">Concluir</div><div class="btn mais">⋯</div></div>
+            </div>
+          </div>
+        </div></div></div>
+      </div>
+    </div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que a recepção ganha</h4>
+        <p>O cartão volta a ser lido de relance: o vermelho é o que impede ou cobra; o âmbar é o que espera; o verde é o recado do consultório. Seis selos numa linha viravam ruído — e ruído ensina a não ler.</p>
+        <p>“Última do pacote” acende só quando importa. Hoje “Pacote 3/10” e “Pacote 10/10” têm a mesma cor e o mesmo peso.</p></div>
+      <div class="bloco c"><h4>O que custa</h4>
+        <p>“Confirmou” deixa de ser selo verde e vira um ✓ na hora. Quem se acostumou a procurar o verde vai precisar de uma semana. A dica do cartão continua dizendo a resposta da rodada por extenso.</p>
+        <p>O “Retorno do 2º código” some do relance — é um selo de limpeza que a clínica ainda não terminou de apagar; fica na dica e no “⋯”.</p></div>
+      <div class="bloco e"><h4>Decisões que ficam</h4>
+        <p>A ordem é <em>fixa</em> — o cartão nunca escolhe sozinho. Se um dia houver um quarto aviso que impede, ele entra na regra, não no cartão.</p>
+        <p>Nenhum dado calculado deixa de ter leitor: o que saiu do selo entrou na linha de contexto ou na dica, no mesmo commit.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <div class="reco">
+    <p class="eyebrow">Se a escolha fosse minha</p>
+    <h2>A inteira, e B como está</h2>
+    <p class="prosa">O <strong>B</strong> é quase de graça: não muda fluxo, não muda dado, e é o que a recepcionista vê cem vezes por dia. O <strong>A</strong> é o que mais simplifica o formulário — e é também o que mexe na tela que ela aprovou em mockup, por isso a variante A′ existe: se a cliente gosta de ver o documento aberto, dá para separar as abas e deixar a guia como está.</p>
+    <ul class="perguntas">
+      <li><span class="q">Q1</span><span>No Novo atendimento, separar em duas abas (Lançar · Marcar) está bom — ou prefere manter os cartões “O paciente está aqui / Marcar dia e horário” no meio do formulário?</span></li>
+      <li><span class="q">Q2</span><span>A guia desenhada pode abrir <em>recolhida</em>, a um clique de “Ver a guia”? Ou ela precisa continuar sempre aberta na coluna direita?</span></li>
+      <li><span class="q">Q3</span><span>No cartão da fila, três selos é o teto certo? E “Confirmou” como ✓ ao lado da hora funciona para quem faz a rodada de confirmação?</span></li>
+    </ul>
+    <p class="nota">Os dois desenhos usam os tokens do repositório (cores, raios, tamanhos), então o que for aprovado vira tradução para o WPF — não uma segunda paleta.</p>
+  </div>
+</div>
