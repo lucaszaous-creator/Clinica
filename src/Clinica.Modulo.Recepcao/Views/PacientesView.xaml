@@ -49,6 +49,7 @@
                     <ColumnDefinition Width="*" MaxWidth="420" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
@@ -59,7 +60,30 @@
                            Margin="14,0,12,0" TextTrimming="CharacterEllipsis"
                            Foreground="{StaticResource Brush.Texto.Secundario}" />
 
-                <Button Grid.Column="2" Content="Novo paciente" VerticalAlignment="Center"
+                <!-- ⚠️ A LISTAGEM COMPLETA PASSOU A SER PEDIDA (set/2026 — o cliente: "a
+                     tela de pacientes ainda carrega todos os pacientes"). Ela é a consulta
+                     mais cara do sistema: `limite: null` com o campo vazio traz as 2.284
+                     fichas, e isso acontecia a cada abertura da tela num banco remoto.
+
+                     A lista continua sendo o que a tela OFERECE — o que mudou é que ela
+                     chega quando alguém a quer. O botão SOME depois de clicado: aceso
+                     sobre a lista que ele acabou de trazer, ele manda clicar de novo. -->
+                <Button Grid.Column="2" Content="Ver todos" VerticalAlignment="Center"
+                        Margin="0,0,8,0" MinWidth="110"
+                        Command="{Binding Seletor.DesligarSugestaoCommand}"
+                        ToolTip="Traz o cadastro inteiro, em ordem de nome. São 2 mil e poucas fichas — por isso ele não vem sozinho.">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ListandoTudo}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <Button Grid.Column="3" Content="Novo paciente" VerticalAlignment="Center"
                         Command="{Binding NovoPacienteCommand}"
                         IsEnabled="{Binding PodeEditarCadastro}" />
             </Grid>
@@ -69,12 +93,24 @@
                        Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
 
             <!-- UMA superfície para a região inteira da lista, e a separação entre as
-                 linhas por espaço — não uma moldura por paciente. -->
-            <Border Style="{StaticResource Card}">
+                 linhas por espaço — não uma moldura por paciente.
+
+                 ⚠️ Ela SOME no ocioso (set/2026): sem lista pedida, a moldura ficaria
+                 vazia com o cabeçalho de colunas órfão em cima de nada. Quem convida ali é
+                 o resumo ao lado da busca — um estado vazio por pergunta (parcela 37). -->
+            <Border Style="{StaticResource Card}"
+                    Visibility="{Binding Seletor.AlgoFoiPedido,
+                                 Converter={StaticResource BoolParaVisibilidade}}">
                 <Grid>
+                    <!-- ⚠️ `Ativo`: com a tela OCIOSA (nada pedido ainda) o vazio fica
+                         DESLIGADO — "Nenhum paciente encontrado" numa tela recém-aberta
+                         seria uma afirmação falsa sobre uma clínica de 2.284 fichas, e é a
+                         leitura que leva a cadastrar de novo quem já tem ficha (parcela
+                         57). Quem convida ali é o resumo ao lado da busca. -->
                     <ctrl:EstadoDaTela Panel.ZIndex="1"
                                        Itens="{Binding Seletor.Resultados}"
                                        Carregando="{Binding Seletor.Buscando}"
+                                       Ativo="{Binding Seletor.AlgoFoiPedido}"
                                        Glifo="&#xE77B;"
                                        Titulo="Nenhum paciente encontrado"
                                        Descricao="Ajuste a busca ou cadastre alguém em “Novo paciente”." />
@@ -88,7 +124,11 @@
                              primeira fica vazia aqui: ela existe para acompanhar a largura
                              do avatar, que antes era imitada por uma margem de 54 px
                              escrita à mão — e margem à mão não segue quem a mudar. -->
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <!-- O cabeçalho é da TABELA: sem linhas ele não descreve nada, e
+                             ficaria pairando sobre o "nenhum paciente encontrado". -->
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6"
+                              Visibility="{Binding Seletor.TemResultados,
+                                           Converter={StaticResource BoolParaVisibilidade}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
                                 <ColumnDefinition Width="*" />

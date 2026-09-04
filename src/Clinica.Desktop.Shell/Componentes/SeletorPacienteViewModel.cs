@@ -124,6 +124,16 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     public bool Ocioso => Modo == ModoDaBusca.Ocioso;
 
     /// <summary>
+    /// O par invertido — o projeto não tem conversor de booleano invertido.
+    ///
+    /// É o <c>Ativo</c> do <c>EstadoDaTela</c> nas telas SEM sugestão: com a lista ociosa,
+    /// "Nenhum paciente encontrado" seria uma afirmação falsa sobre uma clínica de 2.284
+    /// fichas. Nas telas COM sugestão quem responde é o <see cref="BuscandoPorTermo"/>,
+    /// porque lá o vazio da sugestão tem frase própria ("ninguém tem horário hoje").
+    /// </summary>
+    public bool AlgoFoiPedido => !Ocioso;
+
+    /// <summary>
     /// O que a busca está fazendo agora. A decisão mora na Application
     /// (<see cref="BuscaDePaciente.Modo"/>), onde o <c>dotnet test</c> alcança: este
     /// projeto é WPF e não compila no projeto de teste, e o que se decide aqui não é uma
@@ -147,6 +157,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(SugestaoDesligada))]
     [NotifyPropertyChangedFor(nameof(Modo))]
     [NotifyPropertyChangedFor(nameof(Ocioso))]
+    [NotifyPropertyChangedFor(nameof(AlgoFoiPedido))]
     [NotifyPropertyChangedFor(nameof(ListandoTodos))]
     [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
     [NotifyPropertyChangedFor(nameof(SugestaoNaTela))]
@@ -198,6 +209,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         if (_pediramLista) return;
         _pediramLista = true;
         OnPropertyChanged(nameof(Ocioso));
+        OnPropertyChanged(nameof(AlgoFoiPedido));
         OnPropertyChanged(nameof(Modo));
         OnPropertyChanged(nameof(ListandoTodos));
         OnPropertyChanged(nameof(BuscandoPorTermo));
@@ -264,6 +276,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(ListandoTodos))]
     [NotifyPropertyChangedFor(nameof(Ocioso))]
     [NotifyPropertyChangedFor(nameof(Modo))]
+    [NotifyPropertyChangedFor(nameof(AlgoFoiPedido))]
     [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
     [NotifyPropertyChangedFor(nameof(SugestaoNaTela))]
     private string? _termo;

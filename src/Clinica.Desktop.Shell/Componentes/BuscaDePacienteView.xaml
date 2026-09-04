@@ -36,8 +36,13 @@
              40 no meio de outros de 36 quebra a régua do formulário. AQUI não há
              formulário — este campo é o único controle da tela, sem vizinho com quem
              desalinhar, e ele É o assunto. 48 não é número solto: é o `Espaco.12`. -->
+        <!-- ⚠️ `MinHeight`, nunca `Height`: altura TRAVADA com fonte maior é o que corta o
+             texto — foi o print que o cliente mandou (set/2026). Com piso, o campo cresce
+             se a linha pedir; travado, o que sobra é a metade de cima das letras.
+             (A causa de fundo era a margem vertical fixa do template, corrigida em
+             `Campos.xaml`; o piso é a segunda metade da mesma lição.) -->
         <TextBox x:Name="Campo" Margin="0,22,0,0"
-                 Height="48" FontSize="{StaticResource Fonte.H3}"
+                 MinHeight="48" FontSize="{StaticResource Fonte.H3}"
                  Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged}"
                  IsEnabled="{Binding Editavel}"
                  Style="{StaticResource CampoPesquisa}"

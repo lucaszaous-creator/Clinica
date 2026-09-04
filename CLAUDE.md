@@ -2950,11 +2950,41 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   abrir como busca as tornaria inalcançáveis — a regra 3 do bloco do faturamento ("não
   tire capacidade de quem a usava"). Ali o seletor é um CAMPO: a tela responde "que papel
   eu quero emitir", não "quem é o paciente".
+  ⚠️ **MARGEM VERTICAL FIXA NUM CAMPO É O QUE CORTA O TEXTO** (2ª rodada — o cliente
+  mandou o print com "lucas" decepado na base). O template do `CampoPesquisa` **ignora o
+  `Padding`** e usa `Margin="8,8,12,8"` no `PART_ContentHost` — 16 px verticais TRAVADOS,
+  medidos para o campo de 36 com a fonte de corpo. A conta já era apertada no caso padrão:
+  36 − 2 de borda − 16 = **18 px úteis para uma linha de 14 que ocupa ~19**. Num campo mais
+  alto com fonte maior (a busca de paciente é 48/18) ela aperta mais, e o que sobra é a
+  metade de cima das letras.
+  A margem vertical fixa é o defeito: **ela não acompanha nem a altura do campo nem o
+  tamanho da fonte**. Zerada, quem centra é o `VerticalAlignment` e o texto cabe em
+  qualquer combinação das duas; a HORIZONTAL fica, porque ela posiciona em relação à lupa e
+  isso não muda com a altura. Corrigido nos DOIS templates — a busca de página e a pílula
+  da busca global —, pela lição de sempre: **quando um defeito de template é corrigido,
+  procure o irmão**. E o campo passou a ter `MinHeight`, nunca `Height`: altura travada com
+  fonte maior é a mesma armadilha pelo outro lado.
+  ⚠️ **E A TELA DE PACIENTES ERA A CONSULTA MAIS CARA DO SISTEMA** (mesma rodada — *"a tela
+  de pacientes ainda carrega todos os pacientes"*). Eu a tinha deixado de fora com o
+  argumento de que "numa tela de LISTAGEM a lista É a resposta". O argumento vale para o
+  que a tela **OFERECE**, e não para o que ela faz sozinha: com `limite: null` e o termo
+  vazio, abrir a tela trazia o cadastro INTEIRO — 2.284 fichas — de um banco remoto, sem
+  ninguém ter pedido. A listagem continua a um clique ("Ver todos"), e **é justamente por
+  ser cara que ela precisa ser PEDIDA**.
+  Três coisas andaram junto, e as três são a mesma regra: no ocioso o **resumo** deixa de
+  dizer "Nenhum paciente encontrado" (falso sobre 2.284 fichas), o **`EstadoDaTela`**
+  desliga (`AlgoFoiPedido`) e a **região da lista some** — sem ela, a moldura ficaria vazia
+  com o cabeçalho de colunas órfão em cima de nada. Um estado vazio por pergunta.
+  ⚠️ **As irmãs foram conferidas e estavam certas**: a Enfermagem abre com a FILA DO DIA
+  (só vai ao seletor com termo ou "ver todos") e a de Pacientes do Consultório traz quem
+  já foi ATENDIDO, com teto — as duas respondem uma pergunta, não despejam um cadastro.
   **O que ficou pendente, com o motivo**: os três formulários que ainda abrem despejando o
   alfabeto (agendamento da Recepção, lista de espera e o agendamento do faturamento). Neles
   a lista é uma caixa de `MaxHeight="150"` SEMPRE visível, então `SemBuscaInicial` sozinho
   abriria um vão em branco no meio do formulário — o ganho de servidor ali custa também a
-  visibilidade condicional em cada um.
+  visibilidade condicional em cada um. E a tela de Pacientes do FATURAMENTO tem o mesmo
+  despejo, com o seletor PRÓPRIO daquele app (o débito permanente da Fase 4): portar o
+  `SemBuscaInicial` para lá é a cópia que ainda falta.
 
 ### Convenções
 
