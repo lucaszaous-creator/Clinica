@@ -330,6 +330,44 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     private Task EditarSessaoAsync(LinhaEvolucao? linha)
         => linha is null ? Task.CompletedTask : AbrirAsync(linha.EvolucaoId);
 
+    /// <summary>
+    /// VER a sessão por inteiro, sem poder mexer nela (set/2026).
+    ///
+    /// O "Abrir" ao lado EDITA e exige <see cref="Permissao.EditarProntuario"/> — quem
+    /// tem só o bit de LER (a técnica de enfermagem, o faturista) não alcançava a sessão
+    /// por porta nenhuma nesta tela, e a lista mostra o resumo cortado. É o corte da
+    /// parcela 49 (ler dado de saúde × escrever nele) sem a metade de ler.
+    ///
+    /// A janela é do SHELL, a MESMA das outras duas portas: uma cópia aqui divergiria na
+    /// primeira correção, e a que ficasse para trás abriria o prontuário sem registrar
+    /// quem leu.
+    /// </summary>
+    [RelayCommand]
+    private void VerSessao(LinhaEvolucao? linha)
+    {
+        // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (checagem 21).
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
+
+            // `ofereceAnexos: false`: a janela de anexos POR SESSÃO mora no módulo
+            // Clínico, e este é o da Recepção — o botão fecharia a janela para nada. A
+            // contagem continua na linha da lista, que é onde ela informa.
+            var vm = new SessaoDoProntuarioViewModel(
+                _escopos, linha.EvolucaoId, Paciente, ofereceAnexos: false);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — a sessão do prontuário não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     private async Task AbrirAsync(int? evolucaoId)
     {
         if (PacienteId == 0)

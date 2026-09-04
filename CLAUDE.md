@@ -127,7 +127,15 @@ Nenhum deles quebra o build quando é esquecido:
 6. **TODAS as portas de edição** — *quem não edita, PRESERVA*: a janela que não tem o campo na
    tela precisa carregá-lo e devolvê-lo intacto, senão ela o apaga;
 7. **o PDF, a exportação, o art. 18 II e a guarda** (ponto 8 do compromisso de conformidade);
-8. **a busca do prontuário** e o `CatalogoRegistroClinico`.
+8. **a busca do prontuário** e o `CatalogoRegistroClinico`;
+9. **os TRÊS leitores que só MOSTRAM a sessão** — o `ModeloEvolucao` (parcela 76), o
+   painel da sessão anterior (`ResumoSessaoAnterior`, parcela 77) e a janela que ABRE a
+   sessão (`SessaoDoProntuario`, set/2026). Os três já ficaram para trás uma vez cada, e
+   pelo mesmo motivo: esquecer um não quebra build, não quebra teste e não acusa em rede
+   nenhuma — o campo simplesmente não aparece para quem lê. O terceiro é o único com
+   rede: `SessaoDoProntuarioTests.Todo_campo_escrito_aparece_em_algum_bloco` varre a
+   entidade por REFLEXÃO, e o que não for conteúdo clínico tem de ser DECLARADO ali com
+   a razão. Lista de campos escrita à mão é lista que a próxima parcela não alcança.
 
 ### 2. Método de repositório novo
 
@@ -2838,6 +2846,64 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `WithOne`. Invertido, o snapshot inteiro LANÇA ao ser carregado ("Navigation … was not
   found"), e o `Snapshot_do_EF_esta_em_dia` é quem pega; copie a ordem do par
   `ArquivoResultadoExame` → `ResultadoExame`, nos dois arquivos (snapshot e Designer).
+
+- **O PRONTUÁRIO DA SESSÃO: a aba duplicada, a sessão que não abria e o papel dela**
+  (set/2026 — os três pedidos do cliente, e os três são o defeito recorrente do projeto
+  em três variantes). Build verde, 2117 testes verdes e as três redes verdes o tempo
+  todo: nenhum dos três quebrava nada.
+  ⚠️ **A DUPLICATA DE RÓTULO NA SIDEBAR É A SEGUNDA, E AGORA TEM REDE.** "Prontuário"
+  (Recepção, `prontuario`) e "Prontuários" (Consultório, `consultorio-prontuarios`)
+  apareciam LADO A LADO em PACIENTE no Gerente Geral. A dedupe do `ShellViewModel` casa
+  por **CHAVE** — ela funde a mesma tela publicada por dois módulos (a Sala de infusão, a
+  Enfermagem, a Ajuda) e **não alcança** duas telas DIFERENTES com rótulos que dizem a
+  mesma coisa. É literalmente o que aconteceu com "Prescrições" na parcela 55, e a
+  correção é a mesma: item COMPOSTO com as duas telas como abas ("Por paciente" ×
+  "Registros e pendências"). Nenhuma tela foi apagada, porque elas respondem perguntas
+  diferentes — uma é "abra o prontuário DESTE paciente", a outra é a fila de trabalho do
+  que falta escrever na clínica.
+  A lição da parcela 68 manda escrever a rede na SEGUNDA ocorrência, e o ruído foi
+  **medido antes de ligar**: a simulação da sidebar do Gerente devolveu **zero**
+  duplicatas depois da correção, e a lista exata do defeito antes dela. Virou a
+  **checagem 45**, que reproduz o que o shell FAZ (oculto não conta, chave repetida é
+  fundida, sub-tela reivindicada por composto sai) — sem as três ela acusaria os pares
+  legítimos, e checagem que grita no que está certo é checagem que alguém desliga.
+  ⚠️ **Ela normaliza o PLURAL, e é isso que a faz valer**: o defeito real era
+  "Prontuário" × "Prontuári**os**", e comparar texto cru deixaria passar justamente o
+  caso que a motivou. Autotestada nos quatro cenários — e foi o autoteste que mostrou que
+  o meu "antes" sintético estava errado (ele não fazia a chave atravessar por
+  `ChavesSuite`, que é como o código real a passa).
+  ⚠️ **A SESSÃO TINHA DOZE CAMPOS E QUATRO LEITORES MOSTRAVAM QUATRO.** História da doença
+  atual, exame físico, hipótese, CID, plano terapêutico, retorno sugerido e encaminhamento
+  (parcelas 73, 75 e 77) estavam gravados e **não tinham leitor em tela nenhuma** para uma
+  sessão PASSADA: a lista do Consultório mostra quatro truncados, o modal de leitura
+  rápida compõe UMA frase, e o painel da sessão anterior corta de propósito (a coluna tem
+  350 px). Nasceu `SessaoDoProntuario` (Application, **puro** — o que a tela AFIRMA mora
+  onde o `dotnet test` alcança) e a janela do shell que a abre.
+  ⚠️ **VER e EDITAR são bits diferentes, e a linha só tinha o de escrever.** O "Abrir" da
+  Recepção exige `EditarProntuario` e o rótulo MENTIA sobre o que ele faz (é a janela de
+  edição): quem tem só `VerProntuario` — a técnica de enfermagem, o faturista — não
+  alcançava a sessão por porta nenhuma. É o corte da parcela 49 sem a metade de ler.
+  ⚠️ **A FICHA DO ATENDIMENTO ESTAVA EM TRÊS CÓPIAS, E ELAS JÁ TINHAM DIVERGIDO EM TRÊS
+  PONTOS** — cada um uma regra que só existia numa delas: a guarda de paciente que DIZ por
+  que não dá (só a da enfermagem), a recusa de permissão que vira frase em vez de exceção
+  (só uma), e **a guarda do rascunho não gravado** (só a do médico) — a mais cara, porque
+  a tela da enfermagem TAMBÉM tem compositor e entregava ao paciente um papel sem o que a
+  técnica acabara de escrever. Virou `FichaDoAtendimento` no shell, e o
+  `temRascunhoNaoGravado` é parâmetro **obrigatório**: com valor padrão, a porta seguinte
+  nasceria sem responder à pergunta e o defeito voltaria calado. De quebra, a emissão
+  passou a deixar **trilha** (`ExportacaoClinica`) — a ficha é dado de saúde saindo para
+  um arquivo no disco, e as três cópias não registravam nenhuma.
+  ⚠️ **Botão que devolve INTENÇÃO só existe onde a dona sabe agir.** A janela é do shell e
+  a de ANEXOS mora no módulo Clínico: nas portas que não a alcançam (a Recepção, o modal),
+  oferecer o botão daria um clique que fecha a janela e não faz nada — a parcela 41
+  construída de propósito. As CORREÇÕES são do shell e a janela as abre por dentro. **A
+  pergunta que decide não é "a ação existe?", é "onde mora a janela de destino?"**
+  ⚠️ E a releitura do diff pegou o de sempre: eu escrevi no cabeçalho que a janela tinha
+  **"QUATRO portas — … e a tela da Enfermagem"** e não construí a quarta. Comentário que
+  promete o que o código não faz é o defeito da parcela 67, cometido no arquivo que eu
+  estava escrevendo para acabar com duplicata. São três, e a Enfermagem não é porta:
+  ela lista `EvolucaoEnfermagem` e esta janela abre `Evolucao` — ids POR TABELA, e abrir
+  uma pela outra mostraria a sessão de OUTRO paciente sem estourar nada.
 
 ### Convenções
 

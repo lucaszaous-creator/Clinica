@@ -184,8 +184,27 @@
 
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                             VerticalAlignment="Center">
-                                                    <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
+                                                    <!-- VER e EDITAR são bits diferentes, e a
+                                                         linha só tinha o de escrever: quem tem
+                                                         só `VerProntuario` (a enfermagem, o
+                                                         faturista) não alcançava a sessão por
+                                                         porta nenhuma, e a lista mostra o resumo
+                                                         cortado. É o corte da parcela 49 sem a
+                                                         metade de ler. A janela é a MESMA das
+                                                         outras duas portas, no shell. -->
+                                                    <Button Content="Ver" Style="{StaticResource BotaoPequeno}"
                                                             Margin="0,0,6,0"
+                                                            Command="{Binding DataContext.VerSessaoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <!-- "Abrir" MENTIA sobre o que o botão faz:
+                                                         ele abre a janela de EDIÇÃO e exige o bit
+                                                         de escrever. É a correção de rótulo da
+                                                         parcela 69 ("Excluir" → "Cancelar…"). -->
+                                                    <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
+                                                            Margin="0,0,6,0"
+                                                            IsEnabled="{Binding DataContext.PodeEditarProntuario,
+                                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             Command="{Binding DataContext.EditarSessaoCommand,
                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding}" />

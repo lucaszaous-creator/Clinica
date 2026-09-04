@@ -440,6 +440,50 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     }
 
     /// <summary>
+    /// ABRIR A SESSÃO por inteiro (set/2026 — o pedido do cliente: <i>"ao abrir o
+    /// prontuário não conseguimos abrir o prontuário daquela sessão"</i>).
+    ///
+    /// A linha da lista mostra QUATRO campos truncados e a sessão tem DOZE: história da
+    /// doença atual, exame físico, hipótese, CID, plano terapêutico, retorno sugerido e
+    /// encaminhamento estavam gravados e não tinham leitor em tela nenhuma — o defeito
+    /// recorrente do projeto, na variante em que nada falha.
+    ///
+    /// A janela é do SHELL porque são quatro portas em módulos diferentes, e é somente
+    /// LEITURA: escrever continua sendo a tela de Atendimento, com o bit de escrita.
+    ///
+    /// ⚠️ Os ANEXOS voltam como INTENÇÃO: a janela deles mora NESTE módulo e o shell não a
+    /// alcança. Quem age é esta ViewModel, pelo MESMO comando que o botão da linha já usa —
+    /// uma segunda definição de "abrir os anexos desta sessão" divergiria na primeira
+    /// correção. As CORREÇÕES a janela abre sozinha: aquelas são do shell.
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirSessaoAsync(LinhaSessaoProntuario? linha)
+    {
+        // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha, e por isso pode
+        // sair calada (a exceção declarada da checagem 21).
+        if (linha is null) return;
+
+        try
+        {
+            // A recusa aparece na tela de TRÁS, e não dentro de uma janela que já abriu.
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
+
+            var vm = new SessaoDoProntuarioViewModel(
+                _escopos, linha.EvolucaoId, Paciente, ofereceAnexos: true);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+
+            if (vm.PediuAnexos) await VerAnexosAsync(linha);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — a sessão do prontuário não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
     /// Abre os anexos de uma sessão — o laudo que voltou do exame que ESTE app pediu.
     /// </summary>
     [RelayCommand]

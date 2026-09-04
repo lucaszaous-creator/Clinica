@@ -13,8 +13,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Clinico.ViewModels;
 
-/// <summary>Uma evolução no modal de leitura rápida — data, autor e o texto composto.</summary>
-public sealed record EvolucaoResumida(string DataTexto, string Autor, string Texto);
+/// <summary>
+/// Uma evolução no modal de leitura rápida — data, autor e o texto composto.
+///
+/// ⚠️ Carrega o <c>EvolucaoId</c> desde set/2026: sem ele, o modal listava as sessões e
+/// não tinha como ABRIR nenhuma delas, que foi exatamente o que o cliente relatou. Os ids
+/// são POR TABELA (a lição da parcela 71) — este é o da <c>Evolucao</c>, e não o do
+/// documento de anamnese que a aba ao lado mostra.
+/// </summary>
+public sealed record EvolucaoResumida(int EvolucaoId, string DataTexto, string Autor, string Texto);
 
 /// <summary>Um bloco da anamnese no modal — rótulo + texto; só existe se foi escrito.</summary>
 public sealed record BlocoAnamnese(string Rotulo, string Texto);
@@ -123,6 +130,7 @@ public sealed partial class ResumoProntuarioViewModel : ObservableObject
             Evolucoes.Clear();
             foreach (var e in evolucoes.OrderByDescending(x => x.Data).ThenByDescending(x => x.Id))
                 Evolucoes.Add(new EvolucaoResumida(
+                    e.Id,
                     $"{e.Data:dd/MM/yyyy}",
                     e.Profissional?.Nome ?? e.CriadoPor ?? "sem autor registrado",
                     ComporTexto(e)));
@@ -177,6 +185,45 @@ public sealed partial class ResumoProntuarioViewModel : ObservableObject
         else if (e.EvaAntes is { } eva) partes.Add($"EVA {eva}");
         if (!string.IsNullOrWhiteSpace(e.Conduta)) partes.Add(e.Conduta.Trim());
         return partes.Count > 0 ? string.Join(" · ", partes) : "(sessão sem texto)";
+    }
+
+    /// <summary>
+    /// ABRIR UMA SESSÃO por inteiro (set/2026 — o pedido do cliente).
+    ///
+    /// O modal listava as evoluções e compunha UMA frase de cada (o texto, ou queixa +
+    /// EVA + conduta quando não havia texto): os outros nove campos da sessão não tinham
+    /// por onde ser lidos, e não havia clique nenhum na linha. A janela é do SHELL, é
+    /// somente leitura, e é dela que sai a ficha para o paciente.
+    ///
+    /// Este modal FECHA para a janela abrir: os dois são modais, e empilhar o segundo
+    /// sobre o primeiro deixaria o de trás inerte atrás de um leitor de sessão — quem
+    /// quiser outra sessão volta pela lista, que é de onde ele veio.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirSessao(EvolucaoResumida? item)
+    {
+        // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (checagem 21).
+        if (item is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
+
+            // `ofereceAnexos: false`: este modal tem a aba "Anexos" do PACIENTE ao lado e
+            // não abre os da sessão. Oferecer o botão daria um clique que fecha a janela e
+            // não faz nada (parcela 41); quem quer os anexos de UMA sessão entra pela lista
+            // do prontuário, onde o botão existe e age.
+            var vm = new SessaoDoProntuarioViewModel(
+                _escopos, item.EvolucaoId, Paciente, ofereceAnexos: false);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — a sessão do prontuário não pôde ser aberta pelo resumo", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
     }
 
     [RelayCommand]

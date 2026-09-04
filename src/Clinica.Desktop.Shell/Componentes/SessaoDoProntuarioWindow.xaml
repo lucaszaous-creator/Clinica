@@ -1,0 +1,160 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.SessaoDoProntuarioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Sessão do prontuário" Width="820" Height="640"
+        MinWidth="620" MinHeight="440"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================
+         A SESSÃO ABERTA POR INTEIRO (set/2026).
+
+         A lista do prontuário mostra QUATRO campos truncados e a sessão tem DOZE: quem
+         lia o prontuário no Consultório não alcançava a história da doença atual, o
+         exame físico, a hipótese, o CID, o plano, o retorno sugerido nem o
+         encaminhamento. Estavam gravados e sem leitor em tela nenhuma.
+
+         O que a janela AFIRMA é decidido em `SessaoDoProntuario`, na Application, onde o
+         `dotnet test` alcança: aqui só há ligação e visibilidade.
+         ============================================================ -->
+
+    <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- ============ IDENTIDADE, uma vez, no topo ============ -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Paciente}" Style="{StaticResource H3}"
+                       TextWrapping="Wrap" Margin="0,2,0,0" />
+            <TextBlock Text="{Binding LinhaDaSessao}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- A sessão CANCELADA aparece marcada, nunca sumindo: ela esteve no prontuário,
+             e registro clínico não se apaga. O motivo vai junto, senão o próximo leitor
+             não sabe se ela era falsa ou se foi engano.
+
+             ⚠️ `AvisoCancelamento` é string: o conversor é o de TEXTO. O de booleano
+             devolve Collapsed para tudo o que não é bool, e o aviso nunca apareceria
+             (a armadilha das parcelas 61 e 72). -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding AvisoCancelamento,
+                             Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <TextBlock Text="{Binding AvisoCancelamento}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ============ RODAPÉ: as ações e a mensagem QUE ELAS ESCREVEM ============
+             Declarado ANTES do miolo no DockPanel: ancorado depois, o miolo rolante
+             comeria a barra, e é nela que está o botão (parcela 47).
+
+             A mensagem mora AQUI, junto do clique que a produz, e não numa faixa no topo
+             (a lição da parcela 79) — quem imprime está olhando para este canto. -->
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+
+            <!-- ⚠️ `Style` só como ELEMENTO: declará-lo também como atributo é MC3024, e
+                 só o compilador de marcação pega (a rede local o cobre). O `BasedOn` é
+                 obrigatório — estilo local sem ele SUBSTITUI o implícito, e o controle
+                 fica vivo desenhando nada (a lição da parcela 75). -->
+            <Border Margin="0,0,0,10"
+                    Visibility="{Binding Mensagem,
+                                 Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade
+                         (parcelas 62 e 64). Amarrar a visibilidade ao booleano de erro
+                         some com a mensagem de êxito, que é justamente a que confirma que
+                         a ficha foi emitida. -->
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background"
+                                        Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush"
+                                        Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <TextBlock Text="{Binding Procedencia}" Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}"
+                       TextWrapping="Wrap" Margin="0,0,0,10" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <!-- Só aparecem quando há o que abrir: botão aceso que diz "nada a ver
+                     aqui" quarenta vezes é botão que ninguém lê na vez que importa. -->
+                <Button Content="{Binding AnexosTexto}" MinWidth="130" MinHeight="36"
+                        Margin="0,0,8,0" VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        Visibility="{Binding MostraAnexos,
+                                     Converter={StaticResource BoolParaVisibilidade}}"
+                        Command="{Binding VerAnexosCommand}" />
+
+                <Button Content="{Binding CorrecoesTexto}" MinWidth="130" MinHeight="36"
+                        Margin="0,0,8,0" VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        Visibility="{Binding Retificada,
+                                     Converter={StaticResource BoolParaVisibilidade}}"
+                        Command="{Binding VerCorrecoesCommand}" />
+
+                <Button Content="Fechar" MinWidth="110" MinHeight="36" Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsCancel="True" />
+
+                <!-- O papel que o paciente leva embora. `IsEnabled` explica (sem o bit de
+                     ler, ou antes de a sessão carregar); o `Exigir` do ponto único impede. -->
+                <Button Content="Imprimir esta sessão" MinWidth="180" MinHeight="36"
+                        VerticalAlignment="Center"
+                        Command="{Binding ImprimirCommand}"
+                        IsEnabled="{Binding PodeImprimir}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- ============ O QUE FOI ESCRITO ============
+             Um bloco por campo preenchido, na ordem do S-O-A-P — a MESMA da tela onde a
+             sessão foi escrita (parcela 77). Campo vazio SOME: dez rótulos com "—"
+             empurram para fora da vista os dois que a sessão de acupuntura mais comum da
+             casa tem.
+
+             A sobreposição do vazio pertence a ESTA região, e é o ÚLTIMO filho do Grid
+             dela — na raiz da janela ela cobriria a identidade e o rodapé (a lição das
+             parcelas 58, 64 e 79). -->
+        <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Blocos}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,14">
+                                <TextBlock Text="{Binding Rotulo}" Style="{StaticResource Rotulo}" />
+                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- `Itens` é obrigatório: sem ele nem `Vazio`, o componente resolve
+                 `Vazia(null)` como VERDADEIRO e a sobreposição fica ligada para sempre,
+                 por cima de uma região cheia (a checagem 29). -->
+            <ctrl:EstadoDaTela Itens="{Binding Blocos}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE7C3;"
+                               TextoCarregando="Abrindo a sessão…"
+                               TextoNaoVerificado="Não foi possível abrir esta sessão — a mensagem abaixo diz por quê. O registro continua no prontuário."
+                               Titulo="Esta sessão não tem texto escrito"
+                               Descricao="Ela pode ter sido registrada só com a escala de dor e os pontos do mapa corporal — o que foi medido está na linha acima, e a ficha impressa traz o mapa." />
+        </Grid>
+    </DockPanel>
+</Window>

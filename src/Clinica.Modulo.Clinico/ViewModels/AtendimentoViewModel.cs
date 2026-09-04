@@ -406,61 +406,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [RelayCommand]
     private async Task ImprimirFichaAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "imprimir a ficha do atendimento");
-
-        if (PacienteId == 0) return;
-
+        // O PONTO ÚNICO (set/2026). Tudo o que era igual nas três telas que emitem a
+        // ficha mora agora no shell; o que continua sendo desta tela é o que só ela sabe:
+        // a DATA da sessão que está aberta e se há RASCUNHO não gravado.
+        //
         // ⚠️ A pergunta é `TemAlgoParaGravar`, NUNCA `!SessaoEmBranco` — confundir as duas
         // é o defeito da parcela 74: a sessão de acupuntura mais comum da casa (EVA 8→3,
         // seis pontos no mapa, nenhuma linha de texto) está "em branco" para efeito de
         // encerrar e tem MUITO o que gravar. Com a pergunta errada, ela sairia impressa
         // dizendo "EVA não medida" com o 8→3 na tela de quem imprimiu.
-        if (TemAlgoParaGravar && EvolucaoId == 0)
-        {
-            Mensagem = "Salve a sessão antes de imprimir a ficha — o papel sai do que está "
-                     + "gravado no prontuário, e o que você digitou ainda não está.";
-            MensagemEhErro = true;
-            return;
-        }
+        var r = await FichaDoAtendimento.EmitirAsync(
+            _escopos, PacienteId, DateOnly.FromDateTime(Data),
+            temRascunhoNaoGravado: TemAlgoParaGravar && EvolucaoId == 0,
+            contextoDoLog: "Consultório");
 
-        try
-        {
-            var dia = DateOnly.FromDateTime(Data);
-
-            byte[] pdf;
-            string numero;
-            using (var scope = _escopos.CreateScope())
-            {
-                var servicos = scope.ServiceProvider;
-
-                var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
-                    .EmitirRelatorioEvolucaoAsync(
-                        PacienteId, SessaoUsuario.Atual.ProfissionalId,
-                        inicio: dia, fim: dia,
-                        operador: SessaoUsuario.Atual.Operador);
-
-                numero = documento.Numero;
-
-                pdf = await servicos.GetRequiredService<DocumentosClinicosPdfService>()
-                    .GerarAsync(
-                        documento.Id,
-                        await servicos.GetRequiredService<ParametrosService>()
-                            .ObterPrestadorAsync());
-            }
-
-            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                pdf, ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));
-
-            Mensagem = erro ?? $"Ficha {numero} emitida — ela fica na lista de documentos do paciente.";
-            MensagemEhErro = erro is not null;
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — ficha do atendimento não pôde ser emitida", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
+        Mensagem = r.Frase;
+        MensagemEhErro = r.EhErro;
     }
 
     /// <summary>De onde veio a sessão: chamada do dia, ou escolhida na busca.</summary>

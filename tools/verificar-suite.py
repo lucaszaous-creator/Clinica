@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -3803,6 +3804,190 @@ for _amostra, _deve_pegar, _cenario in (
     if bool(_pilulas_cruas(_amostra)) != _deve_pegar:
         erros.append(
             f"verificar-suite: a checagem 44 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
+
+# --------------------------------------------------------------- checagem 45
+# DOIS ITENS COM O MESMO RÓTULO NA SIDEBAR (set/2026 — o print do cliente).
+#
+# A dedupe do `ShellViewModel` casa por CHAVE. Quando dois módulos publicam a MESMA tela
+# ela funde e a sidebar mostra uma linha — foi para isso que ela nasceu (a Sala de infusão,
+# a Enfermagem, a Ajuda). O que ela NÃO alcança é o caso em que os dois módulos publicam
+# telas DIFERENTES, com chaves diferentes, e rótulos que dizem a mesma coisa: aí o Gerente
+# Geral — que carrega todos — mostra os dois, um do lado do outro, e a pessoa clica nos
+# dois para descobrir o que é cada um.
+#
+# ⚠️ Isto já aconteceu DUAS vezes, e a segunda foi o cliente quem achou:
+#   • "Prescrições" (`prescricoes` × `consultorio-prescricoes`) — parcela 55;
+#   • "Prontuário" × "Prontuários" (`prontuario` × `consultorio-prontuarios`) — set/2026.
+#
+# A correção das duas foi a mesma (virar abas de um item composto), e a lição da parcela 68
+# manda escrever a rede na segunda ocorrência em vez de esperar a terceira.
+#
+# ⚠️ Os rótulos do caso real eram QUASE iguais, não iguais: "Prontuário" e "Prontuários".
+# Comparar texto cru deixaria passar justamente o defeito que a motivou, então a chave de
+# comparação singulariza cada palavra — é grosseiro de propósito, e o ruído foi MEDIDO
+# antes de ligar: ZERO ocorrências em toda a suíte depois da correção.
+#
+# A varredura reproduz o que o shell FAZ (`ShellViewModel.Itens`/`Grupos`), e não uma
+# aproximação: item oculto não conta, chave repetida é fundida pela dedupe, e a sub-tela
+# reivindicada por um item composto sai da sidebar. Sem essas três ela acusaria os pares
+# legítimos, e checagem que grita no que está certo é checagem que alguém desliga.
+ITEM_MENU = re.compile(r"new\s+ItemMenuModulo\s*\{(.*?)\n\s{8}\}", re.S)
+
+
+def _chave_de_rotulo(rotulo: str) -> str:
+    """'Prontuários' e 'Prontuário' viram a mesma chave; acento e caixa saem."""
+    try:
+        cru = rotulo.encode().decode("unicode_escape")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        cru = rotulo
+    limpo = unicodedata.normalize("NFKD", cru).encode("ascii", "ignore").decode().lower()
+    palavras = [p for p in re.split(r"[^a-z0-9]+", limpo) if p]
+    return " ".join(p[:-1] if len(p) > 3 and p.endswith("s") else p for p in palavras)
+
+
+def _sidebar_do_gerente(textos):
+    """(grupo, chave-de-rótulo, chave, arquivo) do que o Gerente Geral MOSTRA."""
+    itens = []
+    reivindicadas = set()
+
+    for nome, bruto in textos.items():
+        texto = _sem_comentarios(bruto)
+        locais = _consts_de(texto)
+
+        for corpo in ITEM_MENU.findall(texto):
+            rotulo = re.search(r'Rotulo\s*=\s*"([^"]*)"', corpo)
+            grupo = re.search(r"Grupo\s*=\s*GrupoSidebar\.(\w+)", corpo)
+            chave = re.search(r"Chave\s*=\s*([A-Za-z0-9_.]+)\s*,", corpo)
+            if not (rotulo and grupo and chave):
+                continue
+            # Item oculto é destino de navegação, não linha de menu.
+            if re.search(r"Oculto\s*=\s*true", corpo):
+                continue
+
+            resolvida = _resolver(chave.group(1), locais) or chave.group(1)
+            itens.append(
+                (grupo.group(1), _chave_de_rotulo(rotulo.group(1)), resolvida, nome)
+            )
+
+            # Quem esconde a sub-tela é o PAI (parcela 55), e só enquanto ele existe.
+            for _rot, expr in ABA_MENU.findall(corpo):
+                reivindicadas.add(_resolver(expr, locais) or expr)
+
+    vistas = set()
+    sidebar = []
+    for grupo, rot, chave, nome in itens:
+        if chave in reivindicadas or chave in vistas:
+            continue
+        vistas.add(chave)
+        sidebar.append((grupo, rot, chave, nome))
+    return sidebar
+
+
+def _rotulos_repetidos(textos):
+    porta = {}
+    repetidos = []
+    for grupo, rot, chave, nome in _sidebar_do_gerente(textos):
+        anterior = porta.get((grupo, rot))
+        if anterior is None:
+            porta[(grupo, rot)] = (chave, nome)
+            continue
+        repetidos.append(
+            f"{anterior[1]} e {nome}: os itens `{anterior[0]}` e `{chave}` aparecem "
+            f"JUNTOS em {grupo} com rótulos que dizem a mesma coisa — no Gerente Geral, "
+            f"que carrega todos os módulos, a pessoa vê dois itens quase homônimos e "
+            f"clica nos dois para descobrir a diferença. A dedupe do shell casa por CHAVE "
+            f"e não alcança isto. A saída é a das Prescrições e do Prontuário: um item "
+            f"COMPOSTO com as duas telas como abas — cada rótulo de aba diz qual é qual, "
+            f"e a sub-tela continua sendo um item."
+        )
+    return repetidos
+
+
+erros.extend(
+    _rotulos_repetidos({a.name: a.read_text(encoding="utf-8") for a in _modulos_cs})
+)
+
+# Autoteste: ela tem de ACUSAR o caso real de antes da correção e CALAR nos três legítimos.
+#
+# O "antes" reproduz o estado exato que o cliente fotografou: os dois itens publicados
+# soltos, sem o composto que hoje os junta.
+_ITEM_RECEPCAO = (
+    '        public const string ChaveProntuario = "prontuario";\n'
+    "        new ItemMenuModulo\n"
+    "        {\n"
+    '            Chave = ChaveProntuario, Rotulo = "Prontuario",\n'
+    "            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario\n"
+    "        },\n"
+)
+_ITEM_CLINICO = (
+    "        public const string ChaveProntuarios = ChavesSuite.ConsultorioProntuarios;\n"
+    "        new ItemMenuModulo\n"
+    "        {\n"
+    '            Chave = ChaveProntuarios, Rotulo = "Prontuarios",\n'
+    "            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario\n"
+    "        },\n"
+)
+_COMPOSTO = (
+    '        public const string ChaveGrupoProntuario = "prontuario-geral";\n'
+    "        new ItemMenuModulo\n"
+    "        {\n"
+    '            Chave = ChaveGrupoProntuario, Rotulo = "Prontuario",\n'
+    "            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,\n"
+    "            Abas =\n"
+    "            [\n"
+    '                new AbaMenu("Por paciente", ChaveProntuario),\n'
+    '                new AbaMenu("Registros", ChavesSuite.ConsultorioProntuarios)\n'
+    "            ]\n"
+    "        },\n"
+)
+_MESMA_TELA = (
+    "        new ItemMenuModulo\n"
+    "        {\n"
+    '            Chave = ChavesSuite.Enfermagem, Rotulo = "Enfermagem",\n'
+    "            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario\n"
+    "        },\n"
+)
+_OCULTO = (
+    '        public const string ChaveOculta = "consultorio-prontuario";\n'
+    "        new ItemMenuModulo\n"
+    "        {\n"
+    '            Chave = ChaveOculta, Rotulo = "Prontuario",\n'
+    "            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,\n"
+    "            Oculto = true\n"
+    "        },\n"
+)
+
+for _cenario, _textos, _deve_pegar in (
+    (
+        "o caso real: Prontuario e Prontuarios publicados soltos",
+        {"FakeRecepcao.cs": _ITEM_RECEPCAO, "FakeClinico.cs": _ITEM_CLINICO},
+        True,
+    ),
+    (
+        "o mesmo par já resolvido em ABAS",
+        {
+            "FakeRecepcao.cs": _ITEM_RECEPCAO + _COMPOSTO,
+            "FakeClinico.cs": _ITEM_CLINICO,
+        },
+        False,
+    ),
+    (
+        "a MESMA tela publicada por dois módulos (a dedupe por chave já funde)",
+        {"FakeA.cs": _MESMA_TELA, "FakeB.cs": _MESMA_TELA},
+        False,
+    ),
+    (
+        "o item OCULTO homônimo (destino de navegação, não linha de menu)",
+        {"FakeRecepcao.cs": _ITEM_RECEPCAO, "FakeClinico.cs": _OCULTO},
+        False,
+    ),
+):
+    if bool(_rotulos_repetidos(_textos)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 45 mudou de resposta ({_cenario}) — "
             f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
         )
 

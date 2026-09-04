@@ -109,17 +109,34 @@
                                         <Border BorderBrush="{StaticResource Brush.Acento}"
                                                 BorderThickness="3,0,0,0" Padding="12,6"
                                                 Margin="0,0,0,10">
-                                            <StackPanel>
-                                                <TextBlock Style="{StaticResource TextoSuave}"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Margin="0" TextWrapping="Wrap">
-                                                    <Run Text="{Binding DataTexto, Mode=OneWay}" FontWeight="SemiBold" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Autor, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
-                                                           Margin="0,4,0,0" />
-                                            </StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                                    <TextBlock Style="{StaticResource TextoSuave}"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Margin="0" TextWrapping="Wrap">
+                                                        <Run Text="{Binding DataTexto, Mode=OneWay}" FontWeight="SemiBold" />
+                                                        <Run Text=" · " />
+                                                        <Run Text="{Binding Autor, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
+                                                               Margin="0,4,0,0" />
+                                                </StackPanel>
+
+                                                <!-- A porta que faltava: o resumo compõe UMA
+                                                     frase da sessão, e os outros nove campos
+                                                     dela não tinham por onde ser lidos. -->
+                                                <Button Grid.Column="1" Content="Abrir sessão"
+                                                        MinWidth="110" VerticalAlignment="Top"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        Command="{Binding DataContext.AbrirSessaoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

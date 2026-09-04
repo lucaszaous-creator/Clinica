@@ -649,47 +649,15 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     [RelayCommand]
     private async Task ImprimirFichaAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "imprimir a ficha do atendimento");
+        // Pelo PONTO ÚNICO (set/2026). Esta tela é uma LISTA: o compositor da passagem
+        // mora na janela, não aqui, então não há rascunho desta tela para perder.
+        var r = await FichaDoAtendimento.EmitirAsync(
+            _escopos, _pacienteId, DateOnly.FromDateTime(DateTime.Today),
+            temRascunhoNaoGravado: false,
+            contextoDoLog: "Enfermagem");
 
-        if (_pacienteId == 0) return;
-
-        try
-        {
-            var hoje = DateOnly.FromDateTime(DateTime.Today);
-
-            byte[] pdf;
-            string numero;
-            using (var scope = _escopos.CreateScope())
-            {
-                var servicos = scope.ServiceProvider;
-
-                var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
-                    .EmitirRelatorioEvolucaoAsync(
-                        _pacienteId, SessaoUsuario.Atual.ProfissionalId,
-                        inicio: hoje, fim: hoje,
-                        operador: SessaoUsuario.Atual.Operador);
-
-                numero = documento.Numero;
-
-                pdf = await servicos.GetRequiredService<DocumentosClinicosPdfService>()
-                    .GerarAsync(
-                        documento.Id,
-                        await servicos.GetRequiredService<ParametrosService>()
-                            .ObterPrestadorAsync());
-            }
-
-            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                pdf, ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));
-
-            Mensagem = erro ?? $"Ficha {numero} emitida — ela fica na lista de documentos do paciente.";
-            MensagemEhErro = erro is not null;
-        }
-        catch (Exception ex)
-        {
-            Diagnostico.Registrar("Enfermagem — ficha do atendimento não pôde ser emitida", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
+        Mensagem = r.Frase;
+        MensagemEhErro = r.EhErro;
     }
 
     /// <summary>

@@ -413,62 +413,27 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
 
     /// <summary>
     /// A FICHA DO ATENDIMENTO da enfermagem — o papel que o paciente leva embora
-    /// (parcela 78), recortado em HOJE.
+    /// (parcela 78), recortado em HOJE, pelo PONTO ÚNICO do shell (set/2026).
+    ///
+    /// ⚠️ A guarda do RASCUNHO chegou com a extração, e ela faltava aqui: esta tela TEM
+    /// compositor, e sem a pergunta a técnica escrevia a passagem, clicava em imprimir e
+    /// entregava ao paciente um papel sem o que ela acabara de escrever. A cópia do médico
+    /// tinha a guarda; esta, não — a divergência que a extração existe para acabar.
+    ///
+    /// O recorte é HOJE, e não a data do horário em foco, porque é com `hoje` que
+    /// `EvolucaoEnfermagemService.RegistrarAsync` grava a passagem nova: recortar noutro
+    /// dia devolveria "não há registro para relatar" sobre o que acabou de ser escrito.
     /// </summary>
     [RelayCommand]
     private async Task ImprimirFichaAsync()
     {
-        if (PacienteId == 0)
-        {
-            // Guarda que DIZ por que não dá, em vez de voltar calada (parcela 41).
-            Mensagem = "Abra um paciente para emitir a ficha do atendimento.";
-            MensagemEhErro = true;
-            return;
-        }
+        var r = await FichaDoAtendimento.EmitirAsync(
+            _escopos, PacienteId, DateOnly.FromDateTime(DateTime.Today),
+            temRascunhoNaoGravado: !PassagemEmBranco,
+            contextoDoLog: "Consultório — enfermagem");
 
-        try
-        {
-            SessaoUsuario.Atual.Exigir(
-                Permissao.VerProntuario, "imprimir a ficha do atendimento");
-
-            var hoje = DateOnly.FromDateTime(DateTime.Today);
-
-            byte[] pdf;
-            string numero;
-            using (var escopo = _escopos.CreateScope())
-            {
-                var servicos = escopo.ServiceProvider;
-
-                var documento = await servicos.GetRequiredService<DocumentoClinicoService>()
-                    .EmitirRelatorioEvolucaoAsync(
-                        PacienteId, SessaoUsuario.Atual.ProfissionalId,
-                        inicio: hoje, fim: hoje,
-                        operador: SessaoUsuario.Atual.Operador);
-
-                numero = documento.Numero;
-
-                pdf = await servicos.GetRequiredService<DocumentosClinicosPdfService>()
-                    .GerarAsync(
-                        documento.Id,
-                        await servicos.GetRequiredService<ParametrosService>()
-                            .ObterPrestadorAsync());
-            }
-
-            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                pdf,
-                ImpressaoPdf.NomeSeguro($"Ficha-do-atendimento-{numero.Replace('/', '-')}.pdf"));
-
-            Mensagem = erro
-                ?? $"Ficha {numero} emitida — ela fica na lista de documentos do paciente.";
-            MensagemEhErro = erro is not null;
-        }
-        catch (Exception ex)
-        {
-            Diagnostico.Registrar(
-                "Consultório — ficha do atendimento de enfermagem não pôde ser emitida", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
+        Mensagem = r.Frase;
+        MensagemEhErro = r.EhErro;
     }
 
     /// <summary>
