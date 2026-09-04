@@ -2986,6 +2986,58 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   despejo, com o seletor PRÓPRIO daquele app (o débito permanente da Fase 4): portar o
   `SemBuscaInicial` para lá é a cópia que ainda falta.
 
+- **A COLUNA DE ORIGEM FOI ALARGADA E A DE DESTINO NÃO — e o Postgres recusa a gravação
+  INTEIRA** (set/2026 — a clínica clicou em "Imprimir esta sessão" e levou *"Não foi
+  possível gravar. O banco respondeu: 22001: value too long for type character
+  varying(1000)"*). A importação do Smart Clinic alargou os quatro textos longos de
+  `Evolucao` para `text`, com a razão escrita ao lado (88 registros acima de 4.000
+  caracteres, o maior com 11.221) — e `ItemDocumento.Detalhe`, que recebe **NOVE** desses
+  campos concatenados no relatório de evolução, continuou em `varchar(1000)`. É **a cópia
+  que ficou para trás** (parcelas 61, 75, 90) na variante que ainda não tinha aparecido:
+  não entre dois design systems nem entre dois apps, mas **entre a tabela que GUARDA o
+  dado e a que o COPIA**.
+  ⚠️ **A regra que fica: ao alargar uma coluna, procure quem COPIA o conteúdo dela.** Todo
+  `DocumentoClinico` é gravado por cópia — é isso que garante a segunda via idêntica —, e
+  cópia por definição tem um destino com tamanho próprio. O `grep` que resolve é pelo nome
+  do campo alargado dentro dos montadores.
+  ⚠️ **E o teto se mede contra o que a origem PODE ter, não contra o que ela costuma ter.**
+  A mesma linha estourava por um segundo lugar, sem nada a ver com o prontuário:
+  `Quantidade` nasceu para *"1 caixa"* (60) e hoje recebe **quem assina** — o
+  `Profissional.Rotulo`, que é o `Nome` de até 120, e na enfermagem `"{AutorNome}
+  ({AutorConselho})"`, até 183. Nome comprido de brasileiro passa de 60 sem esforço. Ela
+  foi para 200, que é o **teto provado** pela soma das origens, não um chute.
+  ⚠️ **RECORTAR seria pior do que o erro.** É o argumento que o `Desenho` já carrega no
+  mapeamento ao lado ("recortar o desenho silenciosamente tiraria marcações do papel sem
+  ninguém saber quais") e o da própria importação: cortar registro clínico em silêncio
+  entrega ao paciente uma ficha com a história da doença picada no meio de uma frase. A
+  correção é `text`, como na origem.
+  ⚠️ **NENHUM teste podia pegar, e a razão é estrutural: o SQLite IGNORA o tamanho
+  declarado de uma coluna de texto.** Gravar passa aqui e falha na clínica — a mesma
+  família do `xmin` e das datas com fuso (parcela 67), e *"só o Postgres pega" quer dizer
+  "só a clínica pega"*. A saída é a daquela rodada: **medir o que o serviço PRODUZ contra
+  o teto que o MODELO do EF declara** (`RelatorioCabeNaColunaTests`). Os dois lados são
+  lidos do modelo — o destino e a ORIGEM —, senão o teste ficaria verde no commit em que
+  alguém alargasse `Profissional.Nome` e recriasse o defeito. Os seis testes falham no
+  código anterior; foi verificado, não presumido.
+  ⚠️ **Alargar não pode só MUDAR O LUGAR da falha**: o `Detalhe` é desenhado numa CÉLULA
+  de tabela, e a lição da parcela 68 vale inteira — *teste que prova que a gravação passa
+  não prova que a FOLHA SAI*. O sétimo teste emite o relatório com os 11.221 caracteres do
+  maior registro importado e **gera o PDF**.
+
+- **"Por que numa tela dá e na outra não?" — quando as duas telas são o MESMO código, a
+  variável é o DADO** (set/2026, a pergunta que acompanhou o 22001 acima: *"Prontuário →
+  Ver prontuário → Imprimir esta sessão está retornando erro, mas Pacientes → Histórico de
+  sessões → Abrir sessão → imprimir esta sessão eu consigo, por quê?"*). Havia exatamente
+  **um** botão "Imprimir esta sessão" em toda a suíte (`SessaoDoProntuarioWindow`), um
+  único `FichaDoAtendimento.EmitirAsync` e três portas que só diferem no `ofereceAnexos`.
+  As duas telas são a mesma linha de código: o que mudava era **qual sessão** estava
+  aberta — a que imprimiu tinha texto curto, a que falhou era uma importada do sistema
+  antigo.
+  ⚠️ A tentação é procurar a diferença ENTRE AS TELAS, e ela consome a rodada inteira. O
+  `grep` pelo rótulo do botão responde em segundos: **um único chamador significa que a
+  assimetria está nos dados, não no caminho** — e aí a pergunta certa deixa de ser "o que
+  esta tela faz de diferente" e passa a ser "o que este REGISTRO tem que o outro não tem".
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

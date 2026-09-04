@@ -965,8 +965,29 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
-            e.Property(x => x.Detalhe).HasMaxLength(1000);
-            e.Property(x => x.Quantidade).HasMaxLength(60);
+            // ⚠️ `Detalhe` NÃO TEM TETO, e isso é a correção de um 22001 que a clínica
+            // levou na cara ao clicar em "Imprimir esta sessão" (set/2026). Ele era
+            // varchar(1000) e recebe, no relatório de evolução, NOVE campos da sessão
+            // concatenados — quatro deles `text` desde a importação do Smart Clinic, que
+            // tem 88 registros acima de 4.000 caracteres. É a CÓPIA QUE FICOU PARA TRÁS:
+            // a origem foi alargada e o destino não, e o Postgres recusa a gravação
+            // INTEIRA (o documento não nasce, e a mensagem fala de uma coluna que quem
+            // clicou não conhece).
+            //
+            // Recortar aqui seria pior do que o erro: é o mesmo argumento do `Desenho`
+            // logo abaixo e o da própria importação — cortar registro clínico em silêncio
+            // entrega ao paciente uma ficha com a história da doença picada no meio de uma
+            // frase, sem ninguém saber o que ficou de fora. `RelatorioCabeNaColunaTests`
+            // mede o que o serviço PRODUZ contra o teto que este modelo DECLARA (o SQLite
+            // dos testes ignora tamanho de coluna — só o Postgres pega, e "só o Postgres
+            // pega" quer dizer "só a clínica pega").
+            e.Property(x => x.Detalhe);
+            // 200, e o número é um TETO PROVADO, não um chute: a coluna nasceu para
+            // "1 caixa" (60) e hoje recebe QUEM ASSINA a linha — o `Profissional.Rotulo`
+            // (Nome, 120) nas sessões e `"{AutorNome} ({AutorConselho})"` (120 + 3 + 60 =
+            // 183) na passagem de enfermagem. Nome comprido de brasileiro passa de 60 sem
+            // esforço, e o estouro derrubava a mesma gravação do `Detalhe`.
+            e.Property(x => x.Quantidade).HasMaxLength(200);
             // O que a linha É, para quem lê a resposta de volta (parcela 89) — hoje
             // o nome da FinalidadeConsentimento no termo LGPD. Nulo é o caso normal.
             e.Property(x => x.Codigo).HasMaxLength(60);
