@@ -3024,6 +3024,50 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   não prova que a FOLHA SAI*. O sétimo teste emite o relatório com os 11.221 caracteres do
   maior registro importado e **gera o PDF**.
 
+- **A FOLHA ÚNICA: doze campos viraram um, e nenhuma coluna foi apagada** (set/2026 —
+  a direção olhou a tela de atendimento e disse *"são coisas não tão profissionais que
+  eram aceitáveis no começo do projeto"*, pedindo menos campos, texto livre e os botões
+  de imprimir e salvar à vista; o mapa está em `docs/registro-do-atendimento.md` §21-26,
+  e os desenhos em `docs/mockups/`). Foram desenhados CINCO mockups antes de uma linha de
+  WPF — o caminho da parcela 87 —, a direção aprovou o **01 · Folha única**, e as sete
+  telas do Consultório saíram na mesma língua.
+  ⚠️ **Reduzir a TELA nunca é reduzir o REGISTRO.** Os doze campos da sessão continuam no
+  banco (guarda de 20 anos), continuam saindo no relatório do convênio separados por
+  assunto e continuam editáveis — atrás da linha "Detalhar…" ao pé da folha, que
+  **ANUNCIA quantos a sessão aberta já tem**. Sem esse selo, a sessão antiga com hipótese
+  e conduta preenchidas sumiria de VISTA sem sumir do banco: o defeito recorrente do
+  projeto cometido pela própria reforma que o corrige.
+  ⚠️ **O detalhe é JANELA, não bloco recolhido**: bloco cresce com o dado e disputa altura
+  com a folha, e filho ancorado que não cabe é DECEPADO (parcela 79, nesta mesma tela). É
+  o mesmo gesto que a consulta da COFEN já usa desde a parcela 88 — e ela edita o MESMO
+  ViewModel, sem gravar nada: quem grava é o Salvar de trás.
+  ⚠️ **A promessa do mockup que o código NÃO cumpre virou o que ele faz.** O desenho dizia
+  "salva sozinha a cada pausa"; cada gravação de evolução existente cria uma
+  `VersaoEvolucao` (parcela 52), e salvar a cada pausa encheria o prontuário de dezenas de
+  versões por sessão. O rodapé passou a dizer "Última gravação às 14h37". **Mockup
+  aprovado não dispensa a regra da garantia aparente** — ele é o lugar mais fácil de
+  cometê-la, porque a promessa já foi vista e aprovada por quem pediu.
+  ⚠️ **O rail deixou de ser vigiado e passou a ser impossível de divergir.** Eram nove
+  `ListBoxItem` escritos à mão no XAML ao lado da lista do C#; agora ele é montado de
+  `ModuloClinico.RailDoPaciente()` (`SecoesDoPaciente` × `GruposDoPaciente`, casadas por
+  posição). A **checagem 38** mudou de "compare as duas listas" para "RECUSE a segunda
+  lista", com autoteste nos dois sentidos: quando dá para trocar o contrato, trocar o
+  contrato vence vigiar (a lição do índice→nome da parcela 41, um nível acima).
+  ⚠️ **A régua de chips tem de ser montada TAMBÉM no construtor.** `SecaoEscolhida` e
+  `TipoAcompanhado` são inicializados em campo, e inicializador de campo **não emite
+  PropertyChanged** — sem a chamada, a tela abre sem chip nenhum, com a folha funcionando
+  e sem como trocar de seção. Nada falha; achado relendo o próprio diff.
+  ⚠️ **Campo cuja escrita volta ao ViewModel a cada tecla precisa de guarda de
+  reentrância**: reemitir a propriedade no meio da digitação devolve o valor à caixa e é
+  como se perde a posição do cursor. O gancho só reemite quando o campo mudou POR FORA.
+  ⚠️ **Onde o desenho aprovado NÃO foi seguido, ficou DECLARADO** (§25 do documento): o
+  Histórico não funde as listas de sessão e enfermagem (ids são por tabela — um "cancelar"
+  na linha errada cancelaria o registro de outra pessoa —, e a lista rica tem busca no
+  texto, anexos e correções que a genérica não tem); "Salvar e finalizar" continua sendo
+  dois atos (finalizar avisa o balcão que a sala vagou, e todo Salvar mandaria o recado
+  errado); e os chips de Medidas e Avaliações não trazem contagem. **Desvio de mockup
+  aprovado se escreve, não se comete em silêncio.**
+
 - **"Por que numa tela dá e na outra não?" — quando as duas telas são o MESMO código, a
   variável é o DADO** (set/2026, a pergunta que acompanhou o 22001 acima: *"Prontuário →
   Ver prontuário → Imprimir esta sessão está retornando erro, mas Pacientes → Histórico de
