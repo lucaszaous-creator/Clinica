@@ -74,7 +74,7 @@ public sealed class LinhaSessaoProntuario
 ///
 /// Por que existe
 /// --------------
-/// A tela de Atendimento mostra as TRÊS últimas sessões ao lado do formulário, que é o
+/// A tela de Atendimento mostra as CINCO últimas sessões, numa aba própria, que é o
 /// certo para escrever a de hoje. Num tratamento de quarenta, a sessão 12 era
 /// inalcançável — e a busca por texto dentro do prontuário existia, testada e em uso,
 /// dentro do módulo da RECEPÇÃO. O comentário que a acompanha lá diz, com todas as letras:

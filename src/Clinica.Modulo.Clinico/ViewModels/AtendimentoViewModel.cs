@@ -38,11 +38,12 @@ public sealed class LinhaAlertaClinico
 /// ----------------------------------------------
 /// A recepção escreve evolução de vez em quando, num diálogo modal aberto de dentro do
 /// prontuário. O profissional escreve TODA sessão, e enquanto conversa com alguém. São
-/// dois usos diferentes do mesmo dado, e a diferença aparece no leiaute: aqui as três
-/// últimas sessões ficam ABERTAS ao lado do formulário, porque a primeira coisa que se faz
-/// ao receber um paciente de tratamento é reler o que foi feito da última vez. Numa janela
-/// modal isso não cabe — e a arquitetura da suíte não permitiria reaproveitá-la de outro
-/// módulo de qualquer forma (nenhum módulo conhece os outros).
+/// dois usos diferentes do mesmo dado, e a diferença aparece no leiaute: aqui as sessões
+/// passadas têm uma ABA inteira (set/2026 — eram uma faixa de 320 px ao lado do
+/// formulário), porque a primeira coisa que se faz ao receber um paciente de tratamento é
+/// reler o que foi feito da última vez. Numa janela modal isso não cabe — e a arquitetura
+/// da suíte não permitiria reaproveitá-la de outro módulo de qualquer forma (nenhum módulo
+/// conhece os outros).
 ///
 /// A EVA em par
 /// ------------
@@ -56,8 +57,16 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     private readonly ISnackbarService _snackbar;
     private readonly PacienteEmFoco _foco;
 
-    /// <summary>Quantas sessões anteriores ficam abertas ao lado do formulário.</summary>
-    private const int SessoesAnterioresVisiveis = 3;
+    /// <summary>
+    /// Quantas sessões anteriores a aba "Sessões anteriores" traz.
+    ///
+    /// ⚠️ Eram TRÊS, e o número era a altura da coluna de 350 px, não uma decisão clínica.
+    /// Com a aba (set/2026) a altura é a da tela, e cinco é o que se lê antes de escrever a
+    /// de hoje. Não é "todas" de propósito: o prontuário inteiro — com busca no texto, os
+    /// anexos e as correções — é a seção Histórico, e duas telas respondendo à mesma
+    /// pergunta é o que faz alguém procurar a diferença que não existe.
+    /// </summary>
+    private const int SessoesAnterioresVisiveis = 5;
 
     /// <summary>
     /// O mapa corporal da sessão — o mesmo componente do shell que a Recepção usa
@@ -71,6 +80,16 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private MapaCorporalViewModel? _mapa;
 
     public ObservableCollection<ResumoSessaoAnterior> Anteriores { get; } = [];
+
+    /// <summary>
+    /// A ÚLTIMA sessão em uma linha, na folha de hoje: data, par da EVA e retorno sugerido.
+    ///
+    /// ⚠️ É o que sobrou da coluna aberta quando ela virou ABA (set/2026). Reler a sessão
+    /// passada passou a custar um clique; o que não pode custar clique nenhum é a resposta
+    /// para "por que este paciente está aqui hoje". A composição mora na Application, onde
+    /// o <c>dotnet test</c> alcança (a regra da <c>GradeSemana</c>).
+    /// </summary>
+    [ObservableProperty] private string _contextoDaUltimaSessao = string.Empty;
 
     /// <summary>
     /// O que os OUTROS módulos sabem sobre este paciente e que importa com ele na sala
@@ -549,12 +568,17 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         Enumerable.Range(Evolucao.EvaMinima, Evolucao.EvaMaxima - Evolucao.EvaMinima + 1).ToList();
 
     /// <summary>
-    /// ENFERMAGEM E INFUSÕES na coluna direita, em modo COMPACTO (parcela 72).
+    /// ENFERMAGEM E INFUSÕES — a aba "Enfermagem e infusões" (parcela 72, na aba desde
+    /// set/2026).
     ///
     /// Quem está escrevendo a conduta precisa saber o que a sala aferiu e o que foi
     /// administrado — e até aqui isso morava noutro módulo, no app de quem executa.
-    /// Compacto porque a coluna tem ~350 px de altura útil: são três linhas por seção,
-    /// escolhidas pelo chip, não duas listas rolando dentro de um vão.
+    ///
+    /// ⚠️ NÃO é mais compacto: o modo compacto corta em TRÊS linhas por seção, e ele
+    /// existia porque a coluna da direita tinha ~350 px de altura útil. Numa aba inteira o
+    /// corte esconderia a quarta aferição da tarde sem dizer que a escondeu — e o resumo
+    /// diria "3 de 12", que é a tela pedindo desculpa por um limite que não precisa mais
+    /// existir.
     /// </summary>
     public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
 
@@ -567,7 +591,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
-            Compacto = true,
+            Compacto = false,
             MostrarDocumentos = false,
             SecoesVisiveis =
             [
@@ -645,6 +669,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Anteriores.Clear();
+            ContextoDaUltimaSessao = string.Empty;
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
@@ -696,6 +721,8 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
                 Anteriores.Add(ResumoSessaoAnterior.De(e));
+
+            ContextoDaUltimaSessao = ResumoSessaoAnterior.ContextoDaUltima(Anteriores.FirstOrDefault());
 
             await CarregarAlertasAsync(scope.ServiceProvider, geracao);
             if (geracao != _geracaoCarga) return;
@@ -1019,11 +1046,26 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Traz a conduta da última sessão para o formulário — sem gravar nada.
+    /// Traz o que a última sessão escreveu para o formulário — sem gravar nada.
     ///
     /// É a mesma regra de "repetir a sessão anterior" do mapa corporal: o botão TRAZ para
     /// a tela, e só o Salvar efetiva. Tratamento de acupuntura repete protocolo por
     /// semanas, e redigitar a mesma conduta é como o registro vira "idem".
+    ///
+    /// ⚠️ DOIS defeitos moravam aqui, e os dois só apareceram quando o rótulo saiu de dentro
+    /// do texto (set/2026):
+    ///
+    /// 1. a comparação era com <c>"—"</c>, e o modelo devolve string VAZIA desde a parcela
+    ///    77 — logo ela era sempre verdadeira, e o que ia para o campo Conduta era o texto
+    ///    JÁ ROTULADO: <c>"Conduta: agulhamento lombar"</c>, gravado assim no prontuário e
+    ///    impresso assim no relatório do convênio;
+    /// 2. sem conduta escrita, o botão dizia "trazida para a tela" tendo trazido NADA — e
+    ///    depois da folha única (set/2026) esse é o caso NORMAL, porque o profissional
+    ///    escreve tudo na folha e não no campo Conduta.
+    ///
+    /// Por isso ele repete a CONDUTA quando ela existe e, quando não existe, o texto da
+    /// FOLHA — que é onde a sessão passada de fato está. E nunca por cima do que já está
+    /// escrito: repetir não pode apagar o que a pessoa acabou de digitar.
     /// </summary>
     [RelayCommand]
     private void RepetirUltima()
@@ -1036,11 +1078,41 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             return;
         }
 
-        if (ultima.Conduta != "—") Conduta = ultima.Conduta;
-        if (ultima.Queixa != "—" && string.IsNullOrWhiteSpace(QueixaPrincipal))
-            QueixaPrincipal = ultima.Queixa;
+        var trazidos = new List<string>();
 
-        Mensagem = $"Conduta da sessão de {ultima.Data} trazida para a tela. "
+        if (ultima.Valor(ResumoSessaoAnterior.RotuloConduta) is { } conduta
+            && string.IsNullOrWhiteSpace(Conduta))
+        {
+            Conduta = conduta;
+            trazidos.Add("a conduta");
+        }
+
+        if (ultima.Valor(ResumoSessaoAnterior.RotuloEvolucao) is { } folha
+            && string.IsNullOrWhiteSpace(TextoEvolucao))
+        {
+            TextoEvolucao = folha;
+            trazidos.Add("o texto da sessão");
+        }
+
+        if (ultima.Valor(ResumoSessaoAnterior.RotuloQueixa) is { } queixa
+            && string.IsNullOrWhiteSpace(QueixaPrincipal))
+        {
+            QueixaPrincipal = queixa;
+            trazidos.Add("a queixa");
+        }
+
+        // Falar em "trazido" sem ter trazido nada é a garantia aparente do projeto numa
+        // frase: a pessoa confere a tela, não vê diferença nenhuma, e conclui que o botão
+        // está quebrado.
+        if (trazidos.Count == 0)
+        {
+            Mensagem = $"Nada a trazer da sessão de {ultima.Data}: o que ela tem escrito "
+                       + "já está preenchido aqui, ou ela não tem conduta nem texto.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        Mensagem = $"Da sessão de {ultima.Data}: {string.Join(" e ", trazidos)}. "
                    + "Nada foi gravado — confira e salve.";
         MensagemEhErro = false;
     }

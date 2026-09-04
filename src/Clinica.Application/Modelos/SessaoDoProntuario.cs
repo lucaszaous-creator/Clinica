@@ -22,8 +22,8 @@ public sealed record BlocoDaSessao(string Rotulo, string Texto);
 ///   <item>o modal de leitura rápida (<c>ResumoProntuarioWindow</c>) compõe uma frase a
 ///   partir do texto da evolução — e é justamente ele que o botão "Abrir" da lista plana
 ///   de Prontuários abre;</item>
-///   <item>o painel das últimas sessões (<see cref="ResumoSessaoAnterior"/>) traz as
-///   linhas CORTADAS, de propósito: a coluna tem ~350 px.</item>
+///   <item>a aba das últimas sessões (<see cref="ResumoSessaoAnterior"/>) traz as CINCO
+///   mais recentes, rotuladas — e só elas: o prontuário inteiro é esta tela.</item>
 /// </list>
 ///
 /// Os outros oito campos estavam gravados e não tinham leitor em lugar nenhum — o defeito

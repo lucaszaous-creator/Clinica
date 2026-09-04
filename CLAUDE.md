@@ -3068,6 +3068,50 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   errado); e os chips de Medidas e Avaliações não trazem contagem. **Desvio de mockup
   aprovado se escreve, não se comete em silêncio.**
 
+- **A FAIXA LATERAL DE RELEITURA VIROU ABA — e o rótulo saiu de dentro do texto** (set/2026,
+  a 9ª reprovação do cliente: *"essas tabelas laterais não me agradam! Seria melhor criar
+  uma aba para elas e deixá-las profissionais"*, com o print das duas telas de atendimento
+  já redesenhadas). As duas telas eram DUAS COLUNAS — escrever à esquerda, reler numa faixa
+  de 320 px à direita —, e a faixa não cabia no que precisava dizer: a sessão passada saía
+  em seis frases cortadas em pontos diferentes, com o rótulo DENTRO do texto
+  (`"Queixa: lombalgia há três mes…"`), e a linha do tempo da enfermagem vivia num vão em
+  que o estado vazio ocupava quase toda a altura.
+  A régua de leiaute do `README.md` responde sozinha: **quantas perguntas esta tela
+  responde?** Três — o que eu escrevo agora, o que veio antes, o que o outro lado registrou
+  —, e pergunta a mais é **ABA**, não caixa menor. É a lição da central de documentos
+  (parcela 82) outra vez: **quando o cliente reprova uma tela, a correção começa pelas três
+  perguntas da regra de leiaute, não pelo tamanho das peças.**
+  ⚠️ **A barra de ações, os avisos e o RODAPÉ ficam FORA das abas.** Trocar de aba não pode
+  esconder o botão que grava nem a mensagem que ele escreve — botão que some quando alguém
+  vai reler a sessão passada é a gravação que não acontece.
+  ⚠️ **O que a coluna aberta dava — reler ENQUANTO se escreve — não se perde por inteiro.**
+  A folha ganhou uma LINHA quieta (`ResumoSessaoAnterior.ContextoDaUltima`): data, par da
+  EVA e retorno sugerido da última sessão. É a resposta para "por que este paciente está
+  aqui hoje", e ela não pode custar um clique; o resto está na aba ao lado. **Ao trocar um
+  painel aberto por uma aba, pergunte o que dali NÃO pode custar um clique** — sem essa
+  linha, a troca teria custado justamente o campo que a parcela 77 existiu para pôr na tela.
+  ⚠️ **RÓTULO DENTRO DA FRASE não é rótulo, é texto.** `ResumoSessaoAnterior` devolvia
+  `"Conduta: agulhamento lombar"` pronto; agora devolve o par `Rotulo`/`Valor`, e a aba
+  desenha uma COLUNA de rótulos alinhada (`SharedSizeGroup`) com o valor ao lado, que é como
+  se lê um prontuário no papel. A data também virou coluna compartilhada: sem isso, a linha
+  com "EVA não medida" fica mais larga que a com "EVA 7 → 4" e a régua sai em escada.
+  ⚠️ **E a separação do rótulo REVELOU um defeito de duas parcelas atrás.** `RepetirUltima`
+  comparava com `"—"` — o sentinela que o modelo deixou de produzir na parcela 77, quando o
+  vazio passou a ser `string.Empty`: a comparação era sempre verdadeira, e o que ia para o
+  campo Conduta era o texto JÁ ROTULADO, gravado assim no prontuário e impresso assim no
+  relatório do convênio (no segundo clique, "Conduta: Conduta: …"). **Nada estourava**, e
+  só apareceu porque o compilador passou a exigir que alguém dissesse QUAL campo estava
+  sendo lido. A lição de método: **quando um modelo troca o formato de um valor, procure
+  quem o COMPARA** — o `grep` é pelo sentinela antigo, não pelo tipo.
+  ⚠️ Junto veio a segunda metade: sem conduta escrita, o botão dizia *"trazida para a tela"*
+  tendo trazido NADA — e depois da folha única esse é o caso NORMAL. Frase de sucesso sobre
+  uma tela que não mudou é a garantia aparente numa linha: a pessoa confere, não vê
+  diferença, e conclui que o botão está quebrado.
+  ⚠️ **Cinco sessões anteriores, não três**: o três era a altura da coluna de 350 px, não uma
+  decisão clínica. E não é "todas" de propósito — o prontuário inteiro, com busca no texto,
+  é a seção Histórico, e duas telas respondendo à mesma pergunta é o que faz alguém procurar
+  a diferença que não existe.
+
 - **"Por que numa tela dá e na outra não?" — quando as duas telas são o MESMO código, a
   variável é o DADO** (set/2026, a pergunta que acompanhou o 22001 acima: *"Prontuário →
   Ver prontuário → Imprimir esta sessão está retornando erro, mas Pacientes → Histórico de

@@ -226,40 +226,36 @@
                 </Grid>
             </Border>
 
-            <!-- ===== Duas colunas: escrever à esquerda, reler à direita =====
-                 Cada uma é UMA superfície, não uma pilha de caixas com borda. A
-                 separação interna é por espaço e rótulo — desenhar um retângulo em
-                 volta de cada campo é o que fazia a tela parecer costurada. -->
-            <Grid>
-                <!-- ⚠️ AS DUAS COLUNAS SÃO ELÁSTICAS (parcela 72), e não uma elástica ao lado
-                     de uma FIXA de 400 px. Somadas, elas exigiam 520 + 16 + 400 = 936 px, e a
-                     janela mínima da suíte (960) descontando o rail de 56 e as margens de
-                     24+24 do workspace deixa 856 — com o painel de categoria FIXADO, 606. O
-                     WPF honra o MinWidth e CORTA o excesso à direita: não há rolagem
-                     horizontal aqui. Ou seja, acrescentar informação a esta tela era cortar
-                     a que já existe. -->
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.6*" MinWidth="440" />
-                    <ColumnDefinition Width="*" MinWidth="320" />
-                </Grid.ColumnDefinitions>
+        <!-- ================== TRÊS ABAS, TRÊS PERGUNTAS ==================
+             (set/2026 — a reprovação do cliente: "essas tabelas laterais não me agradam!
+             Seria melhor criar uma aba para elas e deixá-las profissionais".)
 
-                <!-- ============================================================
-                     A SESSÃO EM QUATRO ABAS — S-O-A-P (parcela 77).
+             A tela era DUAS COLUNAS: escrever à esquerda, reler numa faixa de 320 px à
+             direita. A faixa não cabia no que ela precisava dizer — a sessão passada saía
+             em fragmentos truncados, sem nada que dissesse o que cada um era, e a linha do
+             tempo da enfermagem vivia num vão de três linhas com o estado vazio ocupando
+             quase toda a altura. A régua de leiaute do README responde sozinha: QUANTAS
+             PERGUNTAS ESTA TELA RESPONDE? Três — o que eu escrevo agora, o que veio antes,
+             e o que a sala registrou —, e pergunta a mais é ABA (parcela 55), não caixa
+             menor (a lição da central de documentos, parcela 82).
 
-                     Era UMA coluna de rolagem com nove campos: quem escrevia perdia o
-                     começo de vista ao chegar no fim, e os campos da parcela 73 estavam
-                     atrás de um Expander RECOLHIDO — metade do registro clínico escondida
-                     por um clique que ninguém dá.
+             Cada aba tem a LARGURA E A ALTURA inteiras. É o que permite a sessão anterior
+             sair com a coluna de rótulos alinhada, em vez de seis frases cortadas em
+             pontos diferentes.
 
-                     A divisão é a de todo prontuário: o que a pessoa DIZ, o que se ACHA
-                     nela, o que isso É, e o que se vai FAZER. Não por acaso é a mesma
-                     forma das cinco etapas da COFEN do outro lado da clínica.
+             ⚠️ A barra de ações, os avisos e o RODAPÉ ficam FORA das abas, ancorados no
+             DockPanel acima: trocar de aba não pode esconder o "Salvar sessão" nem a
+             mensagem que ele escreve. Botão que some quando se lê a sessão passada é a
+             gravação que não acontece.
 
-                     ⚠️ Aba ESCONDE campo, e campo escondido de prontuário é como se
-                     escreve menos sem perceber. Por isso cada rótulo leva um PONTO quando
-                     a aba tem conteúdo: ele se vê de qualquer aba, e é o que denuncia o
-                     "Subjetivo" vazio de quem foi direto ao Plano.
-                     ============================================================ -->
+             ⚠️ E o que a coluna aberta dava — reler ENQUANTO se escreve — não se perdeu por
+             inteiro: a linha quieta da folha diz a data, a EVA e o retorno da última
+             sessão, que é a resposta para "por que este paciente está aqui hoje". O resto
+             está a um clique, na aba ao lado. -->
+        <TabControl>
+
+            <TabItem Header="A sessão de hoje">
+
                 <!-- ============================================================
                      A FOLHA ÚNICA (mockup 01, aprovado pela direção em set/2026).
 
@@ -282,7 +278,7 @@
                      clínica a consulta da COFEN já abre assim desde a parcela 88 — o mesmo
                      gesto, o mesmo desenho.
                      ============================================================ -->
-                <Border Grid.Column="0" Style="{StaticResource Card}">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                     <DockPanel>
 
                         <!-- A TIRA: o que a sessão tem de NÚMERO, numa linha só. A data, o
@@ -359,6 +355,19 @@
                                        Visibility="{Binding ResumoDor,
                                                     Converter={StaticResource TextoParaVisibilidade},
                                                     FallbackValue=Collapsed}" />
+
+                            <!-- ⚠️ A ÚLTIMA SESSÃO, em UMA linha, e ela é o que sobrou da
+                                 coluna aberta que virou aba: a data, a EVA e o retorno
+                                 sugerido — a resposta para "por que este paciente está
+                                 aqui hoje". O resto da sessão passada está na aba ao lado.
+                                 Sem esta linha, trocar a coluna por uma aba teria custado
+                                 justamente o campo que a parcela 77 existiu para pôr na
+                                 tela. -->
+                            <TextBlock Text="{Binding ContextoDaUltimaSessao}" TextWrapping="Wrap"
+                                       Style="{StaticResource TextoSuave}"
+                                       Visibility="{Binding ContextoDaUltimaSessao,
+                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}" />
                         </StackPanel>
 
                         <!-- ===== A LINHA DO DETALHE, ao pé da folha =====
@@ -406,129 +415,102 @@
                         </DockPanel>
                     </DockPanel>
                 </Border>
+            </TabItem>
 
-                <!-- As últimas sessões continuam ABERTAS: reler o que foi feito é a
-                     primeira coisa que se faz, e é referência para o que se digita ao
-                     lado. Diferente do mapa, que é um ato à parte. -->
-                <Border Grid.Column="1" Margin="16,0,0,0"
-                        Style="{StaticResource Card}">
+            <!-- ==================== O QUE VEIO ANTES ====================
+                 As últimas sessões, como elas foram ESCRITAS. Na faixa de 320 px cada
+                 campo saía como uma frase única e truncada ("Queixa: lombalgia há três
+                 mes…"), e seis frases assim, cortadas em pontos diferentes, se leem como
+                 fragmentos — que foi exatamente o que o cliente viu.
+
+                 Aqui o rótulo é COLUNA (SharedSizeGroup), o valor QUEBRA em vez de cortar,
+                 e a data fica à esquerda como âncora da leitura. O par rótulo/valor vem
+                 pronto de `ResumoSessaoAnterior.Campos`, na Application: o que a tela
+                 AFIRMA mora onde o `dotnet test` alcança (a regra da GradeSemana). -->
+            <TabItem Header="Sessões anteriores">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Últimas sessões"
-                                   Style="{StaticResource H3}" Margin="0,0,0,10" />
+                        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Text="As últimas sessões deste paciente. O prontuário inteiro — com busca no texto, os anexos e as correções — está na seção Histórico." />
 
-                        <!-- ⚠️ ENFERMAGEM E INFUSÕES, em modo COMPACTO (parcela 72): três
-                             linhas por seção, escolhidas pelo chip. Quem está escrevendo a
-                             conduta precisa saber o que a sala aferiu e o que foi
-                             administrado — e até aqui isso morava noutro módulo.
-
-                             Não é um segundo bloco empilhado: a coluna tem ~350 px de
-                             altura útil, e duas listas rolando dentro de um vão de três
-                             linhas é o proibido do README. É a MESMA leitura, cortada. -->
-                        <comp:LinhaDoTempoClinicaView DockPanel.Dock="Bottom"
-                                                      DataContext="{Binding LinhaDoTempo}"
-                                                      MaxHeight="200" Margin="0,10,0,0" />
-                        <Grid>
+                        <!-- Grid por fora para hospedar a sobreposição do EstadoDaTela como
+                             ÚLTIMO filho, e sobre a REGIÃO cujo vazio ela explica: a LISTA,
+                             nunca a aba inteira (parcelas 50, 58 e 79). -->
+                        <Grid Grid.IsSharedSizeScope="True">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Anteriores}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Margin="0,0,0,14">
+                                            <!-- Linha separada por um traço embaixo, nunca
+                                                 um cartão por sessão: retângulo dentro de
+                                                 retângulo é a colcha de retalhos que o
+                                                 README proíbe. -->
+                                            <Border Padding="0,14" BorderThickness="0,0,0,1"
+                                                    BorderBrush="{StaticResource Brush.Borda}">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" MinWidth="120"
+                                                                          SharedSizeGroup="SessaoAnteriorData" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding Eva}"
-                                                               Margin="8,0,0,0" TextWrapping="Wrap"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                                                    <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                                                        <TextBlock Text="{Binding Data}"
+                                                                   FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Eva}"
+                                                                   Style="{StaticResource TextoSuave}"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
+
+                                                    <StackPanel Grid.Column="1">
+                                                        <!-- ⚠️ O RETORNO vem PRIMEIRO e fora
+                                                             da lista de campos: ele é a
+                                                             resposta para "por que este
+                                                             paciente está aqui hoje", e era
+                                                             o campo que o painel antigo não
+                                                             mostrava. -->
+                                                        <TextBlock Text="{Binding Retorno}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="0,0,0,6"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Brush.Acento}"
+                                                                   Visibility="{Binding Retorno,
+                                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                                FallbackValue=Collapsed}" />
+
+                                                        <ItemsControl ItemsSource="{Binding Campos}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Grid Margin="0,0,0,4">
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto"
+                                                                                              SharedSizeGroup="SessaoAnteriorRotulo" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Grid.Column="0"
+                                                                                   Text="{Binding Rotulo}"
+                                                                                   Margin="0,1,14,0"
+                                                                                   VerticalAlignment="Top"
+                                                                                   Style="{StaticResource Rotulo}" />
+                                                                        <TextBlock Grid.Column="1"
+                                                                                   Text="{Binding Valor}"
+                                                                                   TextWrapping="Wrap" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
                                                 </Grid>
-                                                <!-- ⚠️ O RETORNO vem PRIMEIRO e não se
-                                                     corta: ele é a resposta para "por que
-                                                     este paciente está aqui hoje", e era o
-                                                     campo que o painel não mostrava. Os
-                                                     demais saem cortados — o texto inteiro
-                                                     está na aba "Histórico de sessões", que
-                                                     é onde se lê com calma. -->
-                                                <TextBlock Text="{Binding Retorno}" TextWrapping="Wrap"
-                                                           Margin="0,6,0,0" FontWeight="SemiBold"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Acento}"
-                                                           Visibility="{Binding Retorno,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-
-                                                <TextBlock Text="{Binding Queixa}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,6,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           ToolTip="{Binding Queixa}"
-                                                           Visibility="{Binding Queixa,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-
-                                                <TextBlock Text="{Binding Hipotese}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,4,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           ToolTip="{Binding Hipotese}"
-                                                           Visibility="{Binding Hipotese,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-
-                                                <TextBlock Text="{Binding Conduta}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,4,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           ToolTip="{Binding Conduta}"
-                                                           Visibility="{Binding Conduta,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-
-                                                <!-- A EVOLUÇÃO estava no modelo e NÃO na
-                                                     tela desde que o painel nasceu: dado
-                                                     calculado sem leitor, no lugar onde
-                                                     ele é o texto mais escrito do sistema. -->
-                                                <TextBlock Text="{Binding Evolucao}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,4,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           ToolTip="{Binding Evolucao}"
-                                                           Visibility="{Binding Evolucao,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-
-                                                <TextBlock Text="{Binding Plano}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,4,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           ToolTip="{Binding Plano}"
-                                                           Visibility="{Binding Plano,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-
-                                                <TextBlock Text="{Binding Encaminhamento}"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Margin="0,4,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           ToolTip="{Binding Encaminhamento}"
-                                                           Visibility="{Binding Encaminhamento,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-                                                <Separator Margin="0,12,0,0"
-                                                           Background="{StaticResource Brush.Borda}" />
-                                            </StackPanel>
+                                            </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
 
-                            <!-- Histórico vazio por FALHA seria lido como "paciente
-                                 novo", e a conduta de hoje sairia sem o que veio antes. -->
+                            <!-- Histórico vazio por FALHA seria lido como "paciente novo", e
+                                 a conduta de hoje sairia sem o que veio antes. -->
                             <ctrl:EstadoDaTela Itens="{Binding Anteriores}"
                                                Carregando="{Binding Carregando}"
                                                NaoVerificado="{Binding NaoVerificado}"
@@ -539,6 +521,26 @@
                         </Grid>
                     </DockPanel>
                 </Border>
-            </Grid>
+            </TabItem>
+
+            <!-- ================ O QUE A SALA REGISTROU ================
+                 ENFERMAGEM E INFUSÕES (parcela 72): quem está escrevendo a conduta precisa
+                 saber o que a sala aferiu e o que foi administrado — e até aqui isso morava
+                 noutro módulo, no app de quem executa.
+
+                 Numa aba inteira o componente deixa de ser COMPACTO: ele mostra a seção
+                 escolhida por completo, em vez das três primeiras linhas que cabiam no vão
+                 da coluna. -->
+            <TabItem Header="Enfermagem e infusões">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Text="O que a sala registrou neste paciente: as aferições da enfermagem e as folhas de infusão." />
+                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
+                    </DockPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </UserControl>

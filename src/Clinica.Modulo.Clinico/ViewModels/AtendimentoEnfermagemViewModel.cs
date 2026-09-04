@@ -187,9 +187,12 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
 
         Plano = new PlanoDeCuidadosViewModel(escopos, dialogo);
 
+        // ⚠️ NÃO é compacto (set/2026): o corte em três linhas por seção existia porque a
+        // coluna da direita tinha ~350 px de altura útil. Numa aba inteira ele esconderia a
+        // quarta sessão do prontuário sem dizer que a escondeu.
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
-            Compacto = true,
+            Compacto = false,
             MostrarDocumentos = false,
             SecoesVisiveis =
             [

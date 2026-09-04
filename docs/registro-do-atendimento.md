@@ -604,7 +604,92 @@ Três desvios, todos declarados:
    "Oswestry · nunca aplicada". Contar por tipo exige uma consulta que hoje não existe, e
    inventar o número seria pior que não mostrá-lo. Fica como pendência.
 
-## 26. Como conferir que continua valendo
+## 26. As tabelas laterais viraram ABAS (a 9ª reprovação do cliente)
+
+> *"Essas tabelas laterais não me agradam! Seria melhor criar uma aba para elas e
+> deixá-las profissionais!"* — a direção, set/2026, com o print das duas telas já
+> redesenhadas.
+
+As duas telas de atendimento — a do médico e a da enfermagem — eram **duas colunas**:
+escrever à esquerda (`1.6*`, mínimo 440 px) e reler numa faixa à direita (`*`, mínimo
+320 px). A faixa não cabia no que ela precisava dizer:
+
+| o que a faixa mostrava | como saía em 320 px |
+|---|---|
+| a sessão passada, com sete campos | seis frases cortadas em pontos diferentes, cada uma com o rótulo dentro do texto (`"Queixa: lombalgia há três mes…"`) — fragmentos, não um registro |
+| enfermagem e infusões | modo COMPACTO, três linhas por seção, num vão de ~200 px em que o estado vazio ocupava quase toda a altura |
+| as passagens (enfermagem) | um cartão com moldura por passagem, dentro de um cartão — retângulo dentro de retângulo |
+
+A régua de leiaute do `README.md` responde sozinha: **quantas perguntas esta tela
+responde?** Três — *o que eu escrevo agora*, *o que veio antes* e *o que o outro lado
+registrou* —, e pergunta a mais é **aba**, não caixa menor. Foi a mesma correção da central
+de documentos (parcela 82), onde encolher os cartões não resolveu porque a pergunta
+estrutural ainda não tinha sido feita.
+
+**O desenho que ficou**, igual nas duas telas:
+
+| aba | médico | enfermagem |
+|---|---|---|
+| 1 | A sessão de hoje | A passagem de hoje |
+| 2 | Sessões anteriores | Passagens do paciente |
+| 3 | Enfermagem e infusões | Conduta médica e infusões |
+
+⚠️ **A barra de ações, os avisos, o plano de cuidados e o RODAPÉ ficam FORA das abas**,
+ancorados no `DockPanel` de cima. Trocar de aba não pode esconder o botão que grava nem a
+mensagem que ele escreve: botão que some quando alguém vai reler a sessão passada é a
+gravação que não acontece.
+
+⚠️ **O que a coluna aberta dava — reler ENQUANTO se escreve — não se perdeu por inteiro.**
+A folha ganhou uma linha quieta (`ResumoSessaoAnterior.ContextoDaUltima`): *"Última sessão
+em 27/08/2026 · EVA 8 → 3 · ↩ Voltar em 02/09/2026 — reavaliar a EVA"*. É a resposta para
+*"por que este paciente está aqui hoje"*, e ela não pode custar um clique. O resto está na
+aba ao lado. Sem essa linha, trocar a coluna pela aba teria custado justamente o campo que
+a parcela 77 existiu para pôr na tela.
+
+### 26.1 O que "profissional" mudou de fato
+
+- **O rótulo saiu de dentro do texto.** `ResumoSessaoAnterior` devolvia frases prontas
+  (`"Conduta: agulhamento lombar"`); agora devolve pares `Rotulo`/`Valor`
+  (`CampoDaSessaoAnterior`), e a aba desenha uma **coluna de rótulos alinhada**
+  (`SharedSizeGroup`) com o valor ao lado, que é como se lê um prontuário no papel. O valor
+  **quebra a linha** em vez de ser cortado — a largura agora existe.
+- **A data virou âncora**, numa coluna própria compartilhada entre as linhas: sem o
+  `SharedSizeGroup`, a linha com "EVA não medida" ficava mais larga que a com "EVA 7 → 4" e
+  a régua saía em escada.
+- **Cada sessão é uma LINHA com um traço embaixo**, nunca um cartão: retângulo dentro de
+  retângulo é a colcha de retalhos que o README proíbe. Vale igual para as passagens da
+  enfermagem, que eram cartões com moldura e raio.
+- **A linha do tempo deixou de ser COMPACTA.** O corte em três itens por seção existia
+  porque a coluna tinha ~350 px de altura útil; numa aba inteira ele esconderia a quarta
+  aferição da tarde e o resumo diria "3 de 12", que é a tela pedindo desculpa por um limite
+  que não precisa mais existir.
+- **Cinco sessões anteriores, não três.** O três era a altura da coluna, não uma decisão
+  clínica. Não é "todas" de propósito: o prontuário inteiro — com busca no texto, anexos e
+  correções — é a seção **Histórico**, e duas telas respondendo à mesma pergunta é o que faz
+  alguém procurar a diferença que não existe.
+
+### 26.2 O defeito que a mudança de modelo revelou
+
+`RepetirUltima` comparava com `"—"` — um sentinela que o modelo **deixou de produzir na
+parcela 77**, quando o campo vazio passou a ser `string.Empty`. A comparação era portanto
+sempre verdadeira, e o que ia para o campo `Conduta` era o texto **já rotulado**:
+
+```
+Conduta = "Conduta: agulhamento lombar, 20 min."
+```
+
+Gravado assim no prontuário e impresso assim no relatório do convênio; no segundo clique,
+`"Conduta: Conduta: …"`. Nada estourava. Só apareceu porque o rótulo saiu de dentro do
+texto e o compilador passou a exigir que alguém dissesse **qual campo** estava sendo lido.
+
+Junto veio a segunda metade: sem conduta escrita, o botão dizia *"trazida para a tela"*
+tendo trazido **nada** — e depois da folha única esse é o caso normal, porque a sessão é
+escrita na folha e não no campo Conduta. Agora ele repete a conduta quando ela existe, o
+texto da folha quando não existe, **nunca por cima do que já está escrito**, e diz o que
+trouxe. Quando não há o que trazer, ele **diz isso** em vez de afirmar um sucesso que não
+houve.
+
+## 27. Como conferir que continua valendo
 
 ```bash
 python3 tools/compilar-sombra.py      # o C# das dez telas WPF
