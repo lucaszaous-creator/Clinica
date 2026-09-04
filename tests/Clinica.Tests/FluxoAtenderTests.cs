@@ -220,15 +220,15 @@ public class FluxoAtenderTests : IDisposable
     }
 
     /// <summary>
-    /// A leitura que faz o botão "Fechar sessão" SUMIR da raia FINALIZADO quando não há
-    /// mais o que fechar. Ela é EM LOTE: uma ida ao banco por cartão daria trinta a cada
-    /// batida do relógio do quadro.
+    /// A leitura que faz a pendência do balcão SUMIR quando o dinheiro já foi resolvido.
+    /// Ela é EM LOTE: uma ida ao banco por cartão daria trinta a cada batida do relógio
+    /// do quadro.
     ///
     /// ⚠️ Ela nasce com um teste que a EXECUTA — consulta LINQ só se prova executando, e
     /// método de repositório sem chamador em teste é código que ninguém rodou.
     /// </summary>
     [Fact]
-    public async Task O_balcao_so_ve_pendencia_de_fechamento_no_que_falta_fechar()
+    public async Task A_leitura_em_lote_separa_o_que_ja_foi_fechado()
     {
         var comPacote = await CriarPacienteAsync("Com pacote");
         await _pacotes.RegistrarVendaAsync(new PacotePaciente

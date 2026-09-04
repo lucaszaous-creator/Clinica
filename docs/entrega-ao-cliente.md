@@ -184,10 +184,13 @@ Três decisões que valem registrar:
   e a recepção pode **assumir o encaixe**, que fica registrado.
 - **O kanban não inventou status.** As colunas saem de dois carimbos de hora novos
   (`ChegadaEm`, `InicioAtendimentoEm`); o faturamento continua vendo o `StatusAgendamento`
-  de sempre. "Concluir" é o antigo check-in e fica no fim do fluxo: a guia nasce quando a
-  sessão de fato aconteceu.
-- **Quem não informa profissional nem sala não é barrado.** É exatamente o caminho do
-  faturamento: ele avisa na tela e marca assim mesmo, como sempre fez.
+  de sempre. A conclusão fica no fim do fluxo: a guia nasce quando a sessão de fato
+  aconteceu — e desde a parcela 95 quem a fecha é o **Finalizar atendimento** do
+  Consultório, com o balcão resolvendo o dinheiro em seguida.
+- **Marcar horário exige dizer quem vai atender** (parcela 95). É o que faz o horário
+  cair na agenda do profissional e entrar no repasse; o **encaixe** — o paciente que
+  chegou sem hora marcada — continua podendo ser lançado sem essa escolha, com o aviso
+  na tela.
 
 A migration é **puramente aditiva** (tabelas novas e colunas novas anuláveis), como manda
 a regra de conviver com versões diferentes em campo.

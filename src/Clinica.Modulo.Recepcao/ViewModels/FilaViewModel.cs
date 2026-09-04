@@ -149,15 +149,31 @@ public sealed partial class CartaoFila : ObservableObject
     public bool PodeFinalizar => Etapa == EtapaFila.EmAtendimento;
 
     /// <summary>
-    /// A sessão está concluída e o DINHEIRO dela ainda não foi resolvido — pacote a
-    /// debitar, insumo a baixar, recebimento a lançar (parcela 95).
+    /// A sessão está concluída e há PACOTE por debitar (parcela 95).
     ///
     /// Ela existe porque a conclusão saiu do balcão: com o médico finalizando na sala, o
     /// cartão chega à raia FINALIZADO já carimbado, e sem esta pendência o balcão não
     /// teria por onde debitar o pacote da sessão que acabou de acontecer — alerta sem
     /// porta é pior que alerta nenhum (parcela 48).
+    ///
+    /// ⚠️ É o PACOTE, e não "tudo o que o fechamento faz", e a diferença decide se o botão
+    /// é utilizável. Fosse "ainda não houve fechamento", o paciente de convênio sem pacote
+    /// e sem insumo — a maioria do dia — ficaria com o botão aceso PARA SEMPRE, porque
+    /// nele não há nada a fechar: pendência que nunca some é pendência que ninguém lê (a
+    /// lição da parcela 68). O pacote é o único dos três que o quadro sabe afirmar em
+    /// lote (a leitura do selo "Pacote 9/10" já está carregada) e é o que custa dinheiro
+    /// quando escapa — sessão comprada que a clínica atende de graça.
+    ///
+    /// Os outros dois (insumo e caixa) não somem da vista: "Fechar sessão…" fica no menu
+    /// "⋯" de toda sessão concluída, que é onde mora o que se faz de vez em quando.
     /// </summary>
     public required bool FechamentoPendente { get; init; }
+
+    /// <summary>
+    /// A sessão está concluída — o balcão ainda pode abrir o fechamento para lançar o
+    /// dinheiro, baixar insumo ou debitar o pacote, mesmo sem pendência anunciada.
+    /// </summary>
+    public bool PodeFechar => Etapa == EtapaFila.Finalizado;
 
     public bool PodeVoltar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento;
 
@@ -179,9 +195,10 @@ public sealed partial class CartaoFila : ObservableObject
         EtapaFila.Chegou => "Chamar",
         EtapaFila.Chamado => "Entrou",
         EtapaFila.EmAtendimento => "Concluir",
-        // Concluída pelo Consultório e com dinheiro por resolver. Sem pendência não há
-        // passo nenhum: a raia FINALIZADO volta a ser o registro do dia.
-        EtapaFila.Finalizado when FechamentoPendente => "Fechar sessão",
+        // Concluída pelo Consultório e com pacote por debitar. Sem pendência não há passo
+        // nenhum: a raia FINALIZADO volta a ser o registro do dia, e o fechamento
+        // continua a um clique no "⋯".
+        EtapaFila.Finalizado when FechamentoPendente => "Debitar pacote",
         _ => string.Empty
     };
 
@@ -619,9 +636,9 @@ public sealed partial class FilaViewModel : ObservableObject
 
             // O que já foi FECHADO (pacote/dinheiro/insumo) entre as sessões concluídas.
             // Em lote: uma ida por cartão daria trinta a cada batida do relógio. Aviso,
-            // não conteúdo — falhando, o botão aparece em todos, que é o lado seguro:
-            // oferecer fechar o que já está fechado custa um clique; esconder o que falta
-            // custa o caixa do dia.
+            // não conteúdo — falhando, a pendência aparece em toda sessão COM PACOTE, que
+            // é o lado seguro: oferecer debitar o que já foi debitado custa um clique (e a
+            // janela recusa a duplicata), esconder o pacote custa a sessão de graça.
             HashSet<int> jaFechados;
             try
             {
@@ -789,12 +806,14 @@ public sealed partial class FilaViewModel : ObservableObject
                 ConfirmouPresenca = confirmacao == "Confirmou",
                 Pacote = _pacotes.GetValueOrDefault(a.PacienteId, string.Empty),
                 AtendimentoEncerrado = a.AtendimentoEncerrado,
-                // Só a sessão concluída tem fechamento a pedir — e só enquanto ele não
-                // aconteceu. Sem `AtendimentoId` não há o que fechar (nem deveria haver
-                // cartão finalizado sem ele; se houver, não se inventa pendência).
+                // Só a sessão concluída pede fechamento, só enquanto ele não aconteceu e
+                // só quando há PACOTE — ver `FechamentoPendente`. Sem `AtendimentoId` não
+                // há o que fechar (nem deveria haver cartão finalizado sem ele; se
+                // houver, não se inventa pendência).
                 FechamentoPendente = a.Etapa == EtapaFila.Finalizado
                                      && a.AtendimentoId is { } atendimentoId
-                                     && !_jaFechados.Contains(atendimentoId),
+                                     && !_jaFechados.Contains(atendimentoId)
+                                     && _pacotes.ContainsKey(a.PacienteId),
                 EncerradoEm = a.FimAtendimentoEm is { } fim
                     ? $"Encerrado às {fim:HH\\:mm}"
                     : string.Empty
@@ -926,7 +945,13 @@ public sealed partial class FilaViewModel : ObservableObject
     /// serviço já sabia reaproveitar a presença confirmada em vez de reconfirmá-la
     /// (<c>GarantirAtendimentoAsync</c>, desde a parcela 65): é essa reutilização que faz
     /// o caminho existir sem uma segunda definição de "fechar a sessão".
+    ///
+    /// ⚠️ É COMANDO porque tem DUAS portas: o botão de passo (que só aparece quando há
+    /// pacote por debitar) e o item do menu "⋯", disponível em toda sessão concluída —
+    /// insumo e caixa não são anunciados como pendência, e sem o item do menu eles não
+    /// teriam por onde ser lançados depois que o médico concluiu.
     /// </summary>
+    [RelayCommand]
     private async Task FecharSessaoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {

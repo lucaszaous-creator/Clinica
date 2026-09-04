@@ -183,8 +183,10 @@ zero.**
 
 > As colunas saem dos **carimbos de hora** (`ChegadaEm`, `InicioAtendimentoEm`), não de
 > um status novo: o faturamento continua vendo o mesmo `StatusAgendamento` de sempre.
-> "Concluir" é o antigo check-in — gera o atendimento e os códigos — e fica no fim do
-> fluxo de propósito: a guia nasce quando a sessão de fato aconteceu.
+> A conclusão — que gera o atendimento e os códigos — fica no fim do fluxo de propósito:
+> a guia nasce quando a sessão de fato aconteceu. Desde a parcela 95 ela é o **Finalizar
+> atendimento** do Consultório; o "Concluir" da fila segue existindo para quem atende sem
+> passar por lá, e o balcão resolve o dinheiro (pacote, insumo, caixa) em seguida.
 
 ### Feature 04 · Pacientes — cadastro 360º — ✅ · parcela 2
 

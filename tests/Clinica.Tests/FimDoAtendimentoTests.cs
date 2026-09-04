@@ -87,8 +87,11 @@ public class FimDoAtendimentoTests : IDisposable
         var lido = (await _agenda.ObterAsync(ag.Id))!;
         lido.FimAtendimentoEm.Should().NotBeNull();
 
-        // O horário continua ABERTO: os três fatos do balcão (pacote, insumo, caixa) ainda
-        // não aconteceram, e marcá-lo Realizado daqui os pularia em silêncio.
+        // O horário continua ABERTO. O SERVIÇO só carimba — quem conclui é o passo
+        // seguinte, e ele é explícito (parcela 95: a tela do Consultório encadeia
+        // encerrar → concluir, e a fila do balcão continua concluindo pelo botão dela).
+        // Fundir as duas coisas aqui dentro tornaria a conclusão um efeito colateral do
+        // carimbo: toda porta que só quer registrar o fim passaria a gerar guia.
         lido.Status.Should().Be(StatusAgendamento.Agendado);
         lido.AtendimentoId.Should().BeNull();
         lido.AtendimentoEncerrado.Should().BeTrue();

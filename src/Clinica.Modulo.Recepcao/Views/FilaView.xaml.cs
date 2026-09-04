@@ -181,6 +181,14 @@ public partial class FilaView : UserControl
         Acrescentar("Colher o termo do procedimento…", vm.ColherTermoCommand,
             cartao.TemTermoPendente && vm.PodeColherTermo);
 
+        // A PORTA do dinheiro depois que o médico concluiu (parcela 95). Ela fica AQUI, e
+        // não como botão do cartão, porque só o PACOTE é anunciado como pendência: insumo
+        // e caixa o quadro não sabe prever em lote, e um botão aceso em toda sessão
+        // concluída do dia ensinaria a ignorar a coluna. O que se faz de vez em quando
+        // mora no "⋯" — e sem este item não haveria por onde lançar o que foi pago.
+        Acrescentar("Fechar sessão (pacote, insumo, caixa)…", vm.FecharSessaoCommand,
+            cartao.PodeFechar && vm.PodeEditarAgenda);
+
         if (menu.Items.Count > 0) menu.Items.Add(new Separator());
 
         Acrescentar("Voltar uma etapa", vm.VoltarEtapaCommand,

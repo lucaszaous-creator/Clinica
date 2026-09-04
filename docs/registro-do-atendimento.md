@@ -250,26 +250,56 @@ e o efeito é apenas que ninguém sabe de nada.
 O que entrou: `Agendamento.FimAtendimentoEm` (migration **aditiva**), a barra com o relógio
 ao vivo e os botões **Iniciar** / **Finalizar atendimento**.
 
-### 9.1 Finalizar NÃO é concluir
+### 9.1 Finalizar NÃO era concluir — e passou a ser (parcela 95)
 
-É a decisão da parcela 61, e ela não se negocia: concluir são **quatro fatos do mesmo ato**
-— a guia nasce, o pacote debita, o insumo sai do estoque, o dinheiro entra no caixa — e
-**três deles são do balcão**. O que o profissional afirma ao finalizar é só *"terminei com
-esta pessoa"*.
+**O desenho original (parcela 61).** Concluir são **quatro fatos do mesmo ato** — a guia
+nasce, o pacote debita, o insumo sai do estoque, o dinheiro entra no caixa — e **três deles
+são do balcão**. O que o profissional afirmava ao finalizar era só *"terminei com esta
+pessoa"*, e o `Status` seguia `Agendado` até o **Concluir** da Fila.
 
-> Se alguém um dia fizer o encerramento marcar `Realizado` "para simplificar", os três fatos
-> do balcão deixam de acontecer **em silêncio**: o pacote não debita, o insumo não sai e o
-> caixa fecha sem a sessão. Nada falha — o dia só não bate.
+> O aviso que esta seção trazia, e que continua valendo palavra por palavra:
+>
+> *"Se alguém um dia fizer o encerramento marcar `Realizado` 'para simplificar', os três
+> fatos do balcão deixam de acontecer **em silêncio**: o pacote não debita, o insumo não sai
+> e o caixa fecha sem a sessão. Nada falha — o dia só não bate."*
 
-`Encerrar_NAO_conclui_o_atendimento` é a amarra.
+**O que mudou, e por que o aviso não foi ignorado.** A direção pediu o fluxo de um clique
+(*"ele clica em atender e faz o atendimento"*), e a medição mostrou que o argumento da
+parcela 61 se sustenta para pacote, insumo e caixa e **não** para a GUIA, que é o fato do
+atendimento. No caso mais comum — convênio, sem pacote, sem insumo — `TemDecisao` é falso e
+o Concluir do balcão não abria janela nenhuma: era cerimônia.
 
-### 9.2 A ordem entre gravar e carimbar
+O aviso acima foi endereçado, não contornado. Os três fatos do balcão continuam existindo e
+ganharam **porta e pendência**:
+
+| | Onde | Quando aparece |
+|---|---|---|
+| **Pacote** | botão de passo na raia FINALIZADO ("Debitar pacote") | sessão concluída, paciente COM pacote ativo, ainda não debitado |
+| **Insumo e caixa** | menu "⋯" → "Fechar sessão (pacote, insumo, caixa)…" | toda sessão concluída |
+
+⚠️ **A pendência é o PACOTE, e a distinção é o que a torna utilizável.** Fosse "ainda não
+houve fechamento", o paciente de convênio sem pacote — a maioria do dia — ficaria com o
+botão aceso para sempre, porque nele não há nada a fechar. O pacote é o único dos três que
+o quadro sabe afirmar em lote (`AtendimentosComFechamentoAsync` + o selo "Pacote 9/10" que
+a fila já carrega) e o que custa dinheiro quando escapa: sessão comprada atendida de graça.
+
+⚠️ **O SERVIÇO continua com a divisão de sempre**: `EncerrarAtendimentoAsync` carimba
+`FimAtendimentoEm` e não toca no `Status` — `Encerrar_NAO_conclui_o_atendimento` segue
+verde, e é ele que garante que ninguém "simplifique" a conclusão para dentro do carimbo.
+Quem encadeia os três passos é a TELA (§9.2), na ordem que decide o que sobra quando cada
+um falha.
+
+### 9.2 A ordem entre gravar, carimbar e concluir
 
 Grava a sessão **primeiro**. É a hierarquia da parcela 65 aplicada aqui:
 
 - gravação falhou → **o carimbo não acontece**. Mandar o recado de que o médico terminou
   enquanto a evolução não existe em lugar nenhum é falha exibida como sucesso;
-- gravação passou e o carimbo falhou → vira **aviso**, e nunca desfaz o prontuário.
+- gravação passou e o carimbo falhou → vira **aviso**, e nunca desfaz o prontuário;
+- carimbo passou e a **conclusão** falhou (parcela 95) → também vira aviso: o prontuário
+  está escrito, o balcão sabe que a sala vagou, e a guia continua alcançável pelo Concluir
+  da Fila. Cada um dos três desfechos tem frase própria — a exceção pode vir da permissão,
+  do carimbo ou da conclusão, e a diferença entre elas é o que a pessoa faz em seguida.
 
 Foi isso que fez `SalvarAsync` virar `TentarSalvarAsync` devolvendo `bool`.
 
