@@ -2905,6 +2905,57 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ela lista `EvolucaoEnfermagem` e esta janela abre `Evolucao` — ids POR TABELA, e abrir
   uma pela outra mostraria a sessão de OUTRO paciente sem estourar nada.
 
+- **A BUSCA DE PACIENTE VIROU COMPONENTE, E A TELA DEIXOU DE CONSULTAR AO ABRIR**
+  (set/2026 — pedido da direção: *"nas telas onde precisa haver busca por pacientes, essa
+  seja a tela inicial, parecida com a tela de atendimento; isso nos ajuda e minimiza o
+  tempo de resposta entre sistema servidor"*).
+  Escolher paciente tinha **TRÊS desenhos** na suíte, e dois deles o `README.md` proíbe: a
+  composição centrada do Novo atendimento (mockup 05), lista de largura inteira → tela do
+  item (Prontuário e Prescrições da Recepção) e **faixa lateral de 320 px** (Prescrições e
+  Prescrição de infusão do Consultório). Três desenhos para a MESMA pergunta é o que faz a
+  recepcionista achar que abriu outro programa.
+  ⚠️ **O bloco SUBIU INTEIRO, e não foi reescrito** (`BuscaDePacienteView`, no shell): ele
+  carrega meia dúzia de lições pagas uma a uma — a coluna de 760 px sem coluna estrela, o
+  campo de 48, o `MaxHeight` de número INTEIRO de linhas, o `RodaDaPagina`, a ausência de
+  `MinHeight`, o `IsSharedSizeScope`. Reescrever teria perdido metade delas em silêncio; e
+  ao mover o teclado eu quase troquei o handler RICO do Novo atendimento (Enter com UM
+  resultado escolhe; com vários só desce) pelo meu, mais pobre — **ao mover, liste o que a
+  versão antiga FAZIA**.
+  ⚠️ **E o Novo atendimento passou a usar o componente no mesmo commit.** Eu tinha
+  COPIADO o bloco em vez de mover, e deixado a cópia lá: a segunda definição criada pelo
+  próprio commit que existe para acabar com duplicata. A releitura do diff é que pegou.
+  ⚠️ **`SemBuscaInicial` é o que entrega o pedido do servidor, e é OPT-IN.** Doze telas
+  chamavam `BuscarAsync(imediato: true)` na abertura com o termo VAZIO — e com o termo
+  vazio a consulta não filtra nada, cai no `OrderBy(Nome).Take(50)`: uma ida ao banco
+  REMOTO, na abertura, para trazer ACELINO, ADAISE, ADAO. A regra que decide quem recebe é
+  a mesma da `SugestaoInicial`: **a lista é a RESPOSTA da tela, ou o CAMINHO até ela?** Nas
+  de listagem (Pacientes, Enfermagem) ela é a resposta, e abrir vazio seria trocar um
+  defeito pelo oposto.
+  ⚠️ **A DECISÃO foi para a Application** (`BuscaDePaciente.Modo`), e aqui isso vale mais
+  que de costume: o `SeletorPacienteViewModel` é WPF e não compila no projeto de teste, e o
+  que se decide não é uma frase — é **se a tela vai ao banco**. A matriz resolve TRÊS
+  coisas de uma vez (se consulta, qual pílula acende, qual vazio aparece), e as três
+  estavam espalhadas em booleanos soltos.
+  ⚠️ **A ARMADILHA DO ESTADO NOVO, e ela é a lição que generaliza: ao acrescentar um
+  estado a uma máquina de dois, todo booleano definido por NEGAÇÃO precisa ser relido.**
+  `BuscandoPorTermo => !MostrandoSugestao` era verdade enquanto só havia sugestão e busca.
+  Com o OCIOSO ele passou a dar verdadeiro numa tela recém-aberta — o `EstadoDaTela`
+  ligava e escrevia *"Nenhum paciente encontrado"* por cima do convite, que é uma afirmação
+  falsa sobre uma clínica de 2.238 fichas e justamente a que leva a cadastrar de novo quem
+  já tem ficha (parcela 57). Pelo mesmo motivo `ListandoTodos` acenderia o chip "Todos os
+  pacientes" sobre a tela em branco. Os dois passaram a derivar do MESMO `Modo` — derivar
+  do mesmo lugar é o que impede uma pílula de acender na INTENÇÃO e a outra no RESULTADO.
+  ⚠️ **A Central de documentos ficou de fora, e é decisão**: DUAS das nove folhas não
+  exigem paciente (o recibo, que navega ao Caixa, e o fechamento do período). Fazer a tela
+  abrir como busca as tornaria inalcançáveis — a regra 3 do bloco do faturamento ("não
+  tire capacidade de quem a usava"). Ali o seletor é um CAMPO: a tela responde "que papel
+  eu quero emitir", não "quem é o paciente".
+  **O que ficou pendente, com o motivo**: os três formulários que ainda abrem despejando o
+  alfabeto (agendamento da Recepção, lista de espera e o agendamento do faturamento). Neles
+  a lista é uma caixa de `MaxHeight="150"` SEMPRE visível, então `SemBuscaInicial` sozinho
+  abriria um vão em branco no meio do formulário — o ganho de servidor ali custa também a
+  visibilidade condicional em cada um.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

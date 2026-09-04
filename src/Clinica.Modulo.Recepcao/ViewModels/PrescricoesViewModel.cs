@@ -76,12 +76,15 @@ public sealed partial class PrescricoesViewModel : ObservableObject
         _snackbar = snackbar;
         _dialogo = dialogo;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
+        // `SemBuscaInicial` (set/2026): a tela abre sem consultar nada — com o termo
+        // vazio a busca cai no `OrderBy(Nome).Take(50)`, e isso era uma ida ao banco
+        // remoto na abertura para trazer o alfabeto. Quem responde por "tela vazia se lê
+        // como quebrada" é o CONVITE da `BuscaDePacienteView`.
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += AoTrocarPaciente;
 
         // A busca INICIAL — ver o comentário em `ProntuarioViewModel`. As duas telas
         // nasceram com a lista de pacientes em branco esperando alguém digitar.
-        _ = Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>

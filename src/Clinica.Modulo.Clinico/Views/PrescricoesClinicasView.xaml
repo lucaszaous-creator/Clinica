@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -9,7 +10,30 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel>
+    <!-- ============================================================
+         DOIS CONTEÚDOS ALTERNATIVOS, nunca sobrepostos: ou a tela é a BUSCA (ela abre
+         pela sidebar sem ninguém em foco), ou é o trabalho sobre o paciente escolhido.
+
+         Antes, sem paciente, ela mostrava o cabeçalho com o nome vazio, os quatro botões
+         APAGADOS e a busca espremida numa coluna de 320 px no canto — a tela mostrando o
+         que se faz DEPOIS de escolher, antes de haver quem escolher.
+
+         ⚠️ Como SEÇÃO da tela do paciente (`MostrarCabecalho` falso) a busca NUNCA
+         aparece: ali a identidade está acima e o seletor trocaria o `PacienteEmFoco` por
+         baixo das outras seções.
+         ============================================================ -->
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,24"
+                      Visibility="{Binding EscolhendoPaciente,
+                                   Converter={StaticResource BoolParaVisibilidade}}">
+            <comp:BuscaDePacienteView DataContext="{Binding Seletor}"
+                                      Pergunta="Para quem é a prescrição?"
+                                      Explicacao="Receita, atestado, comparecimento e pedido de exame — emitidos por quem atende."
+                                      Convite="Comece digitando o nome ou o CPF. Quem você chamou da fila já entra escolhido." />
+        </ScrollViewer>
+
+    <DockPanel Visibility="{Binding TrabalhandoNoPaciente,
+                            Converter={StaticResource BoolParaVisibilidade}}">
         <DockPanel.Style>
             <Style TargetType="DockPanel">
                 <!-- Como TELA (item de menu) ela tem a margem da página; como SEÇÃO do
@@ -246,4 +270,5 @@
             </Grid>
         </Border>
     </DockPanel>
+    </Grid>
 </UserControl>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -71,11 +72,68 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// </summary>
     public string? RotuloDaSugestao { get; set; }
 
+    /// <summary>
+    /// A tela FORNECE uma sugestão — o chip dela existe. Sem isto, telas sem sugestão
+    /// desenhariam um chip que, clicado, cairia no `OrderBy(Nome)` e traria o alfabeto
+    /// sob o rótulo "Com horário hoje": a pílula mentindo sobre o que está na tela.
+    ///
+    /// Lida uma vez, na montagem: <see cref="SugestaoInicial"/> é atribuída no construtor
+    /// da tela dona, antes de qualquer binding.
+    /// </summary>
+    public bool TemSugestao => SugestaoInicial is not null;
+
+    /// <summary>
+    /// A tela abre SEM consultar nada, e a lista só existe depois que alguém pede
+    /// (set/2026 — pedido da direção: <i>"isso nos ajuda e minimiza o tempo de resposta
+    /// entre sistema servidor"</i>).
+    ///
+    /// O que ela resolve
+    /// -----------------
+    /// Doze telas chamavam <c>BuscarAsync(imediato: true)</c> na abertura com o termo
+    /// vazio — e com o termo vazio a consulta não filtra nada: cai no
+    /// <c>OrderBy(Nome).Take(50)</c>. Cada uma dessas aberturas era uma ida ao banco
+    /// REMOTO para trazer o começo do alfabeto de 2.238 fichas, que não é o paciente de
+    /// ninguém. É ruído com cara de conteúdo E é consulta paga.
+    ///
+    /// ⚠️ Ela é OPT-IN, e tinha de ser: numa tela de LISTAGEM (Pacientes, Enfermagem) a
+    /// lista É a resposta, e abrir vazio ali seria trocar um defeito pelo oposto. A regra
+    /// que decide é a mesma da <see cref="SugestaoInicial"/> — <b>a lista é a resposta da
+    /// tela, ou o caminho até ela?</b>
+    ///
+    /// ⚠️ E ela NÃO tira os dois modos: os chips continuam ali como ATALHO. O que muda é
+    /// que a lista passa a ser PEDIDA — um clique traz a agenda do dia, um clique traz o
+    /// cadastro inteiro, e abrir a tela não traz nada.
+    /// </summary>
+    public bool SemBuscaInicial { get; init; }
+
+    /// <summary>
+    /// Alguém já pediu uma lista (clicou num chip). Só vira verdadeiro por CLIQUE: apagar
+    /// o campo depois de escolher um modo devolve ao modo escolhido, não ao ocioso —
+    /// senão o chip aceso ficaria sobre uma tela em branco.
+    /// </summary>
+    private bool _pediramLista;
+
+    /// <summary>
+    /// Nada foi pedido ainda: a lista está vazia por DESENHO, não por falta de resultado.
+    ///
+    /// ⚠️ A distinção é o que impede a tela de mentir. Sem ela o <c>EstadoDaTela</c>
+    /// escreveria "Nenhum paciente encontrado" numa tela recém-aberta de uma clínica com
+    /// 2.238 fichas — e vazio que se anuncia como resposta é pior que vazio nenhum
+    /// (a regra do terceiro estado, parcela 37).
+    /// </summary>
+    public bool Ocioso => Modo == ModoDaBusca.Ocioso;
+
+    /// <summary>
+    /// O que a busca está fazendo agora. A decisão mora na Application
+    /// (<see cref="BuscaDePaciente.Modo"/>), onde o <c>dotnet test</c> alcança: este
+    /// projeto é WPF e não compila no projeto de teste, e o que se decide aqui não é uma
+    /// frase — é <b>se a tela vai ao banco</b>.
+    /// </summary>
+    public ModoDaBusca Modo => BuscaDePaciente.Modo(
+        SemBuscaInicial, _pediramLista, Termo, TemSugestao, SugestaoLigada);
+
     /// <summary>A lista atual é a SUGESTÃO, não um resultado de busca.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
-    [NotifyPropertyChangedFor(nameof(ListandoTodos))]
-    private bool _mostrandoSugestao;
+    [ObservableProperty] private bool _mostrandoSugestao;
 
     /// <summary>
     /// A sugestão está LIGADA. Desligá-la devolve, de propósito, a listagem que o campo
@@ -87,6 +145,11 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SugestaoDesligada))]
+    [NotifyPropertyChangedFor(nameof(Modo))]
+    [NotifyPropertyChangedFor(nameof(Ocioso))]
+    [NotifyPropertyChangedFor(nameof(ListandoTodos))]
+    [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
+    [NotifyPropertyChangedFor(nameof(SugestaoNaTela))]
     private bool _sugestaoLigada = true;
 
     /// <summary>O par invertido — a suíte não tem conversor de booleano invertido.</summary>
@@ -101,7 +164,13 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// sobre uma lista que não era a delas — a tela dizendo "com horário hoje" em cima de
     /// quatro resultados de "pinheiro". Elas agora seguem o que ESTÁ na tela.
     /// </summary>
-    public bool ListandoTodos => !MostrandoSugestao && string.IsNullOrWhiteSpace(Termo);
+    /// <remarks>
+    /// ⚠️ <see cref="Ocioso"/> entra na conta (set/2026): sem ele o chip "Todos os
+    /// pacientes" nasceria ACESO numa tela que não consultou nada — a pílula dizendo que
+    /// está mostrando o cadastro inteiro sobre uma tela em branco. É a mesma lição das
+    /// pílulas de modo: elas seguem o que ESTÁ na tela, nunca a flag de configuração.
+    /// </remarks>
+    public bool ListandoTodos => Modo == ModoDaBusca.Todos;
 
     /// <summary>Volta para a sugestão da tela (o "Com horário hoje").</summary>
     [RelayCommand]
@@ -109,6 +178,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     {
         Termo = null;
         SugestaoLigada = true;
+        Pedir();
         return BuscarAsync(imediato: true);
     }
 
@@ -118,7 +188,20 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     {
         Termo = null;
         SugestaoLigada = false;
+        Pedir();
         return BuscarAsync(imediato: true);
+    }
+
+    /// <summary>Sai do ocioso: a partir daqui a tela tem uma lista pedida.</summary>
+    private void Pedir()
+    {
+        if (_pediramLista) return;
+        _pediramLista = true;
+        OnPropertyChanged(nameof(Ocioso));
+        OnPropertyChanged(nameof(Modo));
+        OnPropertyChanged(nameof(ListandoTodos));
+        OnPropertyChanged(nameof(BuscandoPorTermo));
+        OnPropertyChanged(nameof(SugestaoNaTela));
     }
 
     /// <summary>
@@ -130,7 +213,27 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     /// vazia — ali o que falta não é o paciente, é o horário de hoje, e a frase tem de
     /// dizer isso.
     /// </summary>
-    public bool BuscandoPorTermo => !MostrandoSugestao;
+    /// <remarks>
+    /// ⚠️ Ele segue o <see cref="Modo"/> desde set/2026, e NÃO o <c>!MostrandoSugestao</c>
+    /// que estava aqui. Com o estado OCIOSO a negação passou a mentir: sem sugestão no ar
+    /// e sem termo digitado ela dava VERDADEIRO, o <c>EstadoDaTela</c> ligava, e a tela
+    /// recém-aberta escrevia <i>"Nenhum paciente encontrado"</i> por cima do convite —
+    /// uma afirmação falsa sobre uma clínica de 2.238 fichas, e justamente a que leva a
+    /// cadastrar de novo quem já tem ficha (parcela 57).
+    ///
+    /// A lição: <b>ao acrescentar um estado a uma máquina de dois, todo booleano definido
+    /// por NEGAÇÃO precisa ser relido</b> — ele passa a responder pelo estado novo sem
+    /// ninguém ter decidido isso.
+    /// </remarks>
+    public bool BuscandoPorTermo => Modo == ModoDaBusca.PorTermo;
+
+    /// <summary>
+    /// A sugestão é o que está na tela AGORA. Os chips seguem o <see cref="Modo"/>, que
+    /// deriva do que a pessoa vê no campo — não das flags de configuração, e não do
+    /// resultado da última busca: os dois chips têm de responder pela mesma pergunta, ou
+    /// um acende na intenção e o outro no resultado.
+    /// </summary>
+    public bool SugestaoNaTela => Modo == ModoDaBusca.Sugestao;
 
     /// <summary>A sugestão foi consultada e veio VAZIA — ninguém tem horário hoje.</summary>
     [ObservableProperty] private bool _sugestaoVazia;
@@ -159,6 +262,10 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ListandoTodos))]
+    [NotifyPropertyChangedFor(nameof(Ocioso))]
+    [NotifyPropertyChangedFor(nameof(Modo))]
+    [NotifyPropertyChangedFor(nameof(BuscandoPorTermo))]
+    [NotifyPropertyChangedFor(nameof(SugestaoNaTela))]
     private string? _termo;
     [ObservableProperty] private Paciente? _selecionado;
     [ObservableProperty] private bool _buscando;
@@ -239,13 +346,33 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         {
             if (!imediato) await Task.Delay(AtrasoDigitacaoMs, ct);
 
+            // ⚠️ OCIOSO: a tela não pediu nada, e nada vai ao banco. É este `return` que
+            // entrega o pedido da direção — sem ele, apagar o campo numa tela ociosa cairia
+            // no `OrderBy(Nome).Take(50)` e traria o alfabeto de volta pela porta de trás.
+            //
+            // Ele limpa a lista de propósito: o resultado da busca anterior continuar na
+            // tela depois de a pessoa apagar o termo é a tela afirmando que aqueles são os
+            // pacientes de um campo vazio.
+            var modo = Modo;
+
+            if (!BuscaDePaciente.Consulta(modo))
+            {
+                Resultados.Clear();
+                MostrandoSugestao = false;
+                SugestaoVazia = false;
+                TemResultados = false;
+                ResumoDaLista = null;
+                Erro = null;
+                Buscando = false;
+                Atualizou?.Invoke();
+                return;
+            }
+
             Buscando = true;
 
             // Termo vazio COM sugestão: a tela tem algo melhor a mostrar que o alfabeto, e
             // nem chega a consultar a busca. Sem sugestão, o caminho é o de sempre.
-            var usandoSugestao = SugestaoInicial is not null
-                                 && SugestaoLigada
-                                 && string.IsNullOrWhiteSpace(Termo);
+            var usandoSugestao = modo == ModoDaBusca.Sugestao;
 
             IReadOnlyList<Paciente> encontrados;
             if (usandoSugestao)

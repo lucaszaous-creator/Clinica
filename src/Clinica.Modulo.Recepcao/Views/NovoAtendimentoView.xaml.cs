@@ -44,48 +44,9 @@ public partial class NovoAtendimentoView : UserControl
     }
 
     /// <summary>
-    /// Põe o cursor na busca, depois que o WPF terminou de montar/religar a tela.
-    ///
-    /// ⚠️ O <c>Dispatcher</c> não é cerimônia: no instante do <c>IsVisibleChanged</c> o
-    /// <c>TextBox</c> pode ainda não estar carregado (a aba acabou de ser materializada) e
-    /// o <c>Focus()</c> devolve false em silêncio. Adiar para depois do Render dá o foco
-    /// com a árvore pronta.
+    /// Põe o cursor na busca. O <c>Dispatcher</c> mora DENTRO do componente desde que o
+    /// bloco subiu para o shell — a razão dele (a árvore pode não estar pronta, e o
+    /// <c>Focus()</c> devolve false em silêncio) é do componente, não desta tela.
     /// </summary>
-    private void FocarBusca() => Dispatcher.BeginInvoke(
-        System.Windows.Threading.DispatcherPriority.Input,
-        new Action(() => CampoBuscaPaciente.Focus()));
-
-    /// <summary>
-    /// O teclado da busca: ↓ desce para a lista, Enter escolhe o primeiro.
-    ///
-    /// É o gesto que a recepcionista repete quarenta vezes por dia — digitar três letras e
-    /// escolher —, e sem isto ele exige tirar a mão do teclado para clicar. Com a lista
-    /// vazia as duas teclas não fazem nada, em vez de mover o foco para o vazio.
-    ///
-    /// ⚠️ `PreviewKeyDown`, e não `KeyDown`: o `TextBox` trata as setas como movimento do
-    /// cursor e marca o evento, então no `KeyDown` a seta para baixo nunca chegaria aqui.
-    /// </summary>
-    private void AoTeclarNaBusca(object sender, KeyEventArgs e)
-    {
-        if (ListaDePacientes.Items.Count == 0) return;
-
-        if (e.Key == Key.Down)
-        {
-            if (ListaDePacientes.SelectedIndex < 0) ListaDePacientes.SelectedIndex = 0;
-            (ListaDePacientes.ItemContainerGenerator
-                .ContainerFromIndex(ListaDePacientes.SelectedIndex) as ListBoxItem)?.Focus();
-            e.Handled = true;
-            return;
-        }
-
-        // Enter com UM resultado é a escolha óbvia — quem digitou o CPF inteiro não deve
-        // precisar de mais um gesto. Com vários, escolher o primeiro seria chutar; a tecla
-        // então só desce para a lista, e a escolha continua sendo de quem está lá.
-        if (e.Key == Key.Enter)
-        {
-            if (ListaDePacientes.Items.Count == 1) ListaDePacientes.SelectedIndex = 0;
-            else (ListaDePacientes.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem)?.Focus();
-            e.Handled = true;
-        }
-    }
+    private void FocarBusca() => Busca.Focar();
 }

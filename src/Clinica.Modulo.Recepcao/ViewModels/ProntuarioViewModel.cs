@@ -105,13 +105,18 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
         // O seletor da suíte, com o corte no SQL e o descarte de resposta fora de ordem
         // já resolvidos. Tela nova que escolhe paciente usa ele — não se reescreve busca.
-        Seletor = new SeletorPacienteViewModel(escopos);
+        // ⚠️ `SemBuscaInicial` (set/2026 — pedido da direção): a tela abre SEM consultar
+        // nada. Antes ela chamava `BuscarAsync(imediato: true)` no construtor, e com o
+        // termo vazio isso cai no `OrderBy(Nome).Take(50)` — uma ida ao banco REMOTO, na
+        // abertura, para trazer o começo do alfabeto de 2.238 fichas, que não é o paciente
+        // de ninguém.
+        //
+        // O medo que a busca inicial resolvia — "tela vazia se lê como sistema quebrado" —
+        // continua de pé, e quem responde por ele agora é o CONVITE da
+        // `BuscaDePacienteView`: a tela diz o que fazer em vez de mostrar uma lista que
+        // ninguém pediu.
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += AoTrocarPaciente;
-
-        // A busca INICIAL. Sem ela a tela abre com a caixa de busca vazia e a lista vazia
-        // ao lado — e tela vazia se lê como sistema quebrado, não como "digite um nome".
-        // É o mesmo `_ =` que `PacientesViewModel` já fazia; faltava aqui e nas Prescrições.
-        _ = Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>
