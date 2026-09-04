@@ -1,0 +1,265 @@
+<UserControl x:Class="Clinica.Clinico.Views.PacienteCapaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <!-- ============================================================
+         A CAPA DO PACIENTE (mockup 01, seção "Paciente").
+
+         A única tela NOVA do redesenho. Ela responde as perguntas que obrigavam a sair do
+         Consultório e abrir a ficha na Recepção: quem é, o que ela tem, o que está
+         assinado em nome dela.
+
+         ⚠️ Só LEITURA do cadastro: contato e convênio continuam sendo editados no balcão.
+         Duas portas de edição do mesmo cadastro divergem na primeira correção.
+         ============================================================ -->
+    <DockPanel Margin="0,4,0,0">
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+
+                <!-- ============ A FICHA, EM LEITURA ============
+                     Grid de três colunas: os seis campos que quem atende procura e que
+                     hoje obrigam a trocar de módulo. Rótulo em cima, valor embaixo — e
+                     linha que não existe no cadastro diz "não informado", nunca em
+                     branco: vazio não se distingue de "não carregou". -->
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4"
+                      Visibility="{Binding PodeVerFicha, Converter={StaticResource BoolParaVisibilidade}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,12">
+                        <TextBlock Text="Nascimento" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="{Binding Nascimento}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,16,12">
+                        <TextBlock Text="Documento" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="{Binding Documento}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,12">
+                        <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="{Binding Telefone}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0">
+                        <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="{Binding Convenio}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding Carteirinha}" TextWrapping="Wrap"
+                                   Style="{StaticResource TextoSuave}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,16,0">
+                        <TextBlock Text="Validade da carteirinha" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="{Binding ValidadeCarteirinha}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="2">
+                        <TextBlock Text="Em tratamento" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="{Binding EmTratamento}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+
+                <Separator DockPanel.Dock="Top" Margin="0,12"
+                           Background="{StaticResource Brush.Borda}"
+                           Visibility="{Binding PodeVerFicha, Converter={StaticResource BoolParaVisibilidade}}" />
+
+                <!-- ============ A LISTA DE PROBLEMAS ============
+                     Movida do Histórico (mockup 01). É atributo da PESSOA — é ela que
+                     acende a alergia no crachá e que faz a assinatura de uma prescrição
+                     ser recusada —, e o lugar de "o que este paciente tem" é a capa dele.
+
+                     ⚠️ Sob VerProntuario: é dado de saúde (art. 5º, II). Quem tem só
+                     VerFichaPaciente vê a ficha acima e não vê esta lista — é o corte da
+                     parcela 49, e anunciar a região a quem não pode lê-la já contaria que
+                     existem alergias. -->
+                <!-- ⚠️ Grid por FORA para hospedar a sobreposição, DockPanel por dentro
+                     (a lição da parcela 50): o EstadoDaTela é sobreposição e precisa de um
+                     pai que empilhe os filhos, sendo o ÚLTIMO deles. Como irmão num
+                     DockPanel ele passaria a OCUPAR espaço e todo Dock do conteúdo viraria
+                     no-op. E ele cobre a REGIÃO cujo vazio explica — a lista de problemas —,
+                     nunca a página, senão apagaria a ficha acima. -->
+                <Grid Visibility="{Binding PodeVerProntuario, Converter={StaticResource BoolParaVisibilidade}}">
+                  <DockPanel>
+                <StackPanel DockPanel.Dock="Top">
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Lista de problemas"
+                                   Style="{StaticResource H3}" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <!-- O IsEnabled cobre as DUAS pré-condições da guarda (paciente +
+                             permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
+                        <Button Grid.Column="1" Content="Novo problema" MinWidth="150"
+                                VerticalAlignment="Center"
+                                Command="{Binding NovoProblemaCommand}"
+                                IsEnabled="{Binding PodeNovoProblema}" />
+                    </Grid>
+
+                    <CheckBox Content="Mostrar também os resolvidos e descartados"
+                              IsChecked="{Binding IncluirProblemasEncerrados}"
+                              Margin="0,0,0,8" />
+
+                    <TextBlock Text="{Binding ResumoProblemas}" TextWrapping="Wrap"
+                               Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
+
+                    <ItemsControl ItemsSource="{Binding Problemas}" MaxHeight="220">
+                        <ItemsControl.Template>
+                            <ControlTemplate TargetType="ItemsControl">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="12,10" Margin="0,0,0,6"
+                                        CornerRadius="{StaticResource Raio.Medio}"
+                                        BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background"
+                                                    Value="{StaticResource Brush.Superficie}" />
+                                            <Setter Property="BorderBrush"
+                                                    Value="{StaticResource Brush.Borda}" />
+                                            <Style.Triggers>
+                                                <!-- Alergia e uso contínuo: o que muda
+                                                     conduta em dez segundos. -->
+                                                <DataTrigger Binding="{Binding Alerta}" Value="True">
+                                                    <Setter Property="Background"
+                                                            Value="{StaticResource Brush.Erro.Suave}" />
+                                                </DataTrigger>
+                                                <!-- Descartado aparece MARCADO, nunca
+                                                     sumindo: ele esteve no prontuário. -->
+                                                <DataTrigger Binding="{Binding Descartado}" Value="True">
+                                                    <Setter Property="Opacity" Value="0.65" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+
+                                    <!-- LINHA DENSA, não cartão alto (parcela 69): cada
+                                         problema tinha cinco linhas de texto e QUATRO
+                                         botões empilhados (~140 px por linha) — três
+                                         problemas empurravam o histórico, que é o assunto
+                                         da aba, para fora da vista. O que se LÊ fica na
+                                         linha; observações e período moram na dica; os
+                                         botões viraram fileira de linha de tabela.
+                                         Nenhuma ação foi tirada. -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0"
+                                                    VerticalAlignment="Center">
+                                            <StackPanel.ToolTip>
+                                                <StackPanel MaxWidth="420">
+                                                    <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Periodo}" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                    <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                    <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </StackPanel.ToolTip>
+                                            <TextBlock Text="{Binding Rotulo}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                <Run Text="{Binding Natureza, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Editar" Margin="0,0,4,0"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    Command="{Binding DataContext.EditarProblemaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Resolvido" Margin="0,0,4,0"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Visibility="{Binding Ativo,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    Command="{Binding DataContext.ResolverProblemaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Reabrir" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.ReabrirProblemaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button"
+                                                           BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Ativo}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Descartar"
+                                                    Command="{Binding DataContext.DescartarProblemaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button"
+                                                           BasedOn="{StaticResource BotaoAcaoGridPerigo}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Descartado}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+                  </DockPanel>
+
+                    <ctrl:EstadoDaTela Itens="{Binding Problemas}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xE7C3;"
+                                       TextoCarregando="Lendo a ficha…"
+                                       Titulo="Nenhum problema registrado"
+                                       Descricao="Alergias, diagnósticos e uso contínuo entram aqui — e é esta lista que acende o alerta no crachá e confere a receita antes de assinar." />
+                </Grid>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

@@ -2304,6 +2304,33 @@ def _largura_infinita(pai: ET.Element, filho: ET.Element) -> str | None:
     return None
 
 
+def _quem_recebe_a_largura(el, pais):
+    """
+    Sobe do WrapPanel até o elemento que de fato RECEBE a largura na medição.
+
+    ⚠️ Dentro de `<ItemsControl.ItemsPanel><ItemsPanelTemplate>`, o pai do WrapPanel é o
+    TEMPLATE, que não constrange nada: quem é medido é o ItemsControl. A primeira versão
+    desta checagem parava no template e ficava calada — foi por esse buraco que a régua de
+    chips da tela de Avaliações entrou num StackPanel horizontal.
+    """
+    atual = el
+    while (pai := pais.get(atual)) is not None:
+        nome_pai = pai.tag.split("}")[-1]
+        nome_atual = atual.tag.split("}")[-1]
+
+        # Três nós são invisíveis para a medição: o próprio template, a propriedade
+        # `X.ItemsPanel` que o hospeda e — o degrau que faltava — o nó da propriedade visto
+        # de baixo, cujo pai é o ItemsControl. É ELE que recebe a largura, e parar aqui
+        # devolvia o ItemsControl como "pai", que nunca constrange.
+        if (nome_pai == "ItemsPanelTemplate"
+                or nome_pai.endswith(".ItemsPanel")
+                or nome_atual.endswith(".ItemsPanel")):
+            atual = pai
+            continue
+        return atual, pai
+    return atual, None
+
+
 _wraps = 0
 for f, raiz in arvores_com_faturamento.items():
     pais = {filho: pai for pai in raiz.iter() for filho in pai}
@@ -2311,10 +2338,10 @@ for f, raiz in arvores_com_faturamento.items():
         if el.tag.split("}")[-1] != "WrapPanel":
             continue
         _wraps += 1
-        pai = pais.get(el)
+        medido, pai = _quem_recebe_a_largura(el, pais)
         if pai is None:
             continue
-        if (motivo := _largura_infinita(pai, el)) is None:
+        if (motivo := _largura_infinita(pai, medido)) is None:
             continue
         erros.append(
             f"{rel(f)}: `<WrapPanel>` {motivo} — ele é medido com largura INFINITA, nunca "
@@ -2354,6 +2381,35 @@ for _xml, _deve_pegar in _amostras_32:
             f"(esperado: {'pega' if _deve_pegar else 'deixa passar'})."
         )
 
+
+# --- autoteste do ponto cego da 32 (a régua de chips) ---
+#
+# O caso real: WrapPanel dentro de um ItemsPanelTemplate, com o ItemsControl num
+# StackPanel HORIZONTAL. Antes de a checagem subir pelo template, ela ficava calada.
+_cenarios_32 = (
+    ("chips num StackPanel horizontal",
+     '<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" '
+     'Orientation="Horizontal"><ItemsControl><ItemsControl.ItemsPanel>'
+     '<ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>'
+     '</ItemsControl.ItemsPanel></ItemsControl></StackPanel>', True),
+    ("chips docados no topo de um DockPanel",
+     '<DockPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">'
+     '<ItemsControl DockPanel.Dock="Top"><ItemsControl.ItemsPanel>'
+     '<ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>'
+     '</ItemsControl.ItemsPanel></ItemsControl></DockPanel>', False),
+)
+for _cenario, _xml, _deve_acusar in _cenarios_32:
+    _raiz = ET.fromstring(_xml)
+    _pais = {c: p for p in _raiz.iter() for c in p}
+    _wp = next(e for e in _raiz.iter() if e.tag.split("}")[-1] == "WrapPanel")
+    _medido, _pai = _quem_recebe_a_largura(_wp, _pais)
+    _acusou = _pai is not None and _largura_infinita(_pai, _medido) is not None
+    if _acusou != _deve_acusar:
+        erros.append(
+            f"verificar-suite: a checagem 32 mudou de resposta ({_cenario}) — "
+            f"{'acusou' if _acusou else 'calou'}, esperado "
+            f"{'acusar' if _deve_acusar else 'calar'}."
+        )
 
 # --------------------------------------------------------------- checagem 33
 # XAML QUE DECLARA O `assembly=` DO PRÓPRIO PROJETO.
@@ -3108,12 +3164,16 @@ for _cenario, _corpo, _deve in (
 # navegação de outros módulos num ÍNDICE dessa lista.
 #
 # ⚠️ Três coisas que não quebram build nenhum:
-#   (a) rótulo a mais no rail do que tela no TabControl (ou o contrário) — o clique
+#   (a) seção declarada no C# sem tela no TabControl (ou o contrário) — o clique
 #       abre a tela do vizinho, ou não abre nada;
-#   (b) seção nova no MEIO da lista, que empurra os índices abaixo dela — pego desde a
-#       2ª rodada da parcela 75, quando o mapa deixou de ser por índice e passou a ser por
-#       NOME: a lista do C# e os rótulos do rail são casados POSIÇÃO POR POSIÇÃO;
+#   (b) seção nova no MEIO da lista, que empurra os índices abaixo dela;
 #   (c) índice fora da faixa, que o WPF ignora em silêncio.
+#
+# ⚠️ O (b) DEIXOU DE SER VIGIADO e passou a ser impossível: desde o redesenho do rail
+# (mockup 01), os rótulos não são mais escritos à mão no XAML — a ListBox é montada de
+# `ModuloClinico.RailDoPaciente()`, que casa `SecoesDoPaciente` com `GruposDoPaciente`
+# por posição. Uma segunda lista de rótulos no XAML seria a volta do defeito, e a
+# checagem passou a RECUSÁ-LA em vez de compará-la.
 #
 # É literalmente a regressão da parcela 37, 4ª rodada (a navegação por string que
 # "retorna false em silêncio"), um nível abaixo: ali a chave não achava destino;
@@ -3126,15 +3186,18 @@ _MODULO_CLINICO = RAIZ / "src/Clinica.Modulo.Clinico/Modulo/ModuloClinico.cs"
 
 
 def _secoes_do_workspace(texto: str) -> tuple[int, int]:
-    """Quantos rótulos o rail tem e quantas telas o TabControl tem."""
+    """Quantos rótulos escritos à mão o rail tem (deve ser ZERO) e quantas telas o
+    TabControl tem."""
     return (len(re.findall(r"<ListBoxItem\b", texto)),
             len(re.findall(r"<TabItem\b", texto)))
 
 
-def _rotulos_do_rail(texto: str) -> list[str]:
-    """Os rótulos do rail, NA ORDEM — é a régua com que o índice de navegação é resolvido."""
-    return re.findall(
-        r"<ListBoxItem>\s*<TextBlock\s+Text=\"([^\"]+)\"", texto)
+def _grupos_declarados(texto: str) -> list[str]:
+    """A lista `GruposDoPaciente` do ModuloClinico, na ordem."""
+    corpo = re.search(r"GruposDoPaciente\s*=\s*\[(.*?)\];", texto, re.S)
+    if corpo is None:
+        return []
+    return re.findall(r"\"([^\"]+)\"", corpo.group(1))
 
 
 def _secoes_declaradas(texto: str) -> list[str]:
@@ -3159,29 +3222,34 @@ if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
     _txt_ws = re.sub(r"<!--.*?-->", "", _WORKSPACE.read_text(encoding="utf-8"), flags=re.S)
     _rotulos, _telas = _secoes_do_workspace(_txt_ws)
 
-    if _rotulos != _telas:
-        erros.append(
-            f"{_WORKSPACE.relative_to(RAIZ)}: o rail tem {_rotulos} rótulo(s) e o "
-            f"TabControl tem {_telas} tela(s). Os dois seguem o MESMO SelectedIndex — "
-            f"a diferença faz o clique abrir a tela do vizinho, sem erro nenhum."
-        )
-
     _txt_mod = _sem_comentarios(_MODULO_CLINICO.read_text(encoding="utf-8"))
     _declaradas = _secoes_declaradas(_txt_mod)
-    _rail = _rotulos_do_rail(_txt_ws)
+    _grupos = _grupos_declarados(_txt_mod)
 
-    # ⚠️ O CASO (b), que a primeira versão desta checagem PROMETIA e não pegava: a lista de
-    # seções do C# e os rótulos do rail têm de bater POSIÇÃO POR POSIÇÃO. É isso que faz
-    # inserir uma seção no meio ser impossível de esquecer — e foi por isso que o mapa de
-    # navegação deixou de ser por índice e passou a ser por NOME.
-    if _declaradas and _rail and _declaradas != _rail:
+    # (a) uma seção declarada para cada tela do TabControl.
+    if _declaradas and len(_declaradas) != _telas:
         erros.append(
-            f"{_MODULO_CLINICO.relative_to(RAIZ)}: ModuloClinico.SecoesDoPaciente e o rail de "
-            f"{_WORKSPACE.name} divergem.\n"
-            f"      C#:   {_declaradas}\n"
-            f"      XAML: {_rail}\n"
-            f"      O índice de navegação sai da lista do C#; o rótulo que o usuário lê sai do "
-            f"XAML. Divergentes, a chave de outro módulo abre a seção ERRADA — sem erro nenhum."
+            f"{_WORKSPACE.relative_to(RAIZ)}: ModuloClinico.SecoesDoPaciente declara "
+            f"{len(_declaradas)} seção(ões) e o TabControl tem {_telas} tela(s). O rail e o "
+            f"TabControl seguem o MESMO SelectedIndex — a diferença faz o clique abrir a "
+            f"tela do vizinho, sem erro nenhum."
+        )
+
+    # (b) o rail não pode voltar a ter rótulo escrito à mão: ele é montado da lista do C#,
+    # e uma segunda lista aqui traria de volta a divergência que isso eliminou.
+    if _rotulos:
+        erros.append(
+            f"{_WORKSPACE.relative_to(RAIZ)}: o rail tem {_rotulos} <ListBoxItem> escrito à "
+            f"mão. Ele é montado de ModuloClinico.RailDoPaciente() — rótulo no XAML é uma "
+            f"SEGUNDA lista, e é ela que diverge da que resolve o índice de navegação."
+        )
+
+    # Seção sem grupo sai do rail sem quebrar nada: as duas listas são casadas por posição.
+    if _declaradas and _grupos and len(_declaradas) != len(_grupos):
+        erros.append(
+            f"{_MODULO_CLINICO.relative_to(RAIZ)}: SecoesDoPaciente tem {len(_declaradas)} "
+            f"item(ns) e GruposDoPaciente tem {len(_grupos)}. As duas são casadas por "
+            f"POSIÇÃO — a seção sem grupo não aparece no rail."
         )
 
     for _nome in _nomes_de_abade(_txt_mod):
@@ -3196,16 +3264,6 @@ if _WORKSPACE.exists() and _MODULO_CLINICO.exists():
 #
 # Casos SINTÉTICOS, pela lição do autoteste da 37: teste de checagem que depende do
 # arquivo real morre no dia em que alguém arruma o arquivo.
-for _cenario, _xaml, _esperado in (
-    ("rail e telas casam", "<ListBoxItem/><ListBoxItem/><TabItem/><TabItem/>", (2, 2)),
-    ("rótulo a mais", "<ListBoxItem/><ListBoxItem/><TabItem/>", (2, 1)),
-):
-    if _secoes_do_workspace(_xaml) != _esperado:
-        erros.append(
-            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
-            f"contou {_secoes_do_workspace(_xaml)}, esperado {_esperado}."
-        )
-
 for _cenario, _cs, _esperado in (
     ("seções declaradas",
      'public static readonly IReadOnlyList<string> SecoesDoPaciente =\n'
@@ -3218,16 +3276,28 @@ for _cenario, _cs, _esperado in (
             f"leu {_secoes_declaradas(_cs)}, esperado {_esperado}."
         )
 
-for _cenario, _xaml, _esperado in (
-    ("rótulos do rail",
-     '<ListBoxItem>\n  <TextBlock Text="Um" TextWrapping="Wrap" />\n</ListBoxItem>\n'
-     '<ListBoxItem>\n  <TextBlock Text="Dois" TextWrapping="Wrap" />\n</ListBoxItem>',
-     ["Um", "Dois"]),
+for _cenario, _cs, _esperado in (
+    ("grupos declarados",
+     'public static readonly IReadOnlyList<string> GruposDoPaciente =\n'
+     '    [\n        "Sessão",\n        "Paciente"\n    ];', ["Sessão", "Paciente"]),
+    ("sem grupos", "public static int Outra() => 3;", []),
 ):
-    if _rotulos_do_rail(_xaml) != _esperado:
+    if _grupos_declarados(_cs) != _esperado:
         erros.append(
             f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
-            f"leu {_rotulos_do_rail(_xaml)}, esperado {_esperado}."
+            f"leu {_grupos_declarados(_cs)}, esperado {_esperado}."
+        )
+
+# ⚠️ O caso REAL que motivou a mudança: rail montado do C# (zero ListBoxItem) com dez
+# TabItem tem de passar; rótulo à mão de volta tem de reprovar.
+for _cenario, _xaml, _esperado in (
+    ("rail montado do C#", "<TabItem/><TabItem/>", (0, 2)),
+    ("rótulo à mão de volta", '<ListBoxItem><TextBlock Text="Um" /></ListBoxItem><TabItem/>', (1, 1)),
+):
+    if _secoes_do_workspace(_xaml) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 38 mudou de resposta ({_cenario}) — "
+            f"contou {_secoes_do_workspace(_xaml)}, esperado {_esperado}."
         )
 
 # --------------------------------------------------------------- checagem 39

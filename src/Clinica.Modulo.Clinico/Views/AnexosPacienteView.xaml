@@ -57,15 +57,98 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- Os RESULTADOS ESTRUTURADOS (ago/2026), acima dos arquivos. A região SOME
-             quando não há nenhum — o convite é o botão do cabeçalho, e uma caixa vazia
-             dizendo "não há" seria a segunda resposta para a pergunta que o estado vazio
-             dos anexos já responde. O teto com rolagem própria é a regra de quem cresce
-             com o dado (checagem 36): sem ele, vinte resultados empurrariam os anexos
-             para fora da tela. -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12"
-                Visibility="{Binding TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
+        <!-- ============ UMA SUPERFÍCIE, UMA RÉGUA ============
+             (mockup 01). Eram TRÊS Cards empilhados — resultados, arquivos da ficha e
+             anexos de sessão —, a colcha de retalhos que o README proíbe; e o PEDIDO, que
+             é a pergunta que traz a pessoa aqui ("eu pedi a ressonância; ela chegou?"),
+             não aparecia em tela nenhuma do Consultório.
+
+             Agora é uma superfície com quatro listas e uma régua de chips CONTADOS: a
+             contagem antes do clique é o que faz o chip valer. Nenhum template de linha
+             foi reescrito — as ações de cada lista continuam as mesmas.
+
+             ⚠️ Cada lista tem o PRÓPRIO estado vazio: com a régua, clicar num chip de
+             contagem zero mostraria uma área em branco, e lista de escolha sem estado
+             vazio é tela quebrada (parcela 57). -->
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Chips}"
+                              Margin="0,0,0,12">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,6"
+                                          Content="{Binding Texto}"
+                                          IsChecked="{Binding Marcado, Mode=OneWay}"
+                                          Command="{Binding DataContext.EscolherSecaoCommand,
+                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                          CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- ============ AGUARDANDO RESULTADO ============
+                     A situação é DERIVADA DE FATO (a contagem de resultados vigentes
+                     amarrados ao pedido), nunca um campo: "aguardando" sem o vínculo seria
+                     chute com cara de registro. E o botão de anexar mora NA LINHA, com o
+                     pedido já escolhido na janela — é onde a pessoa está olhando quando o
+                     PDF chega pelo WhatsApp. -->
+                <Grid Visibility="{Binding MostrandoAguardando, Converter={StaticResource BoolParaVisibilidade}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  ctrl:Ajudantes.RodaDaPagina="True">
+                        <ItemsControl ItemsSource="{Binding PedidosAguardando}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ExameRotulo}"
+                                                       TextWrapping="Wrap" FontWeight="SemiBold" />
+                                            <TextBlock TextWrapping="Wrap"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}">
+                                                <Run Text="Pedido " />
+                                                <Run Text="{Binding Numero, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Data, Mode=OneWay, StringFormat=dd/MM/yyyy}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="1" Content="Anexar laudo…"
+                                                VerticalAlignment="Center" MinWidth="140"
+                                                Style="{StaticResource BotaoAcaoGrid}"
+                                                ToolTip="Registra o resultado já amarrado a ESTE pedido — é o vínculo que faz a espera dar baixa sozinha."
+                                                IsEnabled="{Binding DataContext.PodeRegistrar,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.AnexarLaudoCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <ctrl:EstadoDaTela Itens="{Binding PedidosAguardando}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xE7C3;"
+                                       TextoCarregando="Procurando pedidos…"
+                                       Titulo="Nenhum exame aguardando"
+                                       Descricao="Todo pedido deste paciente já tem resultado amarrado — ou ainda não foi pedido nenhum exame." />
+                </Grid>
+
+                <Grid Visibility="{Binding MostrandoResultados, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
                 <TextBlock Text="RESULTADOS DE EXAME" Style="{StaticResource CardKpi.Rotulo}"
                            Margin="0,0,0,8" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="240">
@@ -128,15 +211,18 @@
                     </ItemsControl>
                 </ScrollViewer>
             </StackPanel>
-        </Border>
 
-        <!-- Os ARQUIVOS DA FICHA (set/2026): o que pertence à pessoa e não a uma sessão —
-             a receita do sistema anterior, o laudo que chegou pelo WhatsApp. SOME quando
-             não há nenhum (o convite é o botão do cabeçalho); teto com rolagem própria,
-             pela regra de quem cresce com o dado (checagem 36). -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12"
-                Visibility="{Binding TemArquivosDaFicha, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
+                    <ctrl:EstadoDaTela Itens="{Binding Resultados}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xE9D9;"
+                                       TextoCarregando="Lendo o prontuário…"
+                                       Titulo="Nenhum resultado registrado"
+                                       Descricao="Valor, faixa e laudo entram por “Registrar resultado…”, no topo — e o resultado amarrado a um pedido faz a espera dele dar baixa sozinha." />
+                </Grid>
+
+                <Grid Visibility="{Binding MostrandoArquivos, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
                 <TextBlock Text="ARQUIVOS DA FICHA" Style="{StaticResource CardKpi.Rotulo}"
                            Margin="0,0,0,8" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="240"
@@ -183,12 +269,18 @@
                     </ItemsControl>
                 </ScrollViewer>
             </StackPanel>
-        </Border>
 
-        <Border Style="{StaticResource Card}">
-            <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica, e é o ÚLTIMO
-                 filho do Grid — na raiz da página ela cobriria o cabeçalho (parcela 58). -->
-            <Grid>
+                    <ctrl:EstadoDaTela Itens="{Binding ArquivosDaFicha}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xE8A5;"
+                                       TextoCarregando="Lendo o prontuário…"
+                                       Titulo="Nenhum arquivo na ficha"
+                                       Descricao="O que pertence à pessoa e não a uma sessão — a receita do sistema anterior, o laudo que chegou pelo WhatsApp — entra por “Anexar arquivo à ficha…”." />
+                </Grid>
+
+                <!-- ANEXOS DE SESSÃO: o que foi anexado dentro de uma evolução. -->
+                <Grid Visibility="{Binding MostrandoSessoes, Converter={StaticResource BoolParaVisibilidade}}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Anexos}">
                         <ItemsControl.ItemTemplate>
@@ -233,7 +325,8 @@
                                    TextoCarregando="Lendo os anexos…"
                                    Titulo="Nenhum arquivo anexado"
                                    Descricao="Laudos, imagens e exames anexados às SESSÕES aparecem aqui; para anexar a uma sessão, abra-a no Prontuário. O que pertence à pessoa (receita, laudo avulso) entra pelo &quot;Anexar arquivo à ficha&quot;, acima." />
-            </Grid>
+                            </Grid>
+            </DockPanel>
         </Border>
     </DockPanel>
 </UserControl>

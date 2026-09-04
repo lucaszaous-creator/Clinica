@@ -1,0 +1,129 @@
+<Window x:Class="Clinica.Clinico.Janelas.DetalheSessaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Campos da sessão" Width="880" Height="690"
+        MinWidth="680" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+            <TextBlock Text="Os campos separados desta sessão"
+                       Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" />
+            <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
+                       Text="A folha da tela de trás continua sendo a evolução. Estes campos são para quem quer separar — e são eles que o relatório do convênio imprime por assunto. Todos são opcionais." />
+        </StackPanel>
+
+        <!-- ⚠️ Esta janela NÃO grava: ela edita o MESMO ViewModel da tela de trás, e quem
+             grava é o Salvar de lá. Um segundo botão de gravar aqui daria duas verdades
+             sobre a mesma sessão (o padrão do catálogo de enfermagem, parcela 88) — e o
+             rodapé escreve isso em vez de deixar a pessoa supor. -->
+        <Grid DockPanel.Dock="Bottom" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
+                       Margin="0,0,12,0" Style="{StaticResource TextoSuave}"
+                       Text="O que você escrever aqui é gravado pelo “Salvar sessão” da tela de trás." />
+            <Button Grid.Column="1" Content="Fechar" IsCancel="True" MinWidth="130"
+                    Style="{StaticResource BotaoSecundario}" />
+        </Grid>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,14,0">
+
+                <TextBlock Text="Queixa principal" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding QueixaPrincipal, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
+                         ToolTip="O motivo da consulta nas palavras do paciente." />
+
+                <TextBlock Text="História da doença atual" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding HistoriaDoencaAtual, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="110"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
+                         ToolTip="Desde quando, como começou, o que melhora e o que piora. É o que distingue a primeira consulta do retorno." />
+
+                <TextBlock Text="Exame físico" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding ExameFisico, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="110"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
+                         ToolTip="O que o exame ACHOU — inspeção, palpação, amplitude, força. Separado da conduta de propósito: achado e ato são coisas diferentes." />
+
+                <TextBlock Text="Hipótese diagnóstica" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding HipoteseDiagnostica, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="CID (opcional)" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding CidSessao, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Opcional de propósito: exigi-lo faria o fisioterapeuta e o acupunturista pararem de preencher a hipótese." />
+                    </StackPanel>
+
+                    <Button Grid.Column="1" Content="Buscar CID…" MinWidth="120"
+                            VerticalAlignment="Bottom"
+                            Style="{StaticResource BotaoSecundario}"
+                            ToolTip="O catálogo é ATALHO com conferência: a descrição ao lado do código é o que pega “M54.4” digitado no lugar de “M54.5”."
+                            Command="{Binding BuscarCidCommand}" />
+                </Grid>
+
+                <!-- A descrição do CID é a metade que pega o erro: o código digitado errado é
+                     tão plausível quanto o certo, e nada mais o denuncia (parcela 63). -->
+                <TextBlock Text="{Binding DescricaoCid}" TextWrapping="Wrap" Margin="0,0,0,12"
+                           Style="{StaticResource TextoSuave}"
+                           Visibility="{Binding DescricaoCid,
+                                        Converter={StaticResource TextoParaVisibilidade},
+                                        FallbackValue=Collapsed}" />
+
+                <TextBlock Text="Conduta (pontos, técnica, tempo)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Conduta, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+
+                <TextBlock Text="Orientações ao paciente" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Orientacoes, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+
+                <!-- O PLANO é o que a CLÍNICA vai fazer, e não se confunde com a conduta (o
+                     que foi feito hoje) nem com a orientação (o que o paciente faz em casa).
+                     É a frase que o convênio procura no relatório de evolução. UMA linha de
+                     propósito: caixa grande convidaria a repetir a conduta. -->
+                <TextBlock Text="Plano terapêutico" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding PlanoTerapeutico, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" Margin="0,0,0,12"
+                         ToolTip="O que vem pela frente: “10 sessões, 2x/semana, reavaliar a EVA em 4 semanas”. Sai no relatório que o paciente leva ao convênio." />
+
+                <!-- A DATA do retorno mora na tira da tela de trás, onde ela é lida antes de
+                     o paciente sair. Aqui fica só o porquê, que é texto. -->
+                <TextBlock Text="Por que voltar" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding RetornoSugeridoNota, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" Margin="0,0,0,12"
+                         ToolTip="“Reavaliar a EVA”, “trazer o resultado da ressonância”. A data fica na tira da tela de trás." />
+
+                <!-- ENCAMINHAMENTO: a clínica tem cinco especialidades no mesmo prédio, e
+                     mandar o paciente de uma para a outra era conversa de corredor. -->
+                <TextBlock Text="Encaminhamento" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Encaminhamento, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
+                         VerticalScrollBarVisibility="Auto"
+                         ToolTip="Para quem, e por quê — dentro da casa (“psiquiatria daqui, para avaliar humor”) ou fora dela. Sai no relatório de evolução." />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -43,6 +43,18 @@ public sealed class LinhaAvaliacao
 }
 
 /// <summary>
+/// Uma escala na régua de chips: o rótulo que se lê e se ela é a desenhada agora.
+/// </summary>
+public sealed partial class ChipInstrumento : ObservableObject
+{
+    public required IInstrumentoAvaliacao Fonte { get; init; }
+
+    [ObservableProperty] private bool _marcado;
+
+    public string Nome => Fonte.Nome;
+}
+
+/// <summary>
 /// AVALIAÇÕES POR ESPECIALIDADE — as escalas que a clínica aplica e acompanha.
 ///
 /// Por que a tela existe
@@ -71,6 +83,32 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
 
     /// <summary>Instrumentos oferecidos agora (filtrados ou não pela especialidade).</summary>
     public ObservableCollection<IInstrumentoAvaliacao> Instrumentos { get; } = [];
+
+    /// <summary>
+    /// As escalas como CHIPS (mockup 01), no lugar do ComboBox. As escalas da casa são
+    /// cinco: em chips, a escolhida e as alternativas ficam à vista ao mesmo tempo — e é
+    /// assim que alguém descobre que o Oswestry existe.
+    /// </summary>
+    public ObservableCollection<ChipInstrumento> Chips { get; } = [];
+
+    /// <summary>Escolher a escala pelo chip. Reclicar a marcada não faz nada.</summary>
+    [RelayCommand]
+    private void Escolher(ChipInstrumento? chip)
+    {
+        if (chip is null || chip.Fonte.Codigo == Instrumento?.Codigo) return;
+        Instrumento = chip.Fonte;
+    }
+
+    private void MarcarChips()
+    {
+        Chips.Clear();
+        foreach (var i in Instrumentos)
+            Chips.Add(new ChipInstrumento
+            {
+                Fonte = i,
+                Marcado = i.Codigo == Instrumento?.Codigo
+            });
+    }
 
     public ObservableCollection<LinhaAvaliacao> Aplicacoes { get; } = [];
 
@@ -176,6 +214,7 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
     partial void OnInstrumentoChanged(IInstrumentoAvaliacao? value)
     {
         OnPropertyChanged(nameof(PodeAplicar));
+        MarcarChips();
         _ = CarregarAsync();
     }
 
@@ -194,6 +233,11 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
         // arrastar a tela para outro instrumento sem o profissional pedir.
         Instrumento = Instrumentos.FirstOrDefault(i => i.Codigo == anterior)
                       ?? Instrumentos.FirstOrDefault();
+
+        // ⚠️ Remontar os chips AQUI também: quando a escolha não muda (trocar o filtro com
+        // a mesma escala na lista), `OnInstrumentoChanged` não dispara — e a régua ficaria
+        // com as escalas do filtro anterior, marcando a certa sobre a lista errada.
+        MarcarChips();
     }
 
     /// <summary>

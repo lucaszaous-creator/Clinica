@@ -1,0 +1,899 @@
+<title>Cinco desenhos do atendimento</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--pg); color:var(--tinta);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 28px 80px}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--mudo); margin:0 0 10px;
+}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:70ch}
+a{color:var(--acento)}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:52px 0}
+
+/* ---------- placar do estado de hoje ---------- */
+.placar{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden; margin:34px 0 0}
+.placar div{background:var(--sup); padding:18px 20px}
+.placar .n{font-family:"IBM Plex Mono",monospace; font-size:30px; font-weight:600; letter-spacing:-.03em; color:var(--tinta); line-height:1.1; font-variant-numeric:tabular-nums}
+.placar .r{font-size:13px; color:var(--mudo); margin-top:4px}
+
+/* ---------- listas de regra ---------- */
+.regras{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:2px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.regras li{background:var(--sup); padding:16px 20px; display:grid; grid-template-columns:26px 1fr; gap:14px; align-items:start}
+.regras .marca{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--acento); padding-top:3px}
+.regras b{font-weight:600}
+.regras span.txt{font-size:14.5px; line-height:1.55; color:var(--tinta-2)}
+
+/* ---------- cabeçalho de cada opção ---------- */
+.opcao{margin-top:56px; scroll-margin-top:20px}
+.op-topo{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.op-letra{
+  font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px;
+  background:var(--acento); color:var(--sobre-acento); border-radius:6px; padding:3px 9px; letter-spacing:.04em;
+}
+.contador{
+  margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--mudo);
+  border:1px solid var(--fio-forte); border-radius:999px; padding:4px 12px; white-space:nowrap;
+}
+.contador b{color:var(--tinta); font-weight:600}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; line-height:1.6; color:var(--tinta-2); max-width:72ch; margin:0 0 22px}
+
+/* ---------- análise sob cada mockup ---------- */
+.analise{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; margin-top:20px}
+.bloco{border-left:3px solid var(--fio-forte); padding:2px 0 2px 16px}
+.bloco.g{border-color:var(--ganho)}
+.bloco.c{border-color:var(--custo)}
+.bloco.e{border-color:var(--acento)}
+.bloco h4{margin:0 0 6px; font-size:11.5px; font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo)}
+.bloco.g h4{color:var(--ganho)} .bloco.c h4{color:var(--custo)} .bloco.e h4{color:var(--acento)}
+.bloco p{font-size:14.5px; line-height:1.55; color:var(--tinta-2); margin:0}
+
+/* ---------- tabela final ---------- */
+.tab-wrap{overflow-x:auto; border:1px solid var(--fio); border-radius:12px; margin-top:26px; background:var(--sup)}
+table{border-collapse:collapse; width:100%; min-width:820px; font-size:14px}
+th,td{text-align:left; padding:12px 16px; border-bottom:1px solid var(--fio); vertical-align:top}
+thead th{background:var(--sup-2); font-size:11.5px; font-family:"IBM Plex Mono",monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--mudo); font-weight:600; white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.op{font-weight:600; white-space:nowrap}
+td .lt{font-family:"IBM Plex Mono",monospace; color:var(--mudo); margin-right:8px}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+
+/* ---------- recomendação ---------- */
+.reco{background:var(--sup); border:1px solid var(--fio); border-top:3px solid var(--acento); border-radius:12px; padding:28px 30px; margin-top:30px; box-shadow:var(--sombra)}
+.reco h2{margin-bottom:12px}
+.perguntas{list-style:none; padding:0; margin:18px 0 0; display:grid; gap:12px}
+.perguntas li{display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.perguntas .q{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--acento); font-weight:600; padding-top:2px}
+
+.nota{font-size:13px; color:var(--mudo); font-style:italic; font-family:"IBM Plex Serif",Georgia,serif; margin-top:14px}
+
+/* ======================================================================
+   A TELA — render fiel do app. Paleta FIXA (o app é claro), tokens do
+   repositório: tokens/colors.css. Nomes iguais aos de lá, de propósito:
+   o mockup aprovado vira tradução, não uma segunda paleta.
+   ====================================================================== */
+.moldura{overflow-x:auto; border-radius:12px; background:var(--sup-2); padding:0}
+.tela{
+  --acento:#123A9E; --acento-suave:#EEF3FC; --acento-tint:#D8E3F7;
+  --fundo:#F8FAFC; --superficie:#FFFFFF; --superficie-hover:#F1F5F9;
+  --borda:#E5E7EB; --borda-hover:#D1D5DB;
+  --texto-primario:#111827; --texto-secundario:#6B7280; --texto-corpo:#374151;
+  --sucesso:#16A34A; --sucesso-forte:#15803D; --sucesso-suave:#DCFCE7;
+  --aviso:#EA580C; --aviso-texto:#C2410C; --aviso-suave:#FFEDD5;
+  --erro:#DC2626; --erro-texto:#B91C1C; --erro-suave:#FEE2E2;
+  --info:#0EA5E9; --info-texto:#0369A1; --info-suave:#E0F2FE;
+  --bsv:#0D9488;
+  min-width:1000px; background:var(--fundo); color:var(--texto-primario);
+  font-family:"Segoe UI",Inter,system-ui,sans-serif; font-size:14px; line-height:1.45;
+  border:1px solid #C3C9D6; border-radius:12px; overflow:hidden; box-shadow:var(--sombra);
+}
+.tela *{box-sizing:border-box}
+.tela .cracha{background:var(--superficie); border-bottom:1px solid var(--borda); padding:12px 20px; display:flex; align-items:center; gap:14px}
+.tela .av{width:38px; height:38px; border-radius:999px; background:var(--acento-suave); color:var(--acento); font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none}
+.tela .nome{font-size:17px; font-weight:600; letter-spacing:-.01em}
+.tela .meta{font-size:12px; color:var(--texto-secundario); margin-top:1px}
+.tela .cracha .dir{margin-left:auto; display:flex; gap:8px; align-items:center}
+.tela .alerta-cracha{background:var(--erro-suave); color:var(--erro-texto); font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px}
+.tela .corpo{display:flex; min-height:392px}
+.tela .rail{width:186px; flex:none; background:var(--superficie); border-right:1px solid var(--borda); padding:10px 8px}
+.tela .rail div{font-size:13px; color:var(--texto-corpo); padding:7px 10px; border-radius:6px; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tela .rail div.on{background:var(--acento-suave); color:var(--acento); font-weight:600}
+.tela .rail .grp{font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--texto-secundario); padding:12px 10px 4px; font-weight:600}
+.tela .principal{flex:1; padding:16px 20px 0; display:flex; flex-direction:column; min-width:0}
+.tela .col2{display:flex; gap:16px; flex:1; min-height:0}
+.tela .escrita{flex:1; min-width:0; display:flex; flex-direction:column}
+.tela .lado{width:274px; flex:none}
+
+/* tira de medidas */
+.tela .tira{display:flex; align-items:center; gap:18px; background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:9px 14px; margin-bottom:12px; flex-wrap:wrap}
+.tela .tira .t{display:flex; align-items:baseline; gap:6px}
+.tela .tira .k{font-size:11px; color:var(--texto-secundario); text-transform:uppercase; letter-spacing:.05em; font-weight:600}
+.tela .tira .v{font-size:14px; font-weight:600; font-variant-numeric:tabular-nums}
+.tela .tira .cx{border:1px solid var(--borda-hover); border-radius:4px; padding:2px 9px; font-weight:600; font-variant-numeric:tabular-nums; background:#fff}
+.tela .tira .sep{width:1px; height:20px; background:var(--borda)}
+.tela .tira .quieto{color:var(--texto-secundario); font-weight:400}
+
+/* campo de escrita */
+.tela .campo{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; display:flex; flex-direction:column; min-height:0}
+.tela .campo + .campo{margin-top:10px}
+.tela .campo .rot{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); padding:10px 14px 0; display:flex; align-items:center; gap:8px}
+.tela .campo .rot .x{margin-left:auto; color:var(--texto-secundario); font-weight:400; font-size:12px; letter-spacing:0; text-transform:none}
+.tela .campo .txt{padding:6px 14px 14px; font-size:14px; line-height:1.62; color:var(--texto-primario); flex:1}
+.tela .campo .txt p{margin:0 0 9px}
+.tela .campo .txt p:last-child{margin:0}
+.tela .campo .txt .cursor{display:inline-block; width:1.5px; height:15px; background:var(--acento); vertical-align:-3px; margin-left:1px}
+.tela .campo.foco{border-color:var(--acento); box-shadow:0 0 0 3px rgba(63,98,201,.16)}
+.tela .placeholder{color:#9AA3B2}
+
+/* chips / blocos sob demanda */
+.tela .chips{display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin:10px 0 2px}
+.tela .chips .lbl{font-size:11.5px; color:var(--texto-secundario); margin-right:2px}
+.tela .chip{border:1px dashed var(--borda-hover); background:#fff; color:var(--texto-corpo); border-radius:999px; padding:4px 12px; font-size:12.5px; white-space:nowrap}
+.tela .chip.on{border-style:solid; border-color:var(--acento); background:var(--acento-suave); color:var(--acento); font-weight:600}
+
+/* rodapé de ação */
+.tela .rodape{border-top:1px solid var(--borda); background:var(--superficie); padding:11px 20px; display:flex; align-items:center; gap:10px; margin:14px -20px 0}
+.tela .rodape.solto{margin:0}
+.tela .dica{font-size:12px; color:var(--texto-secundario); margin-right:auto}
+.tela .btn{border:1px solid var(--borda-hover); background:#fff; color:var(--texto-corpo); border-radius:8px; padding:8px 14px; font-size:13.5px; font-weight:500; display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
+.tela .btn.pri{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .btn.ghost{border-color:transparent; color:var(--acento); font-weight:600}
+.tela .btn svg{width:15px; height:15px; flex:none}
+
+/* barra superior de ações da tela */
+.tela .barra{display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
+.tela .barra .tit{font-size:15px; font-weight:600; margin-right:auto}
+
+/* avisos consolidados */
+.tela .avisos{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; margin-bottom:12px; overflow:hidden}
+.tela .avisos .lin{display:flex; gap:10px; align-items:center; padding:8px 14px; font-size:12.5px; color:var(--texto-corpo); border-left:3px solid var(--aviso)}
+.tela .avisos .lin + .lin{border-top:1px solid var(--borda)}
+.tela .avisos .lin.perigo{border-left-color:var(--erro)}
+.tela .avisos .lin b{font-weight:600}
+.tela .avisos .lin .acao{margin-left:auto; color:var(--acento); font-weight:600; font-size:12px; white-space:nowrap}
+
+/* coluna da direita — sessão anterior */
+.tela .anterior{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:12px 14px; height:100%; overflow:hidden}
+.tela .anterior .h{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); margin-bottom:8px}
+.tela .anterior .d{font-size:12.5px; font-weight:600; color:var(--acento); margin-bottom:2px}
+.tela .anterior .c{font-size:12.5px; color:var(--texto-corpo); line-height:1.5; margin-bottom:10px}
+.tela .anterior .c .k{color:var(--texto-secundario)}
+.tela .gaveta{width:34px; flex:none; background:var(--superficie); border:1px solid var(--borda); border-radius:8px; display:flex; align-items:center; justify-content:center}
+.tela .gaveta span{writing-mode:vertical-rl; transform:rotate(180deg); font-size:11.5px; letter-spacing:.06em; color:var(--acento); font-weight:600; text-transform:uppercase}
+
+/* detalhar recolhido */
+.tela .detalhar{border:1px solid var(--borda); border-radius:8px; background:var(--superficie); padding:10px 14px; margin-top:10px; display:flex; align-items:center; gap:9px; font-size:13px; color:var(--texto-corpo)}
+.tela .detalhar .cv{color:var(--texto-secundario); font-size:11px}
+.tela .detalhar .marca{margin-left:auto; font-size:11.5px; color:var(--aviso-texto); background:var(--aviso-suave); border-radius:999px; padding:2px 9px; font-weight:600}
+
+/* roteiros */
+.tela .roteiros{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+.tela .rot-card{border:1px solid var(--borda); background:var(--superficie); border-radius:8px; padding:8px 12px; font-size:12.5px; min-width:150px}
+.tela .rot-card b{display:block; font-size:13px; font-weight:600; margin-bottom:1px}
+.tela .rot-card span{color:var(--texto-secundario); font-size:11.5px}
+.tela .rot-card.on{border-color:var(--acento); background:var(--acento-suave)}
+
+/* faixa da enfermagem sob cada mockup */
+.enf{margin-top:14px}
+.enf .cap{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin-bottom:7px}
+.tela.mini{min-width:1000px}
+.tela.mini .corpo{min-height:0}
+.tela.mini .principal{padding:14px 20px}
+
+@media (max-width:720px){
+  .wrap{padding:34px 16px 60px}
+  h1{font-size:32px}
+  .contador{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Clínica SemDor · Módulo Consultório · setembro de 2026</p>
+  <h1>Cinco desenhos do atendimento</h1>
+  <p class="lede">
+    Cinco propostas para a tela em que o médico e a enfermeira escrevem a sessão. Todas partem
+    do mesmo pedido: <b>menos campos</b>, <b>texto livre</b> e os dois botões que hoje estão
+    escondidos — <b>salvar</b> e <b>imprimir a sessão</b> — na frente de quem escreve.
+    Escolha uma letra; implemento essa.
+  </p>
+
+  <div class="placar">
+    <div><div class="n">12</div><div class="r">campos de conteúdo na tela do médico, repartidos em quatro abas que escondem umas às outras</div></div>
+    <div><div class="n">16</div><div class="r">campos na tela da enfermagem — texto, sete sinais vitais, acesso venoso e as cinco etapas da COFEN</div></div>
+    <div><div class="n">4º</div><div class="r">lugar do botão “Ficha do atendimento” numa barra que, a 1366 px, o corta na borda da janela</div></div>
+    <div><div class="n">1</div><div class="r">campo de texto que os dois pediram: “escrever o que quiser durante a sessão”</div></div>
+  </div>
+
+  <hr class="reg">
+
+  <h2>O que nenhum destes desenhos quebra</h2>
+  <p class="prosa">
+    Isto não é cautela de programador: são as quatro coisas que, se caírem junto com o leiaute,
+    a clínica só descobre meses depois — na auditoria, no convênio ou no dia em que alguém
+    procurar uma sessão antiga e ela aparecer em branco.
+  </p>
+
+  <ul class="regras">
+    <li><span class="marca">01</span><span class="txt"><b>Nenhuma coluna é apagada.</b> Os doze campos continuam no banco. O que muda é a TELA — e é por isso que a redução de campos não perde uma linha do que já foi escrito (Lei 13.787/2018, guarda de 20 anos).</span></li>
+    <li><span class="marca">02</span><span class="txt"><b>A sessão de 27/08 continua legível.</b> Ela tem hipótese, conduta e evolução preenchidos. Tela nova que só mostrasse a caixa livre faria esse conteúdo sumir de vista sem sumir do banco — que é o pior dos dois mundos.</span></li>
+    <li><span class="marca">03</span><span class="txt"><b>A consulta de enfermagem continua existindo.</b> A COFEN 358/2009 exige as cinco etapas registradas <i>na consulta</i>; a anotação de passagem não. O texto livre vira o padrão — a consulta completa passa a ser um clique, em vez de ocupar a tela de quem só vai anotar.</span></li>
+    <li><span class="marca">04</span><span class="txt"><b>“Imprimir” é a ficha numerada, não um print de tela.</b> Continua sendo documento clínico com número do ano, código de conferência e segunda via idêntica. O que muda é ela sair de um botão cortado na borda para o rodapé, ao lado do Salvar.</span></li>
+  </ul>
+
+  <hr class="reg">
+
+  <!-- =========================== A =========================== -->
+  <section class="opcao">
+    <div class="op-topo">
+      <span class="op-letra">A</span>
+      <h2>Folha única</h2>
+      <span class="contador"><b>1</b> campo ao abrir</span>
+    </div>
+    <p class="tese">
+      A tela é uma folha, e mais nada. Quem senta para escrever encontra o cursor piscando numa
+      folha do tamanho da tela — como o bloco de papel, que é o que eles disseram preferir. Os
+      doze campos continuam ali, recolhidos numa linha só ao pé; a sessão antiga que os tem abre
+      com essa linha já aberta.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 5 sessões · paciente desde 30/07/2026</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div class="on">Atendimento</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div class="grp">Paciente</div>
+            <div>Prescrições</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+          </div>
+          <div class="principal">
+            <div class="tira">
+              <div class="t"><span class="k">Sessão de</span><span class="v">04/09/2026</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">depois</span><span class="cx">3</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k quieto">Retorno sugerido</span><span class="v">02/10</span></div>
+            </div>
+            <div class="campo foco" style="flex:1">
+              <div class="rot">A sessão de hoje <span class="x">salva sozinha a cada pausa</span></div>
+              <div class="txt">
+                <p>Retorno de BSV. Refere melhora da dor difusa desde a última sessão — dormiu a noite inteira duas vezes na semana, o que não vinha acontecendo. Mantém rigidez matinal de uns 30 minutos. Sem náusea desde a troca do horário da medicação.</p>
+                <p>Bloqueio simpático venoso com lidocaína 2% (12 ml) em 250 ml de SF, duas ampolas de glicose 50%, infundido em 90 min em veia periférica. Monitorada durante todo o procedimento, sem intercorrências.</p>
+                <p>Alta estável, alimentada. PA 140/70, FC 78.</p>
+                <p>Combinado repetir em 4 semanas e trazer o hemograma na próxima.<span class="cursor"></span></p>
+              </div>
+            </div>
+            <div class="detalhar">
+              <span class="cv">▸</span> Detalhar em campos separados
+              <span class="cv">— queixa, exame, hipótese, conduta, orientações, plano, encaminhamento</span>
+              <span class="marca">a sessão de 27/08 tem 5 preenchidos</span>
+            </div>
+            <div class="rodape">
+              <span class="dica">Última gravação às 14h37 · assina Dr. Gustavo Lacerda · CRM-RJ 00000</span>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a sessão</button>
+              <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Salvar e finalizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="enf">
+      <p class="cap">A mesma folha, na enfermagem</p>
+      <div class="moldura">
+        <div class="tela mini">
+          <div class="corpo">
+            <div class="principal">
+              <div class="tira">
+                <div class="t"><span class="k">Hora do fato</span><span class="cx">14:20</span></div>
+                <div class="sep"></div>
+                <div class="t"><span class="k">PA</span><span class="cx">138/72</span></div>
+                <div class="t"><span class="k">FC</span><span class="cx">80</span></div>
+                <div class="t"><span class="k">T</span><span class="cx">36,4</span></div>
+                <div class="t"><span class="k">SpO₂</span><span class="cx">98</span></div>
+                <div class="sep"></div>
+                <div class="t"><span class="k quieto">Intercorrência</span><span class="v quieto">não</span></div>
+              </div>
+              <div class="campo foco">
+                <div class="rot">O que eu observei</div>
+                <div class="txt">
+                  <p>Recebida para BSV, orientada sobre o tempo da infusão. Punção em MSD, jelco 20, sem dificuldade, boa perfusão. Refere estar em jejum desde as 22h.<span class="cursor"></span></p>
+                </div>
+              </div>
+              <div class="detalhar">
+                <span class="cv">▸</span> Consulta de enfermagem (COFEN) <span class="cv">— histórico, diagnósticos, cuidados, avaliação</span>
+              </div>
+              <div class="rodape">
+                <span class="dica">Assina Joana Ribeiro · COREN-RJ 000000</span>
+                <button class="btn">Imprimir a passagem</button>
+                <button class="btn pri">Registrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que ganha</h4><p>É o pedido sem meio-termo: uma caixa, do tamanho da tela, e o cursor já dentro dela. Doze campos viram um. Salvar e imprimir param de disputar espaço com “Colher termo” e “Mapa corporal”.</p></div>
+      <div class="bloco c"><h4>O que custa</h4><p>O que for escrito na folha vai inteiro para a coluna <i>Evolução</i>. O relatório que o paciente leva ao convênio deixa de separar queixa, conduta e plano — ele passa a imprimir o texto como foi escrito.</p></div>
+      <div class="bloco e"><h4>Na enfermagem</h4><p>Mesmo desenho: a tira troca a EVA por hora e sinais vitais, e as cinco etapas da COFEN ficam atrás da mesma linha recolhida.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =========================== B =========================== -->
+  <section class="opcao">
+    <div class="op-topo">
+      <span class="op-letra">B</span>
+      <h2>O que houve · o que fica combinado</h2>
+      <span class="contador"><b>2</b> campos ao abrir</span>
+    </div>
+    <p class="tese">
+      Duas caixas livres, e a divisão é a única que o resto do sistema realmente lê: o que
+      aconteceu hoje, e o que fica valendo daqui para a frente. A segunda é a que o convênio
+      imprime e a que aparece no painel da próxima sessão — hoje ela está espalhada em cinco
+      campos que ninguém preenche por inteiro.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 5 sessões · BSV</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div class="on">Atendimento</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div class="grp">Paciente</div>
+            <div>Prescrições</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+          </div>
+          <div class="principal">
+            <div class="tira">
+              <div class="t"><span class="k">Sessão de</span><span class="v">04/09/2026</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">depois</span><span class="cx">3</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k quieto">Modelos</span><span class="v" style="color:#123A9E">Sessão de BSV ▾</span></div>
+            </div>
+            <div class="col2">
+              <div class="escrita">
+                <div class="campo foco" style="flex:1.35">
+                  <div class="rot">O que houve na sessão</div>
+                  <div class="txt">
+                    <p>Retorno de BSV. Refere melhora da dor difusa — dormiu a noite inteira duas vezes na semana. Mantém rigidez matinal de uns 30 minutos.</p>
+                    <p>Bloqueio simpático venoso com lidocaína 2% (12 ml) em 250 ml de SF, duas ampolas de glicose 50%, infundido em 90 min. Monitorada, sem intercorrências. Alta estável e alimentada.<span class="cursor"></span></p>
+                  </div>
+                </div>
+                <div class="campo" style="flex:1">
+                  <div class="rot">O que fica combinado <span class="x">é o que sai no relatório do convênio</span></div>
+                  <div class="txt">
+                    <p>Repetir o BSV em 4 semanas. Trazer o hemograma na próxima. Manter a medicação no horário novo. Procurar a clínica se a dor voltar ao patamar anterior antes disso.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="lado">
+                <div class="anterior">
+                  <div class="h">Sessão anterior</div>
+                  <div class="d">27/08/2026 · EVA não medida</div>
+                  <div class="c">Procedimento realizado: bloqueio simpático venoso. Fibromialgia / dor crônica. Paciente 85 kg. Infundido em 90 min, sem intercorrências. PA 140/70, FC 78.</div>
+                  <div class="d">Ficou combinado</div>
+                  <div class="c"><span class="k">Agendar novo BSV para 02/09. Reavaliar a EVA na próxima.</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="rodape">
+              <span class="dica">Assina Dr. Gustavo Lacerda · CRM-RJ 00000</span>
+              <button class="btn ghost">Detalhar em campos separados</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a sessão</button>
+              <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Salvar e finalizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="enf">
+      <p class="cap">A mesma divisão, na enfermagem</p>
+      <div class="moldura">
+        <div class="tela mini">
+          <div class="corpo">
+            <div class="principal">
+              <div class="tira">
+                <div class="t"><span class="k">Hora do fato</span><span class="cx">14:20</span></div>
+                <div class="sep"></div>
+                <div class="t"><span class="k">PA</span><span class="cx">138/72</span></div>
+                <div class="t"><span class="k">FC</span><span class="cx">80</span></div>
+                <div class="t"><span class="k">T</span><span class="cx">36,4</span></div>
+                <div class="t"><span class="k">SpO₂</span><span class="cx">98</span></div>
+              </div>
+              <div class="campo foco">
+                <div class="rot">O que eu observei</div>
+                <div class="txt"><p>Recebida para BSV. Punção em MSD, jelco 20, sem dificuldade. Refere jejum desde as 22h.<span class="cursor"></span></p></div>
+              </div>
+              <div class="campo">
+                <div class="rot">O que eu fiz e o que orientei</div>
+                <div class="txt"><p>Instalada a infusão às 14h35. Orientada a permanecer com o membro em repouso e a avisar qualquer ardência no local.</p></div>
+              </div>
+              <div class="rodape">
+                <span class="dica">Assina Joana Ribeiro · COREN-RJ 000000</span>
+                <button class="btn ghost">Consulta de enfermagem (COFEN)</button>
+                <button class="btn">Imprimir</button>
+                <button class="btn pri">Registrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que ganha</h4><p>Continua sendo texto livre, e guarda a única separação que a máquina precisa: o convênio, a próxima sessão e a busca do prontuário continuam achando “o que ficou combinado” sem ninguém preencher cinco campos.</p></div>
+      <div class="bloco c"><h4>O que custa</h4><p>Duas caixas ainda são duas decisões. Quem escreve corrido vai jogar tudo na primeira e deixar a segunda vazia — e aí o desenho volta a ser o A, com uma caixa em branco ao lado.</p></div>
+      <div class="bloco e"><h4>Na enfermagem</h4><p>“O que observei” e “o que fiz e orientei” — que é como a passagem já é escrita à mão hoje.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =========================== C =========================== -->
+  <section class="opcao">
+    <div class="op-topo">
+      <span class="op-letra">C</span>
+      <h2>Blocos sob demanda</h2>
+      <span class="contador"><b>1</b> campo ao abrir · o resto sob demanda</span>
+    </div>
+    <p class="tese">
+      Abre como o A: uma folha só. A diferença é uma régua de etiquetas debaixo dela — clicou em
+      “Conduta”, nasce uma caixa rotulada; não clicou, ela não existe. A estrutura deixa de ser
+      imposta e passa a ser escolha de quem escreve, sessão a sessão — e a sessão antiga abre
+      com os blocos que ela já tem, sem nenhuma regra especial.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 5 sessões · BSV</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div class="on">Atendimento</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div class="grp">Paciente</div>
+            <div>Prescrições</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+          </div>
+          <div class="principal">
+            <div class="avisos">
+              <div class="lin perigo"><b>Alergia a dipirona</b> — registrada em 12/08 pela enfermagem<span class="acao">Ver a lista</span></div>
+              <div class="lin">Sem consentimento LGPD de tratamento de dados<span class="acao">Colher termo…</span></div>
+            </div>
+            <div class="tira">
+              <div class="t"><span class="k">Sessão de</span><span class="v">04/09/2026</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">depois</span><span class="cx">3</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k quieto">Retorno</span><span class="v">02/10 — reavaliar a EVA</span></div>
+            </div>
+            <div class="col2">
+              <div class="escrita">
+                <div class="campo foco" style="flex:1">
+                  <div class="rot">A sessão de hoje</div>
+                  <div class="txt">
+                    <p>Retorno de BSV. Refere melhora da dor difusa — dormiu a noite inteira duas vezes na semana, o que não vinha acontecendo. Mantém rigidez matinal de uns 30 minutos.</p>
+                    <p>Bloqueio simpático venoso com lidocaína 2% (12 ml) em 250 ml de SF, duas ampolas de glicose 50%, infundido em 90 min. Monitorada, sem intercorrências.<span class="cursor"></span></p>
+                  </div>
+                </div>
+                <div class="campo">
+                  <div class="rot">Conduta e plano <span class="x">✕ remover o bloco</span></div>
+                  <div class="txt"><p>Repetir o BSV em 4 semanas. Trazer o hemograma. Manter a medicação no horário novo.</p></div>
+                </div>
+                <div class="chips">
+                  <span class="lbl">Acrescentar:</span>
+                  <span class="chip">+ Queixa</span>
+                  <span class="chip">+ História</span>
+                  <span class="chip">+ Exame físico</span>
+                  <span class="chip">+ Hipótese e CID</span>
+                  <span class="chip on">✓ Conduta e plano</span>
+                  <span class="chip">+ Orientações</span>
+                  <span class="chip">+ Encaminhamento</span>
+                </div>
+              </div>
+              <div class="lado">
+                <div class="anterior">
+                  <div class="h">Sessão anterior · 27/08</div>
+                  <div class="c">Procedimento realizado: bloqueio simpático venoso. Fibromialgia / dor crônica. Infundido em 90 min, sem intercorrências. PA 140/70, FC 78.</div>
+                  <div class="d">Ficou combinado</div>
+                  <div class="c">Agendar novo BSV para 02/09.</div>
+                  <div class="d">Enfermagem · hoje 14h20</div>
+                  <div class="c">Punção em MSD, jelco 20. PA 138/72, FC 80.</div>
+                </div>
+              </div>
+            </div>
+            <div class="rodape">
+              <span class="dica">Última gravação às 14h37 · assina Dr. Gustavo Lacerda · CRM-RJ 00000</span>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a sessão</button>
+              <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Salvar e finalizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="enf">
+      <p class="cap">Os mesmos blocos, na enfermagem — só que os dela são os da COFEN</p>
+      <div class="moldura">
+        <div class="tela mini">
+          <div class="corpo">
+            <div class="principal">
+              <div class="tira">
+                <div class="t"><span class="k">Hora do fato</span><span class="cx">14:20</span></div>
+                <div class="sep"></div>
+                <div class="t"><span class="k">PA</span><span class="cx">138/72</span></div>
+                <div class="t"><span class="k">FC</span><span class="cx">80</span></div>
+                <div class="t"><span class="k">T</span><span class="cx">36,4</span></div>
+                <div class="t"><span class="k">SpO₂</span><span class="cx">98</span></div>
+                <div class="sep"></div>
+                <div class="t"><span class="k quieto">Acesso</span><span class="v quieto">MSD · jelco 20</span></div>
+              </div>
+              <div class="campo foco">
+                <div class="rot">O que eu observei</div>
+                <div class="txt"><p>Recebida para BSV. Punção em MSD sem dificuldade, boa perfusão. Refere jejum desde as 22h. Instalada a infusão às 14h35.<span class="cursor"></span></p></div>
+              </div>
+              <div class="chips">
+                <span class="lbl">Acrescentar:</span>
+                <span class="chip">+ Histórico de enfermagem</span>
+                <span class="chip">+ Exame físico</span>
+                <span class="chip">+ Diagnósticos</span>
+                <span class="chip">+ Cuidados</span>
+                <span class="chip">+ Avaliação</span>
+                <span class="chip on">✓ Foi uma intercorrência</span>
+              </div>
+              <div class="rodape">
+                <span class="dica">Com os cinco blocos acesos, isto é uma consulta de enfermagem (COFEN 358/2009)</span>
+                <button class="btn">Imprimir</button>
+                <button class="btn pri">Registrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que ganha</h4><p>É o único que dá texto livre por padrão <i>e</i> mantém os doze campos alcançáveis sem modo especial. A sessão antiga abre com os blocos dela acesos — nada some de vista. E a consulta da COFEN deixa de ser uma caixinha escondida: são cinco etiquetas na mesma régua.</p></div>
+      <div class="bloco c"><h4>O que custa</h4><p>É o desenho com mais peças móveis dos cinco — e a régua de etiquetas precisa caber a 1366 px, que é a tela do balcão. Implementar leva mais que o A.</p></div>
+      <div class="bloco e"><h4>Na enfermagem</h4><p>Mesma régua, etiquetas diferentes: acender as cinco da COFEN é o que transforma a anotação em consulta — sem tela nova nem caixinha.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =========================== D =========================== -->
+  <section class="opcao">
+    <div class="op-topo">
+      <span class="op-letra">D</span>
+      <h2>Roteiros da clínica</h2>
+      <span class="contador"><b>1</b> campo ao abrir · zero campos fixos</span>
+    </div>
+    <p class="tese">
+      Campo fixo nenhum. A tela abre em branco com três roteiros à mão; clicar num deles escreve
+      os títulos <i>dentro</i> do texto, e a partir dali é tudo edição livre — apagar um título,
+      inventar outro, escrever corrido. Os roteiros são da clínica, escritos por ela, e mudam sem
+      versão nova do programa.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 5 sessões · BSV</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div class="on">Atendimento</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div class="grp">Paciente</div>
+            <div>Prescrições</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+          </div>
+          <div class="principal">
+            <div class="roteiros">
+              <div class="rot-card on"><b>Sessão de BSV</b><span>o roteiro da casa · 6 títulos</span></div>
+              <div class="rot-card"><b>Acupuntura — seguimento</b><span>4 títulos</span></div>
+              <div class="rot-card"><b>Primeira consulta</b><span>8 títulos</span></div>
+              <div class="rot-card" style="border-style:dashed"><b>Repetir a sessão anterior</b><span>traz o texto de 27/08</span></div>
+            </div>
+            <div class="tira">
+              <div class="t"><span class="k">Sessão de</span><span class="v">04/09/2026</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">depois</span><span class="cx">3</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k quieto">Retorno</span><span class="v">02/10</span></div>
+            </div>
+            <div class="campo foco" style="flex:1">
+              <div class="rot">Sessão de 04/09/2026 <span class="x">roteiro “Sessão de BSV” aplicado — o texto é seu</span></div>
+              <div class="txt">
+                <p><b>Como chegou.</b> Refere melhora da dor difusa desde a última sessão — dormiu a noite inteira duas vezes na semana. Rigidez matinal de uns 30 minutos.</p>
+                <p><b>Procedimento.</b> Lidocaína 2% (12 ml) em 250 ml de SF, duas ampolas de glicose 50%, 90 min em veia periférica.</p>
+                <p><b>Durante.</b> Monitorada o tempo todo, sem intercorrências. PA 140/70, FC 78.</p>
+                <p><b>Alta.</b> Estável, alimentada, sem queixas.</p>
+                <p><b>Combinado.</b> Repetir em 4 semanas; trazer o hemograma.<span class="cursor"></span></p>
+              </div>
+            </div>
+            <div class="rodape">
+              <span class="dica">Última gravação às 14h37 · assina Dr. Gustavo Lacerda · CRM-RJ 00000</span>
+              <button class="btn ghost">Editar os roteiros…</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a sessão</button>
+              <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Salvar e finalizar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="enf">
+      <p class="cap">Os roteiros da enfermagem são outros</p>
+      <div class="moldura">
+        <div class="tela mini">
+          <div class="corpo">
+            <div class="principal">
+              <div class="roteiros">
+                <div class="rot-card on"><b>Passagem de BSV</b><span>recepção · punção · infusão · alta</span></div>
+                <div class="rot-card"><b>Curativo</b><span>3 títulos</span></div>
+                <div class="rot-card"><b>Consulta de enfermagem</b><span>as 5 etapas da COFEN</span></div>
+              </div>
+              <div class="campo foco">
+                <div class="rot">Passagem de 04/09 · 14h20</div>
+                <div class="txt">
+                  <p><b>Recepção.</b> Recebida para BSV, orientada sobre o tempo da infusão. Jejum desde as 22h.</p>
+                  <p><b>Punção.</b> MSD, jelco 20, sem dificuldade, boa perfusão.<span class="cursor"></span></p>
+                </div>
+              </div>
+              <div class="rodape">
+                <span class="dica">PA 138/72 · FC 80 · T 36,4 · SpO₂ 98 — colhidos na tira acima</span>
+                <button class="btn">Imprimir</button>
+                <button class="btn pri">Registrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que ganha</h4><p>Quem quer roteiro tem um; quem não quer não vê nenhum. A clínica passa a escrever o próprio padrão de sessão sem depender de mim, e o roteiro da acupuntura pode ser diferente do do BSV.</p></div>
+      <div class="bloco c"><h4>O que custa</h4><p>Os títulos ficam <i>dentro</i> do texto — a máquina não sabe onde acaba a conduta. O relatório do convênio imprime o bloco inteiro, e a busca do prontuário procura no texto corrido, não por campo.</p></div>
+      <div class="bloco e"><h4>Na enfermagem</h4><p>Um roteiro chamado “Consulta de enfermagem” escreve as cinco etapas da COFEN como títulos — mas escritas à mão, não como campos que o sistema confere.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =========================== E =========================== -->
+  <section class="opcao">
+    <div class="op-topo">
+      <span class="op-letra">E</span>
+      <h2>Uma tela só, para os dois</h2>
+      <span class="contador"><b>1</b> campo ao abrir · <b>1</b> tela em vez de 2</span>
+    </div>
+    <p class="tese">
+      Hoje são duas telas parecidas e diferentes, mantidas em separado — e é assim que uma
+      corrige um defeito e a outra fica com ele. Aqui é um desenho só: a folha é a mesma, e o que
+      muda conforme quem está logado é a tira de medidas, a assinatura e o nome do botão. Quem
+      consulta vê EVA; quem executa vê sinais vitais.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 5 sessões · BSV das 14h com Dr. Gustavo</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div class="on">Atendimento</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div class="grp">Paciente</div>
+            <div>Prescrições</div>
+            <div>Medidas</div>
+          </div>
+          <div class="principal">
+            <div class="barra">
+              <span class="tit">Escrevendo como <b>enfermagem</b> — Joana Ribeiro, COREN-RJ 000000</span>
+              <button class="btn ghost">Colher termo…</button>
+              <button class="btn ghost">Mapa corporal</button>
+              <button class="btn ghost">Emitir documento</button>
+            </div>
+            <div class="tira">
+              <div class="t"><span class="k">Hora do fato</span><span class="cx">14:20</span></div>
+              <div class="sep"></div>
+              <div class="t"><span class="k">PA</span><span class="cx">138/72</span></div>
+              <div class="t"><span class="k">FC</span><span class="cx">80</span></div>
+              <div class="t"><span class="k">FR</span><span class="cx">16</span></div>
+              <div class="t"><span class="k">T</span><span class="cx">36,4</span></div>
+              <div class="t"><span class="k">SpO₂</span><span class="cx">98</span></div>
+              <div class="t"><span class="k">Dor</span><span class="cx">7</span></div>
+            </div>
+            <div class="col2">
+              <div class="escrita">
+                <div class="campo foco" style="flex:1">
+                  <div class="rot">O que eu observei <span class="x">salva sozinha a cada pausa</span></div>
+                  <div class="txt">
+                    <p>Recebida para BSV, orientada sobre o tempo da infusão. Refere jejum desde as 22h e nega sintomas novos desde a última sessão.</p>
+                    <p>Punção em MSD, jelco 20, sem dificuldade, boa perfusão. Infusão instalada às 14h35 e mantida em observação.<span class="cursor"></span></p>
+                  </div>
+                </div>
+                <div class="detalhar">
+                  <span class="cv">▸</span> Consulta de enfermagem (COFEN) <span class="cv">— histórico, exame, diagnósticos, cuidados, avaliação</span>
+                  <span class="marca">não iniciada</span>
+                </div>
+              </div>
+              <div class="lado">
+                <div class="anterior">
+                  <div class="h">Nesta sessão</div>
+                  <div class="d">Médico · 14h05</div>
+                  <div class="c">Retorno de BSV. Melhora da dor difusa; rigidez matinal mantida. Prescrito bloqueio com lidocaína 2%.</div>
+                  <div class="d">Infusão · folha 0012</div>
+                  <div class="c">2 de 3 itens administrados.</div>
+                </div>
+              </div>
+            </div>
+            <div class="rodape">
+              <span class="dica">A folha é a mesma para o médico — muda a tira, a assinatura e o botão</span>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a passagem</button>
+              <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Registrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que ganha</h4><p>Uma tela para manter em vez de duas — acaba a divergência em que uma delas ganha a correção e a outra fica com o defeito. E a enfermeira, que hoje encara dezesseis campos, passa a encarar um.</p></div>
+      <div class="bloco c"><h4>O que custa</h4><p>Mexe nas duas telas de uma vez, e é a mudança maior das cinco. A folha S-O-A-P do médico e a consulta da COFEN passam a ser, as duas, um clique a mais para quem as usa inteiras.</p></div>
+      <div class="bloco e"><h4>Combinação</h4><p>Não briga com nenhuma das outras: o E é <i>onde</i> o desenho vale, e A, B, C ou D é <i>qual</i> desenho é.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <h2>Lado a lado</h2>
+  <p class="prosa">A coluna que mais pesa é a do convênio: é o que muda no papel que o paciente leva quando o texto deixa de ser repartido em campos.</p>
+
+  <div class="tab-wrap">
+    <table>
+      <thead>
+        <tr><th>Desenho</th><th>Campos ao abrir</th><th>Estrutura</th><th>Sessão já escrita</th><th>Relatório do convênio</th><th>Tamanho da obra</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="op"><span class="lt">A</span>Folha única</td><td class="num">1</td><td>nenhuma — recolhida ao pé</td><td>abre com o bloco já aberto</td><td>imprime o texto corrido</td><td>pequena</td></tr>
+        <tr><td class="op"><span class="lt">B</span>Houve · combinado</td><td class="num">2</td><td>mínima e fixa</td><td>abre nas duas caixas</td><td>separa o que ficou combinado</td><td>pequena</td></tr>
+        <tr><td class="op"><span class="lt">C</span>Blocos sob demanda</td><td class="num">1</td><td>escolhida por sessão</td><td>abre com os blocos dela acesos</td><td>separa quando houve separação</td><td>média</td></tr>
+        <tr><td class="op"><span class="lt">D</span>Roteiros</td><td class="num">1</td><td>títulos dentro do texto</td><td>abre com o bloco já aberto</td><td>imprime o texto corrido</td><td>média</td></tr>
+        <tr><td class="op"><span class="lt">E</span>Uma tela só</td><td class="num">1</td><td>a do desenho escolhido</td><td>igual nas duas telas</td><td>conforme o desenho escolhido</td><td>grande</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="reco">
+    <p class="eyebrow">Se a escolha fosse minha</p>
+    <h2>C, com o rodapé e a paridade do E</h2>
+    <p class="prosa" style="margin-bottom:0">
+      O <b>C</b> é o único que entrega texto livre como padrão <i>sem</i> escolher entre isso e as
+      sessões que já estão escritas: quem quer uma folha corrida tem uma folha corrida; quem quer
+      separar a conduta clica numa etiqueta; e a sessão de 27/08 abre com os blocos que ela tem,
+      sem modo especial e sem nada sumindo de vista. Ele também é o que resolve a COFEN sem
+      caixinha — as cinco etapas viram cinco etiquetas na mesma régua. Do <b>E</b> eu levaria o
+      rodapé (salvar e imprimir sempre no mesmo lugar) e a paridade entre as duas telas, que é o
+      que impede uma corrigida e a outra esquecida. Se a prioridade for entregar rápido e sem
+      peça móvel nenhuma, o <b>A</b> é o caminho — e o C continua possível depois, por cima dele.
+    </p>
+
+    <ul class="perguntas">
+      <li><span class="q">1</span><span>O texto corrido vai todo para a coluna <b>Evolução</b>. Confirma que o relatório do convênio pode passar a imprimir o texto como foi escrito, em vez de separado por campo?</span></li>
+      <li><span class="q">2</span><span>A <b>EVA antes/depois</b> fica na tira de todos os desenhos, porque alimenta a curva da dor que a direção lê. Ela continua sendo pedida em toda sessão, ou só nas de acupuntura?</span></li>
+      <li><span class="q">3</span><span>“Salvar e finalizar” num botão só, ou <b>salvar</b> (posso voltar) separado de <b>finalizar o atendimento</b> (avisa o balcão que a sala vagou)?</span></li>
+      <li><span class="q">4</span><span>A folha salvar sozinha a cada pausa — como está desenhado — ou só no clique, como é hoje?</span></li>
+    </ul>
+
+    <p class="nota">
+      Os dados nas telas são de exemplo: paciente fictícia, com o vocabulário real da casa (BSV,
+      lidocaína 2%, EVA, jejum). As cores, as medidas e a tipografia saem de
+      <code>tokens/colors.css</code> do próprio repositório — o desenho aprovado vira tradução,
+      não uma segunda paleta.
+    </p>
+  </div>
+
+</div>

@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -69,6 +71,27 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
     private Agendamento? _horario;
 
+    /// <summary>
+    /// As seções do rail, com o grupo de cada uma. Vem de <c>ModuloClinico.RailDoPaciente</c>
+    /// — a MESMA lista que resolve o índice de navegação de outros módulos, e é por isso
+    /// que o rótulo lido pelo usuário não tem como divergir dele.
+    /// </summary>
+    public IReadOnlyList<ModuloClinico.SecaoDoPaciente> Secoes { get; } =
+        ModuloClinico.RailDoPaciente();
+
+    /// <summary>
+    /// As mesmas seções, agrupadas para o rail desenhar os três cabeçalhos.
+    ///
+    /// ⚠️ UMA coleção agrupada, nunca uma ListBox por grupo: duas ListBox amarradas à mesma
+    /// seleção se limpam mutuamente (a lição da parcela 37). E como a lista já vem NA ORDEM
+    /// dos grupos, o índice da vista continua sendo o índice de <see cref="Secoes"/> — que é
+    /// a régua do <c>SelectedIndex</c> e do TabControl ao lado.
+    ///
+    /// ⚠️ Montada aqui e não como `CollectionViewSource` no XAML: lá ela dependeria de o
+    /// recurso herdar o DataContext, e o modo de falhar seria o rail inteiro em branco.
+    /// </summary>
+    public ICollectionView SecoesAgrupadas { get; }
+
     public AtendimentoViewModel Atendimento { get; }
 
     /// <summary>
@@ -91,6 +114,13 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// vigésima confere se algo mudou.
     /// </summary>
     public AnamneseViewModel Anamnese { get; }
+
+    /// <summary>
+    /// A CAPA: quem é, o que ela tem e o que está assinado em nome dela. É a tela nova do
+    /// redesenho, e a única do Consultório que lê o cadastro — em leitura, porque editar
+    /// contato e convênio continua sendo do balcão.
+    /// </summary>
+    public PacienteCapaViewModel Capa { get; }
 
     public ProntuarioClinicoViewModel Prontuario { get; }
 
@@ -184,6 +214,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         IServiceProvider servicos, PacienteEmFoco foco, int aba = 0)
     {
         _foco = foco;
+
+        SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
+        SecoesAgrupadas.GroupDescriptions.Add(
+            new PropertyGroupDescription(nameof(ModuloClinico.SecaoDoPaciente.Grupo)));
         AbaAtual = aba;
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();
@@ -195,6 +229,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         Atendimento = servicos.GetRequiredService<AtendimentoViewModel>();
         Enfermagem = servicos.GetRequiredService<AtendimentoEnfermagemViewModel>();
         Anamnese = servicos.GetRequiredService<AnamneseViewModel>();
+        Capa = servicos.GetRequiredService<PacienteCapaViewModel>();
         Prontuario = servicos.GetRequiredService<ProntuarioClinicoViewModel>();
         Prescricoes = servicos.GetRequiredService<PrescricoesClinicasViewModel>();
         // Dentro do paciente ela não desenha o próprio cabeçalho: o nome já está no

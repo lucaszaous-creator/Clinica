@@ -3024,6 +3024,94 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   não prova que a FOLHA SAI*. O sétimo teste emite o relatório com os 11.221 caracteres do
   maior registro importado e **gera o PDF**.
 
+- **A FOLHA ÚNICA: doze campos viraram um, e nenhuma coluna foi apagada** (set/2026 —
+  a direção olhou a tela de atendimento e disse *"são coisas não tão profissionais que
+  eram aceitáveis no começo do projeto"*, pedindo menos campos, texto livre e os botões
+  de imprimir e salvar à vista; o mapa está em `docs/registro-do-atendimento.md` §21-26,
+  e os desenhos em `docs/mockups/`). Foram desenhados CINCO mockups antes de uma linha de
+  WPF — o caminho da parcela 87 —, a direção aprovou o **01 · Folha única**, e as sete
+  telas do Consultório saíram na mesma língua.
+  ⚠️ **Reduzir a TELA nunca é reduzir o REGISTRO.** Os doze campos da sessão continuam no
+  banco (guarda de 20 anos), continuam saindo no relatório do convênio separados por
+  assunto e continuam editáveis — atrás da linha "Detalhar…" ao pé da folha, que
+  **ANUNCIA quantos a sessão aberta já tem**. Sem esse selo, a sessão antiga com hipótese
+  e conduta preenchidas sumiria de VISTA sem sumir do banco: o defeito recorrente do
+  projeto cometido pela própria reforma que o corrige.
+  ⚠️ **O detalhe é JANELA, não bloco recolhido**: bloco cresce com o dado e disputa altura
+  com a folha, e filho ancorado que não cabe é DECEPADO (parcela 79, nesta mesma tela). É
+  o mesmo gesto que a consulta da COFEN já usa desde a parcela 88 — e ela edita o MESMO
+  ViewModel, sem gravar nada: quem grava é o Salvar de trás.
+  ⚠️ **A promessa do mockup que o código NÃO cumpre virou o que ele faz.** O desenho dizia
+  "salva sozinha a cada pausa"; cada gravação de evolução existente cria uma
+  `VersaoEvolucao` (parcela 52), e salvar a cada pausa encheria o prontuário de dezenas de
+  versões por sessão. O rodapé passou a dizer "Última gravação às 14h37". **Mockup
+  aprovado não dispensa a regra da garantia aparente** — ele é o lugar mais fácil de
+  cometê-la, porque a promessa já foi vista e aprovada por quem pediu.
+  ⚠️ **O rail deixou de ser vigiado e passou a ser impossível de divergir.** Eram nove
+  `ListBoxItem` escritos à mão no XAML ao lado da lista do C#; agora ele é montado de
+  `ModuloClinico.RailDoPaciente()` (`SecoesDoPaciente` × `GruposDoPaciente`, casadas por
+  posição). A **checagem 38** mudou de "compare as duas listas" para "RECUSE a segunda
+  lista", com autoteste nos dois sentidos: quando dá para trocar o contrato, trocar o
+  contrato vence vigiar (a lição do índice→nome da parcela 41, um nível acima).
+  ⚠️ **A régua de chips tem de ser montada TAMBÉM no construtor.** `SecaoEscolhida` e
+  `TipoAcompanhado` são inicializados em campo, e inicializador de campo **não emite
+  PropertyChanged** — sem a chamada, a tela abre sem chip nenhum, com a folha funcionando
+  e sem como trocar de seção. Nada falha; achado relendo o próprio diff.
+  ⚠️ **Campo cuja escrita volta ao ViewModel a cada tecla precisa de guarda de
+  reentrância**: reemitir a propriedade no meio da digitação devolve o valor à caixa e é
+  como se perde a posição do cursor. O gancho só reemite quando o campo mudou POR FORA.
+  ⚠️ **Onde o desenho aprovado NÃO foi seguido, ficou DECLARADO** (§25 do documento): o
+  Histórico não funde as listas de sessão e enfermagem (ids são por tabela — um "cancelar"
+  na linha errada cancelaria o registro de outra pessoa —, e a lista rica tem busca no
+  texto, anexos e correções que a genérica não tem); "Salvar e finalizar" continua sendo
+  dois atos (finalizar avisa o balcão que a sala vagou, e todo Salvar mandaria o recado
+  errado); e os chips de Medidas e Avaliações não trazem contagem. **Desvio de mockup
+  aprovado se escreve, não se comete em silêncio.**
+
+- **A FAIXA LATERAL DE RELEITURA VIROU ABA — e o rótulo saiu de dentro do texto** (set/2026,
+  a 9ª reprovação do cliente: *"essas tabelas laterais não me agradam! Seria melhor criar
+  uma aba para elas e deixá-las profissionais"*, com o print das duas telas de atendimento
+  já redesenhadas). As duas telas eram DUAS COLUNAS — escrever à esquerda, reler numa faixa
+  de 320 px à direita —, e a faixa não cabia no que precisava dizer: a sessão passada saía
+  em seis frases cortadas em pontos diferentes, com o rótulo DENTRO do texto
+  (`"Queixa: lombalgia há três mes…"`), e a linha do tempo da enfermagem vivia num vão em
+  que o estado vazio ocupava quase toda a altura.
+  A régua de leiaute do `README.md` responde sozinha: **quantas perguntas esta tela
+  responde?** Três — o que eu escrevo agora, o que veio antes, o que o outro lado registrou
+  —, e pergunta a mais é **ABA**, não caixa menor. É a lição da central de documentos
+  (parcela 82) outra vez: **quando o cliente reprova uma tela, a correção começa pelas três
+  perguntas da regra de leiaute, não pelo tamanho das peças.**
+  ⚠️ **A barra de ações, os avisos e o RODAPÉ ficam FORA das abas.** Trocar de aba não pode
+  esconder o botão que grava nem a mensagem que ele escreve — botão que some quando alguém
+  vai reler a sessão passada é a gravação que não acontece.
+  ⚠️ **O que a coluna aberta dava — reler ENQUANTO se escreve — não se perde por inteiro.**
+  A folha ganhou uma LINHA quieta (`ResumoSessaoAnterior.ContextoDaUltima`): data, par da
+  EVA e retorno sugerido da última sessão. É a resposta para "por que este paciente está
+  aqui hoje", e ela não pode custar um clique; o resto está na aba ao lado. **Ao trocar um
+  painel aberto por uma aba, pergunte o que dali NÃO pode custar um clique** — sem essa
+  linha, a troca teria custado justamente o campo que a parcela 77 existiu para pôr na tela.
+  ⚠️ **RÓTULO DENTRO DA FRASE não é rótulo, é texto.** `ResumoSessaoAnterior` devolvia
+  `"Conduta: agulhamento lombar"` pronto; agora devolve o par `Rotulo`/`Valor`, e a aba
+  desenha uma COLUNA de rótulos alinhada (`SharedSizeGroup`) com o valor ao lado, que é como
+  se lê um prontuário no papel. A data também virou coluna compartilhada: sem isso, a linha
+  com "EVA não medida" fica mais larga que a com "EVA 7 → 4" e a régua sai em escada.
+  ⚠️ **E a separação do rótulo REVELOU um defeito de duas parcelas atrás.** `RepetirUltima`
+  comparava com `"—"` — o sentinela que o modelo deixou de produzir na parcela 77, quando o
+  vazio passou a ser `string.Empty`: a comparação era sempre verdadeira, e o que ia para o
+  campo Conduta era o texto JÁ ROTULADO, gravado assim no prontuário e impresso assim no
+  relatório do convênio (no segundo clique, "Conduta: Conduta: …"). **Nada estourava**, e
+  só apareceu porque o compilador passou a exigir que alguém dissesse QUAL campo estava
+  sendo lido. A lição de método: **quando um modelo troca o formato de um valor, procure
+  quem o COMPARA** — o `grep` é pelo sentinela antigo, não pelo tipo.
+  ⚠️ Junto veio a segunda metade: sem conduta escrita, o botão dizia *"trazida para a tela"*
+  tendo trazido NADA — e depois da folha única esse é o caso NORMAL. Frase de sucesso sobre
+  uma tela que não mudou é a garantia aparente numa linha: a pessoa confere, não vê
+  diferença, e conclui que o botão está quebrado.
+  ⚠️ **Cinco sessões anteriores, não três**: o três era a altura da coluna de 350 px, não uma
+  decisão clínica. E não é "todas" de propósito — o prontuário inteiro, com busca no texto,
+  é a seção Histórico, e duas telas respondendo à mesma pergunta é o que faz alguém procurar
+  a diferença que não existe.
+
 - **"Por que numa tela dá e na outra não?" — quando as duas telas são o MESMO código, a
   variável é o DADO** (set/2026, a pergunta que acompanhou o 22001 acima: *"Prontuário →
   Ver prontuário → Imprimir esta sessão está retornando erro, mas Pacientes → Histórico de

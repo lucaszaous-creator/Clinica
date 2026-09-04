@@ -22,14 +22,14 @@
 
          O desenho é o do Atendimento do médico, de propósito
          ...................................................
-         Escrever à ESQUERDA, reler à DIREITA; rodapé ancorado fora do scroll, com o botão
-         que grava; avisos numa superfície só, uma linha por aviso. Não é economia de
+         Escrever numa aba, reler nas outras duas; rodapé ancorado FORA das abas, com o
+         botão que grava; avisos numa superfície só, uma linha por aviso. Não é economia de
          desenho: é o que faz as duas telas se lerem como o mesmo prontuário.
 
-         A imagem é ESPELHADA na coluna da direita, e isso é a regra X · Y · XY da parcela
-         72: lá o médico relê a enfermagem e a infusão; aqui a enfermagem relê a sessão
-         médica e a infusão. Infundir sem saber a conduta da consulta de hoje é executar
-         às cegas, e a recíproca é igualmente verdadeira.
+         A imagem é ESPELHADA na terceira aba, e isso é a regra X · Y · XY da parcela 72:
+         lá o médico relê a enfermagem e a infusão; aqui a enfermagem relê a sessão médica
+         e a infusão. Infundir sem saber a conduta da consulta de hoje é executar às cegas,
+         e a recíproca é igualmente verdadeira.
 
          ⚠️ O COMPOSITOR É O MESMO da janela da sala de infusão e da ficha da Recepção
          (EvolucaoEnfermagemViewModel). As regras caras — a hora INFORMADA, a hora futura
@@ -76,12 +76,6 @@
                                  FallbackValue=Collapsed}"
                     Command="{Binding ColherTermoCommand}" />
 
-            <Button Content="Ficha do atendimento" MinWidth="170"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource BotaoSecundario}"
-                    IsEnabled="{Binding PodeVerProntuario}"
-                    ToolTip="Emite o papel do que aconteceu HOJE com este paciente, com a marca da clínica e o código de conferência. Ele fica na lista de documentos do paciente."
-                    Command="{Binding ImprimirFichaCommand}" />
         </StackPanel>
 
         <!-- ===================== AVISOS =====================
@@ -278,6 +272,17 @@
                         Style="{StaticResource BotaoSecundario}"
                         Visibility="{Binding Passagem.Corrigindo, Converter={StaticResource BoolParaVisibilidade}}"
                         Command="{Binding Passagem.CancelarCorrecaoCommand}" />
+                <!-- O papel que o paciente leva, ao lado do Registrar: as duas ações do
+                     fim da passagem no mesmo lugar (mockup 01). Na barra de cima ele era o
+                     terceiro botão e, com a folha de infusão e o termo pendente acesos,
+                     saía cortado na borda a 1366 px. -->
+                <Button Content="Imprimir a passagem" MinWidth="170" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeVerProntuario}"
+                        ToolTip="Emite o papel do que aconteceu HOJE com este paciente, com a marca da clínica e o código de conferência. Ele fica na lista de documentos do paciente."
+                        Command="{Binding ImprimirFichaCommand}" />
+
                 <Button Content="{Binding Passagem.RotuloDoBotao}" Margin="8,0,0,0" MinWidth="180"
                         VerticalAlignment="Center"
                         IsEnabled="{Binding PodeRegistrar}"
@@ -286,105 +291,109 @@
             </StackPanel>
         </Grid>
 
-        <!-- ===== Duas colunas: escrever à esquerda, reler à direita =====
-             Cada uma é UMA superfície, não uma pilha de caixas com borda: desenhar um
-             retângulo em volta de cada campo é o que fazia a tela parecer costurada.
+        <!-- ================== TRÊS ABAS, TRÊS PERGUNTAS ==================
+             (set/2026 — a reprovação do cliente: "essas tabelas laterais não me agradam!
+             Seria melhor criar uma aba para elas e deixá-las profissionais".)
 
-             ⚠️ As DUAS são elásticas, e não uma elástica ao lado de uma FIXA. O WPF honra
-             o MinWidth e CORTA o excesso à direita — não há rolagem horizontal aqui —,
-             então largura fixa nesta tela é conteúdo perdido na janela mínima da suíte
-             (a medição da parcela 72). -->
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.5*" MinWidth="430" />
-                <ColumnDefinition Width="*" MinWidth="320" />
-            </Grid.ColumnDefinitions>
+             Valem aqui, palavra por palavra, as razões escritas em `AtendimentoView.xaml`:
+             a faixa de 320 px não cabia no que precisava dizer, e a régua de leiaute do
+             README responde sozinha — três perguntas, três abas. O desenho é o MESMO do
+             Atendimento do médico de propósito: é o que faz as duas telas se lerem como o
+             mesmo prontuário, e é a metade XY da parcela 72 vista do lado de quem executa.
 
-            <!-- ======================= O COMPOSITOR =======================
-                 DataContext no compositor compartilhado: o XAML fica idêntico ao da janela
-                 da sala, e corrigir um campo corrige os dois lugares. -->
-            <!-- ⚠️ IsEnabled pelo bit: quem não escreve pelo lado Y vê a seção em
-                 LEITURA — a lista de passagens ao lado continua viva, que é o XY. Campo
-                 aceso que não grava é o "botão que não faz nada" da parcela 41 pelo
-                 avesso, e a linha de aviso acima diz por que ele está apagado (as duas
-                 barreiras: o IsEnabled explica, o Exigir do comando impede). -->
-            <Border Grid.Column="0" Style="{StaticResource Card}"
-                    DataContext="{Binding Passagem}"
-                    IsEnabled="{Binding PodeRegistrar}">
-                <DockPanel>
+             ⚠️ A barra de ações, os avisos, o plano de cuidados e o RODAPÉ ficam FORA das
+             abas: trocar de aba não pode esconder o botão que GRAVA a passagem. -->
+        <TabControl>
 
-                    <StackPanel DockPanel.Dock="Top">
+            <TabItem Header="A passagem de hoje">
 
-                        <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,0,0,10"
-                                   Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade},
-                                                FallbackValue=Collapsed}" />
+                <!-- ======================= O COMPOSITOR =======================
+                     DataContext no compositor compartilhado: o XAML fica idêntico ao da
+                     janela da sala, e corrigir um campo corrige os dois lugares. -->
+                <!-- ⚠️ IsEnabled pelo bit: quem não escreve pelo lado Y vê a seção em
+                     LEITURA — a aba das passagens continua viva, que é o XY. Campo aceso
+                     que não grava é o "botão que não faz nada" da parcela 41 pelo avesso,
+                     e a linha de aviso acima diz por que ele está apagado (as duas
+                     barreiras: o IsEnabled explica, o Exigir do comando impede). -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0"
+                        DataContext="{Binding Passagem}"
+                        IsEnabled="{Binding PodeRegistrar}">
+                    <DockPanel>
 
-                        <Grid>
+                        <!-- ==================== A TIRA ====================
+                             Hora do fato e sinais vitais numa linha só (mockup 01). Eram quatro
+                             linhas — um rótulo de seção, a hora numa coluna ao lado do texto e a
+                             fileira de sete campos —, e o que elas comiam era a altura da FOLHA:
+                             o campo em que a técnica escreve tinha 90 px de teto.
+
+                             WrapPanel dentro de painel VERTICAL, nunca docado: docado ele é
+                             medido com largura infinita e nunca quebra a linha (checagem 32). -->
+                        <StackPanel DockPanel.Dock="Top">
+
+                            <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
+                                       TextWrapping="Wrap" Margin="0,0,0,10"
+                                       Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}" />
+
+                            <TextBlock Text="Hora e sinais vitais (preencha só o que aferiu)"
+                                       Style="{StaticResource Rotulo}" />
+                            <WrapPanel Margin="0,4,0,0">
+                                <StackPanel Margin="0,0,18,6">
+                                    <TextBlock Text="Hora do fato" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="80"
+                                             Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="A hora do FATO, não a de agora. A técnica observa às 14h20 e digita às 14h50 — o relógio do sistema fica gravado ao lado, e a diferença entre os dois é o que uma auditoria de enfermagem procura." />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="PA sistólica" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="78" Text="{Binding Sistolica, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="PA diastólica" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="78" Text="{Binding Diastolica, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="FC (bpm)" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="70" Text="{Binding Cardiaca, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="FR (irpm)" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="70" Text="{Binding Respiratoria, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="Temp. (°C)" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="70" Text="{Binding Temperatura, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="SpO₂ (%)" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="70" Text="{Binding Saturacao, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,14,6">
+                                    <TextBlock Text="Dor (0–10)" Style="{StaticResource TextoSuave}" />
+                                    <TextBox Width="70" Text="{Binding Dor, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="A dor aferida agora, o quinto sinal vital. NÃO entra na curva de dor do prontuário, que mede o efeito do tratamento entre sessões — são duas leituras diferentes." />
+                                </StackPanel>
+                            </WrapPanel>
+                        </StackPanel>
+
+                        <!-- A porta da consulta de enfermagem: a caixinha, o aviso do que falta
+                             e o botão que reabre a janela das cinco etapas. Mora no SHELL e é a
+                             MESMA da janela da sala de infusão.
+                             ⚠️ Ancorada EMBAIXO (era o último filho, que PREENCHE): quem preenche
+                             agora é a folha, e é ela que tem de crescer com a janela. -->
+                        <comp:ConsultaDeEnfermagemView DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                                                       DataContext="{Binding}" />
+
+                        <!-- A intercorrência e a alergia ficam ao pé da folha: as duas são o que
+                             se marca DEPOIS de escrever o que aconteceu, e no topo elas
+                             empurravam o campo de escrever para baixo da dobra. -->
+                        <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                <TextBlock Text="Hora do que foi observado" Style="{StaticResource Rotulo}" />
-                                <TextBox Width="90" HorizontalAlignment="Left"
-                                         Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="A hora do FATO, não a de agora. A técnica observa às 14h20 e digita às 14h50 — o relógio do sistema fica gravado ao lado, e a diferença entre os dois é o que uma auditoria de enfermagem procura." />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="O que foi observado" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap" AcceptsReturn="True"
-                                         MinHeight="56" MaxHeight="90"
-                                         VerticalScrollBarVisibility="Auto" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Sinais vitais: WrapPanel, e não Grid de largura inteira — cada
-                             campo pede o que precisa e a fileira quebra quando não couber. -->
-                        <TextBlock Text="Sinais vitais (opcionais — preencha só o que aferiu)"
-                                   Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-                        <WrapPanel Margin="0,4,0,0">
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="PA sistólica" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="78" Text="{Binding Sistolica, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="PA diastólica" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="78" Text="{Binding Diastolica, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="FC (bpm)" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="70" Text="{Binding Cardiaca, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="FR (irpm)" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="70" Text="{Binding Respiratoria, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="Temp. (°C)" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="70" Text="{Binding Temperatura, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="SpO₂ (%)" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="70" Text="{Binding Saturacao, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,14,6">
-                                <TextBlock Text="Dor (0–10)" Style="{StaticResource TextoSuave}" />
-                                <TextBox Width="70" Text="{Binding Dor, UpdateSourceTrigger=PropertyChanged}"
-                                         ToolTip="A dor aferida agora, o quinto sinal vital. NÃO entra na curva de dor do prontuário, que mede o efeito do tratamento entre sessões — são duas leituras diferentes." />
-                            </StackPanel>
-                        </WrapPanel>
-
-                        <Grid Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"
+                            <CheckBox Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,16,6"
                                       IsChecked="{Binding Intercorrencia}"
                                       Content="Foi uma intercorrência"
                                       ToolTip="Marque quando algo saiu do esperado (reação, queda de pressão, extravasamento). É o que acende o selo na fila e chega ao médico na tela de atendimento." />
@@ -401,64 +410,52 @@
                             </StackPanel>
                         </Grid>
 
-                    </StackPanel>
-
-                    <!-- A porta da consulta de enfermagem: a caixinha, o aviso do que falta
-                         e o botão que reabre a janela das cinco etapas. Mora no SHELL e é a
-                         MESMA da janela da sala de infusão. -->
-                    <!-- ⚠️ É o ÚLTIMO filho do DockPanel, e num DockPanel o último PREENCHE
-                         (o `Dock` dele é ignorado). O `VerticalAlignment` é o que faz o bloco
-                         hospedar-se no topo do que sobra em vez de esticar a caixinha e o
-                         botão pela coluna inteira. -->
-                    <comp:ConsultaDeEnfermagemView VerticalAlignment="Top" DataContext="{Binding}" />
-                </DockPanel>
-            </Border>
-
-            <!-- ======================= RELER =======================
-                 Em cima, as PASSAGENS deste paciente — é o que se vê enquanto se escreve:
-                 a PA de vinte minutos atrás decide se ela reduz o gotejamento. Embaixo, a
-                 CONDUTA que veio do outro lado (a sessão médica e a folha de infusão), que
-                 é a metade XY da parcela 72. -->
-            <DockPanel Grid.Column="1" Margin="16,0,0,0">
-
-                <!-- A conduta médica ancorada EMBAIXO e com teto: ela é contexto, e o
-                     assunto da coluna são as passagens. Sem o teto, um prontuário longo
-                     empurraria a lista de passagens para fora da vista. -->
-                <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,12,0,0"
-                        MaxHeight="260">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="A CONDUTA DE HOJE"
-                                   Style="{StaticResource Rotulo}" Margin="0,0,0,6"
-                                   ToolTip="A sessão médica e a folha de infusão deste paciente. Infundir sem saber a conduta da consulta de hoje é executar às cegas." />
-                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
+                        <!-- ===== A FOLHA — o último filho, que PREENCHE =====
+                             Era uma caixa de 90 px de teto no meio de uma pilha de campos. A
+                             técnica escreve aqui o que observou, e o espaço é o da tela. -->
+                        <DockPanel Margin="0,12,0,0">
+                            <TextBlock DockPanel.Dock="Top" Text="O que eu observei"
+                                       Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120"
+                                     VerticalContentAlignment="Top"
+                                     VerticalScrollBarVisibility="Auto"
+                                     ToolTip="Escreva a passagem como você escreveria no papel: o que o paciente relatou, o que você observou e o que fez." />
+                        </DockPanel>
                     </DockPanel>
                 </Border>
+            </TabItem>
 
-                <!-- Grid por fora para hospedar a sobreposição do EstadoDaTela como ÚLTIMO
-                     filho (a lição da parcela 50), e sobre a REGIÃO cujo vazio ela explica
-                     — nunca sobre a página (parcelas 58, 64 e 68). -->
-                <Grid DataContext="{Binding Passagem}">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="PASSAGENS DESTE PACIENTE"
-                                   Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+            <!-- ==================== AS PASSAGENS ====================
+                 O que já foi registrado neste paciente — a PA de vinte minutos atrás é o
+                 que decide se ela reduz o gotejamento.
 
+                 Cada passagem é uma LINHA separada por um traço, não um cartão com moldura:
+                 na coluna estreita elas eram retângulos dentro de um retângulo, e cada
+                 borda a mais é uma costura a mais (parcela 79). A hora vira coluna
+                 alinhada, que é a âncora da leitura de enfermagem. -->
+            <TabItem Header="Passagens do paciente">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <!-- Grid por fora para hospedar a sobreposição do EstadoDaTela como
+                         ÚLTIMO filho (a lição da parcela 50), e sobre a REGIÃO cujo vazio
+                         ela explica — nunca sobre a página (parcelas 58, 64 e 68). -->
+                    <Grid DataContext="{Binding Passagem}" Grid.IsSharedSizeScope="True">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding Registros}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{StaticResource Brush.Superficie}"
-                                                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                                                CornerRadius="{StaticResource Raio.Medio}"
-                                                Padding="12" Margin="0,0,0,8">
+                                        <Border Padding="0,14" BorderThickness="0,0,0,1"
+                                                BorderBrush="{StaticResource Brush.Borda}">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" MinWidth="92"
+                                                                      SharedSizeGroup="PassagemHora" />
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
 
                                                 <!-- A hora é a âncora da leitura de enfermagem. -->
-                                                <StackPanel Grid.Column="0" Margin="0,0,14,0" MinWidth="64">
+                                                <StackPanel Grid.Column="0" Margin="0,0,20,0">
                                                     <TextBlock Text="{Binding Hora}" FontWeight="Bold"
                                                                TextTrimming="CharacterEllipsis"
                                                                FontSize="{StaticResource Fonte.H3}">
@@ -480,6 +477,7 @@
                                                         </TextBlock.Style>
                                                     </TextBlock>
                                                     <TextBlock Text="{Binding Data}" Style="{StaticResource TextoSuave}"
+                                                               TextWrapping="Wrap"
                                                                Visibility="{Binding Data, Converter={StaticResource TextoParaVisibilidade}}" />
                                                 </StackPanel>
 
@@ -517,7 +515,7 @@
                                                 </StackPanel>
 
                                                 <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                            VerticalAlignment="Top"
+                                                            VerticalAlignment="Top" Margin="16,0,0,0"
                                                             Visibility="{Binding Vigente, Converter={StaticResource BoolParaVisibilidade}}">
                                                     <!-- O primeiro leitor de
                                                          EvolucaoEnfermagem.AgendamentoId: ele era
@@ -557,18 +555,36 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-                    </DockPanel>
 
-                    <ctrl:EstadoDaTela Panel.ZIndex="1"
-                                       Itens="{Binding Registros}"
-                                       Carregando="{Binding Carregando}"
-                                       NaoVerificado="{Binding NaoVerificado}"
-                                       Glifo="&#xE9D5;"
-                                       Titulo="Nenhuma passagem ainda"
-                                       Descricao="Escreva ao lado o que você observou no paciente — a hora é a do fato, não a de agora."
-                                       TextoCarregando="Buscando as passagens…" />
-                </Grid>
-            </DockPanel>
-        </Grid>
+                        <ctrl:EstadoDaTela Itens="{Binding Registros}"
+                                           Carregando="{Binding Carregando}"
+                                           NaoVerificado="{Binding NaoVerificado}"
+                                           Glifo="&#xE9D5;"
+                                           Titulo="Nenhuma passagem ainda"
+                                           Descricao="Escreva na aba «A passagem de hoje» o que você observou no paciente — a hora é a do fato, não a de agora."
+                                           TextoCarregando="Buscando as passagens…" />
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ================ O QUE VEIO DO OUTRO LADO ================
+                 A sessão médica e a folha de infusão deste paciente — a metade XY da
+                 parcela 72: infundir sem saber a conduta da consulta de hoje é executar às
+                 cegas, e a recíproca é igualmente verdadeira.
+
+                 Numa aba inteira o componente deixa de ser COMPACTO: ele mostra a seção
+                 escolhida por completo, em vez das três primeiras linhas que cabiam no vão
+                 da coluna. -->
+            <TabItem Header="Conduta médica e infusões">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Text="O que o médico registrou e o que foi prescrito para a sala. Escolha a seção nos botões abaixo." />
+                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
+                    </DockPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </UserControl>

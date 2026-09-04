@@ -62,6 +62,18 @@ public sealed class CartaoMedida
 }
 
 /// <summary>
+/// Um tipo de medida na régua de chips: o rótulo que se lê e se ele é o desenhado agora.
+/// </summary>
+public sealed partial class ChipMedida : ObservableObject
+{
+    public required TipoMedida Tipo { get; init; }
+
+    [ObservableProperty] private bool _marcado;
+
+    public string Nome => Tipo.Nome;
+}
+
+/// <summary>
 /// ANTROPOMETRIA E SINAIS VITAIS — a série que faltava ao prontuário (parcela 37).
 ///
 /// Por que existe
@@ -105,7 +117,37 @@ public sealed partial class MedidasViewModel : ObservableObject
     public IReadOnlyList<TipoMedida> TiposAcompanhaveis { get; } =
         CatalogoMedidas.TodasAsMedidas;
 
+    /// <summary>
+    /// Os tipos como CHIPS (mockup 01). Era um ComboBox: para saber que existem sete
+    /// medidas acompanháveis era preciso abrir a lista, e a escolhida sumia quando ela
+    /// fechava.
+    ///
+    /// ⚠️ O estado marcado é do MODELO, e não de um conversor no XAML: é o padrão do
+    /// componente da linha do tempo, e ele mantém a régua num lugar só — com o
+    /// `IsChecked` amarrado por conversor, a marca do chip e a série desenhada podem
+    /// discordar sem que nada falhe.
+    /// </summary>
+    public ObservableCollection<ChipMedida> Chips { get; } = [];
+
     [ObservableProperty] private TipoMedida? _tipoAcompanhado;
+
+    /// <summary>Escolher o tipo pelo chip. Reclicar o marcado não faz nada.</summary>
+    [RelayCommand]
+    private void Acompanhar(ChipMedida? chip)
+    {
+        if (chip is null || chip.Tipo.Codigo == TipoAcompanhado?.Codigo) return;
+        TipoAcompanhado = chip.Tipo;
+    }
+
+    private void MarcarChips()
+    {
+        if (Chips.Count == 0)
+            foreach (var tipo in TiposAcompanhaveis)
+                Chips.Add(new ChipMedida { Tipo = tipo });
+
+        foreach (var chip in Chips)
+            chip.Marcado = chip.Tipo.Codigo == TipoAcompanhado?.Codigo;
+    }
 
     [ObservableProperty] private string _paciente = string.Empty;
     [ObservableProperty] private bool _semPaciente = true;
@@ -167,12 +209,20 @@ public sealed partial class MedidasViewModel : ObservableObject
         // IMC. Abrir num tipo que a clínica não usa mostraria curva vazia como boas-vindas.
         TipoAcompanhado = TiposAcompanhaveis.FirstOrDefault(t => t.Codigo == CatalogoMedidas.Peso);
 
+        // Rede da mesma armadilha: se o catálogo um dia não trouxer o peso, a atribuição
+        // acima não muda nada, o gancho não dispara e a régua nasceria vazia.
+        MarcarChips();
+
         if (_foco.Definido) _ = CarregarAsync();
     }
 
     private int PacienteId => _foco.PacienteId ?? 0;
 
-    partial void OnTipoAcompanhadoChanged(TipoMedida? value) => _ = CarregarAsync();
+    partial void OnTipoAcompanhadoChanged(TipoMedida? value)
+    {
+        MarcarChips();
+        _ = CarregarAsync();
+    }
 
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): trocar o tipo acompanhado dispara

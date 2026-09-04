@@ -69,62 +69,12 @@ public sealed class LinhaSessaoProntuario
     };
 }
 
-/// <summary>Uma linha da lista de problemas, com o que a tela precisa desenhar.</summary>
-public sealed class LinhaProblema
-{
-    public required ProblemaPaciente Fonte { get; init; }
-    public required string Rotulo { get; init; }
-    public required string Natureza { get; init; }
-    public required string Periodo { get; init; }
-    public required string Observacoes { get; init; }
-    public required string Situacao { get; init; }
-    public required bool Ativo { get; init; }
-    public required bool Alerta { get; init; }
-    public required bool Descartado { get; init; }
-
-    private static string Natu(NaturezaProblema n) => n switch
-    {
-        NaturezaProblema.Alergia => "Alergia",
-        NaturezaProblema.Antecedente => "Antecedente",
-        NaturezaProblema.MedicacaoContinua => "Uso contínuo",
-        _ => "Diagnóstico"
-    };
-
-    public static LinhaProblema De(ProblemaPaciente p) => new()
-    {
-        Fonte = p,
-        Rotulo = p.Rotulo,
-        Natureza = Natu(p.Natureza),
-        Periodo = p switch
-        {
-            { Inicio: { } i, Fim: { } f } => $"de {i:dd/MM/yyyy} a {f:dd/MM/yyyy}",
-            { Inicio: { } i } => $"desde {i:dd/MM/yyyy}",
-            { Fim: { } f } => $"encerrado em {f:dd/MM/yyyy}",
-            _ => "sem data informada"
-        },
-        Observacoes = string.IsNullOrWhiteSpace(p.Observacoes) ? string.Empty : p.Observacoes!,
-        Situacao = p.Situacao switch
-        {
-            SituacaoProblema.Resolvido => "Resolvido",
-            // O motivo vai JUNTO da situação: linha descartada sem o porquê deixa o
-            // próximo leitor sem saber se ela era falsa ou se o paciente melhorou.
-            SituacaoProblema.Descartado => string.IsNullOrWhiteSpace(p.MotivoDescarte)
-                ? "Descartado"
-                : $"Descartado — {p.MotivoDescarte}",
-            _ => "Ativo"
-        },
-        Ativo = p.EstaAtivo,
-        Alerta = p.EhAlertaDeAtendimento,
-        Descartado = p.Situacao == SituacaoProblema.Descartado
-    };
-}
-
 /// <summary>
 /// O PRONTUÁRIO COMPLETO na máquina de quem atende (parcela 37).
 ///
 /// Por que existe
 /// --------------
-/// A tela de Atendimento mostra as TRÊS últimas sessões ao lado do formulário, que é o
+/// A tela de Atendimento mostra as CINCO últimas sessões, numa aba própria, que é o
 /// certo para escrever a de hoje. Num tratamento de quarenta, a sessão 12 era
 /// inalcançável — e a busca por texto dentro do prontuário existia, testada e em uso,
 /// dentro do módulo da RECEPÇÃO. O comentário que a acompanha lá diz, com todas as letras:
@@ -149,13 +99,9 @@ public sealed class LinhaProblema
 public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
-    private readonly ISnackbarService _snackbar;
-    private readonly IDialogoService _dialogo;
     private readonly PacienteEmFoco _foco;
 
     public ObservableCollection<LinhaSessaoProntuario> Sessoes { get; } = [];
-
-    public ObservableCollection<LinhaProblema> Problemas { get; } = [];
 
     /// <summary>
     /// Busca por texto dentro do prontuário — a pergunta central de quem vai atender.
@@ -166,11 +112,6 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     /// <summary>O que a lista está mostrando. Filtro invisível é filtro que engana.</summary>
     [ObservableProperty] private string _resumoSessoes = string.Empty;
-
-    /// <summary>Mostrar também o que foi resolvido e descartado na lista de problemas.</summary>
-    [ObservableProperty] private bool _incluirProblemasEncerrados;
-
-    [ObservableProperty] private string _resumoProblemas = string.Empty;
 
     [ObservableProperty] private string _paciente = string.Empty;
     [ObservableProperty] private bool _semPaciente = true;
@@ -185,18 +126,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     public bool TemPaciente => !SemPaciente;
 
-    /// <summary>
-    /// Sem paciente escolhido não há lista de problemas onde escrever, e o botão diz isso
-    /// apagado — a tela abre pela sidebar sem ninguém em foco, e botão aceso que não faz
-    /// nada faz quem clica concluir que o sistema quebrou (parcela 41).
-    /// </summary>
-    public bool PodeNovoProblema => TemPaciente && PodeEditarProntuario;
-
-    partial void OnSemPacienteChanged(bool value)
-    {
-        OnPropertyChanged(nameof(TemPaciente));
-        OnPropertyChanged(nameof(PodeNovoProblema));
-    }
+    partial void OnSemPacienteChanged(bool value) => OnPropertyChanged(nameof(TemPaciente));
 
     /// <summary>
     /// ENFERMAGEM E INFUSÕES (parcela 72) — o mesmo componente da ficha e da tela da
@@ -212,13 +142,9 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// </summary>
     public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
 
-    public ProntuarioClinicoViewModel(
-        IServiceScopeFactory escopos, ISnackbarService snackbar,
-        IDialogoService dialogo, PacienteEmFoco foco)
+    public ProntuarioClinicoViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
     {
         _escopos = escopos;
-        _snackbar = snackbar;
-        _dialogo = dialogo;
         _foco = foco;
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
@@ -250,8 +176,6 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     partial void OnTermoSessaoChanged(string value) => _ = CarregarAsync();
 
-    partial void OnIncluirProblemasEncerradosChanged(bool value) => _ = CarregarAsync();
-
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): a tela recarrega a cada tecla do
     /// filtro de sessão, e a resposta do termo ANTIGO chegando por último ANEXARIA as
@@ -267,7 +191,6 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
         SemPaciente = PacienteId == 0;
         Sessoes.Clear();
-        Problemas.Clear();
 
         if (SemPaciente)
         {
@@ -331,7 +254,6 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
                 // sozinho faria o profissional concluir que o paciente veio três vezes.
                 : $"{Sessoes.Count} de {todas.Count} sessão(ões) contêm “{termo}”.";
 
-            await CarregarProblemasAsync(scope.ServiceProvider, geracao);
         }
         catch (Exception ex)
         {
@@ -350,45 +272,6 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// A lista de problemas falha SOZINHA: o prontuário não pode deixar de abrir porque
-    /// uma consulta quebrou. É a mesma regra dos blocos do painel da direção.
-    /// </summary>
-    private async Task CarregarProblemasAsync(IServiceProvider servicos, int geracao)
-    {
-        try
-        {
-            var servico = servicos.GetRequiredService<ProblemaPacienteService>();
-            var lista = await servico.DoPacienteAsync(
-                PacienteId, somenteAtivos: !IncluirProblemasEncerrados);
-
-            // Chegou tarde: outra carga já está no ar, e a lista é dela.
-            if (geracao != _geracaoCarga) return;
-
-            foreach (var p in lista) Problemas.Add(LinhaProblema.De(p));
-
-            var alertas = Problemas.Count(p => p.Alerta);
-            ResumoProblemas = Problemas.Count == 0
-                ? (IncluirProblemasEncerrados
-                    ? "Nenhum problema registrado para este paciente."
-                    : "Nenhum problema ATIVO. Pode haver linhas resolvidas ou descartadas — "
-                      + "marque a caixa para vê-las.")
-                : $"{Problemas.Count} linha(s)"
-                  + (alertas > 0 ? $", {alertas} com alerta de atendimento." : ".");
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — lista de problemas não pôde ser lida", ex);
-
-            if (geracao != _geracaoCarga) return;
-
-            // Terceiro estado, dito no lugar onde o profissional olha: lista vazia por
-            // falha não pode se parecer com "este paciente não tem alergia nenhuma".
-            ResumoProblemas = "Não foi possível ler a lista de problemas deste paciente — "
-                              + "ela está vazia por falha de leitura, não porque não haja nada.";
-        }
-    }
 
     /// <summary>
     /// A sessão contém o termo em algum dos campos escritos.
@@ -523,143 +406,4 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     // ------------------------------------------------------ lista de problemas
 
-    [RelayCommand]
-    private Task NovoProblemaAsync() => AbrirProblemaAsync(null);
-
-    [RelayCommand]
-    private Task EditarProblemaAsync(LinhaProblema? linha)
-        => linha is null ? Task.CompletedTask : AbrirProblemaAsync(linha.Fonte);
-
-    private async Task AbrirProblemaAsync(ProblemaPaciente? existente)
-    {
-        if (PacienteId == 0)
-        {
-            // A guarda DIZ por que não dá, em vez de voltar calada (parcela 41): o botão
-            // apagado explica, e esta é a metade que impede quem chega por atalho.
-            Mensagem = "Escolha um paciente antes de registrar um problema — a lista é do "
-                     + "prontuário de alguém.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-
-            var vm = new ProblemaEdicaoViewModel(_escopos, PacienteId, existente);
-            var janela = new ProblemaWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-
-            if (janela.ShowDialog() != true) return;
-
-            _snackbar.Sucesso("Lista de problemas atualizada.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — problema não pôde ser aberto", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    [RelayCommand]
-    private async Task ResolverProblemaAsync(LinhaProblema? linha)
-    {
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-
-            if (!_dialogo.Confirmar("Marcar como resolvido",
-                    $"Encerrar “{linha.Rotulo}” com a data de hoje? A linha continua no "
-                    + "prontuário — ela sai da lista de ativos, não da base."))
-                return;
-
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<ProblemaPacienteService>();
-            await servico.ResolverAsync(
-                linha.Fonte.Id, operador: SessaoUsuario.Atual.Operador);
-
-            _snackbar.Info("Problema marcado como resolvido.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — problema não pôde ser resolvido", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    /// <summary>
-    /// Desdiz a linha. O motivo é PEDIDO, e o serviço o exige — sem ele, quem ler depois
-    /// não sabe se a linha era falsa ou se o paciente melhorou.
-    /// </summary>
-    [RelayCommand]
-    private async Task DescartarProblemaAsync(LinhaProblema? linha)
-    {
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-
-            var motivo = _dialogo.PerguntarTexto(
-                "Descartar do prontuário",
-                $"Por que “{linha.Rotulo}” está sendo descartado? A linha não é apagada — "
-                + "ela esteve no prontuário, e conduta pode ter sido tomada com base nela.");
-
-            if (string.IsNullOrWhiteSpace(motivo)) return;
-
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<ProblemaPacienteService>();
-            await servico.DescartarAsync(
-                linha.Fonte.Id, motivo, SessaoUsuario.Atual.Operador);
-
-            _snackbar.Info("Linha descartada, com o motivo registrado.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — problema não pôde ser descartado", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    [RelayCommand]
-    private async Task ReabrirProblemaAsync(LinhaProblema? linha)
-    {
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<ProblemaPacienteService>();
-            await servico.ReabrirAsync(linha.Fonte.Id, SessaoUsuario.Atual.Operador);
-
-            _snackbar.Info("Problema reaberto.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — problema não pôde ser reaberto", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    /// <summary>Abre a tela de medidas do mesmo paciente, sem perder o foco do posto.</summary>
-    [RelayCommand]
-    private void VerMedidas() => NavegacaoSuite.Ir(ModuloClinico.ChaveMedidas);
 }
