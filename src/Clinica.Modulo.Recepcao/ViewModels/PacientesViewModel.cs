@@ -167,9 +167,13 @@ public sealed partial class PacientesViewModel : ObservableObject
         if (janela.ShowDialog() != true) return;
 
         _snackbar.Sucesso("Paciente cadastrado.");
-        await Seletor.BuscarAsync(imediato: true);
-    }
 
-    [RelayCommand]
-    private Task AtualizarAsync() => Seletor.BuscarAsync(imediato: true);
+        // ⚠️ Busca pelo NOME de quem acabou de ser cadastrado, e não "recarrega a lista".
+        //
+        // Com a tela OCIOSA (set/2026) recarregar não faria nada — `BuscarAsync` sai cedo
+        // sem consultar —, e a pessoa veria "Paciente cadastrado." com a tela em branco,
+        // que se lê como "não salvou". Buscar pelo nome sai do ocioso E mostra exatamente
+        // a ficha nova, em vez de trazer as 2.284 para ela se perder no meio.
+        Seletor.Termo = vm.Nome;
+    }
 }
