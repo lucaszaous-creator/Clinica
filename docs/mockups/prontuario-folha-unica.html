@@ -1,0 +1,1226 @@
+<title>O prontuário na folha única</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{
+  background:var(--pg); color:var(--tinta);
+  font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  font-size:16px; line-height:1.55; margin:0;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 28px 80px}
+.eyebrow{
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--mudo); margin:0 0 10px;
+}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:70ch}
+a{color:var(--acento)}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:52px 0}
+
+/* ---------- placar do estado de hoje ---------- */
+.placar{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden; margin:34px 0 0}
+.placar div{background:var(--sup); padding:18px 20px}
+.placar .n{font-family:"IBM Plex Mono",monospace; font-size:30px; font-weight:600; letter-spacing:-.03em; color:var(--tinta); line-height:1.1; font-variant-numeric:tabular-nums}
+.placar .r{font-size:13px; color:var(--mudo); margin-top:4px}
+
+/* ---------- listas de regra ---------- */
+.regras{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:2px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.regras li{background:var(--sup); padding:16px 20px; display:grid; grid-template-columns:26px 1fr; gap:14px; align-items:start}
+.regras .marca{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--acento); padding-top:3px}
+.regras b{font-weight:600}
+.regras span.txt{font-size:14.5px; line-height:1.55; color:var(--tinta-2)}
+
+/* ---------- cabeçalho de cada opção ---------- */
+.opcao{margin-top:56px; scroll-margin-top:20px}
+.op-topo{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.op-letra{
+  font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px;
+  background:var(--acento); color:var(--sobre-acento); border-radius:6px; padding:3px 9px; letter-spacing:.04em;
+}
+.contador{
+  margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--mudo);
+  border:1px solid var(--fio-forte); border-radius:999px; padding:4px 12px; white-space:nowrap;
+}
+.contador b{color:var(--tinta); font-weight:600}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; line-height:1.6; color:var(--tinta-2); max-width:72ch; margin:0 0 22px}
+
+/* ---------- análise sob cada mockup ---------- */
+.analise{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; margin-top:20px}
+.bloco{border-left:3px solid var(--fio-forte); padding:2px 0 2px 16px}
+.bloco.g{border-color:var(--ganho)}
+.bloco.c{border-color:var(--custo)}
+.bloco.e{border-color:var(--acento)}
+.bloco h4{margin:0 0 6px; font-size:11.5px; font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo)}
+.bloco.g h4{color:var(--ganho)} .bloco.c h4{color:var(--custo)} .bloco.e h4{color:var(--acento)}
+.bloco p{font-size:14.5px; line-height:1.55; color:var(--tinta-2); margin:0}
+
+/* ---------- tabela final ---------- */
+.tab-wrap{overflow-x:auto; border:1px solid var(--fio); border-radius:12px; margin-top:26px; background:var(--sup)}
+table{border-collapse:collapse; width:100%; min-width:820px; font-size:14px}
+th,td{text-align:left; padding:12px 16px; border-bottom:1px solid var(--fio); vertical-align:top}
+thead th{background:var(--sup-2); font-size:11.5px; font-family:"IBM Plex Mono",monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--mudo); font-weight:600; white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.op{font-weight:600; white-space:nowrap}
+td .lt{font-family:"IBM Plex Mono",monospace; color:var(--mudo); margin-right:8px}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+
+/* ---------- recomendação ---------- */
+.reco{background:var(--sup); border:1px solid var(--fio); border-top:3px solid var(--acento); border-radius:12px; padding:28px 30px; margin-top:30px; box-shadow:var(--sombra)}
+.reco h2{margin-bottom:12px}
+.perguntas{list-style:none; padding:0; margin:18px 0 0; display:grid; gap:12px}
+.perguntas li{display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.perguntas .q{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--acento); font-weight:600; padding-top:2px}
+
+.nota{font-size:13px; color:var(--mudo); font-style:italic; font-family:"IBM Plex Serif",Georgia,serif; margin-top:14px}
+
+/* ======================================================================
+   A TELA — render fiel do app. Paleta FIXA (o app é claro), tokens do
+   repositório: tokens/colors.css. Nomes iguais aos de lá, de propósito:
+   o mockup aprovado vira tradução, não uma segunda paleta.
+   ====================================================================== */
+.moldura{overflow-x:auto; border-radius:12px; background:var(--sup-2); padding:0}
+.tela{
+  --acento:#123A9E; --acento-suave:#EEF3FC; --acento-tint:#D8E3F7;
+  --fundo:#F8FAFC; --superficie:#FFFFFF; --superficie-hover:#F1F5F9;
+  --borda:#E5E7EB; --borda-hover:#D1D5DB;
+  --texto-primario:#111827; --texto-secundario:#6B7280; --texto-corpo:#374151;
+  --sucesso:#16A34A; --sucesso-forte:#15803D; --sucesso-suave:#DCFCE7;
+  --aviso:#EA580C; --aviso-texto:#C2410C; --aviso-suave:#FFEDD5;
+  --erro:#DC2626; --erro-texto:#B91C1C; --erro-suave:#FEE2E2;
+  --info:#0EA5E9; --info-texto:#0369A1; --info-suave:#E0F2FE;
+  --bsv:#0D9488;
+  min-width:1000px; background:var(--fundo); color:var(--texto-primario);
+  font-family:"Segoe UI",Inter,system-ui,sans-serif; font-size:14px; line-height:1.45;
+  border:1px solid #C3C9D6; border-radius:12px; overflow:hidden; box-shadow:var(--sombra);
+}
+.tela *{box-sizing:border-box}
+.tela .cracha{background:var(--superficie); border-bottom:1px solid var(--borda); padding:12px 20px; display:flex; align-items:center; gap:14px}
+.tela .av{width:38px; height:38px; border-radius:999px; background:var(--acento-suave); color:var(--acento); font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none}
+.tela .nome{font-size:17px; font-weight:600; letter-spacing:-.01em}
+.tela .meta{font-size:12px; color:var(--texto-secundario); margin-top:1px}
+.tela .cracha .dir{margin-left:auto; display:flex; gap:8px; align-items:center}
+.tela .alerta-cracha{background:var(--erro-suave); color:var(--erro-texto); font-size:11.5px; font-weight:600; border-radius:999px; padding:3px 10px}
+.tela .corpo{display:flex; min-height:392px}
+.tela .rail{width:196px; flex:none; background:var(--superficie); border-right:1px solid var(--borda); padding:10px 8px}
+.tela .rail div{font-size:13px; color:var(--texto-corpo); padding:7px 10px; border-radius:6px; margin-bottom:1px; line-height:1.35}
+.tela .rail div.on{background:var(--acento-suave); color:var(--acento); font-weight:600}
+.tela .rail .grp{font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--texto-secundario); padding:12px 10px 4px; font-weight:600}
+.tela .principal{flex:1; padding:16px 20px 0; display:flex; flex-direction:column; min-width:0}
+.tela .col2{display:flex; gap:16px; flex:1; min-height:0}
+.tela .escrita{flex:1; min-width:0; display:flex; flex-direction:column}
+.tela .lado{width:274px; flex:none}
+
+/* tira de medidas */
+.tela .tira{display:flex; align-items:center; gap:18px; background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:9px 14px; margin-bottom:12px; flex-wrap:wrap}
+.tela .tira .t{display:flex; align-items:baseline; gap:6px}
+.tela .tira .k{font-size:11px; color:var(--texto-secundario); text-transform:uppercase; letter-spacing:.05em; font-weight:600}
+.tela .tira .v{font-size:14px; font-weight:600; font-variant-numeric:tabular-nums}
+.tela .tira .cx{border:1px solid var(--borda-hover); border-radius:4px; padding:2px 9px; font-weight:600; font-variant-numeric:tabular-nums; background:#fff}
+.tela .tira .sep{width:1px; height:20px; background:var(--borda)}
+.tela .tira .quieto{color:var(--texto-secundario); font-weight:400}
+
+/* campo de escrita */
+.tela .campo{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; display:flex; flex-direction:column; min-height:0}
+.tela .campo + .campo{margin-top:10px}
+.tela .campo .rot{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); padding:10px 14px 0; display:flex; align-items:center; gap:8px}
+.tela .campo .rot .x{margin-left:auto; color:var(--texto-secundario); font-weight:400; font-size:12px; letter-spacing:0; text-transform:none}
+.tela .campo .txt{padding:6px 14px 14px; font-size:14px; line-height:1.62; color:var(--texto-primario); flex:1}
+.tela .campo .txt p{margin:0 0 9px}
+.tela .campo .txt p:last-child{margin:0}
+.tela .campo .txt .cursor{display:inline-block; width:1.5px; height:15px; background:var(--acento); vertical-align:-3px; margin-left:1px}
+.tela .campo.foco{border-color:var(--acento); box-shadow:0 0 0 3px rgba(63,98,201,.16)}
+.tela .placeholder{color:#9AA3B2}
+
+/* chips / blocos sob demanda */
+.tela .chips{display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin:10px 0 2px}
+.tela .chips .lbl{font-size:11.5px; color:var(--texto-secundario); margin-right:2px}
+.tela .chip{border:1px dashed var(--borda-hover); background:#fff; color:var(--texto-corpo); border-radius:999px; padding:4px 12px; font-size:12.5px; white-space:nowrap}
+.tela .chip.on{border-style:solid; border-color:var(--acento); background:var(--acento-suave); color:var(--acento); font-weight:600}
+
+/* rodapé de ação */
+.tela .rodape{border-top:1px solid var(--borda); background:var(--superficie); padding:11px 20px; display:flex; align-items:center; gap:10px; margin:14px -20px 0}
+.tela .rodape.solto{margin:0}
+.tela .dica{font-size:12px; color:var(--texto-secundario); margin-right:auto}
+.tela .btn{border:1px solid var(--borda-hover); background:#fff; color:var(--texto-corpo); border-radius:8px; padding:8px 14px; font-size:13.5px; font-weight:500; display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
+.tela .btn.pri{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .btn.ghost{border-color:transparent; color:var(--acento); font-weight:600}
+.tela .btn svg{width:15px; height:15px; flex:none}
+
+/* barra superior de ações da tela */
+.tela .barra{display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap}
+.tela .barra .tit{font-size:15px; font-weight:600; margin-right:auto}
+
+/* avisos consolidados */
+.tela .avisos{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; margin-bottom:12px; overflow:hidden}
+.tela .avisos .lin{display:flex; gap:10px; align-items:center; padding:8px 14px; font-size:12.5px; color:var(--texto-corpo); border-left:3px solid var(--aviso)}
+.tela .avisos .lin + .lin{border-top:1px solid var(--borda)}
+.tela .avisos .lin.perigo{border-left-color:var(--erro)}
+.tela .avisos .lin b{font-weight:600}
+.tela .avisos .lin .acao{margin-left:auto; color:var(--acento); font-weight:600; font-size:12px; white-space:nowrap}
+
+/* coluna da direita — sessão anterior */
+.tela .anterior{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:12px 14px; height:100%; overflow:hidden}
+.tela .anterior .h{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); margin-bottom:8px}
+.tela .anterior .d{font-size:12.5px; font-weight:600; color:var(--acento); margin-bottom:2px}
+.tela .anterior .c{font-size:12.5px; color:var(--texto-corpo); line-height:1.5; margin-bottom:10px}
+.tela .anterior .c .k{color:var(--texto-secundario)}
+.tela .gaveta{width:34px; flex:none; background:var(--superficie); border:1px solid var(--borda); border-radius:8px; display:flex; align-items:center; justify-content:center}
+.tela .gaveta span{writing-mode:vertical-rl; transform:rotate(180deg); font-size:11.5px; letter-spacing:.06em; color:var(--acento); font-weight:600; text-transform:uppercase}
+
+/* detalhar recolhido */
+.tela .detalhar{border:1px solid var(--borda); border-radius:8px; background:var(--superficie); padding:10px 14px; margin-top:10px; display:flex; align-items:center; gap:9px; font-size:13px; color:var(--texto-corpo)}
+.tela .detalhar .cv{color:var(--texto-secundario); font-size:11px}
+.tela .detalhar .marca{margin-left:auto; font-size:11.5px; color:var(--aviso-texto); background:var(--aviso-suave); border-radius:999px; padding:2px 9px; font-weight:600}
+
+/* roteiros */
+.tela .roteiros{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap}
+.tela .rot-card{border:1px solid var(--borda); background:var(--superficie); border-radius:8px; padding:8px 12px; font-size:12.5px; min-width:150px}
+.tela .rot-card b{display:block; font-size:13px; font-weight:600; margin-bottom:1px}
+.tela .rot-card span{color:var(--texto-secundario); font-size:11.5px}
+.tela .rot-card.on{border-color:var(--acento); background:var(--acento-suave)}
+
+/* faixa da enfermagem sob cada mockup */
+.enf{margin-top:14px}
+.enf .cap{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin-bottom:7px}
+.tela.mini{min-width:1000px}
+.tela.mini .corpo{min-height:0}
+.tela.mini .principal{padding:14px 20px}
+
+@media (max-width:720px){
+  .wrap{padding:34px 16px 60px}
+  h1{font-size:32px}
+  .contador{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+/* ===== acréscimos desta folha: tabela, selos, KPI, gráfico, busca ===== */
+.tela .painel{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; overflow:hidden}
+.tela .painel + .painel{margin-top:12px}
+.tela .painel-cab{display:flex; align-items:center; gap:10px; padding:11px 14px; border-bottom:1px solid var(--borda)}
+.tela .painel-cab .t{font-size:13px; font-weight:600}
+.tela .painel-cab .c{font-size:12px; color:var(--texto-secundario)}
+.tela .painel-cab .dir{margin-left:auto; display:flex; gap:8px; align-items:center}
+
+.tela .tab{width:100%; border-collapse:collapse; font-size:13px}
+.tela .tab th{background:var(--superficie-hover); text-align:left; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); font-weight:700; padding:8px 12px; border-bottom:1px solid var(--borda); white-space:nowrap}
+.tela .tab td{padding:9px 12px; border-bottom:1px solid var(--borda); vertical-align:middle; color:var(--texto-corpo)}
+.tela .tab tr:last-child td{border-bottom:0}
+.tela .tab td.forte{color:var(--texto-primario); font-weight:600}
+.tela .tab td.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+.tela .tab td.acoes{text-align:right; white-space:nowrap}
+.tela .tab tr.destaque td{background:var(--acento-suave)}
+.tela .corte{max-width:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+.tela .selo{display:inline-block; font-size:11px; font-weight:600; border-radius:999px; padding:2px 9px; white-space:nowrap}
+.tela .selo.ok{background:var(--sucesso-suave); color:var(--sucesso-forte)}
+.tela .selo.esp{background:var(--aviso-suave); color:var(--aviso-texto)}
+.tela .selo.erro{background:var(--erro-suave); color:var(--erro-texto)}
+.tela .selo.info{background:var(--info-suave); color:var(--info-texto)}
+.tela .selo.quieto{background:var(--superficie-hover); color:var(--texto-secundario)}
+.tela .selo.bsv{background:#CCFBF1; color:#0F766E}
+
+.tela .mini-btn{border:1px solid var(--borda-hover); background:#fff; border-radius:6px; padding:3px 10px; font-size:12px; color:var(--texto-corpo); display:inline-block}
+.tela .mini-btn.pri{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .mais{color:var(--texto-secundario); padding:0 6px; letter-spacing:.08em}
+
+.tela .kpis{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px}
+.tela .kpi{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:11px 16px; min-width:148px}
+.tela .kpi .r{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); font-weight:700}
+.tela .kpi .v{font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1.2; font-variant-numeric:tabular-nums; margin-top:2px}
+.tela .kpi .d{font-size:11.5px; color:var(--texto-secundario)}
+.tela .kpi .d.bom{color:var(--sucesso-forte); font-weight:600}
+.tela .kpi.acento{background:var(--acento-suave); border-color:var(--acento-tint)}
+.tela .kpi.acento .v{color:var(--acento)}
+
+.tela .busca{display:flex; align-items:center; gap:8px; border:1px solid var(--borda-hover); background:#fff; border-radius:999px; padding:7px 14px; font-size:13px; color:#9AA3B2; min-width:280px}
+.tela .busca svg{width:14px; height:14px; color:var(--texto-secundario); flex:none}
+
+.tela .grafico{padding:12px 14px 6px}
+.tela .grafico svg{width:100%; height:auto; display:block}
+.tela .legenda{display:flex; gap:16px; padding:0 14px 12px; font-size:11.5px; color:var(--texto-secundario)}
+.tela .legenda i{display:inline-block; width:16px; height:2px; vertical-align:3px; margin-right:6px}
+
+.tela .vazio{padding:26px 14px; text-align:center; color:var(--texto-secundario); font-size:12.5px}
+.tela .vazio b{display:block; color:var(--texto-primario); font-size:13.5px; margin-bottom:3px}
+
+.tela .ficha{display:grid; grid-template-columns:repeat(3,1fr); gap:0}
+.tela .ficha .c{padding:12px 16px; border-right:1px solid var(--borda); border-bottom:1px solid var(--borda)}
+.tela .ficha .c:nth-child(3n){border-right:0}
+.tela .ficha .k{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); font-weight:700; margin-bottom:3px}
+.tela .ficha .v{font-size:14px; color:var(--texto-primario)}
+.tela .ficha .v.quieto{color:var(--texto-secundario)}
+
+.tela .ancoras{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px}
+.tela .ancoras span{font-size:12px; padding:4px 11px; border-radius:999px; border:1px solid var(--borda); background:#fff; color:var(--texto-corpo)}
+.tela .ancoras span.on{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .ancoras span.vazio-a{color:#9AA3B2}
+
+/* etiqueta da regra da casa aplicada em cada tela */
+.regra-tag{display:inline-flex; align-items:center; gap:8px; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--mudo); border:1px solid var(--fio); border-radius:999px; padding:4px 12px; margin-bottom:14px}
+.regra-tag b{color:var(--acento); font-weight:600; letter-spacing:.06em}
+.muda{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top:18px}
+.muda .it{border-left:3px solid var(--fio-forte); padding:1px 0 1px 14px}
+.muda .it.g{border-color:var(--ganho)} .muda .it.a{border-color:var(--atencao)}
+.muda h4{margin:0 0 4px; font-size:11px; font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--mudo)}
+.muda .it.g h4{color:var(--ganho)} .muda .it.a h4{color:var(--atencao)}
+.muda p{font-size:14px; line-height:1.55; color:var(--tinta-2); margin:0}
+
+/* a barra lateral, em três grupos */
+.rail-demo{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-top:24px}
+.rail-col{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:14px 16px}
+.rail-col .g{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); font-weight:600; margin-bottom:9px}
+.rail-col ul{list-style:none; margin:0; padding:0; display:grid; gap:5px}
+.rail-col li{font-size:14px; color:var(--tinta-2); display:flex; align-items:center; gap:8px}
+.rail-col li .nova{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.08em; background:var(--acento-suave); color:var(--acento); border:1px solid var(--fio); border-radius:999px; padding:1px 7px; font-weight:600}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Clínica SemDor · Módulo Consultório · continuação do desenho A</p>
+  <h1>O prontuário na folha única</h1>
+  <p class="lede">
+    A <b>01 — Folha única</b> foi aprovada, e ela desenhava só a tela de escrever. Estas são as
+    outras sete do Consultório na mesma língua: uma superfície por região, o número em cima, a
+    ação no rodapé — e nada de pilha de cartões.
+  </p>
+
+  <div class="placar">
+    <div><div class="n">7</div><div class="r">telas redesenhadas aqui, mais a barra lateral que a 01 tinha encurtado para caber no desenho</div></div>
+    <div><div class="n">3</div><div class="r">cartões empilhados que o Histórico perde: medidas, lista de problemas e enfermagem viram uma linha do tempo só</div></div>
+    <div><div class="n">6→1</div><div class="r">botões por linha em Prescrições — a ação principal fica à vista, o resto vai para o “⋯”</div></div>
+    <div><div class="n">1</div><div class="r">tela nova: <b>Paciente</b>. Na 01 era só o título de um grupo — você pediu como tela, e ela é a que faltava</div></div>
+  </div>
+
+  <hr class="reg">
+
+  <h2>Primeiro, a barra lateral</h2>
+  <p class="prosa">
+    Na 01 eu encurtei o rail para o desenho caber, e isso escondeu o problema: hoje são
+    <b>nove itens numa lista corrida</b>, sem grupo nenhum, em que “Anamnese” (escrita uma vez na
+    vida) tem o mesmo peso de “Atendimento” (aberto vinte vezes por dia). Em três grupos, a
+    barra passa a dizer <i>quando</i> se usa cada uma.
+  </p>
+
+  <div class="rail-demo">
+    <div class="rail-col">
+      <div class="g">Sessão · agora</div>
+      <ul>
+        <li>Atendimento</li>
+        <li>Atendimento de enfermagem</li>
+        <li>Anamnese</li>
+      </ul>
+    </div>
+    <div class="rail-col">
+      <div class="g">Paciente · o que já existe</div>
+      <ul>
+        <li>Paciente <span class="nova">nova</span></li>
+        <li>Histórico</li>
+        <li>Exames e anexos</li>
+        <li>Prescrições e documentos</li>
+      </ul>
+    </div>
+    <div class="rail-col">
+      <div class="g">Acompanhamento · a curva</div>
+      <ul>
+        <li>Evolução da dor</li>
+        <li>Medidas</li>
+        <li>Avaliações</li>
+      </ul>
+    </div>
+  </div>
+  <p class="nota">
+    “Paciente” é a única linha nova. Se você preferir, ela volta a ser só o título do grupo — e
+    aí o que ela mostra se divide entre o crachá do topo e o Histórico, como é hoje.
+  </p>
+
+  <hr class="reg">
+
+  <!-- ===================== PACIENTE ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">1</span><h2>Paciente</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · quem lê não edita — o cadastro continua sendo da Recepção</span>
+    <p class="tese">
+      A capa: quem é, o que ela tem, o que está no ar em nome dela. É a tela que responde as
+      perguntas que hoje obrigam a sair do Consultório e abrir a ficha na Recepção — e ela é
+      <b>só de leitura</b>: alterar telefone e convênio continua sendo do balcão, que é quem tem
+      o paciente na frente.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões · paciente desde 30/07/2024</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div class="on">Paciente</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="painel">
+              <div class="ficha">
+                <div class="c"><div class="k">Nascimento</div><div class="v">14/03/1971 · 55 anos</div></div>
+                <div class="c"><div class="k">Documento</div><div class="v">123.456.789-00</div></div>
+                <div class="c"><div class="k">Telefone</div><div class="v">(22) 99999-0000</div></div>
+                <div class="c"><div class="k">Convênio</div><div class="v">Unimed Costa do Sol · carteirinha 01806205000049008</div></div>
+                <div class="c"><div class="k">Validade da carteirinha</div><div class="v">31/12/2026</div></div>
+                <div class="c"><div class="k">Em tratamento desde</div><div class="v">30/07/2024 · 18 sessões</div></div>
+              </div>
+            </div>
+
+            <div class="painel">
+              <div class="painel-cab">
+                <span class="t">Lista de problemas</span>
+                <span class="c">4 ativos</span>
+                <span class="dir"><span class="mini-btn">Novo problema…</span></span>
+              </div>
+              <table class="tab">
+                <thead><tr><th>Problema</th><th>CID</th><th>Desde</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                  <tr class="destaque"><td class="forte">Alergia a dipirona</td><td>—</td><td class="num">12/08/2026</td><td><span class="selo erro">Alerta permanente</span></td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                  <tr><td class="forte">Fibromialgia</td><td>M79.7</td><td class="num">30/07/2024</td><td><span class="selo info">Ativo</span></td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                  <tr><td class="forte">Dor crônica difusa</td><td>R52.2</td><td class="num">30/07/2024</td><td><span class="selo info">Ativo</span></td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                  <tr><td class="forte">Lombalgia</td><td>M54.5</td><td class="num">02/02/2026</td><td><span class="selo quieto">Resolvido em 14/05</span></td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="painel">
+              <div class="painel-cab">
+                <span class="t">Termos e consentimentos</span>
+                <span class="c">o que ela assinou</span>
+                <span class="dir"><span class="mini-btn pri">Colher termo…</span></span>
+              </div>
+              <table class="tab">
+                <thead><tr><th>Documento</th><th>Assinado em</th><th>Situação</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td class="forte">TCLE — bloqueio simpático venoso</td><td class="num">30/07/2024</td><td><span class="selo ok">Vale para o tratamento</span></td><td class="acoes"><span class="mini-btn">2ª via</span></td></tr>
+                  <tr><td class="forte">Termo da sessão de hoje (jejum)</td><td class="num">—</td><td><span class="selo esp">Falta assinar</span></td><td class="acoes"><span class="mini-btn pri">Colher</span></td></tr>
+                  <tr><td class="forte">Consentimento LGPD</td><td class="num">—</td><td><span class="selo esp">Nunca colhido</span></td><td class="acoes"><span class="mini-btn">Colher</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="rodape">
+              <span class="dica">Contato e convênio são editados na ficha da Recepção — aqui é leitura</span>
+              <button class="btn">Abrir na Recepção</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a capa</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>A alergia deixa de existir só como um selo vermelho no crachá e passa a ter uma lista com data, CID e situação. O termo que falta assinar aparece <i>antes</i> de o paciente entrar na sala, não no meio da sessão.</p></div>
+      <div class="it a"><h4>O que decidir</h4><p>Se a tela não for aprovada, a lista de problemas volta para dentro do Histórico (onde está hoje) e os termos continuam só no botão “Colher termo…” do Atendimento.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== HISTÓRICO ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">2</span><h2>Histórico</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · quantas perguntas esta tela responde? Mais de uma, mais de uma tela</span>
+    <p class="tese">
+      Hoje ela responde quatro perguntas empilhadas — medidas, problemas, enfermagem e as
+      sessões — e a lista de sessões, que é o assunto, começa depois de três cartões. Aqui ela
+      responde <b>uma</b>: o que já aconteceu com este paciente, em ordem, com um filtro por
+      natureza. Medidas e problemas saem daqui porque agora têm tela própria.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div class="on">Histórico</div>
+            <div>Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="barra">
+              <div class="busca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar no prontuário (queixa, conduta, evolução…)</div>
+              <span class="chip on">Tudo · 41</span>
+              <span class="chip">Sessões · 18</span>
+              <span class="chip">Enfermagem · 12</span>
+              <span class="chip">Infusões · 6</span>
+              <span class="chip">Documentos · 5</span>
+            </div>
+            <div class="painel">
+              <table class="tab">
+                <thead><tr><th style="width:104px">Quando</th><th style="width:120px">O quê</th><th>Registro</th><th style="width:150px">Quem assina</th><th style="width:120px"></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="num forte">04/09 · 14h05</td>
+                    <td><span class="selo bsv">Sessão</span></td>
+                    <td class="corte">Retorno de BSV. Refere melhora da dor difusa — dormiu a noite inteira duas vezes na semana. Bloqueio com lidocaína 2%…</td>
+                    <td>Dr. Gustavo Lacerda</td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="num forte">04/09 · 14h20</td>
+                    <td><span class="selo info">Enfermagem</span></td>
+                    <td class="corte">Recebida para BSV. Punção em MSD, jelco 20, sem dificuldade. PA 138/72, FC 80, T 36,4, SpO₂ 98.</td>
+                    <td>Joana Ribeiro · COREN</td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="num forte">04/09 · 14h35</td>
+                    <td><span class="selo quieto">Infusão</span></td>
+                    <td class="corte">Folha 2026/0012 — 3 itens, 2 administrados, 1 não realizado (justificado).</td>
+                    <td>Joana Ribeiro · COREN</td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="num forte">27/08 · 14h10</td>
+                    <td><span class="selo bsv">Sessão</span></td>
+                    <td class="corte">Procedimento realizado: bloqueio simpático venoso. Fibromialgia / dor crônica. Paciente 85 kg. Infundido em 90 min…</td>
+                    <td>Dr. Gustavo Lacerda</td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="num forte">20/08</td>
+                    <td><span class="selo quieto">Receita</span></td>
+                    <td class="corte">Receituário 2026/0044 — assinado com e-CPF, publicado até 04/10.</td>
+                    <td>Dr. Gustavo Lacerda</td>
+                    <td class="acoes"><span class="mini-btn">2ª via</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="num forte">12/08</td>
+                    <td><span class="selo erro">Intercorrência</span></td>
+                    <td class="corte">Reação a dipirona durante a infusão — item não realizado, registrado como alergia na lista de problemas.</td>
+                    <td>Joana Ribeiro · COREN</td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="num forte">30/07/2024</td>
+                    <td><span class="selo quieto">Importado</span></td>
+                    <td class="corte">Prontuário do Smart Clinic — primeira consulta, anamnese e conduta inicial.</td>
+                    <td>Sistema anterior</td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rodape">
+              <span class="dica">41 registros · mostrando os 7 mais recentes · role para ver o resto</span>
+              <button class="btn">Exportar o prontuário</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir o histórico</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>Uma linha do tempo em vez de quatro caixas. Sessão do médico, passagem da enfermagem, infusão e documento aparecem <i>na ordem em que aconteceram</i> — que é como o dia aconteceu, e é o que a segunda foto mostra que hoje não acontece.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>Sessão médica e passagem de enfermagem continuam sendo listas separadas por baixo: os números de registro são por tabela, e um “cancelar” na linha errada cancelaria o registro de outra pessoa. A tela funde a <i>vista</i>, nunca as listas.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== EXAMES E ANEXOS ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">3</span><h2>Exames e anexos</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · a pergunta é “eu pedi; chegou?” — e ela se responde numa linha</span>
+    <p class="tese">
+      Hoje são duas seções empilhadas — <i>resultados de exame</i> e <i>arquivos da ficha</i> — e
+      o pedido que ainda não voltou fica numa terceira tela. Aqui é uma tabela só, do pedido ao
+      laudo: quem pediu, quando, e se voltou. O botão de anexar o laudo mora <b>na linha do
+      pedido</b>, que é onde a pessoa está olhando quando o PDF chega pelo WhatsApp.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div>Histórico</div>
+            <div class="on">Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="barra">
+              <span class="chip on">Tudo · 7</span>
+              <span class="chip">Aguardando · 2</span>
+              <span class="chip">Com resultado · 3</span>
+              <span class="chip">Arquivos da ficha · 2</span>
+            </div>
+            <div class="painel">
+              <table class="tab">
+                <thead><tr><th>Exame ou arquivo</th><th style="width:110px">Pedido em</th><th style="width:110px">Resultado</th><th style="width:170px">Situação</th><th style="width:200px"></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="forte">Hemograma completo <span class="selo quieto">2026/0031</span></td>
+                    <td class="num">28/08</td><td class="num">—</td>
+                    <td><span class="selo esp">Aguardando há 7 dias</span></td>
+                    <td class="acoes"><span class="mini-btn pri">Anexar laudo…</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">TSH e T4 livre <span class="selo quieto">2026/0031</span></td>
+                    <td class="num">28/08</td><td class="num">—</td>
+                    <td><span class="selo esp">Aguardando há 7 dias</span></td>
+                    <td class="acoes"><span class="mini-btn pri">Anexar laudo…</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">RX de coluna lombar <span class="selo quieto">2026/0028</span></td>
+                    <td class="num">02/08</td><td class="num">09/08</td>
+                    <td><span class="selo ok">Laudo anexado</span></td>
+                    <td class="acoes"><span class="mini-btn">Abrir laudo</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Vitamina D <span class="selo quieto">2026/0019</span></td>
+                    <td class="num">14/05</td><td class="num">21/05</td>
+                    <td><span class="selo ok">28 ng/mL · com laudo</span></td>
+                    <td class="acoes"><span class="mini-btn">Abrir laudo</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Receitas do sistema anterior (7 folhas)</td>
+                    <td class="num">—</td><td class="num">30/07/2024</td>
+                    <td><span class="selo quieto">Arquivo da ficha · importado</span></td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Ressonância de ombro D (trazida pela paciente)</td>
+                    <td class="num">—</td><td class="num">11/03</td>
+                    <td><span class="selo quieto">Arquivo da ficha</span></td>
+                    <td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rodape">
+              <span class="dica">Nada se apaga aqui — cancelar um laudo pede motivo, e a linha fica</span>
+              <button class="btn">Anexar arquivo à ficha…</button>
+              <button class="btn pri">Novo pedido de exame…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>“Aguardando há 7 dias” é a informação que a tela existe para dar, e hoje ela não aparece em lugar nenhum: o pedido some numa lista da clínica inteira e o laudo entra por outra porta. Aqui os dois são a mesma linha.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>O laudo anexado continua amarrado ao <i>pedido</i> que o gerou — é isso que faz a espera dar baixa sozinha. Anexar um laudo solto continua possível, e ele cai como arquivo da ficha, sem fingir que responde a um pedido.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== PRESCRIÇÕES ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">4</span><h2>Prescrições e documentos</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · ninguém pensa “vou emitir um documento” — pensa “vou dar um atestado”</span>
+    <p class="tese">
+      Os quatro botões de emitir ficam, e ficam à vista: ali a decisão vem antes do clique. O que
+      muda é a lista — hoje cada linha carrega <b>seis</b> botões (2ª via, assinar, enviar,
+      renovar link, tirar do ar, cancelar), o que faz a tela inteira parecer um painel de
+      controle. Fica um botão, o que aquela linha está pedindo, e o resto no “⋯”.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div class="on">Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="barra">
+              <span class="tit">Emitir agora</span>
+              <button class="btn pri">Receita</button>
+              <button class="btn">Atestado</button>
+              <button class="btn">Comparecimento</button>
+              <button class="btn">Pedido de exame</button>
+            </div>
+            <div class="avisos">
+              <div class="lin perigo"><b>Alergia a dipirona</b> — a receita é conferida contra a lista de problemas antes de assinar<span class="acao">Ver a lista</span></div>
+            </div>
+            <div class="painel">
+              <div class="painel-cab"><span class="t">O que já saiu</span><span class="c">5 documentos · 1 no ar</span></div>
+              <table class="tab">
+                <thead><tr><th style="width:230px">Documento</th><th style="width:96px">Emitido</th><th>Situação</th><th style="width:190px"></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td class="forte">Receituário 2026/0044</td><td class="num">20/08</td>
+                    <td><span class="selo ok">Assinado com e-CPF</span> <span class="selo info">No ar até 04/10</span></td>
+                    <td class="acoes"><span class="mini-btn">2ª via</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Atestado 2026/0041</td><td class="num">12/08</td>
+                    <td><span class="selo esp">Emitido sem assinatura eletrônica</span></td>
+                    <td class="acoes"><span class="mini-btn pri">Assinar</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Pedido de exame 2026/0031</td><td class="num">28/08</td>
+                    <td><span class="selo ok">Assinado</span> <span class="selo quieto">2 exames aguardando</span></td>
+                    <td class="acoes"><span class="mini-btn">2ª via</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Declaração de comparecimento 2026/0039</td><td class="num">06/08</td>
+                    <td><span class="selo quieto">Entregue em papel</span></td>
+                    <td class="acoes"><span class="mini-btn">2ª via</span> <span class="mais">⋯</span></td>
+                  </tr>
+                  <tr>
+                    <td class="forte">Receituário 2026/0022</td><td class="num">14/05</td>
+                    <td><span class="selo erro">Cancelado</span> <span class="selo quieto">dose corrigida na 2026/0023</span></td>
+                    <td class="acoes"><span class="mini-btn">2ª via</span> <span class="mais">⋯</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rodape">
+              <span class="dica">Assinar sela o arquivo: depois disso, corrigir é cancelar e emitir outro</span>
+              <button class="btn">Conferir pelo código…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>A linha passa a dizer o <i>estado</i> do papel em vez de oferecer seis caminhos: “falta assinar” vira um botão azul; “no ar até 04/10” responde sozinho a pergunta que hoje obriga a clicar em “Renovar link” para descobrir.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>Nada foi tirado: renovar o link, tirar do ar, enviar pelo WhatsApp e cancelar continuam todos no “⋯”. O que some é a fileira de botões repetida em cinco linhas.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== EVOLUÇÃO DA DOR ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">5</span><h2>Evolução da dor</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · o mesmo fato em duas formas não são dois números</span>
+    <p class="tese">
+      Hoje são <b>cinco</b> caixas de número em cima do gráfico — e duas delas dizem a mesma
+      coisa: “ganho 5 pontos” e “redução 62%” são a mesma subtração escrita de dois jeitos. Ficam
+      três, e a curva, que é o assunto da tela, ganha o espaço que elas devolvem.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div class="on">Evolução da dor</div>
+            <div>Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="kpis">
+              <div class="kpi"><div class="r">Dor ao chegar · 1ª sessão</div><div class="v">8</div><div class="d">30/07/2024</div></div>
+              <div class="kpi acento"><div class="r">Dor ao sair · hoje</div><div class="v">3</div><div class="d bom">5 pontos abaixo do início</div></div>
+              <div class="kpi"><div class="r">Alívio médio por sessão</div><div class="v">2,4</div><div class="d">em 18 sessões com o par medido</div></div>
+            </div>
+            <div class="painel">
+              <div class="painel-cab"><span class="t">A curva das 18 sessões</span><span class="c">escala EVA, 0 a 10</span></div>
+              <div class="grafico">
+                <svg viewBox="0 0 660 172" role="img" aria-label="Curva da dor: chegada de 8 para 3 e saída de 6 para 1 ao longo de 18 sessões">
+                  <line x1="34" y1="16" x2="648" y2="16" stroke="#E5E7EB" stroke-width="1"/>
+                  <line x1="34" y1="78" x2="648" y2="78" stroke="#E5E7EB" stroke-width="1"/>
+                  <line x1="34" y1="140" x2="648" y2="140" stroke="#D1D5DB" stroke-width="1"/>
+                  <text x="26" y="20" text-anchor="end" font-size="10" fill="#6B7280">10</text>
+                  <text x="26" y="82" text-anchor="end" font-size="10" fill="#6B7280">5</text>
+                  <text x="26" y="144" text-anchor="end" font-size="10" fill="#6B7280">0</text>
+                  <polyline fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+                    points="34,40.8 69.6,40.8 105.2,53.2 140.8,53.2 176.4,65.6 212,53.2 247.6,78 283.2,65.6 318.8,78 354.4,90.4 390,78 425.6,90.4 461.2,90.4 496.8,102.8 532.4,90.4 568,102.8 603.6,102.8 639.2,102.8"/>
+                  <polyline fill="none" stroke="#123A9E" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"
+                    points="34,65.6 69.6,78 105.2,78 140.8,90.4 176.4,90.4 212,90.4 247.6,102.8 283.2,102.8 318.8,102.8 354.4,115.2 390,102.8 425.6,115.2 461.2,115.2 496.8,127.6 532.4,115.2 568,127.6 603.6,115.2 639.2,127.6"/>
+                  <circle cx="34" cy="40.8" r="3" fill="#9CA3AF"/>
+                  <circle cx="639.2" cy="102.8" r="3" fill="#9CA3AF"/>
+                  <circle cx="34" cy="65.6" r="3.4" fill="#123A9E"/>
+                  <circle cx="639.2" cy="127.6" r="4.4" fill="#123A9E"/>
+                  <text x="34" y="160" font-size="10" fill="#6B7280">30/07/2024</text>
+                  <text x="648" y="160" text-anchor="end" font-size="10" fill="#6B7280">04/09/2026</text>
+                </svg>
+              </div>
+              <div class="legenda">
+                <span><i style="background:#9CA3AF"></i>Dor ao chegar</span>
+                <span><i style="background:#123A9E"></i>Dor ao sair</span>
+              </div>
+            </div>
+            <div class="painel">
+              <table class="tab">
+                <thead><tr><th style="width:110px">Sessão</th><th style="width:90px">Chegou</th><th style="width:90px">Saiu</th><th style="width:90px">Alívio</th><th>Conduta</th></tr></thead>
+                <tbody>
+                  <tr><td class="num forte">04/09/2026</td><td class="num">7</td><td class="num">3</td><td class="num" style="color:#15803D;font-weight:600">−4</td><td class="corte">BSV com lidocaína 2%, 90 min</td></tr>
+                  <tr><td class="num forte">27/08/2026</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="corte">BSV — EVA não medida nesta sessão</td></tr>
+                  <tr><td class="num forte">20/08/2026</td><td class="num">7</td><td class="num">4</td><td class="num" style="color:#15803D;font-weight:600">−3</td><td class="corte">Acupuntura com eletro, 8 pontos</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rodape">
+              <span class="dica">Sessão sem o par medido entra na lista e fica fora da curva — a linha não inventa ponto</span>
+              <button class="btn">Exportar CSV</button>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a curva</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>Cinco números viram três, e o do meio ganha destaque porque é o que responde “está funcionando?”. A curva sobe para o lugar que era das caixas repetidas.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>A sessão sem EVA medida não vira zero — ela some da curva e aparece na lista dizendo que não foi medida. Ponto inventado numa curva de dor é o tipo de número que muda conduta.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== MEDIDAS ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">6</span><h2>Medidas</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · a procedência viaja com o número</span>
+    <p class="tese">
+      A tela é uma curva por medida, e o que muda é o seletor: as medidas viram etiquetas, e
+      colher continua sendo uma janela — é o que se faz uma vez por consulta, e não o que se
+      olha. O que ela ganha é a <b>procedência</b> em cada ponto: a pressão colhida pela
+      enfermagem e a pesada na consulta são a mesma curva, e quem lê precisa saber qual é qual.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div class="on">Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="barra">
+              <span class="chip on">Peso · 6</span>
+              <span class="chip">IMC · 6</span>
+              <span class="chip">Pressão arterial · 14</span>
+              <span class="chip">Cintura · 3</span>
+              <span class="chip">Glicemia · 2</span>
+              <span class="chip vazio-a" style="color:#9AA3B2">Altura · 1</span>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="r">Primeira · 30/07/2024</div><div class="v">92 <span style="font-size:14px;font-weight:400;color:#6B7280">kg</span></div></div>
+              <div class="kpi acento"><div class="r">Atual · 04/09/2026</div><div class="v">85 <span style="font-size:14px;font-weight:400">kg</span></div><div class="d bom">−7 kg em 25 meses</div></div>
+              <div class="kpi"><div class="r">IMC de hoje</div><div class="v">31,2</div><div class="d">altura de 04/2024 · obesidade grau I</div></div>
+            </div>
+            <div class="painel">
+              <div class="painel-cab"><span class="t">Peso</span><span class="c">6 colheitas</span></div>
+              <div class="grafico">
+                <svg viewBox="0 0 660 130" role="img" aria-label="Peso caindo de 92 kg em julho de 2024 para 85 kg em setembro de 2026">
+                  <line x1="40" y1="24" x2="648" y2="24" stroke="#E5E7EB" stroke-width="1"/>
+                  <line x1="40" y1="62" x2="648" y2="62" stroke="#E5E7EB" stroke-width="1"/>
+                  <line x1="40" y1="100" x2="648" y2="100" stroke="#D1D5DB" stroke-width="1"/>
+                  <text x="34" y="28" text-anchor="end" font-size="10" fill="#6B7280">92</text>
+                  <text x="34" y="66" text-anchor="end" font-size="10" fill="#6B7280">88</text>
+                  <text x="34" y="104" text-anchor="end" font-size="10" fill="#6B7280">85</text>
+                  <polyline fill="none" stroke="#123A9E" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"
+                    points="40,24 156,45.7 272,56.6 388,78.3 504,89.1 620,100"/>
+                  <circle cx="40" cy="24" r="3.4" fill="#123A9E"/>
+                  <circle cx="156" cy="45.7" r="3.4" fill="#123A9E"/>
+                  <circle cx="272" cy="56.6" r="3.4" fill="#123A9E"/>
+                  <circle cx="388" cy="78.3" r="3.4" fill="#123A9E"/>
+                  <circle cx="504" cy="89.1" r="3.4" fill="#123A9E"/>
+                  <circle cx="620" cy="100" r="4.6" fill="#123A9E"/>
+                  <text x="40" y="120" font-size="10" fill="#6B7280">07/2024</text>
+                  <text x="648" y="120" text-anchor="end" font-size="10" fill="#6B7280">09/2026</text>
+                </svg>
+              </div>
+            </div>
+            <div class="painel">
+              <table class="tab">
+                <thead><tr><th style="width:120px">Quando</th><th style="width:110px">Valor</th><th style="width:190px">Leitura</th><th>Colhida por</th><th style="width:60px"></th></tr></thead>
+                <tbody>
+                  <tr><td class="num forte">04/09/2026</td><td class="num">85 kg</td><td><span class="selo quieto">sem faixa publicada</span></td><td>Joana Ribeiro · enfermagem, 14h20</td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                  <tr><td class="num forte">04/09/2026</td><td class="num">31,2</td><td><span class="selo esp">IMC · obesidade grau I</span></td><td>calculado com a altura de 04/2024</td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                  <tr><td class="num forte">27/08/2026</td><td class="num">86 kg</td><td><span class="selo quieto">sem faixa publicada</span></td><td>Dr. Gustavo Lacerda · consulta</td><td class="acoes"><span class="mais">⋯</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rodape">
+              <span class="dica">A pressão da enfermagem entra na mesma curva, com a hora e o autor em cada ponto</span>
+              <button class="btn">Exportar CSV</button>
+              <button class="btn pri">Registrar medida…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>O seletor de medida vira uma régua de etiquetas com a contagem — dá para ver que existem 14 pressões e só 1 altura sem abrir nada. E o IMC diz de quando é a altura que o produziu, em vez de aparecer como um número exato.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>Colher continua sendo janela, e não formulário aberto na tela: era um terço da tela ocupado por um ato que acontece uma vez por consulta, empurrando a série — que é o que se olha — para baixo da dobra.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== AVALIAÇÕES ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">7</span><h2>Avaliações</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · o sistema pontua e registra; ele não diagnostica</span>
+    <p class="tese">
+      Mesma forma da tela de Medidas — porque é a mesma pergunta, com outro instrumento: uma
+      régua de escalas, a curva do escore e o histórico. O que ela acrescenta é o <b>alerta de
+      item</b>: no PHQ-9, a resposta que exige conduta imediata vale 3 dos 27 pontos e pode
+      desaparecer dentro de um escore “leve” — então ela não se dissolve no total, aparece.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div>Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+            <div class="on">Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="barra">
+              <span class="chip on">PHQ-9 · 5</span>
+              <span class="chip">GAD-7 · 3</span>
+              <span class="chip">FINDRISC · 1</span>
+              <span class="chip" style="color:#9AA3B2">Oswestry · nunca aplicada</span>
+              <span class="chip" style="color:#9AA3B2">Katz · nunca aplicada</span>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="r">Primeira · 30/07/2024</div><div class="v">14</div><div class="d">depressão moderada</div></div>
+              <div class="kpi acento"><div class="r">Atual · 20/08/2026</div><div class="v">8</div><div class="d bom">6 pontos abaixo · sintomas leves</div></div>
+              <div class="kpi"><div class="r">Faixa de hoje</div><div class="v" style="font-size:19px;padding-top:5px">Sintomas leves</div><div class="d">leitura publicada da escala</div></div>
+            </div>
+            <div class="avisos">
+              <div class="lin perigo"><b>Item 9 respondido acima de zero em 20/08</b> — a escala pede conduta imediata, e o escore total não mostra isso<span class="acao">Ver a aplicação</span></div>
+            </div>
+            <div class="painel">
+              <div class="painel-cab"><span class="t">PHQ-9 · evolução do escore</span><span class="c">0 a 27 · quanto menor, melhor</span></div>
+              <div class="grafico">
+                <svg viewBox="0 0 660 132" role="img" aria-label="Escore do PHQ-9 caindo de 14 para 8 em cinco aplicações">
+                  <line x1="40" y1="20" x2="648" y2="20" stroke="#E5E7EB" stroke-width="1"/>
+                  <line x1="40" y1="65" x2="648" y2="65" stroke="#E5E7EB" stroke-width="1"/>
+                  <line x1="40" y1="110" x2="648" y2="110" stroke="#D1D5DB" stroke-width="1"/>
+                  <text x="34" y="24" text-anchor="end" font-size="10" fill="#6B7280">27</text>
+                  <text x="34" y="69" text-anchor="end" font-size="10" fill="#6B7280">13</text>
+                  <text x="34" y="114" text-anchor="end" font-size="10" fill="#6B7280">0</text>
+                  <polyline fill="none" stroke="#123A9E" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"
+                    points="40,63.3 185,66.7 330,73.3 475,80 620,83.3"/>
+                  <circle cx="40" cy="63.3" r="3.4" fill="#123A9E"/>
+                  <circle cx="185" cy="66.7" r="3.4" fill="#123A9E"/>
+                  <circle cx="330" cy="73.3" r="3.4" fill="#123A9E"/>
+                  <circle cx="475" cy="80" r="3.4" fill="#123A9E"/>
+                  <circle cx="620" cy="83.3" r="4.6" fill="#123A9E"/>
+                  <text x="40" y="126" font-size="10" fill="#6B7280">07/2024</text>
+                  <text x="648" y="126" text-anchor="end" font-size="10" fill="#6B7280">08/2026</text>
+                </svg>
+              </div>
+            </div>
+            <div class="painel">
+              <table class="tab">
+                <thead><tr><th style="width:120px">Aplicada em</th><th style="width:80px">Escore</th><th style="width:200px">Faixa</th><th>Aplicada por</th><th style="width:120px"></th></tr></thead>
+                <tbody>
+                  <tr><td class="num forte">20/08/2026</td><td class="num">8</td><td><span class="selo esp">Sintomas leves</span></td><td>Dr. Gustavo Lacerda</td><td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td></tr>
+                  <tr><td class="num forte">14/05/2026</td><td class="num">9</td><td><span class="selo esp">Sintomas leves</span></td><td>Dr. Gustavo Lacerda</td><td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td></tr>
+                  <tr><td class="num forte">30/07/2024</td><td class="num">14</td><td><span class="selo erro">Depressão moderada</span></td><td>Dr. Gustavo Lacerda</td><td class="acoes"><span class="mini-btn">Abrir</span> <span class="mais">⋯</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="rodape">
+              <span class="dica">A faixa sai como foi gravada na aplicação — corrigir a definição hoje não reescreve o que foi respondido</span>
+              <button class="btn">Exportar CSV</button>
+              <button class="btn pri">Aplicar escala…</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>As escalas nunca aplicadas aparecem apagadas na régua em vez de sumirem: é assim que alguém descobre que o Oswestry existe. E o alerta de item sai do fundo da aplicação para o topo da tela.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>O Katz melhora quando o número sobe — a curva dele é lida ao contrário, e a tela precisa dizer isso na legenda em vez de chamar recuperação de piora.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- ===================== ANAMNESE ===================== -->
+  <section class="opcao">
+    <div class="op-topo"><span class="op-letra">8</span><h2>Anamnese</h2></div>
+    <span class="regra-tag"><b>Regra aplicada</b> · a folha única, com âncoras no lugar de sete caixas empilhadas</span>
+    <p class="tese">
+      É a tela que mais se parece com a 01: sete caixas de texto empilhadas viram <b>uma folha</b>
+      com uma régua de âncoras no topo, e a âncora apagada diz o que ainda não foi escrito sem
+      abrir um vão em branco na página. Do lado, o que a paciente já disse nas sessões — porque
+      a anamnese é escrita relendo, e hoje isso obriga a trocar de tela.
+    </p>
+
+    <div class="moldura">
+      <div class="tela">
+        <div class="cracha">
+          <div class="av">AM</div>
+          <div>
+            <div class="nome">ANA PAULA MOREIRA</div>
+            <div class="meta">55 anos · Unimed Costa do Sol · 18 sessões</div>
+          </div>
+          <div class="dir"><span class="alerta-cracha">Alergia: dipirona</span></div>
+        </div>
+        <div class="corpo">
+          <div class="rail">
+            <div class="grp">Sessão</div>
+            <div>Atendimento</div>
+            <div>Atendimento de enfermagem</div>
+            <div class="on">Anamnese</div>
+            <div class="grp">Paciente</div>
+            <div>Paciente</div>
+            <div>Histórico</div>
+            <div>Exames e anexos</div>
+            <div>Prescrições e documentos</div>
+            <div class="grp">Acompanhamento</div>
+            <div>Evolução da dor</div>
+            <div>Medidas</div>
+            <div>Avaliações</div>
+          </div>
+          <div class="principal">
+            <div class="ancoras">
+              <span class="on">Antecedentes pessoais</span>
+              <span>Antecedentes familiares</span>
+              <span>Hábitos de vida</span>
+              <span class="vazio-a">Interrogatório · em branco</span>
+              <span class="vazio-a">História obstétrica · em branco</span>
+              <span class="vazio-a">Observações · em branco</span>
+            </div>
+            <div class="col2">
+              <div class="escrita">
+                <div class="campo foco" style="flex:1">
+                  <div class="rot">Antecedentes pessoais <span class="x">escrita em 30/07/2024, revisada em 12/08/2026</span></div>
+                  <div class="txt">
+                    <p>Fibromialgia diagnosticada em 2019, em acompanhamento reumatológico até 2023. Hipertensão em uso de losartana 50 mg pela manhã. Colecistectomia em 2016, sem intercorrências.</p>
+                    <p>Alergia a dipirona — reação em 12/08/2026 durante infusão, registrada na lista de problemas.<span class="cursor"></span></p>
+                  </div>
+                </div>
+                <div class="campo">
+                  <div class="rot">Hábitos de vida</div>
+                  <div class="txt"><p>Não fuma. Bebida social, uma a duas vezes por mês. Caminhada de 30 min três vezes por semana desde março. Sono fragmentado, com melhora desde a última sessão.</p></div>
+                </div>
+              </div>
+              <div class="lado">
+                <div class="anterior">
+                  <div class="h">O que ela já disse nas sessões</div>
+                  <div class="d">04/09 · sessão</div>
+                  <div class="c">“Dormiu a noite inteira duas vezes na semana, o que não vinha acontecendo.” Rigidez matinal de uns 30 minutos.</div>
+                  <div class="d">12/08 · enfermagem</div>
+                  <div class="c">Reação a dipirona durante a infusão.</div>
+                  <div class="d">14/05 · sessão</div>
+                  <div class="c">Refere piora com frio e com noites mal dormidas.</div>
+                </div>
+              </div>
+            </div>
+            <div class="rodape">
+              <span class="dica">Corrigir guarda o que estava escrito antes — a versão anterior fica no prontuário</span>
+              <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4v-6h16v6h-2M8 14h8v7H8z"/></svg>Imprimir a anamnese</button>
+              <button class="btn pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Gravar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="muda">
+      <div class="it g"><h4>O que muda</h4><p>Rolar sete caixas para achar onde parou vira clicar numa âncora. E as três em branco dizem que estão em branco, em vez de ocuparem meia tela cada uma para não dizer nada.</p></div>
+      <div class="it a"><h4>O cuidado</h4><p>Os sete campos continuam sendo sete colunas no banco: a anamnese é o documento que o convênio pede separado por assunto, e juntar tudo num texto só perderia essa divisão — que aqui, ao contrário da sessão, é usada de verdade.</p></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <div class="reco">
+    <p class="eyebrow">Para eu começar</p>
+    <h2>A ordem que eu proponho</h2>
+    <p class="prosa">
+      As sete não precisam sair juntas, e sair juntas seria pior: cada uma é uma tela que a
+      clínica usa amanhã de manhã. A ordem abaixo é por quanto cada uma dói hoje.
+    </p>
+
+    <div class="tab-wrap">
+      <table>
+        <thead><tr><th>Ordem</th><th>Tela</th><th>Por que nesta posição</th><th>Tamanho</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td class="op">Atendimento (a 01)</td><td>é a aprovada, é onde se passa o dia e é a que segura o resto do desenho</td><td>média</td></tr>
+          <tr><td class="num">2</td><td class="op">Histórico</td><td>três cartões empilhados antes do assunto; é a segunda foto que você me mandou</td><td>média</td></tr>
+          <tr><td class="num">3</td><td class="op">Prescrições e documentos</td><td>seis botões por linha, e é a tela que produz papel que sai da clínica</td><td>pequena</td></tr>
+          <tr><td class="num">4</td><td class="op">Exames e anexos</td><td>“pedi e não voltou” não se responde em tela nenhuma hoje</td><td>média</td></tr>
+          <tr><td class="num">5</td><td class="op">Evolução da dor · Medidas · Avaliações</td><td>as três são a mesma forma — saem juntas, e a segunda e a terceira custam pouco depois da primeira</td><td>média</td></tr>
+          <tr><td class="num">6</td><td class="op">Anamnese</td><td>escrita uma vez por paciente; incomoda menos que todas as de cima</td><td>pequena</td></tr>
+          <tr><td class="num">7</td><td class="op">Paciente</td><td>é tela nova, não conserto — só faz sentido depois que o resto estiver de pé</td><td>pequena</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul class="perguntas">
+      <li><span class="q">1</span><span><b>“Paciente” vira tela mesmo?</b> Se não, ela volta a ser só o título do grupo, a lista de problemas fica no Histórico e os termos continuam no botão do Atendimento.</span></li>
+      <li><span class="q">2</span><span>No Histórico, <b>sessão do médico e passagem da enfermagem na mesma linha do tempo</b> — ou em duas listas separadas, como estão hoje? Misturadas é como o dia acontece; separadas é como o prontuário é auditado.</span></li>
+      <li><span class="q">3</span><span>As <b>medidas colhidas pela enfermagem</b> entram na mesma curva das colhidas na consulta (com o autor em cada ponto), ou você quer as duas curvas separadas?</span></li>
+      <li><span class="q">4</span><span>Em Prescrições, o <b>“⋯”</b> guarda renovar link, tirar do ar, enviar e cancelar. Falta alguma ação aí dentro que precise ficar visível na linha?</span></li>
+    </ul>
+
+    <p class="nota">
+      Dados de exemplo, paciente fictícia, vocabulário real da casa. Cores, medidas e tipografia
+      saem de <code>tokens/colors.css</code> — o mesmo CSS desta folha e da folha das cinco
+      opções, para as duas não divergirem na primeira correção.
+    </p>
+  </div>
+
+</div>
