@@ -99,8 +99,6 @@ public sealed class LinhaSessaoProntuario
 public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
-    private readonly ISnackbarService _snackbar;
-    private readonly IDialogoService _dialogo;
     private readonly PacienteEmFoco _foco;
 
     public ObservableCollection<LinhaSessaoProntuario> Sessoes { get; } = [];
@@ -144,13 +142,9 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// </summary>
     public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
 
-    public ProntuarioClinicoViewModel(
-        IServiceScopeFactory escopos, ISnackbarService snackbar,
-        IDialogoService dialogo, PacienteEmFoco foco)
+    public ProntuarioClinicoViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
     {
         _escopos = escopos;
-        _snackbar = snackbar;
-        _dialogo = dialogo;
         _foco = foco;
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)

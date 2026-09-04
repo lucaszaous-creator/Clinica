@@ -28,10 +28,14 @@
 
     <Grid>
         <DockPanel>
-            <!-- Os chips: WrapPanel, nunca StackPanel horizontal — quatro pílulas com
-                 contagem passam de 400 px, e o StackPanel não dobra a linha. -->
-            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <ItemsControl ItemsSource="{Binding Chips}">
+            <!-- Os chips: WrapPanel no ItemsPanel, nunca StackPanel horizontal — cinco
+                 pílulas com contagem passam de 500 px, e o StackPanel não dobra a linha.
+                 ⚠️ Havia um segundo `<WrapPanel>` ENVOLVENDO este ItemsControl, e ele era o
+                 defeito que ele existia para evitar: WrapPanel mede o filho com largura
+                 INFINITA, então o de dentro nunca dobrava e a régua saía pela direita.
+                 Achado quando a checagem 32 passou a subir pelo ItemsPanelTemplate. -->
+            <ItemsControl DockPanel.Dock="Top" Margin="0,0,0,8"
+                          ItemsSource="{Binding Chips}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
@@ -47,8 +51,7 @@
                                           CommandParameter="{Binding}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </WrapPanel>
+            </ItemsControl>
 
             <!-- O resumo DIZ o recorte: "12 sessões" e "3 de 12 sessões" respondem
                  perguntas diferentes, e quem volta à tela não lembra o que deixou

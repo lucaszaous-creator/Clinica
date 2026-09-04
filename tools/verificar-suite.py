@@ -2304,6 +2304,33 @@ def _largura_infinita(pai: ET.Element, filho: ET.Element) -> str | None:
     return None
 
 
+def _quem_recebe_a_largura(el, pais):
+    """
+    Sobe do WrapPanel até o elemento que de fato RECEBE a largura na medição.
+
+    ⚠️ Dentro de `<ItemsControl.ItemsPanel><ItemsPanelTemplate>`, o pai do WrapPanel é o
+    TEMPLATE, que não constrange nada: quem é medido é o ItemsControl. A primeira versão
+    desta checagem parava no template e ficava calada — foi por esse buraco que a régua de
+    chips da tela de Avaliações entrou num StackPanel horizontal.
+    """
+    atual = el
+    while (pai := pais.get(atual)) is not None:
+        nome_pai = pai.tag.split("}")[-1]
+        nome_atual = atual.tag.split("}")[-1]
+
+        # Três nós são invisíveis para a medição: o próprio template, a propriedade
+        # `X.ItemsPanel` que o hospeda e — o degrau que faltava — o nó da propriedade visto
+        # de baixo, cujo pai é o ItemsControl. É ELE que recebe a largura, e parar aqui
+        # devolvia o ItemsControl como "pai", que nunca constrange.
+        if (nome_pai == "ItemsPanelTemplate"
+                or nome_pai.endswith(".ItemsPanel")
+                or nome_atual.endswith(".ItemsPanel")):
+            atual = pai
+            continue
+        return atual, pai
+    return atual, None
+
+
 _wraps = 0
 for f, raiz in arvores_com_faturamento.items():
     pais = {filho: pai for pai in raiz.iter() for filho in pai}
@@ -2311,10 +2338,10 @@ for f, raiz in arvores_com_faturamento.items():
         if el.tag.split("}")[-1] != "WrapPanel":
             continue
         _wraps += 1
-        pai = pais.get(el)
+        medido, pai = _quem_recebe_a_largura(el, pais)
         if pai is None:
             continue
-        if (motivo := _largura_infinita(pai, el)) is None:
+        if (motivo := _largura_infinita(pai, medido)) is None:
             continue
         erros.append(
             f"{rel(f)}: `<WrapPanel>` {motivo} — ele é medido com largura INFINITA, nunca "
@@ -2354,6 +2381,35 @@ for _xml, _deve_pegar in _amostras_32:
             f"(esperado: {'pega' if _deve_pegar else 'deixa passar'})."
         )
 
+
+# --- autoteste do ponto cego da 32 (a régua de chips) ---
+#
+# O caso real: WrapPanel dentro de um ItemsPanelTemplate, com o ItemsControl num
+# StackPanel HORIZONTAL. Antes de a checagem subir pelo template, ela ficava calada.
+_cenarios_32 = (
+    ("chips num StackPanel horizontal",
+     '<StackPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" '
+     'Orientation="Horizontal"><ItemsControl><ItemsControl.ItemsPanel>'
+     '<ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>'
+     '</ItemsControl.ItemsPanel></ItemsControl></StackPanel>', True),
+    ("chips docados no topo de um DockPanel",
+     '<DockPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">'
+     '<ItemsControl DockPanel.Dock="Top"><ItemsControl.ItemsPanel>'
+     '<ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>'
+     '</ItemsControl.ItemsPanel></ItemsControl></DockPanel>', False),
+)
+for _cenario, _xml, _deve_acusar in _cenarios_32:
+    _raiz = ET.fromstring(_xml)
+    _pais = {c: p for p in _raiz.iter() for c in p}
+    _wp = next(e for e in _raiz.iter() if e.tag.split("}")[-1] == "WrapPanel")
+    _medido, _pai = _quem_recebe_a_largura(_wp, _pais)
+    _acusou = _pai is not None and _largura_infinita(_pai, _medido) is not None
+    if _acusou != _deve_acusar:
+        erros.append(
+            f"verificar-suite: a checagem 32 mudou de resposta ({_cenario}) — "
+            f"{'acusou' if _acusou else 'calou'}, esperado "
+            f"{'acusar' if _deve_acusar else 'calar'}."
+        )
 
 # --------------------------------------------------------------- checagem 33
 # XAML QUE DECLARA O `assembly=` DO PRÓPRIO PROJETO.

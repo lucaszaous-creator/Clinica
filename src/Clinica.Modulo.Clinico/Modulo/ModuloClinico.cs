@@ -383,6 +383,25 @@ public sealed class ModuloClinico : IModuloApp
                 + "diferentes. As duas são casadas por POSIÇÃO — uma seção sem grupo "
                 + "sairia do rail sem quebrar nada.");
 
+        // ⚠️ OS GRUPOS TÊM DE SER CONTÍGUOS, e isto não é estética.
+        //
+        // O rail é uma vista AGRUPADA da mesma lista, e o `SelectedIndex` dele é o índice
+        // NA VISTA. Com os grupos contíguos, a vista enumera na ordem da lista e o índice
+        // bate com o do TabControl ao lado. Espalhados — [Sessão, Paciente, Sessão] —, a
+        // vista reordenaria para juntar os iguais, e o clique passaria a abrir a tela do
+        // vizinho: sem erro, sem log, sem nada que quebre.
+        var vistos = new List<string>();
+        foreach (var grupo in GruposDoPaciente)
+        {
+            if (vistos.Count > 0 && vistos[^1] == grupo) continue;
+            if (vistos.Contains(grupo))
+                throw new InvalidOperationException(
+                    $"ModuloClinico: o grupo \u201C{grupo}\u201D aparece em blocos separados de "
+                    + "GruposDoPaciente. O rail é uma vista agrupada, e grupo partido faz a "
+                    + "vista reordenar as seções — o clique passa a abrir a tela do vizinho.");
+            vistos.Add(grupo);
+        }
+
         return [.. SecoesDoPaciente.Select((nome, i) => new SecaoDoPaciente(nome, GruposDoPaciente[i]))];
     }
 

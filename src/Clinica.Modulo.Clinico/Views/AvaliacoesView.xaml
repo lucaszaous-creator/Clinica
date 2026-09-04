@@ -14,11 +14,18 @@
              cabeçalho da tela, uma vez, acima das abas. -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
                 HorizontalAlignment="Right" Margin="0,0,0,14">
+            <!-- O IsEnabled cobre as TRÊS pré-condições da guarda (escala + paciente +
+                 permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
+            <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
+                Command="{Binding AplicarCommand}"
+                IsEnabled="{Binding PodeAplicar}" />
+        </StackPanel>
+
             <!-- As escalas como CHIPS (mockup 01): a escolhida e as alternativas à vista
                  ao mesmo tempo. Num ComboBox era preciso abrir a lista para saber que
                  existem cinco, e a marcada sumia quando ela fechava. -->
-            <ItemsControl ItemsSource="{Binding Chips}" VerticalAlignment="Center"
-                          Margin="0,0,8,0">
+            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Chips}"
+                          Margin="0,0,0,12">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel />
@@ -35,12 +42,6 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <!-- O IsEnabled cobre as TRÊS pré-condições da guarda (escala + paciente +
-                 permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
-            <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
-                Command="{Binding AplicarCommand}"
-                IsEnabled="{Binding PodeAplicar}" />
-        </StackPanel>
 
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                     Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">

@@ -163,6 +163,15 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     /// </summary>
     private int _geracaoCarga;
 
+    /// <summary>
+    /// Último paciente cujo acesso já foi registrado nesta tela.
+    ///
+    /// A trilha de LEITURA é registrada na TROCA de paciente, e não a cada
+    /// <c>CarregarAsync</c>: marcar a caixa de "mostrar resolvidos" recarrega a lista, e
+    /// uma linha de trilha por clique de filtro é trilha que ninguém consegue ler.
+    /// </summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
@@ -185,6 +194,19 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         try
         {
             using var scope = _escopos.CreateScope();
+
+            // Quem abriu este prontuário, e quando (ponto 4 do compromisso de
+            // conformidade). A lista de problemas é dado de SAÚDE, e a LGPD alcança a
+            // leitura. Não bloqueia nem derruba a tela: o serviço engole a falha com
+            // rastro.
+            if (_acessoRegistradoDe != PacienteId && PodeVerProntuario)
+            {
+                _acessoRegistradoDe = PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ProntuarioClinico);
+            }
+
             await CarregarFichaAsync(scope.ServiceProvider, geracao);
             await CarregarProblemasAsync(scope.ServiceProvider, geracao);
         }

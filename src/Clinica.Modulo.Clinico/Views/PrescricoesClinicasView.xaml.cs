@@ -64,8 +64,8 @@ public partial class PrescricoesClinicasView : UserControl
         Acrescentar("Tirar do ar", vm.TirarDoArCommand, linha.PodeTirarDoAr);
         Acrescentar("Cancelar o documento…", vm.CancelarCommand, linha.PodeCancelar);
 
-        if (menu.Items.Count == 0) return;
-
+        // O menu nunca fica vazio (a 2ª via entra sempre), e é isso que impede o "⋯" de
+        // abrir e fechar sem dizer nada — o botão que não faz nada da parcela 41.
         menu.IsOpen = true;
     }
 }

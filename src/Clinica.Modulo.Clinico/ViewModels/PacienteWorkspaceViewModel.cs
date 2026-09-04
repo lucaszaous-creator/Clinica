@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -76,6 +78,19 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// </summary>
     public IReadOnlyList<ModuloClinico.SecaoDoPaciente> Secoes { get; } =
         ModuloClinico.RailDoPaciente();
+
+    /// <summary>
+    /// As mesmas seções, agrupadas para o rail desenhar os três cabeçalhos.
+    ///
+    /// ⚠️ UMA coleção agrupada, nunca uma ListBox por grupo: duas ListBox amarradas à mesma
+    /// seleção se limpam mutuamente (a lição da parcela 37). E como a lista já vem NA ORDEM
+    /// dos grupos, o índice da vista continua sendo o índice de <see cref="Secoes"/> — que é
+    /// a régua do <c>SelectedIndex</c> e do TabControl ao lado.
+    ///
+    /// ⚠️ Montada aqui e não como `CollectionViewSource` no XAML: lá ela dependeria de o
+    /// recurso herdar o DataContext, e o modo de falhar seria o rail inteiro em branco.
+    /// </summary>
+    public ICollectionView SecoesAgrupadas { get; }
 
     public AtendimentoViewModel Atendimento { get; }
 
@@ -199,6 +214,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         IServiceProvider servicos, PacienteEmFoco foco, int aba = 0)
     {
         _foco = foco;
+
+        SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
+        SecoesAgrupadas.GroupDescriptions.Add(
+            new PropertyGroupDescription(nameof(ModuloClinico.SecaoDoPaciente.Grupo)));
         AbaAtual = aba;
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();

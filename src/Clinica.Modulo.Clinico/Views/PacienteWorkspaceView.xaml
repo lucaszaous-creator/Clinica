@@ -37,15 +37,6 @@
          ============================================================================ -->
 
     <UserControl.Resources>
-        <!-- ⚠️ UMA coleção agrupada, nunca uma ListBox por grupo: duas ListBox amarradas à
-             mesma seleção se limpam mutuamente (a lição da parcela 37). Com o agrupamento,
-             o SelectedIndex continua sendo o índice na coleção — que é a ordem de
-             ModuloClinico.SecoesDoPaciente, a mesma régua do TabControl ao lado. -->
-        <CollectionViewSource x:Key="SecoesAgrupadas" Source="{Binding Secoes}">
-            <CollectionViewSource.GroupDescriptions>
-                <PropertyGroupDescription PropertyName="Grupo" />
-            </CollectionViewSource.GroupDescriptions>
-        </CollectionViewSource>
 
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
@@ -321,7 +312,7 @@
                  37, 4ª rodada). -->
             <ListBox DockPanel.Dock="Left" Width="196" Margin="0,0,16,0"
                      Background="Transparent" BorderThickness="0"
-                     ItemsSource="{Binding Source={StaticResource SecoesAgrupadas}}"
+                     ItemsSource="{Binding SecoesAgrupadas}"
                      ItemContainerStyle="{StaticResource ItemSecaoClinica}"
                      SelectedIndex="{Binding AbaAtual}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
