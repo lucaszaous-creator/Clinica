@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <!-- ============================================================
@@ -153,141 +154,24 @@
                         <Separator Margin="0,4,0,10" />
                     </StackPanel>
 
-                    <!-- ============================================================
-                         A BUSCA CENTRAL (set/2026, mockup 05 aprovado pelo cliente).
+                                        <!-- ============================================================
+                         A BUSCA VIROU A TELA, e agora ela é um COMPONENTE (set/2026).
 
-                         O QUE ELA SUBSTITUI, E POR QUÊ
-                         Era um cartão de largura inteira com a lista dentro. Duas coisas
-                         estavam erradas ali, e as duas apareciam ao mesmo tempo: a tela
-                         mostrava um formulário sem ter o que preencher, e a lista tinha
-                         uma coluna `*` — que num monitor largo abria um deserto de branco
-                         entre o nome e os crachás.
+                         O bloco de cem linhas que estava aqui subiu INTEIRO para o shell
+                         (`BuscaDePacienteView`) a pedido da direção: escolher paciente
+                         tinha três desenhos na suíte, e três desenhos para a mesma
+                         pergunta fazem a recepcionista achar que abriu outro programa.
 
-                         ⚠️ E a tentativa de corrigir aquilo por `HorizontalAlignment="Left"`
-                         PIOROU: com esse alinhamento o WPF arranja o elemento pela largura
-                         DESEJADA, e a coluna estrela encolhe até o conteúdo — a tabela
-                         ficou estreita E o deserto continuou. Largura de conteúdo se faz
-                         com medida (`Width`/`MaxWidth`) no container que estica, nunca com
-                         alinhamento.
-
-                         O desenho que ficou: enquanto não há paciente, a tela tem UM
-                         assunto e assume isso. Uma coluna de 760 px CENTRADA — largura
-                         explícita, sem nenhuma coluna estrela na composição, então não há
-                         deserto possível — com a pergunta em cima, a busca no meio e o
-                         resultado embaixo.
+                         ⚠️ Esta tela NÃO ganhou `SemBuscaInicial`: aqui a agenda do dia é
+                         a resposta certa na abertura, e é o desenho aprovado no mockup 05.
+                         O que as outras telas ganharam foi o contrário — elas não têm
+                         sugestão nenhuma, e abrir despejando o alfabeto era consulta paga
+                         para mostrar ACELINO, ADAISE, ADAO.
                          ============================================================ -->
-                    <StackPanel Width="760" HorizontalAlignment="Center" Margin="0,40,0,0"
-                                Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-
-                        <TextBlock Text="Quem você vai atender?" Style="{StaticResource H1}"
-                                   Margin="0" TextAlignment="Center" HorizontalAlignment="Center" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextAlignment="Center"
-                                   HorizontalAlignment="Center" Margin="0,6,0,0"
-                                   Text="Digite o nome ou o CPF — ou escolha alguém da agenda de hoje." />
-
-                        <!-- ⚠️ ALTURA 48, e é a ÚNICA da suíte fora dos 36 px de campo.
-                             A regra "não invente altura para dar ênfase" continua valendo:
-                             ela existe porque um campo de 40 no meio de outros de 36 quebra
-                             a régua do formulário. AQUI não há formulário — este campo é o
-                             único controle da tela, sem vizinho com quem desalinhar, e ele
-                             É o assunto. 48 não é número solto: é o `Espaco.12` da escala. -->
-                        <TextBox x:Name="CampoBuscaPaciente" Margin="0,22,0,0"
-                                 Height="48" FontSize="{StaticResource Fonte.H3}"
-                                 Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource CampoPesquisa}"
-                                 PreviewKeyDown="AoTeclarNaBusca"
-                                 ctrl:Ajudantes.Placeholder="Nome ou CPF" />
-
-                        <!-- Os dois modos, e os DOIS SÃO REAIS: a sugestão do dia e a
-                             listagem completa. A listagem alfabética não é o defeito de
-                             volta — o defeito era ela CHEGAR sem ninguém pedir, com cara de
-                             resposta. Pedida, ela responde "quero ver quem existe". -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
-                            <ToggleButton Style="{StaticResource ChipFiltro}"
-                                          Content="{Binding Seletor.RotuloDaSugestao}"
-                                          IsChecked="{Binding Seletor.MostrandoSugestao, Mode=OneWay}"
-                                          Command="{Binding Seletor.LigarSugestaoCommand}"
-                                          ToolTip="Os pacientes com horário marcado para hoje" />
-                            <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0"
-                                          Content="Todos os pacientes"
-                                          IsChecked="{Binding Seletor.ListandoTodos, Mode=OneWay}"
-                                          Command="{Binding Seletor.DesligarSugestaoCommand}"
-                                          ToolTip="A ficha de todo mundo, em ordem de nome" />
-                        </StackPanel>
-
-                        <!-- Some quando não há o que contar: `Rotulo` vazio ainda gasta a
-                             altura de uma linha mais os 24px de margem. -->
-                        <TextBlock Text="{Binding Seletor.ResumoDaLista}"
-                                   Style="{StaticResource Rotulo}" Margin="0,16,0,8"
-                                   TextAlignment="Center" HorizontalAlignment="Center"
-                                   Visibility="{Binding Seletor.TemResultados,
-                                                Converter={StaticResource BoolParaVisibilidade}}" />
-
-                        <!-- ⚠️ O `EstadoDaTela` responde pela BUSCA que não achou nada — e só
-                             por ela. `Ativo` desligado enquanto a lista é a sugestão: ali o
-                             que falta não é o paciente, é o horário de hoje, e quem diz isso
-                             é o alerta abaixo. "Nenhum paciente encontrado" num dia sem
-                             agenda seria frase falsa sobre uma clínica de 2.238 fichas. -->
-                        <!-- ⚠️ SEM `MinHeight`. Ele reservava 120px de altura mesmo com os
-                             dois filhos colapsados — que é o caso do dia sem agendamento
-                             nenhum: o `EstadoDaTela` está desligado (`Ativo`) e a moldura
-                             sumiu com as linhas. Sobrava um vão em branco antes do alerta,
-                             no meio de uma composição centrada onde todo vão se vê. Quem dá
-                             altura enquanto carrega é o próprio `EstadoDaTela`. -->
-                        <Grid>
-                            <ctrl:EstadoDaTela Panel.ZIndex="1"
-                                               Itens="{Binding Seletor.Resultados}"
-                                               Carregando="{Binding Seletor.Buscando}"
-                                               Ativo="{Binding Seletor.BuscandoPorTermo}"
-                                               Glifo="&#xE77B;"
-                                               Titulo="Nenhum paciente encontrado"
-                                               Descricao="Confira o nome ou tente pelo CPF. Quem ainda não tem ficha entra em Pacientes → Novo paciente." />
-
-                            <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                                    CornerRadius="{StaticResource Raio.Medio}"
-                                    Background="{StaticResource Brush.Superficie}"
-                                    Visibility="{Binding Seletor.TemResultados,
-                                                 Converter={StaticResource BoolParaVisibilidade}}">
-                                <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as
-                                     colunas por `SharedSizeGroup`, e sem o ESCOPO declarado
-                                     aqui cada linha resolve a largura sozinha — a lista deixa
-                                     de ter colunas e vira uma pilha de linhas desalinhadas
-                                     (checagem 31).
-                                     ⚠️ `RodaDaPagina` (parcela 90): a lista rola por DENTRO e
-                                     fica numa página que também rola. Sem isto o ScrollViewer
-                                     dela COME a roda do mouse e a página não rola com o cursor
-                                     em cima do maior alvo da tela.
-                                     ⚠️ `MaxHeight` 332 = 8 de Padding + SEIS linhas de 54
-                                     (avatar 40 + 12 do Padding do ListBoxItem + 2 da Margin).
-                                     Número inteiro de linhas de propósito: com 300 a sétima
-                                     saía fatiada ao meio, e lista cortada na metade de uma
-                                     linha se lê como defeito, não como rolagem. -->
-                                <ListBox x:Name="ListaDePacientes" Grid.IsSharedSizeScope="True"
-                                         ItemsSource="{Binding Seletor.Resultados}"
-                                         SelectedItem="{Binding Seletor.Selecionado}"
-                                         ItemTemplate="{StaticResource ItemPacienteLinha}"
-                                         BorderThickness="0" Background="Transparent"
-                                         HorizontalContentAlignment="Stretch"
-                                         Padding="4" MaxHeight="332"
-                                         ctrl:Ajudantes.RodaDaPagina="True"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                            </Border>
-                        </Grid>
-
-                        <!-- O terceiro estado da sugestão: consultada e VAZIA. -->
-                        <Border Style="{StaticResource AlertaInfo}" Margin="0,8,0,0"
-                                Visibility="{Binding Seletor.SugestaoVazia,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock TextWrapping="Wrap" HorizontalAlignment="Left"
-                                       Text="Ninguém tem horário marcado para hoje. Digite o nome ou o CPF, ou veja todos os pacientes." />
-                        </Border>
-
-                        <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                                   Foreground="{StaticResource Brush.Erro}"
-                                   TextAlignment="Center" HorizontalAlignment="Center"
-                                   Visibility="{Binding Seletor.TemErro,
-                                                Converter={StaticResource BoolParaVisibilidade}}" />
-                    </StackPanel>
+                    <comp:BuscaDePacienteView x:Name="Busca" DataContext="{Binding Seletor}"
+                                              Visibility="{Binding DataContext.SemPaciente,
+                                                           RelativeSource={RelativeSource AncestorType=UserControl},
+                                                           Converter={StaticResource BoolParaVisibilidade}}" />
 
                     <!-- Escolhido: a identidade numa faixa compacta. Os AVISOS saíram
                          daqui — eles moram na coluna da direita, junto da prévia e do

@@ -74,16 +74,31 @@ public sealed partial class PacientesViewModel : ObservableObject
         _escopos = escopos;
         _snackbar = snackbar;
 
-        // Listagem: sem corte, é ela que precisa mostrar todo mundo.
-        Seletor = new SeletorPacienteViewModel(escopos, limite: null);
+        // Listagem: sem corte, é ela que precisa mostrar todo mundo QUANDO alguém pedir.
+        //
+        // ⚠️ `SemBuscaInicial` (set/2026 — o cliente: "a tela de pacientes ainda carrega
+        // todos os pacientes"). Esta era a consulta mais cara do sistema: `limite: null`
+        // com o termo VAZIO traz o cadastro INTEIRO — 2.284 fichas — a cada abertura da
+        // tela, num banco remoto.
+        //
+        // Eu tinha deixado esta tela de fora com o argumento de que "numa tela de LISTAGEM
+        // a lista É a resposta". O argumento continua valendo para o que a tela OFERECE, e
+        // não para o que ela faz sozinha: a listagem completa continua a um clique
+        // ("Ver todos"), e é justamente por ser cara que ela precisa ser PEDIDA.
+        Seletor = new SeletorPacienteViewModel(escopos, limite: null) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += AoTrocarPaciente;
         Seletor.Atualizou += AtualizarResumo;
 
         Ficha = new FichaPacienteViewModel(escopos, snackbar, dialogo);
         // Editar o cadastro muda o nome/foto que a lista mostra.
-        Ficha.Alterou += () => _ = Seletor.BuscarAsync(imediato: true);
+        // Editar o cadastro só precisa reler o que ESTÁ na tela: no ocioso não há lista
+        // para atualizar, e reler ali traria o cadastro inteiro por causa de uma edição.
+        Ficha.Alterou += () =>
+        {
+            if (!Seletor.Ocioso) _ = Seletor.BuscarAsync(imediato: true);
+        };
 
-        _ = Seletor.BuscarAsync(imediato: true);
+        AtualizarResumo();
     }
 
     /// <summary>
@@ -112,13 +127,31 @@ public sealed partial class PacientesViewModel : ObservableObject
         Seletor.Limpar();
     }
 
+    /// <summary>
+    /// ⚠️ O OCIOSO responde primeiro, e é a correção que anda junto de `SemBuscaInicial`:
+    /// "Nenhum paciente encontrado" numa tela recém-aberta seria uma afirmação FALSA sobre
+    /// uma clínica de 2.284 fichas — e é a leitura que leva a cadastrar de novo quem já
+    /// tem ficha, partindo o histórico em dois (parcela 57).
+    /// </summary>
     private void AtualizarResumo()
-        => Resumo = Seletor.Resultados.Count switch
-        {
-            0 => "Nenhum paciente encontrado.",
-            1 => "1 paciente.",
-            var n => $"{n} pacientes."
-        };
+    {
+        Resumo = Seletor.Ocioso
+            ? "Busque por nome ou CPF — ou veja todos os pacientes."
+            : Seletor.Resultados.Count switch
+            {
+                0 => "Nenhum paciente encontrado.",
+                1 => "1 paciente.",
+                var n => $"{n} pacientes."
+            };
+
+        OnPropertyChanged(nameof(ListandoTudo));
+    }
+
+    /// <summary>
+    /// A lista completa está no ar. É o que apaga o botão "Ver todos" quando ele já foi
+    /// clicado: botão que continua aceso depois de fazer o que faz manda clicar de novo.
+    /// </summary>
+    public bool ListandoTudo => Seletor.ListandoTodos;
 
     [RelayCommand]
     private async Task NovoPacienteAsync()
@@ -134,9 +167,13 @@ public sealed partial class PacientesViewModel : ObservableObject
         if (janela.ShowDialog() != true) return;
 
         _snackbar.Sucesso("Paciente cadastrado.");
-        await Seletor.BuscarAsync(imediato: true);
-    }
 
-    [RelayCommand]
-    private Task AtualizarAsync() => Seletor.BuscarAsync(imediato: true);
+        // ⚠️ Busca pelo NOME de quem acabou de ser cadastrado, e não "recarrega a lista".
+        //
+        // Com a tela OCIOSA (set/2026) recarregar não faria nada — `BuscarAsync` sai cedo
+        // sem consultar —, e a pessoa veria "Paciente cadastrado." com a tela em branco,
+        // que se lê como "não salvou". Buscar pelo nome sai do ocioso E mostra exatamente
+        // a ficha nova, em vez de trazer as 2.284 para ela se perder no meio.
+        Seletor.Termo = vm.Nome;
+    }
 }

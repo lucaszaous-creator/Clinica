@@ -105,13 +105,18 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
         // O seletor da suíte, com o corte no SQL e o descarte de resposta fora de ordem
         // já resolvidos. Tela nova que escolhe paciente usa ele — não se reescreve busca.
-        Seletor = new SeletorPacienteViewModel(escopos);
+        // ⚠️ `SemBuscaInicial` (set/2026 — pedido da direção): a tela abre SEM consultar
+        // nada. Antes ela chamava `BuscarAsync(imediato: true)` no construtor, e com o
+        // termo vazio isso cai no `OrderBy(Nome).Take(50)` — uma ida ao banco REMOTO, na
+        // abertura, para trazer o começo do alfabeto de 2.238 fichas, que não é o paciente
+        // de ninguém.
+        //
+        // O medo que a busca inicial resolvia — "tela vazia se lê como sistema quebrado" —
+        // continua de pé, e quem responde por ele agora é o CONVITE da
+        // `BuscaDePacienteView`: a tela diz o que fazer em vez de mostrar uma lista que
+        // ninguém pediu.
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += AoTrocarPaciente;
-
-        // A busca INICIAL. Sem ela a tela abre com a caixa de busca vazia e a lista vazia
-        // ao lado — e tela vazia se lê como sistema quebrado, não como "digite um nome".
-        // É o mesmo `_ =` que `PacientesViewModel` já fazia; faltava aqui e nas Prescrições.
-        _ = Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>
@@ -329,6 +334,44 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     [RelayCommand]
     private Task EditarSessaoAsync(LinhaEvolucao? linha)
         => linha is null ? Task.CompletedTask : AbrirAsync(linha.EvolucaoId);
+
+    /// <summary>
+    /// VER a sessão por inteiro, sem poder mexer nela (set/2026).
+    ///
+    /// O "Abrir" ao lado EDITA e exige <see cref="Permissao.EditarProntuario"/> — quem
+    /// tem só o bit de LER (a técnica de enfermagem, o faturista) não alcançava a sessão
+    /// por porta nenhuma nesta tela, e a lista mostra o resumo cortado. É o corte da
+    /// parcela 49 (ler dado de saúde × escrever nele) sem a metade de ler.
+    ///
+    /// A janela é do SHELL, a MESMA das outras duas portas: uma cópia aqui divergiria na
+    /// primeira correção, e a que ficasse para trás abriria o prontuário sem registrar
+    /// quem leu.
+    /// </summary>
+    [RelayCommand]
+    private void VerSessao(LinhaEvolucao? linha)
+    {
+        // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha (checagem 21).
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
+
+            // `ofereceAnexos: false`: a janela de anexos POR SESSÃO mora no módulo
+            // Clínico, e este é o da Recepção — o botão fecharia a janela para nada. A
+            // contagem continua na linha da lista, que é onde ela informa.
+            var vm = new SessaoDoProntuarioViewModel(
+                _escopos, linha.EvolucaoId, Paciente, ofereceAnexos: false);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — a sessão do prontuário não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
 
     private async Task AbrirAsync(int? evolucaoId)
     {

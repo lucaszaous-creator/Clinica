@@ -95,6 +95,19 @@ public static class ChavesSuite
     /// </remarks>
     public const string ConsultorioPacientes = "consultorio-pacientes";
 
+    /// <summary>
+    /// A lista plana de PRONTUÁRIOS do Consultório — evoluções escritas, anamneses
+    /// emitidas e as sessões que ainda faltam escrever (set/2026).
+    ///
+    /// ⚠️ Ela atravessa módulo desde set/2026 porque virou SUB-ABA do item "Prontuário",
+    /// publicado pela Recepção: enquanto os dois módulos publicavam item próprio com
+    /// chaves diferentes ("prontuario" e "consultorio-prontuarios"), a dedupe do
+    /// <c>ShellViewModel</c> — que casa por CHAVE — não pegava, e o Gerente Geral mostrava
+    /// "Prontuário" e "Prontuários" um do lado do outro em PACIENTE. É literalmente a
+    /// mesma duplicata que "Prescrições" teve, pelo mesmo mecanismo (parcela 55).
+    /// </summary>
+    public const string ConsultorioProntuarios = "consultorio-prontuarios";
+
     /// <summary>Prescrever a partir do paciente em foco (Consultório).</summary>
     public const string ConsultorioPrescricoes = "consultorio-prescricoes";
 

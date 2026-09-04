@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -9,7 +10,30 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24,20,24,24">
+    <!-- ============================================================
+         DOIS CONTEÚDOS ALTERNATIVOS, nunca sobrepostos: ou a tela é a BUSCA (ela abre
+         pela sidebar sem ninguém em foco), ou é o trabalho sobre o paciente escolhido.
+
+         Antes, sem paciente, ela mostrava o cabeçalho com o nome vazio, o botão de nova
+         prescrição APAGADO e a busca espremida numa coluna de 320 px no canto — a tela
+         mostrando o que se faz DEPOIS de escolher, antes de haver quem escolher.
+
+         ⚠️ Diferente da irmã (Prescrições), esta tela NUNCA é seção da tela do paciente:
+         ela é item de menu e só. A condição aqui é o `SemPaciente` puro.
+         ============================================================ -->
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,24"
+                      Visibility="{Binding EscolhendoPaciente,
+                                   Converter={StaticResource BoolParaVisibilidade}}">
+            <comp:BuscaDePacienteView DataContext="{Binding Seletor}"
+                                      Pergunta="Para quem é a folha de infusão?"
+                                      Explicacao="A prescrição que fica na clínica: a sala executa item a item e a enfermagem assina a checagem."
+                                      Convite="Comece digitando o nome ou o CPF. Quem você chamou da fila já entra escolhido." />
+        </ScrollViewer>
+
+    <DockPanel Margin="24,20,24,24"
+               Visibility="{Binding TrabalhandoNoPaciente,
+                            Converter={StaticResource BoolParaVisibilidade}}">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
@@ -182,4 +206,5 @@
             </Grid>
         </Border>
     </DockPanel>
+    </Grid>
 </UserControl>

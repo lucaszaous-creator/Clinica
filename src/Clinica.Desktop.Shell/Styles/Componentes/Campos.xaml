@@ -173,8 +173,23 @@
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
                                        Margin="8,0,12,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False" Visibility="Collapsed" />
+<!-- ⚠️ MARGEM VERTICAL ZERO, e ela é a correção de set/2026 (o cliente mandou o
+                                 print: o texto digitado saía CORTADO na base).
+
+                                 Aqui estava `Margin="8,8,12,8"` — 16 px verticais TRAVADOS, medidos
+                                 para o campo de 36 com a fonte de corpo. A conta já era apertada no
+                                 caso padrão: 36 − 2 de borda − 16 = 18 px úteis para uma linha de 14
+                                 que ocupa ~19. Num campo mais alto com fonte maior (a busca de
+                                 paciente é 48/18) ela apertava mais, e o que sobra do texto é a
+                                 metade de cima.
+
+                                 A margem vertical FIXA é o defeito: ela não acompanha nem a altura do
+                                 campo nem o tamanho da fonte. Zerada, quem centra é o
+                                 `VerticalAlignment` — e aí o texto cabe em qualquer combinação das
+                                 duas. A margem HORIZONTAL fica: ela posiciona o texto em relação à
+                                 lupa, e isso não muda com a altura. -->
                             <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1"
-                                          Margin="8,8,12,8" VerticalAlignment="Center" />
+                                          Margin="8,0,12,0" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
                         </Grid>
@@ -230,8 +245,10 @@
                                        Foreground="{StaticResource Brush.Texto.Secundario}"
                                        Margin="8,0,14,0" VerticalAlignment="Center"
                                        IsHitTestVisible="False" Visibility="Collapsed" />
+                            <!-- Mesma correção da busca de página logo acima: margem vertical
+                                 fixa não acompanha a altura do campo nem o tamanho da fonte. -->
                             <ScrollViewer x:Name="PART_ContentHost" Grid.Column="1"
-                                          Margin="8,8,14,8" VerticalAlignment="Center" />
+                                          Margin="8,0,14,0" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
                         </Grid>

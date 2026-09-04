@@ -62,6 +62,20 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveGrupoPrescricoes = "receituario";
 
     /// <summary>
+    /// O item composto "Prontuário" (set/2026). Junta a leitura POR PACIENTE (a tela
+    /// deste módulo) com a lista plana de REGISTROS E PENDÊNCIAS do Consultório.
+    ///
+    /// ⚠️ Ele existe pela mesma razão do <see cref="ChaveGrupoPrescricoes"/> logo acima, e
+    /// pelo mesmo defeito: os dois módulos publicavam item próprio, com chaves diferentes
+    /// ("prontuario" e "consultorio-prontuarios"), então a dedupe por chave do shell não
+    /// pegava e o Gerente Geral mostrava "Prontuário" e "Prontuários" lado a lado em
+    /// PACIENTE — dois rótulos quase iguais que fazem a pessoa clicar nos dois para
+    /// descobrir o que é cada um. As duas telas existem e respondem perguntas diferentes:
+    /// viraram abas, que é onde a diferença se lê.
+    /// </summary>
+    public const string ChaveGrupoProntuario = "prontuario-geral";
+
+    /// <summary>
     /// Ajuda e suporte — tela do SHELL (a única das 18 do handoff de design que não
     /// existia). Os QUATRO módulos publicam a MESMA chave (<see cref="ChavesSuite.Ajuda"/>):
     /// dúvida não tem dono, e cada exe carrega um recorte de módulos.
@@ -180,10 +194,38 @@ public sealed class ModuloRecepcao : IModuloApp
         },
         // Prontu\u00E1rio e Prescri\u00E7\u00F5es s\u00E3o itens de PRIMEIRO N\u00CDVEL na proposta e, at\u00E9 a
         // parcela 24, s\u00F3 existiam por dentro da ficha do paciente.
+        //
+        // \u26A0\uFE0F A tela CONTINUA sendo um item, e isso n\u00E3o \u00E9 sobra: quem a esconde do menu
+        // \u00E9 o item composto abaixo, e s\u00F3 enquanto ele existe. No `Clinica.Recepcao.exe` o
+        // m\u00F3dulo Cl\u00EDnico n\u00E3o \u00E9 carregado, o composto fica com UMA aba e o shell mostra a
+        // tela direto \u2014 e no `Clinica.Clinico.exe` \u00E9 o contr\u00E1rio: sem este m\u00F3dulo n\u00E3o h\u00E1
+        // composto, e "Prontu\u00E1rios" volta a ser item de menu comum. \u00C9 o mecanismo da tela
+        // \u00F3rf\u00E3 (parcela 55): esconder por decreto faria a tela sumir do \u00FAnico app onde
+        // algu\u00E9m a usa todo dia.
         new ItemMenuModulo
         {
             Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        // \u26A0\uFE0F A SEGUNDA duplicata da sidebar, e ela \u00E9 a MESMA hist\u00F3ria das "Prescri\u00E7\u00F5es"
+        // logo abaixo (set/2026 \u2014 o cliente mandou o print do Gerente com os dois itens):
+        // "Prontu\u00E1rio" (deste m\u00F3dulo) e "Prontu\u00E1rios" (do Consult\u00F3rio) apareciam um do
+        // lado do outro em PACIENTE, com chaves diferentes \u2014 e a dedupe do
+        // `ShellViewModel` casa por CHAVE, ent\u00E3o ela n\u00E3o pegava.
+        //
+        // As duas telas respondem perguntas DIFERENTES, e \u00E9 por isso que nenhuma foi
+        // apagada: a daqui \u00E9 "abra o prontu\u00E1rio DESTE paciente"; a de l\u00E1 \u00E9 "o que foi
+        // escrito e o que ainda FALTA escrever na cl\u00EDnica" \u2014 uma fila de trabalho. Como
+        // abas, cada r\u00F3tulo diz qual \u00E9 qual.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,
+            Abas =
+            [
+                new AbaMenu("Por paciente", ChaveProntuario),
+                new AbaMenu("Registros e pend\u00EAncias", ChavesSuite.ConsultorioProntuarios)
+            ]
         },
         // ⚠️ Aqui morava uma DUPLICATA: "Prescrições" era publicado por este módulo e
         // pelo Consultório com chaves diferentes (`prescricoes` e

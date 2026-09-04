@@ -127,7 +127,15 @@ Nenhum deles quebra o build quando é esquecido:
 6. **TODAS as portas de edição** — *quem não edita, PRESERVA*: a janela que não tem o campo na
    tela precisa carregá-lo e devolvê-lo intacto, senão ela o apaga;
 7. **o PDF, a exportação, o art. 18 II e a guarda** (ponto 8 do compromisso de conformidade);
-8. **a busca do prontuário** e o `CatalogoRegistroClinico`.
+8. **a busca do prontuário** e o `CatalogoRegistroClinico`;
+9. **os TRÊS leitores que só MOSTRAM a sessão** — o `ModeloEvolucao` (parcela 76), o
+   painel da sessão anterior (`ResumoSessaoAnterior`, parcela 77) e a janela que ABRE a
+   sessão (`SessaoDoProntuario`, set/2026). Os três já ficaram para trás uma vez cada, e
+   pelo mesmo motivo: esquecer um não quebra build, não quebra teste e não acusa em rede
+   nenhuma — o campo simplesmente não aparece para quem lê. O terceiro é o único com
+   rede: `SessaoDoProntuarioTests.Todo_campo_escrito_aparece_em_algum_bloco` varre a
+   entidade por REFLEXÃO, e o que não for conteúdo clínico tem de ser DECLARADO ali com
+   a razão. Lista de campos escrita à mão é lista que a próxima parcela não alcança.
 
 ### 2. Método de repositório novo
 
@@ -2838,6 +2846,145 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `WithOne`. Invertido, o snapshot inteiro LANÇA ao ser carregado ("Navigation … was not
   found"), e o `Snapshot_do_EF_esta_em_dia` é quem pega; copie a ordem do par
   `ArquivoResultadoExame` → `ResultadoExame`, nos dois arquivos (snapshot e Designer).
+
+- **O PRONTUÁRIO DA SESSÃO: a aba duplicada, a sessão que não abria e o papel dela**
+  (set/2026 — os três pedidos do cliente, e os três são o defeito recorrente do projeto
+  em três variantes). Build verde, 2117 testes verdes e as três redes verdes o tempo
+  todo: nenhum dos três quebrava nada.
+  ⚠️ **A DUPLICATA DE RÓTULO NA SIDEBAR É A SEGUNDA, E AGORA TEM REDE.** "Prontuário"
+  (Recepção, `prontuario`) e "Prontuários" (Consultório, `consultorio-prontuarios`)
+  apareciam LADO A LADO em PACIENTE no Gerente Geral. A dedupe do `ShellViewModel` casa
+  por **CHAVE** — ela funde a mesma tela publicada por dois módulos (a Sala de infusão, a
+  Enfermagem, a Ajuda) e **não alcança** duas telas DIFERENTES com rótulos que dizem a
+  mesma coisa. É literalmente o que aconteceu com "Prescrições" na parcela 55, e a
+  correção é a mesma: item COMPOSTO com as duas telas como abas ("Por paciente" ×
+  "Registros e pendências"). Nenhuma tela foi apagada, porque elas respondem perguntas
+  diferentes — uma é "abra o prontuário DESTE paciente", a outra é a fila de trabalho do
+  que falta escrever na clínica.
+  A lição da parcela 68 manda escrever a rede na SEGUNDA ocorrência, e o ruído foi
+  **medido antes de ligar**: a simulação da sidebar do Gerente devolveu **zero**
+  duplicatas depois da correção, e a lista exata do defeito antes dela. Virou a
+  **checagem 45**, que reproduz o que o shell FAZ (oculto não conta, chave repetida é
+  fundida, sub-tela reivindicada por composto sai) — sem as três ela acusaria os pares
+  legítimos, e checagem que grita no que está certo é checagem que alguém desliga.
+  ⚠️ **Ela normaliza o PLURAL, e é isso que a faz valer**: o defeito real era
+  "Prontuário" × "Prontuári**os**", e comparar texto cru deixaria passar justamente o
+  caso que a motivou. Autotestada nos quatro cenários — e foi o autoteste que mostrou que
+  o meu "antes" sintético estava errado (ele não fazia a chave atravessar por
+  `ChavesSuite`, que é como o código real a passa).
+  ⚠️ **A SESSÃO TINHA DOZE CAMPOS E QUATRO LEITORES MOSTRAVAM QUATRO.** História da doença
+  atual, exame físico, hipótese, CID, plano terapêutico, retorno sugerido e encaminhamento
+  (parcelas 73, 75 e 77) estavam gravados e **não tinham leitor em tela nenhuma** para uma
+  sessão PASSADA: a lista do Consultório mostra quatro truncados, o modal de leitura
+  rápida compõe UMA frase, e o painel da sessão anterior corta de propósito (a coluna tem
+  350 px). Nasceu `SessaoDoProntuario` (Application, **puro** — o que a tela AFIRMA mora
+  onde o `dotnet test` alcança) e a janela do shell que a abre.
+  ⚠️ **VER e EDITAR são bits diferentes, e a linha só tinha o de escrever.** O "Abrir" da
+  Recepção exige `EditarProntuario` e o rótulo MENTIA sobre o que ele faz (é a janela de
+  edição): quem tem só `VerProntuario` — a técnica de enfermagem, o faturista — não
+  alcançava a sessão por porta nenhuma. É o corte da parcela 49 sem a metade de ler.
+  ⚠️ **A FICHA DO ATENDIMENTO ESTAVA EM TRÊS CÓPIAS, E ELAS JÁ TINHAM DIVERGIDO EM TRÊS
+  PONTOS** — cada um uma regra que só existia numa delas: a guarda de paciente que DIZ por
+  que não dá (só a da enfermagem), a recusa de permissão que vira frase em vez de exceção
+  (só uma), e **a guarda do rascunho não gravado** (só a do médico) — a mais cara, porque
+  a tela da enfermagem TAMBÉM tem compositor e entregava ao paciente um papel sem o que a
+  técnica acabara de escrever. Virou `FichaDoAtendimento` no shell, e o
+  `temRascunhoNaoGravado` é parâmetro **obrigatório**: com valor padrão, a porta seguinte
+  nasceria sem responder à pergunta e o defeito voltaria calado. De quebra, a emissão
+  passou a deixar **trilha** (`ExportacaoClinica`) — a ficha é dado de saúde saindo para
+  um arquivo no disco, e as três cópias não registravam nenhuma.
+  ⚠️ **Botão que devolve INTENÇÃO só existe onde a dona sabe agir.** A janela é do shell e
+  a de ANEXOS mora no módulo Clínico: nas portas que não a alcançam (a Recepção, o modal),
+  oferecer o botão daria um clique que fecha a janela e não faz nada — a parcela 41
+  construída de propósito. As CORREÇÕES são do shell e a janela as abre por dentro. **A
+  pergunta que decide não é "a ação existe?", é "onde mora a janela de destino?"**
+  ⚠️ E a releitura do diff pegou o de sempre: eu escrevi no cabeçalho que a janela tinha
+  **"QUATRO portas — … e a tela da Enfermagem"** e não construí a quarta. Comentário que
+  promete o que o código não faz é o defeito da parcela 67, cometido no arquivo que eu
+  estava escrevendo para acabar com duplicata. São três, e a Enfermagem não é porta:
+  ela lista `EvolucaoEnfermagem` e esta janela abre `Evolucao` — ids POR TABELA, e abrir
+  uma pela outra mostraria a sessão de OUTRO paciente sem estourar nada.
+
+- **A BUSCA DE PACIENTE VIROU COMPONENTE, E A TELA DEIXOU DE CONSULTAR AO ABRIR**
+  (set/2026 — pedido da direção: *"nas telas onde precisa haver busca por pacientes, essa
+  seja a tela inicial, parecida com a tela de atendimento; isso nos ajuda e minimiza o
+  tempo de resposta entre sistema servidor"*).
+  Escolher paciente tinha **TRÊS desenhos** na suíte, e dois deles o `README.md` proíbe: a
+  composição centrada do Novo atendimento (mockup 05), lista de largura inteira → tela do
+  item (Prontuário e Prescrições da Recepção) e **faixa lateral de 320 px** (Prescrições e
+  Prescrição de infusão do Consultório). Três desenhos para a MESMA pergunta é o que faz a
+  recepcionista achar que abriu outro programa.
+  ⚠️ **O bloco SUBIU INTEIRO, e não foi reescrito** (`BuscaDePacienteView`, no shell): ele
+  carrega meia dúzia de lições pagas uma a uma — a coluna de 760 px sem coluna estrela, o
+  campo de 48, o `MaxHeight` de número INTEIRO de linhas, o `RodaDaPagina`, a ausência de
+  `MinHeight`, o `IsSharedSizeScope`. Reescrever teria perdido metade delas em silêncio; e
+  ao mover o teclado eu quase troquei o handler RICO do Novo atendimento (Enter com UM
+  resultado escolhe; com vários só desce) pelo meu, mais pobre — **ao mover, liste o que a
+  versão antiga FAZIA**.
+  ⚠️ **E o Novo atendimento passou a usar o componente no mesmo commit.** Eu tinha
+  COPIADO o bloco em vez de mover, e deixado a cópia lá: a segunda definição criada pelo
+  próprio commit que existe para acabar com duplicata. A releitura do diff é que pegou.
+  ⚠️ **`SemBuscaInicial` é o que entrega o pedido do servidor, e é OPT-IN.** Doze telas
+  chamavam `BuscarAsync(imediato: true)` na abertura com o termo VAZIO — e com o termo
+  vazio a consulta não filtra nada, cai no `OrderBy(Nome).Take(50)`: uma ida ao banco
+  REMOTO, na abertura, para trazer ACELINO, ADAISE, ADAO. A regra que decide quem recebe é
+  a mesma da `SugestaoInicial`: **a lista é a RESPOSTA da tela, ou o CAMINHO até ela?** Nas
+  de listagem (Pacientes, Enfermagem) ela é a resposta, e abrir vazio seria trocar um
+  defeito pelo oposto.
+  ⚠️ **A DECISÃO foi para a Application** (`BuscaDePaciente.Modo`), e aqui isso vale mais
+  que de costume: o `SeletorPacienteViewModel` é WPF e não compila no projeto de teste, e o
+  que se decide não é uma frase — é **se a tela vai ao banco**. A matriz resolve TRÊS
+  coisas de uma vez (se consulta, qual pílula acende, qual vazio aparece), e as três
+  estavam espalhadas em booleanos soltos.
+  ⚠️ **A ARMADILHA DO ESTADO NOVO, e ela é a lição que generaliza: ao acrescentar um
+  estado a uma máquina de dois, todo booleano definido por NEGAÇÃO precisa ser relido.**
+  `BuscandoPorTermo => !MostrandoSugestao` era verdade enquanto só havia sugestão e busca.
+  Com o OCIOSO ele passou a dar verdadeiro numa tela recém-aberta — o `EstadoDaTela`
+  ligava e escrevia *"Nenhum paciente encontrado"* por cima do convite, que é uma afirmação
+  falsa sobre uma clínica de 2.238 fichas e justamente a que leva a cadastrar de novo quem
+  já tem ficha (parcela 57). Pelo mesmo motivo `ListandoTodos` acenderia o chip "Todos os
+  pacientes" sobre a tela em branco. Os dois passaram a derivar do MESMO `Modo` — derivar
+  do mesmo lugar é o que impede uma pílula de acender na INTENÇÃO e a outra no RESULTADO.
+  ⚠️ **A Central de documentos ficou de fora, e é decisão**: DUAS das nove folhas não
+  exigem paciente (o recibo, que navega ao Caixa, e o fechamento do período). Fazer a tela
+  abrir como busca as tornaria inalcançáveis — a regra 3 do bloco do faturamento ("não
+  tire capacidade de quem a usava"). Ali o seletor é um CAMPO: a tela responde "que papel
+  eu quero emitir", não "quem é o paciente".
+  ⚠️ **MARGEM VERTICAL FIXA NUM CAMPO É O QUE CORTA O TEXTO** (2ª rodada — o cliente
+  mandou o print com "lucas" decepado na base). O template do `CampoPesquisa` **ignora o
+  `Padding`** e usa `Margin="8,8,12,8"` no `PART_ContentHost` — 16 px verticais TRAVADOS,
+  medidos para o campo de 36 com a fonte de corpo. A conta já era apertada no caso padrão:
+  36 − 2 de borda − 16 = **18 px úteis para uma linha de 14 que ocupa ~19**. Num campo mais
+  alto com fonte maior (a busca de paciente é 48/18) ela aperta mais, e o que sobra é a
+  metade de cima das letras.
+  A margem vertical fixa é o defeito: **ela não acompanha nem a altura do campo nem o
+  tamanho da fonte**. Zerada, quem centra é o `VerticalAlignment` e o texto cabe em
+  qualquer combinação das duas; a HORIZONTAL fica, porque ela posiciona em relação à lupa e
+  isso não muda com a altura. Corrigido nos DOIS templates — a busca de página e a pílula
+  da busca global —, pela lição de sempre: **quando um defeito de template é corrigido,
+  procure o irmão**. E o campo passou a ter `MinHeight`, nunca `Height`: altura travada com
+  fonte maior é a mesma armadilha pelo outro lado.
+  ⚠️ **E A TELA DE PACIENTES ERA A CONSULTA MAIS CARA DO SISTEMA** (mesma rodada — *"a tela
+  de pacientes ainda carrega todos os pacientes"*). Eu a tinha deixado de fora com o
+  argumento de que "numa tela de LISTAGEM a lista É a resposta". O argumento vale para o
+  que a tela **OFERECE**, e não para o que ela faz sozinha: com `limite: null` e o termo
+  vazio, abrir a tela trazia o cadastro INTEIRO — 2.284 fichas — de um banco remoto, sem
+  ninguém ter pedido. A listagem continua a um clique ("Ver todos"), e **é justamente por
+  ser cara que ela precisa ser PEDIDA**.
+  Três coisas andaram junto, e as três são a mesma regra: no ocioso o **resumo** deixa de
+  dizer "Nenhum paciente encontrado" (falso sobre 2.284 fichas), o **`EstadoDaTela`**
+  desliga (`AlgoFoiPedido`) e a **região da lista some** — sem ela, a moldura ficaria vazia
+  com o cabeçalho de colunas órfão em cima de nada. Um estado vazio por pergunta.
+  ⚠️ **As irmãs foram conferidas e estavam certas**: a Enfermagem abre com a FILA DO DIA
+  (só vai ao seletor com termo ou "ver todos") e a de Pacientes do Consultório traz quem
+  já foi ATENDIDO, com teto — as duas respondem uma pergunta, não despejam um cadastro.
+  **O que ficou pendente, com o motivo**: os três formulários que ainda abrem despejando o
+  alfabeto (agendamento da Recepção, lista de espera e o agendamento do faturamento). Neles
+  a lista é uma caixa de `MaxHeight="150"` SEMPRE visível, então `SemBuscaInicial` sozinho
+  abriria um vão em branco no meio do formulário — o ganho de servidor ali custa também a
+  visibilidade condicional em cada um. E a tela de Pacientes do FATURAMENTO tem o mesmo
+  despejo, com o seletor PRÓPRIO daquele app (o débito permanente da Fase 4): portar o
+  `SemBuscaInicial` para lá é a cópia que ainda falta.
 
 ### Convenções
 

@@ -103,7 +103,14 @@ public sealed class ModuloClinico : IModuloApp
     /// no domínio — anamnese tem assinatura de verdade; o pendente da evolução é a
     /// sessão sem registro ("A escrever"), nunca uma assinatura inventada.
     /// </summary>
-    public const string ChaveProntuarios = "consultorio-prontuarios";
+    /// <remarks>
+    /// ⚠️ Vem da <see cref="ChavesSuite"/> desde set/2026: a tela virou SUB-ABA do item
+    /// "Prontuário" publicado pela Recepção, e chave que atravessa módulo escrita à mão
+    /// dos dois lados sempre compila — a divergência só aparece na clínica, com a aba
+    /// PULADA em silêncio (a checagem 28). A tela continua sendo um ITEM: quem a esconde
+    /// do menu é o item pai, e só enquanto o pai está presente.
+    /// </remarks>
+    public const string ChaveProntuarios = ChavesSuite.ConsultorioProntuarios;
 
     /// <summary>
     /// A tela de EXAMES (set/2026 — o handoff): os pedidos com a situação derivada dos

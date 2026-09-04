@@ -183,6 +183,24 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     public bool TemPaciente => !SemPaciente;
 
     /// <summary>
+    /// A tela é a BUSCA (set/2026 — pedido da direção: a busca de paciente como tela
+    /// inicial, no desenho do Novo atendimento).
+    ///
+    /// Ela abre pela sidebar SEM ninguém em foco, e até aqui isso significava um cabeçalho
+    /// com o nome vazio, quatro botões APAGADOS e um campo de busca de 320 px espremido no
+    /// canto direito — a tela mostrando o que se faz DEPOIS de escolher, antes de haver
+    /// quem escolher.
+    ///
+    /// ⚠️ Só vale com <see cref="MostrarCabecalho"/>: como SEÇÃO da tela do paciente ela
+    /// nunca está sem ninguém — a identidade está acima, e o seletor daqui trocaria o
+    /// <c>PacienteEmFoco</c> por baixo das outras seções.
+    /// </summary>
+    public bool EscolhendoPaciente => MostrarCabecalho && SemPaciente;
+
+    /// <summary>O par invertido — o projeto não tem conversor de booleano invertido.</summary>
+    public bool TrabalhandoNoPaciente => !EscolhendoPaciente;
+
+    /// <summary>
     /// Os quatro botões de emitir só funcionam com paciente escolhido E com permissão de
     /// escrever no prontuário.
     ///
@@ -196,6 +214,8 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     partial void OnSemPacienteChanged(bool value)
     {
         OnPropertyChanged(nameof(TemPaciente));
+        OnPropertyChanged(nameof(EscolhendoPaciente));
+        OnPropertyChanged(nameof(TrabalhandoNoPaciente));
         OnPropertyChanged(nameof(PodeEmitirDocumento));
     }
 
@@ -213,7 +233,8 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         _snackbar = snackbar;
         _dialogo = dialogo;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
+        // `SemBuscaInicial`: nada vai ao banco até alguém digitar ou pedir uma lista.
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += paciente =>
         {
             if (paciente is null) return;

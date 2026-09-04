@@ -281,6 +281,24 @@
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                                <!-- ABRIR A SESSÃO por inteiro (set/2026).
+                                                     A linha mostra quatro campos truncados e a
+                                                     sessão tem doze; a janela do shell traz o
+                                                     resto e o botão de IMPRIMIR a ficha do dia,
+                                                     que é o papel que o paciente leva embora.
+
+                                                     A impressão fica LÁ, e não aqui: emitir é
+                                                     fato numerado que não se apaga, e um botão
+                                                     de emitir na linha faria sair um documento
+                                                     sem a pessoa ter visto o que estava
+                                                     imprimindo. -->
+                                                <Button Content="Abrir sessão" MinWidth="110"
+                                                        Margin="0,0,0,6"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        Command="{Binding DataContext.AbrirSessaoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+
                                                 <Button Content="{Binding AnexosTexto}" MinWidth="110"
                                                         Command="{Binding DataContext.VerAnexosCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
