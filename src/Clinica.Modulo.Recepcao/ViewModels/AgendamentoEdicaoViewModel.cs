@@ -59,26 +59,10 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _duracao = string.Empty;
     [ObservableProperty] private bool _encaixe;
 
-    // ---- Série (o pacote de dez marcado de uma vez) ----
+    // ⚠️ A SÉRIE ("repetir N sessões a cada X dias") saiu deste formulário em set/2026,
+    // por decisão da cliente: "se o paciente precisar voltar, a recepcionista marca uma
+    // agenda". O motor (`AgendaService.AgendarSerieAsync`) fica, sem porta na Recepção.
 
-    /// <summary>
-    /// Marcar várias sessões de uma vez. Só na CRIAÇÃO: remarcar já é sobre um horário
-    /// que existe, e repetir ali criaria sessões novas achando que está movendo uma.
-    /// </summary>
-    [ObservableProperty] private bool _emSerie;
-
-    [ObservableProperty] private string _quantidadeSessoes = "10";
-
-    /// <summary>Intervalo em dias. 7 = mesma hora, toda semana — o caso comum.</summary>
-    [ObservableProperty] private string _intervaloDias = "7";
-
-    /// <summary>O que a série marcou e o que ela pulou, escrito para a tela.</summary>
-    public ObservableCollection<string> ResultadoSerie { get; } = [];
-
-    public bool TemResultadoSerie => ResultadoSerie.Count > 0;
-
-    /// <summary>Repetir só faz sentido em horário novo — não em remarcação.</summary>
-    public bool PodeMarcarEmSerie => _agendamentoId is null && PedidoListaEsperaId is null;
     [ObservableProperty] private string? _observacoes;
 
     [ObservableProperty] private string _titulo = "Novo horário";
@@ -482,44 +466,6 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     // A mesma que o formulário EXIGE logo acima ("Consulta precisa de
                     // especialidade") — e que este caminho descartava em silêncio.
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
-            }
-            else if (EmSerie && PodeMarcarEmSerie)
-            {
-                if (!int.TryParse(QuantidadeSessoes, out var quantas) || quantas < 2)
-                {
-                    Erro("Quantas sessões? A partir de 2 — para uma só, desmarque \"repetir\".");
-                    return;
-                }
-                if (!int.TryParse(IntervaloDias, out var intervalo) || intervalo < 1)
-                {
-                    Erro("De quantos em quantos dias? (7 = toda semana, mesma hora.)");
-                    return;
-                }
-
-                var serie = await agenda.AgendarSerieAsync(
-                    paciente.Id, dataHora, ModalidadeSelecionada.Base, quantas,
-                    intervaloDias: intervalo, observacoes: Observacoes,
-                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
-                    profissionalId: Profissional?.Id, salaId: Sala?.Id,
-                    duracaoMinutos: DuracaoInformada(),
-                    operador: SessaoUsuario.Atual.Operador);
-
-                // A série que pulou datas NÃO fecha a janela em silêncio: a recepção
-                // precisa ver quais não entraram para resolver agora, com o paciente
-                // ainda na frente dela.
-                if (!serie.TudoMarcado)
-                {
-                    ResultadoSerie.Clear();
-                    ResultadoSerie.Add($"{serie.Marcados.Count} sessão(ões) marcada(s).");
-                    foreach (var r in serie.Recusados)
-                        ResultadoSerie.Add($"{r.Quando:dd/MM HH:mm} — não deu: {r.Motivo}");
-
-                    OnPropertyChanged(nameof(TemResultadoSerie));
-                    Mensagem = "Parte da série não entrou. Veja abaixo e resolva as datas que faltam.";
-                    MensagemEhErro = true;
-                    return;
-                }
             }
             else
             {

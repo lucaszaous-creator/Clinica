@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -56,11 +57,51 @@ public sealed partial class CartaoFila : ObservableObject
 
     public bool TemConfirmacao => ConfirmacaoRotulo.Length > 0;
 
-    /// <summary>"Pacote 9/10" — sessões usadas/contratadas do pacote ativo. A 10ª sessão
-    /// de um pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48).</summary>
-    public string Pacote { get; init; } = string.Empty;
+    /// <summary>
+    /// Sessões usadas/contratadas do pacote ativo; nulos sem pacote. A 10ª sessão de um
+    /// pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48) — e desde
+    /// set/2026 ela vira SELO só no fim ("Penúltima", "Última", "Esgotado"); o "pacote
+    /// 3/10" do meio do caminho é contexto, na linha do cartão.
+    /// </summary>
+    public int? PacoteUsadas { get; init; }
 
-    public bool TemPacote => Pacote.Length > 0;
+    public int? PacoteContratadas { get; init; }
+
+    public bool TemPacote => PacoteUsadas is not null && PacoteContratadas is not null;
+
+    /// <summary>
+    /// A linha de contexto sob o nome: modalidade · profissional · sala · pacote N/M ·
+    /// encaixe. É para cá que foram os selos que não avisam nada — o pacote no meio do
+    /// caminho e o encaixe (set/2026): informação de leitura, no peso de leitura.
+    /// </summary>
+    public string Contexto => string.Join(" · ", new[]
+    {
+        Modalidade,
+        Profissional,
+        Sala,
+        TemPacote ? $"pacote {PacoteUsadas}/{PacoteContratadas}" : null,
+        EhEncaixe ? "encaixe" : null
+    }.Where(l => !string.IsNullOrEmpty(l)));
+
+    /// <summary>
+    /// Os selos do cartão — no máximo três, por uma ordem fixa que mora na Application
+    /// (<see cref="SelosDaFila"/>): o que impede, o que cobra agora, o estado da coluna.
+    /// Recalculado quando qualquer entrada muda (o atraso corre com o relógio).
+    /// </summary>
+    public IReadOnlyList<SeloFila> Selos => SelosDaFila.Montar(
+        Etapa, TemTermoPendente, TemGuiaPendente,
+        PacoteUsadas, PacoteContratadas, AtrasoMinutos, FimAtendimentoEm);
+
+    /// <summary>Minutos além da hora marcada sem check-in; nulo sem atraso. Corre com o relógio.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Selos))]
+    private int? _atrasoMinutos;
+
+    /// <summary>A hora em que o profissional encerrou o atendimento (parcela 74); nula se não encerrou.</summary>
+    public DateTime? FimAtendimentoEm { get; init; }
+
+    partial void OnTemGuiaPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
+    partial void OnTemTermoPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
 
     /// <summary>"Atrasado 25 min" — a hora marcada estourou e o paciente não chegou.
     /// Recalculado a cada batida do relógio, como a espera. Vazio sem atraso.</summary>
@@ -218,11 +259,23 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public required string Lancamento { get; init; }
 
-    /// <summary>A dica do cartão: o que não coube nele e alguém pode precisar.</summary>
+    /// <summary>
+    /// A dica do cartão: o que não coube nele e alguém pode precisar. É o LEITOR do que
+    /// saiu do selo em set/2026 — a resposta da rodada de confirmação por extenso e a
+    /// marca legada do "retorno do 2º código" —, para selo a menos não virar dado a menos.
+    /// </summary>
     public string Detalhe => string.Join("\n", new[]
     {
         $"{Horario} · {Modalidade}",
         $"{Profissional} · sala {Sala}",
+        TemPacote ? $"Pacote {PacoteUsadas}/{PacoteContratadas} (o que vence primeiro é o que a sessão debita)" : null,
+        EhEncaixe ? "Encaixe — marcado por cima de um horário ocupado" : null,
+        TemConfirmacao
+            ? (ConfirmouPresenca
+                ? "Confirmou a presença na rodada de confirmação"
+                : "Avisado na rodada de confirmação, sem resposta")
+            : null,
+        EhRetornoDoSegundoCodigo ? "Legado: retorno do 2º código — guia não é atendimento, pode apagar" : null,
         string.IsNullOrWhiteSpace(Observacoes) ? null : $"Obs.: {Observacoes}",
         Lancamento
     }.Where(l => l is not null));
@@ -291,7 +344,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private HashSet<int> _comPendencia = [];
     private Dictionary<int, IReadOnlyList<SituacaoTermo>> _termos = [];
     private Dictionary<int, StatusContato> _confirmacoes = [];
-    private Dictionary<int, string> _pacotes = [];
+    private Dictionary<int, (int Usadas, int Contratadas)> _pacotes = [];
 
     /// <summary>
     /// Atendimentos do dia que JÁ tiveram fechamento (pacote, dinheiro ou insumo). É o que
@@ -605,10 +658,11 @@ public sealed partial class FilaViewModel : ObservableObject
                 confirmacoes = [];
             }
 
-            // O selo "Pacote 9/10": a 10ª sessão de um pacote de 10 se descobre na
-            // MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só quem TEM
-            // pacote ativo ganha selo — metade da clínica é de convênio e nunca comprou.
-            Dictionary<int, string> pacotes;
+            // O pacote ativo (usadas/contratadas): a 10ª sessão de um pacote de 10 se
+            // descobre na MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só
+            // quem TEM pacote ativo entra — metade da clínica é de convênio e nunca
+            // comprou. Quem decide se vira selo ou só linha de contexto é `SelosDaFila`.
+            Dictionary<int, (int Usadas, int Contratadas)> pacotes;
             try
             {
                 var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
@@ -624,7 +678,7 @@ public sealed partial class FilaViewModel : ObservableObject
                         {
                             // O que vence primeiro é o que a baixa automática debita.
                             var p = g.OrderBy(x => x.ValidoAte ?? DateOnly.MaxValue).First();
-                            return $"Pacote {p.SessoesUsadas}/{p.SessoesContratadas}";
+                            return (p.SessoesUsadas, p.SessoesContratadas!.Value);
                         });
             }
             catch (Exception ex)
@@ -804,7 +858,9 @@ public sealed partial class FilaViewModel : ObservableObject
                                    && doPaciente.Any(t => t.Pendente),
                 ConfirmacaoRotulo = confirmacao,
                 ConfirmouPresenca = confirmacao == "Confirmou",
-                Pacote = _pacotes.GetValueOrDefault(a.PacienteId, string.Empty),
+                PacoteUsadas = _pacotes.TryGetValue(a.PacienteId, out var pacote) ? pacote.Usadas : null,
+                PacoteContratadas = _pacotes.TryGetValue(a.PacienteId, out pacote) ? pacote.Contratadas : null,
+                FimAtendimentoEm = a.FimAtendimentoEm,
                 AtendimentoEncerrado = a.AtendimentoEncerrado,
                 // Só a sessão concluída pede fechamento, só enquanto ele não aconteceu e
                 // só quando há PACOTE — ver `FechamentoPendente`. Sem `AtendimentoId` não
@@ -896,6 +952,7 @@ public sealed partial class FilaViewModel : ObservableObject
             var atraso = ag.AtrasoMinutos(agora);
             cartao.Atraso = atraso is null ? string.Empty : $"Atrasado {atraso} min";
             cartao.Atrasado = atraso is not null;
+            cartao.AtrasoMinutos = atraso;
         }
 
         // O resumo do dia envelhece junto (a espera média corre com o relógio). A conta

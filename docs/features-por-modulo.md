@@ -154,7 +154,7 @@ zero.**
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
 | **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26) |
-| **Agendamento em série** (o pacote de dez) | ✅ | `AgendaService.AgendarSerieAsync`/`CancelarSerieAsync` (parcela 26) |
+| ~~**Agendamento em série** (o pacote de dez)~~ | ⛔ | **Retirada das telas em set/2026, por decisão da cliente** ("não precisamos disso; se o paciente precisar voltar, a recepcionista marca uma agenda"). O motor `AgendaService.AgendarSerieAsync` fica, sem porta; `CancelarSerieAsync` continua na janela do horário para as séries já marcadas |
 | **Visão de semana** | ✅ | `AgendaViewModel.ModoSemana` — o dia continua sendo o padrão (parcela 26) |
 | Elegibilidade antes de marcar | ✅ | `ElegibilidadeService` no agendamento e no check-in da Fila (parcela 26) |
 
@@ -1059,7 +1059,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 |---|---|---|---|
 | **GESTÃO** · Início | Recepção | ✅ | `PainelView` |
 | **GESTÃO** · Agenda | Recepção | ✅ | `AgendaView` |
-| **GESTÃO** · Fila do dia (era "Recepção / Check-in" até a parcela 95) | Recepção | ✅ | `FilaView` (kanban) |
+| **GESTÃO** · Fila do dia (era "Recepção / Check-in" até a parcela 95) | Recepção | ✅ | `FilaView` (kanban). Desde set/2026 o cartão carrega **no máximo três selos**, por ordem fixa (`SelosDaFila`, Application): o que impede (termo), o que cobra agora (guia, pacote no fim), o estado da coluna (atraso em AGUARDANDO, encerrado em EM ATENDIMENTO). Confirmação vira ✓ na hora; pacote N/M e encaixe vão para a linha de contexto |
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
@@ -1099,7 +1099,7 @@ Levantado no código, não na memória. Conferido de novo na **parcela 48**.
 | ~~Telemedicina~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Precisa sair da arte da sidebar no material comercial |
 | ~~Portal do paciente~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Idem |
 | ~~Assinatura ICP-Brasil~~ | Consultório | **✅ parcelas 42 e 43** — assinatura qualificada PAdES (PKCS#7 SHA-256) na folha de infusão E nos quatro documentos que saem da clínica (receita, atestado, comparecimento, pedido de exame), com carimbo do tempo RFC 3161 opcional e QR para o validador de saúde do ITI |
-| ~~Agendamento em série~~ | Recepção | **✅ parcela 26** — `AgendaService.AgendarSerieAsync`; a data sai sempre da primeira mais N períodos |
+| ~~Agendamento em série~~ | Recepção | **✅ parcela 26 · ⛔ retirada das telas em set/2026** — `AgendaService.AgendarSerieAsync` fica sem porta por decisão da cliente ("quem precisar voltar ganha um horário novo pela agenda") |
 | ~~LGPD além do consentimento~~ | Recepção | **✅ parcela 26** — `TitularDadosService`: exportação e anonimização (o prontuário não se apaga, art. 16, II) |
 | ~~Metas (faturamento, ocupação)~~ | Gerente | **✅ parcela 28** — `MetaService`; teto de despesa na 31 (`OrcamentoService`) |
 | ~~Apuração mensal por tributo~~ | Gerente | **✅ parcelas 28 e 31** — ISS, PIS, COFINS, IRPJ e CSLL separados, com a retenção resolvida por recebimento |

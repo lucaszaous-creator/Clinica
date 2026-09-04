@@ -198,8 +198,15 @@ que já existe**.
         e fica fora do repasse — defina quando souber quem atende.
       ⚠ 14:30 já tem sessão da Dra. Paula (choque) — será um encaixe.
       ⚠ Agenda fechada neste período: Férias da Dra. Paula.
-      [ ] Repetir semanalmente — [10] sessões (série)
 ```
+
+> **set/2026 — o QUANDO deixou de ser rádio, e a série saiu.** "Lançar" e "Marcar"
+> viraram DUAS ABAS do item "Atendimento" (o mesmo `NovoAtendimentoViewModel`, com o
+> modo fixado por quem monta a aba — `FixarModo`), cada uma só com os campos do seu
+> modo; a prévia da guia abre RECOLHIDA atrás de "Ver a guia". O "Repetir N sessões a
+> cada X dias" foi retirado dos dois formulários da Recepção por decisão da cliente:
+> "se o paciente precisar voltar, a recepcionista marca uma agenda". Desenho aprovado
+> em `docs/mockups/balcao-dois-desenhos.html`.
 
 Modalidade, especialidade, consulta, BSV (termo), elegibilidade e a prévia das guias já
 moram na tela — valem para os DOIS modos. No modo "marcar", o Salvar grava o grafo do
@@ -212,9 +219,9 @@ O que muda de lugar, e o que NÃO muda:
 - **O vão livre da agenda continua clicável** — mas passa a abrir o Novo atendimento
   pré-preenchido (dia, hora, profissional da coluna), em vez do formulário antigo. A
   agenda "que mostra" não pode perder o gesto de apontar o horário com o dedo.
-- **A SÉRIE vem junto** para o modo "marcar" (`AgendarSerieAsync`, com o resultado
-  pulado-e-dito de sempre) — deixá-la para trás faria "marcar" morar em dois lugares de
-  novo.
+- ~~**A SÉRIE vem junto** para o modo "marcar"~~ — veio na parcela 70 e **saiu em
+  set/2026** (decisão da cliente, acima). O motor fica sem porta; as séries já marcadas
+  continuam com o "cancelar o resto da série" na janela do horário.
 - **Editar o horário EXISTENTE continua na janela do horário da agenda** (remarcar,
   cancelar, falta, comprovante, reabrir). Marcar NOVO e mexer no EXISTENTE são atos
   diferentes; uma definição por ATO. O formulário antigo da agenda se aposenta só da
@@ -417,7 +424,7 @@ está registrada". Todo leitor que quis dizer **aconteceu** precisa de âncora n
 2. ✅ **Fase 2 — o regime novo atrás da chave:** §3.1, §3.2, §3.4, §3.5, migration do §5.
 3. ✅ **Fase 3 — os leitores reancorados** (§5), um a um, cada qual com teste.
 4. ✅ **Fase QUANDO — a porta única do §3.7**: o rádio na tela de Novo atendimento
-   (lançar agora × marcar dia/horário), com duração, sala, série, crítica viva de
+   (lançar agora × marcar dia/horário — desde set/2026, duas ABAS), com duração, sala, crítica viva de
    choque/bloqueio (`ConflitosAsync`, sem cópia), encaixe assumido por caixinha, a capa
    do dia (`CapasDoDiaAsync`) no aviso e na pergunta, a pergunta do comprovante e os
    redirecionamentos da agenda ("Novo horário" e o clique no vão levam para lá,

@@ -962,8 +962,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// <summary>
     /// Abre a CRIAÇÃO de horário — que mora no Novo atendimento desde a parcela 70
     /// (decisão da direção: "para agendar vamos colocar através de novo atendimento (...)
-    /// unificar tudo em um lugar só"). A agenda leva até lá com o dia já preenchido; a
-    /// tela de lá pergunta QUANDO e mostra as guias que vão nascer.
+    /// unificar tudo em um lugar só"). A agenda leva até lá com o dia já preenchido — na
+    /// aba MARCAR, que desde set/2026 é uma aba e não um rádio no meio do formulário.
     ///
     /// O formulário antigo fica como FALLBACK, e é decisão (a regra 3 do faturamento —
     /// não tire capacidade de quem a tinha): o item "Novo atendimento" exige
@@ -986,7 +986,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Deixa o pedido de pré-preenchimento na ponte e navega para o Novo atendimento.
+    /// Deixa o pedido de pré-preenchimento na ponte e navega para a aba Marcar do Atendimento.
     /// Se a navegação não acontecer (sem o bit do destino), o pedido é DESFEITO — senão a
     /// próxima abertura manual da tela nasceria preenchida com um clique de ontem.
     /// </summary>
@@ -1006,7 +1006,9 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
 
         ponte.Definir(pedido);
-        if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveNovoAtendimento))
+        // A aba MARCAR do "Atendimento" (set/2026): o pedido é sempre de marcação, e a
+        // chave é a da aba — a aba Lançar não consome pedido de outro modo.
+        if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
             return true;
 
         ponte.Consumir();

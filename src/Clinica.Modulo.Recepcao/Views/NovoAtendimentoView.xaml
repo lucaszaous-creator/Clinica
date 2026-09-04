@@ -70,56 +70,6 @@
             <Setter Property="Margin" Value="16,2" />
         </Style>
 
-        <!-- O cartão de rádio do QUANDO: o mesmo vocabulário visual do cartão de
-             modalidade (borda de acento + fundo suave quando escolhido), com o círculo
-             do RadioButton desenhado dentro — o template padrão da suíte é o do rádio
-             de linha, e aqui a superfície inteira é o alvo de clique. -->
-        <Style x:Key="CartaoQuando" TargetType="RadioButton">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="cx" Background="{StaticResource Brush.Superficie}"
-                                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                                CornerRadius="{StaticResource Raio.Medio}" Padding="15,12">
-                            <DockPanel>
-                                <Grid DockPanel.Dock="Left" Margin="0,2,12,0" VerticalAlignment="Top">
-                                    <Ellipse x:Name="circulo" Width="16" Height="16" StrokeThickness="1"
-                                             Stroke="{StaticResource Brush.Borda.Hover}"
-                                             Fill="{StaticResource Brush.Superficie}" />
-                                    <Ellipse x:Name="ponto" Width="8" Height="8"
-                                             Fill="{StaticResource Brush.Acento}" Visibility="Collapsed"
-                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Grid>
-                                <ContentPresenter RecognizesAccessKey="True" />
-                            </DockPanel>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="cx" Property="BorderBrush"
-                                        Value="{StaticResource Brush.Borda.Hover}" />
-                            </Trigger>
-                            <!-- Depois do hover de propósito: o cartão escolhido não perde a
-                                 borda de acento quando o mouse passa por cima. -->
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="cx" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
-                                <Setter TargetName="cx" Property="BorderThickness" Value="2" />
-                                <Setter TargetName="cx" Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
-                                <Setter TargetName="cx" Property="Padding" Value="14,11" />
-                                <Setter TargetName="circulo" Property="Stroke" Value="{StaticResource Brush.Acento}" />
-                                <Setter TargetName="circulo" Property="StrokeThickness" Value="2" />
-                                <Setter TargetName="ponto" Property="Visibility" Value="Visible" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.55" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <DockPanel>
@@ -131,9 +81,8 @@
              vezes a mesma coisa em cima de uma tela vazia. -->
         <StackPanel DockPanel.Dock="Top" Margin="24,20,24,10"
                     Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock Text="Novo atendimento" Style="{StaticResource H1}" Margin="0" />
-            <TextBlock Style="{StaticResource TextoSuave}"
-                       Text="Lançar quem está aqui agora — ou marcar dia e horário. Quem já está na agenda entra pela Fila, no Finalizar." />
+            <TextBlock Text="{Binding TituloTela}" Style="{StaticResource H1}" Margin="0" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource TextoSuave}" Text="{Binding SubtituloTela}" TextWrapping="Wrap" />
         </StackPanel>
 
         <Grid>
@@ -256,38 +205,13 @@
 
                     <StackPanel Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
 
-                        <!-- ============ 2 · QUANDO (parcela 70) ============
-                             A escolha vira dois CARTÕES, e os campos de data/hora moram
-                             DENTRO dela — antes ficavam no cabeçalho da seção, longe do
-                             rádio que decide o que significam. -->
-                        <TextBlock Text="2 · QUANDO" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
+                        <!-- ============ 2 · QUANDO E COM QUEM / QUEM ATENDEU ============
+                             O rádio QUANDO (parcela 70) saiu daqui em set/2026: "Lançar" e
+                             "Marcar" viraram DUAS ABAS do item "Atendimento", e o modo chega
+                             fixado por quem monta a aba. O que fica é a régua de campos, com
+                             o rótulo do passo dizendo a verdade de cada modo. -->
+                        <TextBlock Text="{Binding TituloPassoQuando}" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
                         <Separator Margin="0,4,0,10" />
-
-                        <!-- WrapPanel, não StackPanel horizontal: o horizontal nunca dobra a
-                             linha, e numa janela estreita o segundo cartão sairia decepado
-                             pela borda, sem rolagem (a família das checagens 17/32). -->
-                        <WrapPanel>
-                            <RadioButton GroupName="QuandoLancar" Style="{StaticResource CartaoQuando}"
-                                         IsChecked="{Binding LancarAgora}" Width="360" Margin="0,0,12,8">
-                                <StackPanel>
-                                    <TextBlock Text="O paciente está aqui" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource TextoSuave}"
-                                               Text="Lançar agora — entra como encaixe com o check-in feito." />
-                                </StackPanel>
-                            </RadioButton>
-                            <RadioButton GroupName="QuandoLancar" Style="{StaticResource CartaoQuando}"
-                                         IsChecked="{Binding MarcarParaDepois}" Width="360" Margin="0,0,0,8"
-                                         IsEnabled="{Binding PodeMarcar}">
-                                <StackPanel>
-                                    <TextBlock Text="Marcar dia e horário" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                    <TextBlock Style="{StaticResource TextoSuave}"
-                                               Text="O paciente não está aqui — o horário entra na agenda." />
-                                </StackPanel>
-                            </RadioButton>
-                        </WrapPanel>
-                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,4,0,0"
-                                   Text="Marcar horário exige a permissão de agenda — peça à direção em Acessos."
-                                   Visibility="{Binding NaoPodeMarcar, Converter={StaticResource BoolParaVisibilidade}}" />
 
                         <!-- Data e hora valem para os DOIS modos (no lançar agora, mudar a
                              data é o registro retroativo de sempre). Duração, sala, série e
@@ -342,29 +266,9 @@
                                           DisplayMemberPath="Nome"
                                           ctrl:Ajudantes.Placeholder="Opcional" />
                             </StackPanel>
-                            <CheckBox IsChecked="{Binding EmSerie}" Margin="4,0,0,8"
-                                      VerticalAlignment="Bottom" Height="36"
-                                      Content="Repetir — marcar várias sessões de uma vez"
-                                      Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}" />
                         </WrapPanel>
 
                         <StackPanel Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
-
-                            <WrapPanel Margin="24,0,0,0"
-                                       Visibility="{Binding EmSerie, Converter={StaticResource BoolParaVisibilidade}}">
-                                <StackPanel Width="120" Margin="0,0,14,8">
-                                    <TextBlock Text="Sessões" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding QuantidadeSessoes, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                                <StackPanel Width="140" Margin="0,0,14,8">
-                                    <TextBlock Text="A cada (dias)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding IntervaloDias, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="7 = toda semana, na mesma hora." />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource TextoSuave}" MaxWidth="420"
-                                           VerticalAlignment="Center"
-                                           Text="A série sai sempre da primeira data mais N períodos; data com choque é pulada e dita." />
-                            </WrapPanel>
 
                             <!-- Sem profissional NÃO é sorteio: marca-se assim mesmo, com o
                                  custo escrito — o horário some do quadro de todo mundo e fica
@@ -752,7 +656,7 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        <Button Content="Lançar outro" MinHeight="44"
+                        <Button Content="{Binding RotuloOutro}" MinHeight="44"
                                 Command="{Binding NovoLancamentoCommand}"
                                 Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
                         <Button Content="Limpar" MinHeight="36" Margin="0,8,0,0"
@@ -974,9 +878,27 @@
                                  nasce na baixa) e nada foi gravado. O cabeçalho diz isso, e
                                  continua dizendo depois de qualquer mexida aqui.
                                  ============================================================ -->
-                            <StackPanel Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock Text="A GUIA QUE VAI NASCER" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                            <!-- (set/2026, "quanto mais simples, melhor") O documento continua
+                                 sendo o desenho aprovado — mas abre RECOLHIDO. A coluna
+                                 mostra de saída a LINHA ("2 guias · a 2ª libera 05/09") e o
+                                 documento inteiro fica a um clique de "Ver a guia". Ele não
+                                 some: sai da frente. `MostrarPrevia` e não `TemPrevia`: no
+                                 marcar com a chave desligada a guia não nasce neste clique,
+                                 e a nota abaixo diz onde ela nasce. -->
+                            <StackPanel Visibility="{Binding MostrarPrevia, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="A GUIA" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
 
+                                <DockPanel Margin="0,0,0,8">
+                                    <Button DockPanel.Dock="Right" Content="{Binding RotuloVerGuia}"
+                                            Command="{Binding AlternarGuiaCommand}"
+                                            Style="{StaticResource BotaoSecundario}"
+                                            VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    <TextBlock Text="{Binding ResumoCurtoPrevia}" TextWrapping="Wrap"
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"
+                                               FontWeight="SemiBold" />
+                                </DockPanel>
+
+                                <StackPanel Visibility="{Binding GuiaAberta, Converter={StaticResource BoolParaVisibilidade}}">
                                 <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                                         CornerRadius="{StaticResource Raio.Medio}"
                                         Background="{StaticResource Brush.Superficie}" Margin="0,0,0,10">
@@ -1237,6 +1159,7 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
+                                </StackPanel>
 
                             </StackPanel>
 

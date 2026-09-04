@@ -158,54 +158,6 @@
         <CheckBox Content="Marcar como encaixe (atender por cima do horário ocupado)"
                   IsChecked="{Binding Encaixe}" Margin="0,12,0,0" />
 
-        <!-- ===== Série: o pacote de dez marcado de uma vez ===== -->
-        <Border Style="{StaticResource Card}" Margin="0,12,0,0"
-                Visibility="{Binding PodeMarcarEmSerie, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
-                <CheckBox Content="Repetir (marcar várias sessões de uma vez)"
-                          IsChecked="{Binding EmSerie}" />
-                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
-                           Text="O Financeiro vende pacote de dez sessões; aqui elas entram na agenda de uma vez, no mesmo horário. A série sai sempre da PRIMEIRA data mais N dias — nunca da anterior mais um —, então uma sessão adiada não empurra as seguintes." />
-
-                <Grid Margin="0,10,0,0"
-                      IsEnabled="{Binding EmSerie}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Quantas sessões" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding QuantidadeSessoes, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="3" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="De quantos em quantos dias" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding IntervaloDias, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="3" />
-                    </StackPanel>
-                </Grid>
-
-                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
-                           Text="7 = toda semana, mesma hora. Data que esbarrar em choque de horário ou agenda fechada é PULADA e aparece aqui — as outras entram." />
-
-                <!-- A série que pulou datas não fecha a janela em silêncio: a recepção
-                     resolve agora, com o paciente ainda na frente dela. -->
-                <ItemsControl ItemsSource="{Binding ResultadoSerie}" Margin="0,8,0,0"
-                              Visibility="{Binding TemResultadoSerie,
-                                           Converter={StaticResource BoolParaVisibilidade}}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       FontSize="{StaticResource Fonte.Legenda}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </Border>
-
         <!-- Feedback inline: é formulário, a mensagem fica na tela enquanto o usuário corrige. -->
         <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">

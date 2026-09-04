@@ -31,4 +31,16 @@ public sealed class PreenchimentoNovoAtendimento
         _pedido = null;
         return pedido;
     }
+
+    /// <summary>
+    /// Consome o pedido SÓ se ele for do modo de quem pergunta (set/2026: "Lançar" e
+    /// "Marcar" são duas abas do mesmo ViewModel, e a aba errada não pode engolir o pedido
+    /// da outra). Pedido de outro modo fica na ponte, intacto, para a aba certa.
+    /// </summary>
+    public PedidoNovoAtendimento? ConsumirPara(bool marcarParaDepois)
+    {
+        if (_pedido is not { } pedido || pedido.MarcarParaDepois != marcarParaDepois) return null;
+        _pedido = null;
+        return pedido;
+    }
 }

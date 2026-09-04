@@ -3272,6 +3272,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   é o nível que a checagem de rolagem também segue. **Quando uma rede reprova um desenho
   legítimo, a primeira pergunta é se há uma composição que a rede já entende.**
 
+- **"QUANTO MAIS SIMPLES, MELHOR" — o Novo atendimento em duas abas e o cartão da fila
+  com três selos** (set/2026; os dois desenhos foram aprovados em mockup ANTES do WPF —
+  `docs/mockups/balcao-dois-desenhos.html` — com uma emenda da cliente: a série sai).
+  ⚠️ **Pergunta que muda campos de lugar não é campo, é ABA.** O rádio QUANDO (parcela 70)
+  fazia seis campos aparecerem e sumirem no meio do formulário. Virou a escolha da aba do
+  item "Atendimento" (Lançar · Marcar), sobre o **MESMO** `NovoAtendimentoViewModel` com o
+  modo fixado por quem monta a aba (`FixarModo`, chamado em `CriarTela`): dois ViewModels
+  divergiriam na primeira correção da prévia, da elegibilidade ou da gravação. A agenda
+  navega para a chave da aba Marcar, e a ponte `PreenchimentoNovoAtendimento` passou a
+  ser consumida **só pela aba do modo do pedido** (`ConsumirPara`) — a aba Lançar, se
+  carregasse primeiro, engoliria o pedido da outra.
+  ⚠️ **A prévia da guia abre RECOLHIDA, e só onde a guia nasce neste clique**
+  (`MostrarPrevia`): sempre no Lançar; no Marcar só com a chave "guia no agendamento"
+  ligada. Com a chave desligada, desenhar um documento que o clique não cria é prometer o
+  que a tela não faz — a nota diz onde a guia nasce (no Finalizar do profissional,
+  parcela 95). O documento aprovado continua igual, a um clique de "Ver a guia".
+  ⚠️ **A SÉRIE ("N sessões a cada X dias") saiu dos DOIS formulários da Recepção** por
+  decisão da cliente: "se o paciente precisar voltar, a recepcionista marca uma agenda".
+  O motor `AgendaService.AgendarSerieAsync` fica sem porta, de propósito e escrito — as
+  séries já marcadas continuam com o "cancelar o resto da série" na janela do horário.
+  ⚠️ **Oito selos num cartão são uma tela dentro do cartão.** `SelosDaFila` (Application,
+  pura, testada) decide o que MERECE selo, por ordem FIXA — o que impede (termo), o que
+  cobra agora (guia; pacote só na penúltima/última/esgotado), o estado da coluna (atraso
+  só em AGUARDANDO, encerrado só em EM ATENDIMENTO) — e corta em TRÊS. **Selo a menos não
+  é dado a menos**: o que saiu ganhou leitor no mesmo commit — o ✓ ao lado da hora
+  (confirmação), a linha de contexto (pacote N/M, encaixe) e a dica do cartão (a
+  resposta da rodada por extenso, o "retorno do 2º código" legado). Regra que decide o
+  que o balcão lê de relance mora onde o `dotnet test` alcança.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
