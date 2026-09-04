@@ -11,225 +11,65 @@
 
     <DockPanel Margin="0,4,0,0">
 
-        <!-- Ações desta SEÇÃO. A identidade do paciente não se repete aqui: ela é do
-             cabeçalho da tela, uma vez, acima das abas. -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
-                HorizontalAlignment="Right" Margin="0,0,0,14">
-            <Button Content="Medidas deste paciente" MinWidth="180"
-                Style="{StaticResource BotaoSecundario}"
-                Command="{Binding VerMedidasCommand}" />
-        </StackPanel>
-
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                     Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
                 <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
             </Border>
 
-            <!-- ============ LISTA DE PROBLEMAS ============
-                 Fica ACIMA das sessões de propósito: é o que se lê antes de atender,
-                 e o histórico é longo. Alergia e uso contínuo aparecem marcados,
-                 porque uma linha entre quinze não é alerta. -->
-            <!-- ============ UMA SUPERFÍCIE, três regiões ============
-                 (parcela 79 — o print do cliente). Eram TRÊS Cards com moldura empilhados
-                 — problemas, enfermagem, sessões —, a colcha de retalhos que o README
-                 proíbe. Uma superfície só; a separação interna é rótulo + Separator. -->
+            <!-- ============ UMA SUPERFÍCIE, DUAS REGIÕES ============
+                 (mockup 01 — a segunda foto que a direção mandou). Eram TRÊS regiões
+                 empilhadas: a lista de problemas, a linha do tempo da enfermagem e as
+                 sessões — e a lista de sessões, que é o ASSUNTO da tela, começava depois
+                 de duas delas.
+
+                 A pergunta da regra de leiaute é "quantas perguntas esta tela responde?".
+                 Respondia quatro. Agora responde UMA — o que já aconteceu com este
+                 paciente —, e a lista de problemas mudou de casa: ela é atributo da
+                 PESSOA e mora na seção Paciente, ao lado da ficha.
+
+                 ⚠️ A busca subiu para o TOPO, que é onde se procura, e as sessões passaram
+                 a ser o conteúdo que PREENCHE. A linha do tempo das outras naturezas fica
+                 ancorada embaixo, com teto: ela é contexto, não o assunto. -->
             <Border Style="{StaticResource Card}">
                 <DockPanel>
 
-                <StackPanel DockPanel.Dock="Top">
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Lista de problemas"
-                                   Style="{StaticResource H3}" VerticalAlignment="Center"
-                                   TextWrapping="Wrap" Margin="0,0,12,0" />
-                        <!-- O IsEnabled cobre as DUAS pré-condições da guarda (paciente +
-                             permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
-                        <Button Grid.Column="1" Content="Novo problema" MinWidth="150"
-                                VerticalAlignment="Center"
-                                Command="{Binding NovoProblemaCommand}"
-                                IsEnabled="{Binding PodeNovoProblema}" />
-                    </Grid>
-
-                    <CheckBox Content="Mostrar também os resolvidos e descartados"
-                              IsChecked="{Binding IncluirProblemasEncerrados}"
-                              Margin="0,0,0,8" />
-
-                    <TextBlock Text="{Binding ResumoProblemas}" TextWrapping="Wrap"
-                               Style="{StaticResource TextoSuave}"
-                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
-
-                    <ItemsControl ItemsSource="{Binding Problemas}" MaxHeight="220">
-                        <ItemsControl.Template>
-                            <ControlTemplate TargetType="ItemsControl">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <ItemsPresenter />
-                                </ScrollViewer>
-                            </ControlTemplate>
-                        </ItemsControl.Template>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Padding="12,10" Margin="0,0,0,6"
-                                        CornerRadius="{StaticResource Raio.Medio}"
-                                        BorderThickness="1">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background"
-                                                    Value="{StaticResource Brush.Superficie}" />
-                                            <Setter Property="BorderBrush"
-                                                    Value="{StaticResource Brush.Borda}" />
-                                            <Style.Triggers>
-                                                <!-- Alergia e uso contínuo: o que muda
-                                                     conduta em dez segundos. -->
-                                                <DataTrigger Binding="{Binding Alerta}" Value="True">
-                                                    <Setter Property="Background"
-                                                            Value="{StaticResource Brush.Erro.Suave}" />
-                                                </DataTrigger>
-                                                <!-- Descartado aparece MARCADO, nunca
-                                                     sumindo: ele esteve no prontuário. -->
-                                                <DataTrigger Binding="{Binding Descartado}" Value="True">
-                                                    <Setter Property="Opacity" Value="0.65" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-
-                                    <!-- LINHA DENSA, não cartão alto (parcela 69): cada
-                                         problema tinha cinco linhas de texto e QUATRO
-                                         botões empilhados (~140 px por linha) — três
-                                         problemas empurravam o histórico, que é o assunto
-                                         da aba, para fora da vista. O que se LÊ fica na
-                                         linha; observações e período moram na dica; os
-                                         botões viraram fileira de linha de tabela.
-                                         Nenhuma ação foi tirada. -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0" Margin="0,0,12,0"
-                                                    VerticalAlignment="Center">
-                                            <StackPanel.ToolTip>
-                                                <StackPanel MaxWidth="420">
-                                                    <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                               TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Periodo}" TextWrapping="Wrap"
-                                                               Margin="0,2,0,0" />
-                                                    <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
-                                                               Margin="0,2,0,0" />
-                                                    <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
-                                                               Margin="0,2,0,0" />
-                                                </StackPanel>
-                                            </StackPanel.ToolTip>
-                                            <TextBlock Text="{Binding Rotulo}"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
-                                            <TextBlock TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                <Run Text="{Binding Natureza, Mode=OneWay}" />
-                                                <Run Text=" · " />
-                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
-                                            </TextBlock>
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                    VerticalAlignment="Center">
-                                            <Button Content="Editar" Margin="0,0,4,0"
-                                                    Style="{StaticResource BotaoAcaoGrid}"
-                                                    Command="{Binding DataContext.EditarProblemaCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Resolvido" Margin="0,0,4,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    Visibility="{Binding Ativo,
-                                                                 Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.ResolverProblemaCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Reabrir" Margin="0,0,4,0"
-                                                    Command="{Binding DataContext.ReabrirProblemaCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <Button.Style>
-                                                    <Style TargetType="Button"
-                                                           BasedOn="{StaticResource BotaoAcaoGridSecundario}">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Ativo}" Value="False">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                            <Button Content="Descartar"
-                                                    Command="{Binding DataContext.DescartarProblemaCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <Button.Style>
-                                                    <Style TargetType="Button"
-                                                           BasedOn="{StaticResource BotaoAcaoGridPerigo}">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Descartado}" Value="True">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-
-                <Separator DockPanel.Dock="Top" Margin="0,12"
-                           Background="{StaticResource Brush.Borda}" />
-
-            <!-- ============ ENFERMAGEM E INFUSÕES (parcela 72) ============
-                 O que a ENFERMAGEM registrou e o que foi INFUNDIDO neste paciente — as
-                 duas naturezas que o prontuário do Consultório não alcançava. Elas eram
-                 lidas só no módulo de quem as escreve: o médico prescrevia a infusão e não
-                 tinha por onde ler a execução dela, nem os sinais vitais aferidos na sala.
-                 É o defeito recorrente do projeto pela décima segunda vez — dado gravado
-                 cujo leitor está no módulo de quem não precisa dele.
-
-                 ⚠️ A lista de SESSÕES logo abaixo NÃO foi substituída pelo componente, e é
-                 decisão: ela tem busca no texto, contagem de anexos, marca de correção e os
-                 botões da linha. Trocá-la pela genérica tiraria capacidade de quem a usa
-                 todo dia. O componente entra aqui para o que faltava. -->
-                <DockPanel DockPanel.Dock="Top">
+                    <!-- ============ BUSCA ============
+                         A pergunta de quem abre esta tela — e ela filtra as SESSÕES, que é
+                         o que tem texto para procurar. -->
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <TextBlock Text="Enfermagem e infusões" Style="{StaticResource H3}"
-                                   Margin="0" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   Text="O que foi observado e o que foi administrado na sala — sinais vitais, intercorrências e a execução de cada folha." />
+                        <TextBox Style="{StaticResource CampoPesquisa}"
+                                 Text="{Binding TermoSessao, UpdateSourceTrigger=PropertyChanged}"
+                                 ctrl:Ajudantes.Placeholder="Buscar no prontuário (queixa, conduta, evolução…)" />
+                        <TextBlock Text="{Binding ResumoSessoes}" TextWrapping="Wrap"
+                                   Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" />
                     </StackPanel>
 
-                    <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
-                                                  MinHeight="160" MaxHeight="300" />
-                </DockPanel>
+                    <!-- ============ ENFERMAGEM, INFUSÕES E O RESTO ============
+                         O mesmo componente da ficha e da tela da Enfermagem, com os chips
+                         contados. Ancorado EMBAIXO e com teto: é contexto do que a lista de
+                         cima mostra.
 
-                <Separator DockPanel.Dock="Top" Margin="0,12"
-                           Background="{StaticResource Brush.Borda}" />
+                         ⚠️ A lista de SESSÕES acima NÃO foi substituída por ele, e é
+                         decisão: ela tem busca no texto, contagem de anexos, marca de
+                         correção e os botões da linha. Fundir as duas listas numa só, como
+                         o mockup desenhou, tiraria essas quatro capacidades — e os ids são
+                         POR TABELA, então um "cancelar" na linha errada cancelaria o
+                         registro de outra pessoa, sem estourar nada. A tela funde a VISTA
+                         (uma superfície, uma rolagem); as listas continuam separadas. -->
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                        <Separator DockPanel.Dock="Top" Margin="0,0,0,12"
+                                   Background="{StaticResource Brush.Borda}" />
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Text="Enfermagem e infusões" Style="{StaticResource H3}"
+                                       Margin="0" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       Text="O que foi observado e o que foi administrado na sala — sinais vitais, intercorrências e a execução de cada folha." />
+                        </StackPanel>
 
-            <!-- ============ BUSCA NAS SESSÕES ============ -->
-            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <TextBox Style="{StaticResource CampoPesquisa}"
-                         Text="{Binding TermoSessao, UpdateSourceTrigger=PropertyChanged}"
-                         ctrl:Ajudantes.Placeholder="Buscar no prontuário (queixa, conduta, evolução…)" />
-                <TextBlock Text="{Binding ResumoSessoes}" TextWrapping="Wrap"
-                           Style="{StaticResource TextoSuave}"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" />
-            </StackPanel>
+                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
+                                                      MinHeight="150" MaxHeight="260" />
+                    </DockPanel>
 
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">

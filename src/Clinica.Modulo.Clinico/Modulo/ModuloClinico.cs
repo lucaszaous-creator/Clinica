@@ -328,13 +328,63 @@ public sealed class ModuloClinico : IModuloApp
         "Atendimento",
         "Atendimento de enfermagem",
         "Anamnese",
-        "Histórico de sessões",
-        "Prescrições e documentos",
+        "Paciente",
+        "Histórico",
         "Exames e anexos",
+        "Prescrições e documentos",
         "Evolução da dor",
         "Medidas",
         "Avaliações"
     ];
+
+    /// <summary>
+    /// O GRUPO de cada seção no rail, na mesma ordem de <see cref="SecoesDoPaciente"/>.
+    ///
+    /// Nove itens numa lista corrida davam a "Anamnese" — escrita uma vez na vida — o mesmo
+    /// peso de "Atendimento", aberto vinte vezes por dia. Em três grupos, a barra passa a
+    /// dizer QUANDO se usa cada uma: o que se faz agora, o que o paciente já tem, e a curva.
+    ///
+    /// ⚠️ A lista é a MESMA de cima, casada por posição, e é daqui que o rail se monta — não
+    /// há uma segunda lista de rótulos no XAML. Foi assim que a divergência entre o índice
+    /// de navegação e o rótulo lido pelo usuário (o caso (b) da checagem 38) deixou de ser
+    /// possível por construção, em vez de ser vigiada.
+    /// </summary>
+    public static readonly IReadOnlyList<string> GruposDoPaciente =
+    [
+        "Sessão",
+        "Sessão",
+        "Sessão",
+        "Paciente",
+        "Paciente",
+        "Paciente",
+        "Paciente",
+        "Acompanhamento",
+        "Acompanhamento",
+        "Acompanhamento"
+    ];
+
+    /// <summary>Uma linha do rail: o rótulo que se lê e o grupo em que ela mora.</summary>
+    public sealed record SecaoDoPaciente(string Rotulo, string Grupo);
+
+    /// <summary>
+    /// O rail da tela do paciente, na ordem — montado das DUAS listas acima.
+    ///
+    /// ⚠️ É daqui que o XAML se monta, e é isso que faz a divergência entre o rótulo lido
+    /// pelo usuário e o índice de navegação ser IMPOSSÍVEL por construção, em vez de
+    /// vigiada por checagem (o caso (b) da checagem 38). Antes eram duas listas — a do C#
+    /// e nove <c>ListBoxItem</c> escritos à mão no XAML —, e inserir uma seção no meio
+    /// empurrava os índices sem quebrar build nenhum.
+    /// </summary>
+    public static IReadOnlyList<SecaoDoPaciente> RailDoPaciente()
+    {
+        if (SecoesDoPaciente.Count != GruposDoPaciente.Count)
+            throw new InvalidOperationException(
+                "ModuloClinico: SecoesDoPaciente e GruposDoPaciente têm tamanhos "
+                + "diferentes. As duas são casadas por POSIÇÃO — uma seção sem grupo "
+                + "sairia do rail sem quebrar nada.");
+
+        return [.. SecoesDoPaciente.Select((nome, i) => new SecaoDoPaciente(nome, GruposDoPaciente[i]))];
+    }
 
     /// <summary>
     /// Em que seção da tela do paciente cada chave clínica cai.
@@ -351,7 +401,7 @@ public sealed class ModuloClinico : IModuloApp
         var nome = chave switch
         {
             ChaveAtendimentoEnfermagem => "Atendimento de enfermagem",
-            ChaveProntuario => "Histórico de sessões",
+            ChaveProntuario => "Histórico",
             ChaveExamesDoPaciente => "Exames e anexos",
             ChaveEvolucaoDor => "Evolução da dor",
             ChaveMedidas => "Medidas",
@@ -379,6 +429,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<AtendimentoEnfermagemViewModel>();
+        servicos.AddTransient<PacienteCapaViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
         servicos.AddTransient<EvolucaoDorViewModel>();
         servicos.AddTransient<MedidasViewModel>();

@@ -198,51 +198,51 @@
                                                                     Converter={StaticResource TextoParaVisibilidade}}" />
                                         </StackPanel>
 
+                                        <!-- ============ UMA AÇÃO, E O "⋯" ============
+                                             (mockup 01). Eram SEIS botões por linha — 2ª
+                                             via, assinar, enviar, renovar link, tirar do ar
+                                             e cancelar —, o que fazia a tela inteira
+                                             parecer um painel de controle e escondia o
+                                             estado do papel atrás da fileira.
+
+                                             Fica o que AQUELA linha está pedindo: assinar,
+                                             quando falta assinatura; 2ª via, no resto. As
+                                             outras cinco continuam todas no menu — nada foi
+                                             tirado, e é isso que separa simplificar de
+                                             amputar. -->
                                         <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
-                                            <Button Content="2ª via" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    Command="{Binding DataContext.ImprimirCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
                                             <Button Content="Assinar" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    IsEnabled="{Binding PodeAssinar}"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    Visibility="{Binding PodeAssinar,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    ToolTip="Sela o arquivo com o e-CPF. Depois disso, corrigir é cancelar e emitir outro."
                                                     Command="{Binding DataContext.AssinarCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <!-- É o ARQUIVO que vale: sem esta porta, o paciente
-                                                 sai com o papel e o PDF assinado fica na clínica. -->
-                                            <Button Content="Enviar" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    IsEnabled="{Binding PodeEnviar}"
-                                                    Command="{Binding DataContext.EnviarCommand,
+
+                                            <!-- A 2ª via some quando o Assinar está na
+                                                 linha: duas ações do mesmo tamanho, lado a
+                                                 lado, deixam de dizer qual é a principal. -->
+                                            <Button Content="2ª via" Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.ImprimirCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <!-- Some quando não há o que renovar: botão
-                                                 apagado em toda linha ensinaria a ignorá-lo. -->
-                                            <Button Content="Renovar link" Margin="0,0,6,0"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding PodeAssinar}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <Button Content="&#x22EF;" MinWidth="34"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    ToolTip="Põe o link vencido de volta no ar, com o MESMO endereço — o QR já impresso volta a funcionar."
-                                                    Visibility="{Binding PodeRenovarLink,
-                                                                 Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.RenovarLinkCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Tirar do ar" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    ToolTip="O QR impresso para de abrir na hora. O documento continua guardado, e o link pode voltar pelo Renovar."
-                                                    Visibility="{Binding PodeTirarDoAr,
-                                                                 Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.TirarDoArCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Cancelar"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    IsEnabled="{Binding PodeCancelar}"
-                                                    Command="{Binding DataContext.CancelarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                                    ToolTip="As outras ações deste documento"
+                                                    Click="AoAbrirMenuDoDocumento" />
                                         </StackPanel>
                                     </Grid>
                                 </Border>

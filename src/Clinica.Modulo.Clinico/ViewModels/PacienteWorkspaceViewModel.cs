@@ -69,6 +69,14 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
     private Agendamento? _horario;
 
+    /// <summary>
+    /// As seções do rail, com o grupo de cada uma. Vem de <c>ModuloClinico.RailDoPaciente</c>
+    /// — a MESMA lista que resolve o índice de navegação de outros módulos, e é por isso
+    /// que o rótulo lido pelo usuário não tem como divergir dele.
+    /// </summary>
+    public IReadOnlyList<ModuloClinico.SecaoDoPaciente> Secoes { get; } =
+        ModuloClinico.RailDoPaciente();
+
     public AtendimentoViewModel Atendimento { get; }
 
     /// <summary>
@@ -91,6 +99,13 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// vigésima confere se algo mudou.
     /// </summary>
     public AnamneseViewModel Anamnese { get; }
+
+    /// <summary>
+    /// A CAPA: quem é, o que ela tem e o que está assinado em nome dela. É a tela nova do
+    /// redesenho, e a única do Consultório que lê o cadastro — em leitura, porque editar
+    /// contato e convênio continua sendo do balcão.
+    /// </summary>
+    public PacienteCapaViewModel Capa { get; }
 
     public ProntuarioClinicoViewModel Prontuario { get; }
 
@@ -195,6 +210,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         Atendimento = servicos.GetRequiredService<AtendimentoViewModel>();
         Enfermagem = servicos.GetRequiredService<AtendimentoEnfermagemViewModel>();
         Anamnese = servicos.GetRequiredService<AnamneseViewModel>();
+        Capa = servicos.GetRequiredService<PacienteCapaViewModel>();
         Prontuario = servicos.GetRequiredService<ProntuarioClinicoViewModel>();
         Prescricoes = servicos.GetRequiredService<PrescricoesClinicasViewModel>();
         // Dentro do paciente ela não desenha o próprio cabeçalho: o nome já está no

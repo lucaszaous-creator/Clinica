@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
@@ -189,7 +190,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private int? _evaDepois;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SubjetivoPreenchido))]
     private string? _queixaPrincipal;
 
     // ---- O registro do ATENDIMENTO (parcela 73) ----
@@ -214,44 +214,17 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     // de qualquer aba, e é ele que denuncia o "Subjetivo" vazio de quem foi direto ao Plano.
     // Sem esse indicador a reorganização seria uma troca de leiaute que piora o registro.
 
-    /// <summary>O que a pessoa DIZ — queixa e história da doença atual.</summary>
-    public bool SubjetivoPreenchido =>
-        !string.IsNullOrWhiteSpace(QueixaPrincipal)
-        || !string.IsNullOrWhiteSpace(HistoriaDoencaAtual);
-
-    /// <summary>O que se ACHOU nela — o exame físico. (Os sinais vitais são leitura.)</summary>
-    public bool ObjetivoPreenchido => !string.IsNullOrWhiteSpace(ExameFisico);
-
-    /// <summary>O que isso É — hipótese e CID.</summary>
-    public bool AvaliacaoPreenchida =>
-        !string.IsNullOrWhiteSpace(HipoteseDiagnostica)
-        || !string.IsNullOrWhiteSpace(CidSessao);
-
-    /// <summary>O que se vai FAZER — conduta, evolução, orientações e plano.</summary>
-    public bool PlanoPreenchido =>
-        !string.IsNullOrWhiteSpace(Conduta)
-        || !string.IsNullOrWhiteSpace(TextoEvolucao)
-        || !string.IsNullOrWhiteSpace(Orientacoes)
-        || !string.IsNullOrWhiteSpace(PlanoTerapeutico)
-        || RetornoSugeridoEm is not null
-        || !string.IsNullOrWhiteSpace(RetornoSugeridoNota)
-        || !string.IsNullOrWhiteSpace(Encaminhamento);
-
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SubjetivoPreenchido))]
     private string? _historiaDoencaAtual;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ObjetivoPreenchido))]
     private string? _exameFisico;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AvaliacaoPreenchida))]
     private string? _hipoteseDiagnostica;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DescricaoCid))]
-    [NotifyPropertyChangedFor(nameof(AvaliacaoPreenchida))]
     private string? _cidSessao;
 
     /// <summary>
@@ -282,15 +255,12 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _conduta;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _textoEvolucao;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _orientacoes;
 
     /// <summary>
@@ -298,7 +268,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// não é a conduta nem a orientação.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _planoTerapeutico;
 
     /// <summary>
@@ -308,16 +277,130 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// ⚠️ Não vira agendamento nenhum — ver <c>Evolucao.RetornoSugeridoEm</c>.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private DateTime? _retornoSugeridoEm;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _retornoSugeridoNota;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PlanoPreenchido))]
     private string? _encaminhamento;
+
+    // ==================== A FOLHA ÚNICA (mockup 01, aprovado) ====================
+    //
+    // A tela deixou de ser quatro abas com doze campos e passou a ser UMA folha: o cursor
+    // nasce dentro dela, do tamanho da tela, e o que se escreve vai para `TextoEvolucao`.
+    // A direção pediu isso com todas as letras — "menos campos, texto livre para escrever
+    // o que quiser durante a sessão, é melhor segundo eles".
+    //
+    // ⚠️ NENHUMA COLUNA FOI APAGADA, e é isso que separa reduzir a TELA de perder o que já
+    // foi escrito. Os doze campos continuam no banco (guarda de 20 anos, Lei 13.787/2018) e
+    // continuam editáveis — atrás do "Detalhar…", numa janela. Sem essa porta, a sessão de
+    // 27/08 que tem hipótese, conduta e evolução preenchidas sumiria de VISTA sem sumir do
+    // banco, que é o pior dos dois mundos.
+    //
+    // ⚠️ Por que JANELA e não um bloco recolhido na própria tela: o bloco cresce com o dado
+    // e disputa altura com a folha, e filho ancorado que não cabe é DECEPADO (a lição da
+    // parcela 79, na tela ao lado). E é a mesma forma que a consulta da COFEN já usa do
+    // outro lado da clínica desde a parcela 88 — o mesmo gesto, o mesmo desenho.
+
+    /// <summary>
+    /// Os campos do detalhe que ESTA sessão já tem escritos.
+    ///
+    /// É o que faz a linha do "Detalhar…" dizer que há conteúdo lá dentro. Sem ela, quem
+    /// abre uma sessão antiga vê uma folha com o texto da evolução e não tem como saber que
+    /// existem cinco campos preenchidos a um clique — o defeito recorrente do projeto
+    /// (dado gravado sem leitor) cometido pela própria reforma que o corrige.
+    /// </summary>
+    public int CamposDetalhados =>
+        (string.IsNullOrWhiteSpace(QueixaPrincipal) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(HistoriaDoencaAtual) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(ExameFisico) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(HipoteseDiagnostica) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(CidSessao) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(Conduta) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(Orientacoes) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(PlanoTerapeutico) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(RetornoSugeridoNota) ? 0 : 1)
+        + (string.IsNullOrWhiteSpace(Encaminhamento) ? 0 : 1);
+
+    /// <summary>Há o que ler lá dentro — acende o selo ao lado da linha.</summary>
+    public bool TemCamposDetalhados => CamposDetalhados > 0;
+
+    /// <summary>
+    /// O selo da linha do detalhe. Diz QUANTOS, não "tem conteúdo": o número é o que faz
+    /// alguém clicar.
+    /// </summary>
+    public string SeloDetalhe =>
+        CamposDetalhados == 1 ? "1 campo preenchido" : $"{CamposDetalhados} campos preenchidos";
+
+    /// <summary>
+    /// A hora da última gravação desta sessão, escrita no rodapé ao lado do Salvar.
+    ///
+    /// ⚠️ Ela NÃO promete gravação automática. O mockup trazia "salva sozinha a cada pausa",
+    /// e a folha não salva sozinha de propósito: cada gravação de uma evolução que já existe
+    /// cria uma `VersaoEvolucao` (parcela 52), e salvar a cada pausa encheria o prontuário de
+    /// dezenas de versões por sessão. Prometer na tela o que o código não faz é a garantia
+    /// aparente que este projeto recusa desde a parcela 3 — então a frase diz o que houve.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DicaRodape))]
+    private string _ultimaGravacao = string.Empty;
+
+    /// <summary>
+    /// A frase do rodapé, ao lado do Salvar: a hora da última gravação quando já houve uma,
+    /// e a dica da EVA antes disso. Uma linha só — duas frases empilhadas num rodapé fazem
+    /// a pessoa parar de ler as duas.
+    /// </summary>
+    public string DicaRodape =>
+        string.IsNullOrEmpty(UltimaGravacao)
+            ? "A EVA vale em par: registre o depois ao terminar a sessão."
+            : UltimaGravacao;
+
+    /// <summary>
+    /// Abre os campos separados. Recebe ESTE ViewModel — não uma cópia —, então o que se
+    /// digita lá já está aqui quando a janela fecha, e quem grava continua sendo o Salvar
+    /// da tela de trás (o padrão do catálogo de enfermagem, parcela 88).
+    /// </summary>
+    [RelayCommand]
+    private void AbrirDetalhe()
+    {
+        if (SemPaciente)
+        {
+            Mensagem = "Escolha um paciente antes de abrir os campos da sessão.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        new DetalheSessaoWindow(this) { Owner = JanelaDona.Atual() }.ShowDialog();
+    }
+
+    /// <summary>
+    /// Os campos que moram na janela do detalhe. Mudou um deles, o selo e a contagem da
+    /// linha mudam junto.
+    ///
+    /// ⚠️ É um gancho único em vez de dois `NotifyPropertyChangedFor` em cada um dos dez
+    /// campos: atributo repetido dez vezes é atributo que o décimo primeiro campo não
+    /// ganha — e aí o selo passa a mentir sobre um campo preenchido, calado.
+    /// </summary>
+    private static readonly string[] CamposDaJanelaDeDetalhe =
+    [
+        nameof(QueixaPrincipal), nameof(HistoriaDoencaAtual), nameof(ExameFisico),
+        nameof(HipoteseDiagnostica), nameof(CidSessao), nameof(Conduta),
+        nameof(Orientacoes), nameof(PlanoTerapeutico), nameof(RetornoSugeridoNota),
+        nameof(Encaminhamento)
+    ];
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.PropertyName is not { } nome) return;
+        if (Array.IndexOf(CamposDaJanelaDeDetalhe, nome) < 0) return;
+
+        OnPropertyChanged(nameof(CamposDetalhados));
+        OnPropertyChanged(nameof(TemCamposDetalhados));
+        OnPropertyChanged(nameof(SeloDetalhe));
+    }
 
     /// <summary>
     /// Os sinais vitais que a ENFERMAGEM aferiu no dia desta sessão — leitura, nunca coleta.
@@ -929,6 +1012,10 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         RetornoSugeridoEm = null;
         RetornoSugeridoNota = null;
         Encaminhamento = null;
+
+        // A hora da última gravação é DESTA sessão: mantê-la ao trocar de paciente faria o
+        // rodapé afirmar, sobre uma folha em branco, que ela foi gravada às 14h37.
+        UltimaGravacao = string.Empty;
     }
 
     /// <summary>
@@ -1023,6 +1110,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             if (Mapa is not null) await Mapa.SalvarAsync(salva.Id);
 
             _snackbar.Sucesso("Sessão registrada no prontuário.");
+            UltimaGravacao = $"Última gravação às {DateTime.Now:HH\\:mm}";
 
             // O aviso do par incompleto vem DEPOIS de gravar, e não impede: o "depois" é
             // medido ao fim do atendimento, e recusar a gravação por causa dele faria o

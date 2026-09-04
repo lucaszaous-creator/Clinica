@@ -37,6 +37,16 @@
          ============================================================================ -->
 
     <UserControl.Resources>
+        <!-- ⚠️ UMA coleção agrupada, nunca uma ListBox por grupo: duas ListBox amarradas à
+             mesma seleção se limpam mutuamente (a lição da parcela 37). Com o agrupamento,
+             o SelectedIndex continua sendo o índice na coleção — que é a ordem de
+             ModuloClinico.SecoesDoPaciente, a mesma régua do TabControl ao lado. -->
+        <CollectionViewSource x:Key="SecoesAgrupadas" Source="{Binding Secoes}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Grupo" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
         <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
@@ -309,38 +319,34 @@
                  módulos caem cada uma na sua seção (ModuloClinico.AbaDe), e trocar o
                  leiaute não pode quebrar contrato de navegação (a regressão da parcela
                  37, 4ª rodada). -->
-            <ListBox DockPanel.Dock="Left" Width="188" Margin="0,0,16,0"
+            <ListBox DockPanel.Dock="Left" Width="196" Margin="0,0,16,0"
                      Background="Transparent" BorderThickness="0"
+                     ItemsSource="{Binding Source={StaticResource SecoesAgrupadas}}"
                      ItemContainerStyle="{StaticResource ItemSecaoClinica}"
                      SelectedIndex="{Binding AbaAtual}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBoxItem>
-                    <TextBlock Text="Atendimento" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Atendimento de enfermagem" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Anamnese" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Histórico de sessões" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Prescrições e documentos" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Exames e anexos" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Evolução da dor" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Medidas" TextWrapping="Wrap" />
-                </ListBoxItem>
-                <ListBoxItem>
-                    <TextBlock Text="Avaliações" TextWrapping="Wrap" />
-                </ListBoxItem>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <!-- QUEBRA, nunca corta: "Atendimento de enfermagem" e "Prescrições
+                             e documentos" não cabem em 196 px, e rótulo de menu cortado ao
+                             meio já foi reprovação do cliente (parcela 50: "Convê",
+                             "Prontu", "Documer"). -->
+                        <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Margin="10,14,0,4"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                    </GroupStyle>
+                </ListBox.GroupStyle>
             </ListBox>
 
             <!-- O conteúdo. TabControl com a régua ESCONDIDA: ele já resolve montar só a
@@ -363,14 +369,17 @@
                 <TabItem Header="Anamnese">
                     <views:AnamneseView DataContext="{Binding Anamnese}" />
                 </TabItem>
-                <TabItem Header="Histórico de sessões">
-                    <views:ProntuarioClinicoView DataContext="{Binding Prontuario}" />
+                <TabItem Header="Paciente">
+                    <views:PacienteCapaView DataContext="{Binding Capa}" />
                 </TabItem>
-                <TabItem Header="Prescrições e documentos">
-                    <views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" />
+                <TabItem Header="Histórico">
+                    <views:ProntuarioClinicoView DataContext="{Binding Prontuario}" />
                 </TabItem>
                 <TabItem Header="Exames e anexos">
                     <views:AnexosPacienteView DataContext="{Binding Anexos}" />
+                </TabItem>
+                <TabItem Header="Prescrições e documentos">
+                    <views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" />
                 </TabItem>
                 <TabItem Header="Evolução da dor">
                     <views:EvolucaoDorView DataContext="{Binding Dor}" />

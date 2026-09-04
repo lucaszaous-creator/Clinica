@@ -95,13 +95,14 @@
                 MinWidth="150"
                 IsEnabled="{Binding PodeEmitirDocumento}" />
 
-            <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA DATA desta
-                 sessão — sem o recorte, um paciente de quarenta sessões recebia quarenta. -->
-            <Button Content="Ficha do atendimento" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding ImprimirFichaCommand}" Margin="8,0,0,0"
-                MinWidth="160"
-                IsEnabled="{Binding PodeImprimirFicha}"
-                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
+            <!-- O roteiro vale para a SESSÃO inteira (ele preenche os campos desde a
+                 parcela 76), então é AÇÃO da tela e mora aqui, junto das outras. Na tira
+                 ele disputava largura com a data, as duas EVAs e o retorno — e a 1366 px
+                 quem perde essa disputa é sempre o último. -->
+            <Button Content="Modelos…" Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding AbrirModelosCommand}" Margin="8,0,0,0" MinWidth="110"
+                    ToolTip="Começar de um roteiro guardado, ou guardar esta sessão como modelo"
+                    IsEnabled="{Binding TemPaciente}" />
         </StackPanel>
 
             <!-- ============ AVISOS: UMA superfície, uma LINHA por aviso ============
@@ -162,8 +163,14 @@
                 </StackPanel>
             </Border>
 
-            <!-- Rodapé fora do scroll: o Salvar não some quando a evolução fica longa.
-                 UM primário na tela — o resto é secundário, senão nada é primário. -->
+            <!-- ==================== O RODAPÉ ====================
+                 As duas ações do fim da sessão no mesmo lugar, que é o que o mockup 01
+                 desenhou. Não é conforto: "Ficha do atendimento" era o QUARTO botão da
+                 barra de cima e, a 1366 px — a tela do balcão —, saía CORTADO na borda da
+                 janela. Foi um dos três problemas medidos antes do redesenho.
+
+                 Fora do scroll: o Salvar não some quando a folha fica longa. UM primário
+                 na tela — o resto é secundário, senão nada é primário. -->
             <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -181,7 +188,7 @@
                         <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   Text="A EVA vale em par: registre o depois ao terminar a sessão." />
+                                   Text="{Binding DicaRodape}" />
                         <Border Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                                              FallbackValue=Collapsed}">
                             <Border.Style>
@@ -201,7 +208,17 @@
                         <Button Content="Repetir última conduta"
                                 Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding RepetirUltimaCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}" MinWidth="180" />
+                                IsEnabled="{Binding PodeEditarProntuario}" MinWidth="170" />
+
+                        <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA
+                             DATA desta sessão — sem o recorte, um paciente de quarenta
+                             sessões recebia quarenta. -->
+                        <Button Content="Imprimir a sessão" Margin="8,0,0,0" MinWidth="150"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding ImprimirFichaCommand}"
+                                IsEnabled="{Binding PodeImprimirFicha}"
+                                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
+
                         <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
                                 Command="{Binding SalvarCommand}"
                                 IsEnabled="{Binding PodeEditarProntuario}" />
@@ -243,297 +260,150 @@
                      a aba tem conteúdo: ele se vê de qualquer aba, e é o que denuncia o
                      "Subjetivo" vazio de quem foi direto ao Plano.
                      ============================================================ -->
+                <!-- ============================================================
+                     A FOLHA ÚNICA (mockup 01, aprovado pela direção em set/2026).
+
+                     Eram DOZE campos em quatro abas, e a direção foi direta: "pode diminuir
+                     a quantidade de campos tanto para o médico quanto para a enfermeira e
+                     deixar campos de texto livre para escrever o que quiser durante a
+                     sessão, é melhor segundo eles". A tela virou uma folha: o cursor nasce
+                     dentro dela, do tamanho da tela, e o que se escreve é a EVOLUÇÃO.
+
+                     ⚠️ O que NÃO mudou, e é o que separa reduzir a tela de perder registro:
+                     nenhuma coluna foi apagada. Os outros dez campos continuam no banco
+                     (guarda de 20 anos, Lei 13.787/2018) e continuam editáveis, atrás da
+                     linha do "Detalhar…" ao pé — que ANUNCIA quantos a sessão aberta já
+                     tem. Sem esse anúncio, a sessão antiga com hipótese, conduta e exame
+                     preenchidos sumiria de VISTA sem sumir do banco.
+
+                     ⚠️ E por que o detalhe é JANELA e não um bloco recolhido aqui: o bloco
+                     cresce com o dado e disputa altura com a folha, e filho ancorado que
+                     não cabe é DECEPADO (parcela 79, nesta mesma tela). Do outro lado da
+                     clínica a consulta da COFEN já abre assim desde a parcela 88 — o mesmo
+                     gesto, o mesmo desenho.
+                     ============================================================ -->
                 <Border Grid.Column="0" Style="{StaticResource Card}">
                     <DockPanel>
 
-                        <!-- CABEÇALHO da sessão: vale para as quatro abas, e por isso
-                             fica FORA delas. A dor abre a sessão — é a primeira pergunta
-                             feita em voz alta — e o resumo do tratamento fica ao lado. -->
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <!-- A TIRA: o que a sessão tem de NÚMERO, numa linha só. A data, o
+                             par da EVA e a data do retorno — os quatro campos que não são
+                             texto e que alimentam a curva da dor e o painel da direção. -->
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="Data da sessão" Style="{StaticResource Rotulo}" />
-                                <DatePicker SelectedDate="{Binding Data}" Width="150" />
+                                <DatePicker SelectedDate="{Binding Data}" Width="140" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="0,0,16,0">
                                 <TextBlock Text="EVA antes" Style="{StaticResource Rotulo}" />
-                                <ComboBox ItemsSource="{Binding EscalaEva}" Width="90"
+                                <ComboBox ItemsSource="{Binding EscalaEva}" Width="84"
                                           SelectedItem="{Binding EvaAntes}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="0,0,16,0">
                                 <TextBlock Text="EVA depois" Style="{StaticResource Rotulo}" />
-                                <ComboBox ItemsSource="{Binding EscalaEva}" Width="90"
+                                <ComboBox ItemsSource="{Binding EscalaEva}" Width="84"
                                           SelectedItem="{Binding EvaDepois}" />
                             </StackPanel>
-                            <TextBlock Grid.Column="3" Text="{Binding ResumoDor}"
-                                       TextWrapping="Wrap" VerticalAlignment="Bottom"
-                                       Margin="0,0,12,6"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
 
-                            <!-- O roteiro vale para a SESSÃO inteira (ele preenche os nove
-                                 campos desde a parcela 76), então mora no cabeçalho e não
-                                 dentro de uma aba. -->
-                            <Button Grid.Column="4" Content="Modelos…" MinWidth="110"
-                                    VerticalAlignment="Bottom" Margin="0,0,0,2"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    ToolTip="Começar de um roteiro guardado, ou guardar esta sessão como modelo"
-                                    Command="{Binding AbrirModelosCommand}" />
+                            <!-- A DATA do retorno subiu para a tira (o mockup 01): ela é
+                                 lida ANTES de o paciente sair da sala, e estava enterrada
+                                 na quarta aba. O porquê continua no detalhe — é texto.
+                                 ⚠️ Não marca horário nenhum: quem marca é a recepção, com o
+                                 paciente na frente. Materializar a sugestão como
+                                 agendamento é o cartão fantasma que a parcela 58 arrancou
+                                 do 2º código. -->
+                            <StackPanel Grid.Column="3" Margin="0,0,16,0">
+                                <TextBlock Text="Retorno sugerido" Style="{StaticResource Rotulo}" />
+                                <DatePicker SelectedDate="{Binding RetornoSugeridoEm}" Width="140"
+                                            ToolTip="A data que ESTA consulta sugere para a próxima. Não marca horário — quem marca é a recepção." />
+                            </StackPanel>
                         </Grid>
 
-                        <TabControl>
+                        <!-- ===== A LINHA QUIETA DE CONTEXTO =====
+                             Os sinais vitais que a ENFERMAGEM aferiu hoje (parcela 76 —
+                             LEITURA, nunca coleta: colher aqui daria dois lugares para
+                             gravar a mesma aferição) e o resumo da dor. Os dois eram
+                             blocos com moldura dentro de abas diferentes; aqui são duas
+                             linhas de texto suave, porque é isso que eles são. -->
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock Text="{Binding SinaisVitaisTexto}" TextWrapping="Wrap"
+                                       Visibility="{Binding SinaisVitaisTexto,
+                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SinaisVitaisAferidos}" Value="True">
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                <Setter Property="Foreground"
+                                                        Value="{StaticResource Brush.Texto.Primario}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding SinaisVitaisProcedencia}" TextWrapping="Wrap"
+                                       Style="{StaticResource TextoSuave}"
+                                       Visibility="{Binding SinaisVitaisProcedencia,
+                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}" />
+                            <TextBlock Text="{Binding ResumoDor}" TextWrapping="Wrap"
+                                       Style="{StaticResource TextoSuave}"
+                                       Visibility="{Binding ResumoDor,
+                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                    FallbackValue=Collapsed}" />
+                        </StackPanel>
 
-                            <!-- ===================== S ===================== -->
-                            <TabItem>
-                                <TabItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Subjetivo" />
-                                        <TextBlock Text="&#x25CF;" Margin="6,0,0,0"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Acento}"
-                                                   Visibility="{Binding SubjetivoPreenchido,
-                                                                Converter={StaticResource BoolParaVisibilidade}}" />
-                                    </StackPanel>
-                                </TabItem.Header>
+                        <!-- ===== A LINHA DO DETALHE, ao pé da folha =====
+                             Recolhida por padrão e com o SELO dizendo quantos campos a
+                             sessão aberta já tem — é o número que faz alguém clicar. -->
+                        <Button DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                                HorizontalContentAlignment="Stretch"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding AbrirDetalheCommand}"
+                                IsEnabled="{Binding TemPaciente}"
+                                ToolTip="Queixa, história, exame físico, hipótese, CID, conduta, orientações, plano, motivo do retorno e encaminhamento. Todos opcionais — e é o que o relatório do convênio imprime separado por assunto.">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Detalhar em campos separados…"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Margin="10,0,10,0"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                           Text="queixa · exame · hipótese · conduta · plano · encaminhamento" />
+                                <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding TemCamposDetalhados,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                    <TextBlock Text="{Binding SeloDetalhe}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </Grid>
+                        </Button>
 
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <StackPanel Margin="0,4,0,0">
-                                        <TextBlock Text="Queixa principal"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding QueixaPrincipal, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
-                                                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"
-                                                 ToolTip="O motivo da consulta nas palavras do paciente." />
-
-                                        <TextBlock Text="História da doença atual"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding HistoriaDoencaAtual, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="140"
-                                                 VerticalScrollBarVisibility="Auto"
-                                                 ToolTip="Desde quando, como começou, o que melhora e o que piora. É o que distingue a primeira consulta do retorno." />
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </TabItem>
-
-                            <!-- ===================== O ===================== -->
-                            <TabItem>
-                                <TabItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Objetivo" />
-                                        <TextBlock Text="&#x25CF;" Margin="6,0,0,0"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Acento}"
-                                                   Visibility="{Binding ObjetivoPreenchido,
-                                                                Converter={StaticResource BoolParaVisibilidade}}" />
-                                    </StackPanel>
-                                </TabItem.Header>
-
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <StackPanel Margin="0,4,0,0">
-
-                                        <!-- SINAIS VITAIS DA ENFERMAGEM — LEITURA, nunca
-                                             coleta. Ficam aqui porque é o "objetivo" do
-                                             dia, e a PROCEDÊNCIA ao lado é o que separa
-                                             "eu medi" de "a técnica mediu às 9h12".
-                                             Sem faixa e sem cor de gravidade: quem
-                                             interpreta PA é quem atende. -->
-                                        <Border Margin="0,0,0,12" Padding="10,8" CornerRadius="6"
-                                                Background="{StaticResource Brush.LinhaAlt}">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding SinaisVitaisTexto}"
-                                                           TextWrapping="Wrap">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground"
-                                                                    Value="{StaticResource Brush.Texto.Secundario}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding SinaisVitaisAferidos}"
-                                                                             Value="True">
-                                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                                    <Setter Property="Foreground"
-                                                                            Value="{StaticResource Brush.Texto.Primario}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding SinaisVitaisProcedencia}"
-                                                           TextWrapping="Wrap" Margin="0,2,0,0"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           Visibility="{Binding SinaisVitaisProcedencia,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-                                            </StackPanel>
-                                        </Border>
-
-                                        <TextBlock Text="Exame físico" Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding ExameFisico, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="160"
-                                                 VerticalScrollBarVisibility="Auto"
-                                                 ToolTip="O que o exame ACHOU — inspeção, palpação, amplitude, força. Separado da conduta de propósito: achado e ato são coisas diferentes." />
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </TabItem>
-
-                            <!-- ===================== A ===================== -->
-                            <TabItem>
-                                <TabItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Avaliação" />
-                                        <TextBlock Text="&#x25CF;" Margin="6,0,0,0"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Acento}"
-                                                   Visibility="{Binding AvaliacaoPreenchida,
-                                                                Converter={StaticResource BoolParaVisibilidade}}" />
-                                    </StackPanel>
-                                </TabItem.Header>
-
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <StackPanel Margin="0,4,0,0">
-                                        <TextBlock Text="Hipótese diagnóstica"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding HipoteseDiagnostica, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
-                                                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
-
-                                        <Grid Margin="0,0,0,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="180" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                <TextBlock Text="CID (opcional)"
-                                                           Style="{StaticResource Rotulo}" />
-                                                <TextBox Text="{Binding CidSessao, UpdateSourceTrigger=PropertyChanged}"
-                                                         ToolTip="Opcional de propósito: exigi-lo faria o fisioterapeuta e o acupunturista pararem de preencher a hipótese." />
-                                            </StackPanel>
-
-                                            <Button Grid.Column="1" Content="Buscar CID…" MinWidth="120"
-                                                    VerticalAlignment="Bottom"
-                                                    Style="{StaticResource BotaoSecundario}"
-                                                    ToolTip="O catálogo é ATALHO com conferência: a descrição ao lado do código é o que pega “M54.4” digitado no lugar de “M54.5”."
-                                                    Command="{Binding BuscarCidCommand}" />
-                                        </Grid>
-
-                                        <!-- A descrição do CID é a metade que pega o erro: o
-                                             código digitado errado é tão plausível quanto o
-                                             certo, e nada mais o denuncia (parcela 63). -->
-                                        <TextBlock Text="{Binding DescricaoCid}" TextWrapping="Wrap"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   Visibility="{Binding DescricaoCid,
-                                                                Converter={StaticResource TextoParaVisibilidade},
-                                                                FallbackValue=Collapsed}" />
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </TabItem>
-
-                            <!-- ===================== P ===================== -->
-                            <TabItem>
-                                <TabItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Conduta e plano" />
-                                        <TextBlock Text="&#x25CF;" Margin="6,0,0,0"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Acento}"
-                                                   Visibility="{Binding PlanoPreenchido,
-                                                                Converter={StaticResource BoolParaVisibilidade}}" />
-                                    </StackPanel>
-                                </TabItem.Header>
-
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <StackPanel Margin="0,4,0,0">
-                                        <TextBlock Text="Conduta (pontos, técnica, tempo)"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding Conduta, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
-                                                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
-
-                                        <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96"
-                                                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
-
-                                        <TextBlock Text="Orientações ao paciente"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding Orientacoes, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
-                                                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
-
-                                        <!-- O PLANO é o que a CLÍNICA vai fazer, e não se
-                                             confunde com a conduta (o que foi feito hoje)
-                                             nem com a orientação (o que o paciente faz em
-                                             casa). É a frase que o convênio procura no
-                                             relatório de evolução.
-
-                                             UMA linha de propósito: caixa grande convidaria
-                                             a repetir a conduta, e campo preenchido com o
-                                             conteúdo do vizinho faz o relatório dizer a
-                                             mesma coisa três vezes. -->
-                                        <TextBlock Text="Plano terapêutico"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding PlanoTerapeutico, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" Margin="0,0,0,12"
-                                                 ToolTip="O que vem pela frente: “10 sessões, 2x/semana, reavaliar a EVA em 4 semanas”. Sai no relatório que o paciente leva ao convênio." />
-
-                                        <!-- RETORNO SUGERIDO (parcela 77): o plano já dizia
-                                             "reavaliar em 4 semanas" em texto livre, e nada
-                                             podia agir sobre a frase. A DATA separa o que se
-                                             lê do que se conta.
-
-                                             ⚠️ Não marca horário nenhum: quem marca é a
-                                             recepção, com o paciente na frente. Materializar
-                                             a sugestão como agendamento é o cartão fantasma
-                                             que a parcela 58 arrancou do 2º código. -->
-                                        <Grid Margin="0,0,0,12">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="170" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                                <TextBlock Text="Retorno sugerido"
-                                                           Style="{StaticResource Rotulo}" />
-                                                <DatePicker SelectedDate="{Binding RetornoSugeridoEm}"
-                                                            ToolTip="A data que ESTA consulta sugere para a próxima. Não marca horário — quem marca é a recepção." />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="Por que voltar"
-                                                           Style="{StaticResource Rotulo}" />
-                                                <TextBox Text="{Binding RetornoSugeridoNota, UpdateSourceTrigger=PropertyChanged}"
-                                                         TextWrapping="Wrap"
-                                                         ToolTip="“Reavaliar a EVA”, “trazer o resultado da ressonância”." />
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <!-- ENCAMINHAMENTO: a clínica tem cinco
-                                             especialidades no mesmo prédio, e mandar o
-                                             paciente de uma para a outra era conversa de
-                                             corredor — não ficava no prontuário, e quem
-                                             recebia não sabia o que o outro pensou. -->
-                                        <TextBlock Text="Encaminhamento"
-                                                   Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding Encaminhamento, UpdateSourceTrigger=PropertyChanged}"
-                                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
-                                                 VerticalScrollBarVisibility="Auto"
-                                                 ToolTip="Para quem, e por quê — dentro da casa (“psiquiatria daqui, para avaliar humor”) ou fora dela. Sai no relatório de evolução." />
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </TabItem>
-                        </TabControl>
+                        <!-- ===== A FOLHA ===== -->
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="A sessão de hoje"
+                                       Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="180"
+                                     VerticalContentAlignment="Top"
+                                     VerticalScrollBarVisibility="Auto"
+                                     ToolTip="Escreva a sessão como você escreveria no papel. É esta a evolução que entra no prontuário, na ficha impressa e na busca." />
+                        </DockPanel>
                     </DockPanel>
                 </Border>
 

@@ -76,12 +76,6 @@
                                  FallbackValue=Collapsed}"
                     Command="{Binding ColherTermoCommand}" />
 
-            <Button Content="Ficha do atendimento" MinWidth="170"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource BotaoSecundario}"
-                    IsEnabled="{Binding PodeVerProntuario}"
-                    ToolTip="Emite o papel do que aconteceu HOJE com este paciente, com a marca da clínica e o código de conferência. Ele fica na lista de documentos do paciente."
-                    Command="{Binding ImprimirFichaCommand}" />
         </StackPanel>
 
         <!-- ===================== AVISOS =====================
@@ -278,6 +272,17 @@
                         Style="{StaticResource BotaoSecundario}"
                         Visibility="{Binding Passagem.Corrigindo, Converter={StaticResource BoolParaVisibilidade}}"
                         Command="{Binding Passagem.CancelarCorrecaoCommand}" />
+                <!-- O papel que o paciente leva, ao lado do Registrar: as duas ações do
+                     fim da passagem no mesmo lugar (mockup 01). Na barra de cima ele era o
+                     terceiro botão e, com a folha de infusão e o termo pendente acesos,
+                     saía cortado na borda a 1366 px. -->
+                <Button Content="Imprimir a passagem" MinWidth="170" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeVerProntuario}"
+                        ToolTip="Emite o papel do que aconteceu HOJE com este paciente, com a marca da clínica e o código de conferência. Ele fica na lista de documentos do paciente."
+                        Command="{Binding ImprimirFichaCommand}" />
+
                 <Button Content="{Binding Passagem.RotuloDoBotao}" Margin="8,0,0,0" MinWidth="180"
                         VerticalAlignment="Center"
                         IsEnabled="{Binding PodeRegistrar}"
@@ -313,6 +318,14 @@
                     IsEnabled="{Binding PodeRegistrar}">
                 <DockPanel>
 
+                    <!-- ==================== A TIRA ====================
+                         Hora do fato e sinais vitais numa linha só (mockup 01). Eram quatro
+                         linhas — um rótulo de seção, a hora numa coluna ao lado do texto e a
+                         fileira de sete campos —, e o que elas comiam era a altura da FOLHA:
+                         o campo em que a técnica escreve tinha 90 px de teto.
+
+                         WrapPanel dentro de painel VERTICAL, nunca docado: docado ele é
+                         medido com largura infinita e nunca quebra a linha (checagem 32). -->
                     <StackPanel DockPanel.Dock="Top">
 
                         <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
@@ -320,33 +333,15 @@
                                    Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade},
                                                 FallbackValue=Collapsed}" />
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                <TextBlock Text="Hora do que foi observado" Style="{StaticResource Rotulo}" />
-                                <TextBox Width="90" HorizontalAlignment="Left"
+                        <TextBlock Text="Hora e sinais vitais (preencha só o que aferiu)"
+                                   Style="{StaticResource Rotulo}" />
+                        <WrapPanel Margin="0,4,0,0">
+                            <StackPanel Margin="0,0,18,6">
+                                <TextBlock Text="Hora do fato" Style="{StaticResource TextoSuave}" />
+                                <TextBox Width="80"
                                          Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="A hora do FATO, não a de agora. A técnica observa às 14h20 e digita às 14h50 — o relógio do sistema fica gravado ao lado, e a diferença entre os dois é o que uma auditoria de enfermagem procura." />
                             </StackPanel>
-
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="O que foi observado" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap" AcceptsReturn="True"
-                                         MinHeight="56" MaxHeight="90"
-                                         VerticalScrollBarVisibility="Auto" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Sinais vitais: WrapPanel, e não Grid de largura inteira — cada
-                             campo pede o que precisa e a fileira quebra quando não couber. -->
-                        <TextBlock Text="Sinais vitais (opcionais — preencha só o que aferiu)"
-                                   Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-                        <WrapPanel Margin="0,4,0,0">
                             <StackPanel Margin="0,0,14,6">
                                 <TextBlock Text="PA sistólica" Style="{StaticResource TextoSuave}" />
                                 <TextBox Width="78" Text="{Binding Sistolica, UpdateSourceTrigger=PropertyChanged}" />
@@ -377,40 +372,54 @@
                                          ToolTip="A dor aferida agora, o quinto sinal vital. NÃO entra na curva de dor do prontuário, que mede o efeito do tratamento entre sessões — são duas leituras diferentes." />
                             </StackPanel>
                         </WrapPanel>
-
-                        <Grid Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"
-                                      IsChecked="{Binding Intercorrencia}"
-                                      Content="Foi uma intercorrência"
-                                      ToolTip="Marque quando algo saiu do esperado (reação, queda de pressão, extravasamento). É o que acende o selo na fila e chega ao médico na tela de atendimento." />
-
-                            <StackPanel Grid.Column="1">
-                                <!-- ⚠️ O rótulo pergunta o AGENTE, não a reação (parcela 80).
-                                     A reação em si pertence ao texto da passagem, com "Foi
-                                     uma intercorrência" marcado ao lado. -->
-                                <TextBlock Text="Alergia observada — a quê? (opcional)"
-                                           Style="{StaticResource TextoSuave}" />
-                                <TextBox Text="{Binding AlergiaObservada, UpdateSourceTrigger=PropertyChanged}"
-                                         ctrl:Ajudantes.Placeholder="só o agente (ex.: dipirona)"
-                                         ToolTip="Escreva só o AGENTE (ex.: dipirona) — é esta palavra que a conferência procura nas próximas prescrições. A reação em si (pressão caiu, náusea) vai no texto da passagem." />
-                            </StackPanel>
-                        </Grid>
-
                     </StackPanel>
 
                     <!-- A porta da consulta de enfermagem: a caixinha, o aviso do que falta
                          e o botão que reabre a janela das cinco etapas. Mora no SHELL e é a
-                         MESMA da janela da sala de infusão. -->
-                    <!-- ⚠️ É o ÚLTIMO filho do DockPanel, e num DockPanel o último PREENCHE
-                         (o `Dock` dele é ignorado). O `VerticalAlignment` é o que faz o bloco
-                         hospedar-se no topo do que sobra em vez de esticar a caixinha e o
-                         botão pela coluna inteira. -->
-                    <comp:ConsultaDeEnfermagemView VerticalAlignment="Top" DataContext="{Binding}" />
+                         MESMA da janela da sala de infusão.
+                         ⚠️ Ancorada EMBAIXO (era o último filho, que PREENCHE): quem preenche
+                         agora é a folha, e é ela que tem de crescer com a janela. -->
+                    <comp:ConsultaDeEnfermagemView DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                                                   DataContext="{Binding}" />
+
+                    <!-- A intercorrência e a alergia ficam ao pé da folha: as duas são o que
+                         se marca DEPOIS de escrever o que aconteceu, e no topo elas
+                         empurravam o campo de escrever para baixo da dobra. -->
+                    <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <CheckBox Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,16,6"
+                                  IsChecked="{Binding Intercorrencia}"
+                                  Content="Foi uma intercorrência"
+                                  ToolTip="Marque quando algo saiu do esperado (reação, queda de pressão, extravasamento). É o que acende o selo na fila e chega ao médico na tela de atendimento." />
+
+                        <StackPanel Grid.Column="1">
+                            <!-- ⚠️ O rótulo pergunta o AGENTE, não a reação (parcela 80).
+                                 A reação em si pertence ao texto da passagem, com "Foi
+                                 uma intercorrência" marcado ao lado. -->
+                            <TextBlock Text="Alergia observada — a quê? (opcional)"
+                                       Style="{StaticResource TextoSuave}" />
+                            <TextBox Text="{Binding AlergiaObservada, UpdateSourceTrigger=PropertyChanged}"
+                                     ctrl:Ajudantes.Placeholder="só o agente (ex.: dipirona)"
+                                     ToolTip="Escreva só o AGENTE (ex.: dipirona) — é esta palavra que a conferência procura nas próximas prescrições. A reação em si (pressão caiu, náusea) vai no texto da passagem." />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ===== A FOLHA — o último filho, que PREENCHE =====
+                         Era uma caixa de 90 px de teto no meio de uma pilha de campos. A
+                         técnica escreve aqui o que observou, e o espaço é o da tela. -->
+                    <DockPanel Margin="0,12,0,0">
+                        <TextBlock DockPanel.Dock="Top" Text="O que eu observei"
+                                   Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
+                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120"
+                                 VerticalContentAlignment="Top"
+                                 VerticalScrollBarVisibility="Auto"
+                                 ToolTip="Escreva a passagem como você escreveria no papel: o que o paciente relatou, o que você observou e o que fez." />
+                    </DockPanel>
                 </DockPanel>
             </Border>
 
