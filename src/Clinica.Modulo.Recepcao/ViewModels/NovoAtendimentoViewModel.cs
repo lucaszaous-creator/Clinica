@@ -180,9 +180,35 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TemPrevia))]
+    [NotifyPropertyChangedFor(nameof(MostrarPrevia))]
     private string _resumoPrevia = string.Empty;
 
     public bool TemPrevia => Previa.Count > 0 && !Lancado;
+
+    /// <summary>
+    /// A prévia só se mostra onde a guia vai NASCER neste clique: sempre no lançar, e no
+    /// marcar só com a chave "guia no agendamento" ligada. Com a chave desligada a guia
+    /// nasce no Finalizar do profissional, e desenhar um documento que este clique não
+    /// cria é prometer o que a tela não faz — a nota do modo marcar diz onde ela nasce.
+    /// </summary>
+    public bool MostrarPrevia => TemPrevia && (!MarcarParaDepois || GuiaNaMarcacao);
+
+    /// <summary>
+    /// A linha curta acima do documento — "2 guias · a 2ª libera 05/09". É o que a
+    /// coluna direita mostra de saída (set/2026, "quanto mais simples, melhor"); o
+    /// documento inteiro fica a um clique de "Ver a guia".
+    /// </summary>
+    [ObservableProperty] private string _resumoCurtoPrevia = string.Empty;
+
+    /// <summary>O documento da guia aberto ou recolhido. Recolhido por padrão; a linha já diz o número.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RotuloVerGuia))]
+    private bool _guiaAberta;
+
+    public string RotuloVerGuia => GuiaAberta ? "Ocultar a guia" : "Ver a guia";
+
+    [RelayCommand]
+    private void AlternarGuia() => GuiaAberta = !GuiaAberta;
 
     /// <summary>
     /// O rótulo do botão DIZ o que vai acontecer: "Lançar e gerar 2 guias". Botão que
@@ -211,31 +237,49 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
 
-    // ==================== QUANDO (parcela 70) ====================
+    // ==================== O MODO: LANÇAR × MARCAR ====================
     //
-    // A decisão da direção foi unificar: "para agendar vamos colocar através de novo
-    // atendimento (...) assim poderíamos unificar tudo em um lugar só". Esta tela deixou
-    // de ser só o avulso de quem está no balcão — ela pergunta QUANDO: o paciente está
-    // aqui (lançar agora, o caso de sempre) ou é para marcar dia e horário. A agenda
-    // vira a tela de VER e mexer no que existe; criar mora aqui.
-
-    /// <summary>O modo "marcar dia e horário" — o horário entra na agenda sem check-in.</summary>
-    [ObservableProperty] private bool _marcarParaDepois;
+    // Na parcela 70 a direção unificou a criação de horário aqui, e a tela passou a
+    // perguntar QUANDO — dois cartões de rádio no meio do formulário, cuja resposta fazia
+    // seis campos aparecerem ou sumirem. Em set/2026 a cliente pediu "quanto mais simples,
+    // melhor", e a pergunta saiu do formulário: viraram DUAS ABAS do item "Atendimento"
+    // (Lançar · Marcar), cada uma só com os campos do seu modo. O ViewModel é o MESMO —
+    // toda a lógica de prévia, elegibilidade, conflito e gravação continua num lugar só
+    // —; o que muda é que o modo chega FIXADO por quem monta a aba (`FixarModo`), e não
+    // por um clique no meio do preenchimento.
 
     /// <summary>
-    /// O par do de cima, para o RadioButton: a suíte não tem conversor de booleano
-    /// invertido, e é o mesmo padrão de <see cref="SemPaciente"/>.
+    /// O modo "marcar dia e horário" — o horário entra na agenda sem check-in. Fixado por
+    /// <see cref="FixarModo"/> na montagem da aba; a tela não oferece trocar.
     /// </summary>
-    public bool LancarAgora
-    {
-        get => !MarcarParaDepois;
-        set { if (value) MarcarParaDepois = false; }
-    }
+    [ObservableProperty] private bool _marcarParaDepois;
 
-    /// <summary>Metade VISÍVEL: marcar horário é mexer na agenda — o rádio explica; <c>Exigir</c> impede.</summary>
-    public bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    /// <summary>O par do de cima, para os elementos que só existem no lançar agora.</summary>
+    public bool LancarAgora => !MarcarParaDepois;
 
-    public bool NaoPodeMarcar => !PodeMarcar;
+    /// <summary>
+    /// Fixa o modo da aba. Chamado por quem cria a tela (o módulo), antes de a tela
+    /// aparecer — é o que faz "Lançar" e "Marcar" serem duas abas do mesmo ViewModel em
+    /// vez de dois ViewModels divergindo na primeira correção.
+    /// </summary>
+    public void FixarModo(bool marcar) => MarcarParaDepois = marcar;
+
+    /// <summary>Título da página, por modo — a aba já diz, e o cabeçalho confirma.</summary>
+    public string TituloTela => MarcarParaDepois ? "Marcar horário" : "Lançar atendimento";
+
+    public string SubtituloTela => MarcarParaDepois
+        ? "O paciente não está aqui. O horário entra na agenda de quem atende — e quem precisar voltar ganha outro horário pela agenda."
+        : "O paciente está no balcão. Entra como encaixe com o check-in feito, e a guia nasce agora. Quem já está na agenda entra pela Fila.";
+
+    /// <summary>
+    /// Cabeçalho do passo 2: no marcar é QUANDO e com quem; no lançar a data é hoje e a
+    /// pergunta é só quem atendeu — a mesma régua de campos, com o rótulo dizendo a
+    /// verdade de cada modo.
+    /// </summary>
+    public string TituloPassoQuando => MarcarParaDepois ? "2 · QUANDO E COM QUEM" : "2 · QUEM ATENDEU";
+
+    /// <summary>O botão de zerar a tela depois do desfecho, no verbo do modo.</summary>
+    public string RotuloOutro => MarcarParaDepois ? "Marcar outro" : "Lançar outro";
 
     /// <summary>Salas ativas — só o modo marcar pergunta onde (o avulso está NO balcão).</summary>
     public ObservableCollection<Sala> Salas { get; } = new();
@@ -248,13 +292,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Assumir o choque e marcar por cima — só aparece quando HÁ choque.</summary>
     [ObservableProperty] private bool _comoEncaixe;
 
-    /// <summary>Marcar várias sessões de uma vez (o pacote de dez).</summary>
-    [ObservableProperty] private bool _emSerie;
-
-    [ObservableProperty] private string _quantidadeSessoes = "10";
-
-    /// <summary>Intervalo em dias. 7 = mesma hora, toda semana — o caso comum.</summary>
-    [ObservableProperty] private string _intervaloDias = "7";
+    // ⚠️ A SÉRIE ("Sessões · A cada N dias") saiu desta tela em set/2026, por decisão da
+    // cliente: "não precisamos disso; se o paciente precisar voltar, a recepcionista marca
+    // uma agenda". O motor (`AgendaService.AgendarSerieAsync`) fica — a regra de datas é
+    // testada e as séries já marcadas continuam existindo (`SerieId`, "cancelar o resto da
+    // série" na janela do horário) —, mas nenhuma porta da Recepção o chama.
 
     /// <summary>Choques e agenda fechada no horário escolhido, criticados A CADA TECLA.</summary>
     public ObservableCollection<string> ConflitosMarcacao { get; } = new();
@@ -276,7 +318,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     public string NotaGuiaNaMarcacao => GuiaNaMarcacao
         ? "As guias nascem JÁ NA MARCAÇÃO e vão para o faturamento — dá para efetivar no "
           + "portal antes da sessão. Cancelamento e falta suspendem as guias sozinhos."
-        : "As guias deste horário nascem na confirmação da presença, no dia da sessão.";
+        : "A guia nasce no dia da sessão, quando o profissional finalizar o atendimento.";
 
     /// <summary>Título do resultado: "lançado" e "marcado para" são desfechos diferentes.</summary>
     [ObservableProperty] private string? _tituloResultado;
@@ -309,7 +351,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExecutanteGuia))]
     [NotifyPropertyChangedFor(nameof(ExecutanteADefinir))]
+    [NotifyPropertyChangedFor(nameof(PodeBuscarVagas))]
     private Profissional? _profissional;
+
+    /// <summary>A metade visível: a busca de vagas é DE alguém — sem profissional escolhido o botão explica.</summary>
+    public bool PodeBuscarVagas => Profissional is not null;
 
     /// <summary>
     /// Quem assina a guia da prévia. Sai do profissional escolhido no QUANDO, e diz
@@ -339,6 +385,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TemPrevia))]
+    [NotifyPropertyChangedFor(nameof(MostrarPrevia))]
     private bool _lancado;
     [ObservableProperty] private string? _numeroAtendimento;
     [ObservableProperty]
@@ -669,6 +716,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     partial void OnMarcarParaDepoisChanged(bool value)
     {
         OnPropertyChanged(nameof(LancarAgora));
+        OnPropertyChanged(nameof(TituloTela));
+        OnPropertyChanged(nameof(SubtituloTela));
+        OnPropertyChanged(nameof(TituloPassoQuando));
+        OnPropertyChanged(nameof(RotuloOutro));
+        OnPropertyChanged(nameof(MostrarPrevia));
         OnPropertyChanged(nameof(TituloPasso2));
         OnPropertyChanged(nameof(SemProfissionalEscolhido));
         OnPropertyChanged(nameof(UsarHorarioDoDia));
@@ -681,6 +733,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     partial void OnGuiaNaMarcacaoChanged(bool value)
     {
         OnPropertyChanged(nameof(NotaGuiaNaMarcacao));
+        OnPropertyChanged(nameof(MostrarPrevia));
         AtualizarRotuloLancar();
     }
 
@@ -805,8 +858,75 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         CarregarCatalogos();
         await CarregarEquipeAsync();
         await LerChaveGuiaNaMarcacaoAsync();
-        ConsumirPreenchimento();
+        var pacientePedido = ConsumirPreenchimento();
         await Seletor.BuscarAsync(imediato: true);
+        // O paciente do pedido entra DEPOIS da busca inicial: a busca remonta a lista, e
+        // uma ListBox cuja lista é remontada devolve nulo ao `Selecionado` (parcela 37).
+        if (pacientePedido is { } pacienteId) await SelecionarPacientePedidoAsync(pacienteId);
+    }
+
+    /// <summary>
+    /// Escolhe o paciente que a porta de origem já sabia (a fila "Retornos a marcar",
+    /// set/2026). Falhar aqui não impede nada — a recepcionista escolhe pela busca —, mas
+    /// não passa calado: um pré-preenchimento que some sem rastro é o que faz a pessoa
+    /// achar que clicou no botão errado.
+    /// </summary>
+    private async Task SelecionarPacientePedidoAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var paciente = await scope.ServiceProvider
+                .GetRequiredService<IClinicaRepositorio>()
+                .ObterPacienteAsync(pacienteId);
+            if (paciente is not null) Seletor.SelecionarGarantindoNaLista(paciente);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — paciente do pedido de retorno não pôde ser carregado", ex);
+        }
+    }
+
+    /// <summary>
+    /// "Quando cabe?" em lista (set/2026): as próximas vagas de quem atende, a partir da
+    /// data escolhida, já descontando o que está marcado, os bloqueios e a jornada dele.
+    /// Escolher uma vaga preenche data e hora — o resto do formulário continua o mesmo, e
+    /// quem marca é o Salvar de sempre. Até aqui a pergunta se respondia olhando a grade
+    /// dia a dia, com o paciente ao telefone.
+    /// </summary>
+    [RelayCommand]
+    private async Task ProximasVagasAsync()
+    {
+        if (Profissional is not { } profissional)
+        {
+            Avisar("Escolha quem atende para buscar as vagas dele.", aviso: true);
+            return;
+        }
+        try
+        {
+            // A partir de AGORA quando a data é hoje (vaga de manhã num dia que já passou
+            // da tarde não é vaga); a partir do começo do dia quando é outra data.
+            var aPartirDe = Data.Date == DateTime.Today ? DateTime.Now : Data.Date;
+
+            ResultadoBuscaDeVagas resultado;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                resultado = await scope.ServiceProvider
+                    .GetRequiredService<BuscaDeVagasService>()
+                    .ProximasAsync(profissional.Id, aPartirDe, DuracaoInformada());
+            }
+
+            var janela = new Janelas.ProximasVagasWindow(resultado) { Owner = JanelaDona.Atual() };
+            if (janela.ShowDialog() != true || janela.Escolhida is not { } vaga) return;
+
+            Data = vaga.Inicio.Date;
+            Hora = vaga.Inicio.ToString("HH:mm");
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — busca de vagas falhou", ex);
+            Avisar($"Não foi possível buscar as vagas: {ex.Message}", erro: true);
+        }
     }
 
     /// <summary>
@@ -876,14 +996,21 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// "Novo horário") — dia, hora, profissional e sala já preenchidos, que é o gesto da
     /// parcela 58 sobrevivendo à unificação. Roda DEPOIS da carga da equipe, porque
     /// profissional e sala são resolvidos por Id na lista carregada.
+    ///
+    /// ⚠️ Só o pedido do MODO desta aba: a agenda pede "marcar", e são duas abas com o
+    /// mesmo ViewModel — a aba Lançar, se for a primeira a carregar, não pode engolir o
+    /// pedido que a aba Marcar vai consumir em seguida.
+    ///
+    /// Devolve o paciente que o pedido trouxe, quando trouxe (a fila "Retornos a marcar"):
+    /// ele é escolhido depois da busca inicial, e não aqui — ver <see cref="CarregarAsync"/>.
     /// </summary>
-    private void ConsumirPreenchimento()
+    private int? ConsumirPreenchimento()
     {
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var ponte = scope.ServiceProvider.GetService<PreenchimentoNovoAtendimento>();
-            if (ponte?.Consumir() is not { } pedido) return;
+            if (ponte?.ConsumirPara(marcarParaDepois: MarcarParaDepois) is not { } pedido) return null;
 
             if (pedido.DataHora is { } quando)
             {
@@ -894,13 +1021,14 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 Profissional = Profissionais.FirstOrDefault(p => p.Id == profissionalId) ?? Profissional;
             if (pedido.SalaId is { } salaId)
                 Sala = Salas.FirstOrDefault(s => s.Id == salaId) ?? Sala;
-
-            // Por último: já dispara a crítica de choque com tudo no lugar.
-            if (pedido.MarcarParaDepois) MarcarParaDepois = true;
+            // A crítica de choque já correu a cada atribuição acima (hora, profissional,
+            // sala) — a última leitura é a que fica, pelo contador de geração.
+            return pedido.PacienteId;
         }
         catch (Exception ex)
         {
             LogSuite.Registrar("Novo atendimento — pré-preenchimento da agenda não pôde ser lido", ex);
+            return null;
         }
     }
 
@@ -1366,10 +1494,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             LogSuite.Registrar("Novo atendimento — prévia das guias não pôde ser calculada", ex);
             Previa.Clear();
+            ResumoCurtoPrevia = string.Empty;
             ResumoPrevia = "Não foi possível calcular a prévia das guias — o lançamento continua liberado.";
             _totalGuiasPrevia = null;
             AtualizarRotuloLancar();
             OnPropertyChanged(nameof(TemPrevia));
+        OnPropertyChanged(nameof(MostrarPrevia));
 
             // Falha não pode deixar número velho na tela: cartão dizendo "1 guia" quando a
             // conta não foi feita é falha exibida como sucesso, e é sobre esse número que a
@@ -1387,9 +1517,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         Previa.Clear();
         ResumoPrevia = string.Empty;
+        ResumoCurtoPrevia = string.Empty;
         _totalGuiasPrevia = null;
         AtualizarRotuloLancar();
         OnPropertyChanged(nameof(TemPrevia));
+        OnPropertyChanged(nameof(MostrarPrevia));
     }
 
     /// <summary>O total da última prévia (nulo = ainda não calculada), para o rótulo do botão.</summary>
@@ -1495,7 +1627,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             ? $"{total} guia(s) — a 2ª só libera em {quando:dd/MM/yyyy}, e é ela que costuma se perder."
             : $"{total} guia(s), todas faturáveis na data do atendimento.";
 
+        // A linha curta da coluna direita. Sem o "(s)": quem lê "1 guia · hoje" e
+        // "2 guias · a 2ª libera 05/09" não precisa de parêntese para saber o plural.
+        ResumoCurtoPrevia = total == 1
+            ? "1 guia · hoje"
+            : previa.LiberaEm is { } libera
+                ? $"{total} guias · a 2ª libera {libera:dd/MM}"
+                : $"{total} guias · hoje";
+
         OnPropertyChanged(nameof(TemPrevia));
+        OnPropertyChanged(nameof(MostrarPrevia));
     }
 
     private static string RotularForma(FormaObtencao f) => f switch
@@ -1624,17 +1765,19 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         ResumoBaixas = null;
         Observacoes = null;
         Mensagem = null;
-        // O MODO fica como está (quem marca dez horários seguidos não quer reescolher o
-        // rádio a cada um); o que é por-horário — encaixe assumido e série — zera.
+        // O MODO é o da aba; o que é por-horário — o encaixe assumido — zera.
         ComoEncaixe = false;
-        EmSerie = false;
+        GuiaAberta = false;
         Data = DateTime.Today;
         Seletor.Limpar();
         Seletor.Termo = null;
         Previa.Clear();
         ResumoPrevia = string.Empty;
-        RotuloLancar = "Lançar e gerar as guias";
+        ResumoCurtoPrevia = string.Empty;
+        _totalGuiasPrevia = null;
+        AtualizarRotuloLancar();
         OnPropertyChanged(nameof(TemPrevia));
+        OnPropertyChanged(nameof(MostrarPrevia));
     }
 
     /// <summary>
@@ -1915,7 +2058,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// </summary>
     private async Task MarcarAsync(Paciente paciente, EntradaModalidade modalidade, TimeOnly hora)
     {
-        // As DUAS barreiras: o rádio explica (`PodeMarcar`); aqui impede. Com a chave
+        // As DUAS barreiras: a aba "Marcar" só existe para quem tem `EditarAgenda`
+        // (é o `Requer` do item dela); aqui impede. Com a chave
         // ligada, marcar também CRIA o atendimento e as guias — o ato que
         // `LancarAtendimento` nomeia (parcela 69: quando o momento do fato muda, a
         // permissão vai junto). `Exigir` com bits somados é um E.
@@ -1954,20 +2098,15 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             return;
         }
 
-        var quantas = 0;
-        var intervalo = 0;
-        if (EmSerie)
+        // A metade VISÍVEL da recusa que mora no `AgendaService` (parcela 95). O aviso
+        // amarelo desta tela já dizia o custo desde a parcela 69 e deixava salvar; agora
+        // que o horário marcado É a agenda do médico, ele impede — e a frase chega aqui,
+        // no clique, em vez de vir como exceção do serviço.
+        if (SemProfissionalEscolhido)
         {
-            if (!int.TryParse(QuantidadeSessoes, out quantas) || quantas < 2)
-            {
-                Avisar("Quantas sessões? A partir de 2 — para uma só, desmarque \"repetir\".", erro: true);
-                return;
-            }
-            if (!int.TryParse(IntervaloDias, out intervalo) || intervalo < 1)
-            {
-                Avisar("De quantos em quantos dias? (7 = toda semana, mesma hora.)", erro: true);
-                return;
-            }
+            Avisar("Escolha quem vai atender: o horário marcado precisa de dono para "
+                   + "aparecer na agenda do profissional e entrar no repasse.", erro: true);
+            return;
         }
 
         if (Ocupado) return;
@@ -1989,31 +2128,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 
-            if (EmSerie)
-            {
-                var serie = await agenda.AgendarSerieAsync(
-                    paciente.Id, dataHora, Modalidade, quantas,
-                    intervaloDias: intervalo, observacoes: Observacoes,
-                    modalidadeCodigo: modalidade.Codigo,
-                    especialidadeConsultaCodigo: especialidade,
-                    profissionalId: Profissional?.Id, salaId: Sala?.Id,
-                    duracaoMinutos: DuracaoInformada(),
-                    operador: SessaoUsuario.Atual.Operador,
-                    primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
-
-                // A série que pulou datas NÃO passa em silêncio: a recepção precisa ver
-                // quais não entraram para resolver com o paciente ainda na linha.
-                foreach (var r in serie.Recusados)
-                    Avisos.Add($"{r.Quando:dd/MM HH:mm} — não deu: {r.Motivo}");
-
-                var frase = $"{serie.Marcados.Count} sessão(ões) marcada(s) a partir de "
-                            + $"{dataHora:dd/MM/yyyy 'às' HH:mm}."
-                            + (GuiaNaMarcacao ? " As guias já estão no faturamento." : string.Empty);
-                if (serie.TudoMarcado) Avisar(frase);
-                else Avisar(frase + " Parte da série não entrou — veja as datas puladas e resolva agora.",
-                    aviso: true);
-            }
-            else
             {
                 var ag = await agenda.AgendarAsync(
                     paciente.Id, dataHora, Modalidade, Observacoes,
@@ -2044,7 +2158,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 else
                 {
                     Avisar($"Horário marcado para {dataHora:dd/MM/yyyy 'às' HH:mm}. "
-                           + "As guias nascem na confirmação da presença.");
+                           + "A guia nasce quando o profissional finalizar o atendimento.");
                 }
 
                 await PerguntarComprovanteAsync(scope, ag.Id, paciente.Nome, dataHora);
@@ -2064,8 +2178,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     /// <summary>
     /// "Imprimir o comprovante de agendamento para o paciente?" — a pergunta do fluxo
-    /// unificado (decisão da direção, parcela 70). Só no horário ÚNICO: numa série, o
-    /// papel de cada sessão sai pela janela do horário na Agenda.
+    /// unificado (decisão da direção, parcela 70).
     /// Falha vira aviso na lista, nunca por cima da confirmação da marcação.
     /// </summary>
     private async Task PerguntarComprovanteAsync(

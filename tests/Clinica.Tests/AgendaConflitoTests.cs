@@ -14,6 +14,13 @@ public class AgendaConflitoTests : IDisposable
     private readonly ClinicaDbContext _db;
     private readonly AgendaService _agenda;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AgendaConflitoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -21,6 +28,10 @@ public class AgendaConflitoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         var repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(repo, new AtendimentoService(repo));
     }
@@ -38,7 +49,7 @@ public class AgendaConflitoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync("Maria");
         var horario = new DateTime(2026, 7, 20, 8, 0, 0);
-        await _agenda.AgendarAsync(pacienteId, horario, ModalidadeAtendimento.AcupunturaComEletro, null);
+        await _agenda.AgendarAsync(pacienteId, horario, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var conflito = await _agenda.ConflitoAsync(horario);
 
@@ -51,7 +62,7 @@ public class AgendaConflitoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync("João");
         var horario = new DateTime(2026, 7, 20, 9, 0, 0);
-        var ag = await _agenda.AgendarAsync(pacienteId, horario, ModalidadeAtendimento.AcupunturaComEletro, null);
+        var ag = await _agenda.AgendarAsync(pacienteId, horario, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         await _agenda.CancelarAsync(ag.Id);
 
         (await _agenda.ConflitoAsync(horario)).Should().BeNull();
@@ -62,8 +73,8 @@ public class AgendaConflitoTests : IDisposable
     public async Task NoPeriodo_TrazTodaASemana()
     {
         var pacienteId = await CriarPacienteAsync("Ana");
-        await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 8, 0, 0), ModalidadeAtendimento.AcupunturaComEletro, null);
-        await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 24, 10, 0, 0), ModalidadeAtendimento.AcupunturaComEletro, null);
+        await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 8, 0, 0), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
+        await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 24, 10, 0, 0), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var semana = await _agenda.NoPeriodoAsync(new DateOnly(2026, 7, 20), new DateOnly(2026, 7, 26));
 

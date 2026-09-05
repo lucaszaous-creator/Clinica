@@ -35,6 +35,18 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _email;
     [ObservableProperty] private string? _cor;
     [ObservableProperty] private string _duracaoPadrao = string.Empty;
+
+    // A jornada (set/2026): sete caixinhas e o par de horas, como texto "HH:mm". Nenhum
+    // dia marcado = não declarado (qualquer dia) — a tela diz isso ao lado das caixas.
+    [ObservableProperty] private bool _atendeSeg;
+    [ObservableProperty] private bool _atendeTer;
+    [ObservableProperty] private bool _atendeQua;
+    [ObservableProperty] private bool _atendeQui;
+    [ObservableProperty] private bool _atendeSex;
+    [ObservableProperty] private bool _atendeSab;
+    [ObservableProperty] private bool _atendeDom;
+    [ObservableProperty] private string _atendeDas = string.Empty;
+    [ObservableProperty] private string _atendeAte = string.Empty;
     [ObservableProperty] private string _ordem = "0";
     [ObservableProperty] private bool _ativo = true;
     [ObservableProperty] private string? _observacoes;
@@ -77,6 +89,15 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
             Email = p.Email;
             Cor = p.Cor;
             DuracaoPadrao = p.DuracaoPadraoMinutos?.ToString() ?? string.Empty;
+            AtendeSeg = p.AtendeEm(DayOfWeek.Monday) && p.DiasDeAtendimento is not null;
+            AtendeTer = p.AtendeEm(DayOfWeek.Tuesday) && p.DiasDeAtendimento is not null;
+            AtendeQua = p.AtendeEm(DayOfWeek.Wednesday) && p.DiasDeAtendimento is not null;
+            AtendeQui = p.AtendeEm(DayOfWeek.Thursday) && p.DiasDeAtendimento is not null;
+            AtendeSex = p.AtendeEm(DayOfWeek.Friday) && p.DiasDeAtendimento is not null;
+            AtendeSab = p.AtendeEm(DayOfWeek.Saturday) && p.DiasDeAtendimento is not null;
+            AtendeDom = p.AtendeEm(DayOfWeek.Sunday) && p.DiasDeAtendimento is not null;
+            AtendeDas = p.AtendeDas?.ToString("HH:mm") ?? string.Empty;
+            AtendeAte = p.AtendeAte?.ToString("HH:mm") ?? string.Empty;
             Ordem = p.Ordem.ToString();
             Ativo = p.Ativo;
             Observacoes = p.Observacoes;
@@ -115,6 +136,34 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
 
         if (!int.TryParse(Ordem, out var ordem)) ordem = 0;
 
+        // O horário: os dois em branco é "não declarado"; um só é erro que a tela explica
+        // antes de o serviço recusar. "HH:mm" — "8" e "8h" não são hora.
+        TimeOnly? das = null, ate = null;
+        if (!string.IsNullOrWhiteSpace(AtendeDas) || !string.IsNullOrWhiteSpace(AtendeAte))
+        {
+            if (!TimeOnly.TryParseExact(AtendeDas.Trim(), "HH:mm", out var d)
+                || !TimeOnly.TryParseExact(AtendeAte.Trim(), "HH:mm", out var a))
+            {
+                Erro("Informe o horário de atendimento como início e fim, no formato 08:00 — ou deixe os dois em branco.");
+                return;
+            }
+            if (a <= d)
+            {
+                Erro("O fim do horário de atendimento precisa ser depois do início.");
+                return;
+            }
+            das = d;
+            ate = a;
+        }
+        var dias = 0;
+        if (AtendeSeg) dias |= Profissional.BitDe(DayOfWeek.Monday);
+        if (AtendeTer) dias |= Profissional.BitDe(DayOfWeek.Tuesday);
+        if (AtendeQua) dias |= Profissional.BitDe(DayOfWeek.Wednesday);
+        if (AtendeQui) dias |= Profissional.BitDe(DayOfWeek.Thursday);
+        if (AtendeSex) dias |= Profissional.BitDe(DayOfWeek.Friday);
+        if (AtendeSab) dias |= Profissional.BitDe(DayOfWeek.Saturday);
+        if (AtendeDom) dias |= Profissional.BitDe(DayOfWeek.Sunday);
+
         try
         {
             Salvando = true;
@@ -133,6 +182,9 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
                 Email = Email,
                 Cor = Cor,
                 DuracaoPadraoMinutos = duracao,
+                DiasDeAtendimento = dias == 0 ? null : dias,
+                AtendeDas = das,
+                AtendeAte = ate,
                 Ordem = ordem,
                 Ativo = Ativo,
                 Observacoes = Observacoes

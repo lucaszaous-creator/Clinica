@@ -186,6 +186,58 @@ public class PermissoesFaturamentoTests
     }
 
     /// <summary>
+    /// O ATO MUDOU DE LUGAR, e a permissão foi junto (parcela 95).
+    ///
+    /// O "Finalizar atendimento" do Consultório passou a CONCLUIR a sessão — carimba a
+    /// presença e gera as guias —, que é exatamente o ato que <c>LancarAtendimento</c>
+    /// nomeia. Sem o bit no padrão, o botão levaria recusa em toda finalização; com ele, a
+    /// direção continua podendo tirá-lo de uma pessoa específica em Acessos.
+    ///
+    /// ⚠️ É acréscimo, nunca remoção: ninguém que atendia ontem perde nada (a regra 3 do
+    /// bloco do faturamento).
+    /// </summary>
+    [Fact]
+    public void Quem_ATENDE_pode_lancar_o_atendimento_que_ele_mesmo_conclui()
+    {
+        PerfisAcesso.Padrao(PerfilAcesso.Profissional)
+            .HasFlag(Permissao.LancarAtendimento).Should().BeTrue();
+
+        // O corte continua o mesmo do resto: quem só EXECUTA não conclui sessão nem gera
+        // guia — a enfermagem registra o cuidado, não o faturamento dele.
+        PerfisAcesso.Padrao(PerfilAcesso.Enfermagem)
+            .HasFlag(Permissao.LancarAtendimento).Should().BeFalse();
+
+        // E marcar horário de terceiros continua sendo do balcão: o bit da agenda NÃO veio
+        // junto, senão a simplificação do fluxo teria alargado o acesso de raspão.
+        PerfisAcesso.Padrao(PerfilAcesso.Profissional)
+            .HasFlag(Permissao.EditarAgenda).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// O rail da tela do paciente mostra a seção de ESCRITA de quem está logado (parcela
+    /// 95): médico vê o S-O-A-P, enfermagem vê a passagem, quem tem os dois vê as duas.
+    /// Sem sessão (Todas) as duas aparecem — tela vazia se lê como defeito.
+    /// </summary>
+    [Fact]
+    public void O_rail_mostra_a_secao_de_escrita_de_quem_esta_logado()
+    {
+        PerfisAcesso.SecoesDeEscritaDoPosto(PerfisAcesso.Padrao(PerfilAcesso.Profissional))
+            .Should().Be((Medico: true, Enfermagem: false));
+
+        PerfisAcesso.SecoesDeEscritaDoPosto(PerfisAcesso.Padrao(PerfilAcesso.Enfermagem))
+            .Should().Be((Medico: false, Enfermagem: true));
+
+        PerfisAcesso.SecoesDeEscritaDoPosto(PerfisAcesso.Padrao(PerfilAcesso.Gerente))
+            .Should().Be((Medico: true, Enfermagem: true));
+
+        // A recepcionista não escreve em nenhum dos dois — mas a seção do médico fica,
+        // porque "some" é só para quem escreve SÓ pela enfermagem (o corte de
+        // `EscreveComoEnfermagem`); ali o Salvar é que está desabilitado, com a razão.
+        PerfisAcesso.SecoesDeEscritaDoPosto(PerfisAcesso.Padrao(PerfilAcesso.Recepcao))
+            .Should().Be((Medico: true, Enfermagem: false));
+    }
+
+    /// <summary>
     /// ⚠️ O XY DA PARCELA 72, fixado: a LEITURA do prontuário é compartilhada entre quem
     /// prescreve e quem executa — as duas telas mostram o mesmo conjunto porque os dois
     /// perfis têm o mesmo bit. É o que garante que a última pessoa entre a alergia e a

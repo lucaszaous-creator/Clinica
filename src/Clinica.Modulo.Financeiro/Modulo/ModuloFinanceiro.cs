@@ -112,7 +112,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         // ===== Telas de assunto próprio =====
         new ItemMenuModulo
         {
-            Chave = ChavePacotes, Rotulo = "Pacotes / Sess\u00F5es", Glifo = "\uE719",
+            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VenderPacote
         },
         new ItemMenuModulo

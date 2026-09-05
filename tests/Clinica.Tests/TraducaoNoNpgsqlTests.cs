@@ -1,4 +1,5 @@
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using FluentAssertions;
@@ -437,5 +438,126 @@ public class TraducaoNoNpgsqlTests
 
         sql.Should().Contain("\"PacienteId\"");
         sql.Should().Contain("\"Codigos\"", "a coleção vem junto — é ela que conta as guias faturáveis");
+    }
+
+    /// <summary>
+    /// "Quais destas sessões já tiveram fechamento?" (parcela 95) — três consultas com
+    /// <c>Contains</c> sobre a lista de atendimentos do dia, uma por tabela de dinheiro.
+    ///
+    /// ⚠️ O que este teste protege é o filtro pela COLUNA: <c>ConsumoPacote.Cancelado</c> e
+    /// <c>LancamentoFinanceiro.Ativo</c> são DERIVADAS e não mapeadas — usá-las faria o
+    /// quadro da fila estourar em runtime, na clínica, com o SQLite dos testes verde.
+    /// </summary>
+    [Fact]
+    public void Fechamentos_de_um_conjunto_de_atendimentos_traduzem()
+    {
+        using var db = Postgres();
+        var ids = new[] { 1, 2, 3 };
+
+        db.ConsumosPacote.AsNoTracking()
+            .Where(c => c.AtendimentoId != null && ids.Contains(c.AtendimentoId!.Value)
+                        && c.CanceladoEm == null)
+            .Select(c => c.AtendimentoId!.Value)
+            .Distinct()
+            .ToQueryString()
+            .Should().Contain("\"CanceladoEm\" IS NULL");
+
+        db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId != null && ids.Contains(l.AtendimentoId!.Value)
+                        && l.Status != StatusLancamento.Cancelado)
+            .Select(l => l.AtendimentoId!.Value)
+            .Distinct()
+            .ToQueryString()
+            .Should().Contain("\"Status\"");
+
+        db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.AtendimentoId != null && ids.Contains(m.AtendimentoId!.Value))
+            .Select(m => m.AtendimentoId!.Value)
+            .Distinct()
+            .ToQueryString()
+            .Should().Contain("\"AtendimentoId\"");
+    }
+
+    // ==================== Agenda: retornos a marcar e próximos horários (set/2026) ====================
+
+    /// <summary>
+    /// A projeção da fila "Retornos a marcar": navegação para paciente e profissional,
+    /// construtor de record na projeção, e NUNCA o texto da evolução — a fila lista dezenas
+    /// de linhas e o texto é o campo mais pesado da tabela.
+    /// </summary>
+    [Fact]
+    public void Retornos_sugeridos_traduzem_e_nao_trazem_o_texto_da_evolucao()
+    {
+        using var db = Postgres();
+        var desde = new DateOnly(2026, 7, 1);
+
+        var sql = db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null
+                        && e.RetornoSugeridoEm != null
+                        && e.RetornoSugeridoEm >= desde)
+            .Select(e => new RetornoSugerido(
+                e.Id, e.PacienteId, e.Paciente!.Nome, e.Paciente.Telefone, e.Data,
+                e.RetornoSugeridoEm!.Value, e.RetornoSugeridoNota, e.ProfissionalId,
+                e.Profissional != null ? e.Profissional.NomeCurto : null,
+                e.Profissional != null ? e.Profissional.Nome : null))
+            .ToQueryString();
+
+        sql.Should().Contain("\"RetornoSugeridoEm\"")
+            .And.Contain("\"Telefone\"")
+            .And.NotContain("\"TextoEvolucao\"")
+            .And.NotContain("\"Conduta\"");
+    }
+
+    [Fact]
+    public void Horarios_ativos_de_um_conjunto_de_pacientes_traduzem()
+    {
+        using var db = Postgres();
+        var ids = new[] { 1, 2, 3 };
+        var corte = new DateTime(2026, 7, 1);
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId)
+                        && a.DataHora >= corte
+                        && a.Status != StatusAgendamento.Cancelado
+                        && a.Status != StatusAgendamento.Faltou)
+            .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
+            .ToQueryString();
+
+        sql.Should().Contain("\"PacienteId\"").And.Contain("\"Status\"");
+    }
+
+    [Fact]
+    public void Proximos_horarios_do_paciente_traduzem_com_profissional_e_sala()
+    {
+        using var db = Postgres();
+        var agora = new DateTime(2026, 9, 10, 8, 0, 0);
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Include(a => a.Sala)
+            .Where(a => a.PacienteId == 1
+                        && a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= agora)
+            .OrderBy(a => a.DataHora)
+            .Take(5)
+            .ToQueryString();
+
+        sql.Should().Contain("LEFT JOIN \"Profissionais\"").And.Contain("LIMIT");
+    }
+
+    [Fact]
+    public void Horarios_de_um_profissional_no_periodo_traduzem_sem_arrastar_navegacao()
+    {
+        using var db = Postgres();
+        var inicio = new DateTime(2026, 9, 14);
+        var fim = inicio.AddDays(60);
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Where(a => a.ProfissionalId == 7 && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToQueryString();
+
+        // A busca de vagas lê só hora, duração e status: nenhum JOIN pode entrar aqui.
+        sql.Should().Contain("\"ProfissionalId\"").And.NotContain("JOIN");
     }
 }

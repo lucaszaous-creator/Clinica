@@ -55,6 +55,95 @@ public class Profissional
     /// </summary>
     public int? DuracaoPadraoMinutos { get; set; }
 
+    // ==================== Jornada: dias e horário de atendimento (set/2026) ====================
+    //
+    // Até aqui o cadastro só tinha a duração padrão e o "ativo": quem atende terça e quinta
+    // aparecia na grade com coluna vazia e MARCÁVEL nos outros cinco dias, e a única saída
+    // era um bloqueio semanal repetido à mão. A ocupação do BI media todo mundo por uma
+    // jornada global (ParametrosService.ChaveJornadaDiariaMinutos). Os três campos são
+    // opcionais e NULO quer dizer "não declarado": a agenda trata como sempre tratou —
+    // qualquer dia, qualquer hora — e nada muda para quem não preencher.
+
+    /// <summary>
+    /// Os dias em que atende, como máscara de bits por <see cref="DayOfWeek"/>
+    /// (<see cref="BitDe"/>). Nulo = não declarado (todos os dias). Zero não é gravado — o
+    /// serviço normaliza para nulo, porque "nenhum dia" não é uma jornada.
+    /// </summary>
+    public int? DiasDeAtendimento { get; set; }
+
+    /// <summary>Início do horário de atendimento. Anda em par com <see cref="AtendeAte"/>.</summary>
+    public TimeOnly? AtendeDas { get; set; }
+
+    /// <summary>Fim do horário de atendimento. Anda em par com <see cref="AtendeDas"/>.</summary>
+    public TimeOnly? AtendeAte { get; set; }
+
+    /// <summary>Há jornada declarada — dias, horário, ou os dois.</summary>
+    public bool JornadaDeclarada => DiasDeAtendimento is not null || (AtendeDas is not null && AtendeAte is not null);
+
+    public static int BitDe(DayOfWeek dia) => 1 << (int)dia;
+
+    /// <summary>Máscara com os sete dias marcados.</summary>
+    public const int TodosOsDias = 0b111_1111;
+
+    /// <summary>Atende neste dia da semana? Sem dias declarados, sim.</summary>
+    public bool AtendeEm(DayOfWeek dia) => DiasDeAtendimento is not { } dias || (dias & BitDe(dia)) != 0;
+
+    /// <summary>
+    /// O intervalo [início, fim) cabe na jornada declarada? Sem jornada, sempre cabe. Sessão
+    /// que atravessa a meia-noite nunca cabe — a jornada é do dia.
+    /// </summary>
+    public bool DentroDoExpediente(DateTime inicio, DateTime fim)
+    {
+        if (!AtendeEm(inicio.DayOfWeek)) return false;
+        if (AtendeDas is not { } das || AtendeAte is not { } ate) return true;
+        if (fim.Date > inicio.Date) return false;
+        return TimeOnly.FromDateTime(inicio) >= das && TimeOnly.FromDateTime(fim) <= ate;
+    }
+
+    /// <summary>
+    /// Os minutos de um dia de trabalho declarado — a base da ocupação deste profissional
+    /// no BI, no lugar da jornada global. Nulo sem horário declarado.
+    /// </summary>
+    public int? MinutosDeJornada
+        => AtendeDas is { } das && AtendeAte is { } ate && ate > das
+            ? (int)(ate - das).TotalMinutes
+            : null;
+
+    /// <summary>
+    /// "seg · qua · sex, das 08:00 às 12:00" — como a jornada se lê na equipe, na grade e
+    /// na recusa. Nulo quando nada foi declarado.
+    /// </summary>
+    public string? DescricaoJornada
+    {
+        get
+        {
+            if (!JornadaDeclarada) return null;
+            var partes = new List<string>();
+            if (DiasDeAtendimento is { } dias && dias != TodosOsDias)
+                partes.Add(string.Join(" · ", OrdemDaSemana.Where(d => (dias & BitDe(d)) != 0).Select(Abreviar)));
+            if (AtendeDas is { } das && AtendeAte is { } ate)
+                partes.Add($"das {das:HH:mm} às {ate:HH:mm}");
+            return partes.Count == 0 ? "todos os dias" : string.Join(", ", partes);
+        }
+    }
+
+    private static readonly DayOfWeek[] OrdemDaSemana =
+    [
+        DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+        DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday
+    ];
+
+    private static string Abreviar(DayOfWeek dia) => dia switch
+    {
+        DayOfWeek.Monday => "seg",
+        DayOfWeek.Tuesday => "ter",
+        DayOfWeek.Wednesday => "qua",
+        DayOfWeek.Thursday => "qui",
+        DayOfWeek.Friday => "sex",
+        DayOfWeek.Saturday => "sáb",
+        _ => "dom"
+    };
+
     /// <summary>Desligado/afastado sai das listas de agendamento sem perder o histórico.</summary>
     public bool Ativo { get; set; } = true;
 

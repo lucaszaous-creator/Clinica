@@ -101,6 +101,12 @@
                         <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
                                   DisplayMemberPath="Nome" />
 
+                        <!-- Quem vai atender: obrigatório na marcação desde a parcela 95. É o
+                             campo que faz o horário CAIR na agenda do profissional. -->
+                        <TextBlock Text="Quem vai atender" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
+                                  DisplayMemberPath="Nome" />
+
                         <StackPanel Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
                             <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"

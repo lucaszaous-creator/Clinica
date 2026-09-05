@@ -68,6 +68,24 @@ public static class ChavesSuite
     /// <summary>Painel do balcão — "Início" (Recepção). 1ª aba de "Painel" fora do Gerente.</summary>
     public const string PainelRecepcao = "painel-recepcao";
 
+    // ===================================================================
+    // Chaves de itens COMPOSTOS publicados por DOIS módulos (parcela 95).
+    //
+    // A sidebar do Consultório ganhou compostos próprios ("Pacientes", "Prescrições"), e
+    // a Recepção já publicava compostos com o MESMO rótulo. No Gerente Geral os dois
+    // apareceriam lado a lado — exatamente a duplicata que a checagem 45 existe para
+    // pegar. A saída é a mesma da Sala de infusão: a MESMA chave nos dois módulos, e a
+    // dedupe do shell funde (vence o primeiro carregado, que é a Recepção — com as abas
+    // dela, que contêm as do Consultório e mais as do balcão). Literal repetido à mão
+    // dos dois lados sempre compila e diverge em silêncio: por isso ela mora aqui.
+    // ===================================================================
+
+    /// <summary>"Pacientes" — o composto que Recepção e Consultório publicam.</summary>
+    public const string GrupoPacientes = "pacientes";
+
+    /// <summary>"Prescrições" — o composto que Recepção e Consultório publicam.</summary>
+    public const string GrupoPrescricoes = "receituario";
+
     /// <summary>Agenda do balcão (Recepção).</summary>
     public const string AgendaRecepcao = "agenda-recepcao";
 

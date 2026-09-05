@@ -5,6 +5,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -76,8 +77,20 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// — a MESMA lista que resolve o índice de navegação de outros módulos, e é por isso
     /// que o rótulo lido pelo usuário não tem como divergir dele.
     /// </summary>
-    public IReadOnlyList<ModuloClinico.SecaoDoPaciente> Secoes { get; } =
-        ModuloClinico.RailDoPaciente();
+    public IReadOnlyList<ItemDoRail> Secoes { get; }
+
+    /// <summary>
+    /// Uma linha do rail: a seção e se ela está ESCONDIDA para quem está logado (parcela
+    /// 95 — a seção de escrita do outro lado some: a enfermeira não vê o S-O-A-P, o
+    /// médico não vê a passagem; ver <c>PerfisAcesso.SecoesDeEscritaDoPosto</c>).
+    ///
+    /// ⚠️ Esconder é COLAPSAR o item, nunca tirá-lo da lista: o `SelectedIndex` do rail é
+    /// o índice desta lista e a régua do TabControl ao lado — filtrar a vista deslocaria
+    /// os índices e o clique abriria a seção do vizinho, sem erro nenhum (a regressão
+    /// que a checagem 38 vigia). A seção continua existindo e continua navegável por
+    /// chave; só não ocupa linha.
+    /// </summary>
+    public sealed record ItemDoRail(string Rotulo, string Grupo, bool Oculta);
 
     /// <summary>
     /// As mesmas seções, agrupadas para o rail desenhar os três cabeçalhos.
@@ -144,6 +157,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     public MedidasViewModel Medidas { get; }
     public AvaliacoesViewModel Avaliacoes { get; }
 
+    /// <summary>
+    /// A aba de dentro de "Acompanhamento" (parcela 95): 0 dor · 1 medidas · 2 avaliações.
+    /// Vem de <c>ModuloClinico.SubAbaDe</c> quando se entra por uma das três chaves.
+    /// </summary>
+    [ObservableProperty] private int _subAbaAcompanhamento;
+
     /// <summary>Aba aberta. É por ela que a chave de navegação escolhe onde cair.</summary>
     [ObservableProperty] private int _abaAtual;
 
@@ -199,6 +218,21 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// <summary>Já encerrado: a barra vira registro do que aconteceu, sem botão de ação.</summary>
     [ObservableProperty] private bool _sessaoEncerrada;
 
+    /// <summary>
+    /// A sessão foi CONCLUÍDA (presença carimbada, guias no faturamento). É estado
+    /// terminal para esta tela: desfazer daqui em diante é ESTORNO, na Recepção.
+    /// </summary>
+    [ObservableProperty] private bool _sessaoConcluida;
+
+    /// <summary>
+    /// Reabrir só existe entre o encerramento e a conclusão. Depois de concluída, o
+    /// serviço recusa — e botão que só existe para levar recusa é o defeito da parcela 41.
+    /// </summary>
+    public bool PodeReabrir => SessaoEncerrada && !SessaoConcluida;
+
+    partial void OnSessaoEncerradaChanged(bool value) => OnPropertyChanged(nameof(PodeReabrir));
+    partial void OnSessaoConcluidaChanged(bool value) => OnPropertyChanged(nameof(PodeReabrir));
+
     [ObservableProperty] private string? _mensagemSessao;
     [ObservableProperty] private bool _mensagemSessaoEhErro;
 
@@ -211,13 +245,26 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         Permissao.EditarAgenda | Permissao.MovimentarFila);
 
     public PacienteWorkspaceViewModel(
-        IServiceProvider servicos, PacienteEmFoco foco, int aba = 0)
+        IServiceProvider servicos, PacienteEmFoco foco, int aba = 0, int subAba = 0)
     {
         _foco = foco;
+        SubAbaAcompanhamento = subAba;
+
+        // A decisão de QUEM vê qual seção de escrita mora no domínio, para o dotnet test
+        // alcançar; aqui só se aplica. O índice da seção sai do MESMO mapa que a
+        // navegação usa (`AbaDe`), e não de um rótulo escrito à mão.
+        var (medico, enfermagem) = PerfisAcesso.SecoesDeEscritaDoPosto(SessaoUsuario.Atual.Efetivas);
+        var secaoMedico = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
+        var secaoEnfermagem = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimentoEnfermagem);
+        Secoes = ModuloClinico.RailDoPaciente()
+            .Select((secao, i) => new ItemDoRail(
+                secao.Rotulo, secao.Grupo,
+                Oculta: (i == secaoMedico && !medico) || (i == secaoEnfermagem && !enfermagem)))
+            .ToList();
 
         SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
         SecoesAgrupadas.GroupDescriptions.Add(
-            new PropertyGroupDescription(nameof(ModuloClinico.SecaoDoPaciente.Grupo)));
+            new PropertyGroupDescription(nameof(ItemDoRail.Grupo)));
         AbaAtual = aba;
         _escopos = servicos.GetRequiredService<IServiceScopeFactory>();
         _dialogo = servicos.GetRequiredService<IDialogoService>();
@@ -304,10 +351,22 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// desenhar um cronômetro parado convidaria a "iniciar" um atendimento que não existe
     /// na agenda de ninguém.
     /// </summary>
-    private async Task CarregarSessaoAsync()
-    {
-        if (_foco.AgendamentoId is not { } id) { TemSessao = false; return; }
+    private Task CarregarSessaoAsync()
+        => _foco.AgendamentoId is { } id ? RecarregarHorarioAsync(id) : LimparSessao();
 
+    private Task LimparSessao()
+    {
+        TemSessao = false;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Relê o horário e reescreve a frase da barra. Chamado também DEPOIS de finalizar: a
+    /// conclusão muda o <c>Status</c> no banco, e a barra que continuasse dizendo "em
+    /// atendimento" ofereceria um botão para concluir o que já está concluído.
+    /// </summary>
+    private async Task RecarregarHorarioAsync(int id)
+    {
         try
         {
             using var escopo = _escopos.CreateScope();
@@ -342,12 +401,19 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         var duracao = _horario.DuracaoDoAtendimento(agora);
 
         SessaoEncerrada = _horario.FimAtendimentoEm is not null;
+        SessaoConcluida = _horario.Status == StatusAgendamento.Realizado;
         EmAtendimento = _horario.InicioAtendimentoEm is not null && !SessaoEncerrada
                         && _horario.Status == StatusAgendamento.Agendado;
         PodeIniciar = _horario.InicioAtendimentoEm is null
                       && _horario.Status == StatusAgendamento.Agendado;
 
-        if (SessaoEncerrada)
+        if (SessaoConcluida)
+            // O desfecho do fluxo, escrito: quem lê precisa saber que não falta mais nada
+            // desta sala — o que segue no balcão é dinheiro, não a sessão.
+            SituacaoSessao = "Sessão concluída"
+                             + (_horario.FimAtendimentoEm is { } fim ? $" às {fim:HH\\:mm}" : "")
+                             + (duracao is null ? "" : $" · durou {duracao} min");
+        else if (SessaoEncerrada)
             SituacaoSessao = $"Atendimento encerrado às {_horario.FimAtendimentoEm:HH\\:mm}"
                              + (duracao is null ? "" : $" · durou {duracao} min");
         else if (EmAtendimento)
@@ -359,7 +425,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             SituacaoSessao = $"Horário de {_horario.DataHora:HH\\:mm} — o paciente ainda não "
                              + "entrou na sala";
         else
-            SituacaoSessao = "Horário já encerrado no balcão";
+            // Só sobra Cancelado/Faltou: dizer "encerrado no balcão" descreveria o
+            // desfecho errado para um horário que não aconteceu.
+            SituacaoSessao = _horario.Status == StatusAgendamento.Faltou
+                ? "Horário marcado como falta"
+                : "Horário cancelado";
 
         if (EmAtendimento && _naTela) _relogio.Start(); else _relogio.Stop();
     }
@@ -401,12 +471,37 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     }
 
     /// <summary>
-    /// FINALIZAR o atendimento: grava a sessão e avisa o balcão de que o paciente está
-    /// saindo da sala.
+    /// FINALIZAR o atendimento: grava a sessão, encerra o horário e CONCLUI a sessão — a
+    /// guia vai para o faturamento no mesmo clique.
     ///
-    /// ⚠️ Ele NÃO conclui o atendimento, e a distinção é a decisão da parcela 61: concluir
-    /// são quatro fatos do mesmo ato (a guia, o pacote, o insumo, o caixa) e três deles são
-    /// do balcão. O que este botão afirma é <i>"terminei com esta pessoa"</i>.
+    /// ⚠️ A conclusão passou para cá na parcela 95, por pedido da direção: <i>"a secretária
+    /// agenda, cai na agenda do médico, ele clica em atender e faz o atendimento"</i>. O
+    /// desenho anterior (parcela 61) deixava o <c>Status</c> em <c>Agendado</c> e esperava
+    /// o <b>Concluir</b> do balcão, com o argumento de que concluir são quatro fatos e três
+    /// são do balcão. O argumento continua verdadeiro para pacote, insumo e caixa — e não
+    /// se sustentava para a GUIA, que é o fato do atendimento e nasce do que aconteceu na
+    /// sala. Na prática, no caso mais comum (convênio, sem pacote, sem insumo)
+    /// <c>RegistroAtendimento.TemDecisao</c> é FALSO: o clique do balcão não abria janela
+    /// nenhuma — era cerimônia para carimbar o que o médico já sabia.
+    ///
+    /// O que o balcão continua fazendo é o DINHEIRO: pacote, insumo e caixa aparecem na
+    /// fila como fechamento pendente (a raia FINALIZADO ganhou o botão), e o
+    /// <c>FechamentoSessaoService</c> já sabia reaproveitar a presença já confirmada — é
+    /// literalmente o caminho que <c>GarantirAtendimentoAsync</c> abre desde a parcela 65.
+    ///
+    /// ⚠️ A ORDEM dos três passos é a hierarquia da parcela 65, e ela decide o que sobra
+    /// quando algo falha: <b>1)</b> grava a sessão — sem ela nada acontece, porque anunciar
+    /// que o atendimento terminou com o registro clínico inexistente é falha exibida como
+    /// sucesso; <b>2)</b> encerra o horário (o carimbo, reversível); <b>3)</b> conclui. O
+    /// passo 3 falhando NÃO desfaz os dois primeiros: o prontuário está escrito, o balcão
+    /// sabe que a sala vagou, e o que ficou pendente é a guia — que a fila ainda conclui
+    /// pelo botão de sempre. Cada desfecho tem frase própria; nenhuma delas afirma o que
+    /// não aconteceu.
+    ///
+    /// ⚠️ Concluir é IRREVERSÍVEL por aqui: com a presença carimbada, desfazer é ESTORNO
+    /// (<c>EstornoAtendimentoService</c>, na aba Lançamentos da Recepção) e não o
+    /// <see cref="ReabrirSessaoAsync"/>. Por isso o botão diz o que vai fazer ANTES do
+    /// clique, e não depois.
     ///
     /// ⚠️ A ORDEM é a hierarquia da parcela 65: **grava primeiro**. Se a evolução não
     /// puder ser salva, o carimbo não acontece — mandar o recado de que o médico terminou
@@ -457,10 +552,20 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             return;
 
         var gravou = false;
+        var encerrou = false;
         try
         {
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "finalizar o atendimento");
+
+            // E o bit do ATO, não só o da fila (a lição da parcela 69, cobrada de novo
+            // porque o ato MUDOU DE LUGAR): finalizar aqui é o que carimba a presença e
+            // gera as guias, e `LancarAtendimento` existe justamente para a direção poder
+            // tirar isso de alguém. O perfil Profissional passou a recebê-lo por padrão —
+            // ele é quem lança agora —, então ninguém perde nada; o que muda é o bit
+            // passar a valer também deste lado.
+            SessaoUsuario.Atual.Exigir(
+                Permissao.LancarAtendimento, "concluir a sessão e gerar as guias");
 
             // 1) O REGISTRO CLÍNICO — o que a clínica não pode perder.
             //
@@ -478,13 +583,65 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             gravou = true;
 
             // 2) O RECADO — reversível pelo "voltar etapa" do quadro.
-            using var escopo = _escopos.CreateScope();
-            var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
-            _horario = await agenda.EncerrarAtendimentoAsync(id, SessaoUsuario.Atual.Operador);
-            DescreverSessao();
+            using (var escopo = _escopos.CreateScope())
+            {
+                var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
+                _horario = await agenda.EncerrarAtendimentoAsync(id, SessaoUsuario.Atual.Operador);
+                encerrou = true;
+                DescreverSessao();
+            }
 
-            Avisar("Atendimento encerrado. O balcão já sabe que o paciente está indo fechar "
-                   + "a sessão.", erro: false);
+            // 3) A CONCLUSÃO — a guia vai para o faturamento.
+            //
+            // ⚠️ O CONVÊNIO ANTES (parcela 92): a importação do sistema anterior deixou
+            // 2.021 fichas em "a definir", e sem convênio o atendimento não nasce — a
+            // recusa viria por exceção, aqui, na cara de quem não é dono do cadastro. A
+            // pergunta é o ponto único do shell, o MESMO que o Concluir da Fila usa; sem
+            // ela, este caminho seria a porta que a parcela 92 deixou passando.
+            // ⚠️ As DUAS condições são separadas de propósito: juntá-las faria a frase
+            // culpar o convênio quando o que falta é o paciente em foco — mensagem
+            // plausível e errada manda procurar o defeito no lugar errado, e é pior que
+            // mensagem nenhuma (a lição da assinatura em nuvem, parcela 67).
+            if (_foco.PacienteId is not { } pacienteId)
+            {
+                Avisar("Sessão gravada e atendimento encerrado, mas a guia não foi gerada: "
+                       + "a tela perdeu o paciente em foco. A recepção conclui pela fila do dia.",
+                       erro: true);
+                return;
+            }
+
+            if (!await VinculoDeConvenio.GarantirAsync(
+                    _escopos, pacienteId, SessaoUsuario.Atual.Operador))
+            {
+                // Desistiu de escolher: a sessão está gravada e o horário encerrado. Não
+                // é erro — é o estado anterior a esta parcela, e a fila conclui depois.
+                Avisar("Sessão gravada e atendimento encerrado. A guia NÃO foi gerada porque "
+                       + "o convênio do paciente ainda não está definido — a recepção conclui "
+                       + "pela fila do dia.", erro: true);
+                return;
+            }
+
+            RegistroAtendimento registro;
+            using (var escopo = _escopos.CreateScope())
+            {
+                var fechamento = escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
+                registro = await fechamento.RegistrarAtendimentoAsync(
+                    id, SessaoUsuario.Atual.Operador);
+            }
+
+            await RecarregarHorarioAsync(id);
+
+            // Os recados do LANÇAMENTO — o principal é a NÃO CONFORMIDADE reaberta porque
+            // o paciente voltou. Ele existe para a guia ser cobrada AGORA, e aqui vale o
+            // mesmo peso do balcão: some junto da mensagem, nunca escondido.
+            var recados = registro.RecadosDoLancamento.Count > 0
+                ? " · " + string.Join(" · ", registro.RecadosDoLancamento)
+                : string.Empty;
+
+            Avisar(registro.GuiasGeradas == 0
+                ? "Sessão concluída — particular, sem guia a faturar." + recados
+                : $"Sessão concluída — {registro.GuiasGeradas} guia(s) no faturamento."
+                  + recados, erro: false);
         }
         catch (Exception ex)
         {
@@ -495,10 +652,19 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             // do `ExigirAlgum` acima, antes de qualquer gravação, e aí ela seria falsa
             // justamente onde o profissional precisa saber o que fazer. Só quem chegou a
             // gravar diz que gravou.
-            Avisar(gravou
-                ? "A sessão foi gravada, mas o balcão não foi avisado de que você terminou: "
-                  + ex.Message
-                : ex.Message, erro: true);
+            // ⚠️ Três desfechos, três frases — e nenhuma afirma o que não aconteceu. A
+            // exceção pode ter vindo do `Exigir` (antes de qualquer gravação), do carimbo
+            // ou da conclusão, e a diferença entre elas é o que a pessoa precisa fazer
+            // em seguida.
+            Avisar(
+                encerrou
+                    ? "A sessão foi gravada e o atendimento foi encerrado, mas a guia NÃO "
+                      + $"foi gerada: {ex.Message} A recepção conclui pela fila do dia."
+                    : gravou
+                        ? "A sessão foi gravada, mas o atendimento não foi encerrado: "
+                          + ex.Message
+                        : ex.Message,
+                erro: true);
         }
     }
 

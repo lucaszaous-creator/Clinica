@@ -31,6 +31,13 @@ public class FimDoAtendimentoTests : IDisposable
 
     private static readonly DateTime Manha = new(2026, 8, 24, 9, 0, 0);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public FimDoAtendimentoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -38,6 +45,10 @@ public class FimDoAtendimentoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
     }
@@ -58,7 +69,7 @@ public class FimDoAtendimentoTests : IDisposable
     private async Task<Agendamento> NaSalaAsync()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "recepcao", Manha);
         await _agenda.IniciarAtendimentoAsync(ag.Id, "medica", Manha.AddMinutes(5));
         return ag;
@@ -76,8 +87,11 @@ public class FimDoAtendimentoTests : IDisposable
         var lido = (await _agenda.ObterAsync(ag.Id))!;
         lido.FimAtendimentoEm.Should().NotBeNull();
 
-        // O horário continua ABERTO: os três fatos do balcão (pacote, insumo, caixa) ainda
-        // não aconteceram, e marcá-lo Realizado daqui os pularia em silêncio.
+        // O horário continua ABERTO. O SERVIÇO só carimba — quem conclui é o passo
+        // seguinte, e ele é explícito (parcela 95: a tela do Consultório encadeia
+        // encerrar → concluir, e a fila do balcão continua concluindo pelo botão dela).
+        // Fundir as duas coisas aqui dentro tornaria a conclusão um efeito colateral do
+        // carimbo: toda porta que só quer registrar o fim passaria a gerar guia.
         lido.Status.Should().Be(StatusAgendamento.Agendado);
         lido.AtendimentoId.Should().BeNull();
         lido.AtendimentoEncerrado.Should().BeTrue();
@@ -117,7 +131,7 @@ public class FimDoAtendimentoTests : IDisposable
     public async Task Encerrar_sem_ter_comecado_e_recusado()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "recepcao", Manha);
 
         // Fim sem começo produziria duração negativa e um cartão que sai da sala sem
@@ -250,7 +264,7 @@ public class FimDoAtendimentoTests : IDisposable
     public async Task Duracao_e_nula_antes_de_o_paciente_entrar()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         // Nula, nunca zero: "não começou" e "começou agora" são coisas diferentes, e zero
         // apareceria como um atendimento relâmpago para quem mede duração.

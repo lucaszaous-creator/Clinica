@@ -25,6 +25,8 @@ public static class DependencyInjection
         services.AddScoped<PacienteService>();
         services.AddScoped<AgendaService>();
         services.AddScoped<ConciliacaoAgendaService>();
+        services.AddScoped<RetornosAMarcarService>();
+        services.AddScoped<BuscaDeVagasService>();
         services.AddScoped<EquipeService>();
         services.AddScoped<ListaEsperaService>();
         services.AddScoped<BloqueioAgendaService>();
@@ -124,6 +126,11 @@ public static class DependencyInjection
         services.AddScoped<DocumentosFinanceirosPdfService>();
         services.AddScoped<IndicadoresService>();
         services.AddScoped<CampanhaService>();
+        // Lembrete automático da sessão por e-mail (set/2026). O enviador é SINGLETON e
+        // sem estado — ele abre um SmtpClient por envio; as opções vêm do banco a cada
+        // rodada, pelo ParametrosService.
+        services.AddScoped<LembreteEmailService>();
+        services.AddSingleton<Clinica.Application.Email.IEnviadorDeEmail, Clinica.Application.Email.EnviadorSmtp>();
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();
         services.AddScoped<TissExportService>();

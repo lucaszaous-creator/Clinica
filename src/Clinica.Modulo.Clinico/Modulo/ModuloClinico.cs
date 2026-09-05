@@ -143,6 +143,54 @@ public sealed class ModuloClinico : IModuloApp
     /// </summary>
     public const string ChaveAjuda = ChavesSuite.Ajuda;
 
+    // ===== Itens COMPOSTOS (parcela 95) =====
+    //
+    // A sidebar deste módulo tinha DOZE itens soltos — e nunca usou as sub-abas que o
+    // shell tem desde a parcela 55 (a Recepção e o Financeiro usam). "Prescrições" e
+    // "Prescrição de infusão" eram vizinhos quase homônimos, "Sala de infusão",
+    // "Enfermagem" e a folha de infusão estavam espalhados por dois grupos, e
+    // INTELIGÊNCIA era um grupo de um item só. A direção pediu para organizar: viraram
+    // seis itens, cada um respondendo a UMA pergunta, com as telas de sempre como abas.
+    //
+    // ⚠️ Nenhuma tela some e nenhuma CHAVE de navegação muda: a sub-tela continua sendo um
+    // item (reivindicada pelo pai, que é quem a esconde do menu), e `NavegacaoSuite.Ir`
+    // com a chave dela abre o pai na aba certa. "Atender", a dívida de prontuário e o
+    // painel da direção continuam abrindo o que abriam.
+
+    /// <summary>
+    /// "Minha agenda" — hoje, a semana e a dívida de prontuário. É a ABERTURA do
+    /// <c>Clinica.Clinico.exe</c>: sem `Inicial` declarado o shell abre no primeiro item
+    /// visível, e este é declarado primeiro de propósito (a razão de não marcar `Inicial`
+    /// está no comentário do "Meu dia", abaixo). O rótulo é "Minha", e não "Agenda":
+    /// no Gerente Geral a Recepção publica "Agenda", e dois itens com o mesmo rótulo em
+    /// GESTÃO é a duplicata que a checagem 45 existe para pegar.
+    /// </summary>
+    public const string ChaveGrupoAgenda = "consultorio-agenda";
+
+    /// <summary>
+    /// "Enfermagem" — a sala de infusão (o que executar agora) e as passagens (quem eu
+    /// atendi e o que escrevi). São duas perguntas e continuam duas telas; o que mudou é
+    /// que moram no mesmo item, porque quem faz as duas é a mesma pessoa. As duas
+    /// sub-telas são do SHELL e a Recepção as publica soltas: no Gerente, este composto
+    /// as reivindica e elas saem do menu — no <c>Clinica.Recepcao.exe</c>, sem este
+    /// módulo, continuam soltas, como sempre.
+    /// </summary>
+    public const string ChaveGrupoEnfermagem = "consultorio-enfermagem";
+
+    /// <summary>
+    /// "Pacientes" — em tratamento, registros e pendências, exames. A MESMA chave que a
+    /// Recepção usa no composto dela (<see cref="ChavesSuite.GrupoPacientes"/>): no Gerente
+    /// a dedupe funde os dois e vence o da Recepção, cujas abas incluem "Em tratamento".
+    /// </summary>
+    public const string ChaveGrupoPacientes = ChavesSuite.GrupoPacientes;
+
+    /// <summary>
+    /// "Prescrições" — receitas e documentos, e a folha de infusão. A mesma chave do
+    /// composto da Recepção, pela razão do de cima; lá as abas são "Receituário · No
+    /// consultório · Infusão", que contêm as duas daqui.
+    /// </summary>
+    public const string ChaveGrupoPrescricoes = ChavesSuite.GrupoPrescricoes;
+
     public string Nome => "Consultório";
 
     /// <summary>
@@ -171,6 +219,17 @@ public sealed class ModuloClinico : IModuloApp
         // no sistema e caía na fila do balcão).
         new ItemMenuModulo
         {
+            Chave = ChaveGrupoAgenda, Rotulo = "Minha agenda", Glifo = "\uE787",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
+            Abas =
+            [
+                new AbaMenu("Hoje", ChaveMeuDia),
+                new AbaMenu("Semana", ChaveMinhaSemana),
+                new AbaMenu("Sem evolu\u00E7\u00E3o", ChaveRegistrosPendentes)
+            ]
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveMeuDia, Rotulo = "Meu dia", Glifo = "\uE787",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
@@ -183,6 +242,17 @@ public sealed class ModuloClinico : IModuloApp
         {
             Chave = ChaveMinhaSemana, Rotulo = "Minha semana", Glifo = "\uE8BD",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,
+            Abas =
+            [
+                new AbaMenu("Em tratamento", ChavePacientesDaClinica),
+                new AbaMenu("Registros e pend\u00EAncias", ChaveProntuarios),
+                new AbaMenu("Exames", ChaveExames)
+            ]
         },
         new ItemMenuModulo
         {
@@ -208,6 +278,16 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveGrupoPrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,
+            Abas =
+            [
+                new AbaMenu("Receitas e documentos", ChavePrescricoes),
+                new AbaMenu("Infus\u00E3o", ChavePrescricaoInfusao)
+            ]
+        },
+        new ItemMenuModulo
+        {
             Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
@@ -219,6 +299,21 @@ public sealed class ModuloClinico : IModuloApp
         // Na GESTAO, e nao em PACIENTE: a sala responde "o que falta fazer hoje", que e
         // pergunta do dia de trabalho -- e ela e a unica tela do Consultorio que abre sem
         // paciente escolhido, porque a fila e de todos eles.
+        // ⚠️ `Requer = VerAgenda`, e não os bits da enfermagem: `Pode` com bits somados é
+        // um E, e a técnica que só checa (sem registrar passagem) ficaria sem o item. O
+        // filtro de verdade são as ABAS — cada sub-tela entra em `Itens` só para quem tem
+        // o bit dela, e o composto sem aba nenhuma some sozinho (`ShellViewModel`). Para
+        // o médico, que não tem nenhum dos dois, o item simplesmente não existe.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
+            Abas =
+            [
+                new AbaMenu("Sala de infus\u00E3o", ChaveSalaInfusao),
+                new AbaMenu("Passagens", ChaveEnfermagem)
+            ]
+        },
         new ItemMenuModulo
         {
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5",
@@ -327,22 +422,29 @@ public sealed class ModuloClinico : IModuloApp
     [
         "Atendimento",
         "Atendimento de enfermagem",
-        "Anamnese",
+        // "Anamnese" foi uma linha própria até set/2026; virou a segunda aba de
+        // "Paciente" (PacienteView) — é escrita uma vez por pessoa, e "quem é esta
+        // pessoa" é a pergunta daquela seção. O rail ficou com sete (cada lado vê seis).
         "Paciente",
         "Histórico",
         "Exames e anexos",
         "Prescrições e documentos",
-        "Evolução da dor",
-        "Medidas",
-        "Avaliações"
+        "Acompanhamento"
     ];
 
     /// <summary>
     /// O GRUPO de cada seção no rail, na mesma ordem de <see cref="SecoesDoPaciente"/>.
     ///
     /// Nove itens numa lista corrida davam a "Anamnese" — escrita uma vez na vida — o mesmo
-    /// peso de "Atendimento", aberto vinte vezes por dia. Em três grupos, a barra passa a
-    /// dizer QUANDO se usa cada uma: o que se faz agora, o que o paciente já tem, e a curva.
+    /// peso de "Atendimento", aberto vinte vezes por dia. Em grupos, a barra passa a dizer
+    /// QUANDO se usa cada uma: o que se faz agora e o que o paciente já tem.
+    ///
+    /// ⚠️ "Evolução da dor", "Medidas" e "Avaliações" viraram UMA seção, "Acompanhamento",
+    /// com as três como abas internas (parcela 95 — a direção: "quanto mais simples,
+    /// melhor"). Eram três linhas do rail para uma pergunta só, "como está indo" — e o
+    /// grupo de três itens virou um item do grupo Paciente. As três chaves de navegação
+    /// continuam valendo: <see cref="AbaDe"/> leva à seção e <see cref="SubAbaDe"/> à aba
+    /// de dentro.
     ///
     /// ⚠️ A lista é a MESMA de cima, casada por posição, e é daqui que o rail se monta — não
     /// há uma segunda lista de rótulos no XAML. Foi assim que a divergência entre o índice
@@ -353,14 +455,11 @@ public sealed class ModuloClinico : IModuloApp
     [
         "Sessão",
         "Sessão",
-        "Sessão",
         "Paciente",
         "Paciente",
         "Paciente",
         "Paciente",
-        "Acompanhamento",
-        "Acompanhamento",
-        "Acompanhamento"
+        "Paciente"
     ];
 
     /// <summary>Uma linha do rail: o rótulo que se lê e o grupo em que ela mora.</summary>
@@ -415,22 +514,36 @@ public sealed class ModuloClinico : IModuloApp
     /// verdade, e quem entra por ali não tem paciente em foco — mandá-la para a seção
     /// abriria a tela do paciente em branco pedindo que se escolhesse alguém.
     /// </summary>
-    private static int AbaDe(string chave)
+    // Público desde a parcela 95: a tela do paciente usa o MESMO mapa para saber qual
+    // linha do rail esconder — um rótulo escrito à mão lá seria a segunda definição.
+    public static int AbaDe(string chave)
     {
         var nome = chave switch
         {
             ChaveAtendimentoEnfermagem => "Atendimento de enfermagem",
             ChaveProntuario => "Histórico",
             ChaveExamesDoPaciente => "Exames e anexos",
-            ChaveEvolucaoDor => "Evolução da dor",
-            ChaveMedidas => "Medidas",
-            ChaveAvaliacoes => "Avaliações",
+            ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes => "Acompanhamento",
             _ => "Atendimento"
         };
 
         var i = SecoesDoPaciente.ToList().IndexOf(nome);
         return i < 0 ? 0 : i;
     }
+
+    /// <summary>
+    /// A ABA DE DENTRO da seção "Acompanhamento" (parcela 95): dor, medidas ou
+    /// avaliações. As três chaves são contrato de navegação de outros módulos (o painel
+    /// da direção, a carteira), e continuam caindo cada uma na sua tela — só que a tela
+    /// agora mora dentro de uma seção só. Chave que não é de acompanhamento cai na
+    /// primeira aba, que é a dor: é a que a acupuntura, a especialidade da casa, mais lê.
+    /// </summary>
+    public static int SubAbaDe(string chave) => chave switch
+    {
+        ChaveMedidas => 1,
+        ChaveAvaliacoes => 2,
+        _ => 0
+    };
 
     public void Registrar(IServiceCollection servicos)
     {
@@ -507,7 +620,8 @@ public sealed class ModuloClinico : IModuloApp
             => new PacienteWorkspaceView
             {
                 DataContext = new PacienteWorkspaceViewModel(
-                    servicos, servicos.GetRequiredService<PacienteEmFoco>(), AbaDe(chave))
+                    servicos, servicos.GetRequiredService<PacienteEmFoco>(),
+                    AbaDe(chave), SubAbaDe(chave))
             },
 
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.

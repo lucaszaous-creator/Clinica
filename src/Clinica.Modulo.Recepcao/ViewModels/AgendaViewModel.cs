@@ -78,6 +78,18 @@ public sealed class CartaoAgenda
     public required bool ForaDoDia { get; init; }
 
     /// <summary>
+    /// A resposta da rodada de confirmação (set/2026): "Confirmou" · "Não confirmou" ·
+    /// vazio. A MESMA regra da Fila — só em AGUARDANDO (sem check-in): depois que a pessoa
+    /// chegou, o selo viraria ruído; e sem contato gerado não se acusa ninguém de não ter
+    /// confirmado. Até aqui o ✓ existia na Fila e no Meu dia, e não na grade — que é onde
+    /// a recepcionista está quando o telefone toca.
+    /// </summary>
+    public string ConfirmacaoRotulo { get; init; } = string.Empty;
+
+    public bool ConfirmouPresenca => ConfirmacaoRotulo == "Confirmou";
+    public bool NaoConfirmou => ConfirmacaoRotulo == "Não confirmou";
+
+    /// <summary>
     /// A METADE VISÍVEL da permissão, dentro da janela do horário.
     ///
     /// As sete ações são executadas pela <c>AgendaViewModel</c>, que tem a guarda — mas a
@@ -144,7 +156,19 @@ public sealed class CelulaAgenda
     public bool Bloqueada => Bloqueio is not null;
 
     /// <summary>Só o que está livre, no futuro e com a agenda aberta convida a marcar.</summary>
-    public bool PodeMarcar => Livre && !NoPassado && !Bloqueada;
+    /// <summary>
+    /// Fora da jornada declarada do profissional da coluna (set/2026), com a descrição
+    /// para a dica — ou nulo. Sem jornada declarada é sempre nulo: a grade continua como
+    /// sempre foi. É irmão do bloqueio, mais leve: rotina, não exceção.
+    /// </summary>
+    public string? ForaDoExpediente { get; init; }
+
+    public bool Expediente => ForaDoExpediente is not null;
+
+    public bool PodeMarcar => Livre && !NoPassado && !Bloqueada && !Expediente;
+
+    /// <summary>O fechamento vence: se há bloqueio, é ele que se desenha.</summary>
+    public bool MostrarExpediente => Expediente && Livre && !Bloqueada;
 
     /// <summary>Fechado E sem ninguém marcado: é o vão que mostra o motivo.</summary>
     public bool MostrarBloqueio => Bloqueada && Livre;
@@ -174,6 +198,13 @@ public sealed class ColunaAgenda
     public required string Nome { get; init; }
     public required string Resumo { get; init; }
     public required ObservableCollection<CartaoAgenda> Horarios { get; init; }
+
+    /// <summary>
+    /// O profissional da coluna, quando a coluna é de um (visão do dia por profissional).
+    /// É dele que sai a jornada que pinta o fora do expediente (set/2026). Nulo nas
+    /// colunas por sala, por dia e em "Sem profissional".
+    /// </summary>
+    public Profissional? Profissional { get; init; }
 
     /// <summary>
     /// O dia desta coluna. No modo DIA é sempre o dia aberto; no modo SEMANA cada coluna
@@ -465,13 +496,15 @@ public sealed partial class AgendaViewModel : ObservableObject
             // banco a cada vão daria ~300 consultas por dia aberto.
             await CarregarBloqueiosAsync(scope, geracao);
             if (geracao != _geracaoCarga) return;
+            await CarregarConfirmacoesAsync(scope, doDia, geracao);
+            if (geracao != _geracaoCarga) return;
 
             Colunas.Clear();
             Faixas.Clear();
 
             if (ModoSemana)
             {
-                await MontarSemanaAsync(agenda, profissionais, geracao);
+                await MontarSemanaAsync(scope, agenda, profissionais, geracao);
                 if (geracao != _geracaoCarga) return;
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
@@ -532,7 +565,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
             foreach (var p in visiveis)
                 Colunas.Add(MontarColuna(
-                    p.Id, p.Rotulo, dia, doDia.Where(a => a.ProfissionalId == p.Id)));
+                    p.Id, p.Rotulo, dia, doDia.Where(a => a.ProfissionalId == p.Id), profissional: p));
 
             // Profissional DESATIVADO com horário marcado ganha coluna, marcada como
             // inativa (fila da parcela 69, item 7): a coluna só era montada para os
@@ -621,7 +654,74 @@ public sealed partial class AgendaViewModel : ObservableObject
     }
 
     /// <summary>Liga a releitura (chamada quando a tela entra em cena).</summary>
-    public void IniciarRelogio() => _relogio.Start();
+    public void IniciarRelogio()
+    {
+        _relogio.Start();
+        ConsumirPedidoDeDia();
+    }
+
+    /// <summary>
+    /// O dia que outra tela pediu (a ficha do paciente, ao clicar num horário — set/2026).
+    /// Lido quando a tela APARECE, porque a Agenda é montada uma vez e guardada pelo shell:
+    /// no construtor o pedido ainda não existiria. Consumir limpa — pedido órfão abriria a
+    /// agenda de amanhã num dia de ontem.
+    /// </summary>
+    private void ConsumirPedidoDeDia()
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            if (scope.ServiceProvider.GetService<PedidoAgenda>()?.Consumir() is not { } dia) return;
+            if (ModoSemana) ModoSemana = false;
+            Dia = dia.ToDateTime(TimeOnly.MinValue);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — pedido de dia da agenda não pôde ser lido", ex);
+        }
+    }
+
+    /// <summary>A resposta da rodada de confirmação por agendamento — a leitura em LOTE da Fila.</summary>
+    private IReadOnlyDictionary<int, StatusContato> _confirmacoes = new Dictionary<int, StatusContato>();
+
+    /// <summary>
+    /// Lê as confirmações dos horários que vão virar cartão, numa consulta só (set/2026).
+    /// Falhar não derruba a grade: o ✓ some e a agenda continua — mas deixa rastro, senão
+    /// "ninguém confirmou" e "não deu para ler" ficam com a mesma cara.
+    /// </summary>
+    private async Task CarregarConfirmacoesAsync(IServiceScope scope, IReadOnlyList<Agendamento> horarios, int geracao)
+    {
+        if (horarios.Count == 0)
+        {
+            _confirmacoes = new Dictionary<int, StatusContato>();
+            return;
+        }
+        try
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var lidas = await repo.ConfirmacoesDosAgendamentosAsync(horarios.Select(a => a.Id).ToList());
+            if (geracao != _geracaoCarga) return;
+            _confirmacoes = lidas;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — confirmações da agenda não puderam ser lidas", ex);
+            if (geracao != _geracaoCarga) return;
+            _confirmacoes = new Dictionary<int, StatusContato>();
+        }
+    }
+
+    /// <summary>A MESMA regra da Fila: só em AGUARDANDO, e só o que a rodada afirmou.</summary>
+    private string Confirmacao(Agendamento a)
+        => a.Etapa == EtapaFila.Aguardando && _confirmacoes.TryGetValue(a.Id, out var status)
+            ? status switch
+            {
+                StatusContato.Respondido => "Confirmou",
+                StatusContato.Enviado => "Não confirmou",
+                _ => string.Empty
+            }
+            : string.Empty;
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
     public void PararRelogio() => _relogio.Stop();
@@ -637,7 +737,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// a semana DELE, que é a pergunta que ele faz.
     /// </summary>
     private async Task MontarSemanaAsync(
-        AgendaService agenda, IReadOnlyList<Profissional> profissionais, int geracao)
+        IServiceScope scope, AgendaService agenda, IReadOnlyList<Profissional> profissionais, int geracao)
     {
         var meu = SessaoUsuario.Atual.ProfissionalId;
         SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
@@ -661,6 +761,8 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem impede a
         // semana velha de terminar por cima da nova.
+        if (geracao != _geracaoCarga) return;
+        await CarregarConfirmacoesAsync(scope, daSemana, geracao);
         if (geracao != _geracaoCarga) return;
 
         var porDia = daSemana
@@ -694,9 +796,9 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 
-    private static ColunaAgenda MontarColuna(
+    private ColunaAgenda MontarColuna(
         int? profissionalId, string nome, DateOnly data, IEnumerable<Agendamento> agendamentos,
-        int? salaId = null)
+        int? salaId = null, Profissional? profissional = null)
     {
         var cartoes = new ObservableCollection<CartaoAgenda>();
         var ocupando = 0;
@@ -728,7 +830,8 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Observacoes = a.Observacoes,
                 Lancamento = DescreverLancamento(a),
                 EmAberto = a.Status == StatusAgendamento.Agendado,
-                ForaDoDia = !a.OcupaAgenda
+                ForaDoDia = !a.OcupaAgenda,
+                ConfirmacaoRotulo = Confirmacao(a)
             });
         }
 
@@ -736,6 +839,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             ProfissionalId = profissionalId,
             SalaId = salaId,
+            Profissional = profissional,
             Nome = nome,
             Data = data,
             Resumo = $"{ocupando} horário(s)",
@@ -823,7 +927,8 @@ public sealed partial class AgendaViewModel : ObservableObject
                     Cartoes = naFaixa,
                     Continuacao = coberta,
                     NoPassado = quando < agora,
-                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId, coluna.SalaId)
+                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId, coluna.SalaId),
+                    ForaDoExpediente = ExpedienteDe(coluna.Profissional, quando)
                 });
             }
 
@@ -890,6 +995,21 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         return _bloqueios.FirstOrDefault(
             b => b.ColideCom(inicio, fim) && b.AlcancaRecurso(profissionalId, salaId))?.Motivo;
+    }
+
+    /// <summary>
+    /// A jornada do profissional da coluna, quando declarada, contra este vão (set/2026):
+    /// nulo dentro do expediente (ou sem jornada), a frase da dica fora dele. O vão fora
+    /// do expediente não recebe o "+": o serviço recusaria no Salvar, e o vão clicável que
+    /// leva a uma recusa é a lição da parcela 63 (o vão bloqueado idêntico ao livre).
+    /// </summary>
+    private static string? ExpedienteDe(Profissional? profissional, DateTime inicio)
+    {
+        if (profissional is not { JornadaDeclarada: true }) return null;
+        var fim = inicio.AddMinutes(PassoMinutos);
+        return profissional.DentroDoExpediente(inicio, fim)
+            ? null
+            : $"Fora do expediente de {profissional.Rotulo} — atende {profissional.DescricaoJornada}.";
     }
 
     /// <summary>Minuto do dia arredondado para BAIXO no passo da grade.</summary>
@@ -962,8 +1082,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// <summary>
     /// Abre a CRIAÇÃO de horário — que mora no Novo atendimento desde a parcela 70
     /// (decisão da direção: "para agendar vamos colocar através de novo atendimento (...)
-    /// unificar tudo em um lugar só"). A agenda leva até lá com o dia já preenchido; a
-    /// tela de lá pergunta QUANDO e mostra as guias que vão nascer.
+    /// unificar tudo em um lugar só"). A agenda leva até lá com o dia já preenchido — na
+    /// aba MARCAR, que desde set/2026 é uma aba e não um rádio no meio do formulário.
     ///
     /// O formulário antigo fica como FALLBACK, e é decisão (a regra 3 do faturamento —
     /// não tire capacidade de quem a tinha): o item "Novo atendimento" exige
@@ -986,7 +1106,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Deixa o pedido de pré-preenchimento na ponte e navega para o Novo atendimento.
+    /// Deixa o pedido de pré-preenchimento na ponte e navega para a aba Marcar do Atendimento.
     /// Se a navegação não acontecer (sem o bit do destino), o pedido é DESFEITO — senão a
     /// próxima abertura manual da tela nasceria preenchida com um clique de ontem.
     /// </summary>
@@ -1006,7 +1126,9 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
 
         ponte.Definir(pedido);
-        if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveNovoAtendimento))
+        // A aba MARCAR do "Atendimento" (set/2026): o pedido é sempre de marcação, e a
+        // chave é a da aba — a aba Lançar não consome pedido de outro modo.
+        if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
             return true;
 
         ponte.Consumir();

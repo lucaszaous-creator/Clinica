@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -56,11 +57,51 @@ public sealed partial class CartaoFila : ObservableObject
 
     public bool TemConfirmacao => ConfirmacaoRotulo.Length > 0;
 
-    /// <summary>"Pacote 9/10" — sessões usadas/contratadas do pacote ativo. A 10ª sessão
-    /// de um pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48).</summary>
-    public string Pacote { get; init; } = string.Empty;
+    /// <summary>
+    /// Sessões usadas/contratadas do pacote ativo; nulos sem pacote. A 10ª sessão de um
+    /// pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48) — e desde
+    /// set/2026 ela vira SELO só no fim ("Penúltima", "Última", "Esgotado"); o "pacote
+    /// 3/10" do meio do caminho é contexto, na linha do cartão.
+    /// </summary>
+    public int? PacoteUsadas { get; init; }
 
-    public bool TemPacote => Pacote.Length > 0;
+    public int? PacoteContratadas { get; init; }
+
+    public bool TemPacote => PacoteUsadas is not null && PacoteContratadas is not null;
+
+    /// <summary>
+    /// A linha de contexto sob o nome: modalidade · profissional · sala · pacote N/M ·
+    /// encaixe. É para cá que foram os selos que não avisam nada — o pacote no meio do
+    /// caminho e o encaixe (set/2026): informação de leitura, no peso de leitura.
+    /// </summary>
+    public string Contexto => string.Join(" · ", new[]
+    {
+        Modalidade,
+        Profissional,
+        Sala,
+        TemPacote ? $"pacote {PacoteUsadas}/{PacoteContratadas}" : null,
+        EhEncaixe ? "encaixe" : null
+    }.Where(l => !string.IsNullOrEmpty(l)));
+
+    /// <summary>
+    /// Os selos do cartão — no máximo três, por uma ordem fixa que mora na Application
+    /// (<see cref="SelosDaFila"/>): o que impede, o que cobra agora, o estado da coluna.
+    /// Recalculado quando qualquer entrada muda (o atraso corre com o relógio).
+    /// </summary>
+    public IReadOnlyList<SeloFila> Selos => SelosDaFila.Montar(
+        Etapa, TemTermoPendente, TemGuiaPendente,
+        PacoteUsadas, PacoteContratadas, AtrasoMinutos, FimAtendimentoEm);
+
+    /// <summary>Minutos além da hora marcada sem check-in; nulo sem atraso. Corre com o relógio.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Selos))]
+    private int? _atrasoMinutos;
+
+    /// <summary>A hora em que o profissional encerrou o atendimento (parcela 74); nula se não encerrou.</summary>
+    public DateTime? FimAtendimentoEm { get; init; }
+
+    partial void OnTemGuiaPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
+    partial void OnTemTermoPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
 
     /// <summary>"Atrasado 25 min" — a hora marcada estourou e o paciente não chegou.
     /// Recalculado a cada batida do relógio, como a espera. Vazio sem atraso.</summary>
@@ -148,6 +189,33 @@ public sealed partial class CartaoFila : ObservableObject
 
     public bool PodeFinalizar => Etapa == EtapaFila.EmAtendimento;
 
+    /// <summary>
+    /// A sessão está concluída e há PACOTE por debitar (parcela 95).
+    ///
+    /// Ela existe porque a conclusão saiu do balcão: com o médico finalizando na sala, o
+    /// cartão chega à raia FINALIZADO já carimbado, e sem esta pendência o balcão não
+    /// teria por onde debitar o pacote da sessão que acabou de acontecer — alerta sem
+    /// porta é pior que alerta nenhum (parcela 48).
+    ///
+    /// ⚠️ É o PACOTE, e não "tudo o que o fechamento faz", e a diferença decide se o botão
+    /// é utilizável. Fosse "ainda não houve fechamento", o paciente de convênio sem pacote
+    /// e sem insumo — a maioria do dia — ficaria com o botão aceso PARA SEMPRE, porque
+    /// nele não há nada a fechar: pendência que nunca some é pendência que ninguém lê (a
+    /// lição da parcela 68). O pacote é o único dos três que o quadro sabe afirmar em
+    /// lote (a leitura do selo "Pacote 9/10" já está carregada) e é o que custa dinheiro
+    /// quando escapa — sessão comprada que a clínica atende de graça.
+    ///
+    /// Os outros dois (insumo e caixa) não somem da vista: "Fechar sessão…" fica no menu
+    /// "⋯" de toda sessão concluída, que é onde mora o que se faz de vez em quando.
+    /// </summary>
+    public required bool FechamentoPendente { get; init; }
+
+    /// <summary>
+    /// A sessão está concluída — o balcão ainda pode abrir o fechamento para lançar o
+    /// dinheiro, baixar insumo ou debitar o pacote, mesmo sem pendência anunciada.
+    /// </summary>
+    public bool PodeFechar => Etapa == EtapaFila.Finalizado;
+
     public bool PodeVoltar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento;
 
     /// <summary>Só horário em aberto aceita falta/cancelamento.</summary>
@@ -168,6 +236,10 @@ public sealed partial class CartaoFila : ObservableObject
         EtapaFila.Chegou => "Chamar",
         EtapaFila.Chamado => "Entrou",
         EtapaFila.EmAtendimento => "Concluir",
+        // Concluída pelo Consultório e com pacote por debitar. Sem pendência não há passo
+        // nenhum: a raia FINALIZADO volta a ser o registro do dia, e o fechamento
+        // continua a um clique no "⋯".
+        EtapaFila.Finalizado when FechamentoPendente => "Debitar pacote",
         _ => string.Empty
     };
 
@@ -179,6 +251,7 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public bool ProximoPassoEhConcluir => Etapa == EtapaFila.EmAtendimento;
 
+
     /// <summary>
     /// Quem LANÇOU o horário, e quando (parcela 58). Vai na dica do cartão: o quadro é
     /// denso de propósito, e uma linha a mais por cartão custaria a densidade que faz o
@@ -186,11 +259,23 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public required string Lancamento { get; init; }
 
-    /// <summary>A dica do cartão: o que não coube nele e alguém pode precisar.</summary>
+    /// <summary>
+    /// A dica do cartão: o que não coube nele e alguém pode precisar. É o LEITOR do que
+    /// saiu do selo em set/2026 — a resposta da rodada de confirmação por extenso e a
+    /// marca legada do "retorno do 2º código" —, para selo a menos não virar dado a menos.
+    /// </summary>
     public string Detalhe => string.Join("\n", new[]
     {
         $"{Horario} · {Modalidade}",
         $"{Profissional} · sala {Sala}",
+        TemPacote ? $"Pacote {PacoteUsadas}/{PacoteContratadas} (o que vence primeiro é o que a sessão debita)" : null,
+        EhEncaixe ? "Encaixe — marcado por cima de um horário ocupado" : null,
+        TemConfirmacao
+            ? (ConfirmouPresenca
+                ? "Confirmou a presença na rodada de confirmação"
+                : "Avisado na rodada de confirmação, sem resposta")
+            : null,
+        EhRetornoDoSegundoCodigo ? "Legado: retorno do 2º código — guia não é atendimento, pode apagar" : null,
         string.IsNullOrWhiteSpace(Observacoes) ? null : $"Obs.: {Observacoes}",
         Lancamento
     }.Where(l => l is not null));
@@ -259,7 +344,15 @@ public sealed partial class FilaViewModel : ObservableObject
     private HashSet<int> _comPendencia = [];
     private Dictionary<int, IReadOnlyList<SituacaoTermo>> _termos = [];
     private Dictionary<int, StatusContato> _confirmacoes = [];
-    private Dictionary<int, string> _pacotes = [];
+    private Dictionary<int, (int Usadas, int Contratadas)> _pacotes = [];
+
+    /// <summary>
+    /// Atendimentos do dia que JÁ tiveram fechamento (pacote, dinheiro ou insumo). É o que
+    /// faz o botão "Fechar sessão" SUMIR da raia FINALIZADO depois de resolvido — desde a
+    /// parcela 95 a sessão chega ali concluída pelo Consultório, e o que resta ao balcão é
+    /// o dinheiro. Pendência que não some é pendência que ninguém lê.
+    /// </summary>
+    private HashSet<int> _jaFechados = [];
 
     public ObservableCollection<CartaoFila> Aguardando { get; } = [];
     public ObservableCollection<CartaoFila> NaRecepcao { get; } = [];
@@ -565,10 +658,11 @@ public sealed partial class FilaViewModel : ObservableObject
                 confirmacoes = [];
             }
 
-            // O selo "Pacote 9/10": a 10ª sessão de um pacote de 10 se descobre na
-            // MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só quem TEM
-            // pacote ativo ganha selo — metade da clínica é de convênio e nunca comprou.
-            Dictionary<int, string> pacotes;
+            // O pacote ativo (usadas/contratadas): a 10ª sessão de um pacote de 10 se
+            // descobre na MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só
+            // quem TEM pacote ativo entra — metade da clínica é de convênio e nunca
+            // comprou. Quem decide se vira selo ou só linha de contexto é `SelosDaFila`.
+            Dictionary<int, (int Usadas, int Contratadas)> pacotes;
             try
             {
                 var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
@@ -584,7 +678,7 @@ public sealed partial class FilaViewModel : ObservableObject
                         {
                             // O que vence primeiro é o que a baixa automática debita.
                             var p = g.OrderBy(x => x.ValidoAte ?? DateOnly.MaxValue).First();
-                            return $"Pacote {p.SessoesUsadas}/{p.SessoesContratadas}";
+                            return (p.SessoesUsadas, p.SessoesContratadas!.Value);
                         });
             }
             catch (Exception ex)
@@ -594,12 +688,38 @@ public sealed partial class FilaViewModel : ObservableObject
                 pacotes = [];
             }
 
+            // O que já foi FECHADO (pacote/dinheiro/insumo) entre as sessões concluídas.
+            // Em lote: uma ida por cartão daria trinta a cada batida do relógio. Aviso,
+            // não conteúdo — falhando, a pendência aparece em toda sessão COM PACOTE, que
+            // é o lado seguro: oferecer debitar o que já foi debitado custa um clique (e a
+            // janela recusa a duplicata), esconder o pacote custa a sessão de graça.
+            HashSet<int> jaFechados;
+            try
+            {
+                var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+                var concluidos = _doDia
+                    .Where(a => a.Etapa == EtapaFila.Finalizado && a.AtendimentoId is not null)
+                    .Select(a => a.AtendimentoId!.Value)
+                    .ToList();
+
+                jaFechados = concluidos.Count == 0
+                    ? []
+                    : (await repo.AtendimentosComFechamentoAsync(concluidos)).ToHashSet();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — fechamentos do dia não puderam ser lidos", ex);
+                jaFechados = [];
+            }
+
             if (geracao != _geracaoCarga) return;
 
             _comPendencia = comPendencia;
             _termos = termos;
             _confirmacoes = confirmacoes;
             _pacotes = pacotes;
+            _jaFechados = jaFechados;
 
             MontarChips();
             MontarQuadro();
@@ -738,8 +858,18 @@ public sealed partial class FilaViewModel : ObservableObject
                                    && doPaciente.Any(t => t.Pendente),
                 ConfirmacaoRotulo = confirmacao,
                 ConfirmouPresenca = confirmacao == "Confirmou",
-                Pacote = _pacotes.GetValueOrDefault(a.PacienteId, string.Empty),
+                PacoteUsadas = _pacotes.TryGetValue(a.PacienteId, out var pacote) ? pacote.Usadas : null,
+                PacoteContratadas = _pacotes.TryGetValue(a.PacienteId, out pacote) ? pacote.Contratadas : null,
+                FimAtendimentoEm = a.FimAtendimentoEm,
                 AtendimentoEncerrado = a.AtendimentoEncerrado,
+                // Só a sessão concluída pede fechamento, só enquanto ele não aconteceu e
+                // só quando há PACOTE — ver `FechamentoPendente`. Sem `AtendimentoId` não
+                // há o que fechar (nem deveria haver cartão finalizado sem ele; se
+                // houver, não se inventa pendência).
+                FechamentoPendente = a.Etapa == EtapaFila.Finalizado
+                                     && a.AtendimentoId is { } atendimentoId
+                                     && !_jaFechados.Contains(atendimentoId)
+                                     && _pacotes.ContainsKey(a.PacienteId),
                 EncerradoEm = a.FimAtendimentoEm is { } fim
                     ? $"Encerrado às {fim:HH\\:mm}"
                     : string.Empty
@@ -822,6 +952,7 @@ public sealed partial class FilaViewModel : ObservableObject
             var atraso = ag.AtrasoMinutos(agora);
             cartao.Atraso = atraso is null ? string.Empty : $"Atrasado {atraso} min";
             cartao.Atrasado = atraso is not null;
+            cartao.AtrasoMinutos = atraso;
         }
 
         // O resumo do dia envelhece junto (a espera média corre com o relógio). A conta
@@ -859,8 +990,48 @@ public sealed partial class FilaViewModel : ObservableObject
             case EtapaFila.Chegou: await ChamarAsync(cartao); break;
             case EtapaFila.Chamado: await IniciarAtendimentoAsync(cartao); break;
             case EtapaFila.EmAtendimento: await FinalizarAsync(cartao); break;
+            case EtapaFila.Finalizado: await FecharSessaoAsync(cartao); break;
         }
     }
+
+    /// <summary>
+    /// FECHAR a sessão já concluída: pacote, insumo e caixa (parcela 95).
+    ///
+    /// É a metade do <see cref="FinalizarAsync"/> que sobrou no balcão quando a conclusão
+    /// passou para o Consultório. A janela é a MESMA — nada foi reimplementado —, e o
+    /// serviço já sabia reaproveitar a presença confirmada em vez de reconfirmá-la
+    /// (<c>GarantirAtendimentoAsync</c>, desde a parcela 65): é essa reutilização que faz
+    /// o caminho existir sem uma segunda definição de "fechar a sessão".
+    ///
+    /// ⚠️ É COMANDO porque tem DUAS portas: o botão de passo (que só aparece quando há
+    /// pacote por debitar) e o item do menu "⋯", disponível em toda sessão concluída —
+    /// insumo e caixa não são anunciados como pendência, e sem o item do menu eles não
+    /// teriam por onde ser lançados depois que o médico concluiu.
+    /// </summary>
+    [RelayCommand]
+    private async Task FecharSessaoAsync(CartaoFila? cartao)
+        => await ExecutarAsync(cartao, async c =>
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a sessão");
+
+            var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
+            var janela = new Janelas.FechamentoSessaoWindow(vm)
+            {
+                Owner = JanelaDona.Atual()
+            };
+
+            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            {
+                // Fechar a janela não desfaz nada: a sessão continua concluída e a guia
+                // no faturamento. O que fica pendente é só o dinheiro — e ele continua
+                // pendente, com o botão aceso, que é o certo.
+                _snackbar.Info($"Sessão de {c.Paciente} continua sem o fechamento do "
+                               + "pacote, do insumo e do caixa.");
+                return;
+            }
+
+            AnunciarFechamento(c, resultado);
+        }, "fechamento da sessão");
 
     /// <summary>
     /// ARRASTAR o cartão de uma raia para outra — o gesto que define um kanban.
@@ -1117,13 +1288,29 @@ public sealed partial class FilaViewModel : ObservableObject
                 return;
             }
 
-            var partes = new List<string> { $"{registro.GuiasGeradas} guia(s)" };
-            if (resultado.Consumo is not null) partes.Add("1 sessão do pacote");
-            if (resultado.Movimentos.Count > 0) partes.Add($"{resultado.Movimentos.Count} insumo(s)");
-            if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
-
-            _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
+            AnunciarFechamento(c, resultado, registro.GuiasGeradas);
         }, "conclusão do atendimento");
+
+    /// <summary>
+    /// A frase do que ACONTECEU no fechamento — uma só, para as DUAS portas (o Concluir
+    /// da coluna EM ATENDIMENTO e o Fechar sessão da FINALIZADO). Duas montagens
+    /// divergiriam na primeira correção, e o que elas descrevem é o mesmo ato.
+    ///
+    /// <paramref name="guias"/> é nulo quando a sessão já estava concluída: dizer "0
+    /// guia(s)" ali seria falso — as guias existem, só não nasceram neste clique.
+    /// </summary>
+    private void AnunciarFechamento(CartaoFila c, ResultadoFechamento resultado, int? guias = null)
+    {
+        var partes = new List<string>();
+        if (guias is { } quantas) partes.Add($"{quantas} guia(s)");
+        if (resultado.Consumo is not null) partes.Add("1 sessão do pacote");
+        if (resultado.Movimentos.Count > 0) partes.Add($"{resultado.Movimentos.Count} insumo(s)");
+        if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
+
+        _snackbar.Sucesso(partes.Count == 0
+            ? $"Sessão de {c.Paciente} fechada — nada a debitar nem a lançar."
+            : $"Sessão de {c.Paciente} fechada — {string.Join(" · ", partes)}.");
+    }
 
     /// <summary>
     /// Abre a coleta do termo do procedimento (parcela 66) — a PORTA do alerta que o

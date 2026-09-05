@@ -30,6 +30,13 @@ public class ListaEsperaServiceTests : IDisposable
     private static readonly DateTime Tarde = new(2026, 8, 3, 15, 0, 0);
     private static readonly DateOnly Dia = new(2026, 8, 3);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public ListaEsperaServiceTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -37,6 +44,10 @@ public class ListaEsperaServiceTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
         _equipe = new EquipeService(_repo);
@@ -183,9 +194,13 @@ public class ListaEsperaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var pedido = await _espera.AdicionarAsync(pacienteId);
-        await _espera.ChamarAsync(pedido.Id, Manha, ModalidadeAtendimento.AcupunturaSimples);
+        // Chamar da lista CRIA o horário, então ele também precisa de dono (parcela 95).
+        // O pedido pode ter sido aberto sem profissional; quem chama informa.
+        await _espera.ChamarAsync(pedido.Id, Manha, ModalidadeAtendimento.AcupunturaSimples,
+            profissionalId: _profPadrao);
 
-        var acao = () => _espera.ChamarAsync(pedido.Id, Tarde, ModalidadeAtendimento.AcupunturaSimples);
+        var acao = () => _espera.ChamarAsync(pedido.Id, Tarde,
+            ModalidadeAtendimento.AcupunturaSimples, profissionalId: _profPadrao);
 
         await acao.Should().ThrowAsync<InvalidOperationException>(
             "duas secretárias chamando o mesmo paciente: a segunda para aqui");
@@ -271,12 +286,12 @@ public class ListaEsperaServiceTests : IDisposable
     public async Task Resumo_TaxaDeFaltaOlhaSoOsHorariosQueFecharam()
     {
         var atendido = await _agenda.AgendarAsync(await CriarPacienteAsync("Atendido"), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         var faltou = await _agenda.AgendarAsync(await CriarPacienteAsync("Faltou"), Manha.AddHours(1),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         // Ainda aguardando: não entra na conta — o dia não acabou.
         await _agenda.AgendarAsync(await CriarPacienteAsync("Vem depois"), Manha.AddHours(5),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.ConfirmarPresencaAsync(atendido.Id);
         await _agenda.MarcarFaltaAsync(faltou.Id);
@@ -297,7 +312,7 @@ public class ListaEsperaServiceTests : IDisposable
         await atendimentos.LancarAsync(vemHoje, Dia.AddDays(-5), ModalidadeAtendimento.AcupunturaComEletro, null);
         await atendimentos.LancarAsync(naoVem, Dia.AddDays(-5), ModalidadeAtendimento.AcupunturaComEletro, null);
 
-        await _agenda.AgendarAsync(vemHoje, Manha, ModalidadeAtendimento.AcupunturaSimples, null);
+        await _agenda.AgendarAsync(vemHoje, Manha, ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         var pendencias = await _painel.PendenciasDoDiaAsync(Dia);
 

@@ -87,6 +87,14 @@ sidebar dele** — pela linha do tempo, sob `VerProntuario`, que ele já tem.
 `PermissoesFaturamentoTests.Medico_e_enfermagem_LEEM_o_mesmo_e_ESCREVEM_coisas_diferentes`
 falha se alguém juntar os dois lados de volta.
 
+**E o rail da tela do paciente mostra a seção de ESCRITA de quem está logado** (parcela
+95): a enfermeira não vê "Atendimento" (o S-O-A-P, cujo Salvar ela não pode), o médico não
+vê "Atendimento de enfermagem" (cujo Registrar ele não pode), e quem tem os dois lados vê
+as duas. A LEITURA não muda — cada lado continua relendo o outro pela aba de dentro do seu
+atendimento. A decisão é `PerfisAcesso.SecoesDeEscritaDoPosto`, no domínio, e a linha
+escondida **colapsa** em vez de sair da lista: o índice do rail é a régua do TabControl, e
+filtrar a vista faria o clique abrir a seção do vizinho.
+
 ---
 
 ## 5. A linha do tempo clínica — um componente, três portas
@@ -680,3 +688,42 @@ devolver um filtro por profissional ao serviço, o paciente do médico some da l
 não é ele — e sumir não estoura nada. Do lado de `ConsultorioTests`,
 `A_busca_alcanca_alem_do_teto` fixa que o cadastro inteiro continua alcançável mesmo com a
 lista cortada.
+
+### 13.12 Um compositor, uma lista, três portas — e a tela Enfermagem escreve inline (set/2026)
+
+A parcela 88 fez o compositor COFEN subir para o shell (§13.8) e deixou o resto da
+passagem — a tira de sinais vitais, a folha, o pé com intercorrência e alergia — em duas
+cópias: a janela da sala de infusão e a seção "Atendimento de enfermagem" do Consultório.
+E a TERCEIRA porta, a tela Enfermagem do shell (§13, o posto), não tinha compositor
+nenhum: o botão "Escrever evolução" abria a janela modal por cima da página.
+
+O redesenho "uma folha, dois lados" (`docs/registro-do-atendimento.md` §28) fechou os
+três de uma vez:
+
+| Componente do shell | O que é | Quem hospeda |
+|---|---|---|
+| `PassagemDeEnfermagemView` | O compositor: hora do fato e sinais vitais (a PA num campo só), a folha, o pé, a porta da consulta COFEN | Janela da sala · seção do Consultório · tela Enfermagem |
+| `PassagensDeEnfermagemView` | A lista das passagens, com Corrigir e Cancelar | As mesmas três |
+
+Nenhum dos dois tem ViewModel próprio: o DataContext é o `EvolucaoEnfermagemViewModel`
+de quem hospeda — o MESMO objeto para o compositor e a lista, que é o que faz Corrigir
+trazer o registro para a folha ao lado. A tela Enfermagem cria um por paciente aberto
+(`Passagem`) e o desliga no Voltar: reaproveitar deixaria a folha meio escrita de quem
+já saiu debaixo do nome de quem entrou.
+
+As três abas da tela Enfermagem são as MESMAS da seção do Consultório, na mesma ordem:
+**A passagem de hoje · Passagens do paciente · Prontuário do paciente**. O prontuário
+deixou de mostrar o chip Enfermagem (as passagens têm aba própria — duas respostas para
+a mesma pergunta na mesma tela) e abre na sessão médica; a lista de naturezas vem do
+enum, não de uma lista à mão.
+
+⚠️ **O evento `Gravou`.** Os hospedeiros leem o que o compositor grava — o plano de
+cuidados de hoje e a última aferição do contexto — e nenhum era avisado de que a passagem
+tinha sido gravada: a enfermeira registrava a consulta e via o plano de ANTES dela, sem
+nada falhar. `EvolucaoEnfermagemViewModel.Gravou` dispara no registrar, na correção e no
+cancelamento, DEPOIS da frase de êxito; o recarregar do hospedeiro só escreve mensagem
+quando falha, então "Registrado" sobrevive.
+
+A janela da sala CONTINUA — é a porta da folha de execução, que é modal — e agora hospeda
+os dois componentes lado a lado (escrever à esquerda, reler à direita), sem XAML próprio.
+

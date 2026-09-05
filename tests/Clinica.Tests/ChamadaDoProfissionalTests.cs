@@ -23,6 +23,13 @@ public class ChamadaDoProfissionalTests : IDisposable
     private readonly ClinicaDbContext _db;
     private readonly AgendaService _agenda;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public ChamadaDoProfissionalTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -30,6 +37,10 @@ public class ChamadaDoProfissionalTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         var repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(repo, new AtendimentoService(repo));
     }
@@ -41,7 +52,7 @@ public class ChamadaDoProfissionalTests : IDisposable
         await _db.SaveChangesAsync();
 
         return await _agenda.AgendarAsync(
-            p.Id, DateTime.Today.AddHours(14), ModalidadeAtendimento.AcupunturaComEletro, null);
+            p.Id, DateTime.Today.AddHours(14), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
     }
 
     [Fact]

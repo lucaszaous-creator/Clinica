@@ -68,6 +68,8 @@
                                                     <Run Text="·" />
                                                     <Run Text="{Binding Duracao, Mode=OneWay}" />
                                                     <Run Text="·" />
+                                                    <Run Text="{Binding Jornada, Mode=OneWay}" />
+                                                    <Run Text="·" />
                                                     <Run Text="{Binding Situacao, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>

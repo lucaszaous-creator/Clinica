@@ -16,6 +16,13 @@ public class AgendaServiceTests : IDisposable
     private readonly ClinicaRepositorio _repo;
     private readonly AgendaService _agenda;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AgendaServiceTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -23,6 +30,10 @@ public class AgendaServiceTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
     }
@@ -41,7 +52,7 @@ public class AgendaServiceTests : IDisposable
         var pacienteId = await CriarPacienteAsync();
         var dia = new DateTime(2026, 7, 20, 14, 0, 0);
 
-        await _agenda.AgendarAsync(pacienteId, dia, ModalidadeAtendimento.AcupunturaComEletro, "primeira sessão");
+        await _agenda.AgendarAsync(pacienteId, dia, ModalidadeAtendimento.AcupunturaComEletro, "primeira sessão", profissionalId: _profPadrao);
 
         var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(dia));
         doDia.Should().ContainSingle().Which.Status.Should().Be(StatusAgendamento.Agendado);
@@ -61,7 +72,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync(Convenio.UnimedIntercambio);
         var dia = new DateTime(2026, 7, 20, 14, 0, 0);
-        var ag = await _agenda.AgendarAsync(pacienteId, dia, ModalidadeAtendimento.AcupunturaComEletro, null);
+        var ag = await _agenda.AgendarAsync(pacienteId, dia, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var resultado = await _agenda.ConfirmarPresencaAsync(ag.Id);
 
@@ -88,7 +99,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 9, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.ConfirmarPresencaAsync(ag.Id);
         var acao = () => _agenda.ConfirmarPresencaAsync(ag.Id);
@@ -100,7 +111,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 9, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.CancelarAsync(ag.Id);
 
@@ -117,7 +128,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, "encaixe");
+            ModalidadeAtendimento.AcupunturaSimples, "encaixe", profissionalId: _profPadrao);
 
         await _agenda.RemarcarAsync(ag.Id, new DateTime(2026, 7, 20, 15, 0, 0), "encaixe");
 
@@ -134,7 +145,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 9, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.CancelarAsync(ag.Id);
 
         await _agenda.RemarcarAsync(ag.Id, new DateTime(2026, 7, 22, 9, 0, 0), null);
@@ -148,7 +159,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 9, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.ConfirmarPresencaAsync(ag.Id);
 
         var acao = () => _agenda.RemarcarAsync(ag.Id, new DateTime(2026, 7, 21, 9, 0, 0), null);
@@ -162,7 +173,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var hora = new DateTime(2026, 7, 20, 9, 0, 0);
-        var ag = await _agenda.AgendarAsync(pacienteId, hora, ModalidadeAtendimento.AcupunturaSimples, null);
+        var ag = await _agenda.AgendarAsync(pacienteId, hora, ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         var conflitoComEle = await _agenda.ConflitoAsync(hora);
         var conflitoIgnorandoEle = await _agenda.ConflitoAsync(hora, ignorarAgendamentoId: ag.Id);
@@ -176,7 +187,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 9, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.CancelarAsync(ag.Id, "secretaria");
 
@@ -191,7 +202,7 @@ public class AgendaServiceTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.RemarcarAsync(ag.Id, new DateTime(2026, 7, 21, 16, 30, 0), null,
             operador: "secretaria");
@@ -221,7 +232,7 @@ public class AgendaServiceTests : IDisposable
 
         var ag = await _agenda.AgendarAsync(
             pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null, operador: "  Ana Paula  ");
+            ModalidadeAtendimento.AcupunturaSimples, null, operador: "  Ana Paula  ", profissionalId: _profPadrao);
 
         var gravado = await _db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == ag.Id);
         gravado.CriadoPor.Should().Be("Ana Paula", "o nome é aparado antes de gravar");
@@ -240,7 +251,7 @@ public class AgendaServiceTests : IDisposable
 
         var ag = await _agenda.AgendarAsync(
             pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null, operador: "   ");
+            ModalidadeAtendimento.AcupunturaSimples, null, operador: "   ", profissionalId: _profPadrao);
 
         var gravado = await _db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == ag.Id);
         gravado.CriadoPor.Should().BeNull();
@@ -257,7 +268,7 @@ public class AgendaServiceTests : IDisposable
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(
             pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
-            ModalidadeAtendimento.AcupunturaSimples, null, operador: "quem marcou");
+            ModalidadeAtendimento.AcupunturaSimples, null, operador: "quem marcou", profissionalId: _profPadrao);
 
         var resultado = await _agenda.ConfirmarPresencaAsync(ag.Id, operador: "quem atendeu");
 

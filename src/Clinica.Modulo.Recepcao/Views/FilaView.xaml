@@ -116,10 +116,25 @@
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{StaticResource Brush.Texto.Primario}" />
-                            <TextBlock Text="{Binding SubLinha}" Margin="0,1,0,0"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                            <!-- O ✓ da rodada de confirmação, ao lado da hora (set/2026 —
+                                 era um selo verde). Sem ✓ = não confirmou ou não foi
+                                 avisado; a dica do cartão diz qual dos dois. -->
+                            <!-- DockPanel, não StackPanel horizontal: o horizontal dá ao texto
+                                 a largura que ele PEDE e o `TextTrimming` nunca corta. -->
+                            <DockPanel Margin="0,1,0,0">
+                                <TextBlock DockPanel.Dock="Left" Text="&#xE73E;"
+                                           FontFamily="{StaticResource FonteIcones}"
+                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,4,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                           ToolTip="Confirmou a presença na rodada de confirmação"
+                                           Visibility="{Binding ConfirmouPresenca,
+                                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                                <TextBlock Text="{Binding SubLinha}"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                            </DockPanel>
                         </StackPanel>
                     </Grid>
 
@@ -140,100 +155,62 @@
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <TextBlock Margin="0,6,0,0"
+                    <!-- A linha de contexto: modalidade · profissional · sala · pacote N/M ·
+                         encaixe. Corta com reticências e a dica traz tudo por extenso. -->
+                    <TextBlock Margin="0,6,0,0" Text="{Binding Contexto}"
                                FontSize="{StaticResource Fonte.Legenda}"
                                Foreground="{StaticResource Brush.Texto.Secundario}"
-                               TextTrimming="CharacterEllipsis">
-                        <Run Text="{Binding Modalidade, Mode=OneWay}" />
-                        <Run Text="·" />
-                        <Run Text="{Binding Profissional, Mode=OneWay}" />
-                        <Run Text="·" />
-                        <Run Text="{Binding Sala, Mode=OneWay}" />
-                    </TextBlock>
+                               TextTrimming="CharacterEllipsis" />
 
-                    <!-- Etiquetas: o que a recepção precisa ver sem abrir nada -->
-                    <WrapPanel Margin="0,8,0,0">
-                        <!-- A hora estourou e o paciente não chegou — a pergunta que o
-                             quadro nunca respondia e que decide se o balcão liga. -->
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,4"
-                                ToolTip="A hora marcada passou e o paciente ainda não chegou"
-                                Visibility="{Binding Atrasado,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="{Binding Atraso}" TextWrapping="Wrap" />
-                        </Border>
-                        <!-- A resposta da rodada de confirmação — gravada desde a parcela
-                             5 e nunca mostrada no quadro. Verde quando confirmou; neutro
-                             quando foi avisado e não respondeu. -->
-                        <Border Margin="0,0,4,4"
-                                ToolTip="A resposta da rodada de confirmação de véspera"
-                                Visibility="{Binding TemConfirmacao,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource Badge}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ConfirmouPresenca}" Value="True">
-                                            <Setter Property="Background"
-                                                    Value="{StaticResource Brush.Sucesso.Suave}" />
-                                            <Setter Property="TextElement.Foreground"
-                                                    Value="{StaticResource Brush.Sucesso.Forte}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding ConfirmacaoRotulo}" TextWrapping="Wrap" />
-                        </Border>
-                        <!-- Sessões do pacote ativo: a 10ª de um pacote de 10 se descobre
-                             aqui, não no Finalizar (parcela 48). -->
-                        <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,4"
-                                ToolTip="Sessões usadas/contratadas do pacote ativo — a próxima pode ser a última"
-                                Visibility="{Binding TemPacote,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="{Binding Pacote}" TextWrapping="Wrap" />
-                        </Border>
-                        <!-- O recado que vem do CONSULTÓRIO (parcela 74): o profissional
-                             terminou e o paciente está vindo fechar a sessão. Até aqui a
-                             recepcionista só descobria isso quando ele aparecia na frente
-                             dela, e o cartão ficava em "Em atendimento" por meia hora
-                             depois de a sala estar vazia — o quadro do dia mentindo sobre
-                             quem está ocupado. É SELO e não raia nova: uma coluna
-                             permanente para um estado que dura minutos é a faixa vazia
-                             comendo a tela. -->
-                        <Border Style="{StaticResource Badge.Sucesso}" Margin="0,0,4,4"
-                                ToolTip="O profissional encerrou o atendimento — o paciente está vindo fechar a sessão"
-                                Visibility="{Binding AtendimentoEncerrado,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="{Binding EncerradoEm}" TextWrapping="Wrap" />
-                        </Border>
-                        <Border Style="{StaticResource Badge.Erro}" Margin="0,0,4,4"
-                                ToolTip="Guia pendente — peça o documento enquanto ele está aqui"
-                                Visibility="{Binding TemGuiaPendente,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Guia pendente" TextWrapping="Wrap" />
-                        </Border>
-                        <!-- O termo pendente é etiqueta, e não só item de menu (parcela 66,
-                             2ª rodada): o aviso do check-in some quando a recepcionista
-                             fecha o diálogo, e sem selo o cartão fica visualmente idêntico
-                             ao de quem já assinou — dado calculado que nenhuma tela mostra
-                             é o defeito recorrente do projeto. -->
-                        <Border Style="{StaticResource Badge.Erro}" Margin="0,0,4,4"
-                                ToolTip="Falta o termo do procedimento assinado — colha no “⋯” antes de o paciente entrar"
-                                Visibility="{Binding TemTermoPendente,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Termo pendente" TextWrapping="Wrap" />
-                        </Border>
-                        <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,4"
-                                ToolTip="Legado: guia não é atendimento — pode apagar"
-                                Visibility="{Binding EhRetornoDoSegundoCodigo,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Retorno do 2º código" TextWrapping="Wrap" />
-                        </Border>
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,4"
-                                ToolTip="Marcado por cima de um horário ocupado"
-                                Visibility="{Binding EhEncaixe,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Encaixe" TextWrapping="Wrap" />
-                        </Border>
-                    </WrapPanel>
+                    <!-- Os SELOS (set/2026, desenho B aprovado): no máximo três, por ordem
+                         fixa — o que impede, o que cobra agora, o estado da coluna. Quem
+                         decide é `SelosDaFila`, na Application; aqui só se desenha. O que
+                         saiu do selo tem leitor: o ✓ ao lado da hora, a linha de contexto
+                         (pacote N/M, encaixe) e a dica do cartão. -->
+                    <ItemsControl ItemsSource="{Binding Selos}" Margin="0,8,0,0">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Selos.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,4,4" ToolTip="{Binding Dica}">
+                                    <Border.Style>
+                                        <!-- O tom vira o Badge.* correspondente: os mesmos brushes
+                                             dos estilos nomeados, escolhidos por gatilho. -->
+                                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Tom}" Value="Erro">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Tom}" Value="Aviso">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Tom}" Value="Sucesso">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Uma ação sólida — o passo seguinte — e o resto atrás do "⋯".
                          A metade VISÍVEL da permissão: os comandos já exigem
@@ -255,7 +232,11 @@
                         <!-- O rótulo muda com a etapa, e o BIT muda junto: "Chegou",
                              "Chamar" e "Entrou" são movimento de fila (EditarAgenda OU
                              MovimentarFila); "Concluir" é do balcão e pede EditarAgenda
-                             estrito, a mesma conta do Exigir em FinalizarAsync. -->
+                             estrito, a mesma conta do Exigir em FinalizarAsync.
+                             "Fechar sessão" (parcela 95) aparece na raia FINALIZADO
+                             enquanto o dinheiro da sessão concluída pelo Consultório não
+                             foi resolvido — pacote, insumo e caixa —, e pede o bit da
+                             agenda como os três primeiros. -->
                         <Button DockPanel.Dock="Right" Content="{Binding ProximoPasso}"
                                 VerticalAlignment="Center"
                                 Visibility="{Binding TemProximoPasso,

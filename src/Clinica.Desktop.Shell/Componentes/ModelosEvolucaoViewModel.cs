@@ -132,6 +132,26 @@ public sealed partial class ModelosEvolucaoViewModel : ObservableObject
     public event Action? Aplicou;
 
     /// <summary>
+    /// "Repetir a última sessão deste paciente" — o roteiro que não está no catálogo e é
+    /// o mais usado (set/2026). Quem sabe repetir é a tela de Atendimento; ela entrega o
+    /// gesto e esta janela só o oferece. Nulo quando não há sessão anterior: o botão some.
+    /// </summary>
+    public Action? RepetirUltima { get; init; }
+
+    public bool TemRepetir => RepetirUltima is not null;
+
+    [RelayCommand]
+    private void Repetir()
+    {
+        if (RepetirUltima is null) return;
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "repetir a última sessão");
+        RepetirUltima();
+        // Fecha como o Aplicar fecha — sem `Resultado`, porque o gesto já preencheu a
+        // folha; a tela de trás vê `Escolhido` nulo e não aplica nada por cima.
+        Aplicou?.Invoke();
+    }
+
+    /// <summary>
     /// A tela de destino edita os NOVE campos da sessão.
     ///
     /// ⚠️ Falso na janela de evolução da RECEPÇÃO, que mostra quatro: aplicar ali os cinco

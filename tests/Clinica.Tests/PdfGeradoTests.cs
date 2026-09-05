@@ -33,6 +33,13 @@ public class PdfGeradoTests : IDisposable
 
     private static readonly DateOnly Dia = new(2026, 8, 12);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public PdfGeradoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -40,6 +47,10 @@ public class PdfGeradoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
         _pdf = new AgendaPdfService(_repo, _agenda);
@@ -74,9 +85,9 @@ public class PdfGeradoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         await _agenda.AgendarAsync(pacienteId, Dia.ToDateTime(new TimeOnly(9, 0)),
-            ModalidadeAtendimento.AcupunturaSimples, observacoes: null);
+            ModalidadeAtendimento.AcupunturaSimples, observacoes: null, profissionalId: _profPadrao);
         await _agenda.AgendarAsync(pacienteId, Dia.ToDateTime(new TimeOnly(10, 0)),
-            ModalidadeAtendimento.AcupunturaComEletro, observacoes: null);
+            ModalidadeAtendimento.AcupunturaComEletro, observacoes: null, profissionalId: _profPadrao);
 
         DeveSerPdf(await _pdf.AgendaDoDiaAsync(Dia));
     }
@@ -90,8 +101,12 @@ public class PdfGeradoTests : IDisposable
     public async Task Folha_do_dia_aguenta_agendamento_sem_profissional_nem_sala()
     {
         var pacienteId = await CriarPacienteAsync();
+        // Desde a parcela 95 o horário sem dono só nasce como ENCAIXE (marcar exige quem
+        // atende) — e a folha continua tendo de aguentá-lo: os encaixes do dia e os
+        // horários antigos, importados sem profissional, saem impressos igual.
         await _agenda.AgendarAsync(pacienteId, Dia.ToDateTime(new TimeOnly(9, 0)),
-            ModalidadeAtendimento.AcupunturaSimples, observacoes: null, salaId: null, profissionalId: null);
+            ModalidadeAtendimento.AcupunturaSimples, observacoes: null, salaId: null,
+            profissionalId: null, encaixe: true);
 
         DeveSerPdf(await _pdf.AgendaDoDiaAsync(Dia));
     }
@@ -107,11 +122,11 @@ public class PdfGeradoTests : IDisposable
         var pacienteId = await CriarPacienteAsync();
 
         var cancelado = await _agenda.AgendarAsync(pacienteId,
-            Dia.ToDateTime(new TimeOnly(9, 0)), ModalidadeAtendimento.AcupunturaSimples, observacoes: null);
+            Dia.ToDateTime(new TimeOnly(9, 0)), ModalidadeAtendimento.AcupunturaSimples, observacoes: null, profissionalId: _profPadrao);
         await _agenda.CancelarAsync(cancelado.Id, "paciente avisou");
 
         var faltou = await _agenda.AgendarAsync(pacienteId,
-            Dia.ToDateTime(new TimeOnly(11, 0)), ModalidadeAtendimento.AcupunturaSimples, observacoes: null);
+            Dia.ToDateTime(new TimeOnly(11, 0)), ModalidadeAtendimento.AcupunturaSimples, observacoes: null, profissionalId: _profPadrao);
         await _agenda.MarcarFaltaAsync(faltou.Id);
 
         DeveSerPdf(await _pdf.AgendaDoDiaAsync(Dia));
@@ -137,7 +152,7 @@ public class PdfGeradoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, Dia.ToDateTime(new TimeOnly(14, 30)),
-            ModalidadeAtendimento.AcupunturaComEletro, observacoes: null);
+            ModalidadeAtendimento.AcupunturaComEletro, observacoes: null, profissionalId: _profPadrao);
 
         DeveSerPdf(await _pdf.ComprovanteAsync(ag.Id));
     }
@@ -151,7 +166,7 @@ public class PdfGeradoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(pacienteId, Dia.ToDateTime(new TimeOnly(14, 30)),
-            ModalidadeAtendimento.AcupunturaSimples, observacoes: null);
+            ModalidadeAtendimento.AcupunturaSimples, observacoes: null, profissionalId: _profPadrao);
 
         var prestador = new DadosPrestador
         {

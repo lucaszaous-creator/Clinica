@@ -146,7 +146,16 @@
         </DockPanel>
 
         <!-- ==================================================================
-             TELA 2 — o PACIENTE: a evolução dele, com a largura inteira.
+             TELA 2 — o PACIENTE: escrever a passagem e reler o prontuário, com a
+             largura inteira (set/2026, "uma folha, dois lados").
+
+             Até aqui o botão "Escrever evolução" abria a janela modal da sala por cima
+             desta página — a terceira porta com o terceiro desenho para o mesmo ato.
+             Agora a tela hospeda os DOIS componentes do shell (o compositor e a lista
+             de passagens) nas mesmas três abas da seção do Consultório: quem trabalha
+             nos dois apps encontra a mesma tela. O rodapé com o Registrar fica FORA
+             das abas e ancorado — trocar de aba não pode esconder o botão que grava, e
+             a mensagem aparece ao lado dele, não numa faixa longe do clique.
              ================================================================== -->
         <DockPanel Margin="24,20,24,24">
             <DockPanel.Style>
@@ -195,9 +204,12 @@
                                             FallbackValue=Collapsed}" />
                 </StackPanel>
 
+                <!-- Só o que não é a passagem fica na barra: as duas portas do dia (folha
+                     de infusão e termo pendente), que só EXISTEM quando há o que fazer —
+                     botão que não existe não gasta tela para dizer que não há nada. O
+                     papel da passagem foi para o rodapé, ao lado do Registrar (mockup 01:
+                     as ações do fim da passagem no mesmo lugar). -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- ⚠️ Os dois botões condicionais só EXISTEM quando há o que fazer:
-                         botão que não existe não gasta tela para dizer que não há nada. -->
                     <Button Content="{Binding FolhaDeHoje}" MinWidth="150" Margin="0,0,8,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
@@ -207,7 +219,7 @@
                                          FallbackValue=Collapsed}"
                             Command="{Binding AbrirFolhaCommand}" />
 
-                    <Button Content="{Binding TermoPendente}" MinWidth="150" Margin="0,0,8,0"
+                    <Button Content="{Binding TermoPendente}" MinWidth="150"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
                             IsEnabled="{Binding PodeColherTermo}"
@@ -215,20 +227,6 @@
                             Visibility="{Binding TermoPendente, Converter={StaticResource TextoParaVisibilidade},
                                          FallbackValue=Collapsed}"
                             Command="{Binding ColherTermoCommand}" />
-
-                    <!-- A ficha que o paciente leva embora (parcela 78). Até aqui a
-                         enfermagem não tinha papel nenhum fora da folha de infusão. -->
-                    <Button Content="Ficha do atendimento" MinWidth="170" Margin="0,0,8,0"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            IsEnabled="{Binding PodeVerProntuario}"
-                            ToolTip="Emite o papel do que aconteceu HOJE com este paciente — a passagem da enfermagem e a sessão do dia —, com a marca da clínica e o código de conferência."
-                            Command="{Binding ImprimirFichaCommand}" />
-                    <Button Content="Escrever evolução" MinWidth="180"
-                            VerticalAlignment="Center"
-                            IsEnabled="{Binding PodeRegistrar}"
-                            ToolTip="Abre o registro da passagem: hora do que foi observado, sinais vitais e intercorrência. Grava no prontuário com a sua identificação e o registro no conselho."
-                            Command="{Binding RegistrarCommand}" />
                 </StackPanel>
             </Grid>
 
@@ -240,7 +238,7 @@
 
                  A HORA é um campo, não o relógio: a técnica faz o curativo às 14h e digita
                  às 14h20, e é a hora do FATO que vai para a folha. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16">
+            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
@@ -284,8 +282,10 @@
                     </Grid>
 
                     <!-- Teto na lista que cresce com o DADO: sem ele, um plano de doze
-                         cuidados empurra a linha do tempo para fora da tela. -->
-                    <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                         cuidados empurra a folha para fora da tela. A roda volta à
+                         página quando a lista chega ao fim (parcela 90). -->
+                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto"
+                                  ctrl:Ajudantes.RodaDaPagina="True">
                         <ItemsControl ItemsSource="{Binding Plano.Cuidados}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -340,34 +340,108 @@
                 </DockPanel>
             </Border>
 
-            <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                                 FallbackValue=Collapsed}">
-                <Border.Style>
-                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-            </Border>
+            <!-- ===================== RODAPÉ =====================
+                 Ancorado, e declarado ANTES do miolo (parcela 47 — senão o miolo come a
+                 barra). A mensagem mora ao lado dos botões que a escrevem, e não numa
+                 faixa longe do clique (parcelas 65 e 79). Quem decide se APARECE é o
+                 texto; quem decide a COR é a gravidade. -->
+            <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-            <!-- ⚠️ O PRONTUÁRIO INTEIRO, e não só a evolução de enfermagem (parcela 72).
-                 A tela abre no chip "Enfermagem", e os outros mostram a CONTAGEM mesmo
-                 desmarcados — é o número visível que faz a enfermeira descobrir que há 12
-                 sessões médicas e 4 folhas de infusão para ler. Infundir sem saber a
-                 conduta da consulta de hoje é executar às cegas.
+                <Grid Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               Text="A hora é a do FATO observado, não a de agora — o relógio do sistema fica gravado ao lado." />
+                    <Border Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                         FallbackValue=Collapsed}">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                    </Border>
+                </Grid>
 
-                 O componente é o MESMO da ficha da Recepção e do Consultório: três portas,
-                 uma leitura. Copiar a tela entre os módulos daria três respostas para a
-                 mesma pergunta, divergindo na primeira correção. -->
-            <Border Style="{StaticResource Card}">
-                <local:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
-            </Border>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Cancelar correção" MinWidth="150"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            Visibility="{Binding Passagem.Corrigindo,
+                                         Converter={StaticResource BoolParaVisibilidade},
+                                         FallbackValue=Collapsed}"
+                            Command="{Binding Passagem.CancelarCorrecaoCommand}" />
+                    <!-- A ficha que o paciente leva embora (parcela 78): até aqui a
+                         enfermagem não tinha papel nenhum fora da folha de infusão. -->
+                    <Button Content="Imprimir a passagem" MinWidth="170" Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeVerProntuario}"
+                            ToolTip="Emite o papel do que aconteceu HOJE com este paciente — a passagem da enfermagem e a sessão do dia —, com a marca da clínica e o código de conferência."
+                            Command="{Binding ImprimirFichaCommand}" />
+                    <!-- As duas barreiras: o IsEnabled explica, o Exigir do comando do
+                         compositor impede. O rótulo é do compositor ("Gravar correção"
+                         quando uma passagem foi trazida para corrigir). -->
+                    <Button Content="{Binding Passagem.RotuloDoBotao, FallbackValue=Registrar}"
+                            Margin="8,0,0,0" MinWidth="180"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeRegistrar}"
+                            ToolTip="Grava a passagem no prontuário do paciente, com a sua identificação e o registro no conselho."
+                            Command="{Binding Passagem.RegistrarCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- ================== TRÊS ABAS, TRÊS PERGUNTAS ==================
+                 As MESMAS da seção "Atendimento de enfermagem" do Consultório, na mesma
+                 ordem: o que eu escrevo agora · o que já escrevi neste paciente · o que
+                 o outro lado registrou. Pergunta a mais é aba, não caixa menor (a regra
+                 de leiaute do README). -->
+            <TabControl>
+
+                <TabItem Header="A passagem de hoje">
+                    <!-- ⚠️ IsEnabled pelo bit do COMPOSITOR: quem não escreve pelo lado Y
+                         vê a folha em LEITURA — campo aceso que não grava é o "botão que
+                         não faz nada" da parcela 41 pelo avesso. -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0"
+                            DataContext="{Binding Passagem}"
+                            IsEnabled="{Binding PodeRegistrar}">
+                        <local:PassagemDeEnfermagemView />
+                    </Border>
+                </TabItem>
+
+                <!-- O que já foi registrado neste paciente, com Corrigir e Cancelar: o
+                     DataContext é o MESMO objeto do compositor, e é isso que faz Corrigir
+                     trazer o registro para a folha da aba ao lado. -->
+                <TabItem Header="Passagens do paciente">
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <local:PassagensDeEnfermagemView DataContext="{Binding Passagem}" />
+                    </Border>
+                </TabItem>
+
+                <!-- ⚠️ O PRONTUÁRIO do paciente, sem as passagens (parcela 72; set/2026):
+                     a sessão médica, as folhas de infusão, os documentos e os arquivos da
+                     ficha — o que o OUTRO lado registrou. Os chips MOSTRAM A CONTAGEM
+                     mesmo desmarcados: é o número visível que faz a enfermeira descobrir
+                     que há 12 sessões médicas para ler. Infundir sem saber a conduta da
+                     consulta de hoje é executar às cegas.
+
+                     O componente é o MESMO da ficha da Recepção e do Consultório: três
+                     portas, uma leitura. -->
+                <TabItem Header="Prontuário do paciente">
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <local:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
+                    </Border>
+                </TabItem>
+            </TabControl>
         </DockPanel>
     </Grid>
 </UserControl>

@@ -250,26 +250,56 @@ e o efeito é apenas que ninguém sabe de nada.
 O que entrou: `Agendamento.FimAtendimentoEm` (migration **aditiva**), a barra com o relógio
 ao vivo e os botões **Iniciar** / **Finalizar atendimento**.
 
-### 9.1 Finalizar NÃO é concluir
+### 9.1 Finalizar NÃO era concluir — e passou a ser (parcela 95)
 
-É a decisão da parcela 61, e ela não se negocia: concluir são **quatro fatos do mesmo ato**
-— a guia nasce, o pacote debita, o insumo sai do estoque, o dinheiro entra no caixa — e
-**três deles são do balcão**. O que o profissional afirma ao finalizar é só *"terminei com
-esta pessoa"*.
+**O desenho original (parcela 61).** Concluir são **quatro fatos do mesmo ato** — a guia
+nasce, o pacote debita, o insumo sai do estoque, o dinheiro entra no caixa — e **três deles
+são do balcão**. O que o profissional afirmava ao finalizar era só *"terminei com esta
+pessoa"*, e o `Status` seguia `Agendado` até o **Concluir** da Fila.
 
-> Se alguém um dia fizer o encerramento marcar `Realizado` "para simplificar", os três fatos
-> do balcão deixam de acontecer **em silêncio**: o pacote não debita, o insumo não sai e o
-> caixa fecha sem a sessão. Nada falha — o dia só não bate.
+> O aviso que esta seção trazia, e que continua valendo palavra por palavra:
+>
+> *"Se alguém um dia fizer o encerramento marcar `Realizado` 'para simplificar', os três
+> fatos do balcão deixam de acontecer **em silêncio**: o pacote não debita, o insumo não sai
+> e o caixa fecha sem a sessão. Nada falha — o dia só não bate."*
 
-`Encerrar_NAO_conclui_o_atendimento` é a amarra.
+**O que mudou, e por que o aviso não foi ignorado.** A direção pediu o fluxo de um clique
+(*"ele clica em atender e faz o atendimento"*), e a medição mostrou que o argumento da
+parcela 61 se sustenta para pacote, insumo e caixa e **não** para a GUIA, que é o fato do
+atendimento. No caso mais comum — convênio, sem pacote, sem insumo — `TemDecisao` é falso e
+o Concluir do balcão não abria janela nenhuma: era cerimônia.
 
-### 9.2 A ordem entre gravar e carimbar
+O aviso acima foi endereçado, não contornado. Os três fatos do balcão continuam existindo e
+ganharam **porta e pendência**:
+
+| | Onde | Quando aparece |
+|---|---|---|
+| **Pacote** | botão de passo na raia FINALIZADO ("Debitar pacote") | sessão concluída, paciente COM pacote ativo, ainda não debitado |
+| **Insumo e caixa** | menu "⋯" → "Fechar sessão (pacote, insumo, caixa)…" | toda sessão concluída |
+
+⚠️ **A pendência é o PACOTE, e a distinção é o que a torna utilizável.** Fosse "ainda não
+houve fechamento", o paciente de convênio sem pacote — a maioria do dia — ficaria com o
+botão aceso para sempre, porque nele não há nada a fechar. O pacote é o único dos três que
+o quadro sabe afirmar em lote (`AtendimentosComFechamentoAsync` + o selo "Pacote 9/10" que
+a fila já carrega) e o que custa dinheiro quando escapa: sessão comprada atendida de graça.
+
+⚠️ **O SERVIÇO continua com a divisão de sempre**: `EncerrarAtendimentoAsync` carimba
+`FimAtendimentoEm` e não toca no `Status` — `Encerrar_NAO_conclui_o_atendimento` segue
+verde, e é ele que garante que ninguém "simplifique" a conclusão para dentro do carimbo.
+Quem encadeia os três passos é a TELA (§9.2), na ordem que decide o que sobra quando cada
+um falha.
+
+### 9.2 A ordem entre gravar, carimbar e concluir
 
 Grava a sessão **primeiro**. É a hierarquia da parcela 65 aplicada aqui:
 
 - gravação falhou → **o carimbo não acontece**. Mandar o recado de que o médico terminou
   enquanto a evolução não existe em lugar nenhum é falha exibida como sucesso;
-- gravação passou e o carimbo falhou → vira **aviso**, e nunca desfaz o prontuário.
+- gravação passou e o carimbo falhou → vira **aviso**, e nunca desfaz o prontuário;
+- carimbo passou e a **conclusão** falhou (parcela 95) → também vira aviso: o prontuário
+  está escrito, o balcão sabe que a sala vagou, e a guia continua alcançável pelo Concluir
+  da Fila. Cada um dos três desfechos tem frase própria — a exceção pode vir da permissão,
+  do carimbo ou da conclusão, e a diferença entre elas é o que a pessoa faz em seguida.
 
 Foi isso que fez `SalvarAsync` virar `TentarSalvarAsync` devolvendo `bool`.
 
@@ -314,6 +344,13 @@ As sete seções, num **rail vertical**:
 | 4 | Evolução da dor | a curva |
 | 5 | Medidas | os números seriados |
 | 6 | Avaliações | as escalas |
+
+> **Parcela 95:** as linhas 4, 5 e 6 viraram UMA seção, "Acompanhamento", com as três como
+> abas internas (`AcompanhamentoView`) — três linhas do rail para a pergunta "como está
+> indo" não era simples. As três chaves de navegação continuam valendo
+> (`ModuloClinico.AbaDe` + `SubAbaDe`). E o rail passou a mostrar só a seção de escrita de
+> quem está logado (o médico não vê "Atendimento de enfermagem"; a enfermeira não vê
+> "Atendimento").
 
 ⚠️ **Vertical, e não abas**: o `TabPanel` do WPF **espreme** as abas quando julga que a
 régua não cabe — é o defeito da parcela 50, "Convê", "Prontu", "Documer" — e sete rótulos
@@ -548,7 +585,7 @@ O que foi MEDIDO antes de desenhar, e que justifica o tamanho da mudança:
 | botões na barra do médico | 4 — e o 4º saía CORTADO a 1366 px | 4, com o Imprimir no rodapé |
 | cartões empilhados em Exames e anexos | 3 | 1 superfície com régua de chips |
 | botões por linha em Prescrições | 6 | 1 + o "⋯" |
-| itens do rail | 9 numa lista corrida | 10 em três grupos |
+| itens do rail | 9 numa lista corrida | 10 em três grupos (8 em dois desde a parcela 95) |
 
 ## 22. A regra que governa a redução
 
@@ -700,3 +737,121 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 E, na tela: abrir uma sessão ANTIGA (com queixa e conduta preenchidas) e conferir que o selo
 da linha do detalhe diz quantos campos ela tem. Se ele não disser, o dado continua no banco e
 sumiu da vista — que é exatamente o que a parte 22 existe para impedir.
+
+## 28. Uma folha, dois lados (set/2026 — o redesenho pedido pela direção)
+
+A direção pediu: *"vamos remodelar e melhorar toda a parte de atendimento tanto médico
+quanto de enfermagem e organizar as abas/subabas também"*. O mockup
+`docs/mockups/atendimento-uma-folha-dois-lados.html` foi desenhado ANTES de uma linha de
+WPF (o caminho da parcela 87), e a implementação seguiu as quatro partes dele.
+
+### 28.1 O crachá tem DUAS linhas, e a barra verde morreu
+
+O crachá do paciente era uma faixa de identidade e, abaixo dela, uma BARRA VERDE de
+"atendimento em curso" com três botões — a segunda faixa permanente que o README proíbe.
+Agora são duas linhas de texto sob o nome (identidade · clínico: alergias em vermelho, o
+que está em acompanhamento, as últimas hipóteses) e, à direita, a SITUAÇÃO da sessão numa
+pílula (`Ajudantes.Pilula`, verde quando em atendimento) com os dois links que só existem
+quando há o que fazer: "Iniciar atendimento" e "Reabrir atendimento". Nada foi tirado — o
+que a barra dizia, a pílula diz; o que ela fazia, os links fazem.
+
+### 28.2 A seção do médico tem UMA barra, e o Finalizar mora no rodapé
+
+A folha do médico tinha duas barras de ferramentas — uma acima da tira (Colher termo, Mapa,
+Emitir documento, Modelos) e o rodapé — mais quatro linhas quietas de contexto. As
+ferramentas foram para a coluna vazia da própria tira (`BotaoSecundario`, ancoradas
+embaixo); as quatro linhas viraram UMA (`ContextoDaFolha.Montar`, na Application): a última
+sessão e **os sinais vitais que a enfermagem aferiu HOJE**, com a procedência — e o
+terceiro estado escrito quando a leitura falhou.
+
+O rodapé passou a ter os três atos da folha: **Imprimir a sessão · Salvar · Finalizar
+atendimento**. Salvar e Finalizar continuam sendo DOIS atos (§25) — o que mudou é que o
+Finalizar deixou de morar na barra verde e passou a ser alcançado da folha, pelo comando do
+workspace (`RelativeSource AncestorType=PacienteWorkspaceView`). "Repetir a última sessão"
+saiu de botão solto e entrou na janela de Modelos, ao lado dos roteiros: é a mesma
+pergunta ("com o que eu começo?").
+
+### 28.3 O rail: oito seções viraram sete
+
+"Anamnese" era uma linha própria do rail — escrita uma vez na vida com o mesmo peso do
+"Atendimento", aberto vinte vezes por dia. Virou a segunda aba de **Paciente**
+(`PacienteView`: Ficha e problemas · Anamnese), porque "quem é esta pessoa" é a pergunta
+daquela seção. A checagem 38 conta os `TabItem` do workspace contra `SecoesDoPaciente`, e
+a composição é a mesma do `AcompanhamentoView`: uma View própria com o `TabControl` de
+dentro, um nível abaixo do que a checagem conta. Cada lado vê seis (a seção de escrita do
+outro lado colapsa, parcela 95).
+
+### 28.4 A enfermagem: um compositor, uma lista, três portas
+
+A pressão arterial virou UM campo ("120/80", como se anota — aceita `x`, hífen e espaço).
+Quem separa é `PressaoArterialTexto`, na Application, com teste; o serviço continua
+recebendo dois números. O par de campos `Sistolica`/`Diastolica` do ViewModel continua
+existindo — é o que o serviço grava e o que a correção recarrega —, e o setter do campo
+único só escreve o que MUDOU, porque reemitir no meio da digitação devolveria "120/" ao
+campo e perderia o cursor.
+
+O compositor da passagem passou a ser **um XAML no shell** (`PassagemDeEnfermagemView`):
+a tira de números em cima, a folha que preenche, o pé com intercorrência e alergia, a
+porta da consulta COFEN. A lista das passagens também (`PassagensDeEnfermagemView`, com
+Corrigir e Cancelar). As duas existiam em duas cópias cada (a janela da sala e a seção do
+Consultório), e a terceira porta — a tela Enfermagem do shell — abria a janela modal por
+cima da página para escrever. Agora ela escreve na própria tela, nas MESMAS três abas da
+seção do Consultório: **A passagem de hoje · Passagens do paciente · Prontuário do
+paciente**, com o Registrar no rodapé, fora das abas.
+
+⚠️ **O que a extração pegou, e que nenhuma rede via**: os hospedeiros leem o que o
+compositor grava — o plano de cuidados de hoje (a consulta PRESCREVE os cuidados), a
+última aferição do contexto — e nenhum deles era avisado de que a passagem tinha sido
+gravada. A enfermeira registrava a consulta e via o plano de ANTES dela. O compositor
+ganhou o evento `Gravou` (registrar, corrigir, cancelar), disparado DEPOIS da frase de
+êxito, porque o recarregar do hospedeiro só escreve mensagem quando FALHA — a confirmação
+sobrevive (a lição da parcela 68).
+
+### 28.5 O defeito da própria escrita, pego relendo o diff
+
+A troca do compositor da janela da sala foi feita por script, ancorado em
+`<Border Grid.Column="0"` — e a janela tinha DOIS: o da mensagem do rodapé e o do miolo. O
+compositor caiu no rodapé, a mensagem sumiu e o compositor antigo continuou no miolo. XML
+bem-formado, `compilar-sombra` verde, `verificar-suite` verde. Quem pegou foi o
+`git diff` do arquivo, lido antes de seguir. **Edição por âncora textual acha a PRIMEIRA
+ocorrência; depois dela, leia o diff do arquivo inteiro, não o trecho que o script
+mostrou.**
+
+### 28.6 A varredura do módulo inteiro depois do redesenho — o que achou e o que estava limpo
+
+A direção pediu para seguir melhorando o módulo clínico por inteiro. A varredura foi pela
+lista de conferência da casa, com `grep` e não com agente: Clear() com await no meio
+(parcela 62), timer ligado no ViewModel (74), comando de escrita sem `Exigir` (as duas
+barreiras), mensagem de êxito apagada pelo recarregar (68) e o rail.
+
+**Confirmado e corrigido**:
+
+| Onde | O quê |
+|---|---|
+| `DocumentoEdicaoViewModel`, `MapaCorporalViewModel`, `VersoesEvolucaoViewModel` | `Clear()` antes do `await` — a segunda carga limpava a lista pela metade. A leitura vem antes; o Clear e os Add ficam juntos. |
+| `FolhaExecucaoViewModel.RetificarAsync` | O único comando de escrita da folha de execução sem o `Exigir(ChecarPrescricao)` — checar tinha, retificar não. |
+| `PacoteVendaViewModel.SalvarAsync` | A porta ("Vender…") exigia e a JANELA que grava não — a lição da parcela 54. Os bits são os de `PodeVender`. |
+| `PacoteCatalogoEdicaoViewModel.SalvarAsync` | O Salvar do catálogo sem o `Exigir(EditarFinanceiro)` que os vizinhos têm. |
+| Rail da tela do paciente | 196 → 212 px: "Atendimento de enfermagem" saía com reticências. |
+
+**Conferido e limpo — para a próxima varredura não refazer**: os três timers do módulo
+(Meu dia, workspace, sala) são ligados pelo `Loaded`/`Unloaded` da View; nenhuma mensagem
+de êxito é escrita antes de um recarregar que a zere; `ImprimirFicha` nos três hospedeiros
+passa pelo `FichaDoAtendimento.EmitirAsync`, que tem o `Exigir` (ponto único), e o
+cancelar do arquivo da ficha passa pelo `ArquivosDaFicha.CancelarAsync`, que tem o
+`ExigirAlgum`. **Falso positivo com lição**: `CarregarAsync → RegistrarAsync` aparece em
+oito ViewModels e é a trilha de LEITURA (`AcessoProntuarioService`) — registrar que alguém
+leu não pode exigir permissão de escrever.
+
+## 29. Como conferir que continua valendo
+
+```bash
+python3 tools/compilar-sombra.py
+python3 tools/verificar-suite.py
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~ContextoDaFolha"
+dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~PressaoArterialTexto"
+```
+
+E, na tela: registrar uma consulta de enfermagem com um cuidado prescrito e conferir que o
+PLANO DE CUIDADOS DE HOJE mostra o cuidado sem sair da tela. Se não mostrar, o `Gravou`
+deixou de ser assinado por quem hospeda o compositor.

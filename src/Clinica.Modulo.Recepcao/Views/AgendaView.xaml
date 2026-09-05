@@ -29,9 +29,23 @@
                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}">
                 <StackPanel>
-                    <TextBlock Text="{Binding Paciente}"
-                               TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
-                               FontSize="{StaticResource Fonte.Legenda}" />
+                    <!-- DockPanel, não StackPanel horizontal: o horizontal dá ao texto a
+                         largura que ele PEDE e o TextTrimming nunca corta (a lição da Fila). -->
+                    <DockPanel>
+                        <!-- O ✓ da rodada de confirmação (set/2026) — o mesmo glifo da Fila
+                             e do Meu dia; a grade era a única das três telas sem ele. -->
+                        <TextBlock DockPanel.Dock="Left" Text="&#xE73E;"
+                                   FontFamily="{StaticResource FonteIcones}"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,3,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                   ToolTip="Confirmou a presença na rodada de confirmação"
+                                   Visibility="{Binding ConfirmouPresenca,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+                        <TextBlock Text="{Binding Paciente}"
+                                   TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                                   FontSize="{StaticResource Fonte.Legenda}" />
+                    </DockPanel>
                     <TextBlock Text="{Binding Contexto}" Margin="0,1,0,0"
                                TextTrimming="CharacterEllipsis"
                                Opacity="0.75"
@@ -44,6 +58,15 @@
                                 Visibility="{Binding EhEncaixe,
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Encaixe" />
+                        </Border>
+                        <!-- Só o que a rodada AFIRMOU: avisado e sem resposta. Sem contato
+                             gerado não há selo — acusar de "não confirmou" quem nunca foi
+                             avisado seria o selo mentindo (parcela 87). -->
+                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,0"
+                                ToolTip="Avisado na rodada de confirmação e ainda sem resposta"
+                                Visibility="{Binding NaoConfirmou,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Não confirmou" />
                         </Border>
                         <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,0"
                                 ToolTip="Legado: guia não é atendimento — pode apagar"
@@ -85,6 +108,18 @@
                         Visibility="{Binding Continuacao,
                                      Converter={StaticResource BoolParaVisibilidade}}" />
 
+                <!-- FORA DO EXPEDIENTE (set/2026): a jornada declarada do profissional da
+                     coluna. Mais leve que o bloqueio — é rotina, não exceção — e SEM texto:
+                     numa agenda de 7h às 20h, quem atende de tarde teria "fora do
+                     expediente" escrito em dezoito vãos. A dica diz, e o "+" não aparece:
+                     o serviço recusaria no Salvar (o encaixe passa). O bloqueio, quando
+                     há, vence e se desenha por cima. -->
+                <Border Background="{StaticResource Brush.Raia}"
+                        CornerRadius="{StaticResource Raio.Pequeno}"
+                        Margin="0,0,0,1"
+                        ToolTip="{Binding ForaDoExpediente}"
+                        Visibility="{Binding MostrarExpediente,
+                                     Converter={StaticResource BoolParaVisibilidade}}" />
                 <!-- AGENDA FECHADA (parcela 63): férias, feriado ou folga. O vão bloqueado
                      era visualmente IDÊNTICO ao vão livre, e o vão livre é clicável — a
                      recepcionista escolhia o paciente, preenchia o formulário e só levava
