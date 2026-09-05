@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Clinica.Application;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Domain;
@@ -380,6 +381,15 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
 
     public ObservableCollection<LinhaEvolucaoEnfermagem> Registros { get; } = new();
 
+    /// <summary>
+    /// A passagem foi GRAVADA — registrada, corrigida ou cancelada. Quem hospeda o
+    /// compositor relê o que depende dela (o plano de cuidados de hoje, a linha do tempo,
+    /// a última aferição do contexto); a lista <see cref="Registros"/> este ViewModel já
+    /// relê sozinho. Sem o evento, a seção do Consultório e a tela Enfermagem mostravam
+    /// o plano de ANTES da consulta que acabou de prescrever os cuidados — e nada falhava.
+    /// </summary>
+    public event Action? Gravou;
+
     // ---- O compositor ----
 
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH:mm");
@@ -388,6 +398,29 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
 
     [ObservableProperty] private string _sistolica = string.Empty;
     [ObservableProperty] private string _diastolica = string.Empty;
+
+    /// <summary>
+    /// A PA como a tela pede desde set/2026: "120/80" num campo só. O par continua sendo
+    /// <see cref="Sistolica"/>/<see cref="Diastolica"/> — é o que o serviço grava e o que
+    /// a correção recarrega —; este é o campo de DIGITAR, e quem separa é
+    /// <see cref="PressaoArterialTexto"/>, na Application, onde o teste alcança.
+    /// </summary>
+    public string PressaoArterial
+    {
+        get => PressaoArterialTexto.Juntar(Sistolica, Diastolica);
+        set
+        {
+            var (s, d) = PressaoArterialTexto.Separar(value);
+            // Guarda de reentrância (parcela 74): reemitir no meio da digitação devolveria
+            // "120/" ao campo e perderia o cursor. Só escreve o que mudou.
+            if (Sistolica != s) Sistolica = s;
+            if (Diastolica != d) Diastolica = d;
+            OnPropertyChanged();
+        }
+    }
+
+    partial void OnSistolicaChanged(string value) => OnPropertyChanged(nameof(PressaoArterial));
+    partial void OnDiastolicaChanged(string value) => OnPropertyChanged(nameof(PressaoArterial));
     [ObservableProperty] private string _cardiaca = string.Empty;
     [ObservableProperty] private string _respiratoria = string.Empty;
     [ObservableProperty] private string _temperatura = string.Empty;
@@ -838,6 +871,11 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
                   + "alertar na próxima prescrição."
                 : "Registrado no prontuário do paciente.";
             MensagemEhErro = false;
+
+            // Depois da frase, de propósito: o hospedeiro recarrega e só escreve mensagem
+            // quando a leitura FALHA — a confirmação sobrevive ao recarregar (a lição da
+            // parcela 68: "só o sucesso sumia").
+            Gravou?.Invoke();
         }
         catch (Exception ex)
         {
@@ -986,6 +1024,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             await CarregarAsync();
             Mensagem = "Registro cancelado. Ele continua no prontuário, com o motivo.";
             MensagemEhErro = false;
+            Gravou?.Invoke();
         }
         catch (Exception ex)
         {

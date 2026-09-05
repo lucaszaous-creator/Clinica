@@ -4062,6 +4062,95 @@ for _cenario, _textos, _deve_pegar in (
         )
 
 
+# --------------------------------------------------------------- checagem 46
+# ELEMENTO DE PROPRIEDADE NO MEIO DO CONTEÚDO: MC3088, e só o CI vê (set/2026 — o
+# `build` do PR ficou vermelho num `<Style.Triggers>` posto ENTRE dois `<Setter>`).
+#
+# Em XAML, `<Tipo.Propriedade>` dentro de `<Tipo>` é elemento de PROPRIEDADE; os filhos
+# sem ponto são o CONTEÚDO (a `ContentProperty` do tipo — os `Setter` de um `Style`, os
+# filhos de um `Grid`). O compilador de marcação aceita a propriedade ANTES ou DEPOIS do
+# conteúdo, e recusa no MEIO: "Property elements cannot be in the middle of an element's
+# content" (MC3088).
+#
+# ⚠️ Nenhuma rede local pegava, pela razão de sempre nesta família: o XML é bem-formado,
+# o `compilar-sombra` não lê o corpo do XAML e o C# compila. O caso real foi um
+# `Style.Triggers` acrescentado no meio da lista de `Setter` de um estilo — a intenção era
+# pôr o gatilho "perto do comentário que o explica", e a ordem do arquivo virou erro de
+# compilação a sete minutos de distância, no runner Windows.
+#
+# A regra é EXATAMENTE a do compilador — propriedade com conteúdo antes E depois — e não
+# "propriedade depois de conteúdo": esta segunda acusaria os 235 `Style.Triggers`
+# legítimos que vêm depois do último `Setter`. Medido antes de ligar, com a regra certa:
+# UMA ocorrência em todo o repositório (faturamento incluído), que era o defeito.
+
+
+def _tag_46(el: ET.Element) -> str:
+    # ⚠️ Não usa `_nome`: a essa altura do arquivo o nome já foi reaproveitado como
+    # variável de laço de outra checagem, e chamá-lo estoura com "'str' is not callable".
+    return el.tag.split("}")[-1]
+
+
+def _propriedade_no_meio(raiz: ET.Element) -> list[tuple[str, str]]:
+    """(pai, propriedade) de todo elemento de propriedade com conteúdo dos DOIS lados."""
+    achados = []
+    for pai in raiz.iter():
+        nome = _tag_46(pai)
+        filhos = list(pai)
+        eh_prop = [
+            "." in _tag_46(c) and _tag_46(c).split(".")[0] == nome for c in filhos
+        ]
+        for i, prop in enumerate(eh_prop):
+            if not prop:
+                continue
+            antes = any(not x for x in eh_prop[:i])
+            depois = any(not x for x in eh_prop[i + 1:])
+            if antes and depois:
+                achados.append((nome, _tag_46(filhos[i])))
+    return achados
+
+
+for f, raiz in arvores_com_faturamento.items():
+    for _pai, _prop in _propriedade_no_meio(raiz):
+        erros.append(
+            f"{rel(f)}: `<{_prop}>` está no MEIO do conteúdo de `<{_pai}>` — o compilador "
+            f"de marcação recusa (MC3088: elemento de propriedade tem de vir antes ou "
+            f"depois de TODO o conteúdo). Mova o bloco para depois do último filho de "
+            f"conteúdo (o último `Setter`, no caso de um `Style`)."
+        )
+
+# Autoteste, nos dois sentidos (a regra da checagem 34): o caso real tem de ser pego, e as
+# três formas legítimas — propriedade DEPOIS de todo o conteúdo, propriedade ANTES de todo
+# o conteúdo, e o `Grid.ColumnDefinitions` no topo de um Grid cheio — têm de passar.
+_XAML_46 = '<Style xmlns="x" xmlns:t="y">{}</Style>'
+for _cenario, _corpo, _deve_pegar in (
+    (
+        "o caso real: Style.Triggers ENTRE dois Setter",
+        "<Setter /><Style.Triggers><t:DataTrigger /></Style.Triggers><Setter />",
+        True,
+    ),
+    (
+        "Style.Triggers DEPOIS de todos os Setter",
+        "<Setter /><Setter /><Style.Triggers><t:DataTrigger /></Style.Triggers>",
+        False,
+    ),
+    (
+        "Style.Resources ANTES de todo o conteúdo",
+        "<Style.Resources /><Setter /><Setter />",
+        False,
+    ),
+    (
+        "Grid.ColumnDefinitions no topo de um Grid cheio",
+        "<t:Grid><t:Grid.ColumnDefinitions /><t:Border /><t:TextBlock /></t:Grid>",
+        False,
+    ),
+):
+    if bool(_propriedade_no_meio(ET.fromstring(_XAML_46.format(_corpo)))) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 46 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

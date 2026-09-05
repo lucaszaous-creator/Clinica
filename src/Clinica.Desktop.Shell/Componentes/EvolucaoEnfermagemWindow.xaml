@@ -8,6 +8,18 @@
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
+    <!-- ============================================================================
+         A JANELA DA SALA DE INFUSÃO (parcela 71) — a porta que a seção do posto clínico
+         NÃO alcança: a folha de execução é MODAL, e `PodeMexer` apaga o painel dela
+         inteiro quando a folha encerra. É aqui que se registra a reação que aparece meia
+         hora depois da última bomba.
+
+         Desde set/2026 ("uma folha, dois lados") ela não tem XAML próprio de compositor
+         nem de lista: hospeda os DOIS componentes do shell — PassagemDeEnfermagemView
+         (escrever) e PassagensDeEnfermagemView (reler) —, os mesmos da seção do
+         Consultório e da tela Enfermagem. Corrigir um campo corrige as três portas.
+         ============================================================================ -->
+
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <!-- Para STRING: o conversor de bool devolve Collapsed para QUALQUER texto, e a
@@ -17,16 +29,16 @@
 
     <DockPanel Margin="24">
 
-        <!-- Identidade e contexto em LINHA de texto, nunca faixa: faixa permanente vira
-             moldura, e esta janela tem uma pergunta só. -->
+        <!-- Identidade em LINHA de texto, nunca faixa: faixa permanente vira moldura, e
+             esta janela tem uma pergunta só. O CONTEXTO (a que a passagem fica ligada)
+             saiu daqui: o compositor o escreve na primeira linha dele, e duas vezes na
+             mesma janela é a mesma frase lida duas vezes. -->
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap"
                        Text="Evolução de enfermagem" />
             <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap" Margin="0,2,0,0"
                        FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
                        Foreground="{StaticResource Brush.Texto.Primario}" />
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0"
-                       Text="{Binding Contexto}" />
         </StackPanel>
 
         <!-- ===================== RODAPÉ DA JANELA =====================
@@ -77,246 +89,27 @@
 
         <!-- Escrever à ESQUERDA, reler à DIREITA — o MESMO desenho do Atendimento do
              médico (dois desenhos para a mesma pergunta no mesmo sistema é a reclamação
-             da parcela 47). O compositor era ANCORADO EMBAIXO como pilha: com a consulta
-             COFEN aberta ele pedia mais do que a janela tem, e o DockPanel decepava tudo
-             abaixo da dobra (parcela 79). Em coluna, as ABAS são o filho que ESTICA — a
-             janela maior dá espaço às abas, e a menor nunca corta botão. -->
+             da parcela 47). Em coluna, a folha do compositor é o filho que ESTICA — a
+             janela maior dá espaço à folha, e a menor nunca corta botão (parcela 79). -->
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1.5*" MinWidth="560" />
                 <ColumnDefinition Width="*" MinWidth="340" />
             </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0"
-                Background="{StaticResource Brush.Superficie}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Medio}" Padding="14">
-            <DockPanel>
+            <!-- O COMPOSITOR é o componente do shell: a tira de números, a folha que
+                 preenche, o pé com intercorrência e alergia, a porta da consulta COFEN. -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Medio}" Padding="14">
+                <comp:PassagemDeEnfermagemView />
+            </Border>
 
-                <StackPanel DockPanel.Dock="Top">
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                        <TextBlock Text="Hora do que foi observado" Style="{StaticResource Rotulo}" />
-                        <TextBox Width="90" HorizontalAlignment="Left"
-                                 Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="A hora do FATO, não a de agora. A técnica observa às 14h20 e digita às 14h50 — o relógio do sistema fica gravado ao lado, e a diferença entre os dois é o que uma auditoria de enfermagem procura." />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="O que foi observado" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
-                                 TextWrapping="Wrap" AcceptsReturn="True"
-                                 MinHeight="56" MaxHeight="72"
-                                 VerticalScrollBarVisibility="Auto" />
-                    </StackPanel>
-                </Grid>
-
-                <!-- Sinais vitais: WrapPanel, e não Grid de largura inteira — cada campo
-                     pede o que precisa e a fileira quebra quando não couber. -->
-                <TextBlock Text="Sinais vitais (opcionais — preencha só o que aferiu)"
-                           Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-                <WrapPanel Margin="0,4,0,0">
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="PA sistólica" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="78" Text="{Binding Sistolica, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="PA diastólica" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="78" Text="{Binding Diastolica, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="FC (bpm)" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="70" Text="{Binding Cardiaca, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="FR (irpm)" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="70" Text="{Binding Respiratoria, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="Temp. (°C)" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="70" Text="{Binding Temperatura, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="SpO₂ (%)" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="70" Text="{Binding Saturacao, UpdateSourceTrigger=PropertyChanged}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,6">
-                        <TextBlock Text="Dor (0–10)" Style="{StaticResource TextoSuave}" />
-                        <TextBox Width="70" Text="{Binding Dor, UpdateSourceTrigger=PropertyChanged}"
-                                 ToolTip="A dor aferida agora, o quinto sinal vital. NÃO entra na curva de dor do prontuário, que mede o efeito do tratamento entre sessões — são duas leituras diferentes." />
-                    </StackPanel>
-                </WrapPanel>
-
-                <Grid Margin="0,10,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <CheckBox Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0"
-                              IsChecked="{Binding Intercorrencia}"
-                              Content="Foi uma intercorrência"
-                              ToolTip="Marque quando algo saiu do esperado (reação, queda de pressão, extravasamento). É o que acende o selo na fila e chega ao médico na tela de atendimento." />
-
-                    <StackPanel Grid.Column="1">
-                        <!-- ⚠️ O rótulo pergunta o AGENTE, não a reação (parcela 80 — o
-                             campo se chamava "Reação a registrar como alergia" e a técnica
-                             escreveu "Pressão caiu": a REAÇÃO, que foi parar na lista de
-                             problemas como alergia e saiu impressa na folha como se o
-                             paciente fosse alérgico a "pressão caiu"). A porta da rodela
-                             sempre perguntou certo ("Alergia a quê? Escreva só o agente");
-                             esta perguntava errado — o mesmo ato com duas perguntas é a
-                             lição da parcela 64. A reação em si pertence ao texto da
-                             passagem, com "Foi uma intercorrência" marcado ao lado. -->
-                        <TextBlock Text="Alergia observada — a quê? (opcional)"
-                                   Style="{StaticResource TextoSuave}" />
-                        <TextBox Text="{Binding AlergiaObservada, UpdateSourceTrigger=PropertyChanged}"
-                                 ctrl:Ajudantes.Placeholder="só o agente (ex.: dipirona)"
-                                 ToolTip="Escreva só o AGENTE (ex.: dipirona) — é esta palavra que a conferência procura nas próximas prescrições. A reação em si (pressão caiu, náusea) vai no texto da passagem, com &quot;Foi uma intercorrência&quot; marcado." />
-                    </StackPanel>
-                </Grid>
-
-                </StackPanel>
-
-                <!-- A porta da consulta de enfermagem: a caixinha, o aviso do que falta e o
-                     botão que reabre a janela das cinco etapas. Mora no SHELL e é a MESMA
-                     da seção do Consultório — duas cópias divergiriam na primeira correção,
-                     e esta é a quinta rodada seguida em que uma correção cai aqui. -->
-                <!-- ⚠️ É o ÚLTIMO filho do DockPanel, e num DockPanel o último PREENCHE
-                     (o `Dock` dele é ignorado). O `VerticalAlignment` é o que faz o bloco
-                     hospedar-se no topo do que sobra em vez de esticar a caixinha e o
-                     botão pela coluna inteira. -->
-                <comp:ConsultaDeEnfermagemView VerticalAlignment="Top" DataContext="{Binding}" />
-            </DockPanel>
-        </Border>
-
-        <!-- ===================== A LINHA DO TEMPO =====================
-             É o que se VÊ enquanto se escreve: a PA de vinte minutos atrás decide se ela
-             reduz o gotejamento. Grid por fora para hospedar a sobreposição do
-             EstadoDaTela como ÚLTIMO filho (a lição da parcela 50). -->
-        <Grid Grid.Column="1" Margin="16,0,0,0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding Registros}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="{StaticResource Brush.Superficie}"
-                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                                    CornerRadius="{StaticResource Raio.Medio}"
-                                    Padding="12" Margin="0,0,0,8">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <!-- A hora é a âncora da leitura de enfermagem. -->
-                                    <StackPanel Grid.Column="0" Margin="0,0,14,0" MinWidth="64">
-                                        <TextBlock Text="{Binding Hora}" FontWeight="Bold"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   FontSize="{StaticResource Fonte.H3}">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground"
-                                                            Value="{StaticResource Brush.Texto.Primario}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding EmDestaque}" Value="True">
-                                                            <Setter Property="Foreground"
-                                                                    Value="{StaticResource Brush.Aviso}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding Vigente}" Value="False">
-                                                            <Setter Property="Foreground"
-                                                                    Value="{StaticResource Brush.Texto.Secundario}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <TextBlock Text="{Binding Data}" Style="{StaticResource TextoSuave}"
-                                                   Visibility="{Binding Data, Converter={StaticResource TextoParaVisibilidade}}" />
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Texto}" TextWrapping="Wrap">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground"
-                                                            Value="{StaticResource Brush.Texto.Primario}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Vigente}" Value="False">
-                                                            <Setter Property="Foreground"
-                                                                    Value="{StaticResource Brush.Texto.Secundario}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-
-                                        <TextBlock Text="{Binding SinaisVitais}" TextWrapping="Wrap"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   Visibility="{Binding SinaisVitais, Converter={StaticResource TextoParaVisibilidade}}" />
-
-                                        <!-- Corrigida, cancelada e a correção: aparecem MARCADAS,
-                                             nunca sumindo. -->
-                                        <TextBlock Text="{Binding Marca}" TextWrapping="Wrap"
-                                                   Margin="0,2,0,0" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Brush.Aviso}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
-
-                                        <!-- A frase montada no VM: o separador é resolvido
-                                             por quem sabe o que existe nela (a folha é nula
-                                             na passagem avulsa, que é a maioria). -->
-                                        <TextBlock Text="{Binding Assinatura}" TextWrapping="Wrap"
-                                                   Margin="0,4,0,0"
-                                                   Style="{StaticResource TextoSuave}" />
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                VerticalAlignment="Top"
-                                                Visibility="{Binding Vigente, Converter={StaticResource BoolParaVisibilidade}}">
-                                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,8,0"
-                                                VerticalAlignment="Center"
-                                                Visibility="{Binding Intercorrencia, Converter={StaticResource BoolParaVisibilidade}}">
-                                            <TextBlock Text="INTERCORRÊNCIA" />
-                                        </Border>
-                                        <Button Content="Corrigir" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                ToolTip="Grava um registro novo apontando para este, com o motivo. O original fica no prontuário, marcado."
-                                                IsEnabled="{Binding DataContext.PodeRegistrar,
-                                                            RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Command="{Binding DataContext.CorrigirCommand,
-                                                          RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}" />
-                                        <Button Content="Cancelar" Margin="6,0,0,0"
-                                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                ToolTip="Para o registro lançado no paciente ou na sessão ERRADA. Exige motivo, e a linha continua no prontuário."
-                                                IsEnabled="{Binding DataContext.PodeRegistrar,
-                                                            RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Command="{Binding DataContext.CancelarRegistroCommand,
-                                                          RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-
-            <ctrl:EstadoDaTela Itens="{Binding Registros}"
-                               Carregando="{Binding Carregando}"
-                               NaoVerificado="{Binding NaoVerificado}"
-                               Glifo="&#xE9D5;"
-                               Titulo="Nenhum registro ainda"
-                               Descricao="Escreva abaixo o que você observou no paciente — a hora é a do fato, não a de agora."
-                               TextoCarregando="Buscando os registros…" />
-        </Grid>
+            <!-- A LISTA é o outro componente: é o que se VÊ enquanto se escreve — a PA
+                 de vinte minutos atrás decide se ela reduz o gotejamento. Dentro de uma
+                 folha ela é a lista DAQUELA sessão (o VM decide, pela prescrição). -->
+            <comp:PassagensDeEnfermagemView Grid.Column="1" Margin="16,0,0,0" />
         </Grid>
     </DockPanel>
 </Window>

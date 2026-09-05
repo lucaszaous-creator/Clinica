@@ -422,7 +422,9 @@ public sealed class ModuloClinico : IModuloApp
     [
         "Atendimento",
         "Atendimento de enfermagem",
-        "Anamnese",
+        // "Anamnese" foi uma linha própria até set/2026; virou a segunda aba de
+        // "Paciente" (PacienteView) — é escrita uma vez por pessoa, e "quem é esta
+        // pessoa" é a pergunta daquela seção. O rail ficou com sete (cada lado vê seis).
         "Paciente",
         "Histórico",
         "Exames e anexos",
@@ -451,7 +453,6 @@ public sealed class ModuloClinico : IModuloApp
     /// </summary>
     public static readonly IReadOnlyList<string> GruposDoPaciente =
     [
-        "Sessão",
         "Sessão",
         "Sessão",
         "Paciente",

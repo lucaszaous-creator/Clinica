@@ -3301,6 +3301,58 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   resposta da rodada por extenso, o "retorno do 2º código" legado). Regra que decide o
   que o balcão lê de relance mora onde o `dotnet test` alcança.
 
+- **"UMA FOLHA, DOIS LADOS" — o atendimento remodelado, e o que a extração de componente
+  cobra** (set/2026; mockup aprovado em `docs/mockups/atendimento-uma-folha-dois-lados.html`,
+  mapa em `docs/registro-do-atendimento.md` §28). O crachá virou duas linhas e a BARRA VERDE
+  de "atendimento em curso" morreu (a situação é uma pílula com os dois links que só
+  existem quando há o que fazer); a folha do médico ficou com UMA barra (ferramentas na
+  tira, **Imprimir · Salvar · Finalizar** no rodapé, o Finalizar alcançado pelo comando do
+  workspace via `RelativeSource`); as quatro linhas de contexto viraram uma
+  (`ContextoDaFolha`, Application) com os sinais vitais que a ENFERMAGEM aferiu hoje; o
+  rail foi de 8 para 7 ("Anamnese" é a 2ª aba de Paciente — `PacienteView`, a mesma
+  composição do `AcompanhamentoView` que a checagem 38 já entende); a PA virou UM campo
+  (`PressaoArterialTexto`); e o compositor e a lista da passagem de enfermagem subiram
+  para o shell (`PassagemDeEnfermagemView`, `PassagensDeEnfermagemView`) — um XAML cada,
+  três portas: a janela da sala, a seção do Consultório e a tela Enfermagem, que deixou
+  de abrir a janela modal e escreve NA TELA, nas mesmas três abas da seção.
+  ⚠️ **Quem hospeda um compositor LÊ o que ele grava, e precisa ser AVISADO.** O plano de
+  cuidados de hoje e a última aferição do contexto são lidos pelo hospedeiro; a consulta
+  de enfermagem PRESCREVE os cuidados; e ninguém avisava que a passagem tinha sido gravada
+  — a enfermeira registrava a consulta e via o plano de ANTES dela, sem nada falhar. O
+  compositor ganhou `Gravou` (registrar, corrigir, cancelar), disparado DEPOIS da frase
+  de êxito, porque o recarregar só escreve mensagem quando FALHA (parcela 68).
+  ⚠️ **Edição por âncora textual acha a PRIMEIRA ocorrência.** A troca do compositor da
+  janela da sala foi ancorada em `<Border Grid.Column="0"`, e a janela tinha DOIS: o da
+  mensagem do rodapé e o do miolo. O compositor caiu no rodapé, a mensagem sumiu, o
+  antigo continuou no miolo — XML bem-formado, `compilar-sombra` verde, `verificar-suite`
+  verde. Quem pegou foi o `git diff` do arquivo, lido antes de seguir. **Depois de um
+  script de edição, leia o diff do arquivo inteiro, não o trecho que o script mostrou.**
+  ⚠️ **Setter que NORMALIZA o valor num binding de tecla só escreve o que mudou.** O campo
+  "120/80" grava o par `Sistolica`/`Diastolica`; reemitir os dois a cada tecla devolveria
+  "120" ao campo no instante em que a pessoa digitou "120/" (o WPF segura a volta durante
+  a própria atualização, mas a guarda é o que não depende disso).
+  ⚠️ **Ao subir um bloco para o shell, procure a FRASE que ele já dizia no hospedeiro.** O
+  compositor escreve o `Contexto` na primeira linha; a janela da sala também o escrevia
+  no cabeçalho — a mesma frase lida duas vezes. Saiu do cabeçalho.
+  ⚠️ **Três abas iguais nas duas portas é decisão, não preguiça**: "A passagem de hoje ·
+  Passagens do paciente · Prontuário do paciente" na tela Enfermagem são as da seção do
+  Consultório, na mesma ordem — quem trabalha nos dois apps encontra a mesma tela. E o
+  prontuário da tela deixou de mostrar o chip Enfermagem (as passagens têm aba própria;
+  duas respostas para a mesma pergunta, parcela 37), com a lista de naturezas vinda do
+  ENUM, não de uma lista à mão.
+
+  ⚠️ **`<Style.Triggers>` ENTRE dois `<Setter>` é `MC3088`, e só o CI vê** (o `build` do
+  PR ficou vermelho no crachá da parcela 95, e ninguém notou por uma rodada inteira).
+  Elemento de PROPRIEDADE (`<Tipo.Propriedade>`) vale antes ou depois de TODO o conteúdo
+  — nunca no meio. O gatilho foi posto "perto do comentário que o explica", no meio da
+  lista de `Setter`, e o XML é bem-formado, o `compilar-sombra` não lê o corpo do XAML e o
+  C# compila. Virou a **checagem 46**, com a regra EXATA do compilador (conteúdo dos dois
+  lados) e não a aproximação "propriedade depois de conteúdo", que acusaria 235
+  `Style.Triggers` legítimos — medido antes de ligar: UMA ocorrência no repositório, que
+  era o defeito; autotestada no caso real e nas três formas legítimas. **Quando o CI de
+  um PR fica vermelho, a primeira pergunta é "qual rede local deveria ter visto isto?"** —
+  e se a resposta é nenhuma, a correção vem com a checagem.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

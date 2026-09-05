@@ -1545,6 +1545,25 @@ O rail da tela do paciente passou a mostrar só a seção de escrita de quem est
 de hoje · Sessões anteriores · Enfermagem e infusões) não mudaram: foram desenhadas com
 mockup aprovado nas parcelas 74-77 e não havia pedido específico sobre elas.
 
+## Set/2026 — "uma folha, dois lados": o atendimento remodelado (mockup aprovado)
+
+Pedido da direção: *"remodelar e melhorar toda a parte de atendimento tanto médico quanto
+de enfermagem e organizar as abas/subabas"*. Mockup em
+`docs/mockups/atendimento-uma-folha-dois-lados.html`; o mapa em
+`docs/registro-do-atendimento.md` §28.
+
+| Onde | O que mudou | O que NÃO mudou |
+|---|---|---|
+| Crachá do paciente | Duas linhas (identidade · clínico); a situação da sessão virou PÍLULA com os links "Iniciar" e "Reabrir"; a barra verde morreu | Alergia em vermelho, últimas hipóteses, "Trocar paciente" |
+| Atendimento (médico) | UMA barra: ferramentas na tira, **Imprimir · Salvar · Finalizar** no rodapé; UMA linha de contexto com os sinais vitais que a enfermagem aferiu hoje; "Repetir a última sessão" dentro da janela de Modelos | S-O-A-P, as três abas, o detalhe em janela, Salvar ≠ Finalizar |
+| Rail | 8 → 7: "Anamnese" virou a 2ª aba de **Paciente** (`PacienteView`) | Chaves de navegação; cada lado vê seis |
+| Atendimento de enfermagem | PA num campo ("120/80"); o pé da folha numa linha; compositor e lista **no shell** (`PassagemDeEnfermagemView`, `PassagensDeEnfermagemView`) | Plano de cuidados, as três abas, a consulta COFEN em janela, a hora do fato |
+| Tela Enfermagem (shell) | Escreve NA TELA, nas mesmas três abas da seção do Consultório, com o Registrar no rodapé — a janela modal deixou de ser a porta | A lista de pacientes, as duas portas do dia (folha, termo), a ficha do atendimento |
+
+Os hospedeiros do compositor passaram a reler o plano e o contexto quando a passagem é
+gravada (`EvolucaoEnfermagemViewModel.Gravou`) — antes, a consulta prescrevia os
+cuidados e o plano de hoje continuava mostrando o de ANTES dela.
+
 ## Parcela 39 — a sidebar do Consultório tinha três itens
 
 E não porque o app do médico seja simples: **as portas estavam no módulo errado.** É a

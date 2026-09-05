@@ -92,6 +92,24 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private string _contextoDaUltimaSessao = string.Empty;
 
     /// <summary>
+    /// A ÚNICA linha acima da folha (set/2026): a última sessão e o que a enfermagem
+    /// aferiu hoje, montadas por <see cref="ContextoDaFolha"/>. Eram quatro linhas.
+    /// </summary>
+    public string LinhaDeContexto => ContextoDaFolha.Montar(
+        ContextoDaUltimaSessao,
+        SinaisVitaisAferidos ? SinaisVitaisTexto : null,
+        SinaisVitaisProcedencia,
+        _sinaisVitaisNaoConferidos);
+
+    /// <summary>A leitura dos sinais vitais falhou — o terceiro estado, que a linha escreve.</summary>
+    private bool _sinaisVitaisNaoConferidos;
+
+    partial void OnContextoDaUltimaSessaoChanged(string value) => OnPropertyChanged(nameof(LinhaDeContexto));
+    partial void OnSinaisVitaisTextoChanged(string value) => OnPropertyChanged(nameof(LinhaDeContexto));
+    partial void OnSinaisVitaisProcedenciaChanged(string value) => OnPropertyChanged(nameof(LinhaDeContexto));
+    partial void OnSinaisVitaisAferidosChanged(bool value) => OnPropertyChanged(nameof(LinhaDeContexto));
+
+    /// <summary>
     /// O que os OUTROS módulos sabem sobre este paciente e que importa com ele na sala
     /// (parcela 36): carteirinha vencida e cota estourada vêm do Faturamento, conta
     /// vencida vem do Financeiro, guia glosada vem do Faturamento.
@@ -459,7 +477,14 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             new ModeloAplicado(
                 QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes,
                 HistoriaDoencaAtual, ExameFisico, HipoteseDiagnostica,
-                CidSessao, PlanoTerapeutico));
+                CidSessao, PlanoTerapeutico))
+        {
+            // "Repetir a última sessão" é um roteiro como os outros — o mais usado da
+            // acupuntura —, e desde set/2026 mora aqui em vez de ser o quarto botão do
+            // rodapé (uma barra só, e só ação nela). Só existe quando HÁ sessão anterior:
+            // botão que só levaria recusa é o defeito da parcela 41.
+            RepetirUltima = Anteriores.Count > 0 ? RepetirUltima : null
+        };
 
         var janela = new ModelosEvolucaoWindow(vm)
         {
@@ -786,6 +811,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
             if (geracao != _geracaoCarga) return;
 
+            _sinaisVitaisNaoConferidos = false;
             if (vitais is null)
             {
                 SinaisVitaisAferidos = false;
@@ -802,6 +828,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         {
             if (geracao != _geracaoCarga) return;
 
+            _sinaisVitaisNaoConferidos = true;
             SinaisVitaisAferidos = false;
             SinaisVitaisProcedencia = string.Empty;
             SinaisVitaisTexto = "Não foi possível conferir os sinais vitais da enfermagem.";
