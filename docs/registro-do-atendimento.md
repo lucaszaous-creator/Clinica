@@ -817,6 +817,32 @@ bem-formado, `compilar-sombra` verde, `verificar-suite` verde. Quem pegou foi o
 ocorrência; depois dela, leia o diff do arquivo inteiro, não o trecho que o script
 mostrou.**
 
+### 28.6 A varredura do módulo inteiro depois do redesenho — o que achou e o que estava limpo
+
+A direção pediu para seguir melhorando o módulo clínico por inteiro. A varredura foi pela
+lista de conferência da casa, com `grep` e não com agente: Clear() com await no meio
+(parcela 62), timer ligado no ViewModel (74), comando de escrita sem `Exigir` (as duas
+barreiras), mensagem de êxito apagada pelo recarregar (68) e o rail.
+
+**Confirmado e corrigido**:
+
+| Onde | O quê |
+|---|---|
+| `DocumentoEdicaoViewModel`, `MapaCorporalViewModel`, `VersoesEvolucaoViewModel` | `Clear()` antes do `await` — a segunda carga limpava a lista pela metade. A leitura vem antes; o Clear e os Add ficam juntos. |
+| `FolhaExecucaoViewModel.RetificarAsync` | O único comando de escrita da folha de execução sem o `Exigir(ChecarPrescricao)` — checar tinha, retificar não. |
+| `PacoteVendaViewModel.SalvarAsync` | A porta ("Vender…") exigia e a JANELA que grava não — a lição da parcela 54. Os bits são os de `PodeVender`. |
+| `PacoteCatalogoEdicaoViewModel.SalvarAsync` | O Salvar do catálogo sem o `Exigir(EditarFinanceiro)` que os vizinhos têm. |
+| Rail da tela do paciente | 196 → 212 px: "Atendimento de enfermagem" saía com reticências. |
+
+**Conferido e limpo — para a próxima varredura não refazer**: os três timers do módulo
+(Meu dia, workspace, sala) são ligados pelo `Loaded`/`Unloaded` da View; nenhuma mensagem
+de êxito é escrita antes de um recarregar que a zere; `ImprimirFicha` nos três hospedeiros
+passa pelo `FichaDoAtendimento.EmitirAsync`, que tem o `Exigir` (ponto único), e o
+cancelar do arquivo da ficha passa pelo `ArquivosDaFicha.CancelarAsync`, que tem o
+`ExigirAlgum`. **Falso positivo com lição**: `CarregarAsync → RegistrarAsync` aparece em
+oito ViewModels e é a trilha de LEITURA (`AcessoProntuarioService`) — registrar que alguém
+leu não pode exigir permissão de escrever.
+
 ## 29. Como conferir que continua valendo
 
 ```bash

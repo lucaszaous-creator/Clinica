@@ -302,7 +302,9 @@
                  módulos caem cada uma na sua seção (ModuloClinico.AbaDe), e trocar o
                  leiaute não pode quebrar contrato de navegação (a regressão da parcela
                  37, 4ª rodada). -->
-            <ListBox DockPanel.Dock="Left" Width="196" Margin="0,0,16,0"
+            <!-- 212 e não 196: "Atendimento de enfermagem" (o rótulo mais longo) saía
+                 com reticências no rail — rótulo cortado no menu é o defeito da parcela 50. -->
+            <ListBox DockPanel.Dock="Left" Width="212" Margin="0,0,16,0"
                      Background="Transparent" BorderThickness="0"
                      ItemsSource="{Binding SecoesAgrupadas}"
                      ItemContainerStyle="{StaticResource ItemSecaoClinica}"
