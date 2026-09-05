@@ -7429,11 +7429,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   em LOTE pelos agendamentos da grade, uma consulta por dia carregado.
   ⚠️ **Jornada em branco é o comportamento de SEMPRE.** `DiasDeAtendimento`/`AtendeDas`/
   `AtendeAte` são nulos em toda linha gravada, e nulo quer dizer "não declarou": a grade
-  não pinta, o Salvar não avisa, a ocupação continua pela jornada global. Declarada, o
-  fora-do-expediente vira `RecursoAgenda.Expediente` no `ConflitosAsync` — AVISA, não
-  impede (a regra da agenda), e o encaixe passa. A ocupação (`IndicadoresService`) usa a
-  jornada DELE com a global como piso — a clínica que não cadastra jornada não vê número
-  nenhum mudar.
+  não pinta, o Salvar não reclama, a ocupação continua pela jornada global. Declarada, o
+  fora-do-expediente vira `RecursoAgenda.Expediente` no `ConflitosAsync` e **RECUSA como o
+  bloqueio recusa** — é conflito de RECURSO (quem atende não está lá), não aviso de
+  paciente —, com a frase dizendo quando ele atende e a saída de sempre: "escolha outro
+  horário ou marque como encaixe". O encaixe passa. A ocupação (`IndicadoresService`) usa
+  a jornada DELE; a global vale para quem não declarou — a clínica que não cadastra
+  jornada não vê número nenhum mudar.
+  ⚠️ **E aqui eu escrevi a decisão de DOIS jeitos.** O teste
+  (`Marcar_fora_do_expediente_e_recusado_dizendo_quando_ele_atende`) e a tela fixam a
+  recusa; a lição, a tabela de features e a descrição do PR diziam "avisa, sem impedir".
+  Nada falhava — o código estava certo e coerente com o bloqueio; o que mentia era o
+  texto, em três lugares, e quem pegou foi a pergunta da direção ("você fez algo de
+  errado?"), não uma rede. **A frase que descreve o comportamento se confere contra o
+  TESTE que o fixa, não contra a intenção lembrada** — e "a regra da agenda é avisar" vale
+  para o que é do PACIENTE (carteirinha, cota, choque com ele mesmo); recurso disputado ou
+  indisponível sempre recusou.
   ⚠️ **A busca de vaga anda no PASSO da grade, não na duração pedida** — e o teste que
   escrevi esperava o contrário. Uma sessão de 60 min cabe às 14h00, 14h30 e 15h00 dentro
   de 14h–16h; oferecer só 14h e 15h esconderia a vaga das 14h30 que a grade aceita. O
