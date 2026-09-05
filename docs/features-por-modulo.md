@@ -53,7 +53,7 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
-| 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5 e 63 |
+| 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5, 63 e set/2026 |
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
@@ -81,7 +81,8 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 
 > Completa quer dizer **entregue como o produto se propôs a fazer**, não que não haja o
 > que melhorar. Duas ressalvas seguem valendo e estão no fim deste documento: a feature
-> 02 automatiza a RODADA de confirmação, não o disparo; e a "assinatura digital" da
+> 02 automatiza a RODADA de confirmação e, desde set/2026, o DISPARO por e-mail — pelo
+> WhatsApp o disparo continua sendo um clique por paciente; e a "assinatura digital" da
 > feature 07 é carimbo com código de conferência, não certificado ICP-Brasil.
 
 ---
@@ -142,7 +143,7 @@ zero.**
 > profissional tem na agenda. As guias pendentes aparecem só para os pacientes de HOJE
 > — é o único momento barato de cobrar o documento.
 
-### Feature 02 · Agenda multiprofissional — ✅ · parcelas 1, 5 e 63
+### Feature 02 · Agenda multiprofissional — ✅ · parcelas 1, 5, 63 e set/2026
 
 | Item | Estado | Onde / observação |
 |---|---|---|
@@ -152,7 +153,13 @@ zero.**
 | **Vão FECHADO na grade** | ✅ | **parcela 63** — férias, feriado e folga aparecem pintados com o motivo. A marcação já era recusada pelo `AgendaService`; o vão bloqueado era visualmente idêntico ao livre, e o livre é clicável desde a parcela 58 |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
-| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
+| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26). O DISPARO pelo WhatsApp é um clique por paciente (o número é o da clínica) |
+| **Lembrete automático por e-mail** | ✅ | **set/2026** — `LembreteEmailService`, na abertura da Recepção e do Gerente, para as sessões de hoje, de amanhã e do fim de semana que vier: MESMA rodada, MESMO contato, canal e-mail. Servidor cadastrado em Gerente → Configurações → Lembretes por e-mail; sem ele, nada muda. O balcão também dispara por clique ("Enviar e-mails" na rodada) |
+| **✓ de confirmação na grade** | ✅ | **set/2026** — o cartão do balcão mostra "Confirmou" / "Não confirmou" pelo que a RODADA registrou (`AgendaViewModel.Confirmacao`, leitura em lote); sem contato, sem selo |
+| **Retornos a marcar** | ✅ | **set/2026** — aba do item Atendimento: o retorno que quem atendeu pediu na sessão (`Evolucao.RetornoSugeridoEm`) vira fila do balcão (`RetornosAMarcarService`), com "Marcar horário" já preenchido e o convite pelo WhatsApp. Nunca vira agendamento sozinho (a regra da parcela 58) |
+| **Próximos horários na ficha** | ✅ | **set/2026** — a ficha do paciente lista o que ele tem marcado daqui em diante e abre a agenda no dia (`FichaPacienteViewModel.ProximosHorarios`) |
+| **Jornada por profissional** (dias e horário) | ✅ | **set/2026** — `Profissional.DiasDeAtendimento`/`AtendeDas`/`AtendeAte`: a grade pinta o fora-do-expediente, o Salvar avisa (`RecursoAgenda.Expediente`, sem impedir — encaixe passa), a ocupação usa a jornada DELE. Em branco, tudo como antes |
+| **Próxima vaga com o profissional** | ✅ | **set/2026** — botão "Próximas vagas…" no Marcar (`BuscaDeVagasService`): as dez primeiras vagas em até 60 dias, pela jornada e pelos bloqueios; clicar preenche data e hora, e quem grava continua sendo o Salvar |
 | **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26) |
 | ~~**Agendamento em série** (o pacote de dez)~~ | ⛔ | **Retirada das telas em set/2026, por decisão da cliente** ("não precisamos disso; se o paciente precisar voltar, a recepcionista marca uma agenda"). O motor `AgendaService.AgendarSerieAsync` fica, sem porta; `CancelarSerieAsync` continua na janela do horário para as séries já marcadas |
 | **Visão de semana** | ✅ | `AgendaViewModel.ModoSemana` — o dia continua sendo o padrão (parcela 26) |

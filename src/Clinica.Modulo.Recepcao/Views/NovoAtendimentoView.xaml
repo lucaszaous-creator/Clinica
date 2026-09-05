@@ -266,6 +266,18 @@
                                           DisplayMemberPath="Nome"
                                           ctrl:Ajudantes.Placeholder="Opcional" />
                             </StackPanel>
+                            <!-- PRÓXIMAS VAGAS (set/2026): "quando cabe?" em lista, a partir da
+                                 data escolhida, descontando o marcado, os bloqueios e a
+                                 jornada de quem atende. Só no modo marcar — quem lança está
+                                 com o paciente na frente. Alinhado pela BASE com os campos
+                                 vizinhos (a lição dos botões da barra de Lançamentos). -->
+                            <Button Content="Próximas vagas…" MinHeight="36" MinWidth="150"
+                                    VerticalAlignment="Bottom" Margin="0,0,14,8"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    IsEnabled="{Binding PodeBuscarVagas}"
+                                    ToolTip="Lista os próximos horários livres de quem atende; escolher um preenche a data e a hora"
+                                    Command="{Binding ProximasVagasCommand}"
+                                    Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}" />
                         </WrapPanel>
 
                         <StackPanel Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">

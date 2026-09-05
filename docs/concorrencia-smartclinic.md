@@ -50,7 +50,7 @@ núcleo do que a nossa cliente faz.
 
 | Bloco | Situação |
 |---|---|
-| **Comunicação automática** (WhatsApp sem clique, SMS, e-mail) | 🔴 **Atrás, e é o gap que dói** |
+| **Comunicação automática** (WhatsApp sem clique, SMS, e-mail) | 🟠 **Atrás no WhatsApp sem clique e no SMS.** O lembrete da sessão por **e-mail** sai sozinho desde set/2026 (`LembreteEmailService`) |
 | **IA no prontuário** | 🔴 Atrás — zero |
 | **Alcance** (web/celular) | 🔴 Atrás — estrutural, e não está na lista deles porque para eles é o básico |
 | **Integrações** (agendas externas, RD Station) | 🟠 Atrás |
@@ -69,11 +69,11 @@ núcleo do que a nossa cliente faz.
 |---|---|---|
 | Gestão de pacientes | `PacientesView` + ficha 360º com abas | 🟢 Empate |
 | Multiagenda | Agenda multiprofissional, por sala, semana, série, encaixe, lista de espera | 🟢 **À frente** |
-| Lembretes e confirmação por WhatsApp | A **rodada** é automática (acha quem confirmar, escreve, aplica a LGPD, não repete ninguém); o **disparo é um clique por paciente** no `wa.me` | 🟠 Atrás |
+| Lembretes e confirmação por WhatsApp | A **rodada** é automática (acha quem confirmar, escreve, aplica a LGPD, não repete ninguém); pelo WhatsApp o **disparo é um clique por paciente** no `wa.me`; por **e-mail o disparo é automático** desde set/2026 (abertura da Recepção e do Gerente) | 🟡 Pouco atrás |
 | Prontuário personalizado | Modelo de evolução e modelo de documento (**texto**). **Não há campo personalizado** — zero `CampoPersonalizado` no `src/` | 🟡 Pouco atrás |
 | Prescrição eletrônica com Memed | Assinatura **ICP-Brasil própria** (PAdES-B, QR do validador do ITI) | 🟢 **À frente** ⚠️ travada pelo e-CPF |
 | Financeiro e orçamentos | Caixa, contas, fluxo, fechamento, tributos, recebíveis, conciliação OFX, orçamento | 🟢 **Muito à frente** |
-| **Marketing por SMS, e-mail e WhatsApp** | **Zero SMS e zero e-mail** — nenhum `SmtpClient`/`SendMailAsync` no `src/`. Só WhatsApp por clique | 🔴 **Atrás** |
+| **Marketing por SMS, e-mail e WhatsApp** | **Zero SMS.** E-mail: só o LEMBRETE transacional da sessão (set/2026, `EnviadorSmtp`) — **marketing por e-mail continua não existindo** (exige consentimento e disparo em massa, que o envio um a um não é). WhatsApp por clique | 🟠 Atrás |
 | Relatórios | BI com gráficos, CSV, metas, rentabilidade por convênio | 🟢 **À frente** |
 | Usuários administrativos ilimitados | Não cobramos por assento | 🟢 Empate (ou melhor) |
 | **Integração de agendas externas** | Não existe — zero `iCalendar`/`CalDav`/Google Calendar | 🔴 Atrás |
@@ -88,7 +88,7 @@ núcleo do que a nossa cliente faz.
 |---|---|---|
 | Teleconsulta | — | ❌ **Fora de escopo** |
 | ⚠️ **Agendamento online** | Não existe. **Não é o portal do paciente**: é um link público da agenda para o paciente escolher dia e hora sozinho | ⚠️ **Decisão sua** |
-| **Confirmação automática via WhatsApp** | O disparo continua sendo um clique por paciente | 🔴 **Atrás — o gap que mais dói** |
+| **Confirmação automática via WhatsApp** | Pelo WhatsApp o disparo continua sendo um clique por paciente; por e-mail sai sozinho (set/2026) | 🟠 **Atrás no canal que eles cobram** |
 | **Inteligência Artificial no prontuário** | **Zero** — nenhum `openai`, `anthropic` ou `transcri` no `src/` | 🔴 Atrás |
 | Contratos e Termos | Termo de consentimento clínico + consentimento LGPD com histórico. Não há contrato genérico assinável | 🟡 Pouco atrás |
 | Integração com RD Station | Não existe | 🟠 Atrás (baixa prioridade) |
@@ -161,10 +161,11 @@ Ordenado por **impacto sentido ÷ custo**, não por dificuldade.
    e não opera sem ele. Hoje eles prescrevem com assinatura e nós não — perdendo em campo
    uma comparação que ganhamos na engenharia.
 2. **Disparo automático de lembrete e confirmação.** É o gap que a recepcionista sente todo
-   dia. Começar por **e-mail**, que é barato e não depende de terceiro; o WhatsApp sem clique
-   exige a **API oficial da Meta** (conta Business, custo por mensagem) e é decisão
-   comercial, não técnica. **Fecha dois itens da lista deles de uma vez** (lembretes
-   automáticos e marketing por e-mail).
+   dia. **A metade do e-mail está feita (set/2026)** — `LembreteEmailService`, na abertura
+   da Recepção e do Gerente, com o servidor cadastrado em Configurações; barato e sem
+   terceiro. O WhatsApp sem clique exige a **API oficial da Meta** (conta Business, custo por
+   mensagem) e é decisão comercial, não técnica. O marketing por e-mail NÃO veio junto: é
+   outro ato (exige consentimento) e outro volume.
 3. **SMS** — mesmo motor do item 2, provedor diferente. Só depois de decidir se a clínica
    quer pagar por mensagem.
 4. **Vídeo e áudio no prontuário.** O `ArmazenamentoS3` já existe (parcela 53) e resolve o
@@ -200,7 +201,8 @@ Ordenado por **impacto sentido ÷ custo**, não por dificuldade.
   Enquanto estiverem lá, prometemos por escrito exatamente os dois itens que decidimos não
   fazer — e que eles entregam. Precisam sair do deck.
 - **"Confirmação automática por WhatsApp" (feature 02) precisa ser dita por extenso.** Nós
-  automatizamos a rodada; eles automatizam o disparo, e cobram isso no PREMIUM. Se a cliente
+  automatizamos a rodada e, desde set/2026, o disparo por E-MAIL; pelo WhatsApp o disparo é
+  um clique, e eles automatizam esse — e cobram isso no PREMIUM. Se a cliente
   entendeu "automática" como "sozinho, sem ninguém clicar", ela está comparando a nossa
   promessa com a entrega deles — e nesse recorte perdemos sem precisar perder.
 - **O Estoque é argumento de venda e ninguém está usando.** Eles cobram R$ 79/mês por ele,

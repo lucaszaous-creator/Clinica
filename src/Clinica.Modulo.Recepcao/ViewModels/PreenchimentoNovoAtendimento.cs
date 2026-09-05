@@ -5,8 +5,13 @@ namespace Clinica.Recepcao.ViewModels;
 /// <see cref="DataHora"/> com hora 00:00 significa "só o dia" — a grade do vão livre
 /// manda a hora clicada; o botão "Novo horário" só sabe o dia exibido.
 /// </summary>
+/// <param name="PacienteId">
+/// Quem marcar, quando a porta já sabe (a fila "Retornos a marcar", set/2026). Nulo é o
+/// caso da agenda: o clique no vão diz quando e com quem, e quem é se escolhe na tela.
+/// </param>
 public sealed record PedidoNovoAtendimento(
-    bool MarcarParaDepois, DateTime? DataHora, int? ProfissionalId, int? SalaId);
+    bool MarcarParaDepois, DateTime? DataHora, int? ProfissionalId, int? SalaId,
+    int? PacienteId = null);
 
 /// <summary>
 /// A ponte de um clique entre a AGENDA e o NOVO ATENDIMENTO — a criação de horário foi

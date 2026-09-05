@@ -331,6 +331,65 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // Sem Include de propósito: quem consome (a busca de vagas) só lê hora, duração e
+    // status — dois meses de agenda com paciente e profissional junto seria carga à toa.
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDoProfissionalNoPeriodoAsync(
+        int profissionalId, DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.ProfissionalId == profissionalId
+                        && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosFuturosDoPacienteAsync(
+        int pacienteId, DateTime aPartirDe, int limite, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Include(a => a.Sala)
+            .Where(a => a.PacienteId == pacienteId
+                        && a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= aPartirDe)
+            .OrderBy(a => a.DataHora)
+            .Take(limite)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<RetornoSugerido>> RetornosSugeridosAsync(
+        DateOnly retornoDesde, CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            // A COLUNA (`CanceladaEm`), nunca a derivada `Cancelada` — o EF recusa em runtime
+            // (parcela 74).
+            .Where(e => e.CanceladaEm == null
+                        && e.RetornoSugeridoEm != null
+                        && e.RetornoSugeridoEm >= retornoDesde)
+            .Select(e => new RetornoSugerido(
+                e.Id,
+                e.PacienteId,
+                e.Paciente!.Nome,
+                e.Paciente.Telefone,
+                e.Data,
+                e.RetornoSugeridoEm!.Value,
+                e.RetornoSugeridoNota,
+                e.ProfissionalId,
+                e.Profissional != null ? e.Profissional.NomeCurto : null,
+                e.Profissional != null ? e.Profissional.Nome : null))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<HorarioPosterior>> HorariosAtivosDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        var corte = desde.ToDateTime(TimeOnly.MinValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Where(a => pacienteIds.Contains(a.PacienteId)
+                        && a.DataHora >= corte
+                        && a.Status != StatusAgendamento.Cancelado
+                        && a.Status != StatusAgendamento.Faltou)
+            .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
         CancellationToken ct = default)
     {

@@ -95,6 +95,7 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Nome).IsRequired().HasMaxLength(200);
             e.Property(p => p.Documento).HasMaxLength(30);
             e.Property(p => p.Telefone).HasMaxLength(30);
+            e.Property(p => p.Email).HasMaxLength(120);
             // Endereço residencial: exigência do art. 35 da Lei 5.991/1973 para a receita
             // poder ser aviada. Uma linha só, como a clínica escreve no papel.
             e.Property(p => p.Endereco).HasMaxLength(300);

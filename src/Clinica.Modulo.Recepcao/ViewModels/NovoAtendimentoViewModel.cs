@@ -351,7 +351,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ExecutanteGuia))]
     [NotifyPropertyChangedFor(nameof(ExecutanteADefinir))]
+    [NotifyPropertyChangedFor(nameof(PodeBuscarVagas))]
     private Profissional? _profissional;
+
+    /// <summary>A metade visível: a busca de vagas é DE alguém — sem profissional escolhido o botão explica.</summary>
+    public bool PodeBuscarVagas => Profissional is not null;
 
     /// <summary>
     /// Quem assina a guia da prévia. Sai do profissional escolhido no QUANDO, e diz
@@ -854,8 +858,75 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         CarregarCatalogos();
         await CarregarEquipeAsync();
         await LerChaveGuiaNaMarcacaoAsync();
-        ConsumirPreenchimento();
+        var pacientePedido = ConsumirPreenchimento();
         await Seletor.BuscarAsync(imediato: true);
+        // O paciente do pedido entra DEPOIS da busca inicial: a busca remonta a lista, e
+        // uma ListBox cuja lista é remontada devolve nulo ao `Selecionado` (parcela 37).
+        if (pacientePedido is { } pacienteId) await SelecionarPacientePedidoAsync(pacienteId);
+    }
+
+    /// <summary>
+    /// Escolhe o paciente que a porta de origem já sabia (a fila "Retornos a marcar",
+    /// set/2026). Falhar aqui não impede nada — a recepcionista escolhe pela busca —, mas
+    /// não passa calado: um pré-preenchimento que some sem rastro é o que faz a pessoa
+    /// achar que clicou no botão errado.
+    /// </summary>
+    private async Task SelecionarPacientePedidoAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var paciente = await scope.ServiceProvider
+                .GetRequiredService<IClinicaRepositorio>()
+                .ObterPacienteAsync(pacienteId);
+            if (paciente is not null) Seletor.SelecionarGarantindoNaLista(paciente);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — paciente do pedido de retorno não pôde ser carregado", ex);
+        }
+    }
+
+    /// <summary>
+    /// "Quando cabe?" em lista (set/2026): as próximas vagas de quem atende, a partir da
+    /// data escolhida, já descontando o que está marcado, os bloqueios e a jornada dele.
+    /// Escolher uma vaga preenche data e hora — o resto do formulário continua o mesmo, e
+    /// quem marca é o Salvar de sempre. Até aqui a pergunta se respondia olhando a grade
+    /// dia a dia, com o paciente ao telefone.
+    /// </summary>
+    [RelayCommand]
+    private async Task ProximasVagasAsync()
+    {
+        if (Profissional is not { } profissional)
+        {
+            Avisar("Escolha quem atende para buscar as vagas dele.", aviso: true);
+            return;
+        }
+        try
+        {
+            // A partir de AGORA quando a data é hoje (vaga de manhã num dia que já passou
+            // da tarde não é vaga); a partir do começo do dia quando é outra data.
+            var aPartirDe = Data.Date == DateTime.Today ? DateTime.Now : Data.Date;
+
+            ResultadoBuscaDeVagas resultado;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                resultado = await scope.ServiceProvider
+                    .GetRequiredService<BuscaDeVagasService>()
+                    .ProximasAsync(profissional.Id, aPartirDe, DuracaoInformada());
+            }
+
+            var janela = new Janelas.ProximasVagasWindow(resultado) { Owner = JanelaDona.Atual() };
+            if (janela.ShowDialog() != true || janela.Escolhida is not { } vaga) return;
+
+            Data = vaga.Inicio.Date;
+            Hora = vaga.Inicio.ToString("HH:mm");
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — busca de vagas falhou", ex);
+            Avisar($"Não foi possível buscar as vagas: {ex.Message}", erro: true);
+        }
     }
 
     /// <summary>
@@ -929,14 +1000,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// ⚠️ Só o pedido do MODO desta aba: a agenda pede "marcar", e são duas abas com o
     /// mesmo ViewModel — a aba Lançar, se for a primeira a carregar, não pode engolir o
     /// pedido que a aba Marcar vai consumir em seguida.
+    ///
+    /// Devolve o paciente que o pedido trouxe, quando trouxe (a fila "Retornos a marcar"):
+    /// ele é escolhido depois da busca inicial, e não aqui — ver <see cref="CarregarAsync"/>.
     /// </summary>
-    private void ConsumirPreenchimento()
+    private int? ConsumirPreenchimento()
     {
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var ponte = scope.ServiceProvider.GetService<PreenchimentoNovoAtendimento>();
-            if (ponte?.ConsumirPara(marcarParaDepois: MarcarParaDepois) is not { } pedido) return;
+            if (ponte?.ConsumirPara(marcarParaDepois: MarcarParaDepois) is not { } pedido) return null;
 
             if (pedido.DataHora is { } quando)
             {
@@ -949,10 +1023,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 Sala = Salas.FirstOrDefault(s => s.Id == salaId) ?? Sala;
             // A crítica de choque já correu a cada atribuição acima (hora, profissional,
             // sala) — a última leitura é a que fica, pelo contador de geração.
+            return pedido.PacienteId;
         }
         catch (Exception ex)
         {
             LogSuite.Registrar("Novo atendimento — pré-preenchimento da agenda não pôde ser lido", ex);
+            return null;
         }
     }
 

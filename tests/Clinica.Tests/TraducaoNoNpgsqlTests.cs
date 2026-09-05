@@ -477,4 +477,87 @@ public class TraducaoNoNpgsqlTests
             .ToQueryString()
             .Should().Contain("\"AtendimentoId\"");
     }
+
+    // ==================== Agenda: retornos a marcar e próximos horários (set/2026) ====================
+
+    /// <summary>
+    /// A projeção da fila "Retornos a marcar": navegação para paciente e profissional,
+    /// construtor de record na projeção, e NUNCA o texto da evolução — a fila lista dezenas
+    /// de linhas e o texto é o campo mais pesado da tabela.
+    /// </summary>
+    [Fact]
+    public void Retornos_sugeridos_traduzem_e_nao_trazem_o_texto_da_evolucao()
+    {
+        using var db = Postgres();
+        var desde = new DateOnly(2026, 7, 1);
+
+        var sql = db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null
+                        && e.RetornoSugeridoEm != null
+                        && e.RetornoSugeridoEm >= desde)
+            .Select(e => new RetornoSugerido(
+                e.Id, e.PacienteId, e.Paciente!.Nome, e.Paciente.Telefone, e.Data,
+                e.RetornoSugeridoEm!.Value, e.RetornoSugeridoNota, e.ProfissionalId,
+                e.Profissional != null ? e.Profissional.NomeCurto : null,
+                e.Profissional != null ? e.Profissional.Nome : null))
+            .ToQueryString();
+
+        sql.Should().Contain("\"RetornoSugeridoEm\"")
+            .And.Contain("\"Telefone\"")
+            .And.NotContain("\"TextoEvolucao\"")
+            .And.NotContain("\"Conduta\"");
+    }
+
+    [Fact]
+    public void Horarios_ativos_de_um_conjunto_de_pacientes_traduzem()
+    {
+        using var db = Postgres();
+        var ids = new[] { 1, 2, 3 };
+        var corte = new DateTime(2026, 7, 1);
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId)
+                        && a.DataHora >= corte
+                        && a.Status != StatusAgendamento.Cancelado
+                        && a.Status != StatusAgendamento.Faltou)
+            .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
+            .ToQueryString();
+
+        sql.Should().Contain("\"PacienteId\"").And.Contain("\"Status\"");
+    }
+
+    [Fact]
+    public void Proximos_horarios_do_paciente_traduzem_com_profissional_e_sala()
+    {
+        using var db = Postgres();
+        var agora = new DateTime(2026, 9, 10, 8, 0, 0);
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Include(a => a.Sala)
+            .Where(a => a.PacienteId == 1
+                        && a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= agora)
+            .OrderBy(a => a.DataHora)
+            .Take(5)
+            .ToQueryString();
+
+        sql.Should().Contain("LEFT JOIN \"Profissionais\"").And.Contain("LIMIT");
+    }
+
+    [Fact]
+    public void Horarios_de_um_profissional_no_periodo_traduzem_sem_arrastar_navegacao()
+    {
+        using var db = Postgres();
+        var inicio = new DateTime(2026, 9, 14);
+        var fim = inicio.AddDays(60);
+
+        var sql = db.Agendamentos.AsNoTracking()
+            .Where(a => a.ProfissionalId == 7 && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToQueryString();
+
+        // A busca de vagas lê só hora, duração e status: nenhum JOIN pode entrar aqui.
+        sql.Should().Contain("\"ProfissionalId\"").And.NotContain("JOIN");
+    }
 }

@@ -44,9 +44,13 @@ public sealed class IndicadoresService
         var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, fim, ct);
         var profissionais = await _repo.ProfissionaisAsync(ct);
 
-        var agenda = ResumirAgenda(agendamentos, jornada);
+        // A jornada de cada profissional, quando declarada no cadastro (set/2026), vence a
+        // global: a ocupação de quem atende meio período era medida contra 480 minutos e
+        // saía pela metade do que ele de fato trabalhou.
+        var porId = profissionais.ToDictionary(p => p.Id);
+        var agenda = ResumirAgenda(agendamentos, jornada, porId);
         var produtividade = Produtividade(agendamentos, evolucoes, profissionais, jornada);
-        var serie = Serie(agendamentos, jornada);
+        var serie = Serie(agendamentos, jornada, porId);
 
         return new PainelGerencial(inicio, fim, jornada, agenda, produtividade, serie);
     }
@@ -66,7 +70,7 @@ public sealed class IndicadoresService
     // ---------------------------------------------------------------- agenda
 
     private static IndicadoresAgenda ResumirAgenda(
-        IReadOnlyList<Agendamento> agendamentos, int jornada)
+        IReadOnlyList<Agendamento> agendamentos, int jornada, IReadOnlyDictionary<int, Profissional> profissionais)
     {
         var ocupam = agendamentos.Where(a => a.OcupaAgenda).ToList();
 
@@ -78,7 +82,7 @@ public sealed class IndicadoresService
             Encaixes: ocupam.Count(a => a.Encaixe),
             PacientesDistintos: ocupam.Select(a => a.PacienteId).Distinct().Count(),
             MinutosOcupados: ocupam.Sum(a => a.DuracaoEfetiva),
-            MinutosDisponiveis: MinutosDisponiveis(agendamentos, jornada));
+            MinutosDisponiveis: MinutosDisponiveis(agendamentos, jornada, profissionais));
     }
 
     /// <summary>
@@ -86,12 +90,22 @@ public sealed class IndicadoresService
     /// horários sem profissional informado contam como UMA agenda da clínica no dia —
     /// senão eles somariam ocupação sem somar disponibilidade, e a taxa passaria de 100%.
     /// </summary>
-    private static int MinutosDisponiveis(IReadOnlyList<Agendamento> agendamentos, int jornada)
+    private static int MinutosDisponiveis(
+        IReadOnlyList<Agendamento> agendamentos, int jornada, IReadOnlyDictionary<int, Profissional> profissionais)
         => agendamentos
             .Where(a => a.OcupaAgenda)
             .Select(a => (a.ProfissionalId, Dia: DateOnly.FromDateTime(a.DataHora)))
             .Distinct()
-            .Count() * jornada;
+            .Sum(par => JornadaDe(par.ProfissionalId, jornada, profissionais));
+
+    /// <summary>
+    /// Os minutos de um dia de agenda deste profissional: a jornada declarada no cadastro
+    /// dele (set/2026) ou, sem ela, a global da clínica — o comportamento de sempre.
+    /// </summary>
+    private static int JornadaDe(int? profissionalId, int jornada, IReadOnlyDictionary<int, Profissional> profissionais)
+        => profissionalId is { } id && profissionais.TryGetValue(id, out var p) && p.MinutosDeJornada is { } minutos
+            ? minutos
+            : jornada;
 
     // -------------------------------------------------------- produtividade
 
@@ -102,6 +116,7 @@ public sealed class IndicadoresService
         int jornada)
     {
         var nomes = profissionais.ToDictionary(p => p.Id, p => p.Rotulo);
+        var porId = profissionais.ToDictionary(p => p.Id);
 
         var porProfissional = evolucoes
             .Where(e => e.ProfissionalId is not null)
@@ -137,7 +152,7 @@ public sealed class IndicadoresService
                     PacientesDistintos: ocupam.Select(a => a.PacienteId).Distinct().Count(),
                     MinutosOcupados: ocupam.Sum(a => a.DuracaoEfetiva),
                     DiasComAgenda: dias,
-                    MinutosDisponiveis: dias * jornada,
+                    MinutosDisponiveis: dias * JornadaDe(g.Key, jornada, porId),
                     Evolucoes: doProfissional.Count,
                     // A EVA só entra em PAR (regra da parcela 2): média de meia medida
                     // oscila por falta de dado, não por dor.
@@ -153,7 +168,7 @@ public sealed class IndicadoresService
     // ------------------------------------------------------------- série mensal
 
     private static IReadOnlyList<MesGerencial> Serie(
-        IReadOnlyList<Agendamento> agendamentos, int jornada)
+        IReadOnlyList<Agendamento> agendamentos, int jornada, IReadOnlyDictionary<int, Profissional> profissionais)
         => agendamentos
             .GroupBy(a => new { a.DataHora.Year, a.DataHora.Month })
             .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
@@ -168,7 +183,7 @@ public sealed class IndicadoresService
                     Faltas: g.Count(a => a.Status == StatusAgendamento.Faltou),
                     Cancelados: g.Count(a => a.Status == StatusAgendamento.Cancelado),
                     MinutosOcupados: ocupam.Sum(a => a.DuracaoEfetiva),
-                    MinutosDisponiveis: MinutosDisponiveis(g.ToList(), jornada));
+                    MinutosDisponiveis: MinutosDisponiveis(g.ToList(), jornada, profissionais));
             })
             .ToList();
 }

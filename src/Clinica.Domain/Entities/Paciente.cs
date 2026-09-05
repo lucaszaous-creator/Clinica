@@ -11,6 +11,14 @@ public class Paciente
     public string? Telefone { get; set; }
 
     /// <summary>
+    /// E-mail do paciente (set/2026) — nasceu para o lembrete automático da sessão. Até
+    /// aqui o cadastro só tinha telefone, e o e-mail da exportação do sistema antigo caía
+    /// nas observações. Como o telefone, pode não ser só dele: mensagem para este endereço
+    /// não leva dado clínico. Sai na anonimização e entra na exportação do titular.
+    /// </summary>
+    public string? Email { get; set; }
+
+    /// <summary>
     /// Endereço residencial do paciente.
     ///
     /// Não é enfeite de cadastro: o art. 35 da Lei 5.991/1973 exige o nome E o endereço

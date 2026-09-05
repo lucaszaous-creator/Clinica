@@ -5153,11 +5153,11 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 
   **A fila restante, medida e priorizada** (confirmada na refutação, não corrigida nesta
   parcela — cada uma com o motivo de ter ficado):
-  1. **Horário sem profissional some do quadro do médico** — o seletor novo do avulso fecha a
-     porta que criava órfãos em série, mas o FORMULÁRIO de agendamento continua aceitando
-     salvar sem profissional, e a coluna da visão de SEMANA não pré-seleciona ninguém. Falta
-     decidir com a clínica se o campo passa a ser obrigatório (impede) ou se avisa — e a
-     escolha é dela, não minha.
+  1. ~~Horário sem profissional some do quadro do médico~~ — **pago na parcela 95**: marcar
+     EXIGE quem vai atender (`AgendaService.AgendarAsync`), e só o encaixe passa sem dono.
+     A decisão que aqui esperava a clínica foi tomada por ela ("cai na agenda do médico
+     respectivo"). Set/2026 acrescentou o outro lado da pergunta — a JORNADA do
+     profissional e a busca da próxima vaga com ele.
   2. **O "+" não volta no vão de um horário cancelado** (`CelulaAgenda.Livre` conta os
      cartões sem olhar `ForaDoDia`). A correção esbarra numa escolha de leiaute: o cartão
      cinza é desenhado por cima do botão, então liberar o vão exige ou pôr o "+" na frente
@@ -5189,8 +5189,8 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   outros saíram na rodada "todas as notas em 8" do Consultório, mais abaixo: a autoria da
   fila, as observações que não chegavam, a evolução avulsa cobrindo duas sessões e o
   Atender sem conferir `VerProntuario`. O 6 saiu na parcela 70, junto da unificação. Os
-  itens **3, 4 e 7** foram pagos na parcela 85 — ver a lição abaixo; restam o **1** e o
-  **5** (a transação única + trilha do `ConfirmarPresencaAsync`, que exigem Postgres de
+  itens **3, 4 e 7** foram pagos na parcela 85 — ver a lição abaixo; o **1** na 95. Restam
+  o **5** (a transação única + trilha do `ConfirmarPresencaAsync`, que exigem Postgres de
   verdade) e o **2**, que espera a decisão de leiaute do cliente.)
 
 - **A VARREDURA DA RECEPÇÃO DEPOIS DA AGENDA — três achados, nenhum bloqueador, e todos
@@ -7409,3 +7409,84 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   hedge FALSA** — e hedge falsa num documento que vai ao cliente custa a mesma confiança
   que a promessa exagerada. O `entrega-ao-cliente.md` afirmava, meses depois da parcela
   42, que "**não** há certificado ICP-Brasil".
+
+- **A AGENDA DEPOIS DA ABERTURA: as seis melhorias, e o que a lista pegou na escrita**
+  (set/2026, PR 167 — a direção pediu "resolva as 6" da lista ordenada: retornos a marcar,
+  próximos horários na ficha, ✓ na grade, jornada por profissional, próxima vaga e o
+  lembrete automático por e-mail). Nenhuma era capacidade nova de motor: eram DADOS que o
+  sistema já gravava sem leitor no lugar da decisão. As regras que decidiram cada uma:
+  ⚠️ **O retorno pedido na sessão NUNCA vira agendamento sozinho.** `RetornoSugeridoEm`
+  existia desde a parcela 77 e o único leitor era o painel da sessão anterior — a
+  recepcionista não tinha como saber que o médico pediu "voltar em 7 dias". Virou FILA do
+  balcão (`RetornosAMarcar`, Application, pura): coberto quando há horário ATIVO depois do
+  dia da sessão, atrasado quando a data passou, e o "Marcar horário" chega ao formulário
+  pré-preenchido. Materializá-lo como horário seria o cartão fantasma da parcela 58 de
+  novo. E o convite pelo WhatsApp diz QUEM pediu e PARA QUANDO, nunca por quê — o motivo
+  é registro clínico, e a notificação aparece em tela bloqueada.
+  ⚠️ **O ✓ da grade só afirma o que a RODADA afirmou** (a regra do kanban, parcela 87):
+  Respondido → "Confirmou"; Enviado sem resposta → "Não confirmou"; sem contato → SEM
+  selo. Acusar de "não confirmou" quem nunca foi avisado seria o selo mentindo. Leitura
+  em LOTE pelos agendamentos da grade, uma consulta por dia carregado.
+  ⚠️ **Jornada em branco é o comportamento de SEMPRE.** `DiasDeAtendimento`/`AtendeDas`/
+  `AtendeAte` são nulos em toda linha gravada, e nulo quer dizer "não declarou": a grade
+  não pinta, o Salvar não avisa, a ocupação continua pela jornada global. Declarada, o
+  fora-do-expediente vira `RecursoAgenda.Expediente` no `ConflitosAsync` — AVISA, não
+  impede (a regra da agenda), e o encaixe passa. A ocupação (`IndicadoresService`) usa a
+  jornada DELE com a global como piso — a clínica que não cadastra jornada não vê número
+  nenhum mudar.
+  ⚠️ **A busca de vaga anda no PASSO da grade, não na duração pedida** — e o teste que
+  escrevi esperava o contrário. Uma sessão de 60 min cabe às 14h00, 14h30 e 15h00 dentro
+  de 14h–16h; oferecer só 14h e 15h esconderia a vaga das 14h30 que a grade aceita. O
+  código estava certo; a expectativa era minha. **Quando o teste reprova, a primeira
+  pergunta é qual dos dois está errado** — e a resposta se decide pela regra, não pela
+  asserção que já estava escrita.
+  ⚠️ **`Include` que o consumidor não lê é carga medida e removida**: a leitura dos
+  horários do profissional em 60 dias trazia o `Profissional` de cada linha para um
+  cálculo que só usa hora, duração e status. A rede de tradução do Npgsql passou a cobrar
+  `NotContain("JOIN")` — é a lição da parcela 74 ("meça o que a consulta TRAZ") virando
+  asserção.
+  ⚠️ **O lembrete por e-mail é a MESMA rodada de confirmação, com outro canal.** Mesmo
+  contato, mesma chave de idempotência (o agendamento), mesmo `RegistrarEnvioAsync` — só o
+  `CanalContato` muda. É isso que faz quem já foi avisado pelo WhatsApp não receber e-mail,
+  e quem recebeu e-mail aparecer na janela do balcão como "avisado por e-mail". Duas
+  rodadas divergiriam sobre quem já foi avisado, e o paciente receberia dois.
+  ⚠️ **Sem servidor configurado NÃO GERA contato nenhum — e a ORDEM das duas leituras é a
+  decisão.** A pergunta "há servidor?" vem ANTES de `GerarConfirmacoesAsync`: invertida, a
+  abertura passaria a criar a rodada do dia numa clínica que nunca ligou o e-mail, e a
+  janela "Confirmar sessões" do balcão abriria com os contatos já criados sem ninguém ter
+  clicado em "Gerar rodada". Ligar o e-mail é o que passa a gerar na abertura; desligado, o
+  balcão funciona exatamente como antes, e há teste fixando a contagem zero. **Feature
+  opt-in não muda o comportamento de quem não a ligou.**
+  ⚠️ **Falha de envio DEIXA o contato pendente**, contada e no log — é o que mantém o
+  WhatsApp de um clique como saída e faz a próxima abertura tentar de novo. Marcar como
+  enviado o que o servidor recusou seria a rodada dizendo "avisado" sobre quem não recebeu
+  nada. E a REleitura rastreada do contato antes de mandar existe porque a Recepção e o
+  Gerente abrem no mesmo minuto — o que a outra máquina acabou de avisar não recebe o
+  segundo.
+  ⚠️ **A abertura lembra hoje, amanhã E o fim de semana até a segunda** (`DiasDaAbertura`,
+  pura, testada): a véspera da segunda é o domingo, e no domingo ninguém abre o sistema —
+  sem a regra, a sessão de segunda só seria lembrada na própria segunda de manhã. É a
+  mesma razão de a jornada presumida da busca de vaga excluir só o domingo.
+  ⚠️ **A credencial do SMTP mora no BANCO** (a regra da parcela 53, aplicada sem hesitar
+  desta vez): o lembrete sai de dois postos, e configuração por máquina falharia calada no
+  posto em que ninguém a digitou. A senha em claro é o mesmo problema aberto do
+  `client_secret` do SafeID — separado, conhecido, e não uma novidade daqui.
+  ⚠️ **O texto do e-mail e o do WhatsApp são UMA definição** (`MensagensDeContato`, na
+  Application — o e-mail sai de um serviço sem tela, e a Application não enxerga o shell).
+  A frase ganhou "hoje" / "amanhã" / "segunda-feira, 14/09" em cultura FIXA pt-BR, porque é
+  ENVIADA: dois postos com culturas diferentes mandariam "Monday" e "segunda-feira" pelo
+  mesmo motivo. E o nome que assina cai do nome fantasia para a razão social e por último
+  para o nome do remetente cadastrado — o teste pegou o caso em que a clínica não tem
+  prestador preenchido e a assinatura saía vazia.
+  ⚠️ **`Email` como nome de classe estática colide com a propriedade `Email` de todo
+  ViewModel que a usaria** — dentro da classe, `Email.Valido(Email)` resolve para a
+  propriedade. Daí `EnderecoDeEmail`, no Domínio: uma validação para a ficha (que grava),
+  o lembrete (que envia) e as Configurações (que cadastram o remetente).
+  ⚠️ **O quinto botão numa barra de `StackPanel` horizontal sai cortado pela borda** da
+  janela mínima (560). Virou `WrapPanel` filho do `StackPanel` vertical — largura FINITA,
+  dobra de verdade (a checagem 32 pelo avesso: lá o WrapPanel não dobrava por estar num
+  filho de largura infinita).
+  As redes pegaram o resto, como devem: `ctrl:Ajudantes.Placeholder` numa janela que não
+  declarava `xmlns:ctrl` (o parser XML do `verificar-suite` acusou o prefixo solto — o
+  `MC3074` que o CI pegaria sete minutos depois) e um `TextBlock` de data sem
+  `TextTrimming` numa célula de 150 px (checagem 24).

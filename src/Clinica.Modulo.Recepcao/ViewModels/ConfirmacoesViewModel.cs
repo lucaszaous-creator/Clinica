@@ -3,6 +3,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -19,6 +20,7 @@ public sealed partial class LinhaConfirmacao : ObservableObject
     public required string Horario { get; init; }
     public required DateTime Quando { get; init; }
     public required string? TelefoneCru { get; init; }
+    public required string? EmailCru { get; init; }
     public required string Profissional { get; init; }
 
     /// <summary>Muda na tela assim que o WhatsApp abre — sem esperar recarregar a lista.</summary>
@@ -27,6 +29,9 @@ public sealed partial class LinhaConfirmacao : ObservableObject
     [ObservableProperty] private bool _enviado;
 
     public bool TemTelefone => !string.IsNullOrWhiteSpace(TelefoneCru);
+
+    /// <summary>Tem e-mail VÁLIDO na ficha — é quem o lembrete automático alcança.</summary>
+    public bool TemEmail => EnderecoDeEmail.Valido(EmailCru);
 }
 
 /// <summary>
@@ -114,6 +119,7 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
                     Horario = quando.ToString("HH:mm"),
                     Quando = quando,
                     TelefoneCru = c.Paciente?.Telefone,
+                    EmailCru = c.Paciente?.Email,
                     Profissional = c.Agendamento?.Profissional?.Rotulo ?? "—",
                     // Quem já foi contatado aparece marcado em vez de sumir: a lista é o
                     // retrato da rodada, e sumir com o enviado esconderia o que já rodou.
@@ -124,10 +130,13 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
 
             var enviados = Contatos.Count(c => c.Enviado);
             var semTelefone = Contatos.Count(c => !c.TemTelefone);
+            var comEmail = Contatos.Count(c => c.TemEmail);
 
+            // Quantos o e-mail alcança entra no resumo: é o número que diz se vale a pena
+            // clicar em "Enviar e-mails" — e, quando é zero, por que o botão não fez nada.
             Resumo = Contatos.Count == 0
                 ? "Nenhuma sessão gerada para este dia. Clique em \"Gerar rodada\"."
-                : $"{Contatos.Count} sessão(ões) · {enviados} já avisada(s)"
+                : $"{Contatos.Count} sessão(ões) · {enviados} já avisada(s) · {comEmail} com e-mail"
                   + (semTelefone > 0 ? $" · {semTelefone} SEM TELEFONE no cadastro." : ".");
         }
         catch (Exception ex)
@@ -150,8 +159,52 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
     {
         StatusContato.Respondido => "respondeu",
         StatusContato.Dispensado => "dispensado",
-        _ => c.EnviadoEm is { } quando ? $"avisado em {quando:dd/MM HH:mm}" : "a enviar"
+        // O CANAL entra na frase: "avisado por e-mail" e "avisado pelo WhatsApp" são
+        // respostas diferentes para "vale mandar de novo pelo outro?".
+        _ => c.EnviadoEm is { } quando
+            ? $"avisado em {quando:dd/MM HH:mm}{Canal(c.Canal)}"
+            : "a enviar"
     };
+
+    private static string Canal(CanalContato canal) => canal switch
+    {
+        CanalContato.Email => " por e-mail",
+        CanalContato.Telefone => " por telefone",
+        CanalContato.Presencial => " no balcão",
+        _ => string.Empty
+    };
+
+    /// <summary>
+    /// Manda o lembrete por e-mail a quem ainda está pendente e tem endereço — o MESMO
+    /// serviço que roda na abertura do app (set/2026). O botão existe para o dia em que a
+    /// abertura não rodou (o app ficou aberto desde ontem) ou em que alguém cadastrou o
+    /// e-mail depois. Desligado, a frase diz onde ligar.
+    /// </summary>
+    [RelayCommand]
+    private async Task EnviarEmailsAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "enviar os lembretes por e-mail");
+
+            using var scope = _escopos.CreateScope();
+            var lembretes = scope.ServiceProvider.GetRequiredService<LembreteEmailService>();
+
+            var r = await lembretes.EnviarConfirmacoesAsync(DateOnly.FromDateTime(Dia));
+
+            // A frase vem DEPOIS do recarregar (a carga começa zerando `Mensagem`).
+            await CarregarAsync();
+
+            Mensagem = r.Descricao;
+            MensagemEhErro = r.Desligado || r.TeveFalha;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — lembretes por e-mail não puderam ser enviados", ex);
+            Erro(ex.Message);
+        }
+    }
 
     /// <summary>
     /// Descobre quem tem sessão no dia e cria o contato de cada um. É idempotente:

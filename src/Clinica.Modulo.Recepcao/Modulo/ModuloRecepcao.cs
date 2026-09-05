@@ -33,6 +33,13 @@ public sealed class ModuloRecepcao : IModuloApp
 
     /// <summary>A conferência do que foi lançado — aba de "Atendimento" (set/2026).</summary>
     public const string ChaveLancamentos = "lancamentos";
+
+    /// <summary>
+    /// A fila "Retornos a marcar" — aba de "Atendimento" (set/2026): quem saiu do
+    /// atendimento com pedido de retorno e ainda não tem horário. O Consultório grava a
+    /// data sugerida desde a parcela 77 e o balcão não tinha por onde lê-la.
+    /// </summary>
+    public const string ChaveRetornosAMarcar = "retornos-a-marcar";
     public const string ChavePacientes = ChavesSuite.PacientesRecepcao;
     public const string ChaveProntuario = "prontuario";
     public const string ChavePrescricoes = ChavesSuite.PrescricoesRecepcao;
@@ -207,6 +214,7 @@ public sealed class ModuloRecepcao : IModuloApp
             [
                 new AbaMenu("Lan\u00E7ar", ChaveNovoAtendimento),
                 new AbaMenu("Marcar", ChaveMarcarHorario),
+                new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
                 new AbaMenu("Lan\u00E7amentos", ChaveLancamentos),
                 new AbaMenu("Consultas de conv\u00EAnio", ChaveConsultas)
             ]
@@ -334,6 +342,13 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
         },
+        // Retornos a marcar: LEITURA da agenda (VerAgenda). Marcar, dentro dela, exige
+        // EditarAgenda no comando — as duas metades em cada linha.
+        new ItemMenuModulo
+        {
+            Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerAgenda
+        },
         new ItemMenuModulo
         {
             Chave = ChavePrescricoes, Rotulo = "Receitu\u00E1rio", Glifo = "\uE8A5",
@@ -371,6 +386,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
         // pré-preenchimento, definido por quem navega e consumido pela tela ao abrir.
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
+        servicos.AddSingleton<PedidoAgenda>();
 
         servicos.AddTransient<PainelViewModel>();
         servicos.AddTransient<AgendaViewModel>();
@@ -380,6 +396,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<NovoAtendimentoViewModel>();
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<LancamentosViewModel>();
+        servicos.AddTransient<RetornosAMarcarViewModel>();
         servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
@@ -417,6 +434,10 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveLancamentos => new LancamentosView
         {
             DataContext = servicos.GetRequiredService<LancamentosViewModel>()
+        },
+        ChaveRetornosAMarcar => new RetornosAMarcarView
+        {
+            DataContext = servicos.GetRequiredService<RetornosAMarcarViewModel>()
         },
         ChaveRetorno => new RetornoView { DataContext = servicos.GetRequiredService<RetornoViewModel>() },
         ChaveSalaInfusao => new SalaInfusaoView

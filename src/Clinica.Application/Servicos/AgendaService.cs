@@ -366,8 +366,10 @@ public sealed class AgendaService
         int? profissionalId = null, int? salaId = null, int? pacienteId = null,
         int? ignorarAgendamentoId = null, CancellationToken ct = default)
     {
+        // O profissional é lido UMA vez: dá a duração padrão dele e a jornada (set/2026).
+        var profissional = profissionalId is { } pid ? await _repo.ObterProfissionalAsync(pid, ct) : null;
         var fim = dataHora.AddMinutes(
-            duracaoMinutos ?? await DuracaoPadraoAsync(profissionalId, ct));
+            duracaoMinutos ?? profissional?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos);
 
         var doDia = (await DoDiaAsync(DateOnly.FromDateTime(dataHora), ct))
             .Where(a => a.Id != ignorarAgendamentoId && a.OcupaAgenda && a.ColideCom(dataHora, fim))
@@ -413,6 +415,18 @@ public sealed class AgendaService
             .Where(b => b.AlcancaRecurso(profissionalId, salaId))
             .Select(b => new ConflitoAgenda(
                 RecursoAgenda.Bloqueio, b.Id, b.Descricao, b.Inicio, b.Fim)));
+
+        // FORA DO EXPEDIENTE (set/2026): a jornada declarada do profissional. Até aqui quem
+        // atende terça e quinta era marcável nos outros cinco dias, e a única saída era um
+        // bloqueio semanal repetido à mão. É a regra do bloqueio aplicada à rotina: recusa
+        // com a frase que diz quando ele atende, e o ENCAIXE passa — quem assume atender
+        // fora da hora assume por escrito, como no feriado. Sem jornada declarada, nada
+        // muda: `DentroDoExpediente` responde sim para tudo.
+        if (profissional is { JornadaDeclarada: true } && !profissional.DentroDoExpediente(dataHora, fim))
+            conflitos.Add(new ConflitoAgenda(
+                RecursoAgenda.Expediente, 0,
+                $"{profissional.Rotulo} não atende neste horário — atende {profissional.DescricaoJornada}.",
+                dataHora, fim));
 
         return conflitos;
     }
@@ -564,14 +578,6 @@ public sealed class AgendaService
     public Task<IReadOnlyList<Agendamento>> DaSerieAsync(
         string serieId, CancellationToken ct = default)
         => _repo.AgendamentosDaSerieAsync(serieId, ct);
-
-    /// <summary>Duração padrão do profissional; na falta dele, a da clínica.</summary>
-    private async Task<int> DuracaoPadraoAsync(int? profissionalId, CancellationToken ct)
-    {
-        if (profissionalId is null) return Agendamento.DuracaoPadraoMinutos;
-        var prof = await _repo.ObterProfissionalAsync(profissionalId.Value, ct);
-        return prof?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos;
-    }
 
     /// <summary>Ocupação do dia, um item por profissional (mais um para "sem profissional").</summary>
     public async Task<IReadOnlyList<OcupacaoProfissional>> OcupacaoDoDiaAsync(
