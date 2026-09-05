@@ -1,0 +1,472 @@
+<title>Uma folha, dois lados</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 28px 80px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:70ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:52px 0}
+.placar{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden; margin:34px 0 0}
+.placar div{background:var(--sup); padding:18px 20px}
+.placar .n{font-family:"IBM Plex Mono",monospace; font-size:28px; font-weight:600; letter-spacing:-.03em; line-height:1.1; font-variant-numeric:tabular-nums}
+.placar .n s{color:var(--mudo); font-weight:400; font-size:20px; margin-right:8px}
+.placar .r{font-size:13px; color:var(--mudo); margin-top:4px}
+.regras{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:2px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.regras li{background:var(--sup); padding:16px 20px; display:grid; grid-template-columns:26px 1fr; gap:14px; align-items:start}
+.regras .marca{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--acento); padding-top:3px}
+.regras b{font-weight:600}
+.regras span.txt{font-size:14.5px; line-height:1.55; color:var(--tinta-2)}
+.opcao{margin-top:56px; scroll-margin-top:20px}
+.op-topo{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.op-letra{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px; background:var(--acento); color:var(--sobre-acento); border-radius:6px; padding:3px 9px; letter-spacing:.04em}
+.contador{margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--mudo); border:1px solid var(--fio-forte); border-radius:999px; padding:4px 12px; white-space:nowrap}
+.contador b{color:var(--tinta); font-weight:600}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; line-height:1.6; color:var(--tinta-2); max-width:72ch; margin:0 0 22px}
+.cap{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin:22px 0 8px}
+.cap b{color:var(--tinta); font-weight:600}
+.analise{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; margin-top:20px}
+.bloco{border-left:3px solid var(--fio-forte); padding:2px 0 2px 16px}
+.bloco.g{border-color:var(--ganho)} .bloco.c{border-color:var(--custo)} .bloco.e{border-color:var(--acento)}
+.bloco h4{margin:0 0 6px; font-size:11.5px; font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo)}
+.bloco.g h4{color:var(--ganho)} .bloco.c h4{color:var(--custo)} .bloco.e h4{color:var(--acento)}
+.bloco p{font-size:14.5px; line-height:1.55; color:var(--tinta-2); margin:0 0 8px}
+.bloco p:last-child{margin:0}
+.reco{background:var(--sup); border:1px solid var(--fio); border-top:3px solid var(--acento); border-radius:12px; padding:28px 30px; margin-top:30px; box-shadow:var(--sombra)}
+.reco h2{margin-bottom:12px}
+.perguntas{list-style:none; padding:0; margin:18px 0 0; display:grid; gap:12px}
+.perguntas li{display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.perguntas .q{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--acento); font-weight:600; padding-top:2px}
+.nota{font-size:13px; color:var(--mudo); font-style:italic; font-family:"IBM Plex Serif",Georgia,serif; margin-top:14px}
+.tab-wrap{overflow-x:auto; border:1px solid var(--fio); border-radius:12px; margin-top:20px; background:var(--sup)}
+table{border-collapse:collapse; width:100%; min-width:720px; font-size:14px}
+th,td{text-align:left; padding:11px 16px; border-bottom:1px solid var(--fio); vertical-align:top}
+thead th{background:var(--sup-2); font-size:11.5px; font-family:"IBM Plex Mono",monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--mudo); font-weight:600; white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
+td s{color:var(--mudo)}
+
+/* ---- a pilha (o "antes", medido) ---- */
+.pilhas{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:8px}
+@media (max-width:820px){.pilhas{grid-template-columns:1fr}}
+.pilha{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:14px 16px}
+.pilha .t{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin-bottom:10px}
+.pilha .t b{color:var(--tinta)}
+.bar{display:flex; align-items:center; gap:10px; margin:3px 0; font-size:12.5px; color:var(--tinta-2)}
+.bar .h{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--mudo); width:52px; text-align:right; flex:none; font-variant-numeric:tabular-nums}
+.bar .b{background:var(--fio); border-radius:4px; height:12px; flex:none}
+.bar .b.folha{background:var(--acento)}
+.bar .b.cortado{background:repeating-linear-gradient(45deg,var(--custo),var(--custo) 4px,var(--custo-fundo) 4px,var(--custo-fundo) 8px)}
+.bar .l{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pilha .soma{margin-top:10px; padding-top:10px; border-top:1px solid var(--fio); font-size:13px; color:var(--tinta-2)}
+.pilha .soma b{color:var(--tinta)}
+
+/* ======================================================================
+   A TELA — render fiel do app (paleta fixa, tokens do repositório)
+   ====================================================================== */
+.moldura{overflow-x:auto; border-radius:12px; background:var(--sup-2); padding:0}
+.tela{
+  --acento:#123A9E; --acento-suave:#EEF3FC; --acento-tint:#D8E3F7;
+  --fundo:#F8FAFC; --superficie:#FFFFFF; --superficie-hover:#F1F5F9;
+  --borda:#E5E7EB; --borda-hover:#D1D5DB;
+  --texto-primario:#111827; --texto-secundario:#6B7280; --texto-corpo:#374151;
+  --sucesso:#16A34A; --sucesso-forte:#15803D; --sucesso-suave:#DCFCE7;
+  --aviso:#EA580C; --aviso-texto:#C2410C; --aviso-suave:#FFEDD5;
+  --erro:#DC2626; --erro-texto:#B91C1C; --erro-suave:#FEE2E2;
+  --info:#0EA5E9; --info-texto:#0369A1; --info-suave:#E0F2FE;
+  min-width:1040px; background:var(--fundo); color:var(--texto-primario);
+  font-family:"Segoe UI",Inter,system-ui,sans-serif; font-size:14px; line-height:1.45;
+  border:1px solid #C3C9D6; border-radius:12px; overflow:hidden; box-shadow:var(--sombra);
+}
+.tela *{box-sizing:border-box}
+.tela .cracha{background:var(--superficie); border-bottom:1px solid var(--borda); padding:10px 20px; display:flex; align-items:center; gap:12px}
+.tela .av{width:40px; height:40px; border-radius:999px; background:var(--acento-suave); color:var(--acento); font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex:none}
+.tela .ident{min-width:0; flex:1}
+.tela .ident .l1{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.tela .ident .nome{font-size:17px; font-weight:600; letter-spacing:-.01em}
+.tela .ident .meta{font-size:12.5px; color:var(--texto-secundario)}
+.tela .ident .l2{display:flex; gap:12px; flex-wrap:wrap; margin-top:3px; font-size:12.5px; color:var(--texto-corpo); align-items:center}
+.tela .ident .l2 .k{color:var(--texto-secundario)}
+.tela .alergia{background:var(--erro-suave); color:var(--erro-texto); font-weight:700; border-radius:999px; padding:2px 10px; font-size:11.5px; letter-spacing:.02em}
+.tela .sit{margin-left:auto; text-align:right; flex:none}
+.tela .sit .estado{display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:var(--sucesso-forte); background:var(--sucesso-suave); border-radius:999px; padding:4px 12px}
+.tela .sit .estado .pt{width:8px; height:8px; border-radius:999px; background:var(--sucesso)}
+.tela .sit .estado.antes{color:var(--texto-corpo); background:var(--superficie-hover)}
+.tela .sit .estado.antes .pt{background:var(--texto-secundario)}
+.tela .sit .lk{display:block; font-size:12px; color:var(--acento); font-weight:600; margin-top:4px}
+.tela .volta{color:var(--texto-secundario); font-size:18px; flex:none; margin-right:2px}
+.tela .corpo{display:flex; min-height:520px}
+.tela .rail{width:186px; flex:none; background:var(--superficie); border-right:1px solid var(--borda); padding:10px 8px}
+.tela .rail div{font-size:13px; color:var(--texto-corpo); padding:7px 10px; border-radius:6px; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.tela .rail div.on{background:var(--acento-suave); color:var(--acento); font-weight:600}
+.tela .rail .grp{font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--texto-secundario); padding:12px 10px 4px; font-weight:600}
+.tela .rail div.esc{opacity:.45}
+.tela .principal{flex:1; padding:12px 20px 0; display:flex; flex-direction:column; min-width:0}
+/* linha das abas com as ferramentas à direita */
+.tela .abasrow{display:flex; align-items:flex-end; gap:8px; border-bottom:1px solid var(--borda)}
+.tela .abasrow .abas{display:flex; gap:2px; flex:1}
+.tela .abasrow .abas div{padding:6px 12px 8px; font-size:13.5px; color:var(--texto-corpo); border-bottom:2px solid transparent; margin-bottom:-1px}
+.tela .abasrow .abas div.on{color:var(--acento); font-weight:600; border-bottom-color:var(--acento)}
+.tela .ferr{display:flex; gap:6px; padding-bottom:6px}
+.tela .btn{border:1px solid var(--borda-hover); background:#fff; color:var(--texto-corpo); border-radius:8px; padding:7px 12px; font-size:13px; font-weight:500; display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
+.tela .btn.pri{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .btn.sm{padding:4px 10px; font-size:12.5px}
+.tela .btn.ghost{border-color:transparent; color:var(--acento); font-weight:600}
+/* avisos */
+.tela .avisos{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; margin:10px 0 0; overflow:hidden}
+.tela .avisos .lin{display:flex; gap:10px; align-items:center; padding:7px 14px; font-size:12.5px; color:var(--texto-corpo); border-left:3px solid var(--aviso)}
+.tela .avisos .lin + .lin{border-top:1px solid var(--borda)}
+.tela .avisos .lin.perigo{border-left-color:var(--erro); font-weight:600}
+.tela .avisos .lin .acao{margin-left:auto; color:var(--acento); font-weight:600; font-size:12px; white-space:nowrap}
+/* o cartão da folha */
+.tela .card{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; margin-top:10px; padding:12px 14px; display:flex; flex-direction:column; flex:1; min-height:0}
+.tela .tira{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.tela .tira .t{display:flex; align-items:center; gap:6px}
+.tela .tira .k{font-size:11px; color:var(--texto-secundario); text-transform:uppercase; letter-spacing:.05em; font-weight:600}
+.tela .tira .cx{border:1px solid var(--borda-hover); border-radius:4px; padding:3px 9px; font-weight:600; font-variant-numeric:tabular-nums; background:#fff; font-size:13px; min-width:52px; text-align:center}
+.tela .tira .cx.w{min-width:110px}
+.tela .tira .sep{width:1px; height:20px; background:var(--borda)}
+.tela .ctx{font-size:12.5px; color:var(--texto-secundario); margin-bottom:8px; line-height:1.5}
+.tela .ctx b{color:var(--texto-corpo); font-weight:600}
+.tela .folha{flex:1; border:1px solid var(--acento); box-shadow:0 0 0 3px rgba(63,98,201,.14); border-radius:6px; padding:10px 12px; min-height:280px; font-size:14px; line-height:1.62; color:var(--texto-primario); background:#fff}
+.tela .folha .rot{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario); margin-bottom:6px}
+.tela .folha p{margin:0 0 8px}
+.tela .folha .cursor{display:inline-block; width:1.5px; height:15px; background:var(--acento); vertical-align:-3px}
+.tela .placeholder{color:#9AA3B2}
+.tela .pe{display:flex; align-items:center; gap:12px; margin-top:10px; font-size:12.5px; color:var(--texto-corpo); flex-wrap:wrap}
+.tela .pe .bx{width:15px; height:15px; border:1px solid var(--borda-hover); border-radius:3px; background:#fff; display:inline-block; vertical-align:-3px; margin-right:5px}
+.tela .pe .in{height:30px; border:1px solid var(--borda-hover); border-radius:4px; background:#fff; padding:0 9px; display:inline-flex; align-items:center; font-size:12.5px; color:#9AA3B2; min-width:200px}
+.tela .pe .marca{margin-left:auto; font-size:11.5px; color:var(--aviso-texto); background:var(--aviso-suave); border-radius:999px; padding:2px 9px; font-weight:600}
+.tela .detalhar{border:1px solid var(--borda); border-radius:8px; background:var(--superficie); padding:8px 14px; margin-top:10px; display:flex; align-items:center; gap:9px; font-size:13px; color:var(--texto-corpo)}
+.tela .detalhar .cv{color:var(--texto-secundario); font-size:11px}
+.tela .detalhar .lista{color:var(--texto-secundario); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tela .detalhar .marca{margin-left:auto; font-size:11.5px; color:var(--aviso-texto); background:var(--aviso-suave); border-radius:999px; padding:2px 9px; font-weight:600}
+.tela .rodape{border-top:1px solid var(--borda); background:var(--superficie); padding:10px 20px; display:flex; align-items:center; gap:8px; margin:12px -20px 0}
+.tela .dica{font-size:12px; color:var(--texto-secundario); margin-right:auto}
+/* plano de cuidados */
+.tela .plano{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; margin-top:10px; padding:10px 14px}
+.tela .plano .h{display:flex; align-items:center; gap:10px; margin-bottom:6px}
+.tela .plano .h .rot{font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--texto-secundario)}
+.tela .plano .h .res{font-size:12px; color:var(--texto-secundario)}
+.tela .plano .h .hora{margin-left:auto; display:flex; gap:6px; align-items:center; font-size:12px; color:var(--texto-secundario)}
+.tela .plano .h .hora .cx{border:1px solid var(--borda-hover); border-radius:4px; padding:2px 8px; background:#fff; color:var(--texto-primario); font-weight:600}
+.tela .cuid{display:flex; align-items:center; gap:10px; padding:5px 0; border-top:1px solid var(--borda); font-size:13px}
+.tela .cuid .n{font-weight:600}
+.tela .cuid .f{color:var(--texto-secundario); font-size:12px}
+.tela .cuid .ok{color:var(--sucesso-forte); font-size:12px; font-weight:600}
+.tela .cuid .acs{margin-left:auto; display:flex; gap:6px}
+.tela .cuid .acs .btn{padding:3px 9px; font-size:12px}
+/* rail comparativo */
+.rails{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:8px}
+@media (max-width:820px){.rails{grid-template-columns:1fr}}
+.railbox{background:var(--sup); border:1px solid var(--fio); border-radius:12px; padding:14px 16px}
+.railbox .t{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin-bottom:10px}
+.railbox .t b{color:var(--tinta)}
+.railbox ul{list-style:none; padding:0; margin:0}
+.railbox li{padding:6px 10px; border-radius:6px; font-size:13.5px; color:var(--tinta-2); display:flex; gap:10px; align-items:center}
+.railbox li.g{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--mudo); font-weight:600; padding-top:10px}
+.railbox li.on{background:var(--acento-suave); color:var(--acento); font-weight:600}
+.railbox li .sub{margin-left:auto; font-size:11.5px; color:var(--mudo); font-family:"IBM Plex Mono",monospace}
+.railbox li s{color:var(--mudo)}
+.railbox li .novo{font-size:10.5px; color:var(--ganho); background:var(--ganho-fundo); border-radius:999px; padding:1px 8px; font-weight:600}
+@media (max-width:720px){ .wrap{padding:34px 16px 60px} h1{font-size:32px} .contador{margin-left:0} }
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Clínica SemDor · Módulo Consultório · setembro de 2026</p>
+  <h1>Uma folha, dois lados</h1>
+  <p class="lede">A folha única foi aprovada e entregue — e hoje ela é o menor pedaço da tela. Antes de o cursor chegar ao campo de escrever, o médico atravessa o crachá, a barra verde da sessão, a barra de ferramentas, a régua de abas, a tira de números e quatro linhas de contexto. A enfermagem escreve a mesma passagem por três portas, com dois desenhos. Este documento mede isso e propõe o corte, para a cliente aprovar antes de uma linha de código.</p>
+
+  <div class="placar">
+    <div><div class="n"><s>~450 px</s> ~190 px</div><div class="r">de cabeçalho antes da folha, no monitor de 768 do consultório (estimado pelo XAML, não medido na tela)</div></div>
+    <div><div class="n"><s>11</s> 8</div><div class="r">botões visíveis na tela de atendimento do médico — em <s>4</s> 2 lugares</div></div>
+    <div><div class="n"><s>8</s> 6</div><div class="r">seções no rail do paciente, <s>em 2 grupos</s> numa lista só</div></div>
+    <div><div class="n"><s>3 portas · 2 desenhos</s> 1 desenho</div><div class="r">para a enfermagem escrever a passagem — e o mesmo XAML nas três portas</div></div>
+  </div>
+
+  <h2 style="margin-top:44px">O que este desenho NÃO desfaz</h2>
+  <ul class="regras">
+    <li><span class="marca">01</span><span class="txt"><b>A folha única</b> (mockup 01, aprovado) continua sendo a tela: o cursor nasce dentro dela e o que se escreve é a evolução. Os doze campos continuam no banco e atrás de “Detalhar…”, com o selo que conta quantos a sessão tem.</span></li>
+    <li><span class="marca">02</span><span class="txt"><b>As três abas</b> de cada lado (a sessão de hoje · o que veio antes · o que o outro lado registrou) — a correção da 9ª reprovação. Ficam iguais nos dois lados.</span></li>
+    <li><span class="marca">03</span><span class="txt"><b>Salvar e Finalizar continuam dois atos</b> (Finalizar avisa o balcão e gera a guia). O que muda é o LUGAR: os dois passam a morar lado a lado, no pé da folha.</span></li>
+    <li><span class="marca">04</span><span class="txt"><b>A consulta COFEN em janela</b>, o catálogo em janela e o detalhe em janela — decididos com a cliente nas parcelas 88 e 95. O que muda é como se chega a elas.</span></li>
+    <li><span class="marca">05</span><span class="txt"><b>A sidebar do Consultório</b> da parcela 95 (Minha agenda · Enfermagem · Pacientes · Prescrições · Meus números) não muda. O que se organiza aqui é <em>dentro</em> do paciente.</span></li>
+  </ul>
+
+  <!-- ============================================================ A -->
+  <section class="opcao" id="a">
+    <div class="op-topo"><span class="op-letra">A</span><h2>O crachá de duas linhas, e a barra verde some</h2><span class="contador">hoje <b>~225 px</b> · proposta <b>~70 px</b></span></div>
+    <p class="tese">O crachá tem seis linhas (nome, idade, contexto, alergias em faixa vermelha de largura inteira, “em acompanhamento”, “últimas hipóteses”) e embaixo dele uma barra verde de 74 px cuja única informação é “em atendimento há 12 min” — mais uma frase explicando o que o botão Finalizar faz. A proposta: <strong>duas linhas</strong>. A primeira é quem (nome · idade · convênio · carteirinha); a segunda é o que muda a conduta (a alergia como pílula vermelha, o acompanhamento, a última hipótese). A situação da sessão vira uma pílula à direita, e o Finalizar desce para o pé da folha, ao lado do Salvar — onde a sessão termina.</p>
+
+    <p class="cap"><b>A pilha</b> · o que há entre o topo da tela e o campo de escrever (estimativa pelo XAML, 768 px de altura)</p>
+    <div class="pilhas">
+      <div class="pilha">
+        <div class="t"><b>Hoje</b> · médico, com um aviso</div>
+        <div class="bar"><span class="h">~150</span><span class="b" style="width:150px"></span><span class="l">crachá (6 linhas + faixa de alergia)</span></div>
+        <div class="bar"><span class="h">~74</span><span class="b" style="width:74px"></span><span class="l">barra verde da sessão + frase do Finalizar</span></div>
+        <div class="bar"><span class="h">~50</span><span class="b" style="width:50px"></span><span class="l">ferramentas (Colher termo · Mapa · Documento · Modelos)</span></div>
+        <div class="bar"><span class="h">~40</span><span class="b" style="width:40px"></span><span class="l">avisos</span></div>
+        <div class="bar"><span class="h">~48</span><span class="b" style="width:48px"></span><span class="l">régua de abas</span></div>
+        <div class="bar"><span class="h">~66</span><span class="b" style="width:66px"></span><span class="l">tira (data · EVA · EVA · retorno)</span></div>
+        <div class="bar"><span class="h">~90</span><span class="b" style="width:90px"></span><span class="l">4 linhas de contexto + rótulo</span></div>
+        <div class="bar"><span class="h">~130</span><span class="b folha" style="width:130px"></span><span class="l"><b>a folha</b> — o que sobra</span></div>
+        <div class="bar"><span class="h">~46</span><span class="b" style="width:46px"></span><span class="l">Detalhar…</span></div>
+        <div class="bar"><span class="h">~60</span><span class="b" style="width:60px"></span><span class="l">rodapé (3 botões)</span></div>
+        <div class="soma">Cabeçalho <b>~520 px</b> · folha <b>~130 px</b>. A folha é a única coisa que cresce com o dado, e é a que fica com menos.</div>
+      </div>
+      <div class="pilha">
+        <div class="t"><b>Proposta</b> · médico, com um aviso</div>
+        <div class="bar"><span class="h">~70</span><span class="b" style="width:70px"></span><span class="l">crachá (2 linhas, situação da sessão dentro)</span></div>
+        <div class="bar"><span class="h">~44</span><span class="b" style="width:44px"></span><span class="l">abas + ferramentas NA MESMA linha</span></div>
+        <div class="bar"><span class="h">~40</span><span class="b" style="width:40px"></span><span class="l">avisos</span></div>
+        <div class="bar"><span class="h">~66</span><span class="b" style="width:66px"></span><span class="l">tira + UMA linha de contexto</span></div>
+        <div class="bar"><span class="h">~380</span><span class="b folha" style="width:380px"></span><span class="l"><b>a folha</b></span></div>
+        <div class="bar"><span class="h">~46</span><span class="b" style="width:46px"></span><span class="l">Detalhar…</span></div>
+        <div class="bar"><span class="h">~60</span><span class="b" style="width:60px"></span><span class="l">rodapé (Imprimir · Salvar · Finalizar)</span></div>
+        <div class="soma">Cabeçalho <b>~220 px</b> · folha <b>~380 px</b>. O que se ganhou foi altura para o que a folha existe para receber: texto.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ B -->
+  <section class="opcao" id="b">
+    <div class="op-topo"><span class="op-letra">B</span><h2>O atendimento do médico</h2><span class="contador">hoje <b>11 botões em 4 lugares</b> · proposta <b>8 em 2</b></span></div>
+    <p class="tese">As ferramentas da sessão (Mapa corporal · Emitir documento · Modelos…) sobem para a linha das abas, à direita, onde hoje há espaço vazio. O “Colher termo” deixa de ser botão solto: ele mora na linha de aviso do termo, que já traz o botão. “Repetir última conduta” entra em Modelos… como a primeira opção — é um roteiro como os outros. A tira fica (são os quatro números que alimentam a curva da dor e o painel), e as quatro linhas de contexto viram <strong>uma</strong>: a última sessão e o que a enfermagem aferiu hoje, na mesma frase.</p>
+
+    <p class="cap"><b>Proposta</b> · em atendimento, com alergia e termo pendente</p>
+    <div class="moldura"><div class="tela">
+      <div class="cracha">
+        <span class="volta">‹</span>
+        <div class="av">MS</div>
+        <div class="ident">
+          <div class="l1"><span class="nome">Maria da Silva</span><span class="meta">61 anos · Unimed Costa do Sol · carteirinha válida até 12/2026 · em tratamento desde mar/2025 · 18 sessões</span></div>
+          <div class="l2"><span class="alergia">ALERGIA · dipirona</span><span><span class="k">Em acompanhamento:</span> lombalgia crônica, HAS</span><span><span class="k">Última hipótese:</span> M54.5 lombalgia</span></div>
+        </div>
+        <div class="sit"><span class="estado"><span class="pt"></span>Em atendimento há 12 min</span><span class="lk">Trocar paciente</span></div>
+      </div>
+      <div class="corpo">
+        <div class="rail">
+          <div class="on">Atendimento</div>
+          <div>Paciente</div>
+          <div>Histórico</div>
+          <div>Exames e anexos</div>
+          <div>Prescrições e documentos</div>
+          <div>Acompanhamento</div>
+        </div>
+        <div class="principal">
+          <div class="abasrow">
+            <div class="abas"><div class="on">A sessão de hoje</div><div>Sessões anteriores</div><div>Enfermagem e infusões</div></div>
+            <div class="ferr"><span class="btn sm">Mapa corporal</span><span class="btn sm">Emitir documento</span><span class="btn sm">Modelos…</span></div>
+          </div>
+          <div class="avisos">
+            <div class="lin perigo"><span>O procedimento de hoje exige termo assinado, e a paciente ainda não assinou.</span><span class="acao">Colher assinatura…</span></div>
+            <div class="lin"><span>Consulta do convênio vence em 5 dias — a recepção renova no balcão.</span></div>
+          </div>
+          <div class="card">
+            <div class="tira">
+              <div class="t"><span class="k">Data</span><span class="cx w">05/09/2026</span></div>
+              <span class="sep"></span>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">EVA depois</span><span class="cx">—</span></div>
+              <span class="sep"></span>
+              <div class="t"><span class="k">Retorno sugerido</span><span class="cx w">12/09/2026</span></div>
+            </div>
+            <div class="ctx"><b>Última sessão 28/08</b> · EVA 8 → 3 · retorno sugerido para hoje — reavaliar a EVA &nbsp;·&nbsp; <b>Enfermagem hoje 09:12</b> · PA 120/80 · FC 72 · T 36,5 · SpO₂ 98% <span style="color:#9AA3B2">(Joana, COREN-SP 999999)</span></div>
+            <div class="folha">
+              <div class="rot">A sessão de hoje</div>
+              <p>Refere melhora da lombalgia desde a última sessão (EVA 8 → 3), com recorrência leve após esforço no fim de semana. Sem irradiação para MMII hoje.</p>
+              <p>Exame: contratura paravertebral L4-L5 à direita, Lasègue negativo bilateral.</p>
+              <p>Conduta: acupuntura — BL23, BL25, GB30 bilateral, com eletro 2 Hz por 20 min. Orientado alongamento diário.<span class="cursor"></span></p>
+            </div>
+            <div class="detalhar"><span class="cv">▸</span>Detalhar em campos separados… <span class="lista">queixa · exame · hipótese · conduta · plano · encaminhamento</span><span class="marca">3 campos preenchidos</span></div>
+          </div>
+          <div class="rodape"><span class="dica">Última gravação às 14h37 · Finalizar salva, encerra o horário e gera a guia.</span><span class="btn">Imprimir a sessão</span><span class="btn">Salvar</span><span class="btn pri">Finalizar atendimento</span></div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que o médico ganha</h4>
+        <p>A folha com quase três vezes a altura de hoje, no mesmo monitor. O fim da sessão num lugar só (Salvar · Finalizar lado a lado no pé, onde o mockup 01 já punha o Salvar).</p>
+        <p>Um crachá que cabe numa olhada e continua dizendo o que muda a conduta: a alergia é pílula vermelha ao lado do nome, não faixa.</p></div>
+      <div class="bloco c"><h4>O que custa</h4>
+        <p>“Iniciar atendimento” some desta tela: quem entra pelo Atender do Meu dia já carimbou a entrada. A enfermagem, que chega pela tela dela sem carimbar, ganha o botão no crachá (na pílula “ainda não iniciado”).</p>
+        <p>“Reabrir atendimento” vira um link na pílula da situação, só quando cabe. Ato raro, lugar discreto.</p></div>
+      <div class="bloco e"><h4>Decisões que ficam</h4>
+        <p>“Repetir última conduta” entra em Modelos… como primeira opção — a lição da parcela 79: só ação mora na barra, e uma barra só.</p>
+        <p>A linha de contexto é UMA e é texto: rótulo em negrito, valor ao lado. Sem enfermagem hoje, a segunda metade some — nunca “PA —”.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ C -->
+  <section class="opcao" id="c">
+    <div class="op-topo"><span class="op-letra">C</span><h2>O atendimento da enfermagem</h2><span class="contador">hoje <b>8 caixas na tira, 3 portas, 2 desenhos</b> · proposta <b>7 caixas, 1 desenho</b></span></div>
+    <p class="tese">A mesma seção, o mesmo crachá, o mesmo rail — é o que a parcela 88 já decidiu e é o que faz os dois lados se lerem como o mesmo prontuário. Três coisas mudam. A pressão vira <strong>um campo</strong> (“120/80”, como se anota no papel) em vez de dois. A linha do pé da folha junta o que hoje são três blocos (intercorrência, alergia observada, a porta da consulta COFEN). E o compositor passa a ser <strong>um XAML só, no shell</strong>, usado pelas três portas — hoje a seção do Consultório e a janela da sala têm o mesmo XAML copiado, e a tela Enfermagem do shell abre uma janela modal para escrever: na proposta ela escreve na própria tela, com este mesmo desenho.</p>
+
+    <p class="cap"><b>Proposta</b> · técnica de enfermagem, paciente com plano de cuidados e folha de infusão hoje</p>
+    <div class="moldura"><div class="tela">
+      <div class="cracha">
+        <span class="volta">‹</span>
+        <div class="av">MS</div>
+        <div class="ident">
+          <div class="l1"><span class="nome">Maria da Silva</span><span class="meta">61 anos · Unimed Costa do Sol · carteirinha válida até 12/2026 · em tratamento desde mar/2025</span></div>
+          <div class="l2"><span class="alergia">ALERGIA · dipirona</span><span><span class="k">Em acompanhamento:</span> lombalgia crônica, HAS</span></div>
+        </div>
+        <div class="sit"><span class="estado antes"><span class="pt"></span>Horário das 14:00 · ainda não iniciado</span><span class="lk">Iniciar atendimento</span></div>
+      </div>
+      <div class="corpo">
+        <div class="rail">
+          <div class="on">Atendimento de enfermagem</div>
+          <div>Paciente</div>
+          <div>Histórico</div>
+          <div>Exames e anexos</div>
+          <div>Prescrições e documentos</div>
+          <div>Acompanhamento</div>
+        </div>
+        <div class="principal">
+          <div class="abasrow">
+            <div class="abas"><div class="on">A passagem de hoje</div><div>Passagens do paciente</div><div>Conduta médica e infusões</div></div>
+            <div class="ferr"><span class="btn sm">Folha de infusão nº 0012</span><span class="btn sm">Colher termo…</span></div>
+          </div>
+          <div class="plano">
+            <div class="h"><span class="rot">Plano de cuidados de hoje</span><span class="res">2 cuidados · 1 feito</span><span class="hora">Hora do fato <span class="cx">14:20</span></span></div>
+            <div class="cuid"><span class="n">Curativo em MSD</span><span class="f">a cada 12 h</span><span class="ok">✓ feito às 08:10 (Joana)</span><span class="acs"><span class="btn">Feito</span><span class="btn">Não feito</span></span></div>
+            <div class="cuid"><span class="n">Orientar hidratação oral</span><span class="f">se necessário</span><span class="acs"><span class="btn">Feito</span><span class="btn">Não feito</span></span></div>
+          </div>
+          <div class="card">
+            <div class="tira">
+              <div class="t"><span class="k">Hora do fato</span><span class="cx">14:20</span></div>
+              <span class="sep"></span>
+              <div class="t"><span class="k">PA</span><span class="cx" style="min-width:76px">120/80</span></div>
+              <div class="t"><span class="k">FC</span><span class="cx">72</span></div>
+              <div class="t"><span class="k">FR</span><span class="cx">16</span></div>
+              <div class="t"><span class="k">Temp</span><span class="cx">36,5</span></div>
+              <div class="t"><span class="k">SpO₂</span><span class="cx">98</span></div>
+              <div class="t"><span class="k">Dor</span><span class="cx">3</span></div>
+            </div>
+            <div class="ctx"><b>Última passagem 28/08 14:40</b> · PA 130/85 · sem intercorrência (Joana) &nbsp;·&nbsp; <b>Conduta médica de hoje</b> · acupuntura com eletro, retorno em 12/09</div>
+            <div class="folha" style="min-height:220px">
+              <div class="rot">O que eu observei</div>
+              <p>Paciente chegou deambulando, refere dor 3/10 em região lombar. Acesso venoso em MSD pérvio, sem sinais flogísticos. Curativo trocado às 08:10.<span class="cursor"></span></p>
+            </div>
+            <div class="pe"><span><span class="bx"></span>Foi uma intercorrência</span><span class="in">Alergia observada — a quê? (só o agente)</span><span><span class="bx"></span>Consulta de enfermagem completa (COFEN 358) — abre a janela</span></div>
+          </div>
+          <div class="rodape"><span class="dica">A hora é a do FATO, não a de agora — o relógio fica gravado ao lado.</span><span class="btn">Imprimir a passagem</span><span class="btn pri">Registrar passagem</span></div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="analise">
+      <div class="bloco g"><h4>O que a enfermagem ganha</h4>
+        <p>Uma caixa a menos na tira, e a pressão anotada como se anota no papel. O pé da folha com os três “marque se houve” numa linha.</p>
+        <p>A tela Enfermagem (a da lista de todos os pacientes) deixa de abrir uma janela para escrever: escreve ali, com este desenho. Uma passagem, um desenho, três portas.</p></div>
+      <div class="bloco c"><h4>O que custa</h4>
+        <p>A janela da sala de infusão continua existindo — a folha é modal e é lá que se anota a reação de meia hora depois. Ela passa a usar o MESMO componente, então fica igual a esta tela.</p>
+        <p>“120/80” precisa aceitar “120x80” e “120 80”: o campo único é o que a técnica digita, e o serviço continua gravando dois números.</p></div>
+      <div class="bloco e"><h4>Decisões que ficam</h4>
+        <p>A consulta COFEN continua em janela (parcela 88, 5ª rodada) e o aviso do que falta continua NA TELA. Marcar a caixinha abre a janela, como hoje.</p>
+        <p>A barra Iniciar/Finalizar não aparece apagada para a enfermagem: some. O que ela tem é a pílula da situação, com “Iniciar atendimento” quando o horário ainda não começou.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ D -->
+  <section class="opcao" id="d">
+    <div class="op-topo"><span class="op-letra">D</span><h2>O rail: oito seções viram seis, sem grupos</h2><span class="contador">hoje <b>8 em 2 grupos</b> · proposta <b>6 numa lista</b></span></div>
+    <p class="tese">Depois da parcela 95 o rail tem oito linhas em dois grupos (SESSÃO · PACIENTE). Cada lado já vê sete — a seção de escrita do outro lado colapsa. A proposta tira mais uma: <strong>Anamnese vira uma sub-aba de Paciente</strong>. Ela é escrita uma vez por paciente e relida de vez em quando — é “quem é esta pessoa”, que é exatamente o que a seção Paciente responde. Com seis linhas, o grupo de um item só (SESSÃO) deixa de fazer sentido e os cabeçalhos de grupo saem. As três abas internas de Acompanhamento ficam; Paciente passa a ter duas.</p>
+
+    <div class="rails">
+      <div class="railbox">
+        <div class="t"><b>Hoje</b> · 8 seções, 2 grupos (o médico vê 7)</div>
+        <ul>
+          <li class="g">Sessão</li>
+          <li class="on">Atendimento</li>
+          <li><s>Atendimento de enfermagem</s><span class="sub">colapsa para o médico</span></li>
+          <li>Anamnese</li>
+          <li class="g">Paciente</li>
+          <li>Paciente</li>
+          <li>Histórico</li>
+          <li>Exames e anexos</li>
+          <li>Prescrições e documentos</li>
+          <li>Acompanhamento<span class="sub">3 sub-abas</span></li>
+        </ul>
+      </div>
+      <div class="railbox">
+        <div class="t"><b>Proposta</b> · 6 seções, uma lista</div>
+        <ul>
+          <li class="on">Atendimento <span class="sub">ou “de enfermagem”, pelo posto</span></li>
+          <li>Paciente<span class="sub">Ficha e problemas · Anamnese</span><span class="novo">2 sub-abas</span></li>
+          <li>Histórico</li>
+          <li>Exames e anexos</li>
+          <li>Prescrições e documentos</li>
+          <li>Acompanhamento<span class="sub">Dor · Medidas · Avaliações</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="tab-wrap"><table>
+      <thead><tr><th>Seção</th><th>O que muda dentro dela</th><th>O que não muda</th></tr></thead>
+      <tbody>
+        <tr><td><b>Atendimento</b></td><td>Ferramentas na linha das abas; uma linha de contexto; Salvar · Finalizar no pé; “Repetir última conduta” dentro de Modelos…</td><td>A folha, a tira, o Detalhar… em janela, as três abas</td></tr>
+        <tr><td><b>Atendimento de enfermagem</b></td><td>PA num campo; o pé da folha numa linha; compositor único no shell</td><td>Plano de cuidados, as três abas, a consulta COFEN em janela, a hora do fato</td></tr>
+        <tr><td><b>Paciente</b></td><td>Ganha a sub-aba <b>Anamnese</b> (os seis chips e a folha dela, como estão)</td><td>Ficha em leitura, lista de problemas</td></tr>
+        <tr><td><b>Histórico</b></td><td>—</td><td>Busca, lista de sessões, enfermagem e infusões ancoradas embaixo</td></tr>
+        <tr><td><b>Exames e anexos</b></td><td>—</td><td>Os quatro chips contados</td></tr>
+        <tr><td><b>Prescrições e documentos</b></td><td>—</td><td>Quatro botões de emissão, lista com “⋯”</td></tr>
+        <tr><td><b>Acompanhamento</b></td><td>—</td><td>Dor · Medidas · Avaliações</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <hr class="reg">
+
+  <div class="reco">
+    <p class="eyebrow">Se a escolha fosse minha</p>
+    <h2>A, B e C juntas; D em seguida</h2>
+    <p class="prosa">A e B são a mesma mudança vista de dois lugares — o crachá encolhe porque a situação da sessão e o Finalizar mudam de casa —, e C é a enfermagem recebendo o mesmo tratamento no mesmo commit, senão os dois lados voltam a ter cara de programas diferentes. D é pequena e independente. O que eu não faria é mexer nas abas internas (as três de cada lado, as três do Acompanhamento): elas foram a resposta à 9ª reprovação e estão certas.</p>
+    <ul class="perguntas">
+      <li><span class="q">Q1</span><span>O crachá de duas linhas com a alergia como pílula vermelha ao lado do nome — em vez da faixa de largura inteira — continua chamando atenção o bastante para você?</span></li>
+      <li><span class="q">Q2</span><span>“Salvar” e “Finalizar atendimento” lado a lado no pé da folha, e o “Iniciar” só aparecendo quando o horário ainda não começou: está bom?</span></li>
+      <li><span class="q">Q3</span><span>Anamnese como sub-aba de Paciente (e não uma linha própria no rail) — ok para quem colhe anamnese na primeira consulta?</span></li>
+      <li><span class="q">Q4</span><span>Na enfermagem, a pressão num campo só (“120/80”) e a tela Enfermagem escrevendo na própria tela, sem abrir janela — ok?</span></li>
+    </ul>
+    <p class="nota">Dados de exemplo, paciente fictícia, vocabulário real da casa. Cores, medidas e tipografia saem dos tokens do repositório — o que for aprovado vira tradução para o WPF, não uma segunda paleta.</p>
+  </div>
+</div>
