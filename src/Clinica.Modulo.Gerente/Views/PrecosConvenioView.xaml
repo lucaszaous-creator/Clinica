@@ -13,11 +13,17 @@
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Tabela de preço por convênio" Style="{StaticResource H1}"
+            <TextBlock Text="Tabela de preço" Style="{StaticResource H1}"
                        Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Quanto cada operadora paga por tipo de guia. Cadastrado aqui, na direção — quem negocia tabela — e usado na Conciliação do Financeiro, que passa a PROPOR o valor em vez de pedir que ele seja digitado." />
+                       Text="Quanto vale a sessão, para os dois pagadores: o que cada operadora paga por tipo de guia (Convênios) e o que a clínica cobra do paciente particular por especialidade atendida (Particular). Cadastrado aqui, na direção, e PROPOSTO na Conciliação do Financeiro e no Finalizar da Recepção." />
         </StackPanel>
+
+        <!-- Duas sub-abas, e não dois itens de sidebar: é a mesma pergunta ("quanto vale a
+             sessão?") para dois pagadores, e a proposta tem um item ali (parcela 55). -->
+        <TabControl Background="Transparent" BorderThickness="0">
+        <TabItem Header="Convênios">
+        <DockPanel Margin="0,12,0,0">
 
         <!-- A visibilidade segue a MENSAGEM; a cor segue a GRAVIDADE (parcela 62).
              Amarrada a `MensagemEhErro`, a caixa só aparecia no erro — e toda mensagem de
@@ -194,5 +200,144 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
+        </DockPanel>
+        </TabItem>
+
+        <!-- ============ O PARTICULAR (set/2026) ============
+             Outra tabela, outra chave: modalidade + especialidade atendida, sem operadora. -->
+        <TabItem Header="Particular">
+        <DockPanel Margin="0,12,0,0" DataContext="{Binding Particular}">
+
+            <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Preços do particular" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <CheckBox Content="Só o que vale hoje" IsChecked="{Binding SoValendoHoje}"
+                                      VerticalAlignment="Center" Margin="0,0,16,0" />
+                            <Button Content="Novo preço" Margin="0,0,8,0"
+                                    Command="{Binding NovoPrecoCommand}"
+                                    IsEnabled="{Binding PodeEditar}" />
+                            <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding CarregarCommand}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820" DockPanel.Dock="Top"
+                               Text="{Binding VazioDescricao}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Precos.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Precos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Modalidade}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                    <Run Text="{Binding Especialidade, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Vigencia, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding Valor}"
+                                                       VerticalAlignment="Center" TextAlignment="Right"
+                                                       Margin="8,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+
+                                            <Border Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ValendoAgora}" Value="False">
+                                                                <Setter Property="Background"
+                                                                        Value="{StaticResource Brush.Superficie.Hover}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock>
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="fora de vigência" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ValendoAgora}" Value="True">
+                                                                    <Setter Property="Text" Value="valendo agora" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
+                                                        Margin="0,0,6,0"
+                                                        IsEnabled="{Binding DataContext.PodeEditar,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Command="{Binding DataContext.EditarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                        IsEnabled="{Binding DataContext.PodeEditar,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Command="{Binding DataContext.ExcluirCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </DockPanel>
+        </TabItem>
+        </TabControl>
     </DockPanel>
 </UserControl>

@@ -117,12 +117,21 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
+    /// <summary>
+    /// A segunda aba da tela (set/2026): o preço do PARTICULAR por especialidade atendida.
+    /// É outra tabela, com outra chave (modalidade + especialidade, sem operadora), e mora
+    /// no mesmo item porque a pergunta da direção é a mesma — "quanto vale a sessão?" —,
+    /// respondida para dois pagadores.
+    /// </summary>
+    public PrecosParticularViewModel Particular { get; }
+
     public PrecosConvenioViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
+        Particular = new PrecosParticularViewModel(escopos, snackbar, dialogo);
         _ = CarregarAsync();
     }
 

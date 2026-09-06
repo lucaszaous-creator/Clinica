@@ -2279,6 +2279,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (preco is not null) _db.PrecosConvenio.Remove(preco);
     }
 
+    public async Task<IReadOnlyList<PrecoParticular>> PrecosParticularAsync(
+        bool somenteAtivos = false, CancellationToken ct = default)
+        => await _db.PrecosParticular.AsNoTracking()
+            .Where(p => !somenteAtivos || p.Ativo)
+            .OrderBy(p => p.ModalidadeCodigo)
+            .ThenBy(p => p.EspecialidadeCodigo)
+            .ThenBy(p => p.Id)
+            .ToListAsync(ct);
+
+    public Task<PrecoParticular?> ObterPrecoParticularAsync(int precoId, CancellationToken ct = default)
+        => _db.PrecosParticular.FirstOrDefaultAsync(p => p.Id == precoId, ct);
+
+    public async Task AdicionarPrecoParticularAsync(PrecoParticular preco, CancellationToken ct = default)
+        => await _db.PrecosParticular.AddAsync(preco, ct);
+
+    public async Task RemoverPrecoParticularAsync(int precoId, CancellationToken ct = default)
+    {
+        var preco = await _db.PrecosParticular.FirstOrDefaultAsync(p => p.Id == precoId, ct);
+        if (preco is not null) _db.PrecosParticular.Remove(preco);
+    }
+
     // ---- Metas da direcao (parcela 28) ----
 
     public async Task<IReadOnlyList<MetaMensal>> MetasDoAnoAsync(
@@ -2432,9 +2453,9 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             a.Modalidade,
             a.ModalidadeCodigo,
             a.EspecialidadeConsulta,
+            a.EspecialidadeConsultaCodigo,
             a.Paciente.Convenio,
             a.Paciente.ConvenioCodigo,
-            // O tipo do primeiro código é o que a tabela de preço conhece.
             a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First());
 
     // ---- Estoque ----

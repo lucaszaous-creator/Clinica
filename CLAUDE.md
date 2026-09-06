@@ -427,10 +427,9 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ele por construção (`CodigosNoPeriodoAsync` exclui o `NaoAplicavel`). Nasceu
   `SessoesParticularesSemReceitaAsync` — realizada, não estornada, todos os códigos
   `NaoAplicavel`, sem lançamento de entrada vivo e sem sessão de pacote — como aba
-  **Particulares** da Conciliação, com o preço da tabela do cadastro "Particular" quando
-  a direção o cadastrou (a MESMA tabela por convênio da parcela 20, que sempre aceitou o
-  código e nunca era lida daqui). A linha sai por passar a TER lançamento — recebido OU a
-  receber —, nunca por alguém marcá-la. E ela chega ao balcão: `ElegibilidadeService`
+  **Particulares** da Conciliação, com o preço da tabela do particular quando a direção o
+  cadastrou. A linha sai por passar a TER lançamento — recebido OU a receber —, nunca por
+  alguém marcá-la. E ela chega ao balcão: `ElegibilidadeService`
   avisa (amarelo) a sessão anterior sem dinheiro, porque é com o paciente na frente que
   se resolve.
   ⚠️ **Repasse só conta o REALIZADO.** `LancamentosDosAtendimentosAsync` devolve tudo o
@@ -444,12 +443,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   releitura do diff. E o `[RelayCommand]` fica colado ao método: um helper inserido entre
   o atributo e o método foi o único erro que o `compilar-sombra` acusou nesta parcela —
   rede que roda antes do push é rede que pega antes do CI.
+  ⚠️ **O PREÇO DO PARTICULAR É OUTRA TABELA, com outra chave** (pedido da direção no
+  mesmo dia: *"um cadastro de preço por tipo de especialidade atendida quando o paciente
+  for particular"*). A primeira versão lia a tabela POR CONVÊNIO com o código "Particular"
+  — e ela é chaveada pelo TIPO DE GUIA, conceito do faturamento que o particular não
+  tem: o preço da sessão saía do primeiro código `NaoAplicavel`, uma indireção que
+  ninguém entenderia na tela do Gerente. `PrecoParticular` é chaveado pelo que a clínica
+  FAZ, nas palavras dela: **modalidade** (código do catálogo, obrigatória) +
+  **especialidade atendida** (código do catálogo, opcional — é o que separa a consulta de
+  psiquiatria da de geriatria; em branco vale para todas). A mais específica ganha
+  (especialidade > genérico; código de variante > família), tem vigência, e é PROPOSTA:
+  copiada no lançamento, com desconto no clique. Cadastro na aba **Particular** da Tabela
+  de preço do Gerente; leitores no Finalizar e na Conciliação, pelo MESMO serviço — dois
+  leitores com duas regras proporiam dois números para a mesma sessão. Modalidade e
+  especialidade estão no HORÁRIO, então a proposta não precisa mais esperar o atendimento
+  existir.
   **O que ficou de fora, com o motivo**: o lançamento manual do Caixa continua sem
   seletor de paciente (a receita órfã não liga à sessão nem some da conciliação — a
   correção é dar-lhe o `SeletorPacienteViewModel` da conta a receber); a cobrança de
   parcela vencida usa a porta que já existe ("Quem me deve", WhatsApp e Receber, no
-  Financeiro) — o balcão vê o aviso e ainda não RECEBE dali; e não há preço particular
-  por MODALIDADE fora da tabela por convênio, que é por tipo de código.
+  Financeiro) — o balcão vê o aviso e ainda não RECEBE dali; e a prévia da guia do Novo
+  atendimento ainda não mostra o preço do particular — ele aparece no Finalizar, que é
+  onde a cobrança acontece.
 - **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
   dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
   mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.

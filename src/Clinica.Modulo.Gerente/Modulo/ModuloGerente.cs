@@ -103,7 +103,7 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o (conv\u00EAnios)", Glifo = "\uE8EF",
+            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o", Glifo = "\uE8EF",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
 

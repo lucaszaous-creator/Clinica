@@ -1214,6 +1214,17 @@ public interface IClinicaRepositorio
 
     Task RemoverPrecoConvenioAsync(int precoId, CancellationToken ct = default);
 
+    // ---- Preço do PARTICULAR por especialidade atendida (set/2026) ----
+
+    Task<IReadOnlyList<PrecoParticular>> PrecosParticularAsync(
+        bool somenteAtivos = false, CancellationToken ct = default);
+
+    Task<PrecoParticular?> ObterPrecoParticularAsync(int precoId, CancellationToken ct = default);
+
+    Task AdicionarPrecoParticularAsync(PrecoParticular preco, CancellationToken ct = default);
+
+    Task RemoverPrecoParticularAsync(int precoId, CancellationToken ct = default);
+
     // ---- Metas da direcao (parcela 28) ----
 
     /// <summary>

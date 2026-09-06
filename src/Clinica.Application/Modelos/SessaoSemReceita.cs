@@ -28,10 +28,17 @@ public sealed record SessaoSemReceita(
     ModalidadeAtendimento Modalidade,
     string? ModalidadeCodigo,
     Especialidade? Especialidade,
+    string? EspecialidadeCodigo,
     Convenio Convenio,
     string? ConvenioCodigo,
     TipoCodigo Tipo)
 {
+    /// <summary>Código da modalidade como a tabela do particular o conhece (família quando não há código).</summary>
+    public string CodigoDaModalidade => ModalidadeCodigo ?? Modalidade.ToString();
+
+    /// <summary>Idem para a especialidade; nulo quando a sessão não tem uma.</summary>
+    public string? CodigoDaEspecialidade => EspecialidadeCodigo ?? Especialidade?.ToString();
+
     /// <summary>Nome do CATÁLOGO, nunca o enum (a lição da parcela 41).</summary>
     public string ModalidadeNome => CatalogoModalidades.Nome(ModalidadeCodigo, Modalidade);
 

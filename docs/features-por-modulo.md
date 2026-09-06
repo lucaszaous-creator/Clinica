@@ -600,6 +600,7 @@ zero.**
 | **Parcela do pacote é conta a receber COM DONO** | ✅ set/2026 | `LancamentoFinanceiro.PacotePacienteId`; a inadimplência e o aviso do balcão a enxergam quando vence |
 | **Situação de pagamento na lista** ("pago" · "R$ 400 a receber, 1 vencida" · "sem lançamento") | ✅ set/2026 | `SaldoPacote.PagamentoRotulo`, lida em lote (`LancamentosDosPacotesAsync`) |
 | **Cancelar a venda derruba as parcelas previstas e mantém o recebido** | ✅ set/2026 | `PacoteService.CancelarAsync` devolve o aviso do que já entrou |
+| **Tabela de preço do PARTICULAR por especialidade atendida** | ✅ set/2026 | `PrecoParticular` + `PrecoParticularService` (Gerente → Tabela de preço → aba Particular); lida pelo Finalizar da Recepção e pela aba Particulares da Conciliação |
 
 > **A venda COPIA o catálogo.** Mudar o preço de tabela em novembro não pode reescrever
 > o que o paciente comprou em março — o vínculo com o catálogo fica só como procedência.
@@ -1014,6 +1015,7 @@ As pontes que existem hoje, e o sentido de cada uma:
 | Pendências, glosas, NC e lotes na direção | Faturamento → Gerente | `FaturamentoTissView` — 5 abas sobre os serviços compartilhados (parcelas 10b–10d) |
 | Configuração da clínica editável fora do app congelado | Gerente → todos | `ConfiguracoesView` sobre `ParametrosService` (parcela 10a) |
 | Preço negociado da guia usado na conciliação | Gerente → Financeiro | `PrecoConvenioService` (parcela 20) |
+| **Preço do particular por especialidade, proposto no Finalizar e na Conciliação** | **Gerente → Recepção, Financeiro** | **`PrecoParticularService` (set/2026)** |
 | Retenção na fonte por operadora | Gerente → Financeiro | `Tributo.ConvenioCodigo` (parcela 18) |
 | Alerta da direção que LEVA à tela dona | Gerente → todos | `PainelDirecaoService` + `NavegacaoSuite`/`ChavesSuite` (parcela 22) |
 | **Glosa que derruba receita já contada** | **Faturamento → Financeiro** | **`ReceitaGlosadaService` (parcela 27)** |

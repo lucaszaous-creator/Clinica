@@ -504,16 +504,17 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             using var escopo = _escopos.CreateScope();
             var sessoes = await escopo.ServiceProvider
                 .GetRequiredService<FinanceiroService>().SessoesParticularesSemReceitaAsync(inicio, fim);
-            var precos = escopo.ServiceProvider.GetRequiredService<PrecoConvenioService>();
+            var precos = escopo.ServiceProvider.GetRequiredService<PrecoParticularService>();
 
             // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
             var novas = new List<LinhaSessaoParticular>();
             foreach (var s in sessoes)
             {
-                // A tabela de preço do PARTICULAR, quando a direção a cadastrou no Gerente
-                // (a mesma tabela por convênio da parcela 20, no cadastro que não gera guia).
-                // Proposta, não imposição — e sem tabela o campo fica vazio para digitar.
-                var preco = await precos.ResolverAsync(s.CodigoParaTabela, s.Tipo, s.Data, s.Especialidade);
+                // A tabela de preço do PARTICULAR por especialidade atendida, cadastrada
+                // no Gerente (set/2026). Proposta, não imposição — e sem tabela o campo
+                // fica vazio para digitar.
+                var proposto = await precos.ProporAsync(
+                    s.CodigoDaModalidade, s.Modalidade, s.CodigoDaEspecialidade, s.Data);
                 novas.Add(new LinhaSessaoParticular
                 {
                     Sessao = s,
@@ -521,8 +522,8 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                     Paciente = s.Paciente,
                     Modalidade = s.ModalidadeNome,
                     Convenio = s.ConvenioNome,
-                    Valor = preco is null ? string.Empty : preco.Valor.ToString("0.##"),
-                    Procedencia = preco is null ? null : $"tabela: {preco.Descricao} ({preco.Vigencia})"
+                    Valor = proposto.Houve ? proposto.Valor.ToString("0.##") : string.Empty,
+                    Procedencia = proposto.Houve ? proposto.Procedencia : null
                 });
             }
 

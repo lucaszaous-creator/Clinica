@@ -33,7 +33,7 @@ public class CircuitoParticularTests : IDisposable
     private readonly PacoteService _pacotes;
     private readonly FinanceiroService _financeiro;
     private readonly ContasService _contas;
-    private readonly PrecoConvenioService _precos;
+    private readonly PrecoParticularService _precos;
     private readonly FechamentoSessaoService _fechamento;
     private readonly InadimplenciaService _inadimplencia;
     private readonly ElegibilidadeService _elegibilidade;
@@ -60,7 +60,7 @@ public class CircuitoParticularTests : IDisposable
         _pacotes = new PacoteService(_repo);
         _financeiro = new FinanceiroService(_repo);
         _contas = new ContasService(_repo);
-        _precos = new PrecoConvenioService(_repo);
+        _precos = new PrecoParticularService(_repo);
         _fechamento = new FechamentoSessaoService(
             _repo, _agenda, _pacotes, new EstoqueService(_repo), _financeiro, _precos, _contas);
         _inadimplencia = new InadimplenciaService(_repo, _financeiro);
@@ -289,21 +289,52 @@ public class CircuitoParticularTests : IDisposable
     public async Task A_tabela_de_preco_do_particular_preenche_o_valor_com_a_procedencia()
     {
         var pacienteId = await ParticularAsync();
-        foreach (var tipo in new[] { TipoCodigo.Acupuntura, TipoCodigo.Eletroacupuntura })
-            await _precos.SalvarAsync(new PrecoConvenio
-            {
-                ConvenioCodigo = CodigoParticular, Tipo = tipo, Valor = 180m
-            });
+        await _precos.SalvarAsync(new PrecoParticular
+        {
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.AcupunturaComEletro), Valor = 180m
+        });
 
         var agendamentoId = await AgendarAsync(pacienteId);
-        await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
 
-        // A janela relê a proposta com o atendimento já existente (parcela 65).
-        var proposta = await _fechamento.PrepararAsync(agendamentoId);
+        // Já no REGISTRO: modalidade e especialidade estão no horário, então a proposta
+        // não precisa esperar o atendimento existir.
+        registro.Proposta.ValorSugerido.Should().Be(180m);
+        registro.Proposta.ProcedenciaDoValor.Should().StartWith("tabela do particular:");
+        registro.Proposta.ParticularSemPreco.Should().BeFalse();
 
-        proposta.ValorSugerido.Should().Be(180m);
-        proposta.ProcedenciaDoValor.Should().StartWith("tabela:");
-        proposta.ParticularSemPreco.Should().BeFalse();
+        // E a Conciliação propõe o MESMO número para a mesma sessão.
+        var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
+        var proposto = await _precos.ProporAsync(
+            pendente.CodigoDaModalidade, pendente.Modalidade, pendente.CodigoDaEspecialidade, pendente.Data);
+        proposto.Valor.Should().Be(180m);
+    }
+
+    [Fact]
+    public async Task O_preco_da_consulta_segue_a_ESPECIALIDADE_atendida()
+    {
+        var pacienteId = await ParticularAsync();
+        await _precos.SalvarAsync(new PrecoParticular
+        {
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta), Valor = 300m
+        });
+        await _precos.SalvarAsync(new PrecoParticular
+        {
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta),
+            EspecialidadeCodigo = nameof(Especialidade.Psiquiatria), Valor = 450m
+        });
+
+        var psiquiatria = await _agenda.AgendarAsync(
+            pacienteId, Sessao.AddHours(_marcados++), ModalidadeAtendimento.Consulta, null,
+            especialidadeConsulta: Especialidade.Psiquiatria, profissionalId: _profPadrao);
+        var geriatria = await _agenda.AgendarAsync(
+            pacienteId, Sessao.AddHours(_marcados++), ModalidadeAtendimento.Consulta, null,
+            especialidadeConsulta: Especialidade.Geriatria, profissionalId: _profPadrao);
+
+        (await _fechamento.PrepararAsync(psiquiatria.Id)).ValorSugerido.Should().Be(450m,
+            "o preço com especialidade vence o genérico da modalidade");
+        (await _fechamento.PrepararAsync(geriatria.Id)).ValorSugerido.Should().Be(300m,
+            "sem preço próprio, a especialidade cai no genérico da consulta");
     }
 
     [Fact]

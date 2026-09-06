@@ -173,7 +173,7 @@ public sealed class FechamentoSessaoService
     private readonly EstoqueService _estoque;
     private readonly FinanceiroService _financeiro;
     private readonly ContasService _contas;
-    private readonly PrecoConvenioService? _precos;
+    private readonly PrecoParticularService? _precos;
 
     /// <summary>
     /// <paramref name="precos"/> é opcional pela razão de sempre (o serviço continua
@@ -187,7 +187,7 @@ public sealed class FechamentoSessaoService
         PacoteService pacotes,
         EstoqueService estoque,
         FinanceiroService financeiro,
-        PrecoConvenioService? precos = null,
+        PrecoParticularService? precos = null,
         ContasService? contas = null)
     {
         _repo = repo;
@@ -229,10 +229,9 @@ public sealed class FechamentoSessaoService
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
         var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ct);
 
-        // Sem histórico, o particular ainda pode ter PREÇO: a tabela cadastrada no
-        // Gerente para o cadastro "Particular" (a mesma tabela por convênio da parcela 20,
-        // que sempre aceitou o código do particular e nunca foi lida daqui). O histórico
-        // vem primeiro porque é o preço COMBINADO com esta pessoa; a tabela é o de lista.
+        // Sem histórico, o particular ainda pode ter PREÇO: a tabela do particular por
+        // especialidade atendida, cadastrada no Gerente (set/2026). O histórico vem
+        // primeiro porque é o preço COMBINADO com esta pessoa; a tabela é o de lista.
         if (valor is null && ehParticular && pacote is null)
             (valor, procedencia) = await PrecoDeTabelaAsync(ag, dia, ct);
 
@@ -498,31 +497,24 @@ public sealed class FechamentoSessaoService
     }
 
     /// <summary>
-    /// O preço de LISTA do particular, quando a direção o cadastrou (Gerente → tabela de
-    /// preço, no cadastro que não gera guia). Só quando o atendimento já existe: é dos
-    /// códigos dele que sai o TIPO que a tabela conhece — e quando esta proposta é montada
-    /// para a janela, ele sempre existe (parcela 65). Sem tabela, nulo — e a tela pede o
-    /// valor em vez de inventar um.
+    /// O preço de LISTA do particular, quando a direção o cadastrou (Gerente → Tabela de
+    /// preço → Particular): por MODALIDADE e, quando a sessão é consulta, pela
+    /// ESPECIALIDADE. Os dois estão no horário, então a proposta não precisa esperar o
+    /// atendimento existir. Sem tabela, nulo — e a tela pede o valor em vez de inventar um.
     /// </summary>
     private async Task<(decimal?, string?)> PrecoDeTabelaAsync(
         Agendamento ag, DateOnly dia, CancellationToken ct)
     {
-        if (_precos is null || ag.Paciente is null || ag.AtendimentoId is not { } atendimentoId)
-            return (null, null);
+        if (_precos is null) return (null, null);
 
         try
         {
-            var atendimento = await _repo.ObterAtendimentoAsync(atendimentoId, ct);
-            var codigo = atendimento?.Codigos.OrderBy(c => c.Id).FirstOrDefault();
-            if (codigo is null) return (null, null);
+            var proposto = await _precos.ProporAsync(
+                ag.ModalidadeCodigo, ag.ModalidadePrevista,
+                ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(),
+                dia, ct);
 
-            var preco = await _precos.ResolverAsync(
-                ag.Paciente.ConvenioCodigo ?? ag.Paciente.Convenio.ToString(),
-                codigo.Tipo, dia, codigo.Especialidade ?? atendimento!.EspecialidadeConsulta, ct);
-
-            return preco is null
-                ? (null, null)
-                : (preco.Valor, $"tabela: {preco.Descricao} ({preco.Vigencia})");
+            return proposto.Houve ? (proposto.Valor, proposto.Procedencia) : (null, null);
         }
         catch (Exception ex)
         {

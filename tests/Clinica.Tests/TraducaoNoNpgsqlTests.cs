@@ -603,7 +603,8 @@ public class TraducaoNoNpgsqlTests
             .OrderBy(a => a.Data).ThenBy(a => a.Id)
             .Select(a => new SessaoSemReceita(
                 a.Id, a.PacienteId, a.Paciente!.Nome, a.Data, a.Modalidade, a.ModalidadeCodigo,
-                a.EspecialidadeConsulta, a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
+                a.EspecialidadeConsulta, a.EspecialidadeConsultaCodigo,
+                a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
                 a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First()))
             .ToQueryString();
 

@@ -76,6 +76,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<TaxaCartao> TaxasCartao => Set<TaxaCartao>();
     public DbSet<Tributo> Tributos => Set<Tributo>();
     public DbSet<PrecoConvenio> PrecosConvenio => Set<PrecoConvenio>();
+    public DbSet<PrecoParticular> PrecosParticular => Set<PrecoParticular>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
@@ -1762,6 +1763,27 @@ public class ClinicaDbContext : DbContext
             // Descricao e vigencia sao CALCULADAS.
             e.Ignore(x => x.Descricao);
             e.Ignore(x => x.Vigencia);
+        });
+
+        // Preço do PARTICULAR por especialidade atendida (set/2026). Sem FK: os códigos
+        // são do catálogo em memória, como no `PrecoConvenio`.
+        b.Entity<PrecoParticular>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ModalidadeCodigo).IsRequired().HasMaxLength(40);
+            e.Property(x => x.EspecialidadeCodigo).HasMaxLength(40);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasIndex(x => new { x.ModalidadeCodigo, x.EspecialidadeCodigo });
+            e.HasIndex(x => x.Ativo);
+
+            e.Ignore(x => x.Descricao);
+            e.Ignore(x => x.Vigencia);
+            e.Ignore(x => x.ModalidadeNome);
+            e.Ignore(x => x.EspecialidadeNome);
         });
 
         b.Entity<RepasseApurado>(e =>
