@@ -3353,6 +3353,45 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   um PR fica vermelho, a primeira pergunta é "qual rede local deveria ter visto isto?"** —
   e se a resposta é nenhuma, a correção vem com a checagem.
 
+- **A CONFERÊNCIA PEDIDA PELA DIREÇÃO SOBRE A AGENDA — três defeitos com 2261 testes
+  verdes, e os três da mesma família** (set/2026: *"verifique se nossa agenda tem falhas
+  que você não viu quando construiu"*). Nenhum quebrava build, teste ou rede; os três
+  moram no vão entre o shell e a tela — o `TelaComAbas` monta cada aba UMA vez e a guarda,
+  e é nesse "uma vez" que os três nasceram.
+  ⚠️ **"Retornos a marcar" abria VAZIA dizendo "Nenhum retorno a marcar".** A ViewModel não
+  declarava `ICarregarAoAbrir` nem disparava a carga no construtor, e o shell só carrega
+  quem declara o contrato. É a lição da parcela 47 — escrita neste arquivo — cometida na
+  tela seguinte, e na variante pior: o `EstadoDaTela` afirmava a ausência. **Tela nova da
+  suíte que busca ao abrir declara `ICarregarAoAbrir`, e a conferência é `grep` do nome
+  da ViewModel em `CriarTela` contra a lista de quem implementa o contrato.**
+  ⚠️ **O segundo "Marcar horário" vindo dos Retornos marcava o paciente ERRADO.** O pedido
+  da ponte (`PreenchimentoNovoAtendimento`) era consumido só no `CarregarAsync` da aba
+  Marcar, que roda quando ela é montada. Retornos e Marcar são abas do MESMO item: no
+  segundo clique o shell só trocava de aba, ninguém consumia o pedido, a tela mostrava o
+  paciente do retorno anterior e o pedido ficava ÓRFÃO — pré-preenchendo a abertura
+  seguinte com o clique de antes, que é justamente o que o comentário da ponte diz existir
+  para evitar. A grade já tinha a resposta certa para o pedido DELA (`ConsumirPedidoDeDia`
+  no `AoEntrarEmCena`); a aba Marcar não. **Ponte consumida "na abertura" precisa ser
+  consumida também na VOLTA à vista, quando a tela é aba** — e só na volta: na primeira
+  exibição quem consome é o `CarregarAsync`, na ordem que a parcela 37 exige (equipe
+  carregada, busca inicial remontada, e só então o paciente).
+  ⚠️ **Voltar à Grade no modo SEMANA apagava a grade pelo tempo da leitura — e a deixava
+  em branco se a leitura falhasse.** `Colunas.Clear()` vinha ANTES do `await` de
+  `MontarSemanaAsync`. A batida do relógio excluía o modo semana exatamente por isso (o
+  comentário dela diz "a grade piscaria"); a releitura ao voltar à aba, nova de set/2026,
+  não excluía — e no `catch` silencioso nada era restaurado. A regra da parcela 62 vale
+  para o **await escondido dentro de um método chamado entre o Clear e o Add**: a semana
+  passou a ser montada em lista local e publicada numa passada síncrona.
+  Junto, duas divergências entre as duas listas do dia: a do balcão deixava registrar
+  chegada, chamada e entrada em QUALQUER dia navegado (o Meu dia já escondia — a fila corre
+  HOJE, e os dois quadros passaram a seguir a mesma regra, com a guarda que FALA), e o
+  botão "Debitar pacote" acendia pela metade larga (`EditarAgenda` OU `MovimentarFila`)
+  enquanto o comando exige `EditarAgenda` estrito.
+  **A lição de método**: a lista de conferência pega o que está NA LINHA; o que ela não
+  alcança é o contrato entre a tela e quem a hospeda. Ao escrever uma aba, as três
+  perguntas são: *quem a carrega na primeira vez? o que ela precisa reler ao VOLTAR? e o
+  que ela promete consumir que só consome na montagem?*
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

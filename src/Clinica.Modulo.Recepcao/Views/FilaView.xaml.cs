@@ -81,7 +81,7 @@ public partial class FilaView : UserControl
         // caixa a lista não sabe prever em lote, e um botão aceso em toda sessão concluída
         // do dia ensinaria a ignorar a coluna. O que se faz de vez em quando mora no "⋯".
         Acrescentar("Fechar sessão (pacote, insumo, caixa)…", vm.FecharSessaoCommand,
-            cartao.PodeFechar && vm.PodeEditarAgenda);
+            cartao.PodeFechar && vm.PodeFecharSessao);
 
         Separar();
 

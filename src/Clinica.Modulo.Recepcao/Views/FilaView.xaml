@@ -475,6 +475,13 @@
                                                                     Value="{Binding DataContext.PodeConcluirSessao,
                                                                             RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                                         </DataTrigger>
+                                                        <!-- "Debitar pacote" é fechar a sessão: EditarAgenda ESTRITO,
+                                                             a conta do Exigir de FecharSessaoAsync. -->
+                                                        <DataTrigger Binding="{Binding ProximoPassoEhFechar}" Value="True">
+                                                            <Setter Property="IsEnabled"
+                                                                    Value="{Binding DataContext.PodeFecharSessao,
+                                                                            RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Button.Style>

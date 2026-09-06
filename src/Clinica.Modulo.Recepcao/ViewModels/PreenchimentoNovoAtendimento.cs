@@ -48,4 +48,11 @@ public sealed class PreenchimentoNovoAtendimento
         _pedido = null;
         return pedido;
     }
+
+    /// <summary>
+    /// Há pedido do modo de quem pergunta? Lê SEM consumir — é o que a aba já montada usa
+    /// ao voltar à vista para decidir se precisa aplicar alguma coisa (set/2026).
+    /// </summary>
+    public PedidoNovoAtendimento? Espiar(bool marcarParaDepois)
+        => _pedido is { } pedido && pedido.MarcarParaDepois == marcarParaDepois ? pedido : null;
 }

@@ -888,6 +888,44 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     }
 
     /// <summary>
+    /// Aplica o pedido que outra tela deixou na ponte enquanto ESTA aba já estava montada
+    /// (set/2026). Devolve <c>true</c> quando havia pedido e ele foi aplicado.
+    ///
+    /// Por que ela existe
+    /// ------------------
+    /// O pedido da ponte era consumido só no <see cref="CarregarAsync"/>, que roda UMA vez —
+    /// quando a aba é montada. Retornos a marcar e Marcar são abas do MESMO item
+    /// (Atendimento): no segundo "Marcar horário" da fila de retornos o shell só trocava de
+    /// aba, ninguém consumia o pedido, e a tela mostrava o paciente e a data do retorno
+    /// ANTERIOR — a recepcionista marcaria o horário na pessoa errada, sem nada falhar. E o
+    /// pedido ficava órfão na ponte, pré-preenchendo a próxima abertura com o clique de
+    /// antes: exatamente o que o comentário da ponte diz existir para evitar.
+    ///
+    /// Quem chama é a View, quando a aba VOLTA a ficar visível (nunca na primeira exibição:
+    /// ali quem consome é o <see cref="CarregarAsync"/>, depois de a equipe estar carregada
+    /// e a busca inicial ter remontado a lista — a ordem que a parcela 37 exige).
+    /// </summary>
+    public async Task<bool> AplicarPedidoPendenteAsync()
+    {
+        // Há pedido? `ConsumirPreenchimento` já preenche data, hora, profissional e sala
+        // quando há — e devolve o paciente, que é o que falta escolher.
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var ponte = scope.ServiceProvider.GetService<PreenchimentoNovoAtendimento>();
+            if (ponte?.Espiar(marcarParaDepois: MarcarParaDepois) is null) return false;
+        }
+
+        var pacientePedido = ConsumirPreenchimento();
+        if (pacientePedido is { } pacienteId) await SelecionarPacientePedidoAsync(pacienteId);
+        // Pedido SEM paciente (o clique no vão da grade diz quando e com quem; quem é se
+        // escolhe na tela): o paciente que estava escolhido do uso anterior SAI — deixá-lo
+        // marcaria o vão na pessoa errada, que é o defeito que este método existe para
+        // acabar. Limpar não toca em data, hora nem profissional (`AoTrocarPaciente`).
+        else Seletor.Limpar();
+        return true;
+    }
+
+    /// <summary>
     /// "Quando cabe?" em lista (set/2026): as próximas vagas de quem atende, a partir da
     /// data escolhida, já descontando o que está marcado, os bloqueios e a jornada dele.
     /// Escolher uma vaga preenche data e hora — o resto do formulário continua o mesmo, e
