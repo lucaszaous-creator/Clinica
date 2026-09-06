@@ -82,8 +82,34 @@ public sealed class AgendaService
         if (duracaoMinutos is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
 
-        // Só valida choque quando há recurso disputado. Sem profissional nem sala — o
-        // caminho do faturamento — nada muda: ele avisa na tela e marca assim mesmo.
+        // ===== QUEM VAI ATENDER É OBRIGATÓRIO NA MARCAÇÃO (parcela 95) =====
+        //
+        // O fluxo que a direção pediu é "a secretária marca → cai na agenda do médico
+        // respectivo → ele clica em atender". A primeira seta só existe com este campo:
+        // o "Meu dia" e a "Minha semana" filtram por `ProfissionalId`, então horário sem
+        // dono não aparece na agenda de NINGUÉM — e fica de fora do REPASSE, que lê quem
+        // atendeu do agendamento porque `Atendimento` não guarda profissional. Até aqui a
+        // tela AVISAVA o custo e deixava salvar (parcela 69); com o atendimento saindo da
+        // agenda do profissional, avisar deixou de bastar: o horário sem dono não é um
+        // horário pior, é um horário que o fluxo inteiro não alcança.
+        //
+        // ⚠️ O ENCAIXE continua passando, e é a assimetria deliberada. Encaixe é o
+        // paciente que está NO BALCÃO agora (o lançamento avulso vira encaixe desde a
+        // parcela 60): recusá-lo travaria quem chegou sem hora marcada quando a
+        // recepcionista ainda não sabe quem vai pegar — e ali a tela avisa o custo com a
+        // pessoa na frente, que é onde o aviso funciona. O que se exige é do horário
+        // MARCADO, que existe justamente para cair na agenda de alguém.
+        //
+        // A recusa mora aqui, e não nas telas, pela razão de sempre: são CINCO portas de
+        // marcação (as duas da Recepção, a série, a lista de espera e a agenda do
+        // faturamento), e validar em uma cobre uma e deixa quatro passando.
+        if (!encaixe && profissionalId is null)
+            throw new InvalidOperationException(
+                "Escolha quem vai atender. Sem profissional o horário não aparece na agenda "
+                + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
+
+        // Só valida choque quando há recurso disputado. Sem sala e sem profissional — o
+        // encaixe que a recepção lança com o paciente no balcão — nada há para disputar.
         await GarantirSemChoqueAsync(
             dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, encaixe, ct);
 
@@ -340,8 +366,10 @@ public sealed class AgendaService
         int? profissionalId = null, int? salaId = null, int? pacienteId = null,
         int? ignorarAgendamentoId = null, CancellationToken ct = default)
     {
+        // O profissional é lido UMA vez: dá a duração padrão dele e a jornada (set/2026).
+        var profissional = profissionalId is { } pid ? await _repo.ObterProfissionalAsync(pid, ct) : null;
         var fim = dataHora.AddMinutes(
-            duracaoMinutos ?? await DuracaoPadraoAsync(profissionalId, ct));
+            duracaoMinutos ?? profissional?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos);
 
         var doDia = (await DoDiaAsync(DateOnly.FromDateTime(dataHora), ct))
             .Where(a => a.Id != ignorarAgendamentoId && a.OcupaAgenda && a.ColideCom(dataHora, fim))
@@ -387,6 +415,18 @@ public sealed class AgendaService
             .Where(b => b.AlcancaRecurso(profissionalId, salaId))
             .Select(b => new ConflitoAgenda(
                 RecursoAgenda.Bloqueio, b.Id, b.Descricao, b.Inicio, b.Fim)));
+
+        // FORA DO EXPEDIENTE (set/2026): a jornada declarada do profissional. Até aqui quem
+        // atende terça e quinta era marcável nos outros cinco dias, e a única saída era um
+        // bloqueio semanal repetido à mão. É a regra do bloqueio aplicada à rotina: recusa
+        // com a frase que diz quando ele atende, e o ENCAIXE passa — quem assume atender
+        // fora da hora assume por escrito, como no feriado. Sem jornada declarada, nada
+        // muda: `DentroDoExpediente` responde sim para tudo.
+        if (profissional is { JornadaDeclarada: true } && !profissional.DentroDoExpediente(dataHora, fim))
+            conflitos.Add(new ConflitoAgenda(
+                RecursoAgenda.Expediente, 0,
+                $"{profissional.Rotulo} não atende neste horário — atende {profissional.DescricaoJornada}.",
+                dataHora, fim));
 
         return conflitos;
     }
@@ -538,14 +578,6 @@ public sealed class AgendaService
     public Task<IReadOnlyList<Agendamento>> DaSerieAsync(
         string serieId, CancellationToken ct = default)
         => _repo.AgendamentosDaSerieAsync(serieId, ct);
-
-    /// <summary>Duração padrão do profissional; na falta dele, a da clínica.</summary>
-    private async Task<int> DuracaoPadraoAsync(int? profissionalId, CancellationToken ct)
-    {
-        if (profissionalId is null) return Agendamento.DuracaoPadraoMinutos;
-        var prof = await _repo.ObterProfissionalAsync(profissionalId.Value, ct);
-        return prof?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos;
-    }
 
     /// <summary>Ocupação do dia, um item por profissional (mais um para "sem profissional").</summary>
     public async Task<IReadOnlyList<OcupacaoProfissional>> OcupacaoDoDiaAsync(

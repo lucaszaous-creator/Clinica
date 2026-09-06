@@ -43,6 +43,13 @@ public class GuiaNoRegistroDoAtendimentoTests : IDisposable
     private readonly FechamentoSessaoService _fechamento;
     private readonly PacoteService _pacotes;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public GuiaNoRegistroDoAtendimentoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -50,6 +57,10 @@ public class GuiaNoRegistroDoAtendimentoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
 
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
@@ -80,7 +91,7 @@ public class GuiaNoRegistroDoAtendimentoTests : IDisposable
     {
         var ag = await _agenda.AgendarAsync(
             pacienteId, quando ?? Quando, ModalidadeAtendimento.AcupunturaComEletro, null,
-            encaixe: true, operador: "flavia@");
+            encaixe: true, operador: "flavia@", profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
         return ag.Id;
     }

@@ -1,6 +1,7 @@
 <Window x:Class="Clinica.Recepcao.Janelas.ProfissionalWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
         Title="Profissional" Width="560" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
@@ -66,6 +67,44 @@
                            TextWrapping="Wrap" />
             </StackPanel>
         </Grid>
+        <!-- ===== JORNADA (set/2026) =====
+             Dias e horário de atendimento. Até aqui quem atende terça e quinta aparecia na
+             grade com coluna vazia e MARCÁVEL nos outros cinco dias. Com a jornada, a grade
+             pinta o que está fora, a marcação é recusada (o encaixe passa) e a ocupação do
+             BI mede contra estes minutos, não contra a jornada global. Em branco, nada muda. -->
+        <StackPanel Margin="0,12,0,0">
+            <TextBlock Text="Dias e horário de atendimento" Style="{StaticResource Rotulo}" />
+            <WrapPanel Margin="0,4,0,0">
+                <CheckBox Content="seg" IsChecked="{Binding AtendeSeg}" Margin="0,0,14,4" />
+                <CheckBox Content="ter" IsChecked="{Binding AtendeTer}" Margin="0,0,14,4" />
+                <CheckBox Content="qua" IsChecked="{Binding AtendeQua}" Margin="0,0,14,4" />
+                <CheckBox Content="qui" IsChecked="{Binding AtendeQui}" Margin="0,0,14,4" />
+                <CheckBox Content="sex" IsChecked="{Binding AtendeSex}" Margin="0,0,14,4" />
+                <CheckBox Content="sáb" IsChecked="{Binding AtendeSab}" Margin="0,0,14,4" />
+                <CheckBox Content="dom" IsChecked="{Binding AtendeDom}" Margin="0,0,14,4" />
+            </WrapPanel>
+            <Grid Margin="0,6,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Das" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding AtendeDas}" MaxLength="5" TextAlignment="Center"
+                             ctrl:Ajudantes.Placeholder="08:00" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Até" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding AtendeAte}" MaxLength="5" TextAlignment="Center"
+                             ctrl:Ajudantes.Placeholder="18:00" />
+                </StackPanel>
+            </Grid>
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                       Text="Em branco = qualquer dia e horário, como sempre foi. Preenchida, a agenda pinta o que está fora, recusa a marcação (o encaixe continua passando) e a ocupação passa a ser medida contra estas horas." />
+        </StackPanel>
 
         <Grid Margin="0,12,0,0">
             <Grid.ColumnDefinitions>

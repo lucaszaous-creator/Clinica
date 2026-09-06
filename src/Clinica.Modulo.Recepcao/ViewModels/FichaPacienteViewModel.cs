@@ -297,6 +297,33 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaConsentimento> Consentimentos { get; } = [];
+
+    /// <summary>
+    /// Os próximos horários deste paciente (set/2026) — a resposta a "quando é a minha
+    /// próxima sessão?", que até aqui a recepcionista respondia navegando a agenda dia a
+    /// dia. Lista curta, com teto: quem tem dez sessões marcadas vê as cinco mais próximas
+    /// e abre a agenda para o resto.
+    /// </summary>
+    public ObservableCollection<LinhaHorarioFuturo> ProximosHorarios { get; } = [];
+
+    /// <summary>Terceiro estado: a agenda não pôde ser lida — não é "nenhum horário".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SemProximosHorarios))]
+    private bool _proximosHorariosNaoVerificados;
+
+    private bool _proximosHorariosLidos;
+
+    /// <summary>
+    /// "Nenhum horário marcado" só depois de a leitura ter voltado vazia — antes da
+    /// resposta, e depois de uma falha, a frase seria uma afirmação sobre o que não se sabe.
+    /// </summary>
+    public bool SemProximosHorarios
+        => _proximosHorariosLidos && !ProximosHorariosNaoVerificados && ProximosHorarios.Count == 0;
+
+    /// <summary>Horário é dado da agenda: a região segue o bit da agenda, não o da ficha.</summary>
+    public bool PodeVerAgenda => SessaoUsuario.Atual.Pode(Permissao.VerAgenda);
+
+    public const int TetoDeProximosHorarios = 5;
     public ObservableCollection<LinhaAlerta> Alertas { get; } = [];
     public ObservableCollection<LinhaDocumento> Documentos { get; } = [];
 
@@ -707,6 +734,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             await CarregarFaltasAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarAutorizacoesAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarProximosHorariosAsync(scope, id, geracao);
         }
         catch (Exception ex)
         {
@@ -886,6 +915,72 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             Cancelamentos = "não verificado";
             FaltaReincidente = false;
             AvisoFaltas = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Os próximos horários AGENDADOS do paciente (set/2026), com teto. Isolado como o
+    /// padrão de falta: falhar aqui não derruba a ficha, e vira o terceiro estado — dizer
+    /// "nenhum horário" por causa de uma leitura quebrada mandaria a recepcionista marcar
+    /// por cima de uma sessão que existe.
+    ///
+    /// Só quem tem <c>VerAgenda</c> lê: horário é dado da agenda, e a ficha abre para quem
+    /// só tem a ficha. Sem o bit, a região nem é desenhada (<see cref="PodeVerAgenda"/>).
+    /// </summary>
+    private async Task CarregarProximosHorariosAsync(IServiceScope scope, int pacienteId, int geracao)
+    {
+        if (!PodeVerAgenda) return;
+        try
+        {
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var horarios = await repo.AgendamentosFuturosDoPacienteAsync(
+                pacienteId, DateTime.Now, TetoDeProximosHorarios);
+            if (geracao != _geracaoCarga) return;
+
+            var linhas = horarios.Select(LinhaHorarioFuturo.De).ToList();
+            ProximosHorarios.Clear();
+            foreach (var l in linhas) ProximosHorarios.Add(l);
+            _proximosHorariosLidos = true;
+            ProximosHorariosNaoVerificados = false;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — próximos horários do paciente não puderam ser lidos", ex);
+            if (geracao != _geracaoCarga) return;
+            ProximosHorarios.Clear();
+            _proximosHorariosLidos = true;
+            ProximosHorariosNaoVerificados = true;
+        }
+        finally
+        {
+            if (geracao == _geracaoCarga) OnPropertyChanged(nameof(SemProximosHorarios));
+        }
+    }
+
+    /// <summary>
+    /// Abre a Agenda no DIA daquele horário. A Agenda é montada uma vez pelo shell, então
+    /// o dia viaja por <see cref="PedidoAgenda"/> e é lido quando ela aparece.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirNaAgenda(LinhaHorarioFuturo? linha)
+    {
+        if (linha is null) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "abrir a agenda");
+            using var scope = _escopos.CreateScope();
+            scope.ServiceProvider.GetRequiredService<PedidoAgenda>().AbrirEm(linha.Dia);
+            if (!Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Modulo.ModuloRecepcao.ChaveAgenda))
+            {
+                Mensagem = "A agenda não está disponível para este usuário.";
+                MensagemEhErro = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
         }
     }
 
@@ -2019,4 +2114,50 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         Mensagem = erro;
         MensagemEhErro = true;
     }
+}
+
+/// <summary>Um dos próximos horários do paciente, como a ficha o mostra (set/2026).</summary>
+public sealed class LinhaHorarioFuturo
+{
+    public required int AgendamentoId { get; init; }
+    public required DateTime Quando { get; init; }
+    public required DateOnly Dia { get; init; }
+
+    /// <summary>"qua 16/09 · 14:00–14:30".</summary>
+    public required string Rotulo { get; init; }
+
+    /// <summary>"Acupuntura · Dra. Ana · Sala 2" — só o que existe, separado por ponto.</summary>
+    public required string Contexto { get; init; }
+
+    public required bool Encaixe { get; init; }
+
+    public static LinhaHorarioFuturo De(Agendamento a)
+    {
+        // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia "AcupunturaComEletro" na
+        // ficha (parcela 41).
+        var modalidade = CatalogoModalidades.Nome(a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString());
+        var partes = new[] { modalidade, a.Profissional?.Rotulo, a.Sala?.Nome }
+            .Where(p => !string.IsNullOrWhiteSpace(p));
+
+        return new LinhaHorarioFuturo
+        {
+            AgendamentoId = a.Id,
+            Quando = a.DataHora,
+            Dia = DateOnly.FromDateTime(a.DataHora),
+            Rotulo = $"{DiaDaSemana(a.DataHora)} {a.DataHora:dd/MM} · {a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
+            Contexto = string.Join(" · ", partes),
+            Encaixe = a.Encaixe
+        };
+    }
+
+    private static string DiaDaSemana(DateTime d) => d.DayOfWeek switch
+    {
+        DayOfWeek.Monday => "seg",
+        DayOfWeek.Tuesday => "ter",
+        DayOfWeek.Wednesday => "qua",
+        DayOfWeek.Thursday => "qui",
+        DayOfWeek.Friday => "sex",
+        DayOfWeek.Saturday => "sáb",
+        _ => "dom"
+    };
 }

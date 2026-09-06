@@ -452,8 +452,11 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
+            // Entre o Clear() e o último Add não pode haver await (parcela 62): a
+            // segunda carga limparia o que a primeira ainda está preenchendo.
+            var modelos = await documentos.ModelosAsync(TipoSelecionado);
             Modelos.Clear();
-            foreach (var m in await documentos.ModelosAsync(TipoSelecionado))
+            foreach (var m in modelos)
                 Modelos.Add(m);
         }
         catch (Exception ex)

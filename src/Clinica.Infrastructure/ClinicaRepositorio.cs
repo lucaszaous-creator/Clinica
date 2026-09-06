@@ -331,6 +331,65 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // Sem Include de propósito: quem consome (a busca de vagas) só lê hora, duração e
+    // status — dois meses de agenda com paciente e profissional junto seria carga à toa.
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDoProfissionalNoPeriodoAsync(
+        int profissionalId, DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.ProfissionalId == profissionalId
+                        && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosFuturosDoPacienteAsync(
+        int pacienteId, DateTime aPartirDe, int limite, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Include(a => a.Sala)
+            .Where(a => a.PacienteId == pacienteId
+                        && a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= aPartirDe)
+            .OrderBy(a => a.DataHora)
+            .Take(limite)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<RetornoSugerido>> RetornosSugeridosAsync(
+        DateOnly retornoDesde, CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            // A COLUNA (`CanceladaEm`), nunca a derivada `Cancelada` — o EF recusa em runtime
+            // (parcela 74).
+            .Where(e => e.CanceladaEm == null
+                        && e.RetornoSugeridoEm != null
+                        && e.RetornoSugeridoEm >= retornoDesde)
+            .Select(e => new RetornoSugerido(
+                e.Id,
+                e.PacienteId,
+                e.Paciente!.Nome,
+                e.Paciente.Telefone,
+                e.Data,
+                e.RetornoSugeridoEm!.Value,
+                e.RetornoSugeridoNota,
+                e.ProfissionalId,
+                e.Profissional != null ? e.Profissional.NomeCurto : null,
+                e.Profissional != null ? e.Profissional.Nome : null))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<HorarioPosterior>> HorariosAtivosDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        var corte = desde.ToDateTime(TimeOnly.MinValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Where(a => pacienteIds.Contains(a.PacienteId)
+                        && a.DataHora >= corte
+                        && a.Status != StatusAgendamento.Cancelado
+                        && a.Status != StatusAgendamento.Faltou)
+            .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
         CancellationToken ct = default)
     {
@@ -1942,6 +2001,44 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default)
         => _db.ConsumosPacote.AsNoTracking()
             .AnyAsync(c => c.AtendimentoId == atendimentoId && c.CanceladoEm == null, ct);
+
+    /// <summary>
+    /// Ver o contrato em <c>IClinicaRepositorio</c>. Três consultas, não uma por cartão.
+    ///
+    /// ⚠️ As COLUNAS, nunca as derivadas (`Cancelado` de <c>ConsumoPacote</c> e
+    /// <c>LancamentoFinanceiro.Ativo</c> não são mapeadas, e o EF recusa em RUNTIME —
+    /// a tradução só se prova executando).
+    /// </summary>
+    public async Task<IReadOnlyList<int>> AtendimentosComFechamentoAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(atendimentoIds);
+        if (atendimentoIds.Count == 0) return [];
+
+        var ids = atendimentoIds.Distinct().ToList();
+
+        var comPacote = await _db.ConsumosPacote.AsNoTracking()
+            .Where(c => c.AtendimentoId != null && ids.Contains(c.AtendimentoId!.Value)
+                        && c.CanceladoEm == null)
+            .Select(c => c.AtendimentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var comDinheiro = await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId != null && ids.Contains(l.AtendimentoId!.Value)
+                        && l.Status != StatusLancamento.Cancelado)
+            .Select(l => l.AtendimentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var comInsumo = await _db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.AtendimentoId != null && ids.Contains(m.AtendimentoId!.Value))
+            .Select(m => m.AtendimentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return comPacote.Union(comDinheiro).Union(comInsumo).ToList();
+    }
 
     public Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default)
         => _db.ConsumosPacote.FirstOrDefaultAsync(c => c.Id == consumoId, ct);

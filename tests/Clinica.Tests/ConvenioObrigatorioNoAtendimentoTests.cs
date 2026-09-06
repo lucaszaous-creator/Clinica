@@ -54,6 +54,13 @@ public class ConvenioObrigatorioNoAtendimentoTests : IDisposable
     private readonly AgendaService _agenda;
     private readonly PacienteService _pacientes;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public ConvenioObrigatorioNoAtendimentoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -61,6 +68,10 @@ public class ConvenioObrigatorioNoAtendimentoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _parametros = new ParametrosService(_repo);
         _atendimentos = new AtendimentoService(_repo, parametros: _parametros);
@@ -172,7 +183,7 @@ public class ConvenioObrigatorioNoAtendimentoTests : IDisposable
         // A chave fica DESLIGADA: sem ela a marcação não cria atendimento, e é o check-in
         // que monta — que é justamente o vão que este teste cobre.
         var ag = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         await Assert.ThrowsAsync<ConvenioNaoDefinidoException>(
             () => _agenda.ConfirmarPresencaAsync(ag.Id));
@@ -195,7 +206,7 @@ public class ConvenioObrigatorioNoAtendimentoTests : IDisposable
 
         await Assert.ThrowsAsync<ConvenioNaoDefinidoException>(
             () => _agenda.AgendarAsync(
-                pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null));
+                pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao));
 
         _db.Agendamentos.Should().BeEmpty("o horário e a guia nascem no mesmo grafo — ou os dois, ou nenhum");
     }

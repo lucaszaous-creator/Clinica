@@ -19,7 +19,13 @@ public enum RecursoAgenda
     /// <see cref="ConflitoAgenda.AgendamentoId"/> carrega o id do BLOQUEIO. Quem lê o
     /// choque usa a descrição, que já vem escrita; o id serve para achar o registro.
     /// </summary>
-    Bloqueio
+    Bloqueio,
+
+    /// <summary>
+    /// Fora da jornada declarada do profissional (set/2026). Não há outro paciente do
+    /// outro lado — como o bloqueio —, e o encaixe passa por cima, como no bloqueio.
+    /// </summary>
+    Expediente
 }
 
 /// <summary>

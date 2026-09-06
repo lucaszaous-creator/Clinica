@@ -20,19 +20,29 @@
             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                        Text="Confirmar a própria sessão é transacional: o paciente pediu o horário, e avisar sobre ele não é marketing — não exige consentimento. Gerar é o trabalho automático; enviar é um clique por paciente, porque o número é o WhatsApp da clínica." />
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+            <!-- WrapPanel, não StackPanel horizontal: com o quinto botão a barra passa da
+                 largura mínima da janela (560), e StackPanel horizontal não dobra — o botão
+                 sairia cortado pela borda. Dentro de um StackPanel vertical a largura é
+                 finita, então o WrapPanel dobra de verdade (checagem 32). -->
+            <WrapPanel Margin="0,0,0,4">
                 <TextBlock Text="Dia" Style="{StaticResource Rotulo}"
-                           VerticalAlignment="Center" Margin="0,0,6,0" />
-                <DatePicker SelectedDate="{Binding Dia}" Width="150" />
-                <Button Content="Amanhã" Margin="8,0,0,0"
+                           VerticalAlignment="Center" Margin="0,0,6,6" />
+                <DatePicker SelectedDate="{Binding Dia}" Width="150" Margin="0,0,8,6" />
+                <Button Content="Amanhã" Margin="0,0,8,6"
                         Style="{StaticResource BotaoSecundario}"
                         Command="{Binding AmanhaCommand}" />
-                <Button Content="Gerar rodada" Margin="8,0,0,0"
+                <Button Content="Gerar rodada" Margin="0,0,8,6"
                         Command="{Binding GerarCommand}" IsEnabled="{Binding PodeEditar}" />
-                <Button Content="Atualizar" Margin="8,0,0,0"
+                <!-- O lembrete automático da abertura, por clique: para o app que ficou
+                     aberto desde ontem ou para o e-mail cadastrado agora. -->
+                <Button Content="Enviar e-mails" Margin="0,0,8,6"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding EnviarEmailsCommand}" IsEnabled="{Binding PodeEditar}"
+                        ToolTip="Manda o lembrete por e-mail a quem ainda não foi avisado e tem e-mail na ficha. O mesmo envio roda sozinho na abertura da Recepção e do Gerente." />
+                <Button Content="Atualizar" Margin="0,0,0,6"
                         Style="{StaticResource BotaoSecundario}"
                         Command="{Binding CarregarCommand}" />
-            </StackPanel>
+            </WrapPanel>
 
             <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" Margin="0,0,0,8"
                        TextWrapping="Wrap"

@@ -493,6 +493,9 @@ public sealed class ConsultorioService
             ModalidadeFamilia = a.ModalidadePrevista,
             EsperaMinutos = a.EsperaMinutos(DateTime.Now),
             ChamadoHaMinutos = a.ChamadoHaMinutos(DateTime.Now),
+            ChegadaEm = a.ChegadaEm,
+            InicioAtendimentoEm = a.InicioAtendimentoEm,
+            FimAtendimentoEm = a.FimAtendimentoEm,
             Observacoes = string.IsNullOrWhiteSpace(a.Observacoes) ? null : a.Observacoes.Trim(),
             DuracaoMinutos = a.DuracaoEfetiva
         };

@@ -81,6 +81,16 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <!-- A seção de escrita do OUTRO lado some (parcela 95). COLAPSA, nunca sai da
+                 lista: o índice do rail é a régua do TabControl (ver ItemDoRail).
+                 ⚠️ DEPOIS de todos os Setter: Style.Triggers é elemento de PROPRIEDADE, e
+                 elemento de propriedade no MEIO do conteúdo é MC3088 — só o compilador
+                 de marcação do CI o vê (checagem 46). -->
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Oculta}" Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </UserControl.Resources>
 
@@ -106,55 +116,65 @@
                 </Style>
             </DockPanel.Style>
 
-            <!-- ===================== O CRACHÁ DA PESSOA =====================
-                 Uma superfície, uma vez, válida para as sete seções. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="16,14"
+            <!-- ===================== O CRACHÁ DA PESSOA, EM DUAS LINHAS =====================
+                 (set/2026, "uma folha, dois lados"). Eram seis linhas — nome, idade,
+                 contexto, a alergia numa faixa vermelha de largura inteira, "em
+                 acompanhamento", "últimas hipóteses" — e embaixo uma BARRA VERDE de 74 px
+                 cuja única informação era "em atendimento há 12 min". Somados, uns 225 px
+                 antes de qualquer seção; a folha ficava com o menor pedaço da tela.
+                 A primeira linha é QUEM (nome · idade · convênio · carteirinha); a segunda
+                 é o que muda a conduta (a alergia como pílula vermelha, o acompanhamento, a
+                 última hipótese). A situação da sessão virou uma PÍLULA à direita, com
+                 "Iniciar" e "Reabrir" ao lado quando cabem; o Finalizar desceu para o pé da
+                 folha, ao lado do Salvar — onde a sessão termina.
+                 ⚠️ A ALERGIA continua sendo ATRIBUTO DA PESSOA, não alerta do dia (parcela
+                 74): ela fica ao lado do nome enquanto o prontuário estiver aberto. O que
+                 mudou foi o peso — pílula, não faixa — e a faixa era a razão de o crachá
+                 ter seis linhas. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="14,10"
                     Margin="0,0,0,12">
-                <StackPanel>
-
-                    <Button Content="&#xE72B;  Voltar para a lista" HorizontalAlignment="Left"
-                            Margin="0,0,0,10" Padding="0"
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="&#xE72B;" Padding="4,0" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
                             Style="{StaticResource BotaoFantasma}"
+                            ToolTip="Voltar para a lista"
                             Command="{Binding VoltarCommand}" />
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <!-- A FOTO do cadastro, quando existe; senão as iniciais. É a mesma
-                             miniatura que já viaja na linha do paciente, então não custa
-                             uma consulta a mais. -->
-                        <Grid Grid.Column="0" Width="56" Height="56" VerticalAlignment="Top">
-                            <ctrl:Avatar Tamanho="56" Nome="{Binding Paciente}" />
-                            <Border CornerRadius="28" ClipToBounds="True"
-                                    Visibility="{Binding Foto, Converter={StaticResource ObjetoParaVisibilidade},
-                                                 FallbackValue=Collapsed}">
-                                <Border.Background>
-                                    <ImageBrush ImageSource="{Binding Foto}" Stretch="UniformToFill" />
-                                </Border.Background>
-                            </Border>
-                        </Grid>
-
-                        <StackPanel Grid.Column="1" Margin="14,0,12,0">
-                            <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}"
-                                       TextWrapping="Wrap" Margin="0" />
-
-                            <!-- "45 anos · feminino · Amil · paciente desde 26/03/2022 ·
-                                 18 sessões". Montada no modelo, que sabe PULAR o que não
-                                 existe — frase feita de bindings concatenados não sabe. -->
+                    <!-- A FOTO do cadastro, quando existe; senão as iniciais. -->
+                    <Grid Grid.Column="1" Width="40" Height="40" VerticalAlignment="Center">
+                        <ctrl:Avatar Tamanho="40" Nome="{Binding Paciente}" />
+                        <Border CornerRadius="20" ClipToBounds="True"
+                                Visibility="{Binding Foto, Converter={StaticResource ObjetoParaVisibilidade},
+                                             FallbackValue=Collapsed}">
+                            <Border.Background>
+                                <ImageBrush ImageSource="{Binding Foto}" Stretch="UniformToFill" />
+                            </Border.Background>
+                        </Border>
+                    </Grid>
+                    <StackPanel Grid.Column="2" Margin="12,0,12,0" VerticalAlignment="Center">
+                        <!-- Linha 1: quem. WrapPanel dentro de painel VERTICAL, nunca docado
+                             (checagem 32): numa janela estreita a carteirinha desce de linha
+                             em vez de sair pela borda. -->
+                        <WrapPanel>
+                            <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}"
+                                       Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
+                            <!-- "45 anos · feminino · Amil · paciente desde 26/03/2022 · 18
+                                 sessões". Montada no modelo, que sabe PULAR o que não existe. -->
                             <TextBlock Text="{Binding Cabecalho.Linha}" TextWrapping="Wrap"
-                                       Style="{StaticResource TextoSuave}" Margin="0,3,0,0"
+                                       Style="{StaticResource TextoSuave}" Margin="0,0,10,0"
+                                       VerticalAlignment="Center"
                                        Visibility="{Binding Cabecalho.Linha,
                                                     Converter={StaticResource TextoParaVisibilidade},
                                                     FallbackValue=Collapsed}" />
-
                             <!-- A carteirinha é ditada ao telefone quando se fala com o
                                  convênio, e a validade vencida avisa que a guia de hoje pode
-                                 ser recusada. Os dois eram carregados e nenhuma tela os lia. -->
-                            <TextBlock TextWrapping="Wrap" Margin="0,2,0,0"
+                                 ser recusada. -->
+                            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
                                        Visibility="{Binding Cabecalho.CarteirinhaTexto,
                                                     Converter={StaticResource TextoParaVisibilidade},
                                                     FallbackValue=Collapsed}">
@@ -170,36 +190,20 @@
                                 </TextBlock.Style>
                                 <Run Text="{Binding Cabecalho.CarteirinhaTexto, Mode=OneWay}" />
                             </TextBlock>
-
-                            <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
-                                       TextWrapping="Wrap" Margin="0,2,0,0" />
-                        </StackPanel>
-
-                        <Button Grid.Column="2" Content="Trocar paciente" MinWidth="150"
-                                VerticalAlignment="Top"
-                                Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding TrocarPacienteCommand}" />
-                    </Grid>
-
-                    <!-- ⚠️ A ALERGIA é ATRIBUTO DA PESSOA, não alerta do dia.
-                         Alerta é faixa que se lê uma vez e se ignora nas quarenta sessões
-                         seguintes — é a razão pela qual este projeto recusa alerta que
-                         dispara para todo mundo desde a parcela 26. Aqui ela fica no
-                         crachá, ao lado do nome, enquanto o prontuário estiver aberto. -->
-                    <StackPanel Margin="0,12,0,0"
-                                Visibility="{Binding Cabecalho.TemContextoClinico,
-                                             Converter={StaticResource BoolParaVisibilidade},
-                                             FallbackValue=Collapsed}">
-                            <Border Style="{StaticResource AlertaPerigo}" Padding="10,7"
-                                    Margin="0,0,0,6"
+                        </WrapPanel>
+                        <!-- Linha 2: o que muda a conduta. Some inteira quando não há nada. -->
+                        <WrapPanel Margin="0,4,0,0"
+                                   Visibility="{Binding Cabecalho.TemContextoClinico,
+                                                Converter={StaticResource BoolParaVisibilidade},
+                                                FallbackValue=Collapsed}">
+                            <Border Style="{StaticResource Badge.Erro}" Margin="0,0,12,2"
                                     Visibility="{Binding Cabecalho.AlergiasTexto,
                                                  Converter={StaticResource TextoParaVisibilidade},
                                                  FallbackValue=Collapsed}">
-                                <TextBlock Text="{Binding Cabecalho.AlergiasTexto}"
-                                           TextWrapping="Wrap" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Cabecalho.AlergiasTexto}" TextWrapping="Wrap" />
                             </Border>
-
-                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,3"
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,12,2" VerticalAlignment="Center"
+                                       FontSize="{StaticResource Fonte.Tabela}"
                                        Visibility="{Binding Cabecalho.ProblemasTexto,
                                                     Converter={StaticResource TextoParaVisibilidade},
                                                     FallbackValue=Collapsed}">
@@ -207,88 +211,76 @@
                                      Foreground="{StaticResource Brush.Texto.Secundario}" />
                                 <Run Text="{Binding Cabecalho.ProblemasTexto, Mode=OneWay}" />
                             </TextBlock>
-
-                            <!-- O primeiro leitor da HipoteseDiagnostica que a parcela 73
-                                 criou. Sem isto ela seria mais um campo gravado sem leitor
-                                 — o defeito recorrente cometido na parcela seguinte à que
-                                 criou o dado. -->
-                            <TextBlock TextWrapping="Wrap"
+                            <!-- O primeiro leitor da HipoteseDiagnostica (parcela 73). -->
+                            <TextBlock TextWrapping="Wrap" Margin="0,0,0,2" VerticalAlignment="Center"
+                                       FontSize="{StaticResource Fonte.Tabela}"
                                        Visibility="{Binding Cabecalho.DiagnosticosTexto,
                                                     Converter={StaticResource TextoParaVisibilidade},
                                                     FallbackValue=Collapsed}">
                                 <Run Text="Últimas hipóteses: " FontWeight="SemiBold"
                                      Foreground="{StaticResource Brush.Texto.Secundario}" />
                                 <Run Text="{Binding Cabecalho.DiagnosticosTexto, Mode=OneWay}" />
-                        </TextBlock>
+                            </TextBlock>
+                        </WrapPanel>
                     </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <!-- ================= A BARRA DE ATENDIMENTO =================
-                 Ela SÓ aparece quando há horário de origem. Sem agendamento não há sessão
-                 em curso, e desenhar um cronômetro parado convidaria a "iniciar" um
-                 atendimento que não existe na agenda de ninguém. -->
-            <Border DockPanel.Dock="Top" Margin="0,0,0,12" Padding="14,10" CornerRadius="8"
-                    Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
-                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
-                        <Setter Property="BorderThickness" Value="1" />
-                        <Style.Triggers>
-                            <!-- Em curso a barra é VERDE: ela é a única coisa na tela que
-                                 diz, de longe, que há alguém na sala agora. -->
-                            <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
-                                <Setter Property="Background"
-                                        Value="{StaticResource Brush.Sucesso.Suave}" />
-                                <Setter Property="BorderBrush"
-                                        Value="{StaticResource Brush.Sucesso}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock Text="{Binding SituacaoSessao}" TextWrapping="Wrap"
-                                   FontWeight="SemiBold" />
-                        <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
-                                   Margin="0,2,0,0"
-                                   Text="Finalizar salva a sessão e avisa o balcão. Quem fecha a guia, o pacote e o caixa continua sendo a recepção."
-                                   Visibility="{Binding EmAtendimento,
-                                                Converter={StaticResource BoolParaVisibilidade}}" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                VerticalAlignment="Center">
-                        <Button Content="Iniciar atendimento" MinWidth="170"
-                                Command="{Binding IniciarSessaoCommand}"
-                                IsEnabled="{Binding PodeMoverFila}"
-                                Visibility="{Binding PodeIniciar,
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
-                        <Button Content="Finalizar atendimento" MinWidth="190"
-                                Command="{Binding FinalizarSessaoCommand}"
-                                IsEnabled="{Binding PodeMoverFila}"
-                                Visibility="{Binding EmAtendimento,
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
-                        <!-- Finalizou no paciente errado, ou precisou chamá-lo de volta. A
-                             porta é daqui: pedir ao balcão que "volte a etapa" tiraria o
-                             paciente da SALA, que é o contrário do que se quer. -->
-                        <Button Content="Reabrir atendimento" MinWidth="180"
-                                Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding ReabrirSessaoCommand}"
-                                IsEnabled="{Binding PodeMoverFila}"
-                                Visibility="{Binding SessaoEncerrada,
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                    <!-- A SITUAÇÃO DA SESSÃO, como pílula: verde em curso, neutra fora dele.
+                         Só existe quando há horário de origem — desenhar um cronômetro
+                         parado convidaria a "iniciar" um atendimento que não existe na
+                         agenda de ninguém. Os dois atos raros (Iniciar, quando o paciente
+                         ainda não entrou; Reabrir, entre o encerramento e a conclusão)
+                         ficam ao lado dela, discretos; o Finalizar está no pé da folha. -->
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <Border HorizontalAlignment="Right" Padding="12,4"
+                                ctrl:Ajudantes.Pilula="True"
+                                Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding SituacaoSessao}" TextTrimming="CharacterEllipsis"
+                                       FontWeight="SemiBold" FontSize="{StaticResource Fonte.Tabela}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                            <Button Content="Iniciar atendimento" Padding="4,0" Margin="0,0,12,0"
+                                    Style="{StaticResource BotaoFantasma}"
+                                    ToolTip="O paciente entrou na sala — o balcão vê o cartão mudar de raia."
+                                    Command="{Binding IniciarSessaoCommand}"
+                                    IsEnabled="{Binding PodeMoverFila}"
+                                    Visibility="{Binding PodeIniciar,
+                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+                            <!-- Finalizou no paciente errado, ou precisou chamá-lo de volta. A
+                                 porta é daqui: pedir ao balcão que "volte a etapa" tiraria o
+                                 paciente da SALA, que é o contrário do que se quer. -->
+                            <Button Content="Reabrir atendimento" Padding="4,0" Margin="0,0,12,0"
+                                    Style="{StaticResource BotaoFantasma}"
+                                    Command="{Binding ReabrirSessaoCommand}"
+                                    IsEnabled="{Binding PodeMoverFila}"
+                                    Visibility="{Binding PodeReabrir,
+                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+                            <Button Content="Trocar paciente" Padding="4,0"
+                                    Style="{StaticResource BotaoFantasma}"
+                                    Command="{Binding TrocarPacienteCommand}" />
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </Border>
-
             <Border DockPanel.Dock="Top" Margin="0,0,0,12"
                     Visibility="{Binding MensagemSessao, Converter={StaticResource TextoParaVisibilidade},
                                  FallbackValue=Collapsed}">
@@ -310,7 +302,9 @@
                  módulos caem cada uma na sua seção (ModuloClinico.AbaDe), e trocar o
                  leiaute não pode quebrar contrato de navegação (a regressão da parcela
                  37, 4ª rodada). -->
-            <ListBox DockPanel.Dock="Left" Width="196" Margin="0,0,16,0"
+            <!-- 212 e não 196: "Atendimento de enfermagem" (o rótulo mais longo) saía
+                 com reticências no rail — rótulo cortado no menu é o defeito da parcela 50. -->
+            <ListBox DockPanel.Dock="Left" Width="212" Margin="0,0,16,0"
                      Background="Transparent" BorderThickness="0"
                      ItemsSource="{Binding SecoesAgrupadas}"
                      ItemContainerStyle="{StaticResource ItemSecaoClinica}"
@@ -325,19 +319,10 @@
                         <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" />
                     </DataTemplate>
                 </ListBox.ItemTemplate>
-                <ListBox.GroupStyle>
-                    <GroupStyle>
-                        <GroupStyle.HeaderTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}" Margin="10,14,0,4"
-                                           TextTrimming="CharacterEllipsis"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-                            </DataTemplate>
-                        </GroupStyle.HeaderTemplate>
-                    </GroupStyle>
-                </ListBox.GroupStyle>
+                <!-- Sem cabeçalho de grupo (set/2026): com seis linhas por lado, "SESSÃO"
+                     seria o título de UMA linha, e título de um item só é moldura. Os
+                     grupos continuam no C# (`GruposDoPaciente`): a vista agrupada é o
+                     que mantém a ordem estável, e a checagem 38 casa as duas listas. -->
             </ListBox>
 
             <!-- O conteúdo. TabControl com a régua ESCONDIDA: ele já resolve montar só a
@@ -357,11 +342,10 @@
                 <TabItem Header="Atendimento de enfermagem">
                     <views:AtendimentoEnfermagemView DataContext="{Binding Enfermagem}" />
                 </TabItem>
-                <TabItem Header="Anamnese">
-                    <views:AnamneseView DataContext="{Binding Anamnese}" />
-                </TabItem>
+                <!-- Ficha e problemas · Anamnese numa seção só (set/2026). O DataContext
+                     é herdado: a view lê Capa e Anamnese. -->
                 <TabItem Header="Paciente">
-                    <views:PacienteCapaView DataContext="{Binding Capa}" />
+                    <views:PacienteView />
                 </TabItem>
                 <TabItem Header="Histórico">
                     <views:ProntuarioClinicoView DataContext="{Binding Prontuario}" />
@@ -372,14 +356,10 @@
                 <TabItem Header="Prescrições e documentos">
                     <views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" />
                 </TabItem>
-                <TabItem Header="Evolução da dor">
-                    <views:EvolucaoDorView DataContext="{Binding Dor}" />
-                </TabItem>
-                <TabItem Header="Medidas">
-                    <views:MedidasView DataContext="{Binding Medidas}" />
-                </TabItem>
-                <TabItem Header="Avaliações">
-                    <views:AvaliacoesView DataContext="{Binding Avaliacoes}" />
+                <!-- Dor, medidas e avaliações numa seção só (parcela 95). O DataContext
+                     é herdado: a view lê Dor/Medidas/Avaliacoes e SubAbaAcompanhamento. -->
+                <TabItem Header="Acompanhamento">
+                    <views:AcompanhamentoView />
                 </TabItem>
             </TabControl>
         </DockPanel>

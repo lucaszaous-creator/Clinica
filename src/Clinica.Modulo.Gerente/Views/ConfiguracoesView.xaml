@@ -376,6 +376,117 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ===== Lembretes por e-mail (set/2026) ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Lembretes por e-mail" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   Text="Na abertura da Recepção e do Gerente, o sistema manda a confirmação da sessão por e-mail a quem tem endereço na ficha — as sessões de hoje, de amanhã e do fim de semana que vier. É a MESMA rodada de confirmação do balcão: quem já foi avisado pelo WhatsApp não recebe e-mail, e quem recebeu aparece na rodada como avisado por e-mail. A mensagem não leva dado clínico." />
+
+                        <!-- A tela ABRE dizendo como está — contexto permanente é LINHA, não faixa. -->
+                        <TextBlock Text="{Binding SituacaoEmail}" TextWrapping="Wrap"
+                                   Style="{StaticResource TextoSuave}"
+                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" />
+
+                        <Grid Margin="0,14,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="160" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Servidor de saída (SMTP)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailSmtpHost}" MaxLength="200"
+                                         ctrl:Ajudantes.Placeholder="smtp.gmail.com" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Porta" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailSmtpPorta}" MaxLength="5"
+                                         ctrl:Ajudantes.Placeholder="587" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailSmtpUsuario}" MaxLength="200" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Senha (ou senha de aplicativo)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailSmtpSenha}" MaxLength="300" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Remetente (e-mail que o paciente vê)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailRemetente}" MaxLength="120"
+                                         ctrl:Ajudantes.Placeholder="contato@suaclinica.com.br" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Nome do remetente" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailRemetenteNome}" MaxLength="120"
+                                         ctrl:Ajudantes.Placeholder="Clínica SemDor" />
+                            </StackPanel>
+                        </Grid>
+
+                        <CheckBox IsChecked="{Binding EmailSmtpTls}" Margin="0,4,0,0"
+                                  Content="Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica" />
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Margin="0,8,0,0"
+                                   Text="Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica. A resposta do paciente chega no remetente." />
+
+                        <Separator Margin="0,14,0,12" />
+
+                        <!-- WrapPanel filho de StackPanel vertical: largura finita, dobra na tela
+                             estreita (checagem 32). Botão ao lado de campo usa a altura do campo. -->
+                        <WrapPanel>
+                            <Button Content="Salvar lembretes"
+                                    Command="{Binding SalvarEmailCommand}"
+                                    IsEnabled="{Binding PodeEditar}"
+                                    VerticalAlignment="Center" MinWidth="190" Margin="0,0,16,8" />
+                            <StackPanel Width="260" Margin="0,0,10,8">
+                                <TextBlock Text="Mandar o teste para" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding EmailDestinoTeste}" MaxLength="120" />
+                            </StackPanel>
+                            <Button Content="{Binding RotuloTesteEmail}"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding TestarEmailCommand}"
+                                    IsEnabled="{Binding PodeTestarEmail}"
+                                    VerticalAlignment="Bottom" MinWidth="200" Margin="0,0,0,8" />
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para o endereço acima; nenhum paciente recebe nada." />
+                    </StackPanel>
+                </Border>
+
                 <!-- ===== Tela do paciente (parcela 66, 5ª rodada) ===== -->
                 <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                     <StackPanel>

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Email;
 using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Modelos;
 using Clinica.Domain;
@@ -185,6 +186,44 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         OnPropertyChanged(nameof(RotuloTesteConexao));
     }
 
+    // ---- Lembretes por e-mail (set/2026) ----
+
+    /// <summary>
+    /// O servidor de saída do lembrete automático da sessão. <b>Servidor e remetente em
+    /// branco DESLIGAM o lembrete</b>, e o aviso volta a ser só o WhatsApp de um clique do
+    /// balcão — exatamente como antes de o campo existir.
+    /// </summary>
+    [ObservableProperty] private string? _emailSmtpHost;
+    [ObservableProperty] private string? _emailSmtpPorta;
+    [ObservableProperty] private string? _emailSmtpUsuario;
+    [ObservableProperty] private string? _emailSmtpSenha;
+    [ObservableProperty] private string? _emailRemetente;
+    [ObservableProperty] private string? _emailRemetenteNome;
+    [ObservableProperty] private bool _emailSmtpTls = true;
+
+    /// <summary>Como o lembrete está agora — a tela ABRE dizendo, pela regra da publicação.</summary>
+    [ObservableProperty] private string _situacaoEmail = string.Empty;
+
+    /// <summary>
+    /// Para onde vai o e-mail de teste. Não é configuração: nasce com o e-mail da clínica
+    /// e não é regravado a cada recarga, senão apagaria o que a pessoa acabou de digitar.
+    /// </summary>
+    [ObservableProperty] private string? _emailDestinoTeste;
+
+    [ObservableProperty] private bool _testandoEmail;
+
+    /// <summary>As DUAS metades visíveis num botão só: a permissão e o "já estou enviando".</summary>
+    public bool PodeTestarEmail => PodeEditar && !TestandoEmail;
+
+    /// <summary>O botão DIZ que está trabalhando — a ida ao servidor tem 30 s de tempo-limite.</summary>
+    public string RotuloTesteEmail => TestandoEmail ? "Enviando…" : "Enviar e-mail de teste";
+
+    partial void OnTestandoEmailChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PodeTestarEmail));
+        OnPropertyChanged(nameof(RotuloTesteEmail));
+    }
+
     // ---- Faturamento (a direção lê; o app congelado continua sendo quem fatura) ----
     [ObservableProperty] private string? _janelaAlertaConsulta;
     [ObservableProperty] private string? _prazoRecursoGlosa;
@@ -271,6 +310,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             }
             await CarregarPublicacaoAsync(p);
             await CarregarTelasAsync(p);
+            await CarregarEmailAsync(p);
 
             JanelaAlertaConsulta = (await p.ObterJanelaAlertaConsultaAsync()).ToString();
             PrazoRecursoGlosa = (await p.ObterPrazoRecursoGlosaAsync()).ToString();
@@ -650,6 +690,114 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     /// feature quebrou — quando o que houve foi um cabo solto.
     /// </summary>
     [ObservableProperty] private string _avisoTelaDoPaciente = string.Empty;
+
+    private async Task CarregarEmailAsync(ParametrosService p)
+    {
+        var c = await p.ObterCamposEmailAsync();
+        EmailSmtpHost = c.Host;
+        EmailSmtpPorta = c.Porta;
+        EmailSmtpUsuario = c.Usuario;
+        EmailSmtpSenha = c.Senha;
+        EmailRemetente = c.Remetente;
+        EmailRemetenteNome = c.NomeRemetente;
+        EmailSmtpTls = c.UsarTls;
+
+        // O e-mail da clínica (bloco "A clínica", já carregado acima) é quem costuma testar.
+        EmailDestinoTeste ??= Email;
+
+        SituacaoEmail = DescreverEmail(
+            OpcoesEmail.De(c.Host, c.Porta, c.Usuario, c.Senha, c.Remetente, c.NomeRemetente, c.UsarTls));
+    }
+
+    /// <summary>"Desligado" e "ligado" são frases diferentes — e a ligada diz DE ONDE sai.</summary>
+    private static string DescreverEmail(OpcoesEmail? opcoes)
+        => opcoes is null
+            ? "Lembrete por e-mail DESLIGADO. Preencha o servidor de saída e o remetente para ligar — "
+              + "até lá, o aviso da sessão continua sendo o WhatsApp de um clique, na rodada do balcão."
+            : "Lembrete por e-mail LIGADO: na abertura da Recepção e do Gerente, quem tem e-mail na ficha "
+              + "recebe a confirmação das sessões de hoje, de amanhã e do fim de semana que vier. "
+              + $"Sai de {opcoes.Descricao}.";
+
+    /// <summary>
+    /// Servidor e remetente andam JUNTOS: um sem o outro não manda nada, e gravar metade
+    /// deixaria a tela dizendo "ligado" com o envio quebrado (a regra de
+    /// <see cref="OpcoesEmail.De"/>, dita ANTES de gravar).
+    /// </summary>
+    [RelayCommand]
+    private async Task SalvarEmailAsync()
+        => await ExecutarAsync(async p =>
+        {
+            var host = Limpar(EmailSmtpHost);
+            var remetente = Limpar(EmailRemetente);
+
+            if (host is null && remetente is null)
+            {
+                await p.SalvarCamposEmailAsync(new CamposEmail(
+                    null, Limpar(EmailSmtpPorta), Limpar(EmailSmtpUsuario), EmailSmtpSenha,
+                    null, Limpar(EmailRemetenteNome), EmailSmtpTls));
+                return "Lembrete por e-mail desligado — o aviso volta a ser só o WhatsApp da rodada.";
+            }
+
+            if (host is null || remetente is null)
+                throw new InvalidOperationException(
+                    "Informe o servidor de saída E o remetente — ou deixe os dois em branco para desligar o lembrete.");
+
+            if (!EnderecoDeEmail.Valido(remetente))
+                throw new InvalidOperationException(
+                    "O remetente precisa ser um e-mail válido (ex.: contato@suaclinica.com.br).");
+
+            if (!string.IsNullOrWhiteSpace(EmailSmtpPorta)
+                && (!int.TryParse(EmailSmtpPorta.Trim(), out var porta) || porta is < 1 or > 65535))
+                throw new InvalidOperationException(
+                    "A porta precisa ser um número de 1 a 65535 — 587 é a mais comum; 465 em alguns provedores.");
+
+            await p.SalvarCamposEmailAsync(new CamposEmail(
+                host, Limpar(EmailSmtpPorta), Limpar(EmailSmtpUsuario), EmailSmtpSenha,
+                remetente, Limpar(EmailRemetenteNome), EmailSmtpTls));
+
+            return "Lembrete por e-mail salvo. Use \"Enviar e-mail de teste\" para conferir que o servidor aceita.";
+        });
+
+    /// <summary>
+    /// Manda UM e-mail de teste pelo MESMO caminho do lembrete, com a configuração GRAVADA.
+    /// A frase do erro traz a do servidor (<c>GetBaseException</c>): "Failure sending mail"
+    /// não diz nada, e a causa — autenticação recusada, porta fechada — está um nível abaixo
+    /// (a lição da parcela 67).
+    /// </summary>
+    [RelayCommand]
+    private async Task TestarEmailAsync()
+    {
+        Mensagem = null;
+        MensagemEhErro = false;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "enviar o e-mail de teste");
+
+            var destino = Limpar(EmailDestinoTeste)
+                ?? throw new InvalidOperationException("Informe para qual e-mail mandar o teste.");
+
+            TestandoEmail = true;
+
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider
+                .GetRequiredService<LembreteEmailService>()
+                .EnviarTesteAsync(destino);
+
+            _snackbar.Sucesso(
+                $"E-mail de teste enviado para {destino}. Confira a caixa de entrada — e a pasta de "
+                + "spam, na primeira vez.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — e-mail de teste falhou", ex);
+            Erro($"O e-mail de teste não saiu: {ex.GetBaseException().Message}");
+        }
+        finally
+        {
+            TestandoEmail = false;
+        }
+    }
 
     private async Task CarregarTelasAsync(ParametrosService p)
     {

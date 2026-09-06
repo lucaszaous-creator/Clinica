@@ -53,8 +53,8 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
-| 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5 e 63 |
-| 03 | Fila em kanban | Recepção | ✅ | 1 |
+| 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5, 63 e set/2026 |
+| 03 | Agenda do dia (lista) | Recepção | ✅ | 1 e set/2026 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
 | 06 | Mapa corporal | Recepção | ✅ | 3 |
@@ -81,7 +81,8 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 
 > Completa quer dizer **entregue como o produto se propôs a fazer**, não que não haja o
 > que melhorar. Duas ressalvas seguem valendo e estão no fim deste documento: a feature
-> 02 automatiza a RODADA de confirmação, não o disparo; e a "assinatura digital" da
+> 02 automatiza a RODADA de confirmação e, desde set/2026, o DISPARO por e-mail — pelo
+> WhatsApp o disparo continua sendo um clique por paciente; e a "assinatura digital" da
 > feature 07 é carimbo com código de conferência, não certificado ICP-Brasil.
 
 ---
@@ -142,7 +143,7 @@ zero.**
 > profissional tem na agenda. As guias pendentes aparecem só para os pacientes de HOJE
 > — é o único momento barato de cobrar o documento.
 
-### Feature 02 · Agenda multiprofissional — ✅ · parcelas 1, 5 e 63
+### Feature 02 · Agenda multiprofissional — ✅ · parcelas 1, 5, 63 e set/2026
 
 | Item | Estado | Onde / observação |
 |---|---|---|
@@ -152,9 +153,17 @@ zero.**
 | **Vão FECHADO na grade** | ✅ | **parcela 63** — férias, feriado e folga aparecem pintados com o motivo. A marcação já era recusada pelo `AgendaService`; o vão bloqueado era visualmente idêntico ao livre, e o livre é clicável desde a parcela 58 |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
-| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
+| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26). O DISPARO pelo WhatsApp é um clique por paciente (o número é o da clínica) |
+| **Lembrete automático por e-mail** | ✅ | **set/2026** — `LembreteEmailService`, na abertura da Recepção e do Gerente, para as sessões de hoje, de amanhã e do fim de semana que vier: MESMA rodada, MESMO contato, canal e-mail. Servidor cadastrado em Gerente → Configurações → Lembretes por e-mail; sem ele, nada muda. O balcão também dispara por clique ("Enviar e-mails" na rodada) |
+| **A situação do dia NO CARTÃO** | ✅ | **set/2026** — a grade dizia o horário e calava o dia: o paciente chegava, era chamado, entrava na sala, e o cartão continuava igual ao das oito da manhã. A linha de contexto passou a abrir pela situação, colorida (`StatusDaFila.SituacaoNaGrade` — a MESMA palavra das duas listas), e cala enquanto o horário só está marcado |
+| **Releitura ao voltar para a aba** | ✅ | **set/2026** — grade e lista são abas do mesmo item, e o shell guarda cada aba montada: voltar devolvia a tela de quando a pessoa saiu, com o relógio de 1 min parado junto. `AoEntrarEmCena` relê em silêncio (nunca na primeira exibição, nunca por cima de uma carga no ar) |
+| **✓ de confirmação na grade** | ✅ | **set/2026** — o cartão do balcão mostra "Confirmou" / "Não confirmou" pelo que a RODADA registrou (`AgendaViewModel.Confirmacao`, leitura em lote); sem contato, sem selo |
+| **Retornos a marcar** | ✅ | **set/2026** — aba do item Atendimento: o retorno que quem atendeu pediu na sessão (`Evolucao.RetornoSugeridoEm`) vira fila do balcão (`RetornosAMarcarService`), com "Marcar horário" já preenchido e o convite pelo WhatsApp. Nunca vira agendamento sozinho (a regra da parcela 58) |
+| **Próximos horários na ficha** | ✅ | **set/2026** — a ficha do paciente lista o que ele tem marcado daqui em diante e abre a agenda no dia (`FichaPacienteViewModel.ProximosHorarios`) |
+| **Jornada por profissional** (dias e horário) | ✅ | **set/2026** — `Profissional.DiasDeAtendimento`/`AtendeDas`/`AtendeAte`: a grade pinta o fora-do-expediente e o Salvar RECUSA como recusa o bloqueio (`RecursoAgenda.Expediente` — "escolha outro horário ou marque como encaixe"; o encaixe passa). A ocupação usa a jornada DELE; a global vale para quem não declarou. Em branco, tudo como antes |
+| **Próxima vaga com o profissional** | ✅ | **set/2026** — botão "Próximas vagas…" no Marcar (`BuscaDeVagasService`): as dez primeiras vagas em até 60 dias, pela jornada e pelos bloqueios; clicar preenche data e hora, e quem grava continua sendo o Salvar |
 | **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26) |
-| **Agendamento em série** (o pacote de dez) | ✅ | `AgendaService.AgendarSerieAsync`/`CancelarSerieAsync` (parcela 26) |
+| ~~**Agendamento em série** (o pacote de dez)~~ | ⛔ | **Retirada das telas em set/2026, por decisão da cliente** ("não precisamos disso; se o paciente precisar voltar, a recepcionista marca uma agenda"). O motor `AgendaService.AgendarSerieAsync` fica, sem porta; `CancelarSerieAsync` continua na janela do horário para as séries já marcadas |
 | **Visão de semana** | ✅ | `AgendaViewModel.ModoSemana` — o dia continua sendo o padrão (parcela 26) |
 | Elegibilidade antes de marcar | ✅ | `ElegibilidadeService` no agendamento e no check-in da Fila (parcela 26) |
 
@@ -172,19 +181,26 @@ zero.**
 > o **encaixe**, e aí ele fica registrado em vez de virar conflito silencioso. Quem não
 > informa profissional nem sala — o faturamento — enxerga o comportamento de sempre.
 
-### Feature 03 · Fila em kanban — ✅ · parcela 1
+### Feature 03 · Agenda do dia — ✅ · parcelas 1 e set/2026
 
 | Item | Estado | Onde |
 |---|---|---|
-| Fila do dia com confirmar/cancelar/faltou | ✅ | `FilaViewModel` |
-| Colunas Aguardando · Chegou · Em atendimento · Finalizado | ✅ | `Agendamento.Etapa`, `FilaView` |
+| **A agenda do dia em LISTA** — aba **Dia** do item Agenda | ✅ | **set/2026** — `FilaView`/`FilaViewModel`: uma linha por horário, na ordem da hora, com HORÁRIO · PACIENTE · PROFISSIONAL · STATUS · ações. A cliente, com o print do Smart Clinic: a agenda e a fila "acabam sendo uma duplicata para a mesma função". O kanban de cinco raias (parcelas 26, 58 e 87) e o arrasto saíram; a "Fila do dia" deixou de ser item de menu |
+| Chegou · Chamar · Entrou · Concluir · Fechar sessão · falta · cancelamento | ✅ | o passo seguinte é o botão da linha; o resto no "⋯" — as mesmas guardas de sempre |
+| Status por linha, com a hora do fato | ✅ | `StatusDaFila` (Application) — o MESMO vocabulário do Meu dia do médico: Marcado · No local · Chamado · Em atendimento · Concluído; "chegou às 14:40 · espera 12 min" |
+| Cancelado e falta FICAM na lista, apagados | ✅ | a regra da folha do dia; a única ação deles é "Abrir na grade (reabrir ou remarcar)…" |
 | Tempo de espera visível | ✅ | `Agendamento.EsperaMinutos`, atualizado a cada minuto na tela |
-| Aviso de pendência já no check-in | ✅ | `AgendaService.ConfirmarPresencaAsync` + etiqueta no cartão |
+| Aviso de pendência já no check-in | ✅ | selos por ordem fixa (`SelosDaFila`), só na linha viva |
+| Faixa CHAMANDO — o recado do consultório | ✅ | nomeia o chamado mais antigo, com sala e cronômetro, e o "Entrou" dentro dela |
+| **A linha tem a altura do conteúdo** | ✅ | **set/2026** — o estilo implícito fixa `RowHeight=36` e a célula empilhada era DECEPADA ("sala —" cortado ao meio, no print da cliente). Vale para as quatro grades que empilham; a **checagem 47** cobra as próximas |
+| **Sala em branco não vira travessão** | ✅ | **set/2026** — a clínica não usa salas, e "sala —" saía em toda linha. Os seis leitores omitem a sala quando não há |
 
 > As colunas saem dos **carimbos de hora** (`ChegadaEm`, `InicioAtendimentoEm`), não de
 > um status novo: o faturamento continua vendo o mesmo `StatusAgendamento` de sempre.
-> "Concluir" é o antigo check-in — gera o atendimento e os códigos — e fica no fim do
-> fluxo de propósito: a guia nasce quando a sessão de fato aconteceu.
+> A conclusão — que gera o atendimento e os códigos — fica no fim do fluxo de propósito:
+> a guia nasce quando a sessão de fato aconteceu. Desde a parcela 95 ela é o **Finalizar
+> atendimento** do Consultório; o "Concluir" da fila segue existindo para quem atende sem
+> passar por lá, e o balcão resolve o dinheiro (pacote, insumo, caixa) em seguida.
 
 ### Feature 04 · Pacientes — cadastro 360º — ✅ · parcela 2
 
@@ -1057,7 +1073,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 |---|---|---|---|
 | **GESTÃO** · Início | Recepção | ✅ | `PainelView` |
 | **GESTÃO** · Agenda | Recepção | ✅ | `AgendaView` |
-| **GESTÃO** · Recepção / Check-in | Recepção | ✅ | `FilaView` (kanban) |
+| **GESTÃO** · Agenda → aba **Dia** (era o item "Fila do dia"; antes da parcela 95, "Recepção / Check-in") | Recepção | ✅ | `FilaView` em **LISTA** (set/2026): a agenda do dia com o status em cada linha, o desenho do Smart Clinic e do Meu dia. Os selos continuam **no máximo três**, por ordem fixa (`SelosDaFila`): o que impede (termo), o que cobra agora (guia, pacote no fim), o estado (atraso, encerrado). Confirmação é ✓ ao lado da hora; pacote N/M vai para a linha de contexto; encaixe é selo ao lado do nome |
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
@@ -1066,7 +1082,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
-| **FINANCEIRO** · Pacotes / Sessões | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
+| **FINANCEIRO** · Pacotes (era "Pacotes / Sessões" até a parcela 95) | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
 | **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
 | **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |
@@ -1097,7 +1113,7 @@ Levantado no código, não na memória. Conferido de novo na **parcela 48**.
 | ~~Telemedicina~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Precisa sair da arte da sidebar no material comercial |
 | ~~Portal do paciente~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Idem |
 | ~~Assinatura ICP-Brasil~~ | Consultório | **✅ parcelas 42 e 43** — assinatura qualificada PAdES (PKCS#7 SHA-256) na folha de infusão E nos quatro documentos que saem da clínica (receita, atestado, comparecimento, pedido de exame), com carimbo do tempo RFC 3161 opcional e QR para o validador de saúde do ITI |
-| ~~Agendamento em série~~ | Recepção | **✅ parcela 26** — `AgendaService.AgendarSerieAsync`; a data sai sempre da primeira mais N períodos |
+| ~~Agendamento em série~~ | Recepção | **✅ parcela 26 · ⛔ retirada das telas em set/2026** — `AgendaService.AgendarSerieAsync` fica sem porta por decisão da cliente ("quem precisar voltar ganha um horário novo pela agenda") |
 | ~~LGPD além do consentimento~~ | Recepção | **✅ parcela 26** — `TitularDadosService`: exportação e anonimização (o prontuário não se apaga, art. 16, II) |
 | ~~Metas (faturamento, ocupação)~~ | Gerente | **✅ parcela 28** — `MetaService`; teto de despesa na 31 (`OrcamentoService`) |
 | ~~Apuração mensal por tributo~~ | Gerente | **✅ parcelas 28 e 31** — ISS, PIS, COFINS, IRPJ e CSLL separados, com a retenção resolvida por recebimento |
@@ -1506,6 +1522,61 @@ O mesmo tratamento foi aplicado à **fila da Recepção**, que tinha o defeito i
 (cinco `Card` emoldurados + resumo repetindo as contagens). O `CabecalhoRaia` nasceu no
 shell justamente porque os dois quadros o usam — copiar faria as duas versões divergirem
 na primeira correção.
+
+## Parcela 95 — o "Meu dia" do médico como LISTA
+
+O quadro de cinco raias (parcela 38, redesenhado na 87 por paridade com a fila do balcão)
+virou uma lista na ordem da hora — a agenda do Smart Clinic que a cliente mandou como
+referência: HORÁRIO · PACIENTE · STATUS (com a hora do fato: "chegou às 14:40 · espera 12
+min") · PRONTUÁRIO (Pendente / Escrito) · ações. Cancelado e falta ficam na lista, apagados.
+As transições de fila (chamar, desfazer, voltar) continuam na linha; "Chamar próximo" no
+cabeçalho; o arrasto entre raias morreu com as raias. `SessaoDoDia` ganhou os três
+carimbos (`ChegadaEm`, `InicioAtendimentoEm`, `FimAtendimentoEm`) que a coluna STATUS lê.
+
+## Parcela 95 — a sidebar do Consultório: de doze itens soltos a seis, com sub-abas
+
+O módulo nunca tinha usado as sub-abas que o shell tem desde a parcela 55. Doze itens
+soltos em três grupos: "Prescrições" e "Prescrição de infusão" vizinhos quase homônimos, a
+enfermagem espalhada por GESTÃO e PACIENTE, INTELIGÊNCIA com um item só.
+
+| Grupo | Item | Sub-abas | Chave |
+|---|---|---|---|
+| GESTÃO | **Minha agenda** (abertura) | Hoje · Semana · Sem evolução | `consultorio-agenda` |
+| GESTÃO | **Enfermagem** | Sala de infusão · Passagens | `consultorio-enfermagem` |
+| GESTÃO | Ajuda e suporte | — | `ajuda` |
+| PACIENTE | **Pacientes** | Em tratamento · Registros e pendências · Exames | `pacientes` (a mesma da Recepção) |
+| PACIENTE | **Prescrições** | Receitas e documentos · Infusão | `receituario` (a mesma da Recepção) |
+| INTELIGÊNCIA | Meus números | — | `consultorio-meus-numeros` |
+
+Nenhuma tela sumiu e nenhuma chave de navegação mudou: a sub-tela continua sendo item, e
+`NavegacaoSuite.Ir` com a chave dela abre o pai na aba certa. "Pacientes" e "Prescrições"
+usam a **mesma chave** dos compostos da Recepção (subiram para `ChavesSuite`) para a dedupe
+do shell fundi-los no Gerente Geral em vez de mostrar dois itens homônimos — a duplicata da
+checagem 45. "Minha agenda" é "Minha" pela mesma razão: a Recepção publica "Agenda".
+
+O rail da tela do paciente passou a mostrar só a seção de escrita de quem está logado
+(§ em `docs/atendimento-medico-e-enfermagem.md`). As abas internas do atendimento (A sessão
+de hoje · Sessões anteriores · Enfermagem e infusões) não mudaram: foram desenhadas com
+mockup aprovado nas parcelas 74-77 e não havia pedido específico sobre elas.
+
+## Set/2026 — "uma folha, dois lados": o atendimento remodelado (mockup aprovado)
+
+Pedido da direção: *"remodelar e melhorar toda a parte de atendimento tanto médico quanto
+de enfermagem e organizar as abas/subabas"*. Mockup em
+`docs/mockups/atendimento-uma-folha-dois-lados.html`; o mapa em
+`docs/registro-do-atendimento.md` §28.
+
+| Onde | O que mudou | O que NÃO mudou |
+|---|---|---|
+| Crachá do paciente | Duas linhas (identidade · clínico); a situação da sessão virou PÍLULA com os links "Iniciar" e "Reabrir"; a barra verde morreu | Alergia em vermelho, últimas hipóteses, "Trocar paciente" |
+| Atendimento (médico) | UMA barra: ferramentas na tira, **Imprimir · Salvar · Finalizar** no rodapé; UMA linha de contexto com os sinais vitais que a enfermagem aferiu hoje; "Repetir a última sessão" dentro da janela de Modelos | S-O-A-P, as três abas, o detalhe em janela, Salvar ≠ Finalizar |
+| Rail | 8 → 7: "Anamnese" virou a 2ª aba de **Paciente** (`PacienteView`) | Chaves de navegação; cada lado vê seis |
+| Atendimento de enfermagem | PA num campo ("120/80"); o pé da folha numa linha; compositor e lista **no shell** (`PassagemDeEnfermagemView`, `PassagensDeEnfermagemView`) | Plano de cuidados, as três abas, a consulta COFEN em janela, a hora do fato |
+| Tela Enfermagem (shell) | Escreve NA TELA, nas mesmas três abas da seção do Consultório, com o Registrar no rodapé — a janela modal deixou de ser a porta | A lista de pacientes, as duas portas do dia (folha, termo), a ficha do atendimento |
+
+Os hospedeiros do compositor passaram a reler o plano e o contexto quando a passagem é
+gravada (`EvolucaoEnfermagemViewModel.Gravou`) — antes, a consulta prescrevia os
+cuidados e o plano de hoje continuava mostrando o de ANTES dela.
 
 ## Parcela 39 — a sidebar do Consultório tinha três itens
 

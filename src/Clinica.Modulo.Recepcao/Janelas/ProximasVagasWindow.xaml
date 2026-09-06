@@ -1,0 +1,56 @@
+<Window x:Class="Clinica.Recepcao.Janelas.ProximasVagasWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        xmlns:m="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
+        Title="Próximas vagas" Width="480" Height="560" MinWidth="400" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+    <!-- ====================================================================
+         PRÓXIMAS VAGAS (set/2026)
+
+         A janela devolve a INTENÇÃO (a vaga escolhida) e não marca nada — quem marca é o
+         Salvar do formulário que a abriu, com data e hora preenchidas. O critério da busca
+         fica escrito no topo: lista sem critério é lista em que a pessoa não sabe o que
+         está faltando — e quando a jornada foi presumida, ela diz para cadastrá-la.
+         ==================================================================== -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Próximas vagas" Style="{StaticResource DialogoTitulo}" />
+            <TextBlock Text="{Binding Criterio}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" Margin="0,0,0,12" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" />
+        </StackPanel>
+
+        <Grid>
+            <!-- Um estado vazio por pergunta: não achou em dois meses É a resposta. -->
+            <TextBlock Text="Nenhuma vaga com esta duração nos próximos 60 dias. Confira a jornada e os bloqueios de quem atende — ou marque como encaixe."
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       VerticalAlignment="Top"
+                       Visibility="{Binding Vazio, Converter={StaticResource BoolParaVisibilidade}}" />
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Vagas}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type m:Vaga}">
+                            <!-- Cada vaga é um botão de linha inteira: clicar escolhe e fecha. -->
+                            <Button Content="{Binding Rotulo}" Tag="{Binding}"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    MinHeight="40" Margin="0,0,0,8"
+                                    Click="Vaga_Click" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</Window>

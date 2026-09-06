@@ -229,6 +229,11 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
             MensagemEhErro = Passagem.MensagemEhErro;
         };
 
+        // A consulta de enfermagem PRESCREVE os cuidados de hoje, e o plano é lido daqui:
+        // sem esta linha, a enfermeira registrava a consulta e via o plano de ANTES dela
+        // — nada falhava. O recarregar não zera a mensagem, então "Registrado" sobrevive.
+        Passagem.Gravou += () => _ = CarregarAsync();
+
         if (_foco.Definido)
         {
             Paciente = _foco.Nome;

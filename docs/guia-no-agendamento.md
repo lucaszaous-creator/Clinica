@@ -198,8 +198,15 @@ que já existe**.
         e fica fora do repasse — defina quando souber quem atende.
       ⚠ 14:30 já tem sessão da Dra. Paula (choque) — será um encaixe.
       ⚠ Agenda fechada neste período: Férias da Dra. Paula.
-      [ ] Repetir semanalmente — [10] sessões (série)
 ```
+
+> **set/2026 — o QUANDO deixou de ser rádio, e a série saiu.** "Lançar" e "Marcar"
+> viraram DUAS ABAS do item "Atendimento" (o mesmo `NovoAtendimentoViewModel`, com o
+> modo fixado por quem monta a aba — `FixarModo`), cada uma só com os campos do seu
+> modo; a prévia da guia abre RECOLHIDA atrás de "Ver a guia". O "Repetir N sessões a
+> cada X dias" foi retirado dos dois formulários da Recepção por decisão da cliente:
+> "se o paciente precisar voltar, a recepcionista marca uma agenda". Desenho aprovado
+> em `docs/mockups/balcao-dois-desenhos.html`.
 
 Modalidade, especialidade, consulta, BSV (termo), elegibilidade e a prévia das guias já
 moram na tela — valem para os DOIS modos. No modo "marcar", o Salvar grava o grafo do
@@ -212,9 +219,9 @@ O que muda de lugar, e o que NÃO muda:
 - **O vão livre da agenda continua clicável** — mas passa a abrir o Novo atendimento
   pré-preenchido (dia, hora, profissional da coluna), em vez do formulário antigo. A
   agenda "que mostra" não pode perder o gesto de apontar o horário com o dedo.
-- **A SÉRIE vem junto** para o modo "marcar" (`AgendarSerieAsync`, com o resultado
-  pulado-e-dito de sempre) — deixá-la para trás faria "marcar" morar em dois lugares de
-  novo.
+- ~~**A SÉRIE vem junto** para o modo "marcar"~~ — veio na parcela 70 e **saiu em
+  set/2026** (decisão da cliente, acima). O motor fica sem porta; as séries já marcadas
+  continuam com o "cancelar o resto da série" na janela do horário.
 - **Editar o horário EXISTENTE continua na janela do horário da agenda** (remarcar,
   cancelar, falta, comprovante, reabrir). Marcar NOVO e mexer no EXISTENTE são atos
   diferentes; uma definição por ATO. O formulário antigo da agenda se aposenta só da
@@ -285,6 +292,63 @@ concluído na outra máquina") e sobre cancelado/falta ("reabra pela agenda ou l
 encaixe separado"): a tela só oferece horário em aberto, mas a corrida entre as duas
 máquinas do balcão existe (parcela 86).
 
+### 3.8 ATENDER e FINALIZAR: o fluxo do médico, de ponta a ponta (parcela 95)
+
+O pedido da direção, na frase dela: *"secretária agenda → cai na agenda do médico
+respectivo → ele clica em atender e faz o atendimento"*. A referência que veio junto foi a
+agenda em lista do Smart Clinic, onde cada linha tem o status, a coluna **PRONTUÁRIO**
+("Pendente") e o botão **ATENDER** — e onde **não existe um passo de conclusão pelo
+balcão**.
+
+**As três emendas**
+
+| Onde | O que era | O que é |
+|---|---|---|
+| `AgendaService.AgendarAsync` | marcar sem profissional era permitido, com aviso na tela | **recusado** — só o encaixe nasce sem dono |
+| "Atender" (Meu dia / carteira) | abria o prontuário e não movia o cartão | abre o prontuário **e carimba a entrada na sala** |
+| "Finalizar atendimento" | carimbava `FimAtendimentoEm`; o `Status` seguia `Agendado` | **conclui**: presença carimbada e guias no faturamento |
+
+**Por que a conclusão pôde mudar de lugar.** O argumento da parcela 61 é que concluir são
+quatro fatos e três são do balcão (pacote, insumo, caixa). Ele continua verdadeiro para os
+três — e não se sustenta para a **guia**, que é o fato do atendimento e nasce do que
+aconteceu na sala. A medição fechou: no caso mais comum (convênio, sem pacote, sem insumo)
+`RegistroAtendimento.TemDecisao` é **falso**, e o Concluir do balcão não abria janela
+nenhuma. Era um clique para carimbar o que o médico já sabia.
+
+**O dinheiro continua com o balcão, e ganhou porta.** A raia FINALIZADO passou a mostrar
+**"Fechar sessão"** enquanto o pacote, o insumo ou o caixa da sessão não foram resolvidos —
+a MESMA `FechamentoSessaoWindow`, sobre a sessão já concluída. Nada foi reimplementado:
+`GarantirAtendimentoAsync` reaproveita a presença confirmada desde a parcela 65. A
+pendência **some** quando é resolvida (`IClinicaRepositorio.AtendimentosComFechamentoAsync`,
+lido em LOTE — uma ida por cartão daria trinta a cada batida do relógio do quadro).
+
+**A ordem, e o que sobra quando cada passo falha**
+
+1. **grava a sessão** — sem ela nada acontece: anunciar que o atendimento terminou com o
+   registro clínico inexistente é falha exibida como sucesso;
+2. **encerra o horário** (`FimAtendimentoEm`) — reversível pelo "voltar etapa" do quadro;
+3. **conclui** (`RegistrarAtendimentoAsync`) — falhar aqui **não** desfaz 1 e 2: o
+   prontuário está escrito, o balcão sabe que a sala vagou, e a fila ainda conclui pelo
+   botão de sempre.
+
+`EncerrarAtendimentoAsync` recusa horário que já saiu de `Agendado`, então a ordem inversa
+é impossível — e há teste nas duas pontas.
+
+**Detalhes que o código não conta sozinho**
+
+- **Concluir é irreversível por ali**: desfazer passa a ser ESTORNO, e o botão "Reabrir
+  atendimento" some da tela (`PodeReabrir`) em vez de ficar aceso para levar recusa.
+- **O convênio "a definir" é perguntado ANTES** (`VinculoDeConvenio`, o ponto único do
+  shell). Com a chave desligada é o clique do médico que gera a guia, e a importação deixou
+  2.021 fichas sem convênio. Desistir não é erro: a sessão fica gravada e encerrada, e a
+  fila conclui depois.
+- **A permissão foi junto**: `PerfilAcesso.Profissional` recebeu `LancarAtendimento` — o bit
+  que nomeia o ato. `EditarAgenda` **não** veio: marcar horário de terceiros continua sendo
+  do balcão.
+- **O check-in do balcão deixa de ser obrigatório no caminho do médico.** É consequência
+  aceita: os alertas de elegibilidade (carteirinha, cota, pacote, dívida) já aparecem
+  também na tela do Consultório desde a parcela 36.
+
 ## 4. O que NÃO muda — e por quê já estava pronto
 
 1. **O painel de pendências e a rodada bloqueante**: `CodigoFaturamento.EstaPendente`
@@ -293,8 +357,9 @@ máquinas do balcão existe (parcela 86).
    cedo, que é o objetivo) e só entra no painel quando a data chega.
 2. **As quatro portas da baixa** e a `RegraNumeroGuia`: intocadas. Baixa antecipada
    passa de acidente a feature.
-3. **Os quatro fatos do Finalizar** (pacote, insumo, caixa): continuam no Concluir da
-   Fila. Só a GUIA muda de momento.
+3. **Os três fatos de DINHEIRO do Finalizar** (pacote, insumo, caixa): continuam no
+   balcão. Só a GUIA muda de momento — e, desde a parcela 95 (§3.8), o momento dela é o
+   Finalizar do Consultório; o que o balcão faz é o fechamento, na raia FINALIZADO.
 4. **`Avulso_e_agendado_produzem_os_mesmos_fatos`**: continua verde — as duas portas
    continuam sendo a mesma esteira, só que a guia nasce um passo antes nas duas.
 
@@ -359,7 +424,7 @@ está registrada". Todo leitor que quis dizer **aconteceu** precisa de âncora n
 2. ✅ **Fase 2 — o regime novo atrás da chave:** §3.1, §3.2, §3.4, §3.5, migration do §5.
 3. ✅ **Fase 3 — os leitores reancorados** (§5), um a um, cada qual com teste.
 4. ✅ **Fase QUANDO — a porta única do §3.7**: o rádio na tela de Novo atendimento
-   (lançar agora × marcar dia/horário), com duração, sala, série, crítica viva de
+   (lançar agora × marcar dia/horário — desde set/2026, duas ABAS), com duração, sala, crítica viva de
    choque/bloqueio (`ConflitosAsync`, sem cópia), encaixe assumido por caixinha, a capa
    do dia (`CapasDoDiaAsync`) no aviso e na pergunta, a pergunta do comprovante e os
    redirecionamentos da agenda ("Novo horário" e o clique no vão levam para lá,

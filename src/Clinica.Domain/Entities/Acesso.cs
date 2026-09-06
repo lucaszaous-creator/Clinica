@@ -440,11 +440,23 @@ public static class PerfisAcesso
         // Não mexe em agenda de terceiros nem em dinheiro. MovimentarFila e não
         // EditarAgenda: chamar o próprio paciente é o gesto central do quadro dele;
         // marcar e remarcar horário continua sendo do balcão.
+        //
+        // ⚠️ `LancarAtendimento` entrou na parcela 95 porque o ATO MUDOU DE LUGAR: o
+        // "Finalizar atendimento" do Consultório passou a concluir a sessão — carimba a
+        // presença e gera as guias —, e esse é exatamente o ato que este bit nomeia
+        // ("criar o atendimento — e, com ele, as guias"). Sem ele o botão levaria recusa
+        // em toda finalização. É a lição da parcela 69 pelo outro lado: lá o bit existia e
+        // não guardava a porta nova; aqui a porta nasceu e o bit precisava vir junto.
+        //
+        // Isto ACRESCENTA capacidade a quem já atendia, nunca tira (regra 3 do bloco do
+        // faturamento) — e continua sendo removível numa pessoa específica em Acessos, que
+        // é o que a granularidade da parcela 49 existe para permitir.
         PerfilAcesso.Profissional =>
             Permissao.VerAgenda | Permissao.MovimentarFila |
             Permissao.VerFichaPaciente |
             Permissao.VerProntuario | Permissao.EditarProntuario |
             Permissao.VerDocumentos |
+            Permissao.LancarAtendimento |
             Permissao.ColherAssinaturaPaciente |
             Permissao.Prescrever,
 
@@ -548,6 +560,34 @@ public static class PerfisAcesso
                                        | Permissao.Prescrever)) != Permissao.Nenhuma;
 
         return enfermagem && !consultorio;
+    }
+
+    /// <summary>
+    /// Quais seções de ESCRITA a tela do paciente mostra no rail (parcela 95): a do
+    /// médico (S-O-A-P) e/ou a da enfermagem (a passagem).
+    ///
+    /// Até aqui as duas apareciam para todo mundo: a enfermeira via "Atendimento", cujo
+    /// Salvar ela não pode, e o médico via "Atendimento de enfermagem", cujo Registrar
+    /// ele não pode. Seção que a pessoa não alcança SOME, não fica apagada (parcela 59) —
+    /// e é a mesma bifurcação do <c>ChaveDoAtendimento</c>: uma palavra, dois destinos.
+    ///
+    /// ⚠️ A LEITURA não muda com isto: o médico continua lendo a passagem de enfermagem
+    /// (a aba "Enfermagem e infusões" do atendimento dele) e a enfermeira continua lendo
+    /// a sessão médica (a aba "Conduta médica e infusões" da passagem). O que some é a
+    /// seção de ESCREVER do outro lado — o XY da parcela 72 fica inteiro.
+    ///
+    /// Quem tem os dois lados (o Gerente Geral) vê as duas. Sem sessão autenticada,
+    /// <c>Efetivas</c> devolve <see cref="Todas"/> e as duas aparecem — tela vazia se lê
+    /// como defeito.
+    /// </summary>
+    public static (bool Medico, bool Enfermagem) SecoesDeEscritaDoPosto(Permissao efetivas)
+    {
+        var escreveEnfermagem = (efetivas & (Permissao.RegistrarEvolucaoEnfermagem
+                                             | Permissao.ChecarPrescricao)) != Permissao.Nenhuma;
+
+        // A seção do médico some só para quem escreve SÓ pela enfermagem — o mesmo corte
+        // de `EscreveComoEnfermagem`, para o rail e o "Atender" não discordarem.
+        return (Medico: !EscreveComoEnfermagem(efetivas), Enfermagem: escreveEnfermagem);
     }
 
     /// <summary>

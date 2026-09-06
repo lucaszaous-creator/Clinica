@@ -40,6 +40,13 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
     private readonly FechamentoSessaoService _fechamento;
     private readonly PacoteService _pacotes;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public EsteiraUnicaAtendimentoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -47,6 +54,10 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
 
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
@@ -96,7 +107,7 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
     {
         var ag = await _agenda.AgendarAsync(
             pacienteId, quando, ModalidadeAtendimento.AcupunturaSimples, null,
-            operador: "recepcao");
+            operador: "recepcao", profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         return await _fechamento.ConcluirAsync(
@@ -114,7 +125,7 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
     {
         var ag = await _agenda.AgendarAsync(
             pacienteId, quando, ModalidadeAtendimento.AcupunturaSimples, null,
-            encaixe: true, operador: "recepcao");
+            encaixe: true, operador: "recepcao", profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         return await _fechamento.ConcluirAsync(
@@ -243,7 +254,7 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
 
         var ag = await _agenda.AgendarAsync(
             id, Quando, ModalidadeAtendimento.AcupunturaComEletro, null,
-            encaixe: true, primeiroCodigo: TipoCodigo.Eletroacupuntura);
+            encaixe: true, primeiroCodigo: TipoCodigo.Eletroacupuntura, profissionalId: _profPadrao);
 
         var r = await _agenda.ConfirmarPresencaAsync(ag.Id);
 
@@ -262,7 +273,7 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
         var id = await PacienteAsync(Convenio.UnimedPadrao, comApp: true);
 
         var ag = await _agenda.AgendarAsync(
-            id, Quando, ModalidadeAtendimento.AcupunturaComEletro, null);
+            id, Quando, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         ag.PrimeiroCodigo.Should().BeNull();
 

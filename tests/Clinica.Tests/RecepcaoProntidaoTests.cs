@@ -30,6 +30,13 @@ public class RecepcaoProntidaoTests : IDisposable
 
     private static readonly DateTime Sessao = new(2026, 8, 20, 14, 0, 0);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public RecepcaoProntidaoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -37,6 +44,10 @@ public class RecepcaoProntidaoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
 
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
@@ -77,7 +88,7 @@ public class RecepcaoProntidaoTests : IDisposable
         await MarcarNaoConformidadeAntigaAsync(pacienteId);
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, Sessao, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, Sessao, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var resultado = await _fechamento.ConcluirAsync(
             new DecisaoFechamento(ag.Id), operador: "recepcao");
@@ -111,7 +122,7 @@ public class RecepcaoProntidaoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(
-            pacienteId, Sessao, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, Sessao, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var resultado = await _fechamento.ConcluirAsync(new DecisaoFechamento(ag.Id));
 

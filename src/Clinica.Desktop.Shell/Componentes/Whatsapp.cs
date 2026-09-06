@@ -39,19 +39,21 @@ public static class Whatsapp
         }
     }
 
-    /// <summary>Mensagem padrão de confirmação de sessão.</summary>
+    /// <summary>
+    /// Mensagem padrão de confirmação de sessão. O TEXTO mora em
+    /// <see cref="Clinica.Application.Modelos.MensagensDeContato"/> desde que o e-mail
+    /// automático passou a mandar a MESMA confirmação (set/2026): duas redações divergiriam
+    /// na primeira correção, e o paciente receberia frases diferentes pelo mesmo motivo.
+    /// Aqui fica só a porta do WhatsApp.
+    /// </summary>
     public static string ConfirmacaoDeSessao(string nomePaciente, DateTime quando, string? nomeClinica = null)
-    {
-        var primeiroNome = nomePaciente
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? nomePaciente;
+        => Clinica.Application.Modelos.MensagensDeContato.ConfirmacaoDeSessao(
+            nomePaciente, quando, DateOnly.FromDateTime(DateTime.Today), nomeClinica);
 
-        var dia = quando.Date == DateTime.Today.AddDays(1) ? "amanhã" : quando.ToString("dd/MM");
-
-        return $"Olá, {primeiroNome}! Estamos confirmando sua sessão {dia} às {quando:HH:mm}."
-             + " Se tiver algum imprevisto, é só responder por aqui."
-             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
-    }
+    /// <summary>O convite para marcar o retorno pedido por quem atendeu (a fila "Retornos a marcar").</summary>
+    public static string ConviteDeRetorno(string nomePaciente, DateOnly retornoEm, string profissional, string? nomeClinica = null)
+        => Clinica.Application.Modelos.MensagensDeContato.ConviteDeRetorno(
+            nomePaciente, retornoEm, profissional, nomeClinica);
 
     /// <summary>
     /// Mensagem padrão da pesquisa de satisfação (parcela 5). A pergunta é a do NPS

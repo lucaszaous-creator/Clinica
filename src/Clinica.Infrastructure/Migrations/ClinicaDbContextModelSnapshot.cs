@@ -3170,6 +3170,10 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<string>("Endereco")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
@@ -3728,6 +3732,12 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<TimeOnly?>("AtendeAte")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly?>("AtendeDas")
+                        .HasColumnType("time without time zone");
+
                     b.Property<bool>("Ativo")
                         .HasColumnType("boolean");
 
@@ -3738,6 +3748,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("Cpf")
                         .HasMaxLength(11)
                         .HasColumnType("character varying(11)");
+
+                    b.Property<int?>("DiasDeAtendimento")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("DuracaoPadraoMinutos")
                         .HasColumnType("integer");

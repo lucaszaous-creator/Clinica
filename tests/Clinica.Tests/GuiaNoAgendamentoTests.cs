@@ -27,6 +27,13 @@ public class GuiaNoAgendamentoTests : IDisposable
     private readonly ParametrosService _parametros;
     private readonly AgendaService _agenda;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public GuiaNoAgendamentoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -34,6 +41,10 @@ public class GuiaNoAgendamentoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _parametros = new ParametrosService(_repo);
         _agenda = new AgendaService(
@@ -58,7 +69,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         var pacienteId = await CriarPacienteAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         ag.AtendimentoId.Should().BeNull(
             "desligada, a chave preserva o regime atual — a janela de atualização dos dois apps é o desenho");
@@ -72,7 +83,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         ag.AtendimentoId.Should().NotBeNull("o pedido da direção: a guia nasce quando o horário entra");
         var atendimento = await _db.Atendimentos.Include(a => a.Codigos).SingleAsync();
@@ -93,7 +104,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         var antes = await _db.Codigos.CountAsync();
 
         var resultado = await _agenda.ConfirmarPresencaAsync(ag.Id, operador: "ana");
@@ -112,7 +123,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var avisos = await _agenda.CancelarAsync(ag.Id, "ana");
 
@@ -141,7 +152,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         await _agenda.MarcarFaltaAsync(ag.Id, "ana");
 
@@ -156,7 +167,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         // A secretária efetivou a 1ª guia no portal com antecedência (a feature!)…
         var baixada = await _db.Codigos.FirstAsync();
@@ -179,7 +190,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         var previstasAntes = await _db.Codigos.AsNoTracking()
             .OrderBy(c => c.Id).Select(c => c.DataPrevistaFaturamento).ToListAsync();
 
@@ -202,7 +213,7 @@ public class GuiaNoAgendamentoTests : IDisposable
 
         var ag = await _agenda.AgendarAsync(
             pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null,
-            modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString());
+            modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString(), profissionalId: _profPadrao);
         var antigas = await _db.Codigos.AsNoTracking().Select(c => c.Id).ToListAsync();
 
         _db.ChangeTracker.Clear();
@@ -230,7 +241,7 @@ public class GuiaNoAgendamentoTests : IDisposable
 
         var ag = await _agenda.AgendarAsync(
             pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null,
-            modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString());
+            modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString(), profissionalId: _profPadrao);
         var baixada = await _db.Codigos.FirstAsync();
         baixada.DataBaixa = DateOnly.FromDateTime(DateTime.Today);
         await _db.SaveChangesAsync();
@@ -250,7 +261,8 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var serie = await _agenda.AgendarSerieAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaSimples, quantidade: 3);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaSimples, quantidade: 3,
+            profissionalId: _profPadrao);
 
         serie.Marcados.Should().HaveCount(3);
         (await _db.Atendimentos.CountAsync()).Should().Be(3,
@@ -341,7 +353,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         var pacienteId = await CriarPacienteAsync();
         await LigarChaveAsync();
         await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var capas = await new AtendimentoService(_repo).CapasDoDiaAsync(
             pacienteId, DateOnly.FromDateTime(SemanaQueVem));
@@ -408,7 +420,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         var ag = await _agenda.AgendarAsync(
-            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         await _agenda.CancelarAsync(ag.Id, "ana");
         _db.ChangeTracker.Clear();
 
@@ -437,9 +449,9 @@ public class GuiaNoAgendamentoTests : IDisposable
         await LigarChaveAsync();
 
         await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         var cancelada = await _agenda.AgendarAsync(
-            pacienteId, SemanaQueVem.AddDays(1), ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, SemanaQueVem.AddDays(1), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         await _agenda.CancelarAsync(cancelada.Id, "ana");
 
         await _parametros.DefinirGuiaNoAgendamentoAsync(false);
@@ -467,7 +479,7 @@ public class GuiaNoAgendamentoTests : IDisposable
             pacienteId, SemanaQueVem, ModalidadeAtendimento.Consulta, null,
             modalidadeCodigo: ModalidadeAtendimento.Consulta.ToString(),
             especialidadeConsulta: Especialidade.Psiquiatria,
-            especialidadeConsultaCodigo: Especialidade.Psiquiatria.ToString());
+            especialidadeConsultaCodigo: Especialidade.Psiquiatria.ToString(), profissionalId: _profPadrao);
         var antigas = await _db.Codigos.AsNoTracking().Select(c => c.Id).ToListAsync();
         antigas.Should().NotBeEmpty();
 
@@ -506,7 +518,7 @@ public class GuiaNoAgendamentoTests : IDisposable
 
         var serie = await _agenda.AgendarSerieAsync(
             p.Id, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, quantidade: 2,
-            primeiroCodigo: TipoCodigo.Eletroacupuntura);
+            profissionalId: _profPadrao, primeiroCodigo: TipoCodigo.Eletroacupuntura);
 
         serie.Marcados.Should().HaveCount(2);
         var atendimentos = await _db.Atendimentos.Include(a => a.Codigos).AsNoTracking().ToListAsync();
@@ -536,7 +548,7 @@ public class GuiaNoAgendamentoTests : IDisposable
         var pacienteId = await CriarPacienteAsync();
         var hoje14 = DateTime.Today.AddHours(14);
         var ag = await _agenda.AgendarAsync(
-            pacienteId, hoje14, ModalidadeAtendimento.AcupunturaSimples, null, operador: "recepcao");
+            pacienteId, hoje14, ModalidadeAtendimento.AcupunturaSimples, null, operador: "recepcao", profissionalId: _profPadrao);
         ag.AtendimentoId.Should().NotBeNull("com a chave ligada a guia nasce na marcação");
         var daMarcacao = _db.Codigos.Count(c => c.AtendimentoId == ag.AtendimentoId);
         daMarcacao.Should().BeGreaterThan(0);

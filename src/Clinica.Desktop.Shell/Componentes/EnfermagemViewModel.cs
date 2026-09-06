@@ -36,6 +36,15 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// esquerda da evolução seria a faixa lateral que o README proíbe — e que o cliente já
 /// reprovou sete vezes.
 ///
+/// ⚠️ A tela do paciente ESCREVE NA PRÓPRIA TELA desde set/2026 ("uma folha, dois lados").
+/// Até ali o botão "Escrever evolução" abria a janela modal da sala de infusão por cima da
+/// página — a terceira porta com o terceiro desenho para o mesmo ato. Agora ela hospeda o
+/// MESMO compositor do shell (<see cref="Passagem"/>, um <see cref="EvolucaoEnfermagemViewModel"/>
+/// por paciente aberto) e a MESMA lista de passagens da seção do Consultório, em três abas
+/// iguais às de lá: <b>A passagem de hoje · Passagens do paciente · Prontuário do paciente</b>.
+/// A janela continua existindo — é a porta da folha de execução, que é modal e não alcança
+/// esta tela —, e por isso o compositor mora no shell: um XAML, três portas.
+///
 /// ⚠️ A lista ABRE COM QUEM ESTÁ NA CLÍNICA HOJE (parcela 72). A primeira versão abria com
 /// a carteira inteira em ordem de busca, o que obrigava a digitar o nome de quem o sistema
 /// já sabe que ela vai receber às 9h — <i>"tela que abre vazia é tela inacabada"</i>
@@ -77,18 +86,32 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     public ObservableCollection<Paciente> Pacientes { get; } = new();
 
     /// <summary>
-    /// O PRONTUÁRIO INTEIRO deste paciente (parcela 72) — o mesmo componente da ficha da
-    /// Recepção e do Consultório, aberto no chip <b>Enfermagem</b>.
+    /// O PRONTUÁRIO deste paciente (parcela 72) — o mesmo componente da ficha da Recepção
+    /// e do Consultório, aberto na <b>sessão médica</b>.
     ///
     /// ⚠️ Os outros chips MOSTRAM A CONTAGEM mesmo desmarcados, e é isso que faz a
     /// enfermeira descobrir que há 12 sessões médicas para ler. Chip pré-marcado sem
     /// número ao lado deixaria a entrega desligada justamente na tela de quem mais precisa
     /// dela: infundir sem saber a conduta da consulta de hoje é executar às cegas.
     ///
-    /// Sem ações: quem corrige a evolução de enfermagem faz isso pela janela de escrita
-    /// (que retifica com motivo, nunca apaga), e a sessão médica é do médico.
+    /// ⚠️ A natureza <c>EvolucaoEnfermagem</c> fica FORA daqui de propósito (set/2026): as
+    /// passagens têm aba própria ao lado, com Corrigir e Cancelar, e mostrá-las também
+    /// neste chip seria duas respostas para a mesma pergunta na mesma tela (parcela 37).
+    /// É o mesmo recorte da seção do Consultório. A lista das outras naturezas vem do
+    /// enum, não de uma lista à mão — a próxima natureza entra sozinha.
+    ///
+    /// Sem ações além do arquivo da ficha: a sessão médica é do médico.
     /// </summary>
     public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
+
+    /// <summary>
+    /// O COMPOSITOR da passagem do paciente aberto — nasce em <see cref="AbrirAsync"/> e
+    /// morre no <see cref="Voltar"/>. É o mesmo <see cref="EvolucaoEnfermagemViewModel"/>
+    /// da janela da sala e da seção do Consultório: as regras caras (hora INFORMADA, hora
+    /// futura recusada, retificação que preserva a data do fato, alergia no mesmo
+    /// SaveChanges) existem numa cópia só. Nulo enquanto a lista está no ar.
+    /// </summary>
+    [ObservableProperty] private EvolucaoEnfermagemViewModel? _passagem;
 
     /// <summary>
     /// O PLANO DE CUIDADOS DE HOJE — a etapa 4 da COFEN (parcela 76).
@@ -217,7 +240,10 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
-            SecaoInicial = NaturezaRegistroClinico.EvolucaoEnfermagem,
+            SecaoInicial = NaturezaRegistroClinico.SessaoMedica,
+            SecoesVisiveis = Enum.GetValues<NaturezaRegistroClinico>()
+                .Where(n => n != NaturezaRegistroClinico.EvolucaoEnfermagem)
+                .ToList(),
             // Os ARQUIVOS DA FICHA abrem daqui: a técnica recebe o laudo pelo WhatsApp e
             // relê o da semana passada com o paciente na frente. Abrir é LEITURA, e a
             // metade visível segue o bit de ler; cancelar fica com a ficha e o Consultório.
@@ -459,9 +485,55 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         FolhaDeHoje = null;
         MostrandoLista = false;
         Mensagem = null;
+        LigarPassagem(paciente);
 
         await RecarregarAsync();
     }
+
+    /// <summary>
+    /// Um compositor NOVO por paciente aberto: reaproveitar o anterior deixaria a folha
+    /// meio escrita de quem já saiu debaixo do nome de quem entrou — e o Registrar
+    /// gravaria no prontuário errado, sem estourar nada.
+    /// </summary>
+    private void LigarPassagem(Paciente paciente)
+    {
+        DesligarPassagem();
+
+        var passagem = new EvolucaoEnfermagemViewModel(_escopos, _dialogo, paciente.Id, paciente.Nome);
+
+        // ⚠️ UMA superfície de mensagem, e ela é da TELA (a mesma regra do Plano, acima):
+        // "Registrado no prontuário" e as recusas de hora e de permissão precisam aparecer
+        // AO LADO do botão que as produziu, no rodapé.
+        passagem.PropertyChanged += AoMudarPassagem;
+
+        // A passagem gravada muda o que esta tela mostra em volta dela: o plano de hoje (a
+        // consulta prescreve os cuidados), a última aferição do contexto e a linha do
+        // tempo. O recarregar só escreve mensagem quando FALHA — "Registrado" sobrevive.
+        passagem.Gravou += AoGravarPassagem;
+
+        Passagem = passagem;
+    }
+
+    private void DesligarPassagem()
+    {
+        if (Passagem is null) return;
+        Passagem.PropertyChanged -= AoMudarPassagem;
+        Passagem.Gravou -= AoGravarPassagem;
+        Passagem = null;
+    }
+
+    private void AoMudarPassagem(object? _, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (Passagem is null
+            || e.PropertyName is not (nameof(EvolucaoEnfermagemViewModel.Mensagem)
+                                      or nameof(EvolucaoEnfermagemViewModel.MensagemEhErro))
+            || Passagem.Mensagem is null) return;
+
+        Mensagem = Passagem.Mensagem;
+        MensagemEhErro = Passagem.MensagemEhErro;
+    }
+
+    private void AoGravarPassagem() => _ = RecarregarAsync();
 
     [RelayCommand]
     private void Voltar()
@@ -471,6 +543,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         Escolhido = null;
         MostrandoLista = true;
         Mensagem = null;
+        DesligarPassagem();
         _ = LinhaDoTempo.CarregarAsync(0);
         _ = Plano.CarregarAsync(0);
         Alerta = null;
@@ -481,30 +554,6 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         // ⚠️ O acesso é registrado na TROCA de paciente: voltar para a lista zera a marca,
         // senão reabrir o mesmo prontuário meia hora depois não deixaria rastro.
         _acessoRegistradoDe = 0;
-    }
-
-    /// <summary>
-    /// Escreve a evolução do paciente aberto — a passagem AVULSA, que é o caso normal
-    /// fora da infusão. A janela é a mesma da fila da sala: quatro montagens da mesma tela
-    /// divergiriam na primeira correção.
-    /// </summary>
-    [RelayCommand]
-    private async Task RegistrarAsync()
-    {
-        if (_pacienteId == 0)
-        {
-            // A guarda DIZ por que não dá, em vez de voltar calada (parcela 41).
-            Mensagem = "Abra um paciente para escrever a evolução.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        SessaoUsuario.Atual.Exigir(
-            Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
-
-        EvolucaoEnfermagemWindow.Abrir(_escopos, _dialogo, _pacienteId, Paciente);
-
-        await RecarregarAsync();
     }
 
     /// <summary>

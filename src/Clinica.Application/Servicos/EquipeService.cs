@@ -38,6 +38,15 @@ public sealed class EquipeService
         if (dados.DuracaoPadraoMinutos is { } duracao && duracao <= 0)
             throw new InvalidOperationException("A duração padrão precisa ser maior que zero.");
 
+        // A jornada (set/2026): horário vem em PAR, e o fim depois do início. A recusa mora
+        // aqui e não na tela porque o cadastro tem mais de uma porta (a tela da Recepção e o
+        // que a importação vier a gravar), e metade de um horário não é horário.
+        if ((dados.AtendeDas is null) != (dados.AtendeAte is null))
+            throw new InvalidOperationException(
+                "Informe o início E o fim do horário de atendimento — ou deixe os dois em branco.");
+        if (dados.AtendeDas is { } das && dados.AtendeAte is { } ate && ate <= das)
+            throw new InvalidOperationException("O fim do horário de atendimento precisa ser depois do início.");
+
         var cpf = await CriticarCpfAsync(dados, ct);
 
         Profissional destino;
@@ -68,6 +77,13 @@ public sealed class EquipeService
         destino.Email = Limpar(dados.Email);
         destino.Cor = Limpar(dados.Cor);
         destino.DuracaoPadraoMinutos = dados.DuracaoPadraoMinutos;
+        // Zero dias não é jornada: vira "não declarado". E só os sete bits valem — um valor
+        // fora deles seria um dia que não existe.
+        destino.DiasDeAtendimento = dados.DiasDeAtendimento is { } dias && (dias & Profissional.TodosOsDias) != 0
+            ? dias & Profissional.TodosOsDias
+            : null;
+        destino.AtendeDas = dados.AtendeDas;
+        destino.AtendeAte = dados.AtendeAte;
         destino.Ativo = dados.Ativo;
         destino.Ordem = dados.Ordem;
         destino.Observacoes = Limpar(dados.Observacoes);

@@ -112,6 +112,7 @@ public sealed class TitularDadosService
         Linha(texto, "Nascimento", paciente.DataNascimento?.ToString("dd/MM/yyyy", Brasil));
         Linha(texto, "Sexo", paciente.Sexo.ToString());
         Linha(texto, "Telefone", paciente.Telefone);
+        Linha(texto, "E-mail", paciente.Email);
         Linha(texto, "Convênio", paciente.Convenio.ToString());
         Linha(texto, "Carteirinha", paciente.Carteirinha);
         Linha(texto, "Validade da carteirinha",
@@ -432,6 +433,7 @@ public sealed class TitularDadosService
         paciente.Nome = anonimo;
         paciente.Documento = null;
         paciente.Telefone = null;
+        paciente.Email = null;
         paciente.Carteirinha = null;
         paciente.DataNascimento = null;
         paciente.Observacoes = null;

@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -28,9 +30,62 @@ public sealed partial class CartaoFila : ObservableObject
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
     public required string Profissional { get; init; }
+
+    /// <summary>
+    /// A sala, ou VAZIO quando o horário não tem uma — nunca o travessão (set/2026).
+    ///
+    /// A clínica não usa salas: das doze linhas de um dia, doze traziam "sala —" debaixo
+    /// do nome do profissional. Crachá igual em toda linha não distingue nada (parcela
+    /// 57) e ainda gastava a segunda linha da célula, que é justamente a que o
+    /// `RowHeight` fixo decepava. Vazio, os SEIS leitores a omitem — a linha de contexto,
+    /// a dica, o "Também:" da faixa, o aviso da chamada e os dois textos da tela —, cada
+    /// um com a sua frase, porque "· " sobrando é tão ruim quanto o travessão.
+    /// </summary>
     public required string Sala { get; init; }
+
+    /// <summary>Ver <see cref="Sala"/>: é ela que decide se a frase menciona a sala.</summary>
+    public bool TemSala => !string.IsNullOrWhiteSpace(Sala);
+
     public required EtapaFila Etapa { get; init; }
     public string? Observacoes { get; init; }
+
+    /// <summary>O status GRAVADO do horário — é ele que separa cancelado e falta do resto.</summary>
+    public required StatusAgendamento Situacao { get; init; }
+
+    /// <summary>A hora marcada — a ordem da lista do dia (set/2026).</summary>
+    public required DateTime DataHora { get; init; }
+
+    /// <summary>
+    /// Cancelado ou falta. A linha FICA na lista, apagada — a regra da folha do dia: quem
+    /// lê às 14h precisa saber que as 15h vagaram, e linha ausente se confunde com horário
+    /// que nunca existiu. Até set/2026 o kanban a escondia ("fora do quadro").
+    /// </summary>
+    public bool ForaDaFila => StatusDaFila.ForaDaFila(Situacao);
+
+    /// <summary>
+    /// A coluna STATUS da lista: a etapa em UMA palavra, no MESMO vocabulário do Meu dia
+    /// do médico (<see cref="StatusDaFila"/>) — duas telas sobre o mesmo horário, uma
+    /// palavra.
+    /// </summary>
+    public string Status => StatusDaFila.Palavra(Situacao, Etapa);
+
+    /// <summary>A hora do fato sob a palavra ("chegou às 14:40 · espera 12 min"). Corre com o relógio.</summary>
+    [ObservableProperty]
+    private string _statusDetalhe = string.Empty;
+
+    public DateTime? ChegadaEm { get; init; }
+    public DateTime? InicioEm { get; init; }
+
+    /// <summary>
+    /// A linha sob o nome na LISTA: modalidade · convênio · pacote N/M. Profissional e
+    /// sala têm coluna própria ali; encaixe é selo ao lado do nome.
+    /// </summary>
+    public string ContextoDaLista => string.Join(" · ", new[]
+    {
+        Modalidade,
+        Convenio.Length == 0 ? null : Convenio,
+        TemPacote ? $"pacote {PacoteUsadas}/{PacoteContratadas}" : null
+    }.Where(l => !string.IsNullOrEmpty(l)));
 
     /// <summary>Bytes da miniatura do retrato (o cadastro já a tem desde sempre) — o
     /// <c>Avatar</c> cai nas iniciais quando não há foto. `object` pela mesma razão do
@@ -56,11 +111,51 @@ public sealed partial class CartaoFila : ObservableObject
 
     public bool TemConfirmacao => ConfirmacaoRotulo.Length > 0;
 
-    /// <summary>"Pacote 9/10" — sessões usadas/contratadas do pacote ativo. A 10ª sessão
-    /// de um pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48).</summary>
-    public string Pacote { get; init; } = string.Empty;
+    /// <summary>
+    /// Sessões usadas/contratadas do pacote ativo; nulos sem pacote. A 10ª sessão de um
+    /// pacote de 10 se descobre AQUI, não no Finalizar (a lição da parcela 48) — e desde
+    /// set/2026 ela vira SELO só no fim ("Penúltima", "Última", "Esgotado"); o "pacote
+    /// 3/10" do meio do caminho é contexto, na linha do cartão.
+    /// </summary>
+    public int? PacoteUsadas { get; init; }
 
-    public bool TemPacote => Pacote.Length > 0;
+    public int? PacoteContratadas { get; init; }
+
+    public bool TemPacote => PacoteUsadas is not null && PacoteContratadas is not null;
+
+    /// <summary>
+    /// A linha de contexto sob o nome: modalidade · profissional · sala · pacote N/M ·
+    /// encaixe. É para cá que foram os selos que não avisam nada — o pacote no meio do
+    /// caminho e o encaixe (set/2026): informação de leitura, no peso de leitura.
+    /// </summary>
+    public string Contexto => string.Join(" · ", new[]
+    {
+        Modalidade,
+        Profissional,
+        Sala,
+        TemPacote ? $"pacote {PacoteUsadas}/{PacoteContratadas}" : null,
+        EhEncaixe ? "encaixe" : null
+    }.Where(l => !string.IsNullOrEmpty(l)));
+
+    /// <summary>
+    /// Os selos do cartão — no máximo três, por uma ordem fixa que mora na Application
+    /// (<see cref="SelosDaFila"/>): o que impede, o que cobra agora, o estado da coluna.
+    /// Recalculado quando qualquer entrada muda (o atraso corre com o relógio).
+    /// </summary>
+    public IReadOnlyList<SeloFila> Selos => SelosDaFila.Montar(
+        Etapa, TemTermoPendente, TemGuiaPendente,
+        PacoteUsadas, PacoteContratadas, AtrasoMinutos, FimAtendimentoEm);
+
+    /// <summary>Minutos além da hora marcada sem check-in; nulo sem atraso. Corre com o relógio.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Selos))]
+    private int? _atrasoMinutos;
+
+    /// <summary>A hora em que o profissional encerrou o atendimento (parcela 74); nula se não encerrou.</summary>
+    public DateTime? FimAtendimentoEm { get; init; }
+
+    partial void OnTemGuiaPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
+    partial void OnTemTermoPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
 
     /// <summary>"Atrasado 25 min" — a hora marcada estourou e o paciente não chegou.
     /// Recalculado a cada batida do relógio, como a espera. Vazio sem atraso.</summary>
@@ -148,10 +243,37 @@ public sealed partial class CartaoFila : ObservableObject
 
     public bool PodeFinalizar => Etapa == EtapaFila.EmAtendimento;
 
+    /// <summary>
+    /// A sessão está concluída e há PACOTE por debitar (parcela 95).
+    ///
+    /// Ela existe porque a conclusão saiu do balcão: com o médico finalizando na sala, o
+    /// cartão chega à raia FINALIZADO já carimbado, e sem esta pendência o balcão não
+    /// teria por onde debitar o pacote da sessão que acabou de acontecer — alerta sem
+    /// porta é pior que alerta nenhum (parcela 48).
+    ///
+    /// ⚠️ É o PACOTE, e não "tudo o que o fechamento faz", e a diferença decide se o botão
+    /// é utilizável. Fosse "ainda não houve fechamento", o paciente de convênio sem pacote
+    /// e sem insumo — a maioria do dia — ficaria com o botão aceso PARA SEMPRE, porque
+    /// nele não há nada a fechar: pendência que nunca some é pendência que ninguém lê (a
+    /// lição da parcela 68). O pacote é o único dos três que o quadro sabe afirmar em
+    /// lote (a leitura do selo "Pacote 9/10" já está carregada) e é o que custa dinheiro
+    /// quando escapa — sessão comprada que a clínica atende de graça.
+    ///
+    /// Os outros dois (insumo e caixa) não somem da vista: "Fechar sessão…" fica no menu
+    /// "⋯" de toda sessão concluída, que é onde mora o que se faz de vez em quando.
+    /// </summary>
+    public required bool FechamentoPendente { get; init; }
+
+    /// <summary>
+    /// A sessão está concluída — o balcão ainda pode abrir o fechamento para lançar o
+    /// dinheiro, baixar insumo ou debitar o pacote, mesmo sem pendência anunciada.
+    /// </summary>
+    public bool PodeFechar => Etapa == EtapaFila.Finalizado;
+
     public bool PodeVoltar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento;
 
-    /// <summary>Só horário em aberto aceita falta/cancelamento.</summary>
-    public bool EmAberto => Etapa != EtapaFila.Finalizado;
+    /// <summary>Só horário em aberto aceita falta/cancelamento — o cancelado e a falta já saíram.</summary>
+    public bool EmAberto => Etapa is not (EtapaFila.Finalizado or EtapaFila.ForaDaFila);
 
     /// <summary>
     /// O rótulo do PRÓXIMO passo — um só por cartão.
@@ -168,6 +290,10 @@ public sealed partial class CartaoFila : ObservableObject
         EtapaFila.Chegou => "Chamar",
         EtapaFila.Chamado => "Entrou",
         EtapaFila.EmAtendimento => "Concluir",
+        // Concluída pelo Consultório e com pacote por debitar. Sem pendência não há passo
+        // nenhum: a raia FINALIZADO volta a ser o registro do dia, e o fechamento
+        // continua a um clique no "⋯".
+        EtapaFila.Finalizado when FechamentoPendente => "Debitar pacote",
         _ => string.Empty
     };
 
@@ -179,6 +305,7 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public bool ProximoPassoEhConcluir => Etapa == EtapaFila.EmAtendimento;
 
+
     /// <summary>
     /// Quem LANÇOU o horário, e quando (parcela 58). Vai na dica do cartão: o quadro é
     /// denso de propósito, e uma linha a mais por cartão custaria a densidade que faz o
@@ -186,11 +313,23 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public required string Lancamento { get; init; }
 
-    /// <summary>A dica do cartão: o que não coube nele e alguém pode precisar.</summary>
+    /// <summary>
+    /// A dica do cartão: o que não coube nele e alguém pode precisar. É o LEITOR do que
+    /// saiu do selo em set/2026 — a resposta da rodada de confirmação por extenso e a
+    /// marca legada do "retorno do 2º código" —, para selo a menos não virar dado a menos.
+    /// </summary>
     public string Detalhe => string.Join("\n", new[]
     {
         $"{Horario} · {Modalidade}",
-        $"{Profissional} · sala {Sala}",
+        TemSala ? $"{Profissional} · sala {Sala}" : Profissional,
+        TemPacote ? $"Pacote {PacoteUsadas}/{PacoteContratadas} (o que vence primeiro é o que a sessão debita)" : null,
+        EhEncaixe ? "Encaixe — marcado por cima de um horário ocupado" : null,
+        TemConfirmacao
+            ? (ConfirmouPresenca
+                ? "Confirmou a presença na rodada de confirmação"
+                : "Avisado na rodada de confirmação, sem resposta")
+            : null,
+        EhRetornoDoSegundoCodigo ? "Legado: retorno do 2º código — guia não é atendimento, pode apagar" : null,
         string.IsNullOrWhiteSpace(Observacoes) ? null : $"Obs.: {Observacoes}",
         Lancamento
     }.Where(l => l is not null));
@@ -213,23 +352,27 @@ public sealed partial class ChipProfissional : ObservableObject
 }
 
 /// <summary>
-/// Fila de hoje em KANBAN: Aguardando → Chegou → Chamado → Em atendimento → Finalizado.
+/// A AGENDA DO DIA do balcão, em LISTA (set/2026): uma linha por horário, na ordem da
+/// hora, com o status e a hora do fato em cada linha — a agenda do Smart Clinic que a
+/// cliente usava, e o que ela pediu ("quanto mais simples, melhor"). Cancelado e falta
+/// ficam na lista, apagados.
 ///
-/// A lista simples que existia aqui antes respondia "quem está marcado"; o balcão
-/// precisa de outra pergunta — "quem está esperando, e há quanto tempo". As colunas
-/// saem dos carimbos de chegada, de chamada e de início do atendimento
-/// (<see cref="Agendamento.Etapa"/>), não de um campo de status novo: o faturamento
-/// continua vendo o mesmo <see cref="StatusAgendamento"/> de sempre.
+/// Ela nasceu kanban (parcela 26) e ganhou cinco raias com arrasto (parcelas 58 e 87),
+/// por paridade com o que o balcão administrava. A cliente derrubou a premissa: para ela
+/// a agenda do dia e a fila eram a MESMA pergunta em duas telas — e no Smart Clinic são
+/// uma só. O Meu dia do médico já tinha virado lista (parcela 95); esta é a mesma lista,
+/// com as ações do balcão. As etapas continuam saindo dos carimbos de chegada, de
+/// chamada e de início (<see cref="Agendamento.Etapa"/>), não de um campo de status
+/// novo: o faturamento continua vendo o mesmo <see cref="StatusAgendamento"/> de sempre.
 ///
-/// A coluna CHAMADO é o recado do consultório (parcela 38). Quem atende está na sala
-/// com a porta fechada e não grita o nome de ninguém: ele clica em "Chamar próximo" no
-/// app dele, e é ESTA tela que anuncia a pessoa. Não há sincronização entre os dois
-/// módulos — nem fila de mensagens, nem evento: eles leem a mesma linha do banco, e é
-/// isso que faz os dois quadros nunca divergirem.
+/// O CHAMADO é o recado do consultório (parcela 38). Quem atende está na sala com a porta
+/// fechada e não grita o nome de ninguém: ele clica em "Chamar próximo" no app dele, e é
+/// ESTA tela que anuncia a pessoa. Não há sincronização entre os dois módulos — nem fila
+/// de mensagens, nem evento: eles leem a mesma linha do banco, e é isso que faz as duas
+/// listas nunca divergirem.
 ///
-/// Finalizar é o antigo check-in (<see cref="AgendaService.ConfirmarPresencaAsync"/>):
-/// gera o atendimento com os códigos e o retorno do 2º código. Fica no FIM do fluxo de
-/// propósito — a guia nasce quando a sessão de fato aconteceu.
+/// As cinco coleções por etapa continuam existindo por baixo (a faixa CHAMANDO e o
+/// contador leem delas); a tela lê <see cref="Linhas"/>, que é o dia inteiro em ordem.
 /// </summary>
 public sealed partial class FilaViewModel : ObservableObject
 {
@@ -259,27 +402,44 @@ public sealed partial class FilaViewModel : ObservableObject
     private HashSet<int> _comPendencia = [];
     private Dictionary<int, IReadOnlyList<SituacaoTermo>> _termos = [];
     private Dictionary<int, StatusContato> _confirmacoes = [];
-    private Dictionary<int, string> _pacotes = [];
-
-    public ObservableCollection<CartaoFila> Aguardando { get; } = [];
-    public ObservableCollection<CartaoFila> NaRecepcao { get; } = [];
-    public ObservableCollection<CartaoFila> Chamados { get; } = [];
-    public ObservableCollection<CartaoFila> EmAtendimento { get; } = [];
-    public ObservableCollection<CartaoFila> Finalizados { get; } = [];
+    private Dictionary<int, (int Usadas, int Contratadas)> _pacotes = [];
 
     /// <summary>
-    /// O quadro só está vazio quando as CINCO colunas estão — um paciente já finalizado
-    /// é dia com movimento, não fila vazia.
+    /// Atendimentos do dia que JÁ tiveram fechamento (pacote, dinheiro ou insumo). É o que
+    /// faz o botão "Fechar sessão" SUMIR da raia FINALIZADO depois de resolvido — desde a
+    /// parcela 95 a sessão chega ali concluída pelo Consultório, e o que resta ao balcão é
+    /// o dinheiro. Pendência que não some é pendência que ninguém lê.
     /// </summary>
-    public bool QuadroVazio => Aguardando.Count == 0 && NaRecepcao.Count == 0
-                               && Chamados.Count == 0
-                               && EmAtendimento.Count == 0 && Finalizados.Count == 0;
+    private HashSet<int> _jaFechados = [];
+
+    /// <summary>
+    /// Os chamados e não anunciados — a única coleção por etapa que sobreviveu ao kanban
+    /// (set/2026). Ela alimenta a FAIXA do topo, e é isso que a mantém viva.
+    ///
+    /// As outras quatro (aguardando, na recepção, em atendimento, finalizados) eram as
+    /// raias, e continuaram sendo preenchidas a cada carga depois de a lista substituí-las
+    /// — escritas por ninguém lidas, em duas telas por dia. Código que sobrevive ao
+    /// desenho que o justificava é a segunda definição esperando divergir.
+    /// </summary>
+    public ObservableCollection<CartaoFila> Chamados { get; } = [];
+
+    /// <summary>
+    /// O DIA INTEIRO, na ordem da hora — o que a lista mostra (set/2026). Inclui cancelado
+    /// e falta, que a coleção acima não tem: eles ficam na lista, apagados.
+    /// </summary>
+    public ObservableCollection<CartaoFila> Linhas { get; } = [];
+
+    /// <summary>
+    /// O dia só está vazio sem NENHUM horário — um paciente já concluído, ou um cancelado,
+    /// é dia com movimento, não dia vazio.
+    /// </summary>
+    public bool QuadroVazio => Linhas.Count == 0;
 
     /// <summary>
     /// Há gente chamada esperando ser anunciada. É o que acende a faixa no topo da tela:
-    /// a coluna sozinha não bastaria, porque o balcão passa o dia com esta tela aberta e
-    /// os olhos no paciente à frente dele — cartão que aparece calado numa das cinco
-    /// colunas é cartão que ninguém vê.
+    /// a linha sozinha não bastaria, porque o balcão passa o dia com esta tela aberta e
+    /// os olhos no paciente à frente dele — linha que muda de status calada no meio de
+    /// trinta é linha que ninguém vê.
     /// </summary>
     public bool TemChamados => Chamados.Count > 0;
 
@@ -474,11 +634,56 @@ public sealed partial class FilaViewModel : ObservableObject
         }
     }
 
-    /// <summary>Liga o relógio da espera (chamado quando a tela entra em cena).</summary>
-    public void IniciarRelogio() => _relogio.Start();
+    /// <summary>
+    /// A tela ENTROU EM CENA: liga o relógio e relê o dia por baixo (set/2026 — pedido
+    /// da cliente: "precisamos da sincronização/atualização da agenda com a mudança de
+    /// status").
+    ///
+    /// ⚠️ A releitura ao voltar é a metade que faltava, e ela não é a batida do relógio.
+    /// Agenda e lista do dia são ABAS do mesmo item: o shell monta cada aba UMA vez e a
+    /// guarda, então voltar a ela devolve a mesma tela com os dados de quando a pessoa
+    /// saiu. Quem marcava a chegada na lista e passava para a grade via a grade de
+    /// antes — e o relógio, que só bate de minuto em minuto e só enquanto a tela está
+    /// visível, não cobre esse instante: ele havia PARADO junto com a tela.
+    ///
+    /// Sem a guarda de "já esteve em cena" seriam DUAS leituras na abertura: o
+    /// construtor já dispara a primeira, e o `Loaded` chega logo atrás.
+    /// </summary>
+    public void AoEntrarEmCena()
+    {
+        _relogio.Start();
+        if (_jaEsteveEmCena) _ = RelerAoVoltarAsync();
+        _jaEsteveEmCena = true;
+    }
+
+    /// <summary>Ver <see cref="AoEntrarEmCena"/>.</summary>
+    private bool _jaEsteveEmCena;
+
+    /// <summary>
+    /// A releitura de quando a tela volta à vista. Silenciosa como a do relógio (nada de
+    /// "Carregando" piscando nem aviso vermelho por uma demora do banco), e sem a recusa
+    /// de "só HOJE" que a batida periódica tem: aquela existe para a tela não se mexer
+    /// sozinha enquanto alguém lê, e esta acontece UMA vez, no instante em que a pessoa
+    /// chega — que é exatamente quando ela quer o estado de agora. Cancelar um horário de
+    /// amanhã numa aba e ver a outra desatualizada seria o mesmo defeito noutro dia.
+    /// </summary>
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura da lista do dia ao voltar à aba falhou", ex);
+        }
+    }
 
     /// <summary>Desliga o relógio (chamado quando a tela sai de cena).</summary>
-    public void PararRelogio() => _relogio.Stop();
+    public void AoSairDeCena() => _relogio.Stop();
 
     partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
 
@@ -565,10 +770,11 @@ public sealed partial class FilaViewModel : ObservableObject
                 confirmacoes = [];
             }
 
-            // O selo "Pacote 9/10": a 10ª sessão de um pacote de 10 se descobre na
-            // MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só quem TEM
-            // pacote ativo ganha selo — metade da clínica é de convênio e nunca comprou.
-            Dictionary<int, string> pacotes;
+            // O pacote ativo (usadas/contratadas): a 10ª sessão de um pacote de 10 se
+            // descobre na MARCAÇÃO do dia, não no Finalizar (a lição da parcela 48). Só
+            // quem TEM pacote ativo entra — metade da clínica é de convênio e nunca
+            // comprou. Quem decide se vira selo ou só linha de contexto é `SelosDaFila`.
+            Dictionary<int, (int Usadas, int Contratadas)> pacotes;
             try
             {
                 var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
@@ -584,7 +790,7 @@ public sealed partial class FilaViewModel : ObservableObject
                         {
                             // O que vence primeiro é o que a baixa automática debita.
                             var p = g.OrderBy(x => x.ValidoAte ?? DateOnly.MaxValue).First();
-                            return $"Pacote {p.SessoesUsadas}/{p.SessoesContratadas}";
+                            return (p.SessoesUsadas, p.SessoesContratadas!.Value);
                         });
             }
             catch (Exception ex)
@@ -594,12 +800,38 @@ public sealed partial class FilaViewModel : ObservableObject
                 pacotes = [];
             }
 
+            // O que já foi FECHADO (pacote/dinheiro/insumo) entre as sessões concluídas.
+            // Em lote: uma ida por cartão daria trinta a cada batida do relógio. Aviso,
+            // não conteúdo — falhando, a pendência aparece em toda sessão COM PACOTE, que
+            // é o lado seguro: oferecer debitar o que já foi debitado custa um clique (e a
+            // janela recusa a duplicata), esconder o pacote custa a sessão de graça.
+            HashSet<int> jaFechados;
+            try
+            {
+                var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+                var concluidos = _doDia
+                    .Where(a => a.Etapa == EtapaFila.Finalizado && a.AtendimentoId is not null)
+                    .Select(a => a.AtendimentoId!.Value)
+                    .ToList();
+
+                jaFechados = concluidos.Count == 0
+                    ? []
+                    : (await repo.AtendimentosComFechamentoAsync(concluidos)).ToHashSet();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — fechamentos do dia não puderam ser lidos", ex);
+                jaFechados = [];
+            }
+
             if (geracao != _geracaoCarga) return;
 
             _comPendencia = comPendencia;
             _termos = termos;
             _confirmacoes = confirmacoes;
             _pacotes = pacotes;
+            _jaFechados = jaFechados;
 
             MontarChips();
             MontarQuadro();
@@ -642,15 +874,6 @@ public sealed partial class FilaViewModel : ObservableObject
             : $"Marcado por {a.CriadoPor}";
     }
 
-    private ObservableCollection<CartaoFila> Coluna(EtapaFila etapa) => etapa switch
-    {
-        EtapaFila.Chegou => NaRecepcao,
-        EtapaFila.Chamado => Chamados,
-        EtapaFila.EmAtendimento => EmAtendimento,
-        EtapaFila.Finalizado => Finalizados,
-        _ => Aguardando
-    };
-
     /// <summary>
     /// Reconstrói os chips do filtro a partir do dia lido. O filtro vigente sobrevive à
     /// recarga só enquanto o profissional continua no dia — apontando para quem saiu, ele
@@ -683,27 +906,26 @@ public sealed partial class FilaViewModel : ObservableObject
     }
 
     /// <summary>
-    /// (Re)monta as cinco colunas a partir do dia JÁ LIDO — é o que o filtro por
+    /// (Re)monta a lista do dia a partir do que JÁ FOI LIDO — é o que o filtro por
     /// profissional chama sem voltar ao banco. Entre o Clear e o último Add não há await
     /// (a regra da parcela 62): quem monta é sempre uma passada síncrona.
     /// </summary>
     private void MontarQuadro()
     {
-        Aguardando.Clear();
-        NaRecepcao.Clear();
+        Linhas.Clear();
         Chamados.Clear();
-        EmAtendimento.Clear();
-        Finalizados.Clear();
 
-        foreach (var a in _doDia)
+        // Na ordem da HORA: é a agenda do dia, não um quadro por estado. Cancelado e falta
+        // ENTRAM (apagados na tela) — quem lê às 14h precisa saber que as 15h vagaram.
+        foreach (var a in _doDia.OrderBy(a => a.DataHora))
         {
-            // Cancelado e falta saem do quadro: o kanban é o fluxo de quem vem hoje.
-            if (a.Etapa == EtapaFila.ForaDaFila) continue;
             // Horário sem profissional só aparece em "Todos": ele não é de ninguém.
             if (_filtroProfissionalId is { } soDele && a.ProfissionalId != soDele) continue;
 
-            // O selo de confirmação só fala na coluna AGUARDANDO — depois do check-in a
-            // pessoa está aqui, e o selo viraria ruído.
+            var vivo = a.Etapa != EtapaFila.ForaDaFila;
+
+            // O selo de confirmação só fala em AGUARDANDO — depois do check-in a pessoa
+            // está aqui, e o selo viraria ruído.
             var confirmacao = a.Etapa == EtapaFila.Aguardando
                               && _confirmacoes.TryGetValue(a.Id, out var status)
                 ? status switch
@@ -726,38 +948,55 @@ public sealed partial class FilaViewModel : ObservableObject
                 // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
                 Modalidade = CatalogoModalidades.Nome(
                     a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
-                Profissional = a.Profissional?.Rotulo ?? "—",
-                Sala = a.Sala?.Nome ?? "—",
+                // "sem profissional" é o que a GRADE já escreve, e é aviso, não
+                // enfeite: horário sem dono some do "Meu dia" de quem atende e do
+                // repasse (parcela 69). O travessão calava isso.
+                Profissional = a.Profissional?.Rotulo ?? "sem profissional",
+                Sala = a.Sala?.Nome ?? string.Empty,
                 Etapa = a.Etapa,
+                Situacao = a.Status,
+                DataHora = a.DataHora,
+                ChegadaEm = a.ChegadaEm,
+                InicioEm = a.InicioAtendimentoEm,
                 Observacoes = a.Observacoes,
                 EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
                 EhEncaixe = a.Encaixe,
                 Lancamento = DescreverLancamento(a),
-                TemGuiaPendente = _comPendencia.Contains(a.PacienteId),
-                TemTermoPendente = _termos.TryGetValue(a.PacienteId, out var doPaciente)
+                // Os avisos do PACIENTE (guia, termo, pacote) não entram na linha cancelada
+                // ou de falta: ela não tem passo a cobrar, e selo numa linha apagada é ruído
+                // que ensina a ignorar o selo da linha viva ao lado.
+                TemGuiaPendente = vivo && _comPendencia.Contains(a.PacienteId),
+                TemTermoPendente = vivo && _termos.TryGetValue(a.PacienteId, out var doPaciente)
                                    && doPaciente.Any(t => t.Pendente),
                 ConfirmacaoRotulo = confirmacao,
                 ConfirmouPresenca = confirmacao == "Confirmou",
-                Pacote = _pacotes.GetValueOrDefault(a.PacienteId, string.Empty),
+                PacoteUsadas = vivo && _pacotes.TryGetValue(a.PacienteId, out var pacote) ? pacote.Usadas : null,
+                PacoteContratadas = vivo && _pacotes.TryGetValue(a.PacienteId, out pacote) ? pacote.Contratadas : null,
+                FimAtendimentoEm = a.FimAtendimentoEm,
                 AtendimentoEncerrado = a.AtendimentoEncerrado,
+                // Só a sessão concluída pede fechamento, só enquanto ele não aconteceu e
+                // só quando há PACOTE — ver `FechamentoPendente`. Sem `AtendimentoId` não
+                // há o que fechar (nem deveria haver cartão finalizado sem ele; se
+                // houver, não se inventa pendência).
+                FechamentoPendente = a.Etapa == EtapaFila.Finalizado
+                                     && a.AtendimentoId is { } atendimentoId
+                                     && !_jaFechados.Contains(atendimentoId)
+                                     && _pacotes.ContainsKey(a.PacienteId),
                 EncerradoEm = a.FimAtendimentoEm is { } fim
                     ? $"Encerrado às {fim:HH\\:mm}"
                     : string.Empty
             };
 
-            Coluna(a.Etapa).Add(cartao);
+            Linhas.Add(cartao);
+            // O chamado e ainda não anunciado alimenta a FAIXA do topo, além da linha.
+            if (a.Etapa == EtapaFila.Chamado) Chamados.Add(cartao);
         }
 
-        // Quem já SAIU da sala vai para a frente da raia "Em atendimento" (parcela 74):
-        // é o único cartão dali que pede ação do balcão agora, e numa tarde cheia ele
-        // ficaria em quinto lugar entre pessoas que ainda estão sendo atendidas. Move
-        // preserva a ordem relativa e não passa por Clear — a lista já está publicada.
-        foreach (var c in EmAtendimento.Where(c => c.AtendimentoEncerrado)
-                                       .Reverse().ToList())
-            EmAtendimento.Move(EmAtendimento.IndexOf(c), 0);
+        // Quem já SAIU da sala (parcela 74) não sobe mais para a frente: a lista é a ordem
+        // da hora, e é o selo "Encerrado" (e a cor do status) que o aponta.
 
-        // As cinco coleções mudaram: o quadro precisa reavaliar se está vazio e se
-        // há alguém esperando ser anunciado.
+        // A lista mudou: a tela precisa reavaliar se o dia está vazio e se há alguém
+        // esperando ser anunciado.
         OnPropertyChanged(nameof(QuadroVazio));
         OnPropertyChanged(nameof(TemChamados));
 
@@ -773,7 +1012,7 @@ public sealed partial class FilaViewModel : ObservableObject
         OutrosChamados = porIdade.Count <= 1
             ? string.Empty
             : "Também: " + string.Join(" · ", porIdade.Skip(1)
-                .Select(c => $"{c.Paciente} → sala {c.Sala}"));
+                .Select(c => c.TemSala ? $"{c.Paciente} → sala {c.Sala}" : c.Paciente));
     }
 
     /// <summary>
@@ -797,8 +1036,7 @@ public sealed partial class FilaViewModel : ObservableObject
         var agora = DateTime.Now;
         var porId = _doDia.ToDictionary(a => a.Id);
 
-        foreach (var cartao in Aguardando.Concat(NaRecepcao).Concat(Chamados)
-                                         .Concat(EmAtendimento).Concat(Finalizados))
+        foreach (var cartao in Linhas)
         {
             if (!porId.TryGetValue(cartao.AgendamentoId, out var ag)) continue;
 
@@ -822,6 +1060,12 @@ public sealed partial class FilaViewModel : ObservableObject
             var atraso = ag.AtrasoMinutos(agora);
             cartao.Atraso = atraso is null ? string.Empty : $"Atrasado {atraso} min";
             cartao.Atrasado = atraso is not null;
+            cartao.AtrasoMinutos = atraso;
+
+            // A hora do fato sob o status — a MESMA redação do Meu dia (StatusDaFila).
+            cartao.StatusDetalhe = StatusDaFila.Detalhe(
+                cartao.Situacao, cartao.Etapa, cartao.ChegadaEm, minutos, desdeAChamada,
+                cartao.InicioEm, cartao.FimAtendimentoEm);
         }
 
         // O resumo do dia envelhece junto (a espera média corre com o relógio). A conta
@@ -834,10 +1078,12 @@ public sealed partial class FilaViewModel : ObservableObject
         var partes = new List<string> { $"{atendidos} atendido(s)", $"{emSala} em sala" };
         if (PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media)
             partes.Add($"espera média {media} min");
+        // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o resumo conta,
+        // não anuncia o que foi escondido.
         partes.Add((faltas, cancelados) switch
         {
             (0, 0) => "sem faltas nem cancelamentos",
-            var (f, c) => $"fora do quadro: {f} falta(s), {c} cancelamento(s)"
+            var (f, c) => $"{f} falta(s), {c} cancelamento(s)"
         });
         ResumoDia = string.Join("  ·  ", partes);
     }
@@ -859,67 +1105,52 @@ public sealed partial class FilaViewModel : ObservableObject
             case EtapaFila.Chegou: await ChamarAsync(cartao); break;
             case EtapaFila.Chamado: await IniciarAtendimentoAsync(cartao); break;
             case EtapaFila.EmAtendimento: await FinalizarAsync(cartao); break;
+            case EtapaFila.Finalizado: await FecharSessaoAsync(cartao); break;
         }
     }
 
     /// <summary>
-    /// ARRASTAR o cartão de uma raia para outra — o gesto que define um kanban.
+    /// FECHAR a sessão já concluída: pacote, insumo e caixa (parcela 95).
     ///
-    /// Ele não substitui os botões: metade do balcão trabalha com o mouse na mão e a
-    /// outra metade não arrasta nada, e um quadro em que a única forma de andar é
-    /// arrastar deixaria a segunda metade sem saída. O que ele faz é dar ao gesto natural
-    /// o mesmo efeito do clique.
+    /// É a metade do <see cref="FinalizarAsync"/> que sobrou no balcão quando a conclusão
+    /// passou para o Consultório. A janela é a MESMA — nada foi reimplementado —, e o
+    /// serviço já sabia reaproveitar a presença confirmada em vez de reconfirmá-la
+    /// (<c>GarantirAtendimentoAsync</c>, desde a parcela 65): é essa reutilização que faz
+    /// o caminho existir sem uma segunda definição de "fechar a sessão".
     ///
-    /// As transições legais são EXATAMENTE as dos botões — não uma segunda regra escrita
-    /// aqui. Duas definições de "para onde este cartão pode ir" divergem na primeira
-    /// correção, e a que ninguém lembra de ajustar é a de baixo.
-    ///
-    /// Para TRÁS anda um passo por vez, porque é isso que
-    /// <c>AgendaService.VoltarEtapaAsync</c> faz: ele apaga um carimbo de hora, e apagar
-    /// três de uma vez para atender a um arrasto longo inventaria uma linha do tempo que
-    /// não aconteceu. Movimento impossível não é silêncio — a tela DIZ por que não deu.
+    /// ⚠️ É COMANDO porque tem DUAS portas: o botão de passo (que só aparece quando há
+    /// pacote por debitar) e o item do menu "⋯", disponível em toda sessão concluída —
+    /// insumo e caixa não são anunciados como pendência, e sem o item do menu eles não
+    /// teriam por onde ser lançados depois que o médico concluiu.
     /// </summary>
-    public async Task MoverParaAsync(CartaoFila? cartao, EtapaFila alvo)
-    {
-        if (cartao is null || cartao.Etapa == alvo) return;
-
-        var legal = (cartao.Etapa, alvo) switch
+    [RelayCommand]
+    private async Task FecharSessaoAsync(CartaoFila? cartao)
+        => await ExecutarAsync(cartao, async c =>
         {
-            (EtapaFila.Aguardando, EtapaFila.Chegou) => true,
-            (EtapaFila.Chegou, EtapaFila.Chamado) => true,
-            (EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado,
-                EtapaFila.EmAtendimento) => true,
-            (EtapaFila.EmAtendimento, EtapaFila.Finalizado) => true,
-            // Um passo para trás: o inverso exato do que o serviço sabe desfazer.
-            (EtapaFila.Chegou, EtapaFila.Aguardando) => true,
-            (EtapaFila.Chamado, EtapaFila.Chegou) => true,
-            (EtapaFila.EmAtendimento, EtapaFila.Chamado) => true,
-            _ => false
-        };
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a sessão");
 
-        if (!legal)
-        {
-            _snackbar.Info(alvo == EtapaFila.Finalizado
-                ? "Só se conclui quem está em atendimento — leve o cartão para a sala primeiro."
-                : "Este cartão não anda direto para essa coluna. Arraste um passo por vez.");
-            return;
-        }
+            var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
+            var janela = new Janelas.FechamentoSessaoWindow(vm)
+            {
+                Owner = JanelaDona.Atual()
+            };
 
-        var voltando = alvo < cartao.Etapa;
-        if (voltando)
-        {
-            await VoltarEtapaAsync(cartao);
-            return;
-        }
+            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            {
+                // Fechar a janela não desfaz nada: a sessão continua concluída e a guia
+                // no faturamento. O que fica pendente é só o dinheiro — e ele continua
+                // pendente, com o botão aceso, que é o certo.
+                _snackbar.Info($"Sessão de {c.Paciente} continua sem o fechamento do "
+                               + "pacote, do insumo e do caixa.");
+                return;
+            }
 
-        switch (alvo)
-        {
-            case EtapaFila.Chegou: await RegistrarChegadaAsync(cartao); break;
-            case EtapaFila.Chamado: await ChamarAsync(cartao); break;
-            case EtapaFila.EmAtendimento: await IniciarAtendimentoAsync(cartao); break;
-            case EtapaFila.Finalizado: await FinalizarAsync(cartao); break;
-        }
-    }
+            AnunciarFechamento(c, resultado);
+        }, "fechamento da sessão");
+
+    // O ARRASTO entre raias (parcelas 58 e 87) morreu com as raias: numa lista ordenada
+    // pela hora não há para onde arrastar. O que ele fazia — andar um passo — é o botão
+    // de passo de cada linha, com a mesma regra e a mesma guarda.
 
     /// <summary>Check-in no balcão: o paciente chegou e o cronômetro da espera começa.</summary>
     [RelayCommand]
@@ -1001,7 +1232,9 @@ public sealed partial class FilaViewModel : ObservableObject
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
                     .ChamarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
+            _snackbar.Info(c.TemSala
+                ? $"{c.Paciente} chamado — anuncie para a sala {c.Sala}."
+                : $"{c.Paciente} chamado — anuncie o nome na sala de espera.");
         }, "chamada do paciente");
 
     /// <summary>O paciente levantou e entrou: fim da espera, começo da sessão.</summary>
@@ -1117,13 +1350,29 @@ public sealed partial class FilaViewModel : ObservableObject
                 return;
             }
 
-            var partes = new List<string> { $"{registro.GuiasGeradas} guia(s)" };
-            if (resultado.Consumo is not null) partes.Add("1 sessão do pacote");
-            if (resultado.Movimentos.Count > 0) partes.Add($"{resultado.Movimentos.Count} insumo(s)");
-            if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
-
-            _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
+            AnunciarFechamento(c, resultado, registro.GuiasGeradas);
         }, "conclusão do atendimento");
+
+    /// <summary>
+    /// A frase do que ACONTECEU no fechamento — uma só, para as DUAS portas (o Concluir
+    /// da coluna EM ATENDIMENTO e o Fechar sessão da FINALIZADO). Duas montagens
+    /// divergiriam na primeira correção, e o que elas descrevem é o mesmo ato.
+    ///
+    /// <paramref name="guias"/> é nulo quando a sessão já estava concluída: dizer "0
+    /// guia(s)" ali seria falso — as guias existem, só não nasceram neste clique.
+    /// </summary>
+    private void AnunciarFechamento(CartaoFila c, ResultadoFechamento resultado, int? guias = null)
+    {
+        var partes = new List<string>();
+        if (guias is { } quantas) partes.Add($"{quantas} guia(s)");
+        if (resultado.Consumo is not null) partes.Add("1 sessão do pacote");
+        if (resultado.Movimentos.Count > 0) partes.Add($"{resultado.Movimentos.Count} insumo(s)");
+        if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
+
+        _snackbar.Sucesso(partes.Count == 0
+            ? $"Sessão de {c.Paciente} fechada — nada a debitar nem a lançar."
+            : $"Sessão de {c.Paciente} fechada — {string.Join(" · ", partes)}.");
+    }
 
     /// <summary>
     /// Abre a coleta do termo do procedimento (parcela 66) — a PORTA do alerta que o
@@ -1257,6 +1506,72 @@ public sealed partial class FilaViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar($"Recepção — falha na {contexto}", ex);
             _snackbar.Erro(ex.Message);
         }
+    }
+
+    /// <summary>Metade visível do "Novo horário": marcar é ato do balcão (<c>EditarAgenda</c>).</summary>
+    public bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
+    /// "Novo horário" na lista do dia (set/2026) — o "+ adicionar" da agenda do Smart
+    /// Clinic. É a MESMA ponte da grade (`PreenchimentoNovoAtendimento` → aba Marcar do
+    /// Atendimento), com o dia da lista e o profissional do filtro já preenchidos. Quem
+    /// tem só <c>EditarAgenda</c>, sem <c>LancarAtendimento</c>, não alcança a aba Marcar:
+    /// para esse perfil a lista leva à GRADE, onde o formulário de sempre continua.
+    /// </summary>
+    [RelayCommand]
+    private void NovoHorario()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar um horário");
+
+            using var scope = _escopos.CreateScope();
+            var ponte = scope.ServiceProvider.GetRequiredService<PreenchimentoNovoAtendimento>();
+            ponte.Definir(new PedidoNovoAtendimento(
+                MarcarParaDepois: true, DataHora: Dia.Date,
+                ProfissionalId: _filtroProfissionalId, SalaId: null));
+
+            if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario)) return;
+
+            // Não foi: o pedido é DESFEITO (pedido órfão pré-preencheria a abertura de
+            // amanhã com o clique de hoje) e a grade abre neste dia.
+            ponte.Consumir();
+            AbrirGradeNoDia(scope);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — novo horário pela agenda do dia", ex);
+            _snackbar.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// "Abrir na grade" (menu "⋯"): leva ao vão deste dia na GRADE, onde moram remarcar,
+    /// reabrir o cancelado, o comprovante e o WhatsApp de confirmação — a janela do horário
+    /// da parcela 58. A lista não repete essas sete ações: duas janelas do horário
+    /// divergiriam na primeira correção. É LEITURA: sem <c>Exigir</c>.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirNaGrade(CartaoFila? cartao)
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            AbrirGradeNoDia(scope);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — abrir a grade pela agenda do dia", ex);
+            _snackbar.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>Pede à grade que abra no dia da lista (a ponte <see cref="PedidoAgenda"/>) e navega.</summary>
+    private void AbrirGradeNoDia(IServiceScope scope)
+    {
+        scope.ServiceProvider.GetRequiredService<PedidoAgenda>().AbrirEm(DateOnly.FromDateTime(Dia));
+        if (!NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda))
+            _snackbar.Info("A grade não está disponível para o seu acesso.");
     }
 
     [RelayCommand]

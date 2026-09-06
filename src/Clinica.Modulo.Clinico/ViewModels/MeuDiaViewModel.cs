@@ -28,7 +28,18 @@ public sealed class LinhaSessao
     public required string Paciente { get; init; }
     public required string Hora { get; init; }
     public required string Modalidade { get; init; }
+
+    /// <summary>A sala, ou VAZIO quando o horário não tem uma — nunca o travessão.</summary>
     public required string Local { get; init; }
+
+    /// <summary>
+    /// A linha sob o nome: modalidade · sala. Composta AQUI, e não com três `Run` no
+    /// XAML, porque a sala é opcional: com os Runs o "· sala" ficava impresso ao lado de
+    /// um travessão em toda linha de uma clínica que não usa salas (set/2026).
+    /// </summary>
+    public string Contexto => string.IsNullOrWhiteSpace(Local)
+        ? Modalidade
+        : $"{Modalidade} · sala {Local}";
     public required string Situacao { get; init; }
     public required bool EvolucaoEscrita { get; init; }
     public required bool RegistroPendente { get; init; }
@@ -38,18 +49,18 @@ public sealed class LinhaSessao
     /// <summary>Espera do paciente, já formatada. Vazio antes do check-in.</summary>
     public required string Espera { get; init; }
 
-    /// <summary>Chamado e ainda não entrou — o cartão fica em destaque no quadro.</summary>
+    /// <summary>Chamado e ainda não entrou — a linha fica em destaque na lista.</summary>
     public required string ChamadoHa { get; init; }
 
     public required EtapaFila Etapa { get; init; }
 
     /// <summary>
-    /// Cancelado ou falta. O cartão CONTINUA na coluna "aguardando" — quem lê às 14h
+    /// Cancelado ou falta. A linha CONTINUA na lista, apagada — quem lê às 14h
     /// precisa saber que o horário das 15h vagou, e linha ausente se confunde com horário
     /// que nunca existiu (a regra da folha do dia).
     ///
     /// ⚠️ Mas ele precisa ficar MARCADO, e não ficava. A situação era calculada
-    /// (<c>Situacao</c>, via <c>Rotular</c>) e o XAML do quadro nunca a leu — dado
+    /// (<c>Situacao</c>, via <c>Rotular</c>) e o XAML nunca a leu — dado
     /// calculado sem leitor, na variante em que o estrago é ler ERRADO em vez de não ler:
     /// o médico contava cinco pessoas por vir e duas tinham desmarcado. A tela irmã do
     /// mesmo módulo, "Minha semana", já marcava com "Não aconteceu"; eram duas respostas
@@ -91,13 +102,55 @@ public sealed class LinhaSessao
     public bool PodeEntrar => (Etapa is EtapaFila.Chegou or EtapaFila.Chamado) && EhHoje;
 
     /// <summary>
-    /// Desfazer o "entrou" clicado por engano. Só da coluna EM ATENDIMENTO: a chamada tem
+    /// Desfazer o "entrou" clicado por engano. Só de quem está EM ATENDIMENTO: a chamada tem
     /// o próprio desfazer, e o check-in é ato do balcão — não se desfaz daqui.
     /// </summary>
     public bool PodeVoltarEtapa => Etapa == EtapaFila.EmAtendimento && EhHoje;
 
     /// <summary>A chamada está pendente há tempo demais — vale insistir com o balcão.</summary>
     public bool ChamadaDemorada { get; init; }
+
+    public DateTime? ChegadaEm { get; init; }
+    public DateTime? InicioEm { get; init; }
+    public DateTime? FimEm { get; init; }
+
+    /// <summary>O status GRAVADO do horário — é ele que separa cancelado e falta do resto.</summary>
+    public StatusAgendamento Estado { get; init; }
+
+    public int? EsperaMinutos { get; init; }
+    public int? ChamadoHaMinutos { get; init; }
+
+    /// <summary>
+    /// A coluna STATUS da lista (parcela 95): a etapa da fila em uma palavra. Para o
+    /// cancelado e a falta é a situação — a linha fica, MARCADA, pela regra da folha do
+    /// dia (quem lê às 14h precisa saber que as 15h vagaram).
+    ///
+    /// O vocabulário é o de <see cref="StatusDaFila"/> — o MESMO da lista do balcão
+    /// (set/2026): duas telas sobre o mesmo horário, uma palavra.
+    /// </summary>
+    public string Status => StatusDaFila.Palavra(Estado, Etapa);
+
+    /// <summary>
+    /// A hora do fato abaixo do status — "chegou às 14:40 · espera 12 min", "chamado há 4
+    /// min", "desde 14:52", "às 15:20". Vazio quando não há fato. A redação é a de
+    /// <see cref="StatusDaFila.Detalhe"/>, compartilhada com o balcão.
+    /// </summary>
+    public string StatusDetalhe => StatusDaFila.Detalhe(
+        Estado, Etapa, ChegadaEm, EsperaMinutos, ChamadoHaMinutos, InicioEm, FimEm);
+
+    /// <summary>
+    /// A coluna PRONTUÁRIO — a do print do Smart Clinic. "Pendente" é o que ainda não
+    /// tem evolução, inclusive o horário que ainda vai acontecer: a coluna responde "o
+    /// que falta escrever", e o que vai acontecer também falta. Cancelado e falta não
+    /// têm registro a escrever.
+    /// </summary>
+    public string Prontuario => ForaDaFila ? "\u2014" : EvolucaoEscrita ? "Escrito" : "Pendente";
+
+    /// <summary>Pinta o "Pendente" — só quando há sessão para escrever.</summary>
+    public bool ProntuarioPendente => !ForaDaFila && !EvolucaoEscrita;
+
+    /// <summary>Cancelado e falta não se atendem — o botão SOME, não fica apagado.</summary>
+    public bool PodeAtender => !ForaDaFila;
 
     public static LinhaSessao De(SessaoDoDia s) => new()
     {
@@ -109,9 +162,12 @@ public sealed class LinhaSessao
         // início sozinho calava — e é a que decide se cabe um encaixe.
         Hora = $"{s.DataHora:HH:mm}–{s.FimPrevisto:HH:mm}",
         Modalidade = s.Modalidade,
-        Local = s.Sala ?? "—",
+        Local = s.Sala ?? string.Empty,
         Situacao = Rotular(s.Status, s.Etapa),
-        ForaDaFila = s.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou,
+        ForaDaFila = StatusDaFila.ForaDaFila(s.Status),
+        Estado = s.Status,
+        EsperaMinutos = s.EsperaMinutos,
+        ChamadoHaMinutos = s.ChamadoHaMinutos,
         EvolucaoEscrita = s.EvolucaoEscrita,
         RegistroPendente = s.RegistroPendente,
         Encaixe = s.Encaixe,
@@ -122,7 +178,10 @@ public sealed class LinhaSessao
         ChamadoHa = s.ChamadoHaMinutos is { } c
             ? (c == 0 ? "chamado agora" : $"chamado há {c} min")
             : string.Empty,
-        ChamadaDemorada = s.ChamadoHaMinutos >= ChamadaDemoradaMinutos
+        ChamadaDemorada = s.ChamadoHaMinutos >= ChamadaDemoradaMinutos,
+        ChegadaEm = s.ChegadaEm,
+        InicioEm = s.InicioAtendimentoEm,
+        FimEm = s.FimAtendimentoEm
     };
 
     /// <summary>
@@ -198,19 +257,23 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     private readonly PacienteEmFoco _foco;
 
     /// <summary>
-    /// As COLUNAS do quadro. O dia deixou de ser uma lista corrida: quem atende não
-    /// pergunta "quem está marcado", pergunta "quem já está aí e quem posso chamar".
+    /// O dia como LISTA, na ordem da hora (parcela 95).
     ///
-    /// As colunas saem de <c>Agendamento.Etapa</c>, que é derivada dos carimbos de hora —
-    /// as MESMAS que a fila do balcão usa. Não há sincronização nenhuma entre os dois
-    /// módulos: eles leem a mesma tabela, e é isso que faz o quadro do médico e o da
-    /// recepção nunca divergirem.
+    /// O quadro de cinco raias (parcela 38) foi feito por paridade com a fila do balcão —
+    /// e as raias respondem à pergunta do BALCÃO, que administra vinte pessoas em cinco
+    /// estados. O médico tem oito horários e uma pergunta: "quem é o próximo e o que eu
+    /// já escrevi". A cliente mandou o print da agenda que ela usava (Smart Clinic): uma
+    /// linha por horário, o status ali, a coluna PRONTUÁRIO e o botão ATENDER. A regra
+    /// da direção é "quanto mais simples, melhor", e cinco colunas para oito linhas não
+    /// é simples.
+    ///
+    /// O que a lista NÃO perdeu: a etapa continua saindo de <c>Agendamento.Etapa</c>, os
+    /// mesmos carimbos que a fila do balcão lê (nenhuma sincronização — os dois leem a
+    /// mesma tabela); "quem posso chamar agora" é a coluna STATUS com a hora da chegada;
+    /// e as transições (chamar, desfazer, entrou, voltar) continuam na linha, na etapa
+    /// em que servem. O que se perdeu foi o ARRASTO, que numa lista não tem para onde ir.
     /// </summary>
-    public ObservableCollection<LinhaSessao> Aguardando { get; } = [];
-    public ObservableCollection<LinhaSessao> NaRecepcao { get; } = [];
-    public ObservableCollection<LinhaSessao> Chamados { get; } = [];
-    public ObservableCollection<LinhaSessao> EmAtendimento { get; } = [];
-    public ObservableCollection<LinhaSessao> Finalizados { get; } = [];
+    public ObservableCollection<LinhaSessao> Sessoes { get; } = [];
 
     /// <summary>
     /// Quantas sessões de dias anteriores continuam sem evolução escrita.
@@ -258,7 +321,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _listaDaClinica;
 
-    /// <summary>POR QUE o quadro é o da clínica — a frase certa para cada motivo.</summary>
+    /// <summary>POR QUE a lista é a da clínica — a frase certa para cada motivo.</summary>
     [ObservableProperty] private string? _motivoDaLista;
 
     /// <summary>
@@ -286,10 +349,10 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// propriedade — as duas condições em MultiBinding no XAML seriam a versão frágil
     /// disto.
     ///
-    /// ⚠️ NO MODO "LISTA DA CLÍNICA" ele fica desligado, e é decisão: nesse modo o quadro
+    /// ⚠️ NO MODO "LISTA DA CLÍNICA" ele fica desligado, e é decisão: nesse modo a lista
     /// mostra a clínica inteira, e "o primeiro da recepção" pode ser paciente de OUTRO
-    /// profissional — o clique cego anunciaria um nome para a sala do colega. Chamar por um
-    /// CARTÃO específico continua liberado: ali a escolha é de quem olhou o nome antes de
+    /// profissional — o clique cego anunciaria um nome para a sala do colega. Chamar por uma
+    /// LINHA específica continua liberado: ali a escolha é de quem olhou o nome antes de
     /// clicar.
     ///
     /// São DOIS os caminhos até esse modo (ver <see cref="PostoClinico"/>): não haver
@@ -308,10 +371,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// </summary>
     public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
-    /// <summary>O quadro está vazio nas CINCO colunas — dia sem movimento nenhum.</summary>
-    public bool QuadroVazio => Aguardando.Count == 0 && NaRecepcao.Count == 0
-                               && Chamados.Count == 0 && EmAtendimento.Count == 0
-                               && Finalizados.Count == 0;
+    /// <summary>Dia sem horário nenhum.</summary>
+    public bool QuadroVazio => Sessoes.Count == 0;
 
     /// <summary>
     /// A chamada só faz sentido HOJE. Olhar a agenda de terça que vem e poder chamar
@@ -352,11 +413,57 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    /// <summary>Liga a releitura periódica (chamada quando a tela entra em cena).</summary>
-    public void IniciarRelogio() => _relogio.Start();
+    /// <summary>
+    /// A tela ENTROU EM CENA: liga o relógio e relê o dia por baixo (set/2026 — pedido
+    /// da cliente: "precisamos da sincronização/atualização da agenda com a mudança de
+    /// status").
+    ///
+    /// ⚠️ A releitura ao voltar é a metade que faltava, e ela não é a batida do relógio.
+    /// Hoje, Semana e Sem evolução são ABAS do mesmo item: o shell monta cada aba UMA vez
+    /// e a guarda, então voltar a ela devolve a mesma tela com os dados de quando a
+    /// pessoa saiu — e o relógio, que só bate de minuto em minuto e só enquanto a tela
+    /// está visível, não cobre esse instante: ele havia PARADO junto com a tela. Quem
+    /// conferia a semana e voltava para o dia via a fila de antes, com o paciente que o
+    /// balcão acabou de receber ainda como "Marcado".
+    ///
+    /// Sem a guarda de "já esteve em cena" seriam DUAS leituras na abertura: o
+    /// construtor já dispara a primeira, e o `Loaded` chega logo atrás.
+    /// </summary>
+    public void AoEntrarEmCena()
+    {
+        _relogio.Start();
+        if (_jaEsteveEmCena) _ = RelerAoVoltarAsync();
+        _jaEsteveEmCena = true;
+    }
+
+    /// <summary>Ver <see cref="AoEntrarEmCena"/>.</summary>
+    private bool _jaEsteveEmCena;
+
+    /// <summary>
+    /// A releitura de quando a tela volta à vista. Silenciosa como a do relógio (nada de
+    /// "Carregando" piscando nem aviso vermelho por uma demora do banco), e sem a recusa
+    /// de "só HOJE" que a batida periódica tem: aquela existe para a tela não se mexer
+    /// sozinha enquanto alguém lê, e esta acontece UMA vez, no instante em que a pessoa
+    /// chega — que é exatamente quando ela quer o estado de agora. Cancelar um horário de
+    /// amanhã numa aba e ver a outra desatualizada seria o mesmo defeito noutro dia.
+    /// </summary>
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — releitura do dia ao voltar à aba falhou", ex);
+        }
+    }
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void PararRelogio() => _relogio.Stop();
+    public void AoSairDeCena() => _relogio.Stop();
 
     /// <summary>
     /// A batida do relógio: relê o dia por baixo.
@@ -449,18 +556,21 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             // ⚠️ O Clear vem DEPOIS do await, junto dos Adds — nunca antes.
             //
-            // Limpar as colunas na entrada esvaziava o quadro durante todo o roundtrip ao
+            // Limpar a lista na entrada esvaziava a tela durante todo o roundtrip ao
             // banco remoto, e a releitura de fundo (1 min, sem "Carregando") fazia isso
             // debaixo do olho de quem atende. Pior: quando a leitura falhava, o catch
-            // encontrava as colunas JÁ vazias — e o comentário logo acima promete o
+            // encontrava a lista JÁ vazia — e o comentário logo acima promete o
             // contrário ("a tela segue com o quadro do minuto anterior"). Comentário que
             // descreve degradação sem o código que a realiza é o defeito da parcela 67.
             //
             // É a regra da parcela 62 aplicada aqui: entre o Clear() e o último Add não
             // pode haver await. O FilaViewModel, o quadro irmão do balcão, já fazia assim.
-            foreach (var c in Colunas) c.Clear();
-
-            foreach (var s in doDia.Sessoes) Coluna(s.Etapa).Add(LinhaSessao.De(s));
+            var linhas = doDia.Sessoes
+                .OrderBy(x => x.DataHora).ThenBy(x => x.AgendamentoId)
+                .Select(LinhaSessao.De)
+                .ToList();
+            Sessoes.Clear();
+            foreach (var l in linhas) Sessoes.Add(l);
 
             _proximoAgendamentoId = doDia.ProximoAChamar?.AgendamentoId ?? 0;
             ProximoNome = doDia.ProximoAChamar?.PacienteNome ?? string.Empty;
@@ -468,9 +578,9 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             OnPropertyChanged(nameof(PodeChamarProximo));
             OnPropertyChanged(nameof(QuadroVazio));
 
-            // Não há linha de "resumo" abaixo do título: cada coluna do quadro carrega a
-            // própria contagem no cabeçalho, e repetir os mesmos cinco números numa frase
-            // acima dele é uma faixa de texto a mais entre o profissional e o trabalho.
+            // Não há linha de "resumo" abaixo do título: a lista é curta o bastante para
+            // ser lida inteira, e uma frase de contagens acima dela é uma faixa de texto a
+            // mais entre o profissional e o trabalho.
 
             // A pendência é sempre de DIAS ANTERIORES, mesmo quando se olha um dia passado
             // na agenda: ela é a fila de trabalho do profissional, não uma propriedade do
@@ -524,7 +634,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             //
             // ⚠️ `NaoVerificado` entra JUNTO da mensagem, e não antes dela. Ele acende a
             // sobreposição do `EstadoDaTela` — que, numa recarga silenciosa, aparecia por
-            // cima de um quadro CHEIO (as colunas só são limpas depois do await, desde a
+            // cima de uma lista CHEIA (ela só é limpa depois do await, desde a
             // parcela 68) dizendo que a tela estava vazia por falha de leitura. O
             // comentário aqui prometia o contrário havia parcelas: comentário que descreve
             // degradação sem o código que a realiza é o defeito da parcela 67.
@@ -545,36 +655,12 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         }
     }
 
-    private IEnumerable<ObservableCollection<LinhaSessao>> Colunas
-    {
-        get
-        {
-            yield return Aguardando;
-            yield return NaRecepcao;
-            yield return Chamados;
-            yield return EmAtendimento;
-            yield return Finalizados;
-        }
-    }
-
-    private ObservableCollection<LinhaSessao> Coluna(EtapaFila etapa) => etapa switch
-    {
-        EtapaFila.Chegou => NaRecepcao,
-        EtapaFila.Chamado => Chamados,
-        EtapaFila.EmAtendimento => EmAtendimento,
-        EtapaFila.Finalizado => Finalizados,
-        // Cancelado e falta ficam em "aguardando" pelo mesmo motivo da folha do dia: quem
-        // lê às 14h precisa saber que o horário das 15h vagou, e linha ausente se confunde
-        // com horário que nunca existiu.
-        _ => Aguardando
-    };
-
     /// <summary>
     /// AVISA A RECEPÇÃO que este paciente pode entrar (parcela 38).
     ///
     /// Não é o médico que chama pelo nome na sala de espera — ele está na sala, com a
-    /// porta fechada. O que este botão faz é o recado atravessar: o cartão vai para a
-    /// coluna "chamado" e aparece destacado na fila do balcão, que anuncia a pessoa.
+    /// porta fechada. O que este botão faz é o recado atravessar: a linha passa a
+    /// "Chamado" e o cartão aparece destacado na fila do balcão, que anuncia a pessoa.
     ///
     /// A sincronização entre os dois módulos é o BANCO, como todo o resto da suíte: não
     /// há fila de mensagens nem evento. O consultório carimba a hora, a recepção lê a
@@ -584,7 +670,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     private Task ChamarAsync(LinhaSessao? linha)
         => linha is null ? Task.CompletedTask : ChamarPorIdAsync(linha.AgendamentoId, linha.Paciente);
 
-    /// <summary>Chama o primeiro da recepção, sem procurar o cartão no quadro.</summary>
+    /// <summary>Chama o primeiro da recepção, sem procurar a linha na lista.</summary>
     [RelayCommand]
     private Task ChamarProximoAsync()
     {
@@ -601,8 +687,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // simplesmente não tem agenda própria. Instrução errada com cara de instrução
             // certa manda o suporte procurar um defeito que não existe.
             Mensagem = MotivoDaLista
-                       + " Como o quadro é o da clínica, o primeiro da fila pode ser "
-                       + "paciente de outro profissional: chame pelo cartão dele.";
+                       + " Como a lista é a da clínica, o primeiro da fila pode ser "
+                       + "paciente de outro profissional: chame pela linha dele.";
             MensagemEhErro = true;
             return Task.CompletedTask;
         }
@@ -676,7 +762,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
     /// <summary>
     /// O paciente ENTROU na sala. Era a transição que faltava do lado do médico: sem ela,
-    /// a coluna EM ATENDIMENTO do quadro dele só enchia se o BALCÃO clicasse — e quem
+    /// o "Em atendimento" do lado dele só acontecia se o BALCÃO clicasse — e quem
     /// abre a porta para o paciente é o profissional, não a recepção. Entrar sem ter sido
     /// chamado carimba a chamada junto (linha do tempo com entrada e sem chamada não
     /// existe — regra do <c>AgendaService</c>).
@@ -718,10 +804,11 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// Desfaz o "entrou" clicado por engano — um passo por vez, como no balcão: apagar
     /// mais de um carimbo de uma vez inventaria uma linha do tempo que não aconteceu.
     ///
-    /// FINALIZAR continua não existindo aqui, e é decisão: concluir a sessão são quatro
-    /// fatos do mesmo ato (guia, pacote, insumo, caixa — <c>FechamentoSessaoService</c>),
-    /// e três deles são do balcão. O médico encerra escrevendo a evolução; quem fecha a
-    /// sessão é quem fecha a conta.
+    /// FINALIZAR não fica no QUADRO, e continua sendo decisão: finalizar é o desfecho de
+    /// um atendimento que se acabou de escrever, e o botão dele mora na tela do paciente,
+    /// ao lado do que foi registrado. Desde a parcela 95 ele CONCLUI a sessão (carimba a
+    /// presença e gera as guias); o que segue no balcão é o dinheiro — pacote, insumo e
+    /// caixa —, que aparece na fila como fechamento pendente.
     /// </summary>
     [RelayCommand]
     private async Task VoltarEtapaAsync(LinhaSessao? linha)
@@ -731,13 +818,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         try
         {
             SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "voltar o cartão");
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "voltar a etapa");
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
             await agenda.VoltarEtapaAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
 
-            Mensagem = $"{linha.Paciente} devolvido à coluna anterior.";
+            Mensagem = $"{linha.Paciente} devolvido à etapa anterior.";
             MensagemEhErro = false;
             // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
             // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
@@ -756,72 +843,6 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// ARRASTAR o cartão entre as raias — o mesmo gesto da fila do balcão (parcela 58),
-    /// que ficou seis parcelas sem chegar ao quadro de quem atende.
-    ///
-    /// As transições legais são EXATAMENTE as dos botões — não uma segunda regra escrita
-    /// aqui. O que o quadro do médico NÃO faz continua não fazendo pelo arrasto: check-in
-    /// (é do balcão, com a conferência de elegibilidade) e conclusão (quatro fatos do
-    /// mesmo ato, três do balcão). Movimento impossível não é silêncio — a tela DIZ.
-    /// </summary>
-    public async Task MoverParaAsync(LinhaSessao? linha, EtapaFila alvo)
-    {
-        if (linha is null || linha.Etapa == alvo) return;
-
-        // A fila corre só HOJE — os botões do cartão já somem noutro dia, e o arrasto
-        // precisa da mesma recusa dita, não calada (parcela 41).
-        if (!linha.EhHoje)
-        {
-            Mensagem = "A fila corre só no dia de hoje — este quadro é de outro dia.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        var legal = (linha.Etapa, alvo) switch
-        {
-            (EtapaFila.Chegou, EtapaFila.Chamado) => true,
-            (EtapaFila.Chegou or EtapaFila.Chamado, EtapaFila.EmAtendimento) => true,
-            // Um passo para trás: o inverso exato do que o serviço sabe desfazer.
-            (EtapaFila.Chamado, EtapaFila.Chegou) => true,
-            (EtapaFila.EmAtendimento, EtapaFila.Chamado) => true,
-            _ => false
-        };
-
-        if (!legal)
-        {
-            Mensagem = alvo switch
-            {
-                EtapaFila.Finalizado =>
-                    "Concluir a sessão é do balcão (Finalizar, na fila): junto da guia "
-                    + "saem o pacote, o insumo e o caixa.",
-                EtapaFila.Chegou when linha.Etapa == EtapaFila.Aguardando =>
-                    "O check-in é do balcão — é lá que carteirinha e cota são conferidas "
-                    + "com o paciente na frente.",
-                _ => "Este cartão não anda direto para essa coluna. Um passo por vez."
-            };
-            MensagemEhErro = true;
-            return;
-        }
-
-        if (alvo == EtapaFila.Chegou)
-        {
-            await DesfazerChamadaAsync(linha);
-        }
-        else if (alvo == EtapaFila.Chamado && linha.Etapa == EtapaFila.EmAtendimento)
-        {
-            await VoltarEtapaAsync(linha);
-        }
-        else if (alvo == EtapaFila.Chamado)
-        {
-            await ChamarAsync(linha);
-        }
-        else
-        {
-            await EntrarAsync(linha);
-        }
-    }
-
     [RelayCommand]
     private void DiaAnterior() => Dia = Dia.AddDays(-1);
 
@@ -835,9 +856,25 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// Chama o paciente para o atendimento: fixa o foco do posto e abre a tela de
     /// atendimento. É o único caminho em que a evolução nasce ligada ao AGENDAMENTO —
     /// e é esse vínculo que faz a sessão sair da lista de pendências depois de escrita.
+    ///
+    /// ⚠️ ELE CARIMBA A ENTRADA NA SALA (parcela 95). O fluxo que a direção pediu é de um
+    /// clique — "cai na agenda do médico, ele clica em atender e faz o atendimento" —, e
+    /// até aqui este botão só abria o prontuário: a linha ficava parada em "Marcado"
+    /// enquanto o paciente estava na cadeira, e mover a fila era um segundo clique que
+    /// ninguém dava. O quadro do balcão então mentia sobre quem estava ocupado, e a
+    /// espera do paciente continuava correndo depois de ele ter entrado.
+    ///
+    /// O que se carimba é FATO: quem clica em Atender está com a pessoa na frente. É o
+    /// mesmo <c>IniciarAtendimentoAsync</c> do botão "Entrou" (que continua existindo, para
+    /// quem quer mover a fila sem abrir o prontuário), e o desfazer é o "Voltar" de sempre.
+    ///
+    /// ⚠️ Falhar o carimbo NÃO impede abrir o prontuário: ler o registro do paciente que
+    /// está na sala não pode depender de o banco ter respondido a uma escrita de fila. A
+    /// falha vira aviso na tela e linha no log — nunca silêncio, que faria o médico
+    /// atender achando que o balcão foi avisado.
     /// </summary>
     [RelayCommand]
-    private void Atender(LinhaSessao? linha)
+    private async Task AtenderAsync(LinhaSessao? linha)
     {
         if (linha is null) return;
 
@@ -852,11 +889,52 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             return;
         }
 
+        // A ENTRADA NA SALA, antes de abrir a tela. Só quando há o que carimbar: o
+        // horário é de HOJE (a fila corre só hoje — abrir a sessão de ontem pela dívida
+        // de prontuário não pode mover fila nenhuma), está em aberto e ainda não começou.
+        if (linha.EhHoje && linha.Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado)
+            await CarimbarEntradaAsync(linha);
+
         _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
                       linha.AtendimentoId, linha.Data);
         // A seção de escrita de QUEM clicou: quem consulta cai no S-O-A-P, quem
         // executa cai na passagem de enfermagem. Uma palavra, dois destinos certos.
         NavegacaoSuite.Ir(PostoClinico.ChaveDoAtendimento());
+    }
+
+    /// <summary>
+    /// O carimbo de entrada do <see cref="AtenderAsync"/> — separado porque ele não pode
+    /// derrubar a abertura do prontuário, e porque a permissão dele é a da FILA, que não é
+    /// a mesma de abrir o registro.
+    /// </summary>
+    private async Task CarimbarEntradaAsync(LinhaSessao linha)
+    {
+        // Sem o bit da fila, atender continua valendo — o que não acontece é o recado ao
+        // balcão. Recusa CALADA aqui seria o pior dos dois mundos: o médico atenderia
+        // achando que o quadro andou.
+        if (!SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila))
+        {
+            Mensagem = "Prontuário aberto. O balcão não foi avisado de que o paciente "
+                       + "entrou: o seu acesso não move a fila do dia.";
+            MensagemEhErro = false;
+            return;
+        }
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.IniciarAtendimentoAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — entrada não pôde ser carimbada ao atender", ex);
+            Mensagem = "Prontuário aberto, mas o balcão não foi avisado de que o paciente "
+                       + $"entrou na sala: {ex.Message}";
+            MensagemEhErro = true;
+        }
     }
 
     /// <summary>Abre a tela das sessões sem evolução — a dívida de prontuário.</summary>

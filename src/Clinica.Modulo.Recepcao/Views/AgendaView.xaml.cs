@@ -17,7 +17,7 @@ public partial class AgendaView : UserControl
     {
         InitializeComponent();
 
-        Loaded += (_, _) => (DataContext as AgendaViewModel)?.IniciarRelogio();
-        Unloaded += (_, _) => (DataContext as AgendaViewModel)?.PararRelogio();
+        Loaded += (_, _) => (DataContext as AgendaViewModel)?.AoEntrarEmCena();
+        Unloaded += (_, _) => (DataContext as AgendaViewModel)?.AoSairDeCena();
     }
 }

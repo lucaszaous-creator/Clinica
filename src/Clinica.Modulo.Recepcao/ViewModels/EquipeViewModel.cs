@@ -17,6 +17,10 @@ public sealed class LinhaProfissional
     public required string Nome { get; init; }
     public required string Registro { get; init; }
     public required string Duracao { get; init; }
+
+    /// <summary>"seg · qua · sex, das 08:00 às 12:00" — ou "qualquer dia e horário" (set/2026).</summary>
+    public required string Jornada { get; init; }
+
     public required string Situacao { get; init; }
     public required bool Ativo { get; init; }
 }
@@ -132,6 +136,7 @@ public sealed partial class EquipeViewModel : ObservableObject
                     Nome = p.Nome,
                     Registro = string.IsNullOrWhiteSpace(p.RegistroConselho) ? "—" : p.RegistroConselho!,
                     Duracao = p.DuracaoPadraoMinutos is { } d ? $"{d} min" : "padrão da clínica",
+                    Jornada = p.DescricaoJornada ?? "qualquer dia e horário",
                     Situacao = p.Ativo ? "Ativo" : "Inativo",
                     Ativo = p.Ativo
                 })

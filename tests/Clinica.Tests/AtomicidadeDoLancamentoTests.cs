@@ -47,6 +47,13 @@ public class AtomicidadeDoLancamentoTests : IDisposable
     private readonly ClinicaRepositorio _repo;
     private readonly AgendaService _agenda;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AtomicidadeDoLancamentoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -54,6 +61,10 @@ public class AtomicidadeDoLancamentoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ContextoComFalhaProgramada(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
     }
@@ -71,7 +82,7 @@ public class AtomicidadeDoLancamentoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(
-            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         // O 1º save a partir daqui é o commit atômico; o 2º é o do NÚMERO — que falha.
         _db.FalharNoSalvar(2);
@@ -101,7 +112,7 @@ public class AtomicidadeDoLancamentoTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync();
         var ag = await _agenda.AgendarAsync(
-            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, DateTime.Today.AddHours(9), ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         _db.FalharNoSalvar(1);
         var acao = () => _agenda.ConfirmarPresencaAsync(ag.Id, operador: "ana");

@@ -18,9 +18,18 @@
         <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                    Text="Aplicar COPIA o texto para esta sessão — daí em diante ele é dela. Corrigir o modelo depois não reescreve nenhuma sessão já salva, e nada é gravado até você salvar a evolução." />
 
-        <!-- ===== Rodapé: aplicar e fechar ===== -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Margin="0,16,0,0">
+        <!-- ===== Rodapé: repetir a última, aplicar e fechar ===== -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <!-- O roteiro que não está no catálogo (set/2026): repetir a última sessão
+                 deste paciente. Só existe quando há sessão anterior. -->
+            <Button DockPanel.Dock="Left" Content="Repetir a última sessão deste paciente"
+                    Style="{StaticResource BotaoSecundario}" MinWidth="240"
+                    VerticalAlignment="Center" HorizontalAlignment="Left"
+                    ToolTip="Traz a conduta e o texto da última sessão para a folha, sem apagar o que você já escreveu. Nada é gravado até salvar."
+                    Command="{Binding RepetirCommand}" IsEnabled="{Binding PodeMexer}"
+                    Visibility="{Binding TemRepetir, Converter={StaticResource BoolParaVisibilidade}}" />
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right">
             <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
                     IsCancel="True" MinWidth="110" Margin="0,0,8,0"
                     VerticalAlignment="Center" />
@@ -28,6 +37,7 @@
                     IsDefault="True" MinWidth="180" VerticalAlignment="Center"
                     IsEnabled="{Binding PodeMexer}" />
         </StackPanel>
+        </DockPanel>
 
         <!-- O que este modelo traz e ESTA tela não vai aplicar. Some quando não há o que
              dizer: aviso que aparece sempre é aviso que ninguém lê. -->

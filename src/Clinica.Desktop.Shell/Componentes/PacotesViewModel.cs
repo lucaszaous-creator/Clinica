@@ -513,6 +513,8 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
 
         try
         {
+            // A segunda barreira na JANELA que grava, não só na porta que a abre.
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
             Salvando = true;
 
             using var escopo = _escopos.CreateScope();

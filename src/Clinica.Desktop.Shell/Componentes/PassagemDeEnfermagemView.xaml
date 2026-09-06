@@ -1,0 +1,131 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.PassagemDeEnfermagemView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes">
+
+    <!-- ============================================================================
+         O COMPOSITOR DA PASSAGEM DE ENFERMAGEM — UM XAML, TRÊS PORTAS (set/2026, "uma
+         folha, dois lados").
+
+         Até aqui ele existia DUAS vezes: na seção "Atendimento de enfermagem" do
+         Consultório e na janela da sala de infusão, com o comentário de uma dizendo que
+         "o XAML fica idêntico ao da janela". Idêntico até a primeira correção — e a
+         terceira porta (a tela Enfermagem do shell) abria a janela para escrever. Agora as
+         três hospedam ESTE controle; o ViewModel já era um só (EvolucaoEnfermagemViewModel),
+         e é nele que moram as regras caras: a hora INFORMADA, a hora futura recusada, a
+         retificação que preserva a data do fato, a alergia no mesmo SaveChanges.
+
+         O desenho é a folha única do médico, no lado de quem executa: a tira de números
+         em cima (hora do fato e os sinais vitais — a PA num campo só, "120/80"), a folha
+         que PREENCHE, e ao pé o que se marca DEPOIS de escrever (intercorrência, alergia
+         observada, a porta da consulta COFEN).
+
+         Sem ViewModel próprio: o DataContext é o EvolucaoEnfermagemViewModel de quem
+         hospeda. Quem grava é o Registrar do hospedeiro (rodapé fora daqui), pela mesma
+         razão de sempre — o botão que grava não pode sumir quando a folha fica longa.
+         ============================================================================ -->
+
+    <UserControl.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel>
+
+        <!-- ==================== A TIRA ====================
+             Hora do fato e sinais vitais numa linha só. WrapPanel dentro de painel
+             VERTICAL, nunca docado: docado ele é medido com largura infinita e nunca
+             quebra a linha (checagem 32). -->
+        <StackPanel DockPanel.Dock="Top">
+
+            <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" Margin="0,0,0,10"
+                       Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade},
+                                    FallbackValue=Collapsed}" />
+
+            <TextBlock Text="Hora do fato e sinais vitais (preencha só o que aferiu)"
+                       Style="{StaticResource Rotulo}" />
+            <WrapPanel Margin="0,4,0,0">
+                <StackPanel Margin="0,0,18,6">
+                    <TextBlock Text="Hora do fato" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="80"
+                             Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="A hora do FATO, não a de agora. A técnica observa às 14h20 e digita às 14h50 — o relógio do sistema fica gravado ao lado, e a diferença entre os dois é o que uma auditoria de enfermagem procura." />
+                </StackPanel>
+                <!-- A PA como se anota no papel: "120/80" num campo só (aceita x, hífen e
+                     espaço). O serviço continua recebendo dois números —
+                     `PressaoArterialTexto`, na Application, é quem separa. -->
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="PA (mmHg)" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="92" Text="{Binding PressaoArterial, UpdateSourceTrigger=PropertyChanged}"
+                             ctrl:Ajudantes.Placeholder="120/80"
+                             ToolTip="Sistólica/diastólica, como se anota: 120/80 (ou 120x80)." />
+                </StackPanel>
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="FC (bpm)" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="70" Text="{Binding Cardiaca, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="FR (irpm)" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="70" Text="{Binding Respiratoria, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="Temp. (°C)" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="70" Text="{Binding Temperatura, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="SpO₂ (%)" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="70" Text="{Binding Saturacao, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="Dor (0–10)" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="70" Text="{Binding Dor, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="A dor aferida agora, o quinto sinal vital. NÃO entra na curva de dor do prontuário, que mede o efeito do tratamento entre sessões — são duas leituras diferentes." />
+                </StackPanel>
+            </WrapPanel>
+        </StackPanel>
+
+        <!-- A porta da consulta de enfermagem: a caixinha, o aviso do que falta e o botão
+             que reabre a janela das cinco etapas (parcela 88, 5ª rodada).
+             ⚠️ Ancorada EMBAIXO: quem preenche é a folha, e é ela que cresce com a janela. -->
+        <comp:ConsultaDeEnfermagemView DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                                       DataContext="{Binding}" />
+
+        <!-- O pé da folha, numa linha: intercorrência e a alergia observada. As duas se
+             marcam DEPOIS de escrever o que aconteceu; no topo elas empurravam o campo de
+             escrever para baixo da dobra. -->
+        <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <CheckBox Grid.Column="0" VerticalAlignment="Bottom" Margin="0,0,16,6"
+                      IsChecked="{Binding Intercorrencia}"
+                      Content="Foi uma intercorrência"
+                      ToolTip="Marque quando algo saiu do esperado (reação, queda de pressão, extravasamento). É o que acende o selo na fila e chega ao médico na tela de atendimento." />
+
+            <StackPanel Grid.Column="1">
+                <!-- ⚠️ O rótulo pergunta o AGENTE, não a reação (parcela 80). A reação em
+                     si pertence ao texto da passagem, com "Foi uma intercorrência"
+                     marcado ao lado. -->
+                <TextBlock Text="Alergia observada — a quê? (opcional)"
+                           Style="{StaticResource TextoSuave}" />
+                <TextBox Text="{Binding AlergiaObservada, UpdateSourceTrigger=PropertyChanged}"
+                         ctrl:Ajudantes.Placeholder="só o agente (ex.: dipirona)"
+                         ToolTip="Escreva só o AGENTE (ex.: dipirona) — é esta palavra que a conferência procura nas próximas prescrições. A reação em si (pressão caiu, náusea) vai no texto da passagem." />
+            </StackPanel>
+        </Grid>
+
+        <!-- ===== A FOLHA — o último filho, que PREENCHE ===== -->
+        <DockPanel Margin="0,12,0,0">
+            <TextBlock DockPanel.Dock="Top" Text="O que eu observei"
+                       Style="{StaticResource Rotulo}" />
+            <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="120"
+                     VerticalContentAlignment="Top"
+                     VerticalScrollBarVisibility="Auto"
+                     ToolTip="Escreva a passagem como você escreveria no papel: o que o paciente relatou, o que você observou e o que fez." />
+        </DockPanel>
+    </DockPanel>
+</UserControl>

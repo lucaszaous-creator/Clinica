@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
@@ -90,6 +91,20 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
     {
         Mensagem = string.Empty;
         MensagemEhErro = false;
+
+        // A porta (o "Vender…" da tela de trás) já exige; a JANELA não exigia — e é na
+        // janela que se grava (a lição da parcela 54: a segunda barreira vale mais onde
+        // se escreve). Os bits são os de `PacotesViewModel.PodeVender`.
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
 
         if (Seletor.Selecionado is not { } paciente)
         {

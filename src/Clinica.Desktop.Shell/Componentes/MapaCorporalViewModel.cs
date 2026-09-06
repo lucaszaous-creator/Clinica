@@ -121,8 +121,10 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
 
+            // Entre o Clear() e o último Add não pode haver await (parcela 62).
+            var protocolos = await mapas.ProtocolosAsync(_pacienteId);
             Protocolos.Clear();
-            foreach (var p in await mapas.ProtocolosAsync(_pacienteId))
+            foreach (var p in protocolos)
                 Protocolos.Add(p);
 
             if (_evolucaoId is null) return;

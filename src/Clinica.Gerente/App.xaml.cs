@@ -49,6 +49,29 @@ public partial class App : System.Windows.Application
         {
             await CopiaDeSegurancaAsync(_host);
             await ExpirarLinksVencidosAsync(_host);
+            await LembretesPorEmailAsync(_host);
+        }
+    }
+
+    /// <summary>
+    /// O lembrete da sessão por e-mail (set/2026) — o MESMO da abertura da Recepção. Roda
+    /// também aqui porque há dias em que só a direção abre o sistema (sábado, feriado
+    /// emendado), e o contato é a chave de idempotência: as duas máquinas no mesmo dia não
+    /// mandam dois e-mails. Por último, porque é o único dos três que fala com um servidor
+    /// de fora — e o backup vem sempre primeiro.
+    /// </summary>
+    private static async Task LembretesPorEmailAsync(IHost host)
+    {
+        try
+        {
+            using var escopo = host.Services.CreateScope();
+            await escopo.ServiceProvider
+                .GetRequiredService<LembreteEmailService>()
+                .EnviarLembretesDaAberturaAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Gerente — lembretes por e-mail da abertura", ex);
         }
     }
 

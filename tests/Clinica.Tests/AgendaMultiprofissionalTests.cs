@@ -16,8 +16,8 @@ namespace Clinica.Tests;
 /// Duas regras carregam esta suíte:
 /// 1. o choque é por INTERVALO e por RECURSO (profissional/sala) — a comparação antiga,
 ///    de igualdade de horário, deixava passar a sessão que invade a seguinte;
-/// 2. quem não informa profissional nem sala (o faturamento) enxerga o comportamento
-///    de sempre — nada é barrado.
+/// 2. quem MARCA precisa dizer quem atende (parcela 95) — só o encaixe, que é o paciente
+///    já no balcão, nasce sem dono.
 /// </summary>
 public class AgendaMultiprofissionalTests : IDisposable
 {
@@ -29,6 +29,13 @@ public class AgendaMultiprofissionalTests : IDisposable
 
     private static readonly DateTime Manha = new(2026, 8, 3, 9, 0, 0);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AgendaMultiprofissionalTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -36,6 +43,10 @@ public class AgendaMultiprofissionalTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
         _equipe = new EquipeService(_repo);
@@ -137,16 +148,37 @@ public class AgendaMultiprofissionalTests : IDisposable
         (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().HaveCount(2);
     }
 
+    /// <summary>
+    /// A regra que faz o fluxo "a secretária marca → cai na agenda do médico" existir
+    /// (parcela 95). Este teste substituiu o <c>Agendar_SemProfissionalNemSala_NuncaEhBarrado</c>,
+    /// que provava o contrário: até aqui a tela AVISAVA o custo e deixava marcar, e o
+    /// horário sem dono não aparecia na agenda de ninguém.
+    /// </summary>
     [Fact]
-    public async Task Agendar_SemProfissionalNemSala_NuncaEhBarrado()
+    public async Task Marcar_sem_profissional_e_RECUSADO()
     {
-        // É o caminho do faturamento: ele avisa na tela e marca assim mesmo.
-        await _agenda.AgendarAsync(await CriarPacienteAsync("Um"), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
-        await _agenda.AgendarAsync(await CriarPacienteAsync("Dois"), Manha,
+        var pacienteId = await CriarPacienteAsync("Um");
+
+        var acao = () => _agenda.AgendarAsync(pacienteId, Manha,
             ModalidadeAtendimento.AcupunturaSimples, null);
 
-        (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().HaveCount(2);
+        (await acao.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*quem vai atender*");
+    }
+
+    /// <summary>
+    /// A assimetria deliberada: ENCAIXE é o paciente que está no balcão AGORA, e a
+    /// recepcionista pode ainda não saber quem vai pegar. Recusá-lo travaria o balcão no
+    /// caso em que o aviso funciona — com a pessoa na frente.
+    /// </summary>
+    [Fact]
+    public async Task Encaixe_sem_profissional_continua_passando()
+    {
+        var ag = await _agenda.AgendarAsync(await CriarPacienteAsync("Um"), Manha,
+            ModalidadeAtendimento.AcupunturaSimples, null, encaixe: true);
+
+        ag.ProfissionalId.Should().BeNull();
+        (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().HaveCount(1);
     }
 
     [Fact]
@@ -255,8 +287,10 @@ public class AgendaMultiprofissionalTests : IDisposable
         await _agenda.AgendarAsync(await CriarPacienteAsync("Dois"), Manha.AddHours(1),
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: ana.Id);
         // Horário sem profissional: vira a faixa "Sem profissional", no fim da lista.
+        // Desde a parcela 95 ele só nasce como ENCAIXE — marcar sem dono é recusado —,
+        // e a faixa continua existindo por causa deles e dos horários antigos.
         await _agenda.AgendarAsync(await CriarPacienteAsync("Três"), Manha.AddHours(2),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, encaixe: true);
 
         var ocupacao = await _agenda.OcupacaoDoDiaAsync(DateOnly.FromDateTime(Manha));
 
@@ -273,7 +307,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Etapa_ComecaEmAguardandoEAvancaComOsCarimbos()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Aguardando);
 
@@ -291,7 +325,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Espera_ContaDaChegadaAteSerChamado()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha.AddMinutes(18));
@@ -305,7 +339,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Espera_SemCheckIn_EhNula()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         (await _agenda.ObterAsync(ag.Id))!.EsperaMinutos(Manha.AddHours(1)).Should().BeNull(
             "quem não fez check-in não tem espera para medir — zero mentiria na média");
@@ -321,7 +355,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Espera_DeQuemChegouEVirouFalta_EhNula()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
         await _agenda.MarcarFaltaAsync(ag.Id);
@@ -339,7 +373,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Espera_AbertaDeUmDiaPassado_EhNula()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
 
@@ -354,7 +388,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Espera_MedidaAteAChamada_SobreviveAFalta()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
         await _agenda.ChamarAsync(ag.Id, "teste", Manha.AddMinutes(12));
@@ -368,7 +402,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task Chamar_SemPassarPeloCheckIn_CarimbaAChegadaTambem()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha);
 
@@ -381,7 +415,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task VoltarEtapa_DesfazUmPassoPorVez()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha.AddMinutes(5));
 
@@ -405,7 +439,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     public async Task VoltarEtapa_DepoisDeConcluir_Recusa()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha);
         await _agenda.ConfirmarPresencaAsync(ag.Id);
 

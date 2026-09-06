@@ -64,6 +64,16 @@
                     </StackPanel>
                 </Grid>
 
+                <!-- E-mail (set/2026): é por ele que sai o lembrete automático da sessão. A
+                     legenda diz o que o campo FAZ — campo sem consequência escrita fica em
+                     branco na ficha importada, que é a maioria. -->
+                <StackPanel Margin="0,12,0,0">
+                    <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Email}" MaxLength="120" />
+                    <TextBlock Text="Recebe o lembrete automático da sessão, quando a clínica liga o envio em Configurações."
+                               Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                </StackPanel>
+
                 <!-- Exigido pelo art. 35 da Lei 5.991/1973 para a receita ser aviada na
                      farmácia. O rótulo diz isso: campo sem explicação fica em branco. -->
                 <StackPanel Margin="0,12,0,0">

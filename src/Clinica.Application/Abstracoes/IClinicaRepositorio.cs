@@ -317,6 +317,39 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     /// <summary>
+    /// Os horários de UM profissional num período (set/2026), com o profissional carregado —
+    /// é dele que sai a duração efetiva de quem não informou duração. Alimenta a busca de
+    /// vagas: ler a agenda da clínica inteira por dois meses, com paciente e sala, para
+    /// procurar o vão de uma pessoa seria milhares de linhas para não usar nenhuma.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosDoProfissionalNoPeriodoAsync(
+        int profissionalId, DateTime inicio, DateTime fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os próximos horários AGENDADOS de um paciente a partir de um instante (set/2026), com
+    /// profissional e sala, os mais próximos primeiro e com teto. É a resposta da ficha a
+    /// "quando é a minha próxima sessão?" — até aqui a recepcionista navegava a agenda dia a
+    /// dia para responder.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosFuturosDoPacienteAsync(
+        int pacienteId, DateTime aPartirDe, int limite, CancellationToken ct = default);
+
+    /// <summary>
+    /// As sessões vigentes em que quem atendeu pediu retorno para <paramref name="retornoDesde"/>
+    /// ou depois (set/2026) — projeção, sem o texto da evolução. Alimenta a fila "Retornos a
+    /// marcar" com <see cref="HorariosAtivosDosPacientesAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.RetornoSugerido>> RetornosSugeridosAsync(
+        DateOnly retornoDesde, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os horários ATIVOS (nem cancelado, nem falta) dos pacientes informados a partir de um
+    /// dia — só quem e quando. Uma consulta para o conjunto.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.HorarioPosterior>> HorariosAtivosDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default);
+
+    /// <summary>
     /// Sessoes marcadas de uma vez (o pacote de dez), na ordem em que acontecem.
     /// RASTREADAS: cancelar a serie escreve nelas.
     /// </summary>
@@ -1047,6 +1080,26 @@ public interface IClinicaRepositorio
 
     /// <summary>Consumo já registrado para este atendimento? Evita debitar duas vezes.</summary>
     Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quais destes atendimentos JÁ TIVERAM fechamento — pacote debitado, dinheiro lançado
+    /// ou insumo baixado (parcela 95).
+    ///
+    /// Nasceu quando o "Finalizar" do Consultório passou a concluir a sessão: a fila do
+    /// balcão deixou de ser o lugar onde a sessão é carimbada e passou a ser o lugar onde
+    /// o DINHEIRO dela é resolvido — e "resolver" precisa de um fim, senão o botão fica
+    /// aceso para sempre em toda sessão do dia e ensina a ignorar a coluna (a lição da
+    /// parcela 68: pendência que não some é pendência que ninguém lê).
+    ///
+    /// ⚠️ É EM LOTE de propósito: a alternativa é uma ida ao banco por cartão, e o quadro
+    /// do dia tem trinta deles e relê a cada minuto. Três consultas por quadro, não noventa.
+    ///
+    /// Cancelado não conta em nenhuma das três: consumo cancelado devolveu a sessão ao
+    /// pacote e lançamento cancelado saiu dos totais — nos dois casos o que havia sido
+    /// fechado foi DESFEITO, e a sessão volta a pedir decisão.
+    /// </summary>
+    Task<IReadOnlyList<int>> AtendimentosComFechamentoAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
 
     Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default);
 

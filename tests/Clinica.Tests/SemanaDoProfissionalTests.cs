@@ -22,6 +22,13 @@ public class SemanaDoProfissionalTests : IDisposable
     // Uma quarta-feira, para provar que a semana volta para a segunda.
     private static readonly DateOnly Quarta = new(2026, 8, 5);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public SemanaDoProfissionalTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -29,6 +36,10 @@ public class SemanaDoProfissionalTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         var repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(repo, new AtendimentoService(repo));
         _consultorio = new ConsultorioService(repo);
@@ -45,7 +56,7 @@ public class SemanaDoProfissionalTests : IDisposable
     private Task AgendarAsync(int pacienteId, DateOnly dia, int hora)
         => _agenda.AgendarAsync(
             pacienteId, dia.ToDateTime(new TimeOnly(hora, 0)),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
 
     /// <summary>
     /// A semana começa na SEGUNDA, seja qual for o dia consultado — a clínica pensa a
@@ -161,7 +172,7 @@ public class SemanaDoProfissionalTests : IDisposable
         var pacienteId = await PacienteAsync();
         var meu = await _agenda.AgendarAsync(
             pacienteId, Quarta.ToDateTime(new TimeOnly(9, 0)),
-            ModalidadeAtendimento.AcupunturaSimples, null);
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         meu.ProfissionalId = profissional.Id;
 
         // Um horário sem profissional, que não pode aparecer na semana de ninguém.

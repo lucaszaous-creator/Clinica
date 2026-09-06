@@ -21,10 +21,25 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveAgenda = ChavesSuite.AgendaRecepcao;
     public const string ChaveFila = "fila";
     public const string ChaveNovoAtendimento = "novo-atendimento";
+
+    /// <summary>
+    /// A aba "Marcar" do item "Atendimento" (set/2026). A criação de horário mora no Novo
+    /// atendimento desde a parcela 70; o que era um rádio QUANDO no meio do formulário
+    /// virou duas abas — Lançar (o paciente está aqui) e Marcar (dia e horário) —, cada
+    /// uma só com os campos do seu modo. A agenda navega para ESTA chave.
+    /// </summary>
+    public const string ChaveMarcarHorario = "marcar-horario";
     public const string ChaveConsultas = "consultas";
 
     /// <summary>A conferência do que foi lançado — aba de "Atendimento" (set/2026).</summary>
     public const string ChaveLancamentos = "lancamentos";
+
+    /// <summary>
+    /// A fila "Retornos a marcar" — aba de "Atendimento" (set/2026): quem saiu do
+    /// atendimento com pedido de retorno e ainda não tem horário. O Consultório grava a
+    /// data sugerida desde a parcela 77 e o balcão não tinha por onde lê-la.
+    /// </summary>
+    public const string ChaveRetornosAMarcar = "retornos-a-marcar";
     public const string ChavePacientes = ChavesSuite.PacientesRecepcao;
     public const string ChaveProntuario = "prontuario";
     public const string ChavePrescricoes = ChavesSuite.PrescricoesRecepcao;
@@ -57,9 +72,13 @@ public sealed class ModuloRecepcao : IModuloApp
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     public const string ChaveGrupoAgenda = "agenda";
-    public const string ChaveGrupoPacientes = "pacientes";
+    // ⚠️ "Pacientes" e "Prescrições" vêm da ChavesSuite desde a parcela 95: o Consultório
+    // publica compostos com o mesmo rótulo, e a dedupe do shell só funde por CHAVE —
+    // literal à mão nos dois módulos era a duplicata da checagem 45 esperando para
+    // acontecer no Gerente Geral.
+    public const string ChaveGrupoPacientes = ChavesSuite.GrupoPacientes;
     public const string ChaveGrupoAtendimento = "atendimento";
-    public const string ChaveGrupoPrescricoes = "receituario";
+    public const string ChaveGrupoPrescricoes = ChavesSuite.GrupoPrescricoes;
 
     /// <summary>
     /// O item composto "Prontuário" (set/2026). Junta a leitura POR PACIENTE (a tela
@@ -98,23 +117,35 @@ public sealed class ModuloRecepcao : IModuloApp
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda, Inicial = true
         },
         // ===== GESTÃO =====
-        // A agenda do balcão e a semana de quem atende respondem a MESMA pergunta ("quando
-        // cabe"), em recortes diferentes. No `Clinica.Recepcao.exe` o Consultório não é
-        // carregado, sobra uma aba só, e o shell mostra a tela direto — sem régua de uma
-        // aba só.
+        // A AGENDA é um item só, com as três formas de olhar o mesmo dia (set/2026 — a
+        // cliente: a agenda e a fila do dia "acabam sendo uma duplicata para a mesma
+        // função", e no Smart Clinic são uma tela só):
+        //   · DIA   — a lista do dia com o status em cada linha, que era a "Fila do dia"
+        //             em cinco raias (parcelas 26, 58, 87). É a ABERTURA do item, como o
+        //             "Hoje" da Minha agenda do Consultório;
+        //   · GRADE — os horários em coluna por profissional/sala, onde se marca clicando
+        //             no vão e onde mora a janela do horário (remarcar, reabrir…);
+        //   · SEMANA DO PROFISSIONAL — a do Consultório. No `Clinica.Recepcao.exe` ele não
+        //             é carregado, sobram duas abas.
+        // A "Fila do dia" deixou de ser item de menu: a chave continua declarada (abaixo),
+        // porque o painel e o Consultório navegam por ela — quem a esconde é este pai.
         new ItemMenuModulo
         {
             Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
             Abas =
             [
-                new AbaMenu("Dia", ChaveAgenda),
+                new AbaMenu("Dia", ChaveFila),
+                new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
         },
         new ItemMenuModulo
         {
-            Chave = ChaveFila, Rotulo = "Recep\u00E7\u00E3o / Check-in", Glifo = "\uE8FD",
+            // A aba DIA da Agenda (set/2026). Era o item "Fila do dia" (parcela 95: antes
+            // "Recepção / Check-in"). Declarado pela checagem 28 — toda `AbaMenu` aponta
+            // para item — e escondido pelo composto acima.
+            Chave = ChaveFila, Rotulo = "Agenda do dia", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).
@@ -185,9 +216,15 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChaveGrupoAtendimento, Rotulo = "Atendimento", Glifo = "\uEB51",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento,
+            // "Lançar" e "Marcar" são o MESMO ViewModel com o modo fixado (set/2026, "quanto
+            // mais simples, melhor"): a pergunta QUANDO saiu do meio do formulário e virou
+            // a escolha da aba. A aba Marcar só aparece para quem tem `EditarAgenda` (o
+            // `Requer` do item dela) — é a metade visível da guarda do Salvar.
             Abas =
             [
-                new AbaMenu("Novo atendimento", ChaveNovoAtendimento),
+                new AbaMenu("Lan\u00E7ar", ChaveNovoAtendimento),
+                new AbaMenu("Marcar", ChaveMarcarHorario),
+                new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
                 new AbaMenu("Lan\u00E7amentos", ChaveLancamentos),
                 new AbaMenu("Consultas de conv\u00EAnio", ChaveConsultas)
             ]
@@ -270,7 +307,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // sala de infusão na parcela 48, e os dois módulos publicam a MESMA chave.
         new ItemMenuModulo
         {
-            Chave = ChavePacotes, Rotulo = "Pacotes / Sessões", Glifo = "",
+            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
 
@@ -290,8 +327,17 @@ public sealed class ModuloRecepcao : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveNovoAtendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51",
+            Chave = ChaveNovoAtendimento, Rotulo = "Lan\u00E7ar atendimento", Glifo = "\uEB51",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+        },
+        // A aba Marcar. Item declarado pela checagem 28 (toda `AbaMenu` aponta para item
+        // de algum m\u00F3dulo); quem o esconde da sidebar \u00E9 o PAI. `EditarAgenda`, e n\u00E3o
+        // `LancarAtendimento`: marcar hor\u00E1rio \u00E9 mexer na agenda \u2014 com a chave "guia no
+        // agendamento" ligada o Salvar exige os DOIS bits (rel\u00EA a chave no ato).
+        new ItemMenuModulo
+        {
+            Chave = ChaveMarcarHorario, Rotulo = "Marcar hor\u00E1rio", Glifo = "\uE787",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.EditarAgenda
         },
         new ItemMenuModulo
         {
@@ -305,6 +351,13 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+        },
+        // Retornos a marcar: LEITURA da agenda (VerAgenda). Marcar, dentro dela, exige
+        // EditarAgenda no comando — as duas metades em cada linha.
+        new ItemMenuModulo
+        {
+            Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerAgenda
         },
         new ItemMenuModulo
         {
@@ -343,6 +396,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
         // pré-preenchimento, definido por quem navega e consumido pela tela ao abrir.
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
+        servicos.AddSingleton<PedidoAgenda>();
 
         servicos.AddTransient<PainelViewModel>();
         servicos.AddTransient<AgendaViewModel>();
@@ -352,6 +406,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<NovoAtendimentoViewModel>();
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<LancamentosViewModel>();
+        servicos.AddTransient<RetornosAMarcarViewModel>();
         servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
@@ -366,20 +421,33 @@ public sealed class ModuloRecepcao : IModuloApp
         // com o formulário limpo e, quando é edição, precisa receber o id no construtor.
     }
 
+    /// <summary>
+    /// As duas abas do "Atendimento" sobre o MESMO ViewModel, com o modo fixado ANTES de a
+    /// tela aparecer — o rádio QUANDO da parcela 70 virou a escolha da aba (set/2026).
+    /// </summary>
+    private static NovoAtendimentoView NovoAtendimento(IServiceProvider servicos, bool marcar)
+    {
+        var vm = servicos.GetRequiredService<NovoAtendimentoViewModel>();
+        vm.FixarModo(marcar);
+        return new NovoAtendimentoView { DataContext = vm };
+    }
+
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
         ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
-        ChaveNovoAtendimento => new NovoAtendimentoView
-        {
-            DataContext = servicos.GetRequiredService<NovoAtendimentoViewModel>()
-        },
+        ChaveNovoAtendimento => NovoAtendimento(servicos, marcar: false),
+        ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
         ChaveLancamentos => new LancamentosView
         {
             DataContext = servicos.GetRequiredService<LancamentosViewModel>()
+        },
+        ChaveRetornosAMarcar => new RetornosAMarcarView
+        {
+            DataContext = servicos.GetRequiredService<RetornosAMarcarViewModel>()
         },
         ChaveRetorno => new RetornoView { DataContext = servicos.GetRequiredService<RetornoViewModel>() },
         ChaveSalaInfusao => new SalaInfusaoView

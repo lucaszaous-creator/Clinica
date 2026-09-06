@@ -42,6 +42,13 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _telefone;
 
     /// <summary>
+    /// E-mail do paciente (set/2026). É por ele que sai o lembrete AUTOMÁTICO da sessão,
+    /// quando a clínica liga o servidor de saída em Configurações. Opcional: sem ele o
+    /// paciente continua sendo avisado pelo WhatsApp de um clique, como sempre.
+    /// </summary>
+    [ObservableProperty] private string? _email;
+
+    /// <summary>
     /// Endereço residencial. Exigido pelo art. 35 da Lei 5.991/1973 para a receita poder
     /// ser AVIADA — sem ele a farmácia pode recusar, e quem descobre é o paciente na fila.
     /// </summary>
@@ -117,6 +124,7 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             Nome = p.Nome;
             Documento = p.Documento;
             Telefone = p.Telefone;
+            Email = p.Email;
             Endereco = p.Endereco;
             DataNascimento = p.DataNascimento?.ToDateTime(TimeOnly.MinValue);
             SexoSelecionado = p.Sexo;
@@ -209,6 +217,14 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             return;
         }
 
+        // E-mail errado gravado é lembrete que nunca chega — e ninguém descobre, porque o
+        // envio conta o endereço inválido como "sem e-mail" e segue.
+        if (!string.IsNullOrWhiteSpace(Email) && !EnderecoDeEmail.Valido(Email))
+        {
+            Erro("E-mail inválido. Confira o endereço (ou deixe em branco).");
+            return;
+        }
+
         try
         {
             Salvando = true;
@@ -223,6 +239,7 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             paciente.Nome = Nome.Trim();
             paciente.Documento = Limpar(Documento);
             paciente.Telefone = Limpar(Telefone);
+            paciente.Email = EnderecoDeEmail.Normalizar(Email);
             paciente.Endereco = Limpar(Endereco);
             paciente.DataNascimento = DataNascimento is { } nasc ? DateOnly.FromDateTime(nasc) : null;
             paciente.Sexo = SexoSelecionado;

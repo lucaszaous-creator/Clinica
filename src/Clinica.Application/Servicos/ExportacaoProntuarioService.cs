@@ -99,7 +99,7 @@ public sealed class ExportacaoProntuarioService
             : await _repo.BuscarPacientesAsync(null, null, ct);
 
         var cadastro = Cabecalho("PacienteId", "Nome", "Documento", "Nascimento", "Sexo",
-            "Telefone", "Convenio", "Carteirinha");
+            "Telefone", "Email", "Convenio", "Carteirinha");
         // ⚠️ As colunas do ATENDIMENTO (parcela 73) entram AQUI e não numa planilha nova:
         // elas são da sessão, e separá-las obrigaria quem recebe o prontuário a casar duas
         // tabelas pelo id para ler uma consulta.
@@ -195,7 +195,7 @@ public sealed class ExportacaoProntuarioService
             ct.ThrowIfCancellationRequested();
 
             Linha(cadastro, p.Id, p.Nome, p.Documento, Data(p.DataNascimento),
-                RotulosEnum.De(p.Sexo), p.Telefone, p.ConvenioNome, p.Carteirinha);
+                RotulosEnum.De(p.Sexo), p.Telefone, p.Email, p.ConvenioNome, p.Carteirinha);
 
             // Canceladas INCLUÍDAS: ver o resumo da classe.
             foreach (var e in await _repo.EvolucoesDoPacienteAsync(p.Id, true, ct))

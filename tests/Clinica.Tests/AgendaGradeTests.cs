@@ -38,6 +38,13 @@ public class AgendaGradeTests : IDisposable
 
     private static readonly DateTime Manha = new(2026, 8, 10, 9, 0, 0);
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AgendaGradeTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -45,6 +52,10 @@ public class AgendaGradeTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
         _bloqueios = new BloqueioAgendaService(_repo, _agenda);
@@ -73,7 +84,7 @@ public class AgendaGradeTests : IDisposable
         var agulha = await CriarSalaAsync("Acupuntura 1");
 
         await _agenda.AgendarAsync(
-            pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null, salaId: infusao);
+            pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null, salaId: infusao, profissionalId: _profPadrao);
 
         var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha));
 
@@ -94,7 +105,7 @@ public class AgendaGradeTests : IDisposable
         await CriarSalaAsync("Infusão");
 
         await _agenda.AgendarAsync(
-            pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null);
+            pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
         var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha));
 

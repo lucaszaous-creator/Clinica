@@ -153,7 +153,6 @@ public sealed partial class VersoesEvolucaoViewModel : ObservableObject
             Carregando = true;
             Mensagem = null;
             MensagemEhErro = false;
-            Versoes.Clear();
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
@@ -161,6 +160,9 @@ public sealed partial class VersoesEvolucaoViewModel : ObservableObject
             var atual = await prontuario.ObterAsync(_evolucaoId);
             var anteriores = await prontuario.VersoesAsync(_evolucaoId);
 
+            // O Clear() vem DEPOIS das leituras (parcela 62): entre ele e o último Add
+            // não pode haver await, senão uma segunda carga limpa a lista pela metade.
+            Versoes.Clear();
             if (atual is not null) Versoes.Add(LinhaVersaoEvolucao.Atual(atual));
 
             // Da mais NOVA para a mais velha: quem abre esta janela quer saber o que mudou

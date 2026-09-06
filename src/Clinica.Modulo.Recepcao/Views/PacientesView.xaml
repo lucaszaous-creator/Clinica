@@ -313,6 +313,65 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ===== PRÓXIMOS HORÁRIOS (set/2026) =====
+                     "Quando é a minha próxima sessão?" é a pergunta que o paciente faz ao
+                     telefone, e a recepcionista respondia navegando a agenda dia a dia. A
+                     leitura de sessão futura já existia (a retenção a usa); faltava o bloco
+                     na ficha. Segue o bit da AGENDA, não o da ficha: horário é dado da agenda.
+                     Um estado vazio por pergunta: "não verificado" e "nenhum marcado" são
+                     respostas diferentes, e a segunda só aparece depois de a leitura voltar. -->
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding PodeVerAgenda,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock Text="Próximos horários" Style="{StaticResource H3}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                                   Text="O que este paciente tem marcado daqui em diante, os cinco mais próximos. Abrir leva à agenda daquele dia." />
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8"
+                                Visibility="{Binding ProximosHorariosNaoVerificados,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap"
+                                       Text="Não foi possível ler a agenda deste paciente agora. Isto NÃO quer dizer que ele não tem horário — tente Atualizar." />
+                        </Border>
+                        <TextBlock Text="Nenhum horário marcado daqui em diante."
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Visibility="{Binding SemProximosHorarios,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+                        <ItemsControl ItemsSource="{Binding ProximosHorarios}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:LinhaHorarioFuturo}">
+                                    <Border Padding="0,8" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="Abrir na agenda"
+                                                    Style="{StaticResource BotaoPequeno}"
+                                                    VerticalAlignment="Center" Margin="12,0,0,0"
+                                                    Command="{Binding DataContext.AbrirNaAgendaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Border DockPanel.Dock="Right" Style="{StaticResource Badge.Aviso}"
+                                                    VerticalAlignment="Center" Margin="8,0,0,0"
+                                                    Visibility="{Binding Encaixe,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Encaixe" />
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
                 <!-- ⚠️ SOME para quem não tem `VerProntuario` (parcela 72). `SemMedidaEva`
                      nasce true, então a região ficava de pé com quatro travessões e o botão
                      "Nova sessão" ACESO para Financeiro e Faturista — que se lê como tela

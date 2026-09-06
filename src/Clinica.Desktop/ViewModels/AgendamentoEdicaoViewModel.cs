@@ -25,10 +25,24 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
     public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
+    /// <summary>
+    /// Quem vai atender — a mesma pergunta do formulário da Recepção, e desde a parcela 95
+    /// ela é OBRIGATÓRIA na marcação: <c>AgendaService.AgendarAsync</c> recusa horário sem
+    /// dono, porque o horário existe para cair na agenda de um profissional.
+    ///
+    /// ⚠️ O campo NASCEU aqui nesta parcela, e não é enfeite: este formulário nunca passou
+    /// <c>profissionalId</c> — marcava por esta janela e o horário sumia do "Meu dia" de
+    /// quem ia atender, além de ficar fora do repasse. Sem o campo, a recusa nova
+    /// simplesmente fecharia a agenda deste app; é a cópia que fica para trás quando uma
+    /// regra sobe para o serviço compartilhado.
+    /// </summary>
+    public ObservableCollection<Profissional> Profissionais { get; } = new();
+
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private string _hora = "09:00";
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
+    [ObservableProperty] private Profissional? _profissional;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _ocupado;
@@ -163,6 +177,27 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         foreach (var e in CatalogoEspecialidades.Ativas)
             Especialidades.Add(e);
 
+        // A lista de quem atende. Carregada em lista LOCAL e publicada de uma vez: entre o
+        // `Clear()` e o último `Add` não pode haver `await` (parcela 62).
+        try
+        {
+            using var escopoEquipe = _scopeFactory.CreateScope();
+            var equipe = escopoEquipe.ServiceProvider.GetRequiredService<EquipeService>();
+            var ativos = await equipe.ProfissionaisAtivosAsync();
+
+            Profissionais.Clear();
+            foreach (var p in ativos) Profissionais.Add(p);
+        }
+        catch (Exception ex)
+        {
+            // Degradação com rastro: sem a lista o formulário não deixa marcar (o serviço
+            // recusa), e a frase diz isso em vez de o Agendar falhar sem explicação.
+            Clinica.Application.Diagnostico.Registrar(
+                "Faturamento — lista de profissionais não pôde ser carregada", ex);
+            Mensagem = "Não foi possível carregar a lista de profissionais, "
+                       + "e sem escolher quem vai atender o horário não pode ser marcado.";
+        }
+
         if (inicio is { } quando)
         {
             Data = quando.Date;
@@ -198,6 +233,9 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
             ?? Modalidades.FirstOrDefault(m => m.Base == ag.ModalidadePrevista)
             ?? ModalidadeSelecionada;
         EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == ag.EspecialidadeConsultaCodigo);
+        // Horário antigo pode não ter dono (marcado antes de o campo existir): aí o combo
+        // fica em branco, que é a verdade — e `RemarcarAsync` preserva o que está gravado.
+        Profissional = Profissionais.FirstOrDefault(p => p.Id == ag.ProfissionalId);
     }
 
     [RelayCommand]
@@ -228,6 +266,15 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         if (ModalidadeConsulta && EspecialidadeSelecionada is null)
         {
             Mensagem = "Informe a especialidade da consulta.";
+            return;
+        }
+        // A metade VISÍVEL da recusa que mora no serviço (parcela 41: o botão explica, a
+        // guarda impede). Só na criação: remarcar não escolhe dono, e horário antigo pode
+        // não ter um — cobrar aqui travaria a remarcação de tudo o que foi marcado antes.
+        if (EditandoId is null && Profissional is null)
+        {
+            Mensagem = "Escolha quem vai atender — sem isso o horário não aparece na agenda "
+                       + "do profissional nem entra no repasse.";
             return;
         }
 
@@ -291,6 +338,7 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
                 await agenda.AgendarAsync(paciente.Id, dataHora, Modalidade, Observacoes,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                    profissionalId: Profissional?.Id,
                     operador: SessaoUsuario.Atual.Operador);
         }
         catch (Exception ex)

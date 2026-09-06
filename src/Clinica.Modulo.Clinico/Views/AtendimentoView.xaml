@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
+             xmlns:views="clr-namespace:Clinica.Clinico.Views"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -50,60 +51,6 @@
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
-
-            <!-- A identidade é âncora, e as ferramentas do atendimento moram AQUI, em
-                 botões — não em painéis abertos ocupando a tela o tempo todo. Marcar
-                 ponto no mapa e emitir receita são atos de foco, feitos uma vez por
-                 sessão; painel permanente para isso é o que espremia a tela inteira. -->
-        <!-- Ações desta SEÇÃO. A identidade do paciente não se repete aqui: ela é do
-             cabeçalho da tela, uma vez, acima das abas. -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
-                HorizontalAlignment="Right" Margin="0,0,0,14">
-
-            <!-- ⚠️ Só AÇÕES aqui — navegação é do rail. "Evolução da dor" e "Avaliações"
-                 eram botões E itens do rail ao lado: duas portas com o mesmo nome fazem a
-                 pessoa procurar a diferença que não existe, e cinco botões estouravam a
-                 linha (parcela 79, o print do cliente). -->
-
-            <!-- A porta AVULSA do termo (parcela 66, 3ª rodada): o paciente que veio TIRAR
-                 DÚVIDAS, semanas antes, é justamente quem lê com calma. Some quando há
-                 pendência — a linha de aviso abaixo traz o botão, e dois botões para o
-                 mesmo ato fazem a pessoa procurar a diferença entre eles. -->
-            <Button Content="Colher termo…" MinWidth="130"
-                    ToolTip="Colher a assinatura de um termo agora, mesmo sem procedimento marcado para hoje"
-                    Command="{Binding ColherTermoCommand}">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding TemTermoPendente}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding PodeColherTermo}" Value="False">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
-
-            <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding AbrirMapaCommand}" MinWidth="130" Margin="8,0,0,0"
-                IsEnabled="{Binding TemPaciente}" />
-            <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0"
-                MinWidth="150"
-                IsEnabled="{Binding PodeEmitirDocumento}" />
-
-            <!-- O roteiro vale para a SESSÃO inteira (ele preenche os campos desde a
-                 parcela 76), então é AÇÃO da tela e mora aqui, junto das outras. Na tira
-                 ele disputava largura com a data, as duas EVAs e o retorno — e a 1366 px
-                 quem perde essa disputa é sempre o último. -->
-            <Button Content="Modelos…" Style="{StaticResource BotaoSecundario}"
-                    Command="{Binding AbrirModelosCommand}" Margin="8,0,0,0" MinWidth="110"
-                    ToolTip="Começar de um roteiro guardado, ou guardar esta sessão como modelo"
-                    IsEnabled="{Binding TemPaciente}" />
-        </StackPanel>
 
             <!-- ============ AVISOS: UMA superfície, uma LINHA por aviso ============
                  (parcela 79 — o print do cliente). Eram faixas `Alerta*` empilhadas, cada
@@ -204,25 +151,60 @@
                             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                         </Border>
                     </Grid>
+                    <!-- ===== O FIM DA SESSÃO NUM LUGAR SÓ (set/2026, "uma folha, dois lados") =====
+                         Imprimir · Salvar · Finalizar. O Finalizar morava na barra verde do
+                         casco, a 200 px de distância do Salvar — dois lugares para terminar
+                         a mesma sessão. Ele continua sendo o comando do WORKSPACE (grava a
+                         sessão, encerra o horário e conclui — a ordem da parcela 95), e é
+                         achado pelo ancestral: esta seção não tem cópia dele.
+                         "Repetir última conduta" foi para dentro de Modelos… — uma barra só,
+                         e só ação nela (parcela 79). UM primário: o Finalizar quando há
+                         atendimento em curso; o Salvar quando não há — são dois Salvar
+                         com visibilidades opostas porque `Style` não se troca por gatilho. -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Repetir última conduta"
-                                Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding RepetirUltimaCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}" MinWidth="170" />
-
                         <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA
                              DATA desta sessão — sem o recorte, um paciente de quarenta
                              sessões recebia quarenta. -->
-                        <Button Content="Imprimir a sessão" Margin="8,0,0,0" MinWidth="150"
+                        <Button Content="Imprimir a sessão" MinWidth="150"
                                 Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding ImprimirFichaCommand}"
                                 IsEnabled="{Binding PodeImprimirFicha}"
                                 ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
-
+                        <Button Content="Salvar" Margin="8,0,0,0" MinWidth="120"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding SalvarCommand}"
+                                IsEnabled="{Binding PodeEditarProntuario}"
+                                ToolTip="Grava a sessão no prontuário e continua. Finalizar também grava."
+                                Visibility="{Binding DataContext.EmAtendimento,
+                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
                         <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
                                 Command="{Binding SalvarCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}" />
+                                IsEnabled="{Binding PodeEditarProntuario}">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.EmAtendimento,
+                                                               RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                                                     Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="Finalizar atendimento" Margin="8,0,0,0" MinWidth="190"
+                                Command="{Binding DataContext.FinalizarSessaoCommand,
+                                          RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                                IsEnabled="{Binding DataContext.PodeMoverFila,
+                                            RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                                ToolTip="Salva a sessão, encerra o horário e gera a guia. O que segue no balcão é o dinheiro: pacote, insumo e caixa."
+                                Visibility="{Binding DataContext.EmAtendimento,
+                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
                     </StackPanel>
+
                 </Grid>
             </Border>
 
@@ -320,56 +302,61 @@
                                 <DatePicker SelectedDate="{Binding RetornoSugeridoEm}" Width="140"
                                             ToolTip="A data que ESTA consulta sugere para a próxima. Não marca horário — quem marca é a recepção." />
                             </StackPanel>
+                            <!-- As FERRAMENTAS da sessão (set/2026): na ponta direita da tira,
+                                 na coluna que estava vazia, e na altura dos campos (a regra da
+                                 parcela 41). Eram uma barra própria de 50 px acima das abas.
+                                 Só AÇÕES aqui — navegação é do rail (parcela 79). A porta
+                                 AVULSA do termo (parcela 66, 3ª rodada) some quando há
+                                 pendência: a linha de aviso já traz o botão. -->
+                            <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                        HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                                <Button Content="Colher termo…" MinWidth="120"
+                                        ToolTip="Colher a assinatura de um termo agora, mesmo sem procedimento marcado para hoje"
+                                        Command="{Binding ColherTermoCommand}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TemTermoPendente}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding PodeColherTermo}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding AbrirMapaCommand}" MinWidth="120" Margin="8,0,0,0"
+                                        IsEnabled="{Binding TemPaciente}" />
+                                <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0" MinWidth="140"
+                                        IsEnabled="{Binding PodeEmitirDocumento}" />
+                                <!-- Os roteiros — e, desde set/2026, "repetir a última sessão"
+                                     como a primeira opção lá dentro. -->
+                                <Button Content="Modelos…" Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding AbrirModelosCommand}" Margin="8,0,0,0" MinWidth="100"
+                                        ToolTip="Repetir a última sessão, começar de um roteiro guardado, ou guardar esta sessão como modelo"
+                                        IsEnabled="{Binding TemPaciente}" />
+                            </StackPanel>
                         </Grid>
 
-                        <!-- ===== A LINHA QUIETA DE CONTEXTO =====
-                             Os sinais vitais que a ENFERMAGEM aferiu hoje (parcela 76 —
-                             LEITURA, nunca coleta: colher aqui daria dois lugares para
-                             gravar a mesma aferição) e o resumo da dor. Os dois eram
-                             blocos com moldura dentro de abas diferentes; aqui são duas
-                             linhas de texto suave, porque é isso que eles são. -->
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock Text="{Binding SinaisVitaisTexto}" TextWrapping="Wrap"
-                                       Visibility="{Binding SinaisVitaisTexto,
-                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                    FallbackValue=Collapsed}">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SinaisVitaisAferidos}" Value="True">
-                                                <Setter Property="FontWeight" Value="SemiBold" />
-                                                <Setter Property="Foreground"
-                                                        Value="{StaticResource Brush.Texto.Primario}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock Text="{Binding SinaisVitaisProcedencia}" TextWrapping="Wrap"
-                                       Style="{StaticResource TextoSuave}"
-                                       Visibility="{Binding SinaisVitaisProcedencia,
-                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                    FallbackValue=Collapsed}" />
-                            <TextBlock Text="{Binding ResumoDor}" TextWrapping="Wrap"
-                                       Style="{StaticResource TextoSuave}"
-                                       Visibility="{Binding ResumoDor,
-                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                    FallbackValue=Collapsed}" />
-
-                            <!-- ⚠️ A ÚLTIMA SESSÃO, em UMA linha, e ela é o que sobrou da
-                                 coluna aberta que virou aba: a data, a EVA e o retorno
-                                 sugerido — a resposta para "por que este paciente está
-                                 aqui hoje". O resto da sessão passada está na aba ao lado.
-                                 Sem esta linha, trocar a coluna por uma aba teria custado
-                                 justamente o campo que a parcela 77 existiu para pôr na
-                                 tela. -->
-                            <TextBlock Text="{Binding ContextoDaUltimaSessao}" TextWrapping="Wrap"
-                                       Style="{StaticResource TextoSuave}"
-                                       Visibility="{Binding ContextoDaUltimaSessao,
-                                                    Converter={StaticResource TextoParaVisibilidade},
-                                                    FallbackValue=Collapsed}" />
-                        </StackPanel>
-
+                        <!-- ===== A LINHA DE CONTEXTO — uma só (set/2026) =====
+                             A última sessão e o que a enfermagem aferiu hoje, na mesma
+                             frase (`ContextoDaFolha`, na Application). Eram quatro linhas
+                             de texto suave — sinais vitais, procedência, resumo da dor e a
+                             última sessão — e as quatro empurravam a folha para baixo da
+                             dobra. O resumo da dor é o assunto de Acompanhamento; a
+                             aferição SOME quando não há (e a falha de leitura continua
+                             escrita, porque é a que muda conduta se for confundida com
+                             ausência). -->
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding LinhaDeContexto}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Style="{StaticResource TextoSuave}"
+                                   Visibility="{Binding LinhaDeContexto,
+                                                Converter={StaticResource TextoParaVisibilidade},
+                                                FallbackValue=Collapsed}" />
                         <!-- ===== A LINHA DO DETALHE, ao pé da folha =====
                              Recolhida por padrão e com o SELO dizendo quantos campos a
                              sessão aberta já tem — é o número que faz alguém clicar. -->
@@ -543,4 +530,5 @@
             </TabItem>
         </TabControl>
     </DockPanel>
+
 </UserControl>

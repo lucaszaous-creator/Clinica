@@ -31,6 +31,13 @@ public class AtendimentoNaRecepcaoTests : IDisposable
     private readonly ClinicaDbContext _db;
     private readonly ClinicaRepositorio _repo;
 
+
+    /// <summary>
+    /// Todo horário MARCADO precisa de dono desde a parcela 95 — o fixture cria um para os
+    /// cenários que não se importam com QUEM atende.
+    /// </summary>
+    private readonly int _profPadrao;
+
     public AtendimentoNaRecepcaoTests()
     {
         _conn = new SqliteConnection("DataSource=:memory:");
@@ -38,6 +45,10 @@ public class AtendimentoNaRecepcaoTests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
+        var profPadrao = new Profissional { Nome = "Dra. Padrão" };
+        _db.Profissionais.Add(profPadrao);
+        _db.SaveChanges();
+        _profPadrao = profPadrao.Id;
         _repo = new ClinicaRepositorio(_db);
     }
 
@@ -59,7 +70,7 @@ public class AtendimentoNaRecepcaoTests : IDisposable
             paciente.Id, DateTime.Today.AddHours(15).AddMinutes(30),
             ModalidadeAtendimento.AcupunturaComEletro, null,
             modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString(),
-            encaixe: true, operador: "recepcao");
+            encaixe: true, operador: "recepcao", profissionalId: _profPadrao);
         var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
 
         resultado.Atendimento.Codigos.Should().NotBeEmpty("lançar atendimento CRIA as guias");

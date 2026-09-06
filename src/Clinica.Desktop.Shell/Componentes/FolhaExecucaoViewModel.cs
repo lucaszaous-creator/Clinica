@@ -379,6 +379,20 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     {
         if (linha is null || !linha.Checado) return;
 
+        // A segunda barreira, ANTES de pedir o motivo: retificar é o mesmo ato de checar
+        // (o mesmo bit), e era o único comando de escrita desta folha sem o Exigir — o
+        // IsEnabled explica, este impede (atalho de teclado passa pelo primeiro).
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "retificar checagem");
+        }
+        catch (Exception ex)
+        {
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+            return;
+        }
+
         var motivo = _dialogo.PerguntarTexto(
             "Retificar checagem",
             $"Por que a checagem do item {linha.Ordem} estava errada? A anterior NÃO é "
