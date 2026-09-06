@@ -20,7 +20,7 @@ public partial class PacienteWorkspaceView : UserControl
     {
         InitializeComponent();
 
-        Loaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.IniciarRelogio();
-        Unloaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.PararRelogio();
+        Loaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.AoEntrarEmCena();
+        Unloaded += (_, _) => (DataContext as PacienteWorkspaceViewModel)?.AoSairDeCena();
     }
 }

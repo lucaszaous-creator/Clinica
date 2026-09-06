@@ -7538,3 +7538,64 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   botão da lista de espera anuncia no próprio rótulo "quem chamar para o horário que vagou",
   e escondê-lo num menu "Mais" mataria o aviso (parcela 58); e a grade continua sendo aba
   porque é nela que se marca clicando no vão e que mora a janela do horário.
+
+- **ALTURA DE LINHA FIXA NÃO ENCOLHE CONTEÚDO: ELA O DECEPA — e a agenda do dia não
+  contava o que já tinha acontecido** (set/2026, PR 167 — a cliente mandou o print da
+  coluna PROFISSIONAL com o "sala —" cortado ao meio, perguntou se o fluxo da agenda
+  estava correto e pediu *"a sincronização/atualização da agenda com a mudança de
+  status"*). Três achados, e nenhum quebrava nada.
+  ⚠️ **(a) `RowHeight="36"` do estilo implícito contra célula que EMPILHA duas linhas.**
+  Os DOIS design systems fixam a altura, e ela é a densidade certa da tabela de uma linha
+  por célula — a maioria. Onde a célula empilha (nome + contexto + recado), o WPF não
+  encolhe nada: corta na borda da célula, sem erro, sem aviso e **sem rolagem para
+  alcançar o que sumiu**. O que fica de fora é sempre a ÚLTIMA linha, que é o dado
+  secundário que alguém pôs ali de propósito. `RowHeight="{x:Static sys:Double.NaN}"`
+  devolve o "do tamanho do conteúdo" (o padrão do WPF) e o `MinRowHeight` guarda o piso.
+  Eram QUATRO grades, todas recentes — a lista do balcão, o Meu dia, os Retornos e os
+  Lançamentos —, e virou a **checagem 47**, medida antes de ligar: quatro antes, zero
+  depois, autotestada no caso real e nos três legítimos.
+  ⚠️ **(b) O sentinela "—" repetido em TODA linha.** A clínica não usa salas, e as doze
+  linhas do dia traziam "sala —" debaixo do profissional — gastando justamente a segunda
+  linha que a altura fixa decepava. Crachá igual em toda linha não distingue nada (parcela
+  57). O campo passou a nascer VAZIO, e a regra é a que o cartão da grade já seguia: quem
+  não tem sala não menciona sala. **Tirar o sentinela é mexer em TODOS os leitores** —
+  aqui seis, cada um com a frase dele (a linha de contexto filtra, a dica e o "Também:" e
+  o aviso da chamada trocam de frase, os dois textos da tela ganham `Visibility`): "· "
+  sobrando é tão ruim quanto o travessão.
+  ⚠️ **(c) A GRADE não dizia o que tinha acontecido com o horário.** O paciente fazia
+  check-in, era chamado, entrava na sala — e o cartão continuava idêntico ao das oito da
+  manhã. O `StatusRotulo` que o cartão carregava responde OUTRA pergunta (o status
+  gravado) e só é lido dentro da janela do horário. A situação entrou na **linha de
+  contexto**, primeiro e colorida, com a palavra de `StatusDaFila` — a mesma das duas
+  listas: três telas sobre o mesmo horário, um vocabulário. **Ela não ganhou linha
+  própria por medida**: numa faixa de meia hora o cartão tem ~46 px, e a terceira linha
+  seria decepada — aparecer em metade dos cartões e sumir na outra metade é pior do que
+  não existir. E a ORDEM é a decisão: quem vem antes sobrevive às reticências, e o que
+  perece é o estado do dia; a modalidade continua no traço colorido e na dica.
+  ⚠️ **(d) VOLTAR À ABA NÃO RELIA — e é a metade que o relógio não cobre.** Grade e lista
+  são ABAS do mesmo item, e `TelaComAbas` monta cada uma UMA vez e a guarda: voltar
+  devolve a mesma tela com os dados de quando a pessoa saiu. A batida de um minuto não
+  ajuda, porque ela havia **parado junto com a tela** (`Unloaded`). Quem marcava a chegada
+  na lista e passava para a grade via a grade de antes. O gancho ganhou nome honesto —
+  `AoEntrarEmCena`/`AoSairDeCena`, nas cinco telas que o usam —, e as TRÊS que vivem
+  dentro de um item composto (a lista do dia, a grade e o Meu dia) releem em SILÊNCIO,
+  com duas guardas: nunca na primeira exibição (o construtor já leu, e o `Loaded` chega
+  logo atrás) e nunca por cima de uma carga no ar. O painel e a tela do paciente ficam só
+  com o renome: item SIMPLES o shell monta do zero a cada navegação, e reler ali seria a
+  consulta que ninguém pediu. **Sem a recusa de "só HOJE" que a batida
+  periódica tem**: aquela existe para a tela não se mexer sozinha enquanto alguém lê, e
+  esta acontece UMA vez, no instante em que a pessoa chega — que é exatamente quando ela
+  quer o estado de agora (cancelar um horário de amanhã numa aba e ver a outra
+  desatualizada seria o mesmo defeito noutro dia).
+  ⚠️ E a releitura do próprio diff pegou **quatro coleções mortas**: as raias
+  (`Aguardando`, `NaRecepcao`, `EmAtendimento`, `Finalizados`) continuavam sendo
+  preenchidas a cada carga depois de a lista tê-las substituído, escritas e lidas por
+  ninguém. Só `Chamados` tem leitor — a faixa do topo. **Ao trocar um desenho, o `grep`
+  de quem LIA o desenho antigo é parte da troca.**
+  ⚠️ **O que o fluxo tinha de certo, conferido e escrito para a próxima varredura não
+  refazer**: os passos da lista batem com `Agendamento.Etapa` (derivada dos carimbos, e
+  `Realizado` mapeia para `Finalizado` ANTES da etapa, então sessão concluída nunca
+  aparece como "Marcado"); as duas barreiras estão em todos os comandos de escrita
+  (`ExigirAlgum(EditarAgenda | MovimentarFila)` no movimento de fila, mais
+  `LancarAtendimento` no Concluir); `ExecutarAsync` recarrega depois de toda ação; e os
+  avisos de guia da falta e do cancelamento saem em DIÁLOGO, nunca em snackbar.

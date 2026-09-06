@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Recepcao.Views.RetornosAMarcarView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
     <!-- ====================================================================
@@ -59,11 +60,21 @@
                                    Glifo="&#xE823;"
                                    Titulo="Nenhum retorno a marcar"
                                    Descricao="Quem atendeu não pediu retorno a ninguém que ainda esteja sem horário. O pedido é gravado na sessão, pelo Consultório." />
+                <!-- ⚠️ A ALTURA DA LINHA É A DO CONTEÚDO (set/2026 — o print veio da lista do
+                     balcão, com "sala —" cortado ao meio; o mecanismo é o mesmo aqui, e a
+                     checagem 47 cobra as duas). O estilo implícito de
+                     `DataGrid` do design system fixa `RowHeight="36"`, que é a densidade certa para
+                     a tabela de UMA linha por célula — a maioria. Esta empilha duas ou três (nome +
+                     contexto + recado), e altura FIXA não encolhe conteúdo: ela o DECEPA na borda da
+                     célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
+                     `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
+                     guarda o piso de densidade para as linhas que couberem numa linha só. -->
                 <DataGrid ItemsSource="{Binding Linhas}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
-                          CanUserSortColumns="True" SelectionMode="Single">
+                          CanUserSortColumns="True" SelectionMode="Single"
+                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36">
                     <DataGrid.Columns>
                         <DataGridTemplateColumn Header="RETORNO" Width="150" SortMemberPath="RetornoEm">
                             <DataGridTemplateColumn.CellTemplate>

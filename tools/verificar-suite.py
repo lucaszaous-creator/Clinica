@@ -4151,6 +4151,113 @@ for _cenario, _corpo, _deve_pegar in (
         )
 
 
+# --------------------------------------------------------------- checagem 47
+# CÉLULA QUE EMPILHA LINHAS COM ALTURA DE LINHA FIXA: o conteúdo é DECEPADO (set/2026 —
+# a cliente mandou o print da coluna PROFISSIONAL com o "sala —" cortado ao meio).
+#
+# Os DOIS design systems fixam `RowHeight="36"` no estilo implícito de `DataGrid`, e é a
+# densidade certa para a tabela de uma linha por célula — a maioria delas. Quando a célula
+# empilha duas ou três (nome + contexto + recado), altura fixa não encolhe o conteúdo: ela
+# o CORTA na borda da célula. Não há erro, não há aviso e não há rolagem para alcançar o
+# que sumiu — e o que fica de fora é sempre a ÚLTIMA linha, que é onde mora o dado
+# secundário que alguém pôs ali de propósito.
+#
+# ⚠️ Nenhuma rede pegava, pela razão de sempre nesta família: o XAML é bem-formado, o
+# `compilar-sombra` não lê o corpo do XAML e o compilador de marcação não tem o que
+# reclamar. Só a tela montada mostra — e só para quem tem linhas com o segundo texto
+# preenchido.
+#
+# O remédio é `RowHeight="{x:Static sys:Double.NaN}"` (o "do tamanho do conteúdo" que é o
+# padrão do WPF) com `MinRowHeight` guardando o piso de densidade. Medido antes de ligar:
+# QUATRO grades no repositório inteiro empilhavam célula, as quatro sem a declaração — as
+# quatro eram o defeito. Depois da correção, zero.
+#
+# Ela só enxerga o empilhamento por `StackPanel`, que é a forma que existe hoje; um
+# `Grid` com duas linhas dentro da célula passaria. Checagem promete o que ENTREGA
+# (parcela 41): o dia em que essa segunda forma aparecer, ela cresce.
+
+
+def _tag_47(el: ET.Element) -> str:
+    # Não usa `_nome`: a essa altura do arquivo o nome já foi reaproveitado como variável
+    # de laço, e chamá-lo estoura com "'str' is not callable" (a nota da checagem 46).
+    return el.tag.split("}")[-1]
+
+
+def _celula_empilha(dg: ET.Element) -> bool:
+    """Alguma célula desta grade empilha duas linhas ou mais."""
+    for modelo in dg.iter():
+        if _tag_47(modelo) != "DataGridTemplateColumn.CellTemplate":
+            continue
+        for pilha in modelo.iter():
+            if _tag_47(pilha) != "StackPanel":
+                continue
+            if pilha.attrib.get("Orientation", "Vertical") == "Horizontal":
+                continue
+            # Elemento de propriedade (`StackPanel.Resources`) não é conteúdo.
+            filhos = [c for c in pilha if "." not in _tag_47(c)]
+            if len(filhos) >= 2:
+                return True
+    return False
+
+
+def _grades_que_decepam(raiz: ET.Element) -> list[str]:
+    """ItemsSource de cada grade que empilha célula sem soltar a altura da linha."""
+    achadas = []
+    for dg in raiz.iter():
+        if _tag_47(dg) != "DataGrid":
+            continue
+        altura = dg.attrib.get("RowHeight", "").strip()
+        if _celula_empilha(dg) and "Double.NaN" not in altura and altura != "NaN":
+            achadas.append(dg.attrib.get("ItemsSource", "(sem ItemsSource)"))
+    return achadas
+
+
+for f, raiz in arvores_com_faturamento.items():
+    for _fonte in _grades_que_decepam(raiz):
+        erros.append(
+            f"{rel(f)}: a grade de `{_fonte}` empilha duas linhas ou mais numa célula e "
+            f"não solta a altura da linha — o estilo implícito fixa `RowHeight=36` e o "
+            f"conteúdo é DECEPADO na borda da célula, sem erro nenhum. Declare "
+            f'RowHeight="{{x:Static sys:Double.NaN}}" MinRowHeight="36" na `DataGrid` '
+            f'(e o xmlns:sys="clr-namespace:System;assembly=System.Runtime").'
+        )
+
+# Autoteste nos dois sentidos (a regra da checagem 34), chamando a MESMA função da
+# varredura (a regra da parcela 67: autoteste que reimplementa fica verde exatamente
+# quando a checagem quebra).
+_XAML_47 = (
+    '<UserControl xmlns="x" xmlns:t="y">'
+    '<t:DataGrid ItemsSource="{{Binding Linhas}}"{}>'
+    "<t:DataGrid.Columns><t:DataGridTemplateColumn>"
+    "<t:DataGridTemplateColumn.CellTemplate><t:DataTemplate>{}"
+    "</t:DataTemplate></t:DataGridTemplateColumn.CellTemplate>"
+    "</t:DataGridTemplateColumn></t:DataGrid.Columns></t:DataGrid></UserControl>"
+)
+_PILHA = "<t:StackPanel><t:TextBlock /><t:TextBlock /></t:StackPanel>"
+for _cenario, _altura, _celula, _deve_pegar in (
+    ("o caso real: célula empilhada e altura de linha herdada", "", _PILHA, True),
+    (
+        "célula empilhada com a altura solta",
+        ' RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36"',
+        _PILHA,
+        False,
+    ),
+    ("célula de uma linha só", "", "<t:StackPanel><t:TextBlock /></t:StackPanel>", False),
+    (
+        "pilha HORIZONTAL (dois selos lado a lado não empilham nada)",
+        "",
+        '<t:StackPanel Orientation="Horizontal"><t:Border /><t:Border /></t:StackPanel>',
+        False,
+    ),
+):
+    _arvore = ET.fromstring(_XAML_47.format(_altura, _celula))
+    if bool(_grades_que_decepam(_arvore)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 47 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

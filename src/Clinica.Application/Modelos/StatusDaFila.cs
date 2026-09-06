@@ -39,6 +39,26 @@ public static class StatusDaFila
     };
 
     /// <summary>
+    /// A situação como o CARTÃO DA GRADE a mostra — vazia enquanto o horário só está
+    /// marcado (set/2026).
+    ///
+    /// A grade e a lista respondem à mesma pergunta com pesos diferentes. A lista tem uma
+    /// coluna STATUS e ali "Marcado" é resposta: a coluna existe, e deixá-la em branco
+    /// pareceria dado faltando. No cartão da grade não há coluna nenhuma — o que se
+    /// escreve ali disputa espaço com o nome do paciente e a modalidade —, e a regra da
+    /// casa é a que já está escrita no template: <i>só o que muda a conduta ganha selo;
+    /// estado normal não leva selo nenhum</i>. Escrever "Marcado" em quarenta cartões de
+    /// um dia que ainda não começou é a linha que ninguém lê, e é ela que faria ninguém
+    /// ler o "Em atendimento" do cartão ao lado.
+    ///
+    /// A etapa AGUARDANDO é o corte exato: ela é derivada dos carimbos
+    /// (<c>Agendamento.Etapa</c>), então "aguardando" quer dizer que nada aconteceu ainda
+    /// — nem chegada, nem chamada, nem cancelamento.
+    /// </summary>
+    public static string SituacaoNaGrade(StatusAgendamento status, EtapaFila etapa)
+        => etapa == EtapaFila.Aguardando ? string.Empty : Palavra(status, etapa);
+
+    /// <summary>
     /// A hora do fato sob a palavra — "chegou às 14:40 · espera 12 min", "chamado há 4
     /// min", "desde 14:52", "às 15:20". É o que faz uma linha responder "quem eu posso
     /// chamar agora" sem precisar de cinco colunas. Vazio quando não há fato.

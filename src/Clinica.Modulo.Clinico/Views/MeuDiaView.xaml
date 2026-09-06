@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Clinico.Views.MeuDiaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
@@ -171,11 +172,21 @@
                                    Titulo="Nenhum horário marcado neste dia"
                                    Descricao="Os horários aparecem aqui assim que a recepção marcar." />
 
+                <!-- ⚠️ A ALTURA DA LINHA É A DO CONTEÚDO (set/2026 — o print veio da lista do
+                     balcão, com "sala —" cortado ao meio; o mecanismo é o mesmo aqui, e a
+                     checagem 47 cobra as duas). O estilo implícito de
+                     `DataGrid` do design system fixa `RowHeight="36"`, que é a densidade certa para
+                     a tabela de UMA linha por célula — a maioria. Esta empilha duas ou três (nome +
+                     contexto + recado), e altura FIXA não encolhe conteúdo: ela o DECEPA na borda da
+                     célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
+                     `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
+                     guarda o piso de densidade para as linhas que couberem numa linha só. -->
                 <DataGrid ItemsSource="{Binding Sessoes}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
-                          CanUserSortColumns="False" SelectionMode="Single">
+                          CanUserSortColumns="False" SelectionMode="Single"
+                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36">
                     <DataGrid.RowStyle>
                         <!-- Cancelado e falta ficam na lista, APAGADOS — nunca somem: linha
                              ausente se confunde com horário que nunca existiu. -->
@@ -205,11 +216,8 @@
                                             <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" />
                                         </DockPanel>
-                                        <TextBlock Style="{StaticResource CelulaSuave}" Margin="0,2,0,0">
-                                            <Run Text="{Binding Modalidade, Mode=OneWay}" />
-                                            <Run Text="· sala" />
-                                            <Run Text="{Binding Local, Mode=OneWay}" />
-                                        </TextBlock>
+                                        <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0"
+                                                   Style="{StaticResource CelulaSuave}" />
                                         <!-- O recado do balcão: só quando há — linha vazia em toda
                                              linha desalinharia a tabela inteira. -->
                                         <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"

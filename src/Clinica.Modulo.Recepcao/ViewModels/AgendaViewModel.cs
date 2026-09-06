@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -53,6 +54,29 @@ public sealed class CartaoAgenda
     public required string Profissional { get; init; }
 
     public required string StatusRotulo { get; init; }
+
+    /// <summary>
+    /// O status GRAVADO e a ETAPA da fila — o que faz a grade dizer o que já aconteceu
+    /// com este horário (set/2026, pedido da cliente: "precisamos da sincronização da
+    /// agenda com a mudança de status").
+    ///
+    /// A grade sabia do horário e não sabia do DIA: o paciente fazia check-in, era
+    /// chamado, entrava na sala, e o cartão continuava exatamente igual ao das oito da
+    /// manhã. `StatusRotulo` só existe dentro da janela do horário — e responde outra
+    /// pergunta (o status gravado: agendado, realizado, cancelado), não a etapa da fila.
+    /// </summary>
+    public required StatusAgendamento Situacao { get; init; }
+
+    /// <summary>Ver <see cref="Situacao"/>. É ela que dá a COR da linha de contexto.</summary>
+    public required EtapaFila Etapa { get; init; }
+
+    /// <summary>
+    /// A palavra da situação, ou vazio enquanto o horário só está marcado. O vocabulário
+    /// é o de <see cref="StatusDaFila"/> — o MESMO das duas listas do dia: três telas
+    /// sobre o mesmo horário, uma palavra.
+    /// </summary>
+    public string SituacaoDaFila => StatusDaFila.SituacaoNaGrade(Situacao, Etapa);
+
     public required bool EhEncaixe { get; init; }
     public required bool EhRetornoDoSegundoCodigo { get; init; }
     public required bool VeioDaListaEspera { get; init; }
@@ -105,8 +129,21 @@ public sealed class CartaoAgenda
 
     public bool TemObservacoes => !string.IsNullOrWhiteSpace(Observacoes);
 
-    /// <summary>A linha de baixo do cartão: modalidade · profissional · sala.</summary>
-    public string Contexto => string.Join(" · ", new[] { Modalidade, Profissional, Sala }
+    /// <summary>
+    /// A linha de baixo do cartão: situação · modalidade · profissional · sala.
+    ///
+    /// ⚠️ A SITUAÇÃO VEM PRIMEIRO, e a ordem é a decisão (set/2026). A linha corta com
+    /// reticências numa coluna estreita, então quem vem antes é quem sobrevive ao corte —
+    /// e o que perece é o estado do dia: "No local" às 14h40 deixa de valer às 14h45,
+    /// enquanto a modalidade é a mesma desde que o horário foi marcado (e continua no
+    /// TRAÇO colorido do cartão e na dica, que trazem a família e a linha inteira).
+    ///
+    /// Ela não ganhou uma linha própria por uma razão medida: numa faixa de meia hora o
+    /// cartão tem ~46 px, e a terceira linha seria DECEPADA pela borda da célula —
+    /// aparecer em metade dos cartões e sumir na outra metade é pior do que não existir.
+    /// </summary>
+    public string Contexto => string.Join(" · ",
+        new[] { SituacaoDaFila, Modalidade, Profissional, Sala }
         .Where(p => !string.IsNullOrWhiteSpace(p) && p != "—"));
 }
 
@@ -653,11 +690,55 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
     }
 
-    /// <summary>Liga a releitura (chamada quando a tela entra em cena).</summary>
-    public void IniciarRelogio()
+    /// <summary>
+    /// A tela ENTROU EM CENA: liga a releitura e relê a grade por baixo (set/2026 —
+    /// pedido da cliente: "precisamos da sincronização/atualização da agenda com a
+    /// mudança de status").
+    ///
+    /// ⚠️ A releitura ao voltar é a metade que faltava, e ela não é a batida do relógio.
+    /// Grade e lista do dia são ABAS do mesmo item: o shell monta cada aba UMA vez e a
+    /// guarda, então voltar a ela devolve a mesma tela com os dados de quando a pessoa
+    /// saiu. Quem marcava a chegada na lista e passava para a grade via a grade de antes
+    /// — e o relógio, que só bate de minuto em minuto e só enquanto a tela está visível,
+    /// não cobre esse instante: ele havia PARADO junto com a tela.
+    ///
+    /// Duas guardas, e cada uma evita uma consulta repetida: "já esteve em cena" (o
+    /// construtor já dispara a primeira leitura, e o `Loaded` chega logo atrás) e o
+    /// pedido de dia, que quando TROCA o dia já recarrega pelo `OnDiaChanged`.
+    /// </summary>
+    public void AoEntrarEmCena()
     {
         _relogio.Start();
-        ConsumirPedidoDeDia();
+
+        var pediuOutroDia = ConsumirPedidoDeDia();
+        if (_jaEsteveEmCena && !pediuOutroDia) _ = RelerAoVoltarAsync();
+        _jaEsteveEmCena = true;
+    }
+
+    /// <summary>Ver <see cref="AoEntrarEmCena"/>.</summary>
+    private bool _jaEsteveEmCena;
+
+    /// <summary>
+    /// A releitura de quando a tela volta à vista. Silenciosa como a do relógio, e sem a
+    /// recusa de "só HOJE" que a batida periódica tem: aquela existe para a grade não se
+    /// mexer sozinha enquanto alguém lê, e esta acontece UMA vez, no instante em que a
+    /// pessoa chega — que é exatamente quando ela quer o estado de agora. Cancelar um
+    /// horário de amanhã numa aba e ver a outra desatualizada seria o mesmo defeito
+    /// noutro dia.
+    /// </summary>
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura da grade ao voltar à aba falhou", ex);
+        }
     }
 
     /// <summary>
@@ -666,18 +747,27 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// no construtor o pedido ainda não existiria. Consumir limpa — pedido órfão abriria a
     /// agenda de amanhã num dia de ontem.
     /// </summary>
-    private void ConsumirPedidoDeDia()
+    /// <returns>
+    /// <c>true</c> quando o pedido MUDOU o dia (ou o modo) — e portanto a carga já foi
+    /// disparada pelo `OnDiaChanged`/`OnModoSemanaChanged`. Pedir o dia que já está na
+    /// tela devolve <c>false</c>: nada foi recarregado, e quem chama decide se relê.
+    /// </returns>
+    private bool ConsumirPedidoDeDia()
     {
         try
         {
             using var scope = _escopos.CreateScope();
-            if (scope.ServiceProvider.GetService<PedidoAgenda>()?.Consumir() is not { } dia) return;
+            if (scope.ServiceProvider.GetService<PedidoAgenda>()?.Consumir() is not { } dia) return false;
+
+            var antes = (Dia, ModoSemana);
             if (ModoSemana) ModoSemana = false;
             Dia = dia.ToDateTime(TimeOnly.MinValue);
+            return (Dia, ModoSemana) != antes;
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Recepção — pedido de dia da agenda não pôde ser lido", ex);
+            return false;
         }
     }
 
@@ -724,7 +814,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             : string.Empty;
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void PararRelogio() => _relogio.Stop();
+    public void AoSairDeCena() => _relogio.Stop();
 
     /// <summary>
     /// A semana da data escolhida, uma coluna por dia (segunda a domingo).
@@ -824,6 +914,8 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Sala = a.Sala?.Nome ?? "—",
                 Profissional = a.Profissional?.Rotulo ?? "sem profissional",
                 StatusRotulo = Rotular(a.Status),
+                Situacao = a.Status,
+                Etapa = a.Etapa,
                 EhEncaixe = a.Encaixe,
                 EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
                 VeioDaListaEspera = a.Origem == OrigemAgendamento.ListaEspera,

@@ -22,7 +22,7 @@ public partial class MeuDiaView : UserControl
     {
         InitializeComponent();
 
-        Loaded += (_, _) => (DataContext as MeuDiaViewModel)?.IniciarRelogio();
-        Unloaded += (_, _) => (DataContext as MeuDiaViewModel)?.PararRelogio();
+        Loaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoEntrarEmCena();
+        Unloaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoSairDeCena();
     }
 }

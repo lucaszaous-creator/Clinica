@@ -16,7 +16,7 @@ public partial class PainelView : UserControl
     {
         InitializeComponent();
 
-        Loaded += (_, _) => (DataContext as PainelViewModel)?.IniciarRelogio();
-        Unloaded += (_, _) => (DataContext as PainelViewModel)?.PararRelogio();
+        Loaded += (_, _) => (DataContext as PainelViewModel)?.AoEntrarEmCena();
+        Unloaded += (_, _) => (DataContext as PainelViewModel)?.AoSairDeCena();
     }
 }

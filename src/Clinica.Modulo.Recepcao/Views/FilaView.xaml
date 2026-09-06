@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Recepcao.Views.FilaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              Background="{StaticResource Brush.Fundo}">
@@ -204,9 +205,15 @@
                                    Foreground="{StaticResource Brush.Texto.Invertido}"
                                    TextTrimming="CharacterEllipsis" MaxWidth="380"
                                    VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <!-- A pílula SOME quando o horário não tem sala: a faixa é o
+                             recado que a recepcionista lê em voz alta, e "sala —" gritado
+                             na sala de espera não é instrução nenhuma. -->
                         <Border Grid.Column="2" Background="{StaticResource Brush.Superficie}"
                                 ctrl:Ajudantes.Pilula="True" Padding="9,2"
-                                VerticalAlignment="Center" Margin="0,0,10,0">
+                                VerticalAlignment="Center" Margin="0,0,10,0"
+                                Visibility="{Binding PrimeiroChamado.Sala,
+                                             Converter={StaticResource TextoParaVisibilidade},
+                                             FallbackValue=Collapsed}">
                             <TextBlock FontSize="{StaticResource Fonte.Legenda}"
                                        FontWeight="SemiBold" MaxWidth="180"
                                        TextTrimming="CharacterEllipsis"
@@ -250,11 +257,20 @@
                                    Titulo="Nenhum horário marcado neste dia"
                                    Descricao="Marque por &quot;Novo horário&quot;, ou pela aba Grade clicando no vão livre." />
 
+                <!-- ⚠️ A ALTURA DA LINHA É A DO CONTEÚDO (set/2026 — a cliente mandou o print da
+                     coluna PROFISSIONAL com "sala —" cortado ao meio). O estilo implícito de
+                     `DataGrid` do design system fixa `RowHeight="36"`, que é a densidade certa para
+                     a tabela de UMA linha por célula — a maioria. Esta empilha duas ou três (nome +
+                     contexto + recado), e altura FIXA não encolhe conteúdo: ela o DECEPA na borda da
+                     célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
+                     `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
+                     guarda o piso de densidade para as linhas que couberem numa linha só. -->
                 <DataGrid ItemsSource="{Binding Linhas}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
-                          CanUserSortColumns="False" SelectionMode="Single">
+                          CanUserSortColumns="False" SelectionMode="Single"
+                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
                             <!-- A dica da linha: o que não coube nela e alguém pode precisar
@@ -362,7 +378,13 @@
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Profissional}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Style="{StaticResource CelulaSuave}" Margin="0,2,0,0">
+                                        <!-- Só quando HÁ sala. Elemento amarrado a texto
+                                             opcional leva `Visibility`: a clínica não usa
+                                             salas, e "sala —" saía em toda linha. -->
+                                        <TextBlock Style="{StaticResource CelulaSuave}" Margin="0,2,0,0"
+                                                   Visibility="{Binding Sala,
+                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                FallbackValue=Collapsed}">
                                             <Run Text="sala" />
                                             <Run Text="{Binding Sala, Mode=OneWay}" />
                                         </TextBlock>

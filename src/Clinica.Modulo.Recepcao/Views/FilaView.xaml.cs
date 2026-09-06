@@ -29,8 +29,8 @@ public partial class FilaView : UserControl
     {
         InitializeComponent();
 
-        Loaded += (_, _) => (DataContext as FilaViewModel)?.IniciarRelogio();
-        Unloaded += (_, _) => (DataContext as FilaViewModel)?.PararRelogio();
+        Loaded += (_, _) => (DataContext as FilaViewModel)?.AoEntrarEmCena();
+        Unloaded += (_, _) => (DataContext as FilaViewModel)?.AoSairDeCena();
     }
 
     // ==================== O "⋯" da linha ====================

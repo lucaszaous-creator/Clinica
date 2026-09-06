@@ -155,6 +155,8 @@ zero.**
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26). O DISPARO pelo WhatsApp é um clique por paciente (o número é o da clínica) |
 | **Lembrete automático por e-mail** | ✅ | **set/2026** — `LembreteEmailService`, na abertura da Recepção e do Gerente, para as sessões de hoje, de amanhã e do fim de semana que vier: MESMA rodada, MESMO contato, canal e-mail. Servidor cadastrado em Gerente → Configurações → Lembretes por e-mail; sem ele, nada muda. O balcão também dispara por clique ("Enviar e-mails" na rodada) |
+| **A situação do dia NO CARTÃO** | ✅ | **set/2026** — a grade dizia o horário e calava o dia: o paciente chegava, era chamado, entrava na sala, e o cartão continuava igual ao das oito da manhã. A linha de contexto passou a abrir pela situação, colorida (`StatusDaFila.SituacaoNaGrade` — a MESMA palavra das duas listas), e cala enquanto o horário só está marcado |
+| **Releitura ao voltar para a aba** | ✅ | **set/2026** — grade e lista são abas do mesmo item, e o shell guarda cada aba montada: voltar devolvia a tela de quando a pessoa saiu, com o relógio de 1 min parado junto. `AoEntrarEmCena` relê em silêncio (nunca na primeira exibição, nunca por cima de uma carga no ar) |
 | **✓ de confirmação na grade** | ✅ | **set/2026** — o cartão do balcão mostra "Confirmou" / "Não confirmou" pelo que a RODADA registrou (`AgendaViewModel.Confirmacao`, leitura em lote); sem contato, sem selo |
 | **Retornos a marcar** | ✅ | **set/2026** — aba do item Atendimento: o retorno que quem atendeu pediu na sessão (`Evolucao.RetornoSugeridoEm`) vira fila do balcão (`RetornosAMarcarService`), com "Marcar horário" já preenchido e o convite pelo WhatsApp. Nunca vira agendamento sozinho (a regra da parcela 58) |
 | **Próximos horários na ficha** | ✅ | **set/2026** — a ficha do paciente lista o que ele tem marcado daqui em diante e abre a agenda no dia (`FichaPacienteViewModel.ProximosHorarios`) |
@@ -190,6 +192,8 @@ zero.**
 | Tempo de espera visível | ✅ | `Agendamento.EsperaMinutos`, atualizado a cada minuto na tela |
 | Aviso de pendência já no check-in | ✅ | selos por ordem fixa (`SelosDaFila`), só na linha viva |
 | Faixa CHAMANDO — o recado do consultório | ✅ | nomeia o chamado mais antigo, com sala e cronômetro, e o "Entrou" dentro dela |
+| **A linha tem a altura do conteúdo** | ✅ | **set/2026** — o estilo implícito fixa `RowHeight=36` e a célula empilhada era DECEPADA ("sala —" cortado ao meio, no print da cliente). Vale para as quatro grades que empilham; a **checagem 47** cobra as próximas |
+| **Sala em branco não vira travessão** | ✅ | **set/2026** — a clínica não usa salas, e "sala —" saía em toda linha. Os seis leitores omitem a sala quando não há |
 
 > As colunas saem dos **carimbos de hora** (`ChegadaEm`, `InicioAtendimentoEm`), não de
 > um status novo: o faturamento continua vendo o mesmo `StatusAgendamento` de sempre.

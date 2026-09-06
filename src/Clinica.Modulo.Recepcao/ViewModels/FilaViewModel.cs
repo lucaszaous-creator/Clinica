@@ -30,7 +30,22 @@ public sealed partial class CartaoFila : ObservableObject
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
     public required string Profissional { get; init; }
+
+    /// <summary>
+    /// A sala, ou VAZIO quando o horário não tem uma — nunca o travessão (set/2026).
+    ///
+    /// A clínica não usa salas: das doze linhas de um dia, doze traziam "sala —" debaixo
+    /// do nome do profissional. Crachá igual em toda linha não distingue nada (parcela
+    /// 57) e ainda gastava a segunda linha da célula, que é justamente a que o
+    /// `RowHeight` fixo decepava. Vazio, os SEIS leitores a omitem — a linha de contexto,
+    /// a dica, o "Também:" da faixa, o aviso da chamada e os dois textos da tela —, cada
+    /// um com a sua frase, porque "· " sobrando é tão ruim quanto o travessão.
+    /// </summary>
     public required string Sala { get; init; }
+
+    /// <summary>Ver <see cref="Sala"/>: é ela que decide se a frase menciona a sala.</summary>
+    public bool TemSala => !string.IsNullOrWhiteSpace(Sala);
+
     public required EtapaFila Etapa { get; init; }
     public string? Observacoes { get; init; }
 
@@ -306,7 +321,7 @@ public sealed partial class CartaoFila : ObservableObject
     public string Detalhe => string.Join("\n", new[]
     {
         $"{Horario} · {Modalidade}",
-        $"{Profissional} · sala {Sala}",
+        TemSala ? $"{Profissional} · sala {Sala}" : Profissional,
         TemPacote ? $"Pacote {PacoteUsadas}/{PacoteContratadas} (o que vence primeiro é o que a sessão debita)" : null,
         EhEncaixe ? "Encaixe — marcado por cima de um horário ocupado" : null,
         TemConfirmacao
@@ -397,15 +412,20 @@ public sealed partial class FilaViewModel : ObservableObject
     /// </summary>
     private HashSet<int> _jaFechados = [];
 
-    public ObservableCollection<CartaoFila> Aguardando { get; } = [];
-    public ObservableCollection<CartaoFila> NaRecepcao { get; } = [];
+    /// <summary>
+    /// Os chamados e não anunciados — a única coleção por etapa que sobreviveu ao kanban
+    /// (set/2026). Ela alimenta a FAIXA do topo, e é isso que a mantém viva.
+    ///
+    /// As outras quatro (aguardando, na recepção, em atendimento, finalizados) eram as
+    /// raias, e continuaram sendo preenchidas a cada carga depois de a lista substituí-las
+    /// — escritas por ninguém lidas, em duas telas por dia. Código que sobrevive ao
+    /// desenho que o justificava é a segunda definição esperando divergir.
+    /// </summary>
     public ObservableCollection<CartaoFila> Chamados { get; } = [];
-    public ObservableCollection<CartaoFila> EmAtendimento { get; } = [];
-    public ObservableCollection<CartaoFila> Finalizados { get; } = [];
 
     /// <summary>
     /// O DIA INTEIRO, na ordem da hora — o que a lista mostra (set/2026). Inclui cancelado
-    /// e falta, que as cinco coleções acima não têm: eles ficam na lista, apagados.
+    /// e falta, que a coleção acima não tem: eles ficam na lista, apagados.
     /// </summary>
     public ObservableCollection<CartaoFila> Linhas { get; } = [];
 
@@ -417,9 +437,9 @@ public sealed partial class FilaViewModel : ObservableObject
 
     /// <summary>
     /// Há gente chamada esperando ser anunciada. É o que acende a faixa no topo da tela:
-    /// a coluna sozinha não bastaria, porque o balcão passa o dia com esta tela aberta e
-    /// os olhos no paciente à frente dele — cartão que aparece calado numa das cinco
-    /// colunas é cartão que ninguém vê.
+    /// a linha sozinha não bastaria, porque o balcão passa o dia com esta tela aberta e
+    /// os olhos no paciente à frente dele — linha que muda de status calada no meio de
+    /// trinta é linha que ninguém vê.
     /// </summary>
     public bool TemChamados => Chamados.Count > 0;
 
@@ -614,11 +634,56 @@ public sealed partial class FilaViewModel : ObservableObject
         }
     }
 
-    /// <summary>Liga o relógio da espera (chamado quando a tela entra em cena).</summary>
-    public void IniciarRelogio() => _relogio.Start();
+    /// <summary>
+    /// A tela ENTROU EM CENA: liga o relógio e relê o dia por baixo (set/2026 — pedido
+    /// da cliente: "precisamos da sincronização/atualização da agenda com a mudança de
+    /// status").
+    ///
+    /// ⚠️ A releitura ao voltar é a metade que faltava, e ela não é a batida do relógio.
+    /// Agenda e lista do dia são ABAS do mesmo item: o shell monta cada aba UMA vez e a
+    /// guarda, então voltar a ela devolve a mesma tela com os dados de quando a pessoa
+    /// saiu. Quem marcava a chegada na lista e passava para a grade via a grade de
+    /// antes — e o relógio, que só bate de minuto em minuto e só enquanto a tela está
+    /// visível, não cobre esse instante: ele havia PARADO junto com a tela.
+    ///
+    /// Sem a guarda de "já esteve em cena" seriam DUAS leituras na abertura: o
+    /// construtor já dispara a primeira, e o `Loaded` chega logo atrás.
+    /// </summary>
+    public void AoEntrarEmCena()
+    {
+        _relogio.Start();
+        if (_jaEsteveEmCena) _ = RelerAoVoltarAsync();
+        _jaEsteveEmCena = true;
+    }
+
+    /// <summary>Ver <see cref="AoEntrarEmCena"/>.</summary>
+    private bool _jaEsteveEmCena;
+
+    /// <summary>
+    /// A releitura de quando a tela volta à vista. Silenciosa como a do relógio (nada de
+    /// "Carregando" piscando nem aviso vermelho por uma demora do banco), e sem a recusa
+    /// de "só HOJE" que a batida periódica tem: aquela existe para a tela não se mexer
+    /// sozinha enquanto alguém lê, e esta acontece UMA vez, no instante em que a pessoa
+    /// chega — que é exatamente quando ela quer o estado de agora. Cancelar um horário de
+    /// amanhã numa aba e ver a outra desatualizada seria o mesmo defeito noutro dia.
+    /// </summary>
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura da lista do dia ao voltar à aba falhou", ex);
+        }
+    }
 
     /// <summary>Desliga o relógio (chamado quando a tela sai de cena).</summary>
-    public void PararRelogio() => _relogio.Stop();
+    public void AoSairDeCena() => _relogio.Stop();
 
     partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
 
@@ -809,15 +874,6 @@ public sealed partial class FilaViewModel : ObservableObject
             : $"Marcado por {a.CriadoPor}";
     }
 
-    private ObservableCollection<CartaoFila> Coluna(EtapaFila etapa) => etapa switch
-    {
-        EtapaFila.Chegou => NaRecepcao,
-        EtapaFila.Chamado => Chamados,
-        EtapaFila.EmAtendimento => EmAtendimento,
-        EtapaFila.Finalizado => Finalizados,
-        _ => Aguardando
-    };
-
     /// <summary>
     /// Reconstrói os chips do filtro a partir do dia lido. O filtro vigente sobrevive à
     /// recarga só enquanto o profissional continua no dia — apontando para quem saiu, ele
@@ -850,18 +906,14 @@ public sealed partial class FilaViewModel : ObservableObject
     }
 
     /// <summary>
-    /// (Re)monta as cinco colunas a partir do dia JÁ LIDO — é o que o filtro por
+    /// (Re)monta a lista do dia a partir do que JÁ FOI LIDO — é o que o filtro por
     /// profissional chama sem voltar ao banco. Entre o Clear e o último Add não há await
     /// (a regra da parcela 62): quem monta é sempre uma passada síncrona.
     /// </summary>
     private void MontarQuadro()
     {
         Linhas.Clear();
-        Aguardando.Clear();
-        NaRecepcao.Clear();
         Chamados.Clear();
-        EmAtendimento.Clear();
-        Finalizados.Clear();
 
         // Na ordem da HORA: é a agenda do dia, não um quadro por estado. Cancelado e falta
         // ENTRAM (apagados na tela) — quem lê às 14h precisa saber que as 15h vagaram.
@@ -872,8 +924,8 @@ public sealed partial class FilaViewModel : ObservableObject
 
             var vivo = a.Etapa != EtapaFila.ForaDaFila;
 
-            // O selo de confirmação só fala na coluna AGUARDANDO — depois do check-in a
-            // pessoa está aqui, e o selo viraria ruído.
+            // O selo de confirmação só fala em AGUARDANDO — depois do check-in a pessoa
+            // está aqui, e o selo viraria ruído.
             var confirmacao = a.Etapa == EtapaFila.Aguardando
                               && _confirmacoes.TryGetValue(a.Id, out var status)
                 ? status switch
@@ -896,8 +948,11 @@ public sealed partial class FilaViewModel : ObservableObject
                 // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
                 Modalidade = CatalogoModalidades.Nome(
                     a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
-                Profissional = a.Profissional?.Rotulo ?? "—",
-                Sala = a.Sala?.Nome ?? "—",
+                // "sem profissional" é o que a GRADE já escreve, e é aviso, não
+                // enfeite: horário sem dono some do "Meu dia" de quem atende e do
+                // repasse (parcela 69). O travessão calava isso.
+                Profissional = a.Profissional?.Rotulo ?? "sem profissional",
+                Sala = a.Sala?.Nome ?? string.Empty,
                 Etapa = a.Etapa,
                 Situacao = a.Status,
                 DataHora = a.DataHora,
@@ -933,16 +988,15 @@ public sealed partial class FilaViewModel : ObservableObject
             };
 
             Linhas.Add(cartao);
-            // As coleções por etapa alimentam a faixa CHAMANDO e o resumo; o cancelado e a
-            // falta não têm etapa — ficam só na lista.
-            if (a.Etapa != EtapaFila.ForaDaFila) Coluna(a.Etapa).Add(cartao);
+            // O chamado e ainda não anunciado alimenta a FAIXA do topo, além da linha.
+            if (a.Etapa == EtapaFila.Chamado) Chamados.Add(cartao);
         }
 
         // Quem já SAIU da sala (parcela 74) não sobe mais para a frente: a lista é a ordem
         // da hora, e é o selo "Encerrado" (e a cor do status) que o aponta.
 
-        // As coleções mudaram: a tela precisa reavaliar se o dia está vazio e se há
-        // alguém esperando ser anunciado.
+        // A lista mudou: a tela precisa reavaliar se o dia está vazio e se há alguém
+        // esperando ser anunciado.
         OnPropertyChanged(nameof(QuadroVazio));
         OnPropertyChanged(nameof(TemChamados));
 
@@ -958,7 +1012,7 @@ public sealed partial class FilaViewModel : ObservableObject
         OutrosChamados = porIdade.Count <= 1
             ? string.Empty
             : "Também: " + string.Join(" · ", porIdade.Skip(1)
-                .Select(c => $"{c.Paciente} → sala {c.Sala}"));
+                .Select(c => c.TemSala ? $"{c.Paciente} → sala {c.Sala}" : c.Paciente));
     }
 
     /// <summary>
@@ -1178,7 +1232,9 @@ public sealed partial class FilaViewModel : ObservableObject
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
                     .ChamarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
+            _snackbar.Info(c.TemSala
+                ? $"{c.Paciente} chamado — anuncie para a sala {c.Sala}."
+                : $"{c.Paciente} chamado — anuncie o nome na sala de espera.");
         }, "chamada do paciente");
 
     /// <summary>O paciente levantou e entrou: fim da espera, começo da sessão.</summary>

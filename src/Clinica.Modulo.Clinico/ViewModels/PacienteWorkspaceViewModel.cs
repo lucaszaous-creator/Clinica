@@ -713,7 +713,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     }
 
     /// <summary>A View montou. Ver o comentário do <c>_relogio</c>.</summary>
-    public void IniciarRelogio()
+    public void AoEntrarEmCena()
     {
         _naTela = true;
         if (EmAtendimento) _relogio.Start();
@@ -723,7 +723,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// A View saiu de cena. O relógio PARA sempre — inclusive com atendimento em curso: a
     /// tela que voltar constrói uma ViewModel nova e lê o carimbo do banco de novo.
     /// </summary>
-    public void PararRelogio()
+    public void AoSairDeCena()
     {
         _naTela = false;
         _relogio.Stop();

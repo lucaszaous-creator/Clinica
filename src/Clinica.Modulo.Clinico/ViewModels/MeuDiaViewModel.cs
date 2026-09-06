@@ -28,7 +28,18 @@ public sealed class LinhaSessao
     public required string Paciente { get; init; }
     public required string Hora { get; init; }
     public required string Modalidade { get; init; }
+
+    /// <summary>A sala, ou VAZIO quando o horário não tem uma — nunca o travessão.</summary>
     public required string Local { get; init; }
+
+    /// <summary>
+    /// A linha sob o nome: modalidade · sala. Composta AQUI, e não com três `Run` no
+    /// XAML, porque a sala é opcional: com os Runs o "· sala" ficava impresso ao lado de
+    /// um travessão em toda linha de uma clínica que não usa salas (set/2026).
+    /// </summary>
+    public string Contexto => string.IsNullOrWhiteSpace(Local)
+        ? Modalidade
+        : $"{Modalidade} · sala {Local}";
     public required string Situacao { get; init; }
     public required bool EvolucaoEscrita { get; init; }
     public required bool RegistroPendente { get; init; }
@@ -151,7 +162,7 @@ public sealed class LinhaSessao
         // início sozinho calava — e é a que decide se cabe um encaixe.
         Hora = $"{s.DataHora:HH:mm}–{s.FimPrevisto:HH:mm}",
         Modalidade = s.Modalidade,
-        Local = s.Sala ?? "—",
+        Local = s.Sala ?? string.Empty,
         Situacao = Rotular(s.Status, s.Etapa),
         ForaDaFila = StatusDaFila.ForaDaFila(s.Status),
         Estado = s.Status,
@@ -402,11 +413,57 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    /// <summary>Liga a releitura periódica (chamada quando a tela entra em cena).</summary>
-    public void IniciarRelogio() => _relogio.Start();
+    /// <summary>
+    /// A tela ENTROU EM CENA: liga o relógio e relê o dia por baixo (set/2026 — pedido
+    /// da cliente: "precisamos da sincronização/atualização da agenda com a mudança de
+    /// status").
+    ///
+    /// ⚠️ A releitura ao voltar é a metade que faltava, e ela não é a batida do relógio.
+    /// Hoje, Semana e Sem evolução são ABAS do mesmo item: o shell monta cada aba UMA vez
+    /// e a guarda, então voltar a ela devolve a mesma tela com os dados de quando a
+    /// pessoa saiu — e o relógio, que só bate de minuto em minuto e só enquanto a tela
+    /// está visível, não cobre esse instante: ele havia PARADO junto com a tela. Quem
+    /// conferia a semana e voltava para o dia via a fila de antes, com o paciente que o
+    /// balcão acabou de receber ainda como "Marcado".
+    ///
+    /// Sem a guarda de "já esteve em cena" seriam DUAS leituras na abertura: o
+    /// construtor já dispara a primeira, e o `Loaded` chega logo atrás.
+    /// </summary>
+    public void AoEntrarEmCena()
+    {
+        _relogio.Start();
+        if (_jaEsteveEmCena) _ = RelerAoVoltarAsync();
+        _jaEsteveEmCena = true;
+    }
+
+    /// <summary>Ver <see cref="AoEntrarEmCena"/>.</summary>
+    private bool _jaEsteveEmCena;
+
+    /// <summary>
+    /// A releitura de quando a tela volta à vista. Silenciosa como a do relógio (nada de
+    /// "Carregando" piscando nem aviso vermelho por uma demora do banco), e sem a recusa
+    /// de "só HOJE" que a batida periódica tem: aquela existe para a tela não se mexer
+    /// sozinha enquanto alguém lê, e esta acontece UMA vez, no instante em que a pessoa
+    /// chega — que é exatamente quando ela quer o estado de agora. Cancelar um horário de
+    /// amanhã numa aba e ver a outra desatualizada seria o mesmo defeito noutro dia.
+    /// </summary>
+    private async Task RelerAoVoltarAsync()
+    {
+        if (Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — releitura do dia ao voltar à aba falhou", ex);
+        }
+    }
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void PararRelogio() => _relogio.Stop();
+    public void AoSairDeCena() => _relogio.Stop();
 
     /// <summary>
     /// A batida do relógio: relê o dia por baixo.

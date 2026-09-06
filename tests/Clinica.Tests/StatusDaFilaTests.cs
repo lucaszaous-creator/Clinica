@@ -24,6 +24,42 @@ public class StatusDaFilaTests
     public void A_palavra_e_uma_por_etapa_e_o_status_gravado_vence(StatusAgendamento status, EtapaFila etapa, string esperado)
         => StatusDaFila.Palavra(status, etapa).Should().Be(esperado);
 
+    /// <summary>
+    /// O cartão da GRADE cala enquanto nada aconteceu, e fala assim que acontece. É a
+    /// mesma palavra da lista — o que muda é só o silêncio do "Marcado", que na grade
+    /// sairia em quarenta cartões de um dia que ainda não começou.
+    /// </summary>
+    [Theory]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Aguardando, "")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Chegou, "No local")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.Chamado, "Chamado")]
+    [InlineData(StatusAgendamento.Agendado, EtapaFila.EmAtendimento, "Em atendimento")]
+    [InlineData(StatusAgendamento.Realizado, EtapaFila.Finalizado, "Concluído")]
+    [InlineData(StatusAgendamento.Cancelado, EtapaFila.ForaDaFila, "Cancelado")]
+    [InlineData(StatusAgendamento.Faltou, EtapaFila.ForaDaFila, "Faltou")]
+    public void Na_grade_so_fala_quem_ja_tem_fato(StatusAgendamento status, EtapaFila etapa, string esperado)
+        => StatusDaFila.SituacaoNaGrade(status, etapa).Should().Be(esperado);
+
+    [Fact]
+    public void Na_grade_a_palavra_e_a_MESMA_da_lista_quando_ha_fato()
+    {
+        // Duas telas sobre o mesmo horário, uma palavra: o que a grade escreve, quando
+        // escreve, é exatamente o que a lista escreve — senão o balcão leria dois fatos.
+        foreach (var etapa in new[]
+                 {
+                     EtapaFila.Chegou, EtapaFila.Chamado,
+                     EtapaFila.EmAtendimento, EtapaFila.Finalizado
+                 })
+        {
+            var status = etapa == EtapaFila.Finalizado
+                ? StatusAgendamento.Realizado
+                : StatusAgendamento.Agendado;
+
+            StatusDaFila.SituacaoNaGrade(status, etapa)
+                .Should().Be(StatusDaFila.Palavra(status, etapa));
+        }
+    }
+
     [Fact]
     public void Cancelado_e_falta_ficam_fora_da_fila_e_sem_detalhe()
     {

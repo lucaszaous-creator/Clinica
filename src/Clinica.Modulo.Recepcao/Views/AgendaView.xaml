@@ -46,9 +46,14 @@
                                    TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
                                    FontSize="{StaticResource Fonte.Legenda}" />
                     </DockPanel>
-                    <TextBlock Text="{Binding Contexto}" Margin="0,1,0,0"
+                    <!-- A linha de contexto abre pela SITUAÇÃO quando já houve alguma
+                         (set/2026), e a COR é a mesma que a lista do dia dá à pílula:
+                         âmbar no local, vermelho chamado, verde em atendimento. Sem cor
+                         a palavra existe e não SALTA, e o que a cliente pediu é ver a
+                         mudança de status de relance, atravessando o dia inteiro. -->
+                    <TextBlock x:Name="contexto" Text="{Binding Contexto}" Margin="0,1,0,0"
                                TextTrimming="CharacterEllipsis"
-                               Opacity="0.75"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
                                FontSize="{StaticResource Fonte.Legenda}" />
 
                     <!-- Só o que muda a conduta ganha selo. Estado normal não leva selo
@@ -77,6 +82,25 @@
                     </WrapPanel>
                 </StackPanel>
             </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
+                    <Setter TargetName="contexto" Property="Foreground"
+                            Value="{StaticResource Brush.Aviso}" />
+                    <Setter TargetName="contexto" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
+                    <Setter TargetName="contexto" Property="Foreground"
+                            Value="{StaticResource Brush.Erro}" />
+                    <Setter TargetName="contexto" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
+                    <Setter TargetName="contexto" Property="Foreground"
+                            Value="{StaticResource Brush.Sucesso.Forte}" />
+                    <Setter TargetName="contexto" Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <!-- Concluído e fora do dia ficam no cinza padrão: já aconteceram, e
+                     pintá-los disputaria o olho com o que ainda pede ação. -->
+            </DataTemplate.Triggers>
         </DataTemplate>
 
         <!-- ============ Uma célula da linha do tempo ============ -->

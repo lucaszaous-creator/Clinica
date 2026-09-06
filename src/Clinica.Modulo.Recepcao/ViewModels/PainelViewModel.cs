@@ -273,11 +273,18 @@ public sealed partial class PainelViewModel : ObservableObject
         }
     }
 
-    /// <summary>Liga a releitura (chamada quando a tela entra em cena).</summary>
-    public void IniciarRelogio() => _relogio.Start();
+    /// <summary>
+    /// A tela entrou em cena: liga a releitura periódica.
+    ///
+    /// ⚠️ Aqui NÃO há releitura ao voltar, e é decisão: o "Início" é item simples da
+    /// sidebar, e o shell monta a tela do zero a cada navegação (só o item COMPOSTO
+    /// guarda as abas já montadas). O construtor já lê — acrescentar uma segunda leitura
+    /// seria a consulta que ninguém pediu, a cada volta ao painel.
+    /// </summary>
+    public void AoEntrarEmCena() => _relogio.Start();
 
     /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
-    public void PararRelogio() => _relogio.Stop();
+    public void AoSairDeCena() => _relogio.Stop();
 
     /// <summary>
     /// Aniversariantes do dia e dos próximos dias. A janela existe porque a clínica não
