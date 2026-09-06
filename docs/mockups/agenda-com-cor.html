@@ -1,0 +1,480 @@
+<title>Agenda com cor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 28px 80px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; line-height:1.6; color:var(--tinta-2); max-width:72ch; margin:0 0 22px}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:52px 0}
+.cap{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin:22px 0 8px}
+.cap b{color:var(--tinta); font-weight:600}
+
+.regras{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:2px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.regras li{background:var(--sup); padding:16px 20px; display:grid; grid-template-columns:26px 1fr; gap:14px; align-items:start}
+.regras .marca{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--acento); padding-top:3px}
+.regras b{font-weight:600}
+.regras span.txt{font-size:14.5px; line-height:1.55; color:var(--tinta-2)}
+
+.opcao{margin-top:56px}
+.op-topo{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.op-letra{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px; background:var(--acento); color:var(--sobre-acento); border-radius:6px; padding:3px 9px; letter-spacing:.04em}
+
+.tokens{width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; background:var(--sup); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.tokens th,.tokens td{padding:10px 14px; border-bottom:1px solid var(--fio); text-align:left; vertical-align:middle}
+.tokens th{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--mudo); font-weight:600; background:var(--sup-2)}
+.tokens tr:last-child td{border-bottom:0}
+.tokens code{font-family:"IBM Plex Mono",monospace; font-size:12.5px}
+.sw{display:inline-block; width:16px; height:16px; border-radius:4px; vertical-align:-3px; margin-right:8px; border:1px solid rgba(0,0,0,.08)}
+.novo{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ganho); background:var(--ganho-fundo); border-radius:4px; padding:2px 6px; margin-left:8px}
+
+.reco{background:var(--sup); border:1px solid var(--fio); border-top:3px solid var(--acento); border-radius:12px; padding:28px 30px; margin-top:30px; box-shadow:var(--sombra)}
+.perguntas{list-style:none; padding:0; margin:18px 0 0; display:grid; gap:12px}
+.perguntas li{display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.perguntas .q{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--acento); font-weight:600; padding-top:2px}
+.nota{font-size:13px; color:var(--mudo); font-style:italic; font-family:"IBM Plex Serif",Georgia,serif; margin-top:14px}
+
+/* ======================================================================
+   A TELA — render fiel do app. Paleta FIXA (o app é claro), tokens do repositório
+   (src/Clinica.Desktop.Shell/Styles/Tokens.xaml) + os três tons claros NOVOS
+   propostos abaixo (Violeta.50, Teal.50, Rosa.50).
+   ====================================================================== */
+.moldura{overflow-x:auto; border-radius:12px; background:var(--sup-2); padding:0; margin-top:14px}
+.tela{
+  --acento:#123A9E; --acento-suave:#EEF3FC; --acento-tint:#D8E3F7;
+  --fundo:#F8FAFC; --superficie:#FFFFFF; --superficie-hover:#F1F5F9; --raia:#F1F5F9;
+  --borda:#E5E7EB; --borda-hover:#D1D5DB;
+  --texto-primario:#111827; --texto-secundario:#6B7280; --texto-corpo:#374151;
+  --sucesso:#16A34A; --sucesso-forte:#15803D; --sucesso-suave:#DCFCE7;
+  --aviso:#EA580C; --aviso-texto:#C2410C; --aviso-suave:#FFEDD5;
+  --erro:#DC2626; --erro-texto:#B91C1C; --erro-suave:#FEE2E2;
+  --info:#0EA5E9; --info-texto:#0369A1; --info-suave:#E0F2FE;
+  --eletro:#7C3AED; --eletro-50:#F5F3FF;
+  --bsv:#0D9488; --bsv-50:#F0FDFA;
+  --bsvacu:#0EA5E9; --bsvacu-50:#E0F2FE;
+  --consulta:#DB2777; --consulta-50:#FDF2F8;
+  --acu:#123A9E; --acu-50:#EEF3FC;
+  min-width:1060px; background:var(--fundo); color:var(--texto-primario);
+  font-family:"Segoe UI",Inter,system-ui,sans-serif; font-size:14px; line-height:1.45;
+  border:1px solid #C3C9D6; border-radius:12px; overflow:hidden; box-shadow:var(--sombra);
+}
+.tela *{box-sizing:border-box}
+.tela .abas{display:flex; gap:2px; background:var(--superficie); border-bottom:1px solid var(--borda); padding:8px 20px 0}
+.tela .abas div{padding:8px 14px 10px; font-size:13.5px; color:var(--texto-corpo); border-bottom:2px solid transparent}
+.tela .abas div.on{color:var(--acento); font-weight:600; border-bottom-color:var(--acento)}
+.tela .pagina{padding:16px 20px 20px}
+.tela .h1{font-size:20px; font-weight:700; letter-spacing:-.01em; margin:0}
+.tela .sub{font-size:12.5px; color:var(--texto-secundario); margin:2px 0 0}
+
+/* cabeçalho da agenda */
+.tela .topo{display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap}
+.tela .topo .dir{margin-left:auto; display:flex; align-items:center; gap:8px}
+.tela .btn{height:32px; padding:0 12px; border-radius:6px; border:1px solid var(--borda-hover); background:var(--superficie); font-size:13px; display:inline-flex; align-items:center; gap:6px; color:var(--texto-corpo)}
+.tela .btn.p{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .seg{display:inline-flex; border:1px solid var(--borda-hover); border-radius:6px; overflow:hidden; background:var(--superficie)}
+.tela .seg div{padding:0 10px; height:32px; display:flex; align-items:center; font-size:13px; color:var(--texto-corpo); border-right:1px solid var(--borda)}
+.tela .seg div:last-child{border-right:0}
+.tela .seg .dia{font-weight:600; color:var(--texto-primario); min-width:180px; justify-content:center; gap:8px}
+.tela .seg .dia .hoje{font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--acento); background:var(--acento-suave); border-radius:999px; padding:2px 7px}
+
+/* placar do dia */
+.tela .placar{display:flex; gap:10px; margin:14px 0 12px; flex-wrap:wrap}
+.tela .kpi{display:flex; align-items:center; gap:10px; background:var(--superficie); border:1px solid var(--borda); border-radius:8px; padding:8px 12px 8px 10px; min-width:150px}
+.tela .kpi .ic{width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700}
+.tela .kpi .n{font-size:18px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums}
+.tela .kpi .r{font-size:11.5px; color:var(--texto-secundario); margin-top:2px}
+.tela .kpi.ok .ic{background:var(--sucesso-suave); color:var(--sucesso-forte)}
+.tela .kpi.sala .ic{background:var(--info-suave); color:var(--info-texto)}
+.tela .kpi.esp .ic{background:var(--aviso-suave); color:var(--aviso-texto)}
+.tela .kpi.mudo .ic{background:var(--superficie-hover); color:var(--texto-secundario)}
+.tela .kpi.mudo .n{color:var(--texto-secundario)}
+
+/* chips por profissional */
+.tela .chips{display:flex; gap:6px; margin:0 0 12px; align-items:center}
+.tela .chip{border:1px solid var(--borda); border-radius:999px; padding:4px 12px; font-size:12.5px; background:var(--superficie); color:var(--texto-corpo); display:inline-flex; align-items:center; gap:7px}
+.tela .chip.on{background:var(--acento); border-color:var(--acento); color:#fff; font-weight:600}
+.tela .chip .pt{width:8px; height:8px; border-radius:999px; background:var(--acento)}
+.tela .chip .n{font-size:11px; color:var(--texto-secundario); background:var(--superficie-hover); border-radius:999px; padding:0 6px}
+.tela .chip.on .n{background:rgba(255,255,255,.22); color:#fff}
+
+/* faixa chamando */
+.tela .chamando{background:var(--erro); color:#fff; border-radius:8px; padding:9px 14px; display:flex; align-items:center; gap:12px; margin:0 0 12px}
+.tela .chamando .k{font-size:11px; font-weight:800; letter-spacing:.1em}
+.tela .chamando .nome{font-size:17px; font-weight:600}
+.tela .chamando .sala{background:#fff; color:var(--erro); border-radius:999px; padding:2px 9px; font-size:12px; font-weight:600}
+.tela .chamando .ha{font-size:12px; color:#FEE2E2}
+.tela .chamando .entrou{margin-left:auto; background:#fff; color:var(--erro); border-radius:6px; padding:5px 14px; font-weight:600; font-size:13px}
+
+/* a lista */
+.tela .lista{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; overflow:hidden}
+.tela .cab,.tela .row{display:grid; grid-template-columns:4px 128px 1fr 170px 220px 190px; gap:0; align-items:center}
+.tela .cab{background:var(--superficie-hover); border-bottom:1px solid var(--borda)}
+.tela .cab div{padding:8px 12px; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--texto-secundario)}
+.tela .row{border-bottom:1px solid var(--borda); min-height:56px}
+.tela .row:last-child{border-bottom:0}
+.tela .row>div{padding:8px 12px}
+.tela .row .fam{padding:0; height:100%; align-self:stretch; background:var(--acu)}
+.tela .row.eletro .fam{background:var(--eletro)} .tela .row.bsv .fam{background:var(--bsv)} .tela .row.bsvacu .fam{background:var(--bsvacu)} .tela .row.consulta .fam{background:var(--consulta)}
+.tela .row.chamado{background:var(--erro-suave)}
+.tela .row.sala{background:#F7FEF9}
+.tela .row.fora{opacity:.5}
+.tela .row.fora .fam{background:var(--borda-hover)}
+.tela .hora{font-variant-numeric:tabular-nums}
+.tela .hora .h{font-size:15px; font-weight:700; letter-spacing:-.01em}
+.tela .hora .fim{font-size:12px; color:var(--texto-secundario)}
+.tela .hora .ok{color:var(--sucesso-forte); font-size:12px; margin-left:4px}
+.tela .pac{display:flex; align-items:center; gap:10px; min-width:0}
+.tela .av{width:34px; height:34px; border-radius:999px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12.5px; flex:none; background:var(--acu-50); color:var(--acu)}
+.tela .row.eletro .av{background:var(--eletro-50); color:var(--eletro)} .tela .row.bsv .av{background:var(--bsv-50); color:var(--bsv)} .tela .row.bsvacu .av{background:var(--bsvacu-50); color:var(--info-texto)} .tela .row.consulta .av{background:var(--consulta-50); color:var(--consulta)}
+.tela .pac .nome{font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px}
+.tela .pac .ctx{font-size:12px; color:var(--texto-secundario); margin-top:1px}
+.tela .pac .selos{display:flex; gap:5px; margin-top:5px; flex-wrap:wrap}
+.tela .selo{font-size:10.5px; font-weight:700; letter-spacing:.03em; border-radius:4px; padding:2px 7px}
+.tela .selo.guia{background:var(--aviso-suave); color:var(--aviso-texto)}
+.tela .selo.termo{background:var(--erro-suave); color:var(--erro-texto)}
+.tela .selo.pac{background:var(--info-suave); color:var(--info-texto)}
+.tela .selo.enc{background:var(--aviso-suave); color:var(--aviso-texto)}
+.tela .prof .n{font-size:13.5px}
+.tela .prof .s{font-size:12px; color:var(--texto-secundario)}
+.tela .st .pill{display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 10px 3px 8px; font-size:12px; font-weight:600; background:var(--superficie-hover); color:var(--texto-corpo)}
+.tela .st .pill::before{content:""; width:7px; height:7px; border-radius:999px; background:var(--texto-secundario)}
+.tela .st .pill.local{background:var(--aviso-suave); color:var(--aviso-texto)} .tela .st .pill.local::before{background:var(--aviso)}
+.tela .st .pill.cham{background:var(--erro-suave); color:var(--erro-texto)} .tela .st .pill.cham::before{background:var(--erro)}
+.tela .st .pill.aten{background:var(--sucesso-suave); color:var(--sucesso-forte)} .tela .st .pill.aten::before{background:var(--sucesso)}
+.tela .st .pill.conc{background:var(--info-suave); color:var(--info-texto)} .tela .st .pill.conc::before{background:var(--info)}
+.tela .st .pill.fora::before{display:none}
+.tela .st .det{font-size:12px; color:var(--texto-secundario); margin-top:4px}
+.tela .st .det.longa{color:var(--erro-texto); font-weight:600}
+.tela .acoes{display:flex; gap:6px; justify-content:flex-end}
+.tela .acoes .a{height:28px; padding:0 12px; border-radius:6px; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; border:1px solid var(--borda-hover); background:var(--superficie); color:var(--texto-corpo)}
+.tela .acoes .a.p{background:var(--acento); border-color:var(--acento); color:#fff}
+.tela .acoes .a.ok{background:var(--sucesso); border-color:var(--sucesso); color:#fff}
+.tela .acoes .a.mais{padding:0 9px; color:var(--texto-secundario)}
+
+/* legenda de famílias */
+.tela .legenda{display:flex; gap:14px; align-items:center; font-size:12px; color:var(--texto-secundario); margin-top:10px; flex-wrap:wrap}
+.tela .legenda span{display:inline-flex; align-items:center; gap:6px}
+.tela .legenda i{width:10px; height:10px; border-radius:2px; display:inline-block}
+
+/* ===== GRADE ===== */
+.tela .grade{background:var(--superficie); border:1px solid var(--borda); border-radius:8px; overflow:hidden; position:relative}
+.tela .gcab,.tela .gfx{display:grid; grid-template-columns:64px repeat(3,1fr)}
+.tela .gcab{background:var(--superficie-hover); border-bottom:1px solid var(--borda)}
+.tela .gcab div{padding:10px 12px; display:flex; align-items:center; gap:10px; border-right:1px solid var(--borda)}
+.tela .gcab div:last-child{border-right:0}
+.tela .gcab .pn{font-weight:600; font-size:13.5px}
+.tela .gcab .pc{font-size:11.5px; color:var(--texto-secundario)}
+.tela .gcab .avp{width:30px; height:30px; border-radius:999px; background:var(--acento); color:#fff; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center}
+.tela .gcab .avp.b{background:#0D9488} .tela .gcab .avp.c{background:#7C3AED}
+.tela .gfx{border-bottom:1px solid var(--borda); min-height:52px}
+.tela .gfx.cheia{background:var(--fundo)}
+.tela .gfx>div{border-right:1px solid var(--borda); padding:3px 4px; position:relative}
+.tela .gfx>div:last-child{border-right:0}
+.tela .gfx .t{padding:6px 10px; font-size:12px; font-weight:600; color:var(--texto-secundario); font-variant-numeric:tabular-nums; background:var(--superficie-hover)}
+.tela .gfx .t.meia{font-weight:400; color:var(--borda-hover)}
+.tela .card{border-radius:6px; padding:6px 9px 6px 10px; border-left:3px solid var(--acu); background:var(--acu-50); height:100%; min-height:44px; position:relative}
+.tela .card .n{font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px}
+.tela .card .c{font-size:11.5px; color:var(--texto-secundario); margin-top:1px}
+.tela .card .c b{font-weight:600}
+.tela .card .c b.local{color:var(--aviso-texto)} .tela .card .c b.aten{color:var(--sucesso-forte)} .tela .card .c b.conc{color:var(--info-texto)} .tela .card .c b.cham{color:var(--erro-texto)}
+.tela .card.eletro{border-color:var(--eletro); background:var(--eletro-50)}
+.tela .card.bsv{border-color:var(--bsv); background:var(--bsv-50)}
+.tela .card.bsvacu{border-color:var(--bsvacu); background:var(--bsvacu-50)}
+.tela .card.consulta{border-color:var(--consulta); background:var(--consulta-50)}
+.tela .card.enc{border-color:var(--aviso)}
+.tela .card.fora{border-color:var(--borda-hover); background:var(--superficie); color:var(--texto-secundario); opacity:.7}
+.tela .card.fora .n{text-decoration:line-through; text-decoration-color:var(--borda-hover)}
+.tela .card.cont{background:transparent; border-left-color:transparent; opacity:.55}
+.tela .card .ck{color:var(--sucesso-forte); font-size:12px}
+.tela .vao{height:100%; min-height:44px; border-radius:6px; border:1px dashed transparent; display:flex; align-items:center; justify-content:center; color:transparent; font-size:18px}
+.tela .vao.hover{border-color:var(--borda-hover); color:var(--texto-secundario); background:var(--superficie-hover)}
+.tela .fechado{height:100%; min-height:44px; border-radius:6px; background:repeating-linear-gradient(135deg,#F1F5F9 0 6px,#E5E7EB 6px 8px); display:flex; align-items:center; padding:0 10px; font-size:11.5px; color:var(--texto-secundario)}
+.tela .agora{position:absolute; left:64px; right:0; height:0; border-top:2px solid var(--erro); z-index:2}
+.tela .agora::before{content:"agora"; position:absolute; left:-58px; top:-9px; background:var(--erro); color:#fff; font-size:10px; font-weight:700; letter-spacing:.06em; border-radius:3px; padding:1px 6px}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Recepção · Agenda · proposta de cor e estilo · set/2026</p>
+  <h1>A agenda ganha cor onde a cor responde uma pergunta</h1>
+  <p class="lede">Hoje a agenda do dia é uma tabela cinza com pílulas de status, e a grade tem um traço colorido fino por modalidade que quase ninguém nota. A proposta abaixo pinta as duas com o que o design system já tem — as cinco cores de família, as quatro cores de estado, os tokens de superfície — e acrescenta só três tons claros novos. Nenhuma cor decora: cada uma repete a resposta de uma coluna.</p>
+
+  <ul class="regras">
+    <li><span class="marca">01</span><span class="txt"><b>A FAMÍLIA da modalidade é uma cor, em toda a agenda.</b> O traço de 3 px que já existe no cartão da grade passa a abrir cada LINHA da lista do dia, e o avatar do paciente toma o tom claro da mesma família. Quem vê teal já lê BSV — nas duas telas, com a mesma cor.</span></li>
+    <li><span class="marca">02</span><span class="txt"><b>O ESTADO continua sendo a pílula, agora com um ponto colorido.</b> Marcado cinza · No local âmbar · Chamado vermelho · Em atendimento verde · Concluído azul-claro. As mesmas cores das raias que a fila teve, sem as raias. A linha inteira só muda de fundo em dois casos que exigem ação: chamada demorada (vermelho) e paciente na sala (verde quase branco).</span></li>
+    <li><span class="marca">03</span><span class="txt"><b>O placar do dia vira quatro cartões pequenos com glifo e cor.</b> A frase "3 atendido(s) · 1 em sala · espera média 12 min" era texto corrido; cada número passa a ter o glifo semântico da tabela de iconografia (E73E atendido · EB51 em curso · E916 tempo · E7BA falta) e a cor que a métrica já tem no sistema.</span></li>
+    <li><span class="marca">04</span><span class="txt"><b>A grade ganha fundo por família, a linha do AGORA e o vão fechado hachurado.</b> O cartão deixa de ser sempre azul-claro com um traço colorido: o fundo inteiro toma o tom claro da família (três tokens novos). Uma linha vermelha marca a hora atual; férias e feriado saem em hachura em vez de cinza liso.</span></li>
+    <li><span class="marca">05</span><span class="txt"><b>O que NÃO muda:</b> nenhum botão, nenhuma ação, nenhuma coluna. O Meu dia do médico recebe as mesmas cores da lista — duas telas sobre o mesmo horário, uma cor. A agenda do faturamento continua como está (a tarja de lá significa status desde sempre).</span></li>
+  </ul>
+
+  <hr class="reg">
+
+  <div class="opcao">
+    <div class="op-topo"><span class="op-letra">TELA 1</span><h2>Agenda do dia — a lista do balcão</h2></div>
+    <p class="tese">Uma linha por horário, na ordem da hora. A cor da família abre a linha e pinta o avatar; o estado mora na pílula com o ponto; a linha inteira só se pinta quando pede ação. Dados de exemplo.</p>
+    <div class="moldura"><div class="tela">
+      <div class="abas"><div class="on">Dia</div><div>Grade</div><div>Semana do profissional</div></div>
+      <div class="pagina">
+        <div class="topo">
+          <div><div class="h1">Agenda do dia</div><div class="sub">Quem vem, quem chegou, quem está na sala — na ordem da hora.</div></div>
+          <div class="dir">
+            <div class="seg"><div>◀</div><div class="dia">seg 07/09/2026 <span class="hoje">hoje</span></div><div>▶</div></div>
+            <span class="btn">Atualizar</span>
+            <span class="btn p">+ Novo horário</span>
+          </div>
+        </div>
+
+        <div class="placar">
+          <div class="kpi ok"><div class="ic">✓</div><div><div class="n">3</div><div class="r">atendidos</div></div></div>
+          <div class="kpi sala"><div class="ic">▶</div><div><div class="n">1</div><div class="r">em atendimento</div></div></div>
+          <div class="kpi esp"><div class="ic">◔</div><div><div class="n">12 min</div><div class="r">espera média</div></div></div>
+          <div class="kpi mudo"><div class="ic">—</div><div><div class="n">1 · 0</div><div class="r">falta · cancelamento</div></div></div>
+        </div>
+
+        <div class="chips">
+          <span class="chip on">Todos <span class="n">8</span></span>
+          <span class="chip"><span class="pt" style="background:#123A9E"></span>Dra. Ana <span class="n">5</span></span>
+          <span class="chip"><span class="pt" style="background:#0D9488"></span>Dr. Bruno <span class="n">3</span></span>
+        </div>
+
+        <div class="chamando">
+          <span class="k">CHAMANDO</span>
+          <span class="nome">Carla Menezes</span>
+          <span class="sala">sala 2</span>
+          <span class="ha">chamado há 4 min — anuncie na sala de espera</span>
+          <span class="entrou">Entrou</span>
+        </div>
+
+        <div class="lista">
+          <div class="cab"><div></div><div>Horário</div><div>Paciente</div><div>Profissional</div><div>Status</div><div></div></div>
+
+          <div class="row eletro">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">08:00</span><span class="ok">✓</span><div class="fim">–08:30</div></div>
+            <div class="pac"><div class="av">MS</div><div><div class="nome">Maria Souza</div><div class="ctx">Acupuntura com eletro · Unimed Intercâmbio · pacote 7/10</div></div></div>
+            <div class="prof"><div class="n">Dra. Ana</div></div>
+            <div class="st"><span class="pill conc">Concluído</span><div class="det">às 08:34</div></div>
+            <div class="acoes"><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row bsv">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">08:30</span><div class="fim">–09:30</div></div>
+            <div class="pac"><div class="av">JP</div><div><div class="nome">João Pereira</div><div class="ctx">BSV · Amil</div></div></div>
+            <div class="prof"><div class="n">Dr. Bruno</div><div class="s">sala 1</div></div>
+            <div class="st"><span class="pill conc">Concluído</span><div class="det">às 09:22</div></div>
+            <div class="acoes"><span class="a p">Debitar pacote</span><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row sala">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">09:00</span><span class="ok">✓</span><div class="fim">–09:30</div></div>
+            <div class="pac"><div class="av">RL</div><div><div class="nome">Rita Lopes</div><div class="ctx">Acupuntura · Unimed Intercâmbio</div></div></div>
+            <div class="prof"><div class="n">Dra. Ana</div></div>
+            <div class="st"><span class="pill aten">Em atendimento</span><div class="det">desde 09:04</div></div>
+            <div class="acoes"><span class="a ok">Concluir</span><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row chamado eletro">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">09:30</span><span class="ok">✓</span><div class="fim">–10:00</div></div>
+            <div class="pac"><div class="av">CM</div><div><div class="nome">Carla Menezes</div><div class="ctx">Acupuntura com eletro · Bradesco</div><div class="selos"><span class="selo guia">Guia pendente</span></div></div></div>
+            <div class="prof"><div class="n">Dr. Bruno</div><div class="s">sala 2</div></div>
+            <div class="st"><span class="pill cham">Chamado</span><div class="det longa">chamado há 4 min</div></div>
+            <div class="acoes"><span class="a p">Entrou</span><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row bsvacu">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">10:00</span><div class="fim">–11:00</div></div>
+            <div class="pac"><div class="av">PA</div><div><div class="nome">Paulo Andrade <span class="selo enc">Encaixe</span></div><div class="ctx">BSV com acupuntura · Sul América</div><div class="selos"><span class="selo termo">Termo por assinar</span><span class="selo pac">Última do pacote</span></div></div></div>
+            <div class="prof"><div class="n">Dra. Ana</div></div>
+            <div class="st"><span class="pill local">No local</span><div class="det">chegou às 09:41 · espera 12 min</div></div>
+            <div class="acoes"><span class="a p">Chamar</span><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row consulta">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">10:30</span><span class="ok">✓</span><div class="fim">–11:00</div></div>
+            <div class="pac"><div class="av">LF</div><div><div class="nome">Lúcia Ferreira</div><div class="ctx">Consulta · Psiquiatria · Unimed</div></div></div>
+            <div class="prof"><div class="n">Dr. Bruno</div><div class="s">sala 1</div></div>
+            <div class="st"><span class="pill">Marcado</span></div>
+            <div class="acoes"><span class="a p">Chegou</span><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row fora">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">11:00</span><div class="fim">–11:30</div></div>
+            <div class="pac"><div class="av">EC</div><div><div class="nome">Eduardo Castro</div><div class="ctx">Acupuntura · Particular</div></div></div>
+            <div class="prof"><div class="n">Dra. Ana</div></div>
+            <div class="st"><span class="pill fora">Faltou</span></div>
+            <div class="acoes"><span class="a mais">⋯</span></div>
+          </div>
+
+          <div class="row eletro">
+            <div class="fam"></div>
+            <div class="hora"><span class="h">11:30</span><div class="fim">–12:00</div></div>
+            <div class="pac"><div class="av">TN</div><div><div class="nome">Teresa Nunes</div><div class="ctx">Acupuntura com eletro · Unimed Intercâmbio · pacote 2/10</div></div></div>
+            <div class="prof"><div class="n">Dra. Ana</div></div>
+            <div class="st"><span class="pill">Marcado</span></div>
+            <div class="acoes"><span class="a p">Chegou</span><span class="a mais">⋯</span></div>
+          </div>
+        </div>
+
+        <div class="legenda">
+          <span><i style="background:#123A9E"></i>Acupuntura</span>
+          <span><i style="background:#7C3AED"></i>Acupuntura com eletro</span>
+          <span><i style="background:#0D9488"></i>BSV</span>
+          <span><i style="background:#0EA5E9"></i>BSV com acupuntura</span>
+          <span><i style="background:#DB2777"></i>Consulta</span>
+          <span style="margin-left:auto">✓ confirmou na rodada</span>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="opcao">
+    <div class="op-topo"><span class="op-letra">TELA 2</span><h2>Grade — uma coluna por profissional</h2></div>
+    <p class="tese">O cartão toma o fundo da família, e não só o traço. A hora atual é uma linha vermelha que atravessa as colunas. O vão fechado sai em hachura, com o motivo escrito. O vão livre continua clicável, e mostra o "+" ao passar o mouse. Dados de exemplo.</p>
+    <div class="moldura"><div class="tela">
+      <div class="abas"><div>Dia</div><div class="on">Grade</div><div>Semana do profissional</div></div>
+      <div class="pagina">
+        <div class="topo">
+          <div><div class="h1">Agenda</div><div class="sub">seg 07/09/2026 · 8 horário(s) no dia · 3 coluna(s)</div></div>
+          <div class="dir">
+            <div class="seg"><div>◀</div><div class="dia">seg 07/09/2026 <span class="hoje">hoje</span></div><div>▶</div></div>
+            <span class="btn">Por sala</span>
+            <span class="btn">Lista de espera <b style="color:var(--acento)">2</b></span>
+            <span class="btn">Fechar agenda…</span>
+          </div>
+        </div>
+
+        <div class="grade" style="margin-top:14px">
+          <div class="gcab">
+            <div></div>
+            <div><span class="avp">A</span><div><div class="pn">Dra. Ana</div><div class="pc">5 horário(s) · 8h–17h</div></div></div>
+            <div><span class="avp b">B</span><div><div class="pn">Dr. Bruno</div><div class="pc">3 horário(s) · 8h–12h</div></div></div>
+            <div><span class="avp c">C</span><div><div class="pn">Dra. Célia</div><div class="pc">0 horário(s) · férias</div></div></div>
+          </div>
+
+          <div class="gfx"><div class="t">08:00</div>
+            <div><div class="card eletro"><div class="n">Maria Souza <span class="ck">✓</span></div><div class="c">Acupuntura com eletro · <b class="conc">Concluído às 08:34</b></div></div></div>
+            <div><div class="card bsv"><div class="n">João Pereira</div><div class="c">BSV · sala 1 · <b class="conc">Concluído</b></div></div></div>
+            <div><div class="fechado">Férias · até 12/09</div></div>
+          </div>
+          <div class="gfx"><div class="t meia">08:30</div>
+            <div><div class="vao"></div></div>
+            <div><div class="card bsv cont"><div class="c">↑ até 09:30</div></div></div>
+            <div><div class="fechado"></div></div>
+          </div>
+          <div class="gfx" style="position:relative"><div class="t">09:00</div>
+            <div><div class="card"><div class="n">Rita Lopes <span class="ck">✓</span></div><div class="c">Acupuntura · <b class="aten">Em atendimento desde 09:04</b></div></div></div>
+            <div><div class="card bsv cont"><div class="c">↑ até 09:30</div></div></div>
+            <div><div class="fechado"></div></div>
+            <div class="agora" style="top:38px"></div>
+          </div>
+          <div class="gfx"><div class="t meia">09:30</div>
+            <div><div class="vao hover">+</div></div>
+            <div><div class="card eletro"><div class="n">Carla Menezes <span class="ck">✓</span></div><div class="c">Eletro · sala 2 · <b class="cham">Chamado há 4 min</b></div></div></div>
+            <div><div class="fechado"></div></div>
+          </div>
+          <div class="gfx"><div class="t">10:00</div>
+            <div><div class="card bsvacu enc"><div class="n">Paulo Andrade</div><div class="c">BSV com acupuntura · encaixe · <b class="local">No local</b></div></div></div>
+            <div><div class="vao"></div></div>
+            <div><div class="fechado"></div></div>
+          </div>
+          <div class="gfx"><div class="t meia">10:30</div>
+            <div><div class="card bsvacu cont"><div class="c">↑ até 11:00</div></div></div>
+            <div><div class="card consulta"><div class="n">Lúcia Ferreira <span class="ck">✓</span></div><div class="c">Consulta · Psiquiatria · sala 1</div></div></div>
+            <div><div class="fechado"></div></div>
+          </div>
+          <div class="gfx"><div class="t">11:00</div>
+            <div><div class="card fora"><div class="n">Eduardo Castro</div><div class="c">Faltou</div></div></div>
+            <div><div class="vao"></div></div>
+            <div><div class="fechado"></div></div>
+          </div>
+          <div class="gfx"><div class="t meia">11:30</div>
+            <div><div class="card eletro"><div class="n">Teresa Nunes</div><div class="c">Acupuntura com eletro · pacote 2/10</div></div></div>
+            <div><div class="vao"></div></div>
+            <div><div class="fechado"></div></div>
+          </div>
+        </div>
+
+        <div class="legenda">
+          <span><i style="background:#123A9E"></i>Acupuntura</span>
+          <span><i style="background:#7C3AED"></i>Acupuntura com eletro</span>
+          <span><i style="background:#0D9488"></i>BSV</span>
+          <span><i style="background:#0EA5E9"></i>BSV com acupuntura</span>
+          <span><i style="background:#DB2777"></i>Consulta</span>
+          <span><i style="background:#EA580C"></i>traço laranja = encaixe</span>
+          <span><i style="background:repeating-linear-gradient(135deg,#F1F5F9 0 3px,#D1D5DB 3px 4px)"></i>agenda fechada</span>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <hr class="reg">
+
+  <h2>O que isto custa ao design system</h2>
+  <p class="tese">Tudo o que a proposta usa já existe como token, menos três tons claros. Eles entram em <code style="font-family:'IBM Plex Mono',monospace;font-size:14px">Tokens.xaml</code> ao lado dos irmãos que já estão lá, e o espelho de tokens do CI os confere.</p>
+  <table class="tokens">
+    <tr><th>Uso</th><th>Token</th><th>Cor</th></tr>
+    <tr><td>Fundo do cartão e avatar · Acupuntura</td><td><code>Brush.Acento.Suave</code></td><td><span class="sw" style="background:#EEF3FC"></span>#EEF3FC</td></tr>
+    <tr><td>Fundo do cartão e avatar · Acupuntura com eletro</td><td><code>Brush.Modalidade.AcupunturaEletro.Suave</code><span class="novo">novo</span></td><td><span class="sw" style="background:#F5F3FF"></span>#F5F3FF (Cor.Violeta.50)</td></tr>
+    <tr><td>Fundo do cartão e avatar · BSV</td><td><code>Brush.Modalidade.Bsv.Suave</code><span class="novo">novo</span></td><td><span class="sw" style="background:#F0FDFA"></span>#F0FDFA (Cor.Teal.50)</td></tr>
+    <tr><td>Fundo do cartão e avatar · BSV com acupuntura</td><td><code>Brush.Info.Suave</code></td><td><span class="sw" style="background:#E0F2FE"></span>#E0F2FE</td></tr>
+    <tr><td>Fundo do cartão e avatar · Consulta</td><td><code>Brush.Modalidade.Consulta.Suave</code><span class="novo">novo</span></td><td><span class="sw" style="background:#FDF2F8"></span>#FDF2F8 (Cor.Rosa.50)</td></tr>
+    <tr><td>Linha do agora · pílula Chamado · faixa CHAMANDO</td><td><code>Brush.Erro</code> / <code>.Suave</code></td><td><span class="sw" style="background:#DC2626"></span>#DC2626</td></tr>
+    <tr><td>Pílula No local · encaixe · espera média</td><td><code>Brush.Aviso</code> / <code>.Suave</code> / <code>.Texto</code></td><td><span class="sw" style="background:#EA580C"></span>#EA580C</td></tr>
+    <tr><td>Pílula Em atendimento · ✓ confirmou · atendidos</td><td><code>Brush.Sucesso</code> / <code>.Forte</code> / <code>.Suave</code></td><td><span class="sw" style="background:#16A34A"></span>#16A34A</td></tr>
+    <tr><td>Pílula Concluído · em atendimento (placar)</td><td><code>Brush.Info</code> / <code>.Suave</code> / <code>.Texto</code></td><td><span class="sw" style="background:#0EA5E9"></span>#0EA5E9</td></tr>
+  </table>
+  <p class="nota">Os glifos do placar seguem a tabela de iconografia do sistema (E73E atendido · EB51 atendimento em curso · E916 tempo · E7BA falta). No mockup estão representados por símbolos; no app saem na Segoe Fluent.</p>
+
+  <div class="reco">
+    <h2>O que preciso que você decida</h2>
+    <ul class="perguntas">
+      <li><span class="q">1</span><span>O fundo do cartão da grade por família (tela 2) — ou manter o azul-claro de sempre e pintar só o traço, como hoje?</span></li>
+      <li><span class="q">2</span><span>A linha da lista inteira em verde claro quando o paciente está na sala (tela 1, Rita Lopes) — ou só a pílula?</span></li>
+      <li><span class="q">3</span><span>O placar do dia em quatro cartões pequenos com glifo — ou a frase de uma linha como está?</span></li>
+      <li><span class="q">4</span><span>A legenda de famílias no pé das duas telas: fica sempre, ou some depois de um mês, quando a equipe já souber as cores?</span></li>
+    </ul>
+    <p class="nota">Aprovado o desenho, o XAML sai nas duas telas do balcão e no Meu dia do médico no mesmo commit — as três leem os mesmos tokens.</p>
+  </div>
+</div>
