@@ -1275,6 +1275,35 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os lançamentos que PAGAM estes pacotes (set/2026) — à vista, entrada e parcelas,
+    /// inclusive os cancelados (quem lê decide o que conta). Em lote: a lista de pacotes
+    /// tem a carteira inteira, e uma consulta por pacote seria uma ida ao banco remoto
+    /// por linha. <paramref name="rastreados"/> = true para quem vai ESCREVER (o
+    /// cancelamento da venda derruba as parcelas previstas no mesmo <c>SaveChanges</c>).
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosPacotesAsync(
+        IReadOnlyCollection<int> pacoteIds, bool rastreados = false, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sessões PARTICULARES realizadas no período sem nenhum dinheiro registrado (set/2026):
+    /// atendimento com <c>RealizadoEm</c>, não estornado, cujos códigos são TODOS
+    /// <see cref="StatusCodigo.NaoAplicavel"/> (é assim que o particular nasce), sem
+    /// lançamento de entrada vivo apontando para ele e sem sessão de pacote debitada.
+    /// É a conciliação do particular — o par de <c>CodigosNoPeriodoAsync</c> + baixa, que
+    /// exclui o <c>NaoAplicavel</c> por construção.
+    /// </summary>
+    Task<IReadOnlyList<SessaoSemReceita>> SessoesParticularesSemReceitaAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// A mesma leitura, para UM paciente e sem recorte de data — o que o balcão precisa
+    /// saber com a pessoa na frente ("a sessão de terça ficou sem pagamento registrado").
+    /// Só sessões ANTERIORES a <paramref name="antesDe"/>: a de hoje está sendo fechada agora.
+    /// </summary>
+    Task<IReadOnlyList<SessaoSemReceita>> SessoesParticularesSemReceitaDoPacienteAsync(
+        int pacienteId, DateOnly antesDe, CancellationToken ct = default);
+
     // ---- Conciliação da agenda (parcela 93) ----
 
     /// <summary>

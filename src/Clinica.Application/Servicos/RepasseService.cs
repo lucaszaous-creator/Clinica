@@ -116,7 +116,11 @@ public sealed class RepasseService
 
         var lancamentos = await _repo.LancamentosDosAtendimentosAsync(atendimentoIds, ct);
         var receitaPorAtendimento = lancamentos
-            .Where(l => l.Tipo == TipoLancamento.Entrada && l.AtendimentoId is not null)
+            // Só o que ENTROU (set/2026): a sessão particular que "fica a receber" é uma
+            // entrada PREVISTA ligada ao atendimento, e repassar sobre ela pagaria o
+            // profissional por dinheiro que o paciente ainda não trouxe.
+            .Where(l => l.Tipo == TipoLancamento.Entrada && l.Status == StatusLancamento.Realizado
+                        && l.AtendimentoId is not null)
             .GroupBy(l => l.AtendimentoId!.Value)
             .ToDictionary(g => g.Key, g => g.Sum(l => l.Valor));
 

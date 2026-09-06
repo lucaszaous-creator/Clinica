@@ -2373,6 +2373,70 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosPacotesAsync(
+        IReadOnlyCollection<int> pacoteIds, bool rastreados = false, CancellationToken ct = default)
+    {
+        if (pacoteIds.Count == 0) return [];
+
+        var consulta = rastreados ? _db.Lancamentos.AsQueryable() : _db.Lancamentos.AsNoTracking();
+        return await consulta
+            .Where(l => l.PacotePacienteId != null && pacoteIds.Contains(l.PacotePacienteId.Value))
+            .OrderBy(l => l.DataVencimento).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<SessaoSemReceita>> SessoesParticularesSemReceitaAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await SessoesParticularesSemReceita()
+            .Where(a => a.Data >= inicio && a.Data <= fim)
+            .OrderBy(a => a.Data).ThenBy(a => a.Id)
+            .Select(ProjetarSessaoSemReceita)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<SessaoSemReceita>> SessoesParticularesSemReceitaDoPacienteAsync(
+        int pacienteId, DateOnly antesDe, CancellationToken ct = default)
+        => await SessoesParticularesSemReceita()
+            .Where(a => a.PacienteId == pacienteId && a.Data < antesDe)
+            .OrderBy(a => a.Data).ThenBy(a => a.Id)
+            .Select(ProjetarSessaoSemReceita)
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// UMA definição de "sessão particular sem receita" para as duas leituras (período e
+    /// paciente) — duas divergiriam na primeira correção, e a que ficasse para trás
+    /// responderia "tudo pago" no balcão com a linha ainda aberta na Conciliação.
+    ///
+    /// ⚠️ As COLUNAS, nunca as derivadas (`Estornado`, `Cancelado`): o EF recusa em runtime
+    /// e a consulta só se prova executando — está em `TraducaoNoNpgsqlTests`.
+    /// </summary>
+    private IQueryable<Atendimento> SessoesParticularesSemReceita()
+        => _db.Atendimentos.AsNoTracking()
+            // Aconteceu (não é a marcada para a semana que vem) e não foi desfeita.
+            .Where(a => a.RealizadoEm != null && a.EstornadoEm == null)
+            // Particular: TODOS os códigos são NaoAplicavel. Convênio tem ao menos um
+            // faturável; a NC continua sendo NaoConformidade; o estornado já saiu acima.
+            .Where(a => a.Codigos.Any() && !a.Codigos.Any(c => c.Status != StatusCodigo.NaoAplicavel))
+            // Nenhum dinheiro VIVO: recebido ou a receber, os dois valem como resolvido.
+            .Where(a => !_db.Lancamentos.Any(l => l.AtendimentoId == a.Id
+                                                 && l.Tipo == TipoLancamento.Entrada
+                                                 && l.Status != StatusLancamento.Cancelado))
+            // Sessão de pacote já foi paga na compra do pacote.
+            .Where(a => !_db.ConsumosPacote.Any(c => c.AtendimentoId == a.Id && c.CanceladoEm == null));
+
+    private static readonly System.Linq.Expressions.Expression<Func<Atendimento, SessaoSemReceita>>
+        ProjetarSessaoSemReceita = a => new SessaoSemReceita(
+            a.Id,
+            a.PacienteId,
+            a.Paciente!.Nome,
+            a.Data,
+            a.Modalidade,
+            a.ModalidadeCodigo,
+            a.EspecialidadeConsulta,
+            a.Paciente.Convenio,
+            a.Paciente.ConvenioCodigo,
+            // O tipo do primeiro código é o que a tabela de preço conhece.
+            a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First());
+
     // ---- Estoque ----
 
     public async Task<IReadOnlyList<ItemEstoque>> ItensEstoqueAsync(

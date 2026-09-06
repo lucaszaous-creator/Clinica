@@ -86,6 +86,39 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
     [ObservableProperty] private FormaPagamento? _forma;
     [ObservableProperty] private OpcaoCategoriaFechamento? _categoria;
 
+    /// <summary>
+    /// O paciente NÃO pagou agora: a sessão fica A RECEBER, com vencimento (set/2026).
+    /// É a segunda resposta à pergunta "como esta sessão foi paga?" — até aqui só havia
+    /// "pago no caixa" ou nada, e "nada" era o que a recepção escolhia quando o paciente
+    /// combinava pagar depois. A conta nasce prevista, com dono e vencimento: a
+    /// inadimplência a vê quando vencer e o balcão é avisado na próxima visita.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumoDoQueVaiAcontecer))]
+    [NotifyPropertyChangedFor(nameof(PagoAgora))]
+    private bool _ficaAReceber;
+
+    /// <summary>O contrário de <see cref="FicaAReceber"/>, para o rádio "Pago agora" ligar por binding.</summary>
+    public bool PagoAgora
+    {
+        get => !FicaAReceber;
+        set => FicaAReceber = !value;
+    }
+
+    /// <summary>Vencimento da conta quando fica a receber. Nasce em 30 dias — regra da casa para o prazo.</summary>
+    [ObservableProperty] private DateTime _vencimento = DateTime.Today.AddDays(30);
+
+    /// <summary>
+    /// É PARTICULAR: o dinheiro desta sessão só entra por aqui. A tela diz isso no bloco
+    /// do caixa, porque é a única sessão em que "não registrar" não é omissão tolerável —
+    /// para o convênio o dinheiro vem pela conciliação da guia; para o particular não vem
+    /// de lugar nenhum.
+    /// </summary>
+    [ObservableProperty] private bool _ehParticular;
+
+    /// <summary>Particular sem histórico e sem tabela: o valor tem de ser digitado, e a tela explica.</summary>
+    [ObservableProperty] private bool _particularSemPreco;
+
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -140,7 +173,10 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
         {
             var partes = new List<string>();
             if (TemPacote && DebitarPacote) partes.Add("debita 1 sessão do pacote");
-            if (GerarLancamento) partes.Add("lança a entrada no caixa");
+            if (GerarLancamento)
+                partes.Add(FicaAReceber
+                    ? "registra a sessão como A RECEBER, com vencimento"
+                    : "lança a entrada no caixa");
             if (partes.Count == 0) return "A guia já está no faturamento. Não há mais nada a registrar.";
             return "A guia já está no faturamento. Concluir " + string.Join(" e ", partes) + ".";
         }
@@ -179,7 +215,14 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
             DebitarPacote = proposta.TemPacote;
 
             Valor = proposta.ValorSugerido?.ToString("0.00");
-            ProcedenciaDoValor = proposta.ProcedenciaDoValor;
+            EhParticular = proposta.EhParticular;
+            ParticularSemPreco = proposta.ParticularSemPreco;
+            // Sem preço sugerido, a procedência diz POR QUE o campo está vazio — vazio sem
+            // explicação num particular se lê como "grátis".
+            ProcedenciaDoValor = proposta.ProcedenciaDoValor
+                ?? (proposta.ParticularSemPreco
+                    ? "sem histórico nem tabela de preço para o particular — informe o valor combinado"
+                    : null);
             Forma = proposta.FormaSugerida;
             GerarLancamento = proposta.SugereLancamento && PodeLancarFinanceiro;
 
@@ -249,10 +292,16 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
         {
             if (!Valores.TentarLerDecimal(Valor, out var lido))
             {
-                Erro("Informe um valor maior que zero (ex.: 120,00) ou desmarque a entrada no caixa.");
+                Erro("Informe um valor maior que zero (ex.: 120,00) ou desmarque a cobrança desta sessão.");
                 return;
             }
             valor = lido;
+
+            if (!FicaAReceber && Forma is null)
+            {
+                Erro("Diga como o paciente pagou (Pix, cartão, dinheiro…) — ou marque \"fica a receber\".");
+                return;
+            }
         }
 
         var insumos = new List<InsumoAConsumir>();
@@ -287,7 +336,11 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
                     Valor: valor,
                     Forma: Forma,
                     CategoriaId: Categoria?.Id,
-                    Insumos: insumos),
+                    Insumos: insumos,
+                    FicaAReceber: GerarLancamento && FicaAReceber,
+                    Vencimento: GerarLancamento && FicaAReceber
+                        ? DateOnly.FromDateTime(Vencimento)
+                        : null),
                 SessaoUsuario.Atual.Operador);
 
             // O atendimento existe a partir daqui, tenha o resto dado certo ou não:

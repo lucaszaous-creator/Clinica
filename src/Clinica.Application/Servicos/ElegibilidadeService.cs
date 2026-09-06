@@ -95,6 +95,7 @@ public sealed class ElegibilidadeService
         await ConferirCotaAsync(pacienteId, referencia, alertas, ct);
         await ConferirConsentimentoAsync(pacienteId, alertas, ct);
         await ConferirDebitoAsync(pacienteId, referencia, alertas, ct);
+        await ConferirSessaoSemReceitaAsync(pacienteId, referencia, alertas, ct);
         await ConferirGlosaAsync(pacienteId, referencia, alertas, ct);
         await ConferirPacoteAsync(pacienteId, referencia, alertas, ct);
         await ConferirTermoAsync(pacienteId, referencia, alertas, ct);
@@ -303,6 +304,36 @@ public sealed class ElegibilidadeService
             $"{devedor.Contas} conta(s) em aberto — {devedor.Total:C}, a mais antiga "
             + $"vencida há {devedor.DiasMaiorAtraso} dia(s). O paciente está aqui: é a "
             + "hora barata de combinar o acerto."));
+    }
+
+    /// <summary>
+    /// Sessão PARTICULAR anterior sem dinheiro registrado (set/2026) — a conciliação do
+    /// particular chegando ao balcão, que é onde ela se resolve.
+    ///
+    /// A dívida (acima) só enxerga o que virou conta a receber vencida. A sessão que saiu
+    /// do balcão sem NADA registrado — nem recebido, nem a receber — não é dívida para o
+    /// sistema, e por isso não acendia alerta nenhum: o paciente voltava, era atendido de
+    /// novo, e a segunda sessão saía como a primeira. Amarelo, e só as ANTERIORES à data
+    /// de referência: a de hoje está sendo fechada agora.
+    /// </summary>
+    private async Task ConferirSessaoSemReceitaAsync(
+        int pacienteId, DateOnly referencia,
+        List<AlertaElegibilidade> alertas, CancellationToken ct)
+    {
+        var sessoes = await _repo.SessoesParticularesSemReceitaDoPacienteAsync(pacienteId, referencia, ct);
+        if (sessoes.Count == 0) return;
+
+        var ultima = sessoes[^1];
+        var quais = sessoes.Count == 1
+            ? $"a sessão de {ultima.Data:dd/MM/yyyy} ({ultima.ModalidadeNome})"
+            : $"{sessoes.Count} sessões, a última em {ultima.Data:dd/MM/yyyy}";
+
+        alertas.Add(new AlertaElegibilidade(
+            ImpedimentoElegibilidade.SessaoParticularSemReceita,
+            NivelUrgencia.Amarelo,
+            $"Particular: {quais} sem pagamento registrado — nem recebido, nem a receber. "
+            + "Registre como foi paga (ou combine o vencimento) enquanto o paciente está aqui; "
+            + "a lista completa está na Conciliação do Financeiro, aba Particulares."));
     }
 
     /// <summary>

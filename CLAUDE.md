@@ -400,6 +400,56 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `WithOne()` NÃO é de graça**: o EF exige índice ÚNICO para o dependente 1‑1, e migration
   roda na ABERTURA do app — índice único que falha na criação é o faturamento não abrindo.
   Conte as duplicatas pela conciliação antes.
+- **O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
+  convênio só entra por ela** (set/2026; a cliente: *"agora precisamos controlar e gerir
+  tudo que for particular… as infos dos pacientes particular são enviadas ao módulo
+  financeiro para que seja conciliado e seja feito o caixa"*). Medido antes de escrever:
+  o circuito do CONVÊNIO estava fechado (guia → conciliação → caixa) e o do particular
+  tinha **três buracos, nenhum dos quais falhava** — 2266 testes verdes.
+  (a) **A venda de pacote não movia dinheiro.** `VenderAsync` gravava o pacote e mais
+  nada; `PacotePaciente.LancamentoFinanceiroId` existia desde a parcela 4 **sem um único
+  escritor em produção** — campo gravável sem escritor, a variante espelhada do dado sem
+  leitor. Agora a venda exige a decisão (`PagamentoDaVenda`: à vista, ou entrada +
+  parcelas mensais contadas do PRIMEIRO vencimento) e grava os lançamentos no MESMO
+  `SaveChanges`, apontando para o pacote por `LancamentoFinanceiro.PacotePacienteId`
+  (coluna aditiva). ⚠️ **Quem aponta é o lançamento, não o pacote**: a venda parcelada
+  tem vários, e a coluna antiga só cabe um — ela fica, pela regra aditiva.
+  (b) **O particular de primeira vez nunca era perguntado sobre dinheiro.**
+  `SugereLancamento = pacote is null && valor is not null` só valia com HISTÓRICO de
+  recebimento; sem ele `TemDecisao` dava falso, a janela não abria e a tela dizia
+  "concluída — particular, sem guia a faturar". A sessão ficava registrada e sem uma
+  linha de dinheiro. Agora `PropostaFechamento.EhParticular` (o convênio da ficha não
+  gera guia) faz a pergunta SEMPRE, e ela tem **duas respostas**: pago agora, ou **fica
+  a receber** com vencimento (`DecisaoFechamento.FicaAReceber` → conta prevista com dono,
+  vencimento e `AtendimentoId`, via `ContasService`). O convênio sem pacote continua sem
+  janela: o dinheiro dele vem pela guia.
+  (c) **Não havia conciliação do particular.** `GuiasSemLancamentoAsync` é inacessível a
+  ele por construção (`CodigosNoPeriodoAsync` exclui o `NaoAplicavel`). Nasceu
+  `SessoesParticularesSemReceitaAsync` — realizada, não estornada, todos os códigos
+  `NaoAplicavel`, sem lançamento de entrada vivo e sem sessão de pacote — como aba
+  **Particulares** da Conciliação, com o preço da tabela do cadastro "Particular" quando
+  a direção o cadastrou (a MESMA tabela por convênio da parcela 20, que sempre aceitou o
+  código e nunca era lida daqui). A linha sai por passar a TER lançamento — recebido OU a
+  receber —, nunca por alguém marcá-la. E ela chega ao balcão: `ElegibilidadeService`
+  avisa (amarelo) a sessão anterior sem dinheiro, porque é com o paciente na frente que
+  se resolve.
+  ⚠️ **Repasse só conta o REALIZADO.** `LancamentosDosAtendimentosAsync` devolve tudo o
+  que não está cancelado, e até aqui toda entrada ligada a atendimento era realizada.
+  Com o "fica a receber" passou a existir a PREVISTA — e o repasse pagaria o profissional
+  por dinheiro que o paciente ainda não trouxe. **Ao criar um status novo num dado que já
+  tem leitores, releia cada leitor perguntando se ele filtrava por status ou por
+  acidente.** O estorno já filtrava certo (cancela a conta prevista junto — o certo).
+  ⚠️ **`{Binding X}` não alcança propriedade ESTÁTICA** — as formas de pagamento da linha
+  da conciliação nasceram `static` e o combo sairia vazio, sem erro nenhum. Pego na
+  releitura do diff. E o `[RelayCommand]` fica colado ao método: um helper inserido entre
+  o atributo e o método foi o único erro que o `compilar-sombra` acusou nesta parcela —
+  rede que roda antes do push é rede que pega antes do CI.
+  **O que ficou de fora, com o motivo**: o lançamento manual do Caixa continua sem
+  seletor de paciente (a receita órfã não liga à sessão nem some da conciliação — a
+  correção é dar-lhe o `SeletorPacienteViewModel` da conta a receber); a cobrança de
+  parcela vencida usa a porta que já existe ("Quem me deve", WhatsApp e Receber, no
+  Financeiro) — o balcão vê o aviso e ainda não RECEBE dali; e não há preço particular
+  por MODALIDADE fora da tabela por convênio, que é por tipo de código.
 - **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
   dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
   mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.

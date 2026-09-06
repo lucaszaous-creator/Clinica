@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -19,6 +20,45 @@ public sealed record SaldoPacote(
     DateOnly? ValidoAte)
 {
     public bool Ativo => Situacao == StatusPacote.Ativo;
+
+    // ---------- Situação de PAGAMENTO (set/2026) ----------
+    //
+    // Lida dos lançamentos que apontam para o pacote (`LancamentoFinanceiro.PacotePacienteId`).
+    // Nula quando quem descreveu não trouxe os lançamentos (a lista de retenção lê pacotes
+    // em bloco e não pergunta por dinheiro) — e nulo é "não conferido", nunca "não pago".
+
+    /// <summary>O que já entrou no caixa por este pacote (lançamentos realizados).</summary>
+    public decimal? ValorPago { get; init; }
+
+    /// <summary>O que ainda está previsto (parcelas em aberto).</summary>
+    public decimal? ValorAReceber { get; init; }
+
+    public int ParcelasEmAberto { get; init; }
+
+    /// <summary>Parcelas previstas cujo vencimento já passou — a cobrança pendente.</summary>
+    public int ParcelasVencidas { get; init; }
+
+    /// <summary>
+    /// Houve algum lançamento para este pacote. Falso é o pacote vendido ANTES de a venda
+    /// mover dinheiro (set/2026) ou registrado sem pagamento — e é o que a tela precisa
+    /// dizer, senão "R$ 0,00 pago" se lê como calote.
+    /// </summary>
+    public bool TemLancamento => ValorPago is { } p && ValorAReceber is { } r && (p > 0m || r > 0m);
+
+    /// <summary>"pago" · "R$ 400,00 a receber (2 parcelas, 1 vencida)" · "sem lançamento no caixa".</summary>
+    public string PagamentoRotulo
+    {
+        get
+        {
+            if (ValorPago is null || ValorAReceber is null) return "pagamento não conferido";
+            if (Valor == 0m) return "sem valor";
+            if (!TemLancamento) return "sem lançamento no caixa";
+            if (ValorAReceber == 0m) return "pago";
+
+            var vencidas = ParcelasVencidas > 0 ? $", {ParcelasVencidas} vencida(s)" : string.Empty;
+            return $"{ValorAReceber:C} a receber ({ParcelasEmAberto} parcela(s){vencidas})";
+        }
+    }
 
     /// <summary>"7 de 10 sessões" ou "livre até 31/12".</summary>
     public string SaldoRotulo => SessoesContratadas is { } contratadas
@@ -96,7 +136,8 @@ public sealed class PacoteService
     /// </summary>
     public async Task<PacotePaciente> VenderAsync(
         int pacienteId, int catalogoId, DateOnly? dataCompra = null, decimal? valorCobrado = null,
-        string? observacoes = null, string? operador = null, CancellationToken ct = default)
+        string? observacoes = null, string? operador = null, PagamentoDaVenda? pagamento = null,
+        CancellationToken ct = default)
     {
         var catalogo = await _repo.ObterPacoteCatalogoAsync(catalogoId, ct)
             ?? throw new InvalidOperationException("Pacote não encontrado no catálogo.");
@@ -114,12 +155,23 @@ public sealed class PacoteService
             DataCompra = compra,
             ValidoAte = catalogo.ValidadeDias is { } dias ? compra.AddDays(dias) : null,
             Observacoes = observacoes
-        }, operador, ct);
+        }, operador, pagamento, ct);
     }
 
-    /// <summary>Venda avulsa, sem passar pelo catálogo (o pacote combinado na hora).</summary>
+    /// <summary>
+    /// Venda avulsa, sem passar pelo catálogo (o pacote combinado na hora).
+    ///
+    /// <paramref name="pagamento"/> é como o paciente paga (set/2026): à vista vira um
+    /// lançamento REALIZADO, a prazo vira a entrada realizada mais uma conta a receber
+    /// PREVISTA por parcela — tudo apontando para o pacote e gravado no MESMO
+    /// <c>SaveChanges</c> da venda (ou existe tudo, ou nada; a regra 7 do compromisso).
+    /// Nulo mantém o comportamento anterior — o pacote nasce sem lançamento, e a lista
+    /// DIZ isso ("sem lançamento no caixa") em vez de mostrar R$ 0,00 pago com cara de
+    /// calote. A tela de venda não oferece o nulo: quem vende decide como recebe.
+    /// </summary>
     public async Task<PacotePaciente> RegistrarVendaAsync(
-        PacotePaciente dados, string? operador = null, CancellationToken ct = default)
+        PacotePaciente dados, string? operador = null, PagamentoDaVenda? pagamento = null,
+        CancellationToken ct = default)
     {
         var paciente = await _repo.ObterPacienteAsync(dados.PacienteId, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
@@ -155,11 +207,25 @@ public sealed class PacoteService
         };
 
         await _repo.AdicionarPacotePacienteAsync(pacote, ct);
+
+        // O dinheiro da venda, montado pelo MESMO desenho que a tela mostrou na prévia:
+        // a prévia que promete três parcelas e grava duas é pior do que prévia nenhuma.
+        // As parcelas são validadas ANTES de qualquer gravação — uma decisão que não
+        // fecha (entrada maior que o valor, sem vencimento) recusa a venda inteira.
+        var comoPaga = "sem lançamento no caixa";
+        if (pagamento is not null)
+        {
+            var desenho = ParcelasDaVenda.Desenhar(pacote.Valor, pacote.DataCompra, pagamento);
+            foreach (var lancamento in ParcelasDaVenda.Montar(pacote, paciente.Nome, pagamento, operador))
+                await _repo.AdicionarLancamentoAsync(lancamento, ct);
+            comoPaga = ParcelasDaVenda.Resumir(desenho);
+        }
+
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = "PacoteVendido",
-            Detalhe = $"{pacote.Nome} — {paciente.Nome} — {pacote.Valor:C}",
+            Detalhe = $"{pacote.Nome} — {paciente.Nome} — {pacote.Valor:C} — {comoPaga}",
             PacienteId = pacote.PacienteId
         }, ct);
 
@@ -167,8 +233,16 @@ public sealed class PacoteService
         return pacote;
     }
 
-    /// <summary>Cancela a venda. Não apaga: o histórico e os consumos continuam lá.</summary>
-    public async Task CancelarAsync(
+    /// <summary>
+    /// Cancela a venda. Não apaga: o histórico e os consumos continuam lá.
+    ///
+    /// As parcelas ainda PREVISTAS caem junto — venda cancelada não é dívida do paciente,
+    /// e deixá-las em aberto poria na inadimplência alguém que não deve nada. O que já foi
+    /// RECEBIDO fica: é dinheiro que entrou na conta, e cancelá-lo faria o caixa parar de
+    /// bater com o extrato (a regra da glosa, parcela 27). Devolução, se houver, é uma
+    /// SAÍDA lançada no Caixa com a data dela — e o aviso devolvido diz isso.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> CancelarAsync(
         int pacoteId, string motivo, string? operador = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivo))
@@ -183,15 +257,37 @@ public sealed class PacoteService
         pacote.CanceladoEm = DateTime.Now;
         pacote.MotivoCancelamento = motivo.Trim();
 
+        var avisos = new List<string>();
+        var lancamentos = await _repo.LancamentosDosPacotesAsync([pacote.Id], rastreados: true, ct);
+        var previstas = lancamentos.Where(l => l.Status == StatusLancamento.Previsto).ToList();
+        foreach (var parcela in previstas)
+        {
+            parcela.Status = StatusLancamento.Cancelado;
+            parcela.Observacoes = string.IsNullOrWhiteSpace(parcela.Observacoes)
+                ? $"Cancelado: venda do pacote cancelada — {motivo.Trim()}"
+                : $"{parcela.Observacoes} | Cancelado: venda do pacote cancelada — {motivo.Trim()}";
+        }
+
+        var recebido = lancamentos
+            .Where(l => l.Status == StatusLancamento.Realizado)
+            .Sum(l => l.Valor);
+        if (recebido > 0m)
+            avisos.Add($"{recebido:C} já recebido(s) por este pacote continuam no caixa. "
+                       + "Se houver devolução, lance a saída no Caixa com a data dela.");
+
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = "PacoteCancelado",
-            Detalhe = $"{pacote.Nome} — {motivo.Trim()}",
+            Detalhe = $"{pacote.Nome} — {motivo.Trim()}"
+                      + (previstas.Count > 0
+                          ? $" — {previstas.Count} parcela(s) prevista(s) cancelada(s)"
+                          : string.Empty),
             PacienteId = pacote.PacienteId
         }, ct);
 
         await _repo.SalvarAsync(ct);
+        return avisos;
     }
 
     // ==================== Saldo e consumo ====================
@@ -201,7 +297,7 @@ public sealed class PacoteService
     {
         var dia = hoje ?? DateOnly.FromDateTime(DateTime.Today);
         var pacotes = await _repo.PacotesDoPacienteAsync(pacienteId, ct);
-        return pacotes.Select(p => Descrever(p, dia)).ToList();
+        return await DescreverComPagamentoAsync(pacotes, dia, ct);
     }
 
     /// <summary>Todos os pacotes vendidos (a lista do módulo Financeiro).</summary>
@@ -210,7 +306,26 @@ public sealed class PacoteService
     {
         var dia = hoje ?? DateOnly.FromDateTime(DateTime.Today);
         var pacotes = await _repo.PacotesVendidosAsync(ct);
-        return pacotes.Select(p => Descrever(p, dia)).ToList();
+        return await DescreverComPagamentoAsync(pacotes, dia, ct);
+    }
+
+    /// <summary>
+    /// Descreve os pacotes COM a situação de pagamento — os lançamentos vêm em UMA
+    /// consulta para a lista inteira, nunca uma por pacote (a lista do Financeiro tem a
+    /// carteira toda, e o banco é remoto).
+    /// </summary>
+    private async Task<IReadOnlyList<SaldoPacote>> DescreverComPagamentoAsync(
+        IReadOnlyList<PacotePaciente> pacotes, DateOnly dia, CancellationToken ct)
+    {
+        if (pacotes.Count == 0) return [];
+
+        var lancamentos = await _repo.LancamentosDosPacotesAsync(
+            pacotes.Select(p => p.Id).ToList(), rastreados: false, ct);
+        var porPacote = lancamentos
+            .Where(l => l.PacotePacienteId is not null)
+            .ToLookup(l => l.PacotePacienteId!.Value);
+
+        return pacotes.Select(p => Descrever(p, dia, porPacote[p.Id].ToList())).ToList();
     }
 
     /// <summary>
@@ -343,6 +458,26 @@ public sealed class PacoteService
             p.Id, p.PacienteId, p.Paciente?.Nome, p.Nome, p.Tipo, p.Situacao(hoje),
             p.SessoesContratadas, p.SessoesUsadas, p.SaldoSessoes,
             p.Valor, p.DataCompra, p.ValidoAte);
+
+    /// <summary>
+    /// A situação de pagamento é lida dos lançamentos que apontam para o pacote. Cancelado
+    /// não conta em nenhum dos dois lados: parcela cancelada não é devida, e realizado
+    /// cancelado não entrou.
+    /// </summary>
+    private static SaldoPacote Descrever(
+        PacotePaciente p, DateOnly hoje, IReadOnlyList<LancamentoFinanceiro> lancamentos)
+    {
+        var vivos = lancamentos.Where(l => l.Status != StatusLancamento.Cancelado).ToList();
+        var previstas = vivos.Where(l => l.Status == StatusLancamento.Previsto).ToList();
+
+        return Descrever(p, hoje) with
+        {
+            ValorPago = vivos.Where(l => l.Status == StatusLancamento.Realizado).Sum(l => l.Valor),
+            ValorAReceber = previstas.Sum(l => l.Valor),
+            ParcelasEmAberto = previstas.Count,
+            ParcelasVencidas = previstas.Count(l => l.EstaVencido(hoje))
+        };
+    }
 
     private static string? Limpar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

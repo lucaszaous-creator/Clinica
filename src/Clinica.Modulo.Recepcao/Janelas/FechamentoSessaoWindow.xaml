@@ -100,18 +100,37 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Caixa -->
+                <!-- Caixa. A pergunta é "como esta sessão foi paga?", e ela tem DUAS
+                     respostas (set/2026): pago agora, ou fica a receber com vencimento.
+                     Até aqui só havia a primeira, e o particular que combinava pagar
+                     depois saía sem registro nenhum. -->
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <CheckBox IsChecked="{Binding GerarLancamento}"
                                   IsEnabled="{Binding PodeLancarFinanceiro}"
-                                  Content="Lançar a entrada no caixa" />
+                                  Content="Registrar como esta sessão foi paga" />
+
+                        <!-- Só o PARTICULAR lê isto: para ele, não registrar é a sessão
+                             sumir do dinheiro — o convênio entra pela conciliação da guia. -->
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="24,4,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                                   Text="Atendimento PARTICULAR, sem guia: o dinheiro desta sessão só entra no sistema por aqui. Sem registro, ela fica na Conciliação do Financeiro (aba Particulares) e o balcão é avisado na próxima visita."
+                                   Visibility="{Binding EhParticular,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
 
                         <TextBlock Style="{StaticResource TextoSuave}" Margin="24,4,0,0"
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
                                    Text="Seu usuário não tem permissão para lançar no caixa — o Financeiro lança pela Conciliação."
                                    Visibility="{Binding SemPermissaoFinanceiro,
                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+
+                        <StackPanel Orientation="Horizontal" Margin="24,10,0,0"
+                                    IsEnabled="{Binding GerarLancamento}">
+                            <RadioButton Content="Pago agora" IsChecked="{Binding PagoAgora}"
+                                         GroupName="Cobranca" />
+                            <RadioButton Content="Fica a receber" IsChecked="{Binding FicaAReceber}"
+                                         GroupName="Cobranca" Margin="16,0,0,0" />
+                        </StackPanel>
 
                         <Grid Margin="24,10,0,0" IsEnabled="{Binding GerarLancamento}">
                             <Grid.ColumnDefinitions>
@@ -128,10 +147,22 @@
                                            FontSize="{StaticResource Fonte.Legenda}"
                                            TextWrapping="Wrap" Margin="0,4,0,0" />
                             </StackPanel>
-                            <StackPanel Grid.Column="2">
+                            <!-- Pago agora: a forma. Fica a receber: o vencimento. A forma
+                                 de uma parcela futura é decidida no dia em que ela é paga. -->
+                            <StackPanel Grid.Column="2"
+                                        Visibility="{Binding PagoAgora, Converter={StaticResource BoolParaVisibilidade}}">
                                 <TextBlock Text="Forma de pagamento" Style="{StaticResource Rotulo}" />
                                 <ComboBox ItemsSource="{Binding Formas}" SelectedItem="{Binding Forma}"
                       ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2"
+                                        Visibility="{Binding FicaAReceber, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="Vence em" Style="{StaticResource Rotulo}" />
+                                <DatePicker SelectedDate="{Binding Vencimento}" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           TextWrapping="Wrap" Margin="0,4,0,0"
+                                           Text="Vira conta a receber do paciente; vencida, aparece em “Quem me deve” e no aviso do balcão." />
                             </StackPanel>
                         </Grid>
 

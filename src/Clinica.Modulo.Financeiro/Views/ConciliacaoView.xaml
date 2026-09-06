@@ -37,6 +37,9 @@
              visto pelos dois lados, e a proposta tem um item ali. -->
         <TabControl Background="Transparent" BorderThickness="0">
         <TabItem Header="A lançar">
+        <!-- A sobreposição de estado é DESTA aba: na raiz da página ela cobria as abas
+             vizinhas sempre que a lista de guias estivesse vazia (parcelas 58/64/68). -->
+        <Grid>
         <DockPanel>
 
         <!-- Contexto permanente é LINHA de texto, não faixa colorida (a regra do
@@ -218,6 +221,14 @@
             </DockPanel>
         </Border>
         </DockPanel>
+        <ctrl:EstadoDaTela Itens="{Binding Linhas}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE8C7;"
+                           TextoCarregando="Buscando guias sem receita…"
+                           Titulo="{Binding TituloVazio}"
+                           Descricao="{Binding DescricaoVazio}" />
+        </Grid>
         </TabItem>
 
         <!-- ============ O caminho de volta (parcela 27) ============
@@ -334,14 +345,132 @@
             </Border>
         </DockPanel>
         </TabItem>
+
+        <!-- ============ O PARTICULAR (set/2026) ============
+             A mesma pergunta das guias, para quem não tem guia: sessão que aconteceu e
+             ainda não tem dinheiro — nem recebido, nem a receber, nem sessão de pacote.
+             A linha sai por passar a TER lançamento, nunca por alguém a marcar. -->
+        <TabItem Header="Particulares">
+        <Grid>
+        <DockPanel>
+
+            <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820"
+                       HorizontalAlignment="Left" Margin="0,12,0,12"
+                       Style="{StaticResource TextoSuave}"
+                       Text="Sessões particulares realizadas no mês sem nenhum dinheiro registrado. Informe o valor e diga se foi RECEBIDO (forma de pagamento) ou se fica A RECEBER (vencimento) — nos dois casos a sessão sai da lista e o lançamento fica vinculado a ela. O balcão é avisado na próxima visita de quem está aqui." />
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoParticulares}" TextWrapping="Wrap"
+                       Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
+
+            <!-- Terceiro estado: a leitura falhou. Aba vazia por consulta quebrada se lê
+                 como "todo particular está pago", que é a mentira mais cara desta aba. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding ParticularesNaoVerificadas,
+                                 Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                           Text="Não foi possível conferir as sessões particulares deste mês. A lista abaixo está VAZIA por falha de leitura, não por estar tudo pago." />
+            </Border>
+
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}"
+                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Padding="16,12"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="2*" MinWidth="200" />
+                                <ColumnDefinition Width="1.3*" MinWidth="160" />
+                                <ColumnDefinition Width="420" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Sessão" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,16,0" />
+                            <TextBlock Grid.Column="2" Text="Modalidade" Style="{StaticResource Rotulo}" Margin="0,0,16,0" />
+                            <TextBlock Grid.Column="3" Text="Como foi paga" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Particulares}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="2*" MinWidth="200" />
+                                                <ColumnDefinition Width="1.3*" MinWidth="160" />
+                                                <ColumnDefinition Width="420" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                                                <TextBlock Text="{Binding Paciente}"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                <TextBlock Text="{Binding Convenio}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding Modalidade}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" Margin="0,0,16,0"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Modalidade}" />
+
+                                            <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBox Width="100"
+                                                             Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"
+                                                             VerticalContentAlignment="Center" />
+                                                    <RadioButton Content="Recebido" IsChecked="{Binding Recebido}"
+                                                                 Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                    <RadioButton Content="A receber" IsChecked="{Binding AReceber}"
+                                                                 Margin="10,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <!-- Recebido: a forma. A receber: o vencimento. -->
+                                                    <ComboBox Width="150"
+                                                              ItemsSource="{Binding Formas}"
+                                                              SelectedItem="{Binding Forma}"
+                                                              ItemTemplate="{StaticResource ItemRotuloEnum}"
+                                                              Visibility="{Binding Recebido, Converter={StaticResource BoolParaVisibilidade}}" />
+                                                    <DatePicker Width="150" SelectedDate="{Binding Vencimento}"
+                                                                Visibility="{Binding AReceber, Converter={StaticResource BoolParaVisibilidade}}" />
+                                                    <Button Content="Lançar"
+                                                            Style="{StaticResource BotaoPequeno}"
+                                                            Margin="6,0,0,0" VerticalAlignment="Center"
+                                                            Command="{Binding DataContext.LancarSessaoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Procedencia}" TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </DockPanel>
+        <ctrl:EstadoDaTela Itens="{Binding Particulares}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding ParticularesNaoVerificadas}"
+                           Glifo="&#xE8C7;"
+                           TextoCarregando="Buscando sessões particulares sem dinheiro…"
+                           Titulo="Nenhuma sessão particular sem dinheiro registrado"
+                           Descricao="A sessão sai desta lista quando passa a TER lançamento — recebido ou a receber —, não quando alguém a marca." />
+        </Grid>
+        </TabItem>
         </TabControl>
       </DockPanel>
-        <ctrl:EstadoDaTela Itens="{Binding Linhas}"
-                           Carregando="{Binding Carregando}"
-                           NaoVerificado="{Binding NaoVerificado}"
-                           Glifo="&#xE8C7;"
-                           TextoCarregando="Buscando guias sem receita…"
-                           Titulo="{Binding TituloVazio}"
-                           Descricao="{Binding DescricaoVazio}" />
     </Grid>
 </UserControl>

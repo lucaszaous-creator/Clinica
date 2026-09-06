@@ -121,11 +121,21 @@
                                                     <Run Text="{Binding Compra, Mode=OneWay}" />
                                                     <Run Text=" · " />
                                                     <Run Text="{Binding ValorFormatado, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Pagamento, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                         VerticalAlignment="Center">
+                                                <!-- Parcela vencida: o pacote está ativo e a
+                                                     cobrança está atrasada — as duas coisas ao
+                                                     mesmo tempo, e a segunda é a que o balcão
+                                                     precisa ver (set/2026). -->
+                                                <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,8,0"
+                                                        Visibility="{Binding PagamentoAtrasado, Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="Parcela vencida" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                </Border>
                                                 <Border Style="{StaticResource Badge}" Margin="0,0,8,0">
                                                     <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>

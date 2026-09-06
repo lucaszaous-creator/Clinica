@@ -34,6 +34,16 @@ public sealed class LinhaPacoteVendido
     public required bool Ativo { get; init; }
 
     /// <summary>
+    /// "pago" · "R$ 400,00 a receber (2 parcelas, 1 vencida)" · "sem lançamento no caixa"
+    /// (set/2026). É o leitor do vínculo pacote ↔ lançamento; sem ele, vender a prazo seria
+    /// dado gravado sem leitor — a direção não veria quem ainda deve o pacote.
+    /// </summary>
+    public required string Pagamento { get; init; }
+
+    /// <summary>Há parcela vencida: o selo do pagamento sai em aviso, não em neutro.</summary>
+    public required bool PagamentoAtrasado { get; init; }
+
+    /// <summary>
     /// Debitar sessão é ato do BALCÃO (parcela 62): o estado da linha COMPÕE com a
     /// permissão, senão o botão fica aceso e o clique estoura no <c>ExigirAlgum</c> —
     /// o defeito da parcela 41.
@@ -192,7 +202,9 @@ public sealed partial class PacotesViewModel : ObservableObject
                     Situacao = Clinica.Domain.RotulosEnum.De(v.Situacao),
                     ValorFormatado = v.Valor.ToString("C"),
                     Compra = v.DataCompra.ToString("dd/MM/yyyy"),
-                    Ativo = v.Ativo
+                    Ativo = v.Ativo,
+                    Pagamento = v.PagamentoRotulo,
+                    PagamentoAtrasado = v.ParcelasVencidas > 0
                 });
 
             _totalAtivos = vendidos.Count(v => v.Ativo);
@@ -400,15 +412,23 @@ public sealed partial class PacotesViewModel : ObservableObject
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar pacote",
             $"Por que o pacote \"{linha.Nome}\" de {linha.Paciente} está sendo cancelado? "
-            + "Ele continua na lista, com o motivo — as sessões já usadas não somem.");
+            + "Ele continua na lista, com o motivo — as sessões já usadas não somem. "
+            + "As parcelas ainda A RECEBER caem junto; o que já foi recebido fica no caixa.");
         if (string.IsNullOrWhiteSpace(motivo)) return;
 
         try
         {
+            IReadOnlyList<string> avisos;
             using (var escopo = _escopos.CreateScope())
-                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                avisos = await escopo.ServiceProvider.GetRequiredService<PacoteService>()
                     .CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Pacote cancelado.");
+
+            // O aviso do dinheiro já recebido vai em DIÁLOGO: ele pede uma ação (a saída
+            // da devolução, se houver) e não sobrevive aos 4 s do snackbar.
+            if (avisos.Count > 0)
+                _dialogo.Aviso("Pacote cancelado", string.Join("\n\n", avisos));
+            else
+                _snackbar.Info("Pacote cancelado.");
             await CarregarAsync();
         }
         catch (Exception ex)

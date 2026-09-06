@@ -1549,11 +1549,17 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.CodigoFaturamento).WithMany()
                 .HasForeignKey(x => x.CodigoFaturamentoId).OnDelete(DeleteBehavior.SetNull);
+            // O pacote que este lançamento paga (set/2026). SetNull, como as vizinhas: a
+            // venda cancelada continua na base, e o dinheiro que entrou por ela também.
+            e.HasOne(x => x.PacotePaciente).WithMany()
+                .HasForeignKey(x => x.PacotePacienteId).OnDelete(DeleteBehavior.SetNull);
 
             e.HasIndex(x => x.Data);
             e.HasIndex(x => x.Status);
             // Conciliação: achar rápido o lançamento de uma guia.
             e.HasIndex(x => x.CodigoFaturamentoId);
+            // "Quanto deste pacote já foi pago" — a lista de pacotes lê em lote por aqui.
+            e.HasIndex(x => x.PacotePacienteId);
             // "O que vence esta semana" é a consulta mais frequente do módulo.
             e.HasIndex(x => x.DataVencimento);
             // "O que a maquininha ainda deve depositar" (parcela 16). O indice e sobre a

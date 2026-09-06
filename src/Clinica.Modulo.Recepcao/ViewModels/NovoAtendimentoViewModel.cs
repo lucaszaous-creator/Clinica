@@ -2048,10 +2048,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         // insumo a baixar. Para o paciente de convênio sem pacote não há nada que a
         // recepcionista possa responder ali, e pedir confirmação de uma tela vazia é o que
         // ensina a fechar janela sem ler.
+        // O PARTICULAR nunca cai aqui desde set/2026: para ele a janela abre sempre, porque
+        // "como esta sessão foi paga?" é uma pergunta que só o balcão pode responder.
         if (!registro.TemDecisao)
         {
             Avisar(registro.GuiasGeradas == 0
-                ? "Atendimento registrado. Este convênio não gera guia (particular)."
+                ? "Atendimento registrado — sem guia a faturar."
                 : $"Atendimento registrado — {registro.GuiasGeradas} guia(s) no faturamento.");
             return;
         }

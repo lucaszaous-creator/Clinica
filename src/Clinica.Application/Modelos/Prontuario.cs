@@ -124,6 +124,13 @@ public enum ImpedimentoElegibilidade
     /// <summary>Carteirinha do convênio vencida — a guia seria recusada na origem.</summary>
     CarteirinhaVencida,
 
+    /// <summary>
+    /// Sessão PARTICULAR anterior sem nenhum dinheiro registrado (set/2026) — nem recebido,
+    /// nem a receber, nem pacote. O paciente está na frente: é a hora de perguntar como
+    /// aquela sessão foi paga, antes de a próxima também ficar sem registro.
+    /// </summary>
+    SessaoParticularSemReceita,
+
     /// <summary>Carteirinha vence em poucos dias.</summary>
     CarteirinhaAVencer,
 
