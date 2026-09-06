@@ -103,37 +103,29 @@ public sealed class LinhaSessao
     public DateTime? InicioEm { get; init; }
     public DateTime? FimEm { get; init; }
 
+    /// <summary>O status GRAVADO do horário — é ele que separa cancelado e falta do resto.</summary>
+    public StatusAgendamento Estado { get; init; }
+
+    public int? EsperaMinutos { get; init; }
+    public int? ChamadoHaMinutos { get; init; }
+
     /// <summary>
     /// A coluna STATUS da lista (parcela 95): a etapa da fila em uma palavra. Para o
     /// cancelado e a falta é a situação — a linha fica, MARCADA, pela regra da folha do
     /// dia (quem lê às 14h precisa saber que as 15h vagaram).
+    ///
+    /// O vocabulário é o de <see cref="StatusDaFila"/> — o MESMO da lista do balcão
+    /// (set/2026): duas telas sobre o mesmo horário, uma palavra.
     /// </summary>
-    public string Status => ForaDaFila ? Situacao : Etapa switch
-    {
-        EtapaFila.Chegou => "No local",
-        EtapaFila.Chamado => "Chamado",
-        EtapaFila.EmAtendimento => "Em atendimento",
-        EtapaFila.Finalizado => "Conclu\u00EDdo",
-        _ => "Marcado"
-    };
+    public string Status => StatusDaFila.Palavra(Estado, Etapa);
 
     /// <summary>
     /// A hora do fato abaixo do status — "chegou às 14:40 · espera 12 min", "chamado há 4
-    /// min", "desde 14:52", "às 15:20". É o que faz a linha responder "quem eu posso
-    /// chamar agora" sem precisar de cinco colunas. Vazio quando não há fato.
+    /// min", "desde 14:52", "às 15:20". Vazio quando não há fato. A redação é a de
+    /// <see cref="StatusDaFila.Detalhe"/>, compartilhada com o balcão.
     /// </summary>
-    public string StatusDetalhe => ForaDaFila ? string.Empty : Etapa switch
-    {
-        EtapaFila.Chegou => string.Join(" \u00B7 ", new[]
-        {
-            ChegadaEm is { } c ? $"chegou \u00E0s {c:HH\\:mm}" : null,
-            Espera.Length > 0 ? Espera : null
-        }.Where(x => x is not null)),
-        EtapaFila.Chamado => ChamadoHa,
-        EtapaFila.EmAtendimento => InicioEm is { } i ? $"desde {i:HH\\:mm}" : string.Empty,
-        EtapaFila.Finalizado => FimEm is { } f ? $"\u00E0s {f:HH\\:mm}" : string.Empty,
-        _ => string.Empty
-    };
+    public string StatusDetalhe => StatusDaFila.Detalhe(
+        Estado, Etapa, ChegadaEm, EsperaMinutos, ChamadoHaMinutos, InicioEm, FimEm);
 
     /// <summary>
     /// A coluna PRONTUÁRIO — a do print do Smart Clinic. "Pendente" é o que ainda não
@@ -161,7 +153,10 @@ public sealed class LinhaSessao
         Modalidade = s.Modalidade,
         Local = s.Sala ?? "—",
         Situacao = Rotular(s.Status, s.Etapa),
-        ForaDaFila = s.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou,
+        ForaDaFila = StatusDaFila.ForaDaFila(s.Status),
+        Estado = s.Status,
+        EsperaMinutos = s.EsperaMinutos,
+        ChamadoHaMinutos = s.ChamadoHaMinutos,
         EvolucaoEscrita = s.EvolucaoEscrita,
         RegistroPendente = s.RegistroPendente,
         Encaixe = s.Encaixe,

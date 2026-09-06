@@ -117,25 +117,35 @@ public sealed class ModuloRecepcao : IModuloApp
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda, Inicial = true
         },
         // ===== GESTÃO =====
-        // A agenda do balcão e a semana de quem atende respondem a MESMA pergunta ("quando
-        // cabe"), em recortes diferentes. No `Clinica.Recepcao.exe` o Consultório não é
-        // carregado, sobra uma aba só, e o shell mostra a tela direto — sem régua de uma
-        // aba só.
+        // A AGENDA é um item só, com as três formas de olhar o mesmo dia (set/2026 — a
+        // cliente: a agenda e a fila do dia "acabam sendo uma duplicata para a mesma
+        // função", e no Smart Clinic são uma tela só):
+        //   · DIA   — a lista do dia com o status em cada linha, que era a "Fila do dia"
+        //             em cinco raias (parcelas 26, 58, 87). É a ABERTURA do item, como o
+        //             "Hoje" da Minha agenda do Consultório;
+        //   · GRADE — os horários em coluna por profissional/sala, onde se marca clicando
+        //             no vão e onde mora a janela do horário (remarcar, reabrir…);
+        //   · SEMANA DO PROFISSIONAL — a do Consultório. No `Clinica.Recepcao.exe` ele não
+        //             é carregado, sobram duas abas.
+        // A "Fila do dia" deixou de ser item de menu: a chave continua declarada (abaixo),
+        // porque o painel e o Consultório navegam por ela — quem a esconde é este pai.
         new ItemMenuModulo
         {
             Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
             Abas =
             [
-                new AbaMenu("Dia", ChaveAgenda),
+                new AbaMenu("Dia", ChaveFila),
+                new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
         },
         new ItemMenuModulo
         {
-            // "Fila do dia" (parcela 95): era "Recepção / Check-in" — item que precisa de dois
-            // nomes é item que ainda não decidiu o que é, e a direção pediu simples.
-            Chave = ChaveFila, Rotulo = "Fila do dia", Glifo = "\uE8FD",
+            // A aba DIA da Agenda (set/2026). Era o item "Fila do dia" (parcela 95: antes
+            // "Recepção / Check-in"). Declarado pela checagem 28 — toda `AbaMenu` aponta
+            // para item — e escondido pelo composto acima.
+            Chave = ChaveFila, Rotulo = "Agenda do dia", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).

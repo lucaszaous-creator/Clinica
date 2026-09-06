@@ -54,7 +54,7 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
 | 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5, 63 e set/2026 |
-| 03 | Fila em kanban | Recepção | ✅ | 1 |
+| 03 | Agenda do dia (lista) | Recepção | ✅ | 1 e set/2026 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
 | 06 | Mapa corporal | Recepção | ✅ | 3 |
@@ -179,14 +179,17 @@ zero.**
 > o **encaixe**, e aí ele fica registrado em vez de virar conflito silencioso. Quem não
 > informa profissional nem sala — o faturamento — enxerga o comportamento de sempre.
 
-### Feature 03 · Fila em kanban — ✅ · parcela 1
+### Feature 03 · Agenda do dia — ✅ · parcelas 1 e set/2026
 
 | Item | Estado | Onde |
 |---|---|---|
-| Fila do dia com confirmar/cancelar/faltou | ✅ | `FilaViewModel` |
-| Colunas Aguardando · Chegou · Em atendimento · Finalizado | ✅ | `Agendamento.Etapa`, `FilaView` |
+| **A agenda do dia em LISTA** — aba **Dia** do item Agenda | ✅ | **set/2026** — `FilaView`/`FilaViewModel`: uma linha por horário, na ordem da hora, com HORÁRIO · PACIENTE · PROFISSIONAL · STATUS · ações. A cliente, com o print do Smart Clinic: a agenda e a fila "acabam sendo uma duplicata para a mesma função". O kanban de cinco raias (parcelas 26, 58 e 87) e o arrasto saíram; a "Fila do dia" deixou de ser item de menu |
+| Chegou · Chamar · Entrou · Concluir · Fechar sessão · falta · cancelamento | ✅ | o passo seguinte é o botão da linha; o resto no "⋯" — as mesmas guardas de sempre |
+| Status por linha, com a hora do fato | ✅ | `StatusDaFila` (Application) — o MESMO vocabulário do Meu dia do médico: Marcado · No local · Chamado · Em atendimento · Concluído; "chegou às 14:40 · espera 12 min" |
+| Cancelado e falta FICAM na lista, apagados | ✅ | a regra da folha do dia; a única ação deles é "Abrir na grade (reabrir ou remarcar)…" |
 | Tempo de espera visível | ✅ | `Agendamento.EsperaMinutos`, atualizado a cada minuto na tela |
-| Aviso de pendência já no check-in | ✅ | `AgendaService.ConfirmarPresencaAsync` + etiqueta no cartão |
+| Aviso de pendência já no check-in | ✅ | selos por ordem fixa (`SelosDaFila`), só na linha viva |
+| Faixa CHAMANDO — o recado do consultório | ✅ | nomeia o chamado mais antigo, com sala e cronômetro, e o "Entrou" dentro dela |
 
 > As colunas saem dos **carimbos de hora** (`ChegadaEm`, `InicioAtendimentoEm`), não de
 > um status novo: o faturamento continua vendo o mesmo `StatusAgendamento` de sempre.
@@ -1066,7 +1069,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 |---|---|---|---|
 | **GESTÃO** · Início | Recepção | ✅ | `PainelView` |
 | **GESTÃO** · Agenda | Recepção | ✅ | `AgendaView` |
-| **GESTÃO** · Fila do dia (era "Recepção / Check-in" até a parcela 95) | Recepção | ✅ | `FilaView` (kanban). Desde set/2026 o cartão carrega **no máximo três selos**, por ordem fixa (`SelosDaFila`, Application): o que impede (termo), o que cobra agora (guia, pacote no fim), o estado da coluna (atraso em AGUARDANDO, encerrado em EM ATENDIMENTO). Confirmação vira ✓ na hora; pacote N/M e encaixe vão para a linha de contexto |
+| **GESTÃO** · Agenda → aba **Dia** (era o item "Fila do dia"; antes da parcela 95, "Recepção / Check-in") | Recepção | ✅ | `FilaView` em **LISTA** (set/2026): a agenda do dia com o status em cada linha, o desenho do Smart Clinic e do Meu dia. Os selos continuam **no máximo três**, por ordem fixa (`SelosDaFila`): o que impede (termo), o que cobra agora (guia, pacote no fim), o estado (atraso, encerrado). Confirmação é ✓ ao lado da hora; pacote N/M vai para a linha de contexto; encaixe é selo ao lado do nome |
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |

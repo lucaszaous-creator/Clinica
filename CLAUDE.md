@@ -7501,3 +7501,40 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   declarava `xmlns:ctrl` (o parser XML do `verificar-suite` acusou o prefixo solto — o
   `MC3074` que o CI pegaria sete minutos depois) e um `TextBlock` de data sem
   `TextTrimming` numa célula de 150 px (checagem 24).
+
+- **A AGENDA DO DIA VIROU LISTA, E A "FILA DO DIA" DEIXOU DE SER ITEM** (set/2026, PR 167 —
+  a cliente, com o print do Smart Clinic na mão: a agenda e a fila do dia *"acabam sendo uma
+  duplicata para a mesma função"*). O kanban em raias (parcelas 26 → 58 → 87, aprovado em
+  mockup) respondia à pergunta que EU tinha atribuído ao balcão — "vinte pessoas em cinco
+  estados". Para quem usa, a agenda do dia e a fila são UMA pergunta, e no Smart Clinic são
+  UMA tela: a lista do dia com o status na linha, cancelado e falta apagados, o ATENDER na
+  linha. O Meu dia do médico já era essa lista (parcela 95); o balcão ganhou a mesma, com
+  as ações dele, como aba **Dia** do item Agenda (Dia · Grade · Semana do profissional).
+  ⚠️ **Decisão de leiaute aprovada em mockup não é imune à leitura que a cliente faz DEPOIS
+  de usar a tela irmã.** A parcela 95 escreveu que "o quadro em raias continua sendo o da
+  Fila do balcão, onde a pergunta é outra" — a pergunta era a mesma, e quem disse foi quem
+  usa. A reprovação só não veio porque o desenho aprovado do Meu dia já existia para
+  copiar: **quando duas telas da suíte respondem à mesma pergunta, a segunda copia a
+  primeira, e a diferença que sobrar precisa de razão escrita.**
+  ⚠️ **Um vocabulário para as duas listas** (`StatusDaFila`, Application). O médico lia
+  "No local" e o balcão leria "Na recepção" sobre a MESMA pessoa — dois fatos para um só.
+  Palavra e detalhe ("chegou às 14:40 · espera 12 min") saem de uma função, o Meu dia
+  passou a chamá-la, e o teste é onde a frase mora.
+  ⚠️ **Sub-tela que vira aba continua DECLARADA** (checagem 28) e quem a esconde é o pai —
+  "Fila do dia" saiu do menu sem mudar a chave `fila`, porque o painel e o Consultório
+  navegam por ela (a regressão da parcela 37 espera exatamente esse atalho).
+  ⚠️ **O que a lista NÃO repete: a janela do horário.** Remarcar, reabrir o cancelado,
+  comprovante e WhatsApp continuam na GRADE, e a linha leva até lá ("Abrir na grade…") —
+  duas janelas do horário divergiriam na primeira correção. Para a linha cancelada é a
+  ÚNICA ação do "⋯", com razão: ela não tem passo.
+  ⚠️ **Selo do PACIENTE não entra na linha cancelada.** Guia pendente, termo e pacote são
+  avisos de quem VEM; numa linha apagada viram ruído que ensina a ignorar o selo da linha
+  viva ao lado. Pego relendo o diff, não por rede — o kanban nunca teve linha cancelada.
+  ⚠️ **O arrasto morreu com as raias, e o código dele saiu inteiro** (o code-behind foi de
+  223 para ~100 linhas): numa lista ordenada pela hora não há para onde arrastar, e o passo
+  seguinte é o botão da linha, com a mesma regra e a mesma guarda. Código que sobrevive ao
+  desenho que o justificava é a segunda definição esperando divergir.
+  **O que ficou de fora, e é decisão**: a BARRA da grade (dez controles) não foi mexida — o
+  botão da lista de espera anuncia no próprio rótulo "quem chamar para o horário que vagou",
+  e escondê-lo num menu "Mais" mataria o aviso (parcela 58); e a grade continua sendo aba
+  porque é nela que se marca clicando no vão e que mora a janela do horário.

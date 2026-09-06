@@ -5,27 +5,34 @@
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
+    <!-- ====================================================================
+         A AGENDA DO DIA DO BALCÃO, EM LISTA (set/2026)
+
+         Uma linha por horário, na ordem da hora, com o status e a hora do fato em cada
+         linha — a agenda do Smart Clinic que a cliente usava, e a mesma lista que o Meu
+         dia do médico ganhou na parcela 95. A cliente derrubou a premissa que sustentava o
+         kanban de cinco raias (parcelas 58 e 87): para ela a agenda do dia e a fila eram
+         a MESMA pergunta em duas telas.
+
+         Cancelado e falta FICAM na lista, apagados (a regra da folha do dia). O passo
+         seguinte é o botão de cada linha; o resto mora no "⋯", montado em código. O
+         vocabulário do STATUS é o do Meu dia — `StatusDaFila`, uma definição.
+
+         ⚠️ Não envolver a DataGrid num ScrollViewer: quebra a virtualização, e não há
+         página rolante acima dela — a roda fica com a tabela (checagem 43).
+         ==================================================================== -->
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-
-        <!-- A raia do quadro: faixa de fundo, sem borda. Ver o comentário do quadro.
-             É ela que recebe o cartão arrastado — daí o AllowDrop e os três handlers.
-             `Brush.Raia` é um degrau acima do fundo da página DE PROPÓSITO: raia da
-             mesma cor do fundo fazia o quadro deixar de se ler como quadro. -->
-        <Style x:Key="RaiaDoQuadro" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.Raia}" />
-            <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
-            <Setter Property="Padding" Value="10,10,10,4" />
-            <Setter Property="Margin" Value="0,0,10,0" />
-            <Setter Property="AllowDrop" Value="True" />
-        </Style>
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
         <!-- O chip do filtro por profissional: pílula que vira sólida quando ativa. -->
         <Style x:Key="ChipFiltroFila" TargetType="Button">
             <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
             <Setter Property="Template">
@@ -61,327 +68,106 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ============ Cartão do kanban ============
-             Um template só para as cinco colunas. O botão sólido é o PRÓXIMO PASSO, e o
-             cartão já sabe qual é (`ProximoPasso`); as exceções — voltar, falta,
-             cancelamento — foram para o "⋯", porque cinco botões por cartão em cinco
-             colunas fazem o olho parar de distinguir o frequente do raro.
-
-             O cartão inteiro é ARRASTÁVEL: os handlers ficam no Border e não capturam o
-             clique (só reagem depois que o mouse ANDA), então os botões continuam
-             funcionando normalmente. -->
-        <DataTemplate x:Key="CartaoFilaTemplate" DataType="{x:Type vm:CartaoFila}">
-            <Border CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1"
-                    Padding="12" Margin="0,0,0,8"
-                    ToolTip="{Binding Detalhe}"
-                    PreviewMouseLeftButtonDown="AoPressionarCartao"
-                    MouseMove="AoMoverSobreCartao">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
-                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
-                        <Setter Property="Cursor" Value="Hand" />
-                        <Style.Triggers>
-                            <!-- Hora estourada sem check-in: a borda acompanha o selo. -->
-                            <DataTrigger Binding="{Binding Atrasado}" Value="True">
-                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
-                            </DataTrigger>
-                            <!-- Chamado há tempo demais: ou não ouviu, ou saiu — e quem
-                                 está parado esperando é o profissional. Vence o atraso
-                                 (vem DEPOIS): é o estado mais urgente do cartão. -->
-                            <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
-                                <Setter Property="Background"
-                                        Value="{StaticResource Brush.Erro.Suave}" />
-                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <StackPanel>
-
-                    <!-- Topo: avatar + nome grande, com o horário e o convênio como
-                         CONTEXTO abaixo. É a hierarquia do redesenho (ago/2026): antes
-                         o nome tinha o mesmo tamanho da legenda e o cartão era um bloco
-                         de texto — quadro que não se lê de longe não é quadro. -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ctrl:Avatar Nome="{Binding Paciente}" Foto="{Binding Foto}"
-                                     Tamanho="36" Margin="0,0,9,0" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Paciente}"
-                                       FontSize="{StaticResource Fonte.Corpo}"
-                                       FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource Brush.Texto.Primario}" />
-                            <!-- O ✓ da rodada de confirmação, ao lado da hora (set/2026 —
-                                 era um selo verde). Sem ✓ = não confirmou ou não foi
-                                 avisado; a dica do cartão diz qual dos dois. -->
-                            <!-- DockPanel, não StackPanel horizontal: o horizontal dá ao texto
-                                 a largura que ele PEDE e o `TextTrimming` nunca corta. -->
-                            <DockPanel Margin="0,1,0,0">
-                                <TextBlock DockPanel.Dock="Left" Text="&#xE73E;"
-                                           FontFamily="{StaticResource FonteIcones}"
-                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,4,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource Brush.Sucesso.Forte}"
-                                           ToolTip="Confirmou a presença na rodada de confirmação"
-                                           Visibility="{Binding ConfirmouPresenca,
-                                                        Converter={StaticResource BoolParaVisibilidade}}" />
-                                <TextBlock Text="{Binding SubLinha}"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           TextTrimming="CharacterEllipsis"
-                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-                            </DockPanel>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- O recado do consultório, no cartão de quem ele quer. -->
-                    <TextBlock Text="{Binding ChamadoHa}" Margin="0,6,0,0" FontWeight="SemiBold"
-                               TextWrapping="Wrap"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Erro}">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <Trigger Property="Text" Value="">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <!-- A linha de contexto: modalidade · profissional · sala · pacote N/M ·
-                         encaixe. Corta com reticências e a dica traz tudo por extenso. -->
-                    <TextBlock Margin="0,6,0,0" Text="{Binding Contexto}"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               TextTrimming="CharacterEllipsis" />
-
-                    <!-- Os SELOS (set/2026, desenho B aprovado): no máximo três, por ordem
-                         fixa — o que impede, o que cobra agora, o estado da coluna. Quem
-                         decide é `SelosDaFila`, na Application; aqui só se desenha. O que
-                         saiu do selo tem leitor: o ✓ ao lado da hora, a linha de contexto
-                         (pacote N/M, encaixe) e a dica do cartão. -->
-                    <ItemsControl ItemsSource="{Binding Selos}" Margin="0,8,0,0">
-                        <ItemsControl.Style>
-                            <Style TargetType="ItemsControl">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Selos.Count}" Value="0">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ItemsControl.Style>
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Margin="0,0,4,4" ToolTip="{Binding Dica}">
-                                    <Border.Style>
-                                        <!-- O tom vira o Badge.* correspondente: os mesmos brushes
-                                             dos estilos nomeados, escolhidos por gatilho. -->
-                                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Tom}" Value="Erro">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Tom}" Value="Aviso">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
-                                                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Tom}" Value="Sucesso">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
-                                                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- Uma ação sólida — o passo seguinte — e o resto atrás do "⋯".
-                         A metade VISÍVEL da permissão: os comandos já exigem
-                         EditarAgenda, e sem este IsEnabled a fila inteira ficava
-                         clicável para quem só pode ver — botão aceso que recusa. -->
-                    <DockPanel Margin="0,8,0,0">
-                        <!-- ⚠️ O "⋯" NÃO segue `PodeEditarAgenda` (parcela 66, 2ª rodada).
-                             Ele passou a abrigar a coleta do termo, que é ato de quem tem
-                             `ColherAssinaturaPaciente` — a técnica de enfermagem tem esse
-                             bit e não tem o da agenda, e o menu inteiro apagado a deixava
-                             sem como colher justamente o termo do procedimento que ela vai
-                             executar. Quem decide item a item é o próprio menu; o botão de
-                             PASSO abaixo continua preso à agenda, que é a permissão dele. -->
-                        <Button DockPanel.Dock="Right" Content="⋯" Width="30"
-                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                VerticalAlignment="Center" Margin="6,0,0,0"
-                                ToolTip="Termo do procedimento, voltar etapa, falta e cancelamento"
-                                Click="AoAbrirMenuDoCartao" />
-                        <!-- O rótulo muda com a etapa, e o BIT muda junto: "Chegou",
-                             "Chamar" e "Entrou" são movimento de fila (EditarAgenda OU
-                             MovimentarFila); "Concluir" é do balcão e pede EditarAgenda
-                             estrito, a mesma conta do Exigir em FinalizarAsync.
-                             "Fechar sessão" (parcela 95) aparece na raia FINALIZADO
-                             enquanto o dinheiro da sessão concluída pelo Consultório não
-                             foi resolvido — pacote, insumo e caixa —, e pede o bit da
-                             agenda como os três primeiros. -->
-                        <Button DockPanel.Dock="Right" Content="{Binding ProximoPasso}"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding TemProximoPasso,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.AvancarCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource BotaoPequeno}">
-                                    <Setter Property="IsEnabled"
-                                            Value="{Binding DataContext.PodeEditarAgenda,
-                                                    RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ProximoPassoEhConcluir}" Value="True">
-                                            <Setter Property="IsEnabled"
-                                                    Value="{Binding DataContext.PodeConcluirSessao,
-                                                            RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-
-                        <!-- A espera de quem já chegou, com o relógio — mora no rodapé,
-                             onde o olho decide "chamo agora?". Vazia, some. -->
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Espera}" Value="">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <TextBlock Text="&#xE823;" FontFamily="{StaticResource FonteIcones}"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       VerticalAlignment="Center" Margin="0,0,5,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground"
-                                                Value="{StaticResource Brush.Texto.Secundario}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding EsperaLonga}" Value="True">
-                                                <Setter Property="Foreground"
-                                                        Value="{StaticResource Brush.Erro}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock Text="{Binding Espera}" VerticalAlignment="Center"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       TextTrimming="CharacterEllipsis">
-                                <!-- Espera longa fica vermelha; o estilo sai só daqui (MC3024). -->
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground"
-                                                Value="{StaticResource Brush.Texto.Secundario}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding EsperaLonga}" Value="True">
-                                                <Setter Property="Foreground"
-                                                        Value="{StaticResource Brush.Erro}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                    </DockPanel>
-                </StackPanel>
-            </Border>
-        </DataTemplate>
+        <!-- O selo da linha: o tom vira o Badge.* correspondente (os mesmos brushes dos
+             estilos nomeados, escolhidos por gatilho). Quem decide QUAIS selos é
+             `SelosDaFila`, na Application; aqui só se desenha. -->
+        <Style x:Key="SeloDaLinha" TargetType="Border" BasedOn="{StaticResource Badge}">
+            <Setter Property="Margin" Value="0,4,4,0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Tom}" Value="Erro">
+                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tom}" Value="Aviso">
+                    <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Tom}" Value="Sucesso">
+                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                    <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="24,20,24,24">
 
-        <!-- ============ Cabeçalho: dia + navegação + filtro ============ -->
+        <!-- ============ CABEÇALHO ============
+             UMA região, sem moldura: título e resumo à esquerda, os controles à direita
+             (o mesmo desenho do Meu dia). Os chips do filtro por profissional ficam sob o
+             resumo, em WrapPanel numa coluna estrela — largura FINITA, dobra de verdade
+             (checagem 32). -->
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Fila de hoje" Style="{StaticResource H1}"
-                           VerticalAlignment="Center" Margin="0,0,16,0" />
-                <Button Content="◀" Command="{Binding DiaAnteriorCommand}"
-                        Style="{StaticResource BotaoSecundario}" Width="40" />
-                <Border Background="{StaticResource Brush.Superficie}"
-                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                        CornerRadius="{StaticResource Raio.Medio}"
-                        Padding="16,8" Margin="8,0">
-                    <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Texto.Primario}"
-                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                </Border>
-                <Button Content="▶" Command="{Binding ProximoDiaCommand}"
-                        Style="{StaticResource BotaoSecundario}" Width="40" />
-                <Button Content="Hoje" Command="{Binding HojeCommand}"
-                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Agenda do dia" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                <!-- O resumo do dia envelhece com o relógio, como a espera das linhas. -->
+                <TextBlock Text="{Binding ResumoDia}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
+
+                <!-- Só aparece com DOIS ou mais profissionais no dia — chip único é ruído. -->
+                <ItemsControl ItemsSource="{Binding Profissionais}" Margin="0,8,0,0"
+                              HorizontalAlignment="Left"
+                              Visibility="{Binding TemFiltroProfissional,
+                                           Converter={StaticResource BoolParaVisibilidade}}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ChipProfissional}">
+                            <Button Style="{StaticResource ChipFiltroFila}"
+                                    Content="{Binding Nome}"
+                                    Command="{Binding DataContext.FiltrarCommand,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
 
-            <!-- O filtro por profissional (redesenho de ago/2026): só aparece com DOIS ou
-                 mais no dia — chip único é ruído. `WrapPanel` numa coluna estrela, nunca
-                 Auto (checagem 32): é a largura FINITA que o faz quebrar linha. -->
-            <ItemsControl Grid.Column="1" ItemsSource="{Binding Profissionais}"
-                          HorizontalAlignment="Right" VerticalAlignment="Center"
-                          Visibility="{Binding TemFiltroProfissional,
-                                       Converter={StaticResource BoolParaVisibilidade}}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel HorizontalAlignment="Right" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:ChipProfissional}">
-                        <Button Style="{StaticResource ChipFiltroFila}"
-                                Content="{Binding Nome}"
-                                Command="{Binding DataContext.FiltrarCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="◀" Command="{Binding DiaAnteriorCommand}"
+                            Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                    <Border Background="{StaticResource Brush.Superficie}"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            Padding="16,8" Margin="8,0">
+                        <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
+                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <Button Content="▶" Command="{Binding ProximoDiaCommand}"
+                            Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                    <Button Content="Hoje" Command="{Binding HojeCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="70" />
+                    <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                </StackPanel>
 
-            <!-- O resumo do dia: só o que NENHUMA coluna diz (a contagem por coluna mora
-                 no cabeçalho de cada raia). Envelhece com o relógio, como a espera. -->
-            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding ResumoDia}"
-                       Style="{StaticResource TextoSuave}"
-                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                <!-- O "+ adicionar" da agenda do Smart Clinic: abre o Marcar com o dia (e o
+                     profissional do filtro) preenchidos. IsEnabled explica; o Exigir do
+                     comando impede. -->
+                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
+                        IsEnabled="{Binding PodeMarcar}"
+                        HorizontalAlignment="Right" MinWidth="160" Padding="16,8"
+                        Margin="0,10,0,0"
+                        ToolTipService.ShowOnDisabled="True"
+                        ToolTip="Marcar um horário neste dia. Exige a permissão Editar agenda." />
+            </StackPanel>
         </Grid>
 
         <!-- ============ CHAMANDO ============
-             A faixa existe porque a coluna sozinha não bastaria: o balcão passa o dia com
-             esta tela aberta e os olhos no paciente à frente dele, e um cartão que muda
-             de coluna em silêncio é um cartão que ninguém vê. Ela nomeia o chamado MAIS
+             A faixa existe porque a linha sozinha não bastaria: o balcão passa o dia com
+             esta tela aberta e os olhos no paciente à frente dele, e uma linha que muda
+             de status em silêncio é uma linha que ninguém vê. Ela nomeia o chamado MAIS
              ANTIGO, com a sala e o cronômetro — e carrega o "Entrou" DENTRO dela, porque
              é para ela que a recepcionista está olhando quando o paciente levanta. -->
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Erro}"
@@ -390,8 +176,8 @@
             <StackPanel>
                 <DockPanel>
                     <!-- Entrou direto da faixa: age no chamado nomeado, pelo MESMO comando
-                         (e a mesma guarda) do botão do cartão. `VerticalAlignment` no
-                         botão, senão a linha que cresce o estica (parcela 47). -->
+                         (e a mesma guarda) do botão da linha. `VerticalAlignment` no botão,
+                         senão a linha que cresce o estica (parcela 47). -->
                     <Button DockPanel.Dock="Right" Content="Entrou"
                             VerticalAlignment="Center" Margin="12,0,0,0"
                             FontWeight="SemiBold" Padding="14,5"
@@ -448,124 +234,245 @@
             </StackPanel>
         </Border>
 
-        <!-- ============ O QUADRO ============
-             Cinco RAIAS, não cinco cartões emoldurados: cartão por coluna faz o quadro se
-             ler como cinco telas costuradas lado a lado, que é o defeito que o cliente
-             reprovou. A raia é uma faixa de fundo levíssima, sem borda, e o que separa uma
-             da outra é espaço.
+        <!-- ============ A LISTA DO DIA ============ -->
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <!-- NaoVerificado ligado (parcela 62): banco fora do ar não pode desenhar
+                     "ninguém marcado" — falha com cara de dia vazio, na primeira tela que
+                     o balcão abre de manhã. -->
+                <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                   Vazio="{Binding QuadroVazio}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   TextoNaoVerificado="Não foi possível carregar a agenda do dia. A lista NÃO está vazia — ela não pôde ser lida. Use Atualizar."
+                                   Glifo="&#xE787;"
+                                   TextoCarregando="Montando a agenda do dia…"
+                                   Titulo="Nenhum horário marcado neste dia"
+                                   Descricao="Marque por &quot;Novo horário&quot;, ou pela aba Grade clicando no vão livre." />
 
-             A contagem foi para o cabeçalho da raia, junto do que ela conta. Antes ela
-             morava numa frase acima do quadro repetindo os cinco números em sequência, e o
-             olho tinha de casar cada um com a sua coluna pela ordem.
+                <DataGrid ItemsSource="{Binding Linhas}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                          CanUserAddRows="False" CanUserDeleteRows="False"
+                          CanUserSortColumns="False" SelectionMode="Single">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                            <!-- A dica da linha: o que não coube nela e alguém pode precisar
+                                 (quem marcou, a observação, a resposta da rodada). -->
+                            <Setter Property="ToolTip" Value="{Binding Detalhe}" />
+                            <Style.Triggers>
+                                <!-- Cancelado e falta ficam na lista, APAGADOS — nunca somem:
+                                     linha ausente se confunde com horário que nunca existiu. -->
+                                <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </DataTrigger>
+                                <!-- Chamado há tempo demais: ou não ouviu, ou saiu — e quem
+                                     está parado esperando é o profissional. A linha grita. -->
+                                <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
 
-             O `Tag` de cada raia é a ETAPA dela: é o que o cartão solto ali dentro
-             consulta para saber para onde foi levado.
+                        <!-- HORÁRIO com o término ("14:00–14:30") e o ✓ da rodada de
+                             confirmação ao lado: sem ✓ = não confirmou ou não foi avisado;
+                             a dica da linha diz qual dos dois. -->
+                        <DataGridTemplateColumn Header="HORÁRIO" Width="130">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <TextBlock DockPanel.Dock="Right" Text="&#xE73E;"
+                                                   FontFamily="{StaticResource FonteIcones}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Margin="6,0,0,0" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                                   ToolTip="Confirmou a presença na rodada de confirmação"
+                                                   Visibility="{Binding ConfirmouPresenca,
+                                                                Converter={StaticResource BoolParaVisibilidade}}" />
+                                        <TextBlock Text="{Binding Horario}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-             Em 1366 px as cinco não cabem sem espremer o cartão até o nome virar
-             reticências, então o quadro rola na horizontal a partir de um piso. -->
-        <Grid>
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <Grid x:Name="quadro" MinWidth="1080">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                        <ColumnDefinition Width="*" MinWidth="200" />
-                    </Grid.ColumnDefinitions>
+                        <!-- PACIENTE: o nome grande, a linha de contexto (modalidade ·
+                             convênio · pacote N/M) e os SELOS — no máximo três, por ordem
+                             fixa (`SelosDaFila`): o que impede, o que cobra agora, o estado. -->
+                        <DataGridTemplateColumn Header="PACIENTE" Width="*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Right" Margin="8,0,0,0"
+                                                    Style="{StaticResource Badge.Aviso}"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="Encaixe — marcado por cima de um horário ocupado"
+                                                    Visibility="{Binding EhEncaixe,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Encaixe" />
+                                            </Border>
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding ContextoDaLista}" Margin="0,2,0,0"
+                                                   Style="{StaticResource CelulaSuave}" />
+                                        <!-- O recado do balcão: só quando há — linha vazia em toda
+                                             linha desalinharia a tabela inteira. -->
+                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
+                                                   Style="{StaticResource CelulaSuave}" FontStyle="Italic"
+                                                   ToolTip="Recado escrito pela recepção neste horário"
+                                                   Visibility="{Binding Observacoes,
+                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                FallbackValue=Collapsed}" />
+                                        <ItemsControl ItemsSource="{Binding Selos}">
+                                            <ItemsControl.Style>
+                                                <Style TargetType="ItemsControl">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Selos.Count}" Value="0">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ItemsControl.Style>
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Style="{StaticResource SeloDaLinha}" ToolTip="{Binding Dica}">
+                                                        <TextBlock Text="{Binding Texto}" TextTrimming="CharacterEllipsis" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}" Tag="Aguardando"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <!-- Cinco pontos, cinco cores (redesenho de ago/2026): o olho
-                                 acha o estado antes de ler o rótulo. Azul = marcado. -->
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="AGUARDANDO"
-                                                Ponto="{StaticResource Brush.Acento}"
-                                                Itens="{Binding Aguardando}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Aguardando}"
-                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+                        <!-- PROFISSIONAL e a sala — o "compromisso" do print. -->
+                        <DataGridTemplateColumn Header="PROFISSIONAL" Width="170">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Profissional}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Style="{StaticResource CelulaSuave}" Margin="0,2,0,0">
+                                            <Run Text="sala" />
+                                            <Run Text="{Binding Sala, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}" Tag="Chegou"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="NA RECEPÇÃO"
-                                                Ponto="{StaticResource Brush.Aviso}"
-                                                PilulaFundo="{StaticResource Brush.Aviso.Suave}"
-                                                PilulaTexto="{StaticResource Brush.Aviso}"
-                                                Itens="{Binding NaRecepcao}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding NaRecepcao}"
-                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
+                        <!-- STATUS: a etapa em uma palavra, e a hora do fato embaixo. As
+                             cores são as das raias de antes (e as do Meu dia): dois
+                             leitores da mesma agenda, um vocabulário. -->
+                        <DataGridTemplateColumn Header="STATUS" Width="220">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <Border x:Name="pilula" HorizontalAlignment="Left"
+                                                Style="{StaticResource Badge}">
+                                            <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
+                                                   Visibility="{Binding StatusDetalhe,
+                                                                Converter={StaticResource TextoParaVisibilidade},
+                                                                FallbackValue=Collapsed}" />
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Aviso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Erro}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Sucesso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Etapa}" Value="Finalizado">
+                                            <Setter TargetName="pilula" Property="Style"
+                                                    Value="{StaticResource Badge.Info}" />
+                                        </DataTrigger>
+                                        <!-- Espera longa (30 min ou mais sem ser chamado) fica
+                                             vermelha; chamada demorada, vermelha e em negrito —
+                                             vem DEPOIS porque gatilho posterior vence. -->
+                                        <DataTrigger Binding="{Binding EsperaLonga}" Value="True">
+                                            <Setter TargetName="detalhe" Property="Foreground"
+                                                    Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
+                                            <Setter TargetName="detalhe" Property="Foreground"
+                                                    Value="{StaticResource Brush.Erro}" />
+                                            <Setter TargetName="detalhe" Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
-                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}" Tag="Chamado"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="CHAMADO"
-                                                Ponto="{StaticResource Brush.Erro}"
-                                                PilulaFundo="{StaticResource Brush.Erro.Suave}"
-                                                PilulaTexto="{StaticResource Brush.Erro}"
-                                                Itens="{Binding Chamados}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Chamados}"
-                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-
-                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}" Tag="EmAtendimento"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="EM ATENDIMENTO"
-                                                Ponto="{StaticResource Brush.Sucesso}"
-                                                PilulaFundo="{StaticResource Brush.Sucesso.Suave}"
-                                                PilulaTexto="{StaticResource Brush.Sucesso.Forte}"
-                                                Itens="{Binding EmAtendimento}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding EmAtendimento}"
-                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-
-                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0"
-                            Tag="Finalizado"
-                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
-                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
-                        <DockPanel>
-                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADO"
-                                                Ponto="{StaticResource Brush.Borda.Hover}"
-                                                PilulaFundo="{StaticResource Brush.Borda}"
-                                                PilulaTexto="{StaticResource Brush.Texto.Secundario}"
-                                                Itens="{Binding Finalizados}" />
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <ItemsControl ItemsSource="{Binding Finalizados}"
-                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                            </ScrollViewer>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-          </ScrollViewer>
-
-          <!-- Um estado para o quadro todo: as cinco colunas vêm da mesma consulta. -->
-          <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
-                             Carregando="{Binding Carregando}"
-                             NaoVerificado="{Binding NaoVerificado}"
-                             TextoNaoVerificado="Não foi possível carregar a fila. O quadro NÃO está vazio — ele não pôde ser lido. Use Atualizar."
-                             Glifo="&#xE77B;"
-                             TextoCarregando="Montando a fila do dia…"
-                             Titulo="Ninguém marcado para hoje"
-                             Descricao="Cancelados e faltas não entram no quadro: ele mostra o fluxo de quem vem hoje." />
-        </Grid>
+                        <!-- AÇÕES: uma sólida — o PASSO SEGUINTE ("Chegou", "Chamar",
+                             "Entrou", "Concluir", "Debitar pacote"), que a linha já sabe
+                             qual é — e o "⋯" com o resto. `CanUserSort=False`: cabeçalho
+                             vazio que responde ao clique é alvo morto. -->
+                        <DataGridTemplateColumn Header="" Width="Auto" CanUserSort="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                                Margin="8,0">
+                                        <!-- O rótulo muda com a etapa, e o BIT muda junto: "Chegou",
+                                             "Chamar" e "Entrou" são movimento de fila (EditarAgenda
+                                             OU MovimentarFila); "Concluir" é do balcão e pede
+                                             EditarAgenda estrito, a mesma conta do Exigir. -->
+                                        <Button Content="{Binding ProximoPasso}" Margin="0,0,6,0"
+                                                MinWidth="110"
+                                                Visibility="{Binding TemProximoPasso,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.AvancarCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGrid}">
+                                                    <Setter Property="IsEnabled"
+                                                            Value="{Binding DataContext.PodeEditarAgenda,
+                                                                    RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ProximoPassoEhConcluir}" Value="True">
+                                                            <Setter Property="IsEnabled"
+                                                                    Value="{Binding DataContext.PodeConcluirSessao,
+                                                                            RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <!-- ⚠️ O "⋯" NÃO segue `PodeEditarAgenda` (parcela 66, 2ª
+                                             rodada): ele abriga a coleta do termo, que é ato de
+                                             quem tem `ColherAssinaturaPaciente` — e agora a porta
+                                             para a grade, que é leitura. Quem decide item a item
+                                             é o próprio menu. -->
+                                        <Button Content="⋯" Width="34"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                ToolTip="Termo do procedimento, fechar sessão, voltar etapa, falta, cancelamento e a grade"
+                                                Click="AoAbrirMenuDaLinha" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
     </DockPanel>
 </UserControl>

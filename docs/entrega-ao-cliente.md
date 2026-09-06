@@ -173,7 +173,7 @@ que faltavam. Com isso a Recepção passa a ter:
 |---|---|
 | **Painel** | O dia visto do balcão: quem chegou, quem espera, ocupação por profissional, taxa de falta — e as guias pendentes **dos pacientes de hoje** |
 | **Agenda** | Uma coluna por profissional, com sala, duração, **encaixe** e a **lista de espera** ao lado |
-| **Fila de hoje** | Kanban Aguardando → Chegou → Em atendimento → Finalizado, com tempo de espera à vista |
+| **Agenda do dia** | A lista do dia (aba Dia da Agenda): uma linha por horário com o status e a hora do fato — Marcado · No local · Chamado · Em atendimento · Concluído —, o tempo de espera à vista e o passo seguinte na linha |
 | **Profissionais e salas** | O cadastro que destrava tudo o mais |
 
 Três decisões que valem registrar:

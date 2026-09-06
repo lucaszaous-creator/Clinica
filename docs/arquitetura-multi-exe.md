@@ -200,7 +200,7 @@ acesso quando o módulo de permissões existir. Fora do escopo das Fases 1–4.
   (`IModuloApp`), a janela genérica (`ShellWindow`), a navegação (`ShellViewModel`),
   o bootstrap reutilizável (`ShellBootstrap`: conexão → host → migrations → janela)
   e a cópia do design system.
-- **`src/Clinica.Recepcao`** — executável da recepção com a tela **Fila de hoje**:
+- **`src/Clinica.Recepcao`** — executável da recepção com a tela **Agenda do dia** (a lista do dia; era a "Fila de hoje" em kanban):
   lista os agendamentos do dia e permite confirmar presença, cancelar e marcar falta.
 
 A primeira tela foi escolhida de propósito: ela usa apenas APIs que já existem
