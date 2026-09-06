@@ -4,12 +4,16 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <!-- Para OBJETO (o profissional da coluna): string vazia não é nulo, e o
+             conversor de texto responderia errado a um objeto (parcela 74). -->
+        <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
 
         <!-- Largura da régua de horas. O mesmo número aparece no espaçador do cabeçalho
              das colunas: são as duas metades do mesmo alinhamento, e separá-los faria a
@@ -150,18 +154,24 @@
                      a recusa no Salvar, com ele na frente dela.
                      Ele não é clicável: o motivo já está escrito, e botão que só serve
                      para explicar por que não dá é um clique cobrado à toa. -->
-                <Border Background="{StaticResource Brush.Superficie.Hover}"
+                <Border Background="{StaticResource Brush.AgendaFechada}"
                         BorderBrush="{StaticResource Brush.Borda}"
                         BorderThickness="0,0,0,1"
                         CornerRadius="{StaticResource Raio.Pequeno}"
                         Margin="0,0,0,1" Padding="4,0"
                         Visibility="{Binding MostrarBloqueio,
                                      Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding Bloqueio}" VerticalAlignment="Center"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding Bloqueio}" />
+                    <!-- O motivo sobre a hachura leva um fundo próprio: texto direto sobre
+                         a diagonal não se lê (set/2026). -->
+                    <Border Background="{StaticResource Brush.Superficie}"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Bloqueio}" VerticalAlignment="Center"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Bloqueio}" />
+                    </Border>
                 </Border>
 
                 <!-- Ocupado. Mais de um cartão só quando houve encaixe — e aí eles se
@@ -174,16 +184,33 @@
 
         <!-- ============ Uma faixa (linha) da grade ============ -->
         <DataTemplate x:Key="FaixaAgendaTemplate" DataType="{x:Type vm:FaixaAgenda}">
+            <!-- Grid, e não DockPanel puro: a linha do AGORA é uma SOBREPOSIÇÃO, e
+                 sobreposição só existe num pai que empilha (checagem 25). Ela é o ÚLTIMO
+                 filho e não recebe clique — o vão continua clicável por baixo dela. -->
+            <Grid>
             <DockPanel>
                 <!-- A régua. A meia hora não repete o número: a linha mais forte da hora
                      cheia já separa os blocos, e "09:30" abaixo de "09:00" só engorda a
                      coluna sem dizer nada que a posição não diga. -->
                 <Border DockPanel.Dock="Left" Width="{StaticResource LarguraRegua}"
                         Padding="0,4,10,0">
-                    <TextBlock Text="{Binding Rotulo}" HorizontalAlignment="Right"
-                               TextWrapping="Wrap"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                    <StackPanel>
+                        <TextBlock Text="{Binding Rotulo}" HorizontalAlignment="Right"
+                                   TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                        <!-- A pílula "agora" na régua, na faixa em que a hora atual cai
+                             (set/2026). Só hoje, só no modo dia — a VM decide. -->
+                        <Border Background="{StaticResource Brush.Erro}"
+                                CornerRadius="{StaticResource Raio.Pequeno}"
+                                Padding="5,1" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                Visibility="{Binding Agora,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="agora" FontWeight="Bold"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Foreground="{StaticResource Brush.Texto.Invertido}" />
+                        </Border>
+                    </StackPanel>
                 </Border>
 
                 <!-- A linha da hora cheia é mais forte; a da meia, um fio. -->
@@ -212,19 +239,48 @@
                     </ItemsControl>
                 </Border>
             </DockPanel>
+
+            <!-- A LINHA DO AGORA (set/2026 — mockup aprovado): um fio vermelho de 2 px no
+                 topo da faixa em que a hora atual cai, atravessando as colunas a partir da
+                 régua. Marca a FAIXA, não o minuto: a faixa tem 30 min e cresce com o
+                 encaixe, e posicionar ao minuto exigiria medir a altura — precisão que a
+                 pergunta ("onde estamos no dia?") não pede. `IsHitTestVisible=False`: o
+                 vão embaixo dela continua clicável. -->
+            <DockPanel VerticalAlignment="Top" IsHitTestVisible="False"
+                       Visibility="{Binding Agora,
+                                    Converter={StaticResource BoolParaVisibilidade}}">
+                <!-- O MESMO espaçador de régua do cabeçalho das colunas: a linha começa
+                     onde a primeira coluna começa. -->
+                <Border DockPanel.Dock="Left" Width="{StaticResource LarguraRegua}" />
+                <Border BorderBrush="{StaticResource Brush.Erro}" BorderThickness="0,2,0,0" />
+            </DockPanel>
+            </Grid>
         </DataTemplate>
 
         <!-- ============ Cabeçalho de uma coluna ============ -->
         <DataTemplate x:Key="CabecalhoColunaTemplate" DataType="{x:Type vm:ColunaAgenda}">
-            <StackPanel Margin="2,0,2,8">
-                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                           TextTrimming="CharacterEllipsis"
-                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                <TextBlock Text="{Binding Resumo}"
-                           TextTrimming="CharacterEllipsis"
-                           FontSize="{StaticResource Fonte.Legenda}"
-                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-            </StackPanel>
+            <!-- O avatar do profissional abre a coluna (set/2026): iniciais em azul sólido,
+                 para a coluna se achar de relance numa grade de seis. Só onde a coluna É de
+                 um profissional — por sala, por dia e em "Sem profissional" ele some, e
+                 quem decide é o OBJETO (conversor de objeto, não o de texto). -->
+            <DockPanel Margin="2,0,2,8">
+                <ctrl:Avatar DockPanel.Dock="Left" Tamanho="28" Margin="0,0,8,0"
+                             VerticalAlignment="Center"
+                             Nome="{Binding Nome}"
+                             Fundo="{StaticResource Brush.Acento}"
+                             Tinta="{StaticResource Brush.Texto.Invertido}"
+                             Visibility="{Binding Profissional,
+                                          Converter={StaticResource ObjetoParaVisibilidade}}" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                    <TextBlock Text="{Binding Resumo}"
+                               TextTrimming="CharacterEllipsis"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                </StackPanel>
+            </DockPanel>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -374,6 +430,11 @@
              faixas no mesmo prumo sem SharedSizeGroup nenhuma. Abaixo do piso de 190 px
              por coluna o nome do paciente vira reticências, então quem cede é a tela: a
              grade rola na horizontal. -->
+
+        <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
+             declarada ANTES do miolo que preenche — senão o miolo a come (parcela 47). -->
+        <comp:LegendaFamiliasView DockPanel.Dock="Bottom" Margin="0,10,0,0" ComGrade="True" />
+
         <Grid>
             <ScrollViewer HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">

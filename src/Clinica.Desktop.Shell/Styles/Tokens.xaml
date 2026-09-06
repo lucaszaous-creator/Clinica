@@ -50,6 +50,17 @@
     <Color x:Key="Cor.Violeta.600">#7C3AED</Color>
     <Color x:Key="Cor.Teal.600">#0D9488</Color>
     <Color x:Key="Cor.Rosa.600">#DB2777</Color>
+    <!-- Os tons CLAROS das famílias (set/2026 — a agenda com cor, mockup aprovado em
+         docs/mockups/agenda-com-cor.html): o fundo do cartão da grade e o avatar da lista
+         do dia. Acupuntura usa Azul.50 e BSV com acupuntura usa Ciano.100, que já existem;
+         estes três são os irmãos que faltavam. -->
+    <Color x:Key="Cor.Violeta.50">#F5F3FF</Color>
+    <Color x:Key="Cor.Teal.50">#F0FDFA</Color>
+    <Color x:Key="Cor.Rosa.50">#FDF2F8</Color>
+    <!-- Um degrau mais claro que Verde.100: fundo de LINHA inteira (o paciente em
+         atendimento na lista do dia). Sucesso.Suave numa linha de 56 px pinta demais;
+         este é o tom de "está acontecendo" sem gritar. -->
+    <Color x:Key="Cor.Verde.50">#F0FDF4</Color>
 
     <!-- ============ Brushes semânticos ============ -->
     <!-- Acento (primária) -->
@@ -85,6 +96,8 @@
     <SolidColorBrush x:Key="Brush.Sucesso" Color="{StaticResource Cor.Verde.600}" />
     <SolidColorBrush x:Key="Brush.Sucesso.Forte" Color="{StaticResource Cor.Verde.700}" />
     <SolidColorBrush x:Key="Brush.Sucesso.Suave" Color="{StaticResource Cor.Verde.100}" />
+    <!-- O verde de LINHA (set/2026): mais claro que o Suave, para uma linha de 56 px. -->
+    <SolidColorBrush x:Key="Brush.Sucesso.Tint" Color="{StaticResource Cor.Verde.50}" />
     <SolidColorBrush x:Key="Brush.Aviso" Color="{StaticResource Cor.Laranja.600}" />
     <SolidColorBrush x:Key="Brush.Aviso.Suave" Color="{StaticResource Cor.Laranja.100}" />
     <SolidColorBrush x:Key="Brush.Erro" Color="{StaticResource Cor.Vermelho.600}" />
@@ -103,6 +116,15 @@
     <SolidColorBrush x:Key="Brush.Modalidade.Bsv" Color="{StaticResource Cor.Teal.600}" />
     <SolidColorBrush x:Key="Brush.Modalidade.BsvAcupuntura" Color="{StaticResource Cor.Ciano.500}" />
     <SolidColorBrush x:Key="Brush.Modalidade.Consulta" Color="{StaticResource Cor.Rosa.600}" />
+    <!-- Os FUNDOS por família (set/2026): o cartão da grade e o avatar da lista do dia.
+         Acupuntura e BSV com acupuntura reusam tokens que já existem — o alias é para as
+         telas lerem os cinco pelo mesmo nome, e para a próxima família nascer com os dois
+         tons de uma vez. -->
+    <SolidColorBrush x:Key="Brush.Modalidade.Acupuntura.Suave" Color="{StaticResource Cor.Azul.50}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.AcupunturaEletro.Suave" Color="{StaticResource Cor.Violeta.50}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.Bsv.Suave" Color="{StaticResource Cor.Teal.50}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.BsvAcupuntura.Suave" Color="{StaticResource Cor.Ciano.100}" />
+    <SolidColorBrush x:Key="Brush.Modalidade.Consulta.Suave" Color="{StaticResource Cor.Rosa.50}" />
 
     <!-- Sidebar clara (estilo Linear) -->
     <SolidColorBrush x:Key="Brush.Sidebar.Fundo" Color="#FFFFFF" />

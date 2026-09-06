@@ -22,17 +22,22 @@
         <Setter Property="Height" Value="{Binding Tamanho, RelativeSource={RelativeSource Self}}" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
+        <!-- O par de cores das iniciais mora AQUI, no estilo, e o template só o lê: é o
+             que permite a lista do dia trocá-lo pela família da modalidade com um gatilho
+             de estilo local (BasedOn neste), sem redesenhar o controle (set/2026). -->
+        <Setter Property="Fundo" Value="{StaticResource Brush.Acento.Suave}" />
+        <Setter Property="Tinta" Value="{StaticResource Brush.Acento}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ctrl:Avatar}">
                     <Grid>
-                        <Ellipse Fill="{StaticResource Brush.Acento.Suave}" />
+                        <Ellipse Fill="{TemplateBinding Fundo}" />
 
                         <TextBlock x:Name="iniciais"
                                    Text="{Binding Iniciais, RelativeSource={RelativeSource TemplatedParent}}"
                                    FontSize="{Binding TamanhoTexto, RelativeSource={RelativeSource TemplatedParent}}"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Acento}"
+                                   Foreground="{TemplateBinding Tinta}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                         <Ellipse x:Name="foto" Visibility="Collapsed">

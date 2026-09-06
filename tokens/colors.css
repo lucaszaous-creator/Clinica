@@ -13,6 +13,8 @@
 --laranja-100:#FFEDD5;--laranja-600:#EA580C;--laranja-700:#C2410C;
 --vermelho-100:#FEE2E2;--vermelho-600:#DC2626;--vermelho-700:#B91C1C;
 --ciano-100:#E0F2FE;--ciano-500:#0EA5E9;--ciano-700:#0369A1;
+/* Famílias de modalidade da agenda (só na suíte — o faturamento não as usa) */
+--violeta-50:#F5F3FF;--violeta-600:#7C3AED;--teal-50:#F0FDFA;--teal-600:#0D9488;--rosa-50:#FDF2F8;--rosa-600:#DB2777;--verde-50:#F0FDF4;
 /* Semáforo de urgência (UrgenciaParaCorConverter) */
 --semaforo-verde:#2E7D32;--semaforo-amarelo:#F9A825;--semaforo-vermelho:#C62828;
 /* Aliases semânticos (Brush.* no XAML) */

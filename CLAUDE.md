@@ -3410,6 +3410,51 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   REPROVAM no código anterior (o quarto é a guarda do que NÃO se amarra, e passa nos
   dois); foi verificado com o `git stash`, não presumido.
 
+- **A AGENDA COM COR — a família no traço, no avatar e no cartão; o estado na pílula; o
+  placar com glifo** (set/2026; a cliente: *"a nossa agenda está um pouco sem cor,
+  consegue dar cor nisso? Não só cor, mas estilizar também"*; mockup aprovado em
+  `docs/mockups/agenda-com-cor.html` ANTES de uma linha de WPF, o caminho da parcela 87).
+  As três telas que mostram um horário — a lista do dia do balcão, a grade e o Meu dia do
+  médico — saíram no mesmo commit e leem os MESMOS tokens: a mesma sessão com a mesma
+  cor nos três lugares é o que faz a cor virar vocabulário em vez de enfeite.
+  As decisões que não são óbvias pelo código:
+  ⚠️ **Família e estado são dois eixos, e NÃO disputam a mesma peça.** A família (o que
+  a sessão É) pinta o traço de 3 px da linha, o avatar e o fundo do cartão da grade; o
+  estado (em que ponto do dia ela está) fica na pílula, com um ponto colorido. Pintar a
+  linha inteira pelo estado brigaria com os dois casos em que ela JÁ muda de fundo — a
+  chamada demorada (vermelho) e o paciente na sala (o `Sucesso.Tint`, um degrau mais
+  claro que o `.Suave`, porque numa linha de 56 px o suave pinta demais).
+  ⚠️ **Os tons claros são ALIASES por família** (`Brush.Modalidade.*.Suave`), inclusive
+  onde o token já existia (Azul.50, Ciano.100): as telas leem os cinco pelo mesmo nome, e
+  a próxima família nasce com os dois tons de uma vez em vez de esquecer um.
+  ⚠️ **O avatar ganhou `Fundo`/`Tinta` como DPs, com o PADRÃO no estilo implícito** — não
+  no controle. É o que permite a lista trocar o par por gatilho num estilo local
+  `BasedOn` sem redesenhar o Template; e é por isso que o padrão não pode morar no
+  `PropertyMetadata`: lá não há como apontar um token. Portado ao faturamento no mesmo
+  commit (o débito permanente da Fase 4), embora nenhuma tela de lá o use ainda.
+  ⚠️ **A legenda é UM componente do shell, e fica SEMPRE.** Três cópias divergiriam na
+  primeira família nova — a que ficasse para trás mentiria sobre a cor. Os opcionais
+  (`ComConfirmacao` nas listas, `ComGrade` na grade) existem porque legenda que explica
+  um sinal que a tela não desenha ensina a procurar o que não existe. Ficar sempre foi
+  decisão da direção: uma linha de 12 px no pé não custa altura a ninguém.
+  ⚠️ **A linha do "agora" marca a FAIXA, não o minuto**, e é decisão: a faixa tem 30 min
+  e cresce com o encaixe; posicionar ao minuto exigiria medir a altura, para uma pergunta
+  ("onde estamos no dia?") que não pede essa precisão. Ela é sobreposição num `Grid`
+  (último filho, checagem 25), `IsHitTestVisible=False` para o vão continuar clicável, e
+  o recuo à esquerda é o MESMO espaçador de régua do cabeçalho das colunas — o número 64
+  continua existindo num lugar só. Só hoje e só no modo dia, decidido na VM.
+  ⚠️ **A hachura do vão fechado é um `DrawingBrush` do design system, só de tokens** —
+  tile de 8 px com UMA diagonal de canto a canto, que é o que mantém o traço contínuo
+  entre tiles. O motivo escrito por cima ganhou fundo próprio: texto sobre diagonal não
+  se lê. E a legenda desenha o MESMO brush: hachura desenhada duas vezes divergiria.
+  ⚠️ **`TextTrimming` que vem de estilo local se repete na TAG** (a lição da prévia da
+  guia, cobrada de novo pela checagem 24 nos quatro números do placar): o verificar-suite
+  não resolve estilo local, e repetir é o preço que deixa a intenção à vista.
+  ⚠️ E o `compilar-sombra` pegou o `using Clinica.Domain;` que faltava nos DOIS
+  ViewModels que ganharam `ModalidadeAtendimento` — o tipo já era usado nos arquivos por
+  nome qualificado noutro ponto, e o campo novo não. Rede que roda antes do push é rede
+  que pega antes do CI.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

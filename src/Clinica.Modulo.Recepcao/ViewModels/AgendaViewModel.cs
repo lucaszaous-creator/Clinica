@@ -221,6 +221,13 @@ public sealed class FaixaAgenda
 
     public required bool HoraCheia { get; init; }
 
+    /// <summary>
+    /// A faixa em que a hora ATUAL cai (set/2026 — a linha vermelha do "agora" do mockup
+    /// aprovado). Só no modo dia e só quando o dia aberto é hoje: em outro dia não há
+    /// "agora" para marcar, e marcá-lo mentiria sobre a hora de um dia que não é este.
+    /// </summary>
+    public bool Agora { get; init; }
+
     public required ObservableCollection<CelulaAgenda> Celulas { get; init; }
 }
 
@@ -1008,6 +1015,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         var primeiro = Piso(inicio);
         var ultimo = Piso(fim);
         var agora = DateTime.Now;
+        var horaAgora = TimeOnly.FromDateTime(agora);
+        var marcarAgora = !ModoSemana && Dia.Date == agora.Date;
 
         for (var minuto = primeiro; minuto <= ultimo; minuto += PassoMinutos)
         {
@@ -1045,6 +1054,9 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Hora = hora,
                 Rotulo = hora.Minute == 0 ? hora.ToString("HH:mm") : string.Empty,
                 HoraCheia = hora.Minute == 0,
+                // A linha do agora: a faixa que contém a hora atual. `AddMinutes` na última
+                // faixa do dia dá a volta para 00:00 e a comparação falha, que é o certo.
+                Agora = marcarAgora && hora <= horaAgora && horaAgora < hora.AddMinutes(PassoMinutos),
                 Celulas = celulas
             });
         }

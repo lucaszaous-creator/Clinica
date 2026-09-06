@@ -7,6 +7,7 @@ using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,6 +30,14 @@ public sealed partial class CartaoFila : ObservableObject
     public required string Horario { get; init; }
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
+
+    /// <summary>
+    /// A FAMÍLIA da modalidade (set/2026 — a agenda com cor): abre a linha com o traço de
+    /// 3 px e pinta o avatar, com a MESMA cor que o cartão da grade já tinha. A cor sai do
+    /// enum, nunca do rótulo — a variante cadastrada herda a cor de quem deriva.
+    /// </summary>
+    public required ModalidadeAtendimento ModalidadeFamilia { get; init; }
+
     public required string Profissional { get; init; }
 
     /// <summary>
@@ -367,6 +376,12 @@ public sealed partial class ChipProfissional : ObservableObject
 
     public required string Nome { get; init; }
 
+    /// <summary>Quantos horários vivos do dia o chip recorta (set/2026).</summary>
+    public required int Quantidade { get; init; }
+
+    /// <summary>"Dra. Ana · 5" — o número ao lado do nome, como no mockup aprovado.</summary>
+    public string Rotulo => $"{Nome} · {Quantidade}";
+
     [ObservableProperty]
     private bool _ativo;
 }
@@ -492,17 +507,26 @@ public sealed partial class FilaViewModel : ObservableObject
     [ObservableProperty]
     private DateTime _dia = DateTime.Today;
 
+    /// <summary>O dia aberto é hoje — a pílula "hoje" ao lado da data (set/2026).</summary>
+    public bool EhHoje => Dia.Date == DateTime.Today;
+
     [ObservableProperty]
     private bool _carregando;
 
     /// <summary>
-    /// A linha de contexto do dia: atendidos, em sala, espera média e o que o quadro NÃO
-    /// mostra (faltas e cancelamentos, que saem da fila). Envelhece com o relógio, como a
-    /// espera dos cartões. Os números POR COLUNA continuam no cabeçalho de cada raia — o
-    /// resumo carrega só o que nenhuma coluna diz.
+    /// O PLACAR do dia (set/2026 — a agenda com cor, mockup aprovado): quatro números, cada
+    /// um com o glifo semântico e a cor que a métrica já tem no sistema, no lugar da frase
+    /// corrida "3 atendido(s) · 1 em sala · espera média 12 min". Envelhecem com o relógio,
+    /// como a espera das linhas — a média é a ÚNICA do sistema, a do painel.
     /// </summary>
-    [ObservableProperty]
-    private string _resumoDia = string.Empty;
+    [ObservableProperty] private int _atendidos;
+    [ObservableProperty] private int _emSala;
+
+    /// <summary>"12 min" — ou o travessão, quando ninguém esperou ainda (média sem base é nula, nunca zero).</summary>
+    [ObservableProperty] private string _esperaMedia = "—";
+
+    /// <summary>"1 · 0" — faltas e cancelamentos, que estão na lista apagados.</summary>
+    [ObservableProperty] private string _faltasCancelamentos = "0 · 0";
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -712,7 +736,11 @@ public sealed partial class FilaViewModel : ObservableObject
     /// <summary>Desliga o relógio (chamado quando a tela sai de cena).</summary>
     public void AoSairDeCena() => _relogio.Stop();
 
-    partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
+    partial void OnDiaChanged(DateTime value)
+    {
+        OnPropertyChanged(nameof(EhHoje));
+        _ = CarregarAsync();
+    }
 
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
@@ -918,15 +946,20 @@ public sealed partial class FilaViewModel : ObservableObject
         if (_filtroProfissionalId is { } vigente && doDia.All(p => p.Id != vigente))
             _filtroProfissionalId = null;
 
+        var vivos = _doDia.Where(a => a.Etapa != EtapaFila.ForaDaFila).ToList();
+
         Profissionais.Clear();
         Profissionais.Add(new ChipProfissional
         {
-            Id = null, Nome = "Todos", Ativo = _filtroProfissionalId is null
+            Id = null, Nome = "Todos", Quantidade = vivos.Count,
+            Ativo = _filtroProfissionalId is null
         });
         foreach (var p in doDia)
             Profissionais.Add(new ChipProfissional
             {
-                Id = p.Id, Nome = p.Nome, Ativo = _filtroProfissionalId == p.Id
+                Id = p.Id, Nome = p.Nome,
+                Quantidade = vivos.Count(a => a.ProfissionalId == p.Id),
+                Ativo = _filtroProfissionalId == p.Id
             });
 
         OnPropertyChanged(nameof(TemFiltroProfissional));
@@ -975,6 +1008,7 @@ public sealed partial class FilaViewModel : ObservableObject
                 // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
                 Modalidade = CatalogoModalidades.Nome(
                     a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+                ModalidadeFamilia = a.ModalidadePrevista,
                 // "sem profissional" é o que a GRADE já escreve, e é aviso, não
                 // enfeite: horário sem dono some do "Meu dia" de quem atende e do
                 // repasse (parcela 69). O travessão calava isso.
@@ -1096,24 +1130,18 @@ public sealed partial class FilaViewModel : ObservableObject
                 cartao.InicioEm, cartao.FimAtendimentoEm);
         }
 
-        // O resumo do dia envelhece junto (a espera média corre com o relógio). A conta
+        // O placar do dia envelhece junto (a espera média corre com o relógio). A conta
         // da média é a ÚNICA — a mesma do painel (`PainelRecepcaoService`).
-        var atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
-        var emSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
-        var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
-        var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);
-
-        var partes = new List<string> { $"{atendidos} atendido(s)", $"{emSala} em sala" };
-        if (PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media)
-            partes.Add($"espera média {media} min");
-        // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o resumo conta,
+        Atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
+        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
+        EsperaMedia = PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media
+            ? $"{media} min"
+            : "—";
+        // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o placar conta,
         // não anuncia o que foi escondido.
-        partes.Add((faltas, cancelados) switch
-        {
-            (0, 0) => "sem faltas nem cancelamentos",
-            var (f, c) => $"{f} falta(s), {c} cancelamento(s)"
-        });
-        ResumoDia = string.Join("  ·  ", partes);
+        FaltasCancelamentos =
+            $"{_doDia.Count(a => a.Status == StatusAgendamento.Faltou)} · "
+            + $"{_doDia.Count(a => a.Status == StatusAgendamento.Cancelado)}";
     }
 
     /// <summary>

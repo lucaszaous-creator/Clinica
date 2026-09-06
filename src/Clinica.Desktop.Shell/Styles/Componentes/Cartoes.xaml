@@ -147,6 +147,38 @@
     -->
 
     <!--
+      A AGENDA FECHADA em hachura (set/2026 — mockup aprovado). Férias, feriado e folga
+      saíam num cinza liso idêntico ao hover da superfície — o vão fechado se lia como
+      vão "morto" da tela, não como decisão da clínica. A diagonal repetida é o sinal
+      universal de "indisponível", e é o mesmo brush que a legenda desenha.
+
+      Só tokens: o fundo é o hover da superfície e o traço é a borda em hover. Um tile de
+      8 px com UMA diagonal de canto a canto é o que faz a hachura continuar contínua
+      entre os tiles.
+    -->
+    <DrawingBrush x:Key="Brush.AgendaFechada" TileMode="Tile"
+                  Viewport="0,0,8,8" ViewportUnits="Absolute"
+                  Viewbox="0,0,8,8" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="{StaticResource Brush.Superficie.Hover}">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,8,8" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="{StaticResource Brush.Borda.Hover}" Thickness="1" />
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <LineGeometry StartPoint="0,8" EndPoint="8,0" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
+    <!--
       O horário ocupado. É um BOTÃO, e não um Border, porque o cartão inteiro abre a
       janela do horário: alvo de clique de um cartão inteiro é o que permite que ele
       caiba em 46 px sem os sete botões que moravam dentro dele.
@@ -188,22 +220,36 @@
                           A agenda do FATURAMENTO não recebe isto, e é decisão: a tarja do
                           cartão de lá significa STATUS desde sempre, e repintá-la por
                           modalidade apagaria informação de um app em produção.
+
+                          Desde set/2026 (mockup aprovado) o FUNDO do cartão também é o da
+                          família, no tom claro: o traço de 3 px sozinho quase não se lia.
+                          Como estes gatilhos vêm depois do de hover, o cartão de família não
+                          troca de fundo ao passar o mouse — o cursor de mão continua sendo
+                          a afordância, como no vão livre.
                         -->
                         <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
                             <Setter TargetName="fundo" Property="BorderBrush"
                                     Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Modalidade.AcupunturaEletro.Suave}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
                             <Setter TargetName="fundo" Property="BorderBrush"
                                     Value="{StaticResource Brush.Modalidade.Bsv}" />
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Modalidade.Bsv.Suave}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
                             <Setter TargetName="fundo" Property="BorderBrush"
                                     Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Modalidade.BsvAcupuntura.Suave}" />
                         </DataTrigger>
                         <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
                             <Setter TargetName="fundo" Property="BorderBrush"
                                     Value="{StaticResource Brush.Modalidade.Consulta}" />
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Modalidade.Consulta.Suave}" />
                         </DataTrigger>
                         <!--
                           Encaixe: marcado por cima de um horário ocupado, com o choque

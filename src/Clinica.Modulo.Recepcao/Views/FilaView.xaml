@@ -4,6 +4,7 @@
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <!-- ====================================================================
@@ -69,6 +70,77 @@
             </Style.Triggers>
         </Style>
 
+        <!-- ============ O PLACAR DO DIA (set/2026 — a agenda com cor) ============
+             Quatro cartões pequenos com glifo e cor, no lugar da frase corrida "3
+             atendido(s) · 1 em sala · espera média 12 min". Cada número leva o glifo
+             SEMÂNTICO da tabela de iconografia (E73E atendido · EB51 em curso · E916
+             tempo · E7BA falta) e a cor que a métrica já tem no sistema; a cor do glifo
+             repete a do fundo do ícone, como no CardKpi. Tudo em token. -->
+        <Style x:Key="KpiDia" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+            <Setter Property="Padding" Value="10,8,12,8" />
+            <Setter Property="Margin" Value="0,0,10,8" />
+            <Setter Property="MinWidth" Value="150" />
+        </Style>
+        <Style x:Key="KpiDiaIcone" TargetType="Border">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="CornerRadius" Value="{StaticResource Raio.Pequeno}" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="KpiDiaGlifo" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- O `TextTrimming` se repete na TAG de cada número: o verificar-suite não resolve
+             estilo local, e repetir é o preço que deixa a intenção à vista onde ela é lida. -->
+        <Style x:Key="KpiDiaNumero" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource Fonte.H3}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style x:Key="KpiDiaRotulo" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+
+        <!-- O avatar da linha toma a cor da FAMÍLIA — o que o traço da linha diz, o
+             círculo repete, e é assim que a família se lê sem olhar a coluna do contexto.
+             ⚠️ `BasedOn` obrigatório: o Template mora no estilo implícito do design
+             system, e estilo local sem herança o SUBSTITUI — o controle fica vivo,
+             desenhando NADA (checagem 40). -->
+        <Style x:Key="AvatarDaLinha" TargetType="ctrl:Avatar" BasedOn="{StaticResource {x:Type ctrl:Avatar}}">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.AcupunturaEletro.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.Bsv.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.Bsv}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.BsvAcupuntura.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.Consulta.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.Consulta}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- O selo da linha: o tom vira o Badge.* correspondente (os mesmos brushes dos
              estilos nomeados, escolhidos por gatilho). Quem decide QUAIS selos é
              `SelosDaFila`, na Application; aqui só se desenha. -->
@@ -105,13 +177,76 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                <TextBlock Text="Agenda do dia" Style="{StaticResource H1}" Margin="0,0,0,2" />
-                <!-- O resumo do dia envelhece com o relógio, como a espera das linhas. -->
-                <TextBlock Text="{Binding ResumoDia}" Style="{StaticResource TextoSuave}"
-                           TextWrapping="Wrap" Margin="0" />
+                <TextBlock Text="Agenda do dia" Style="{StaticResource H1}" Margin="0,0,0,10" />
+
+                <!-- O placar do dia envelhece com o relógio, como a espera das linhas.
+                     WrapPanel dentro da coluna estrela: largura FINITA, dobra de verdade. -->
+                <WrapPanel>
+                    <Border Style="{StaticResource KpiDia}">
+                        <DockPanel>
+                            <Border Style="{StaticResource KpiDiaIcone}"
+                                    Background="{StaticResource Brush.Sucesso.Suave}">
+                                <TextBlock Style="{StaticResource KpiDiaGlifo}" Text="&#xE73E;"
+                                           Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource KpiDiaNumero}" Text="{Binding Atendidos}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Style="{StaticResource KpiDiaRotulo}" Text="atendidos" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource KpiDia}">
+                        <DockPanel>
+                            <Border Style="{StaticResource KpiDiaIcone}"
+                                    Background="{StaticResource Brush.Info.Suave}">
+                                <TextBlock Style="{StaticResource KpiDiaGlifo}" Text="&#xEB51;"
+                                           Foreground="{StaticResource Brush.Info}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource KpiDiaNumero}" Text="{Binding EmSala}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Style="{StaticResource KpiDiaRotulo}" Text="em atendimento" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <Border Style="{StaticResource KpiDia}"
+                            ToolTip="Da chegada ao balcão até a chamada — só de quem já foi chamado hoje. A mesma conta do painel.">
+                        <DockPanel>
+                            <Border Style="{StaticResource KpiDiaIcone}"
+                                    Background="{StaticResource Brush.Aviso.Suave}">
+                                <TextBlock Style="{StaticResource KpiDiaGlifo}" Text="&#xE916;"
+                                           Foreground="{StaticResource Brush.Aviso}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource KpiDiaNumero}" Text="{Binding EsperaMedia}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Style="{StaticResource KpiDiaRotulo}" Text="espera média" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <!-- Mudo de propósito: falta e cancelamento já estão na lista, apagados —
+                         o placar conta, não alarma. -->
+                    <Border Style="{StaticResource KpiDia}"
+                            ToolTip="Faltas · cancelamentos do dia — as linhas continuam na lista, apagadas">
+                        <DockPanel>
+                            <Border Style="{StaticResource KpiDiaIcone}"
+                                    Background="{StaticResource Brush.Superficie.Hover}">
+                                <TextBlock Style="{StaticResource KpiDiaGlifo}" Text="&#xE7BA;"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource KpiDiaNumero}" Text="{Binding FaltasCancelamentos}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                <TextBlock Style="{StaticResource KpiDiaRotulo}" Text="falta · cancelamento" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </WrapPanel>
 
                 <!-- Só aparece com DOIS ou mais profissionais no dia — chip único é ruído. -->
-                <ItemsControl ItemsSource="{Binding Profissionais}" Margin="0,8,0,0"
+                <ItemsControl ItemsSource="{Binding Profissionais}" Margin="0,2,0,0"
                               HorizontalAlignment="Left"
                               Visibility="{Binding TemFiltroProfissional,
                                            Converter={StaticResource BoolParaVisibilidade}}">
@@ -123,7 +258,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:ChipProfissional}">
                             <Button Style="{StaticResource ChipFiltroFila}"
-                                    Content="{Binding Nome}"
+                                    Content="{Binding Rotulo}"
                                     Command="{Binding DataContext.FiltrarCommand,
                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding}" />
@@ -140,10 +275,19 @@
                             BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                             CornerRadius="{StaticResource Raio.Medio}"
                             Padding="16,8" Margin="8,0">
-                        <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
-                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                   Foreground="{StaticResource Brush.Texto.Primario}"
-                                   VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
+                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource Brush.Texto.Primario}"
+                                       VerticalAlignment="Center" />
+                            <!-- "hoje" ao lado da data (set/2026): quem navega três dias para
+                                 a frente e volta precisa de um sinal de que voltou. -->
+                            <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
+                                    Visibility="{Binding EhHoje,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="hoje" />
+                            </Border>
+                        </StackPanel>
                     </Border>
                     <Button Content="▶" Command="{Binding ProximoDiaCommand}"
                             Style="{StaticResource BotaoSecundario}" MinWidth="40" />
@@ -241,6 +385,10 @@
             </StackPanel>
         </Border>
 
+        <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
+             declarada ANTES do miolo que preenche — senão o miolo a come (parcela 47). -->
+        <comp:LegendaFamiliasView DockPanel.Dock="Bottom" Margin="0,10,0,0" ComConfirmacao="True" />
+
         <!-- ============ A LISTA DO DIA ============ -->
         <Border Style="{StaticResource Card}">
             <Grid>
@@ -276,11 +424,39 @@
                             <!-- A dica da linha: o que não coube nela e alguém pode precisar
                                  (quem marcou, a observação, a resposta da rodada). -->
                             <Setter Property="ToolTip" Value="{Binding Detalhe}" />
+                            <!-- O traço da FAMÍLIA à esquerda (set/2026 — a agenda com cor): o
+                                 mesmo que o cartão da grade carrega desde ago/2026, com os
+                                 mesmos tokens. Acupuntura é o acento; as outras quatro trocam
+                                 por gatilho. Os Setters ficam TODOS antes dos gatilhos
+                                 (checagem 46). -->
+                            <Setter Property="BorderThickness" Value="3,0,0,0" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
                             <Style.Triggers>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.Bsv}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.Consulta}" />
+                                </DataTrigger>
+                                <!-- O paciente que está na SALA: a linha inteira num verde quase
+                                     branco. É um dos dois únicos casos em que a linha muda de
+                                     fundo — os dois exigem ação do balcão. -->
+                                <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" />
+                                </DataTrigger>
                                 <!-- Cancelado e falta ficam na lista, APAGADOS — nunca somem:
-                                     linha ausente se confunde com horário que nunca existiu. -->
+                                     linha ausente se confunde com horário que nunca existiu. O
+                                     traço da família apaga junto (vem DEPOIS dos gatilhos de
+                                     família, porque gatilho posterior vence). -->
                                 <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
                                     <Setter Property="Opacity" Value="0.55" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
                                 </DataTrigger>
                                 <!-- Chamado há tempo demais: ou não ouviu, ou saiu — e quem
                                      está parado esperando é o profissional. A linha grita. -->
@@ -320,7 +496,14 @@
                         <DataGridTemplateColumn Header="PACIENTE" Width="*">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
+                                    <!-- O avatar à esquerda (foto quando há; iniciais na cor da
+                                         família) — o nome deixa de ser só texto e a pessoa se
+                                         acha de relance, como na lista de pacientes. -->
+                                    <DockPanel Margin="0,6,8,6">
+                                        <ctrl:Avatar DockPanel.Dock="Left" Tamanho="34"
+                                                     Nome="{Binding Paciente}" Foto="{Binding Foto}"
+                                                     Style="{StaticResource AvatarDaLinha}" />
+                                    <StackPanel>
                                         <DockPanel>
                                             <Border DockPanel.Dock="Right" Margin="8,0,0,0"
                                                     Style="{StaticResource Badge.Aviso}"
@@ -368,6 +551,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                     </StackPanel>
+                                    </DockPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -400,9 +584,18 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <!-- A pílula ganhou um PONTO colorido (set/2026): a cor do
+                                             estado sem depender do fundo — Marcado cinza, No local
+                                             âmbar, Chamado vermelho, Em atendimento verde,
+                                             Concluído azul-claro. Some na linha apagada. -->
                                         <Border x:Name="pilula" HorizontalAlignment="Left"
                                                 Style="{StaticResource Badge}">
-                                            <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse x:Name="ponto" Width="7" Height="7" Margin="0,0,6,0"
+                                                         VerticalAlignment="Center"
+                                                         Fill="{StaticResource Brush.Texto.Secundario}" />
+                                                <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
                                         </Border>
                                         <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
                                                    Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
@@ -414,18 +607,29 @@
                                         <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Aviso}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Aviso}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Erro}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Erro}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Sucesso}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Sucesso}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Finalizado">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Info}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Info}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
+                                            <Setter TargetName="ponto" Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                         <!-- Espera longa (30 min ou mais sem ser chamado) fica
                                              vermelha; chamada demorada, vermelha e em negrito —
