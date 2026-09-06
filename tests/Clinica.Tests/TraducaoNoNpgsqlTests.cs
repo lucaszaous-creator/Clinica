@@ -44,6 +44,26 @@ public class TraducaoNoNpgsqlTests
             .Options);
 
     [Fact]
+    public void As_duas_leituras_do_vinculo_evolucao_x_atendimento_traduzem()
+    {
+        using var db = Postgres();
+
+        // As evoluções de um horário sem atendimento — a COLUNA `CanceladaEm`, nunca a
+        // derivada `Cancelada` (é a consulta que amarra a sessão escrita antes de concluir).
+        var semAtendimento = db.Evolucoes
+            .Where(e => e.AgendamentoId == 1 && e.AtendimentoId == null && e.CanceladaEm == null)
+            .ToQueryString();
+        semAtendimento.Should().Contain("\"AgendamentoId\"").And.Contain("\"CanceladaEm\" IS NULL");
+
+        // Uma coluna do horário, sem os três joins de `ObterAgendamentoAsync`.
+        var doHorario = db.Agendamentos.AsNoTracking()
+            .Where(a => a.Id == 1)
+            .Select(a => a.AtendimentoId)
+            .ToQueryString();
+        doHorario.Should().Contain("\"AtendimentoId\"").And.NotContain("JOIN");
+    }
+
+    [Fact]
     public void Historico_de_sessoes_traduz()
     {
         using var db = Postgres();

@@ -56,6 +56,34 @@ public class Avatar : Control
         set => SetValue(TamanhoProperty, value);
     }
 
+
+    public static readonly DependencyProperty FundoProperty =
+        DependencyProperty.Register(nameof(Fundo), typeof(Brush), typeof(Avatar),
+            new PropertyMetadata(null));
+
+    /// <summary>
+    /// A cor do círculo das iniciais (set/2026). O padrão vem do ESTILO (Brush.Acento.Suave,
+    /// em Midia.xaml) — aqui não há como apontar um token —, e a lista do dia a troca pela
+    /// FAMÍLIA da modalidade, para o avatar dizer o que o traço da linha diz. É um Brush de
+    /// dependência, e não uma cor, para o gatilho de estilo poder apontar um token.
+    /// </summary>
+    public Brush? Fundo
+    {
+        get => (Brush?)GetValue(FundoProperty);
+        set => SetValue(FundoProperty, value);
+    }
+
+    public static readonly DependencyProperty TintaProperty =
+        DependencyProperty.Register(nameof(Tinta), typeof(Brush), typeof(Avatar),
+            new PropertyMetadata(null));
+
+    /// <summary>A cor das iniciais. Padrão no estilo (Brush.Acento); ver <see cref="Fundo"/>.</summary>
+    public Brush? Tinta
+    {
+        get => (Brush?)GetValue(TintaProperty);
+        set => SetValue(TintaProperty, value);
+    }
+
     private static readonly DependencyPropertyKey IniciaisKey =
         DependencyProperty.RegisterReadOnly(nameof(Iniciais), typeof(string), typeof(Avatar),
             new PropertyMetadata(string.Empty));

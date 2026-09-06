@@ -27,8 +27,15 @@ namespace Clinica.Recepcao.ViewModels;
 ///
 /// A leitura é sob <c>VerAgenda</c>; o MOTIVO do retorno é registro clínico e só aparece
 /// para quem tem <c>VerProntuario</c> — a data e quem pediu são o suficiente para marcar.
+///
+/// ⚠️ <see cref="ICarregarAoAbrir"/> é o que faz a aba abrir CHEIA (set/2026). O shell
+/// monta a tela e só resolve o <c>DataContext</c> — ele não chama método nenhum. Sem o
+/// contrato, a aba nascia com a lista vazia e o <c>EstadoDaTela</c> escrevendo "Nenhum
+/// retorno a marcar" até alguém clicar em Atualizar: frase falsa com cara de resposta, a
+/// lição da parcela 47 na tela que existe para a recepcionista SABER que alguém deve
+/// voltar. Build, testes e as três redes ficaram verdes — quem pega é quem abre a aba.
 /// </summary>
-public sealed partial class RetornosAMarcarViewModel : ObservableObject
+public sealed partial class RetornosAMarcarViewModel : ObservableObject, ICarregarAoAbrir
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private int _geracao;

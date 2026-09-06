@@ -3353,6 +3353,108 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   um PR fica vermelho, a primeira pergunta é "qual rede local deveria ter visto isto?"** —
   e se a resposta é nenhuma, a correção vem com a checagem.
 
+- **A CONFERÊNCIA PEDIDA PELA DIREÇÃO SOBRE A AGENDA — três defeitos com 2261 testes
+  verdes, e os três da mesma família** (set/2026: *"verifique se nossa agenda tem falhas
+  que você não viu quando construiu"*). Nenhum quebrava build, teste ou rede; os três
+  moram no vão entre o shell e a tela — o `TelaComAbas` monta cada aba UMA vez e a guarda,
+  e é nesse "uma vez" que os três nasceram.
+  ⚠️ **"Retornos a marcar" abria VAZIA dizendo "Nenhum retorno a marcar".** A ViewModel não
+  declarava `ICarregarAoAbrir` nem disparava a carga no construtor, e o shell só carrega
+  quem declara o contrato. É a lição da parcela 47 — escrita neste arquivo — cometida na
+  tela seguinte, e na variante pior: o `EstadoDaTela` afirmava a ausência. **Tela nova da
+  suíte que busca ao abrir declara `ICarregarAoAbrir`, e a conferência é `grep` do nome
+  da ViewModel em `CriarTela` contra a lista de quem implementa o contrato.**
+  ⚠️ **O segundo "Marcar horário" vindo dos Retornos marcava o paciente ERRADO.** O pedido
+  da ponte (`PreenchimentoNovoAtendimento`) era consumido só no `CarregarAsync` da aba
+  Marcar, que roda quando ela é montada. Retornos e Marcar são abas do MESMO item: no
+  segundo clique o shell só trocava de aba, ninguém consumia o pedido, a tela mostrava o
+  paciente do retorno anterior e o pedido ficava ÓRFÃO — pré-preenchendo a abertura
+  seguinte com o clique de antes, que é justamente o que o comentário da ponte diz existir
+  para evitar. A grade já tinha a resposta certa para o pedido DELA (`ConsumirPedidoDeDia`
+  no `AoEntrarEmCena`); a aba Marcar não. **Ponte consumida "na abertura" precisa ser
+  consumida também na VOLTA à vista, quando a tela é aba** — e só na volta: na primeira
+  exibição quem consome é o `CarregarAsync`, na ordem que a parcela 37 exige (equipe
+  carregada, busca inicial remontada, e só então o paciente).
+  ⚠️ **Voltar à Grade no modo SEMANA apagava a grade pelo tempo da leitura — e a deixava
+  em branco se a leitura falhasse.** `Colunas.Clear()` vinha ANTES do `await` de
+  `MontarSemanaAsync`. A batida do relógio excluía o modo semana exatamente por isso (o
+  comentário dela diz "a grade piscaria"); a releitura ao voltar à aba, nova de set/2026,
+  não excluía — e no `catch` silencioso nada era restaurado. A regra da parcela 62 vale
+  para o **await escondido dentro de um método chamado entre o Clear e o Add**: a semana
+  passou a ser montada em lista local e publicada numa passada síncrona.
+  Junto, duas divergências entre as duas listas do dia: a do balcão deixava registrar
+  chegada, chamada e entrada em QUALQUER dia navegado (o Meu dia já escondia — a fila corre
+  HOJE, e os dois quadros passaram a seguir a mesma regra, com a guarda que FALA), e o
+  botão "Debitar pacote" acendia pela metade larga (`EditarAgenda` OU `MovimentarFila`)
+  enquanto o comando exige `EditarAgenda` estrito.
+  **A lição de método**: a lista de conferência pega o que está NA LINHA; o que ela não
+  alcança é o contrato entre a tela e quem a hospeda. Ao escrever uma aba, as três
+  perguntas são: *quem a carrega na primeira vez? o que ela precisa reler ao VOLTAR? e o
+  que ela promete consumir que só consome na montagem?*
+
+- **A EVOLUÇÃO NASCE COM O NÚMERO DO ATENDIMENTO — o mesmo que a recepção gera**
+  (set/2026, pedido da direção). No regime atual o médico ESCREVE a sessão no passo 1 do
+  Finalizar e o atendimento só nasce no passo 3: a evolução ficava com `AtendimentoId`
+  nulo para sempre, e nada ligava os dois depois. Nenhum leitor dependia disso ainda —
+  era a variante "dado sem leitor" pelo avesso: um VÍNCULO sem escritor.
+  ⚠️ **São DUAS metades, e uma sem a outra deixa um caso de fora.** (a) Quem NASCE amarra
+  o que já foi escrito: `ConfirmarNucleoAsync` pendura as evoluções sem atendimento do
+  horário no atendimento que está nascendo, no MESMO commit — pela navegação, porque o
+  Id ainda não existe. (b) Quem GRAVA resolve pelo horário: `ProntuarioService.SalvarAsync`
+  lê `AtendimentoDoHorarioAsync` (uma coluna) quando o chamador mandou nulo — a tela do
+  médico guarda o atendimento de quando ABRIU, e ele pode ter nascido depois (o balcão
+  concluiu, ou a chave "guia no agendamento" o criou na marcação).
+  ⚠️ **O vínculo é pelo HORÁRIO, não pelo autor**: a evolução do colega que cobriu a
+  sessão é amarrada igual ("todos atendem todos"). Sessão CANCELADA fica de fora — registro
+  desdito não sustenta guia —, e há teste para as duas coisas. Três dos quatro testes
+  REPROVAM no código anterior (o quarto é a guarda do que NÃO se amarra, e passa nos
+  dois); foi verificado com o `git stash`, não presumido.
+
+- **A AGENDA COM COR — a família no traço, no avatar e no cartão; o estado na pílula; o
+  placar com glifo** (set/2026; a cliente: *"a nossa agenda está um pouco sem cor,
+  consegue dar cor nisso? Não só cor, mas estilizar também"*; mockup aprovado em
+  `docs/mockups/agenda-com-cor.html` ANTES de uma linha de WPF, o caminho da parcela 87).
+  As três telas que mostram um horário — a lista do dia do balcão, a grade e o Meu dia do
+  médico — saíram no mesmo commit e leem os MESMOS tokens: a mesma sessão com a mesma
+  cor nos três lugares é o que faz a cor virar vocabulário em vez de enfeite.
+  As decisões que não são óbvias pelo código:
+  ⚠️ **Família e estado são dois eixos, e NÃO disputam a mesma peça.** A família (o que
+  a sessão É) pinta o traço de 3 px da linha, o avatar e o fundo do cartão da grade; o
+  estado (em que ponto do dia ela está) fica na pílula, com um ponto colorido. Pintar a
+  linha inteira pelo estado brigaria com os dois casos em que ela JÁ muda de fundo — a
+  chamada demorada (vermelho) e o paciente na sala (o `Sucesso.Tint`, um degrau mais
+  claro que o `.Suave`, porque numa linha de 56 px o suave pinta demais).
+  ⚠️ **Os tons claros são ALIASES por família** (`Brush.Modalidade.*.Suave`), inclusive
+  onde o token já existia (Azul.50, Ciano.100): as telas leem os cinco pelo mesmo nome, e
+  a próxima família nasce com os dois tons de uma vez em vez de esquecer um.
+  ⚠️ **O avatar ganhou `Fundo`/`Tinta` como DPs, com o PADRÃO no estilo implícito** — não
+  no controle. É o que permite a lista trocar o par por gatilho num estilo local
+  `BasedOn` sem redesenhar o Template; e é por isso que o padrão não pode morar no
+  `PropertyMetadata`: lá não há como apontar um token. Portado ao faturamento no mesmo
+  commit (o débito permanente da Fase 4), embora nenhuma tela de lá o use ainda.
+  ⚠️ **A legenda é UM componente do shell, e fica SEMPRE.** Três cópias divergiriam na
+  primeira família nova — a que ficasse para trás mentiria sobre a cor. Os opcionais
+  (`ComConfirmacao` nas listas, `ComGrade` na grade) existem porque legenda que explica
+  um sinal que a tela não desenha ensina a procurar o que não existe. Ficar sempre foi
+  decisão da direção: uma linha de 12 px no pé não custa altura a ninguém.
+  ⚠️ **A linha do "agora" marca a FAIXA, não o minuto**, e é decisão: a faixa tem 30 min
+  e cresce com o encaixe; posicionar ao minuto exigiria medir a altura, para uma pergunta
+  ("onde estamos no dia?") que não pede essa precisão. Ela é sobreposição num `Grid`
+  (último filho, checagem 25), `IsHitTestVisible=False` para o vão continuar clicável, e
+  o recuo à esquerda é o MESMO espaçador de régua do cabeçalho das colunas — o número 64
+  continua existindo num lugar só. Só hoje e só no modo dia, decidido na VM.
+  ⚠️ **A hachura do vão fechado é um `DrawingBrush` do design system, só de tokens** —
+  tile de 8 px com UMA diagonal de canto a canto, que é o que mantém o traço contínuo
+  entre tiles. O motivo escrito por cima ganhou fundo próprio: texto sobre diagonal não
+  se lê. E a legenda desenha o MESMO brush: hachura desenhada duas vezes divergiria.
+  ⚠️ **`TextTrimming` que vem de estilo local se repete na TAG** (a lição da prévia da
+  guia, cobrada de novo pela checagem 24 nos quatro números do placar): o verificar-suite
+  não resolve estilo local, e repetir é o preço que deixa a intenção à vista.
+  ⚠️ E o `compilar-sombra` pegou o `using Clinica.Domain;` que faltava nos DOIS
+  ViewModels que ganharam `ModalidadeAtendimento` — o tipo já era usado nos arquivos por
+  nome qualificado noutro ponto, e o campo novo não. Rede que roda antes do push é rede
+  que pega antes do CI.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

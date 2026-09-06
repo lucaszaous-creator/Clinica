@@ -75,6 +75,33 @@ laranja e cancelado/falta seguem apagados.
 A agenda do **faturamento** não recebe isto, e é decisão: a tarja do cartão de lá
 significa STATUS desde sempre, e repintá-la apagaria informação de um app em produção.
 
+#### O tom CLARO de cada família (set/2026 — a agenda com cor)
+
+Mockup aprovado em `docs/mockups/agenda-com-cor.html`. O traço de 3 px sozinho quase não se
+lia; agora o **fundo** do cartão da grade e o **avatar** da lista do dia tomam o tom claro
+da mesma família. Um alias por família, para as telas lerem os cinco pelo mesmo nome e a
+próxima família nascer com os dois tons de uma vez.
+
+| família | brush do fundo | cor |
+|---|---|---|
+| AcupunturaSimples | `Brush.Modalidade.Acupuntura.Suave` (= `Cor.Azul.50`) | `#EEF3FC` |
+| AcupunturaComEletro | `Brush.Modalidade.AcupunturaEletro.Suave` (`Cor.Violeta.50`) | `#F5F3FF` |
+| BsvApenas | `Brush.Modalidade.Bsv.Suave` (`Cor.Teal.50`) | `#F0FDFA` |
+| BsvComAcupuntura | `Brush.Modalidade.BsvAcupuntura.Suave` (= `Cor.Ciano.100`) | `#E0F2FE` |
+| Consulta | `Brush.Modalidade.Consulta.Suave` (`Cor.Rosa.50`) | `#FDF2F8` |
+
+Junto vieram: `Brush.Sucesso.Tint` (`Cor.Verde.50`, `#F0FDF4`) — o verde de **linha
+inteira** para o paciente em atendimento na lista do dia (o `.Suave` numa linha de 56 px
+pinta demais); `Brush.AgendaFechada` — o `DrawingBrush` da hachura do vão fechado (tile de
+8 px, `Superficie.Hover` + diagonal em `Borda.Hover`), o mesmo brush que a legenda desenha;
+e o par `Fundo`/`Tinta` do `Avatar`, que o estilo implícito preenche com `Acento.Suave` /
+`Acento` e um estilo local (sempre `BasedOn`) troca pela família.
+
+A **legenda** das famílias é um componente do shell (`LegendaFamiliasView`), com os
+opcionais `ComConfirmacao` (as listas) e `ComGrade` (encaixe e agenda fechada). Ela fica
+sempre, por decisão da direção. O placar da agenda do dia usa os glifos da tabela abaixo:
+E73E atendido · EB51 em atendimento · E916 espera · E7BA falta.
+
 ### O glifo semântico do CardKpi (ago/2026)
 
 Todo `CardKpi` leva `CardKpi.Icone` (15 px, à esquerda do rótulo, na mesma linha; a cor

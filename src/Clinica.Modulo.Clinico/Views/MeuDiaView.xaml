@@ -3,12 +3,41 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
+        <!-- O avatar da linha na cor da FAMÍLIA (set/2026 — a agenda com cor): a MESMA
+             regra e os MESMOS tokens da lista do balcão, porque as duas listas são a mesma
+             agenda lida de dois postos. Só iniciais aqui — a leitura do dia do médico não
+             traz a miniatura da foto (a lição da parcela 74: meça o que a consulta TRAZ).
+             ⚠️ `BasedOn` obrigatório: estilo local sem herança substitui o implícito, onde
+             mora o Template, e o controle desenha NADA (checagem 40). -->
+        <Style x:Key="AvatarDaLinha" TargetType="ctrl:Avatar" BasedOn="{StaticResource {x:Type ctrl:Avatar}}">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.AcupunturaEletro.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.Bsv.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.Bsv}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.BsvAcupuntura.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
+                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.Consulta.Suave}" />
+                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.Consulta}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <DockPanel Margin="24,20,24,24">
@@ -150,6 +179,10 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
+             declarada ANTES do miolo que preenche — senão o miolo a come (parcela 47). -->
+        <comp:LegendaFamiliasView DockPanel.Dock="Bottom" Margin="0,10,0,0" ComConfirmacao="True" />
+
         <!-- ============ A LISTA DO DIA (parcela 95) ============
              Uma linha por horário, na ordem da hora — a agenda do Smart Clinic que a
              cliente usava, e o que ela pediu: "quanto mais simples, melhor". O quadro de
@@ -191,20 +224,57 @@
                         <!-- Cancelado e falta ficam na lista, APAGADOS — nunca somem: linha
                              ausente se confunde com horário que nunca existiu. -->
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                            <!-- O traço da FAMÍLIA à esquerda e a linha verde de quem está na
+                                 sala (set/2026): a mesma regra e os mesmos tokens da lista do
+                                 balcão e do cartão da grade. Setters ANTES dos gatilhos
+                                 (checagem 46). -->
+                            <Setter Property="BorderThickness" Value="3,0,0,0" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
                             <Style.Triggers>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.Bsv}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.Consulta}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" />
+                                </DataTrigger>
+                                <!-- Apagado, e o traço da família apaga junto (vem depois dos
+                                     gatilhos de família: gatilho posterior vence). -->
                                 <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
                                     <Setter Property="Opacity" Value="0.55" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="HORÁRIO" Width="110" Binding="{Binding Hora}" />
+                        <!-- A hora em negrito, como a lista do balcão: é a âncora da leitura. -->
+                        <DataGridTemplateColumn Header="HORÁRIO" Width="110">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Hora}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" Margin="0,6,8,6" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
                         <DataGridTemplateColumn Header="PACIENTE" Width="*">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
+                                    <DockPanel Margin="0,6,8,6">
+                                        <ctrl:Avatar DockPanel.Dock="Left" Tamanho="34"
+                                                     Nome="{Binding Paciente}"
+                                                     Style="{StaticResource AvatarDaLinha}" />
+                                    <StackPanel>
                                         <DockPanel>
                                             <Border DockPanel.Dock="Right" Margin="8,0,0,0"
                                                     Style="{StaticResource Badge.Aviso}"
@@ -227,6 +297,7 @@
                                                                 Converter={StaticResource TextoParaVisibilidade},
                                                                 FallbackValue=Collapsed}" />
                                     </StackPanel>
+                                    </DockPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -238,9 +309,16 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                        <!-- O ponto colorido do estado (set/2026) — o mesmo da
+                                             lista do balcão. Some na linha apagada. -->
                                         <Border x:Name="pilula" HorizontalAlignment="Left"
                                                 Style="{StaticResource Badge}">
-                                            <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse x:Name="ponto" Width="7" Height="7" Margin="0,0,6,0"
+                                                         VerticalAlignment="Center"
+                                                         Fill="{StaticResource Brush.Texto.Secundario}" />
+                                                <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
                                         </Border>
                                         <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
                                                    Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
@@ -252,10 +330,14 @@
                                         <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Aviso}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Aviso}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Erro}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Erro}" />
                                         </DataTrigger>
                                         <!-- Chamada demorada: o balcão ainda não trouxe a pessoa,
                                              e é o profissional que está parado esperando. -->
@@ -267,10 +349,17 @@
                                         <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Sucesso}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Sucesso}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Finalizado">
                                             <Setter TargetName="pilula" Property="Style"
                                                     Value="{StaticResource Badge.Info}" />
+                                            <Setter TargetName="ponto" Property="Fill"
+                                                    Value="{StaticResource Brush.Info}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
+                                            <Setter TargetName="ponto" Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>

@@ -982,6 +982,22 @@ public sealed class AgendaService
             ag.Atendimento = atendimento;
         }
 
+        // ===== A EVOLUÇÃO NASCE COM O NÚMERO DO ATENDIMENTO (set/2026, pedido da direção) =====
+        //
+        // No regime atual o médico ESCREVE a sessão (passo 1 do Finalizar) antes de o
+        // atendimento existir (passo 3, aqui), então a evolução ficava com `AtendimentoId`
+        // nulo para sempre — e nada ligava os dois depois. As evoluções deste horário que
+        // ainda não apontam para atendimento nenhum são amarradas AQUI, no MESMO commit em
+        // que o atendimento nasce: ou existe tudo amarrado, ou nada. Quando o atendimento já
+        // existe (regime "guia no agendamento", avulso), a gravação da evolução já o resolve
+        // pelo horário (`ProntuarioService.SalvarAsync`); esta linha é o cinto para o que
+        // foi escrito ANTES — inclusive a evolução do colega que cobriu o horário.
+        foreach (var evolucao in await _repo.EvolucoesSemAtendimentoDoHorarioAsync(ag.Id, ct))
+        {
+            if (atendimento.Id != 0) evolucao.AtendimentoId = atendimento.Id;
+            else evolucao.Atendimento = atendimento; // a navegação: o Id ainda não existe
+        }
+
         ag.Status = StatusAgendamento.Realizado;
         // A âncora de "a sessão ACONTECEU" (parcela 70): com a guia nascendo na marcação,
         // existir atendimento deixou de significar sessão realizada — quem significa é

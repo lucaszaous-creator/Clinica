@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,6 +29,12 @@ public sealed class LinhaSessao
     public required string Paciente { get; init; }
     public required string Hora { get; init; }
     public required string Modalidade { get; init; }
+
+    /// <summary>
+    /// A FAMÍLIA da modalidade (set/2026 — a agenda com cor): o traço da linha e o avatar,
+    /// com a MESMA cor que a lista do balcão e o cartão da grade dão à mesma sessão.
+    /// </summary>
+    public required ModalidadeAtendimento ModalidadeFamilia { get; init; }
 
     /// <summary>A sala, ou VAZIO quando o horário não tem uma — nunca o travessão.</summary>
     public required string Local { get; init; }
@@ -162,6 +169,7 @@ public sealed class LinhaSessao
         // início sozinho calava — e é a que decide se cabe um encaixe.
         Hora = $"{s.DataHora:HH:mm}–{s.FimPrevisto:HH:mm}",
         Modalidade = s.Modalidade,
+        ModalidadeFamilia = s.ModalidadeFamilia,
         Local = s.Sala ?? string.Empty,
         Situacao = Rotular(s.Status, s.Etapa),
         ForaDaFila = StatusDaFila.ForaDaFila(s.Status),

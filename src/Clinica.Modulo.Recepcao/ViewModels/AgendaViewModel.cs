@@ -221,6 +221,13 @@ public sealed class FaixaAgenda
 
     public required bool HoraCheia { get; init; }
 
+    /// <summary>
+    /// A faixa em que a hora ATUAL cai (set/2026 — a linha vermelha do "agora" do mockup
+    /// aprovado). Só no modo dia e só quando o dia aberto é hoje: em outro dia não há
+    /// "agora" para marcar, e marcá-lo mentiria sobre a hora de um dia que não é este.
+    /// </summary>
+    public bool Agora { get; init; }
+
     public required ObservableCollection<CelulaAgenda> Celulas { get; init; }
 }
 
@@ -536,17 +543,27 @@ public sealed partial class AgendaViewModel : ObservableObject
             await CarregarConfirmacoesAsync(scope, doDia, geracao);
             if (geracao != _geracaoCarga) return;
 
-            Colunas.Clear();
-            Faixas.Clear();
-
             if (ModoSemana)
             {
-                await MontarSemanaAsync(scope, agenda, profissionais, geracao);
-                if (geracao != _geracaoCarga) return;
+                // ⚠️ A semana é MONTADA antes de a grade ser LIMPA (set/2026). O Clear vinha
+                // antes deste await, e a releitura silenciosa ao voltar à aba — que, ao
+                // contrário da batida do relógio, roda também no modo semana — apagava as
+                // sete colunas pelo tempo do roundtrip; se a leitura falhasse, o catch
+                // saía sem tocar em nada e a semana FICAVA em branco, com cara de semana
+                // vazia. É a regra da parcela 62: entre o Clear() e o último Add não pode
+                // haver await — e ela vale para o await escondido dentro de um método.
+                var colunasDaSemana = await MontarSemanaAsync(scope, agenda, profissionais, geracao);
+                if (colunasDaSemana is null || geracao != _geracaoCarga) return;
+
+                Colunas.Clear();
+                foreach (var c in colunasDaSemana) Colunas.Add(c);
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
                 return;
             }
+
+            Colunas.Clear();
+            Faixas.Clear();
 
             // ===== A grade por SALA (parcela 63) =====
             if (AgruparPorSala)
@@ -826,7 +843,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// O filtro "só a minha agenda" continua valendo — quem entrou como profissional vê
     /// a semana DELE, que é a pergunta que ele faz.
     /// </summary>
-    private async Task MontarSemanaAsync(
+    private async Task<List<ColunaAgenda>?> MontarSemanaAsync(
         IServiceScope scope, AgendaService agenda, IReadOnlyList<Profissional> profissionais, int geracao)
     {
         var meu = SessaoUsuario.Atual.ProfissionalId;
@@ -837,6 +854,11 @@ public sealed partial class AgendaViewModel : ObservableObject
         // enum com int devolve o enum), e o resto de divisão não existe para enum.
         var segunda = Dia.Date.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
         var ocupando = 0;
+
+        // Montada em lista LOCAL e devolvida: quem limpa e publica é o chamador, numa
+        // passada síncrona, depois de todos os awaits (a regra da parcela 62). Nulo quer
+        // dizer "superada por uma carga mais nova" — e aí nada se publica.
+        var colunas = new List<ColunaAgenda>();
 
         // ⚠️ UMA consulta, não sete. `AgendaService.NoPeriodoAsync` existe para isto desde
         // sempre — o app CONGELADO de faturamento já a usava na visão de semana dele — e
@@ -851,9 +873,9 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem impede a
         // semana velha de terminar por cima da nova.
-        if (geracao != _geracaoCarga) return;
+        if (geracao != _geracaoCarga) return null;
         await CarregarConfirmacoesAsync(scope, daSemana, geracao);
-        if (geracao != _geracaoCarga) return;
+        if (geracao != _geracaoCarga) return null;
 
         var porDia = daSemana
             .GroupBy(a => a.DataHora.Date)
@@ -874,7 +896,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             // A coluna do dia não tem "um profissional": o cartão já diz de quem é, e
             // amarrá-la a alguém faria o botão de chamar da lista de espera oferecer o
             // profissional errado.
-            Colunas.Add(MontarColuna(
+            colunas.Add(MontarColuna(
                 null,
                 $"{Dias[i]} {quando:dd/MM}",
                 DateOnly.FromDateTime(quando),
@@ -882,6 +904,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
 
         Resumo = $"{ocupando} horário(s) na semana de {segunda:dd/MM} a {segunda.AddDays(6):dd/MM}";
+        return colunas;
     }
 
     private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
@@ -992,6 +1015,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         var primeiro = Piso(inicio);
         var ultimo = Piso(fim);
         var agora = DateTime.Now;
+        var horaAgora = TimeOnly.FromDateTime(agora);
+        var marcarAgora = !ModoSemana && Dia.Date == agora.Date;
 
         for (var minuto = primeiro; minuto <= ultimo; minuto += PassoMinutos)
         {
@@ -1029,6 +1054,9 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Hora = hora,
                 Rotulo = hora.Minute == 0 ? hora.ToString("HH:mm") : string.Empty,
                 HoraCheia = hora.Minute == 0,
+                // A linha do agora: a faixa que contém a hora atual. `AddMinutes` na última
+                // faixa do dia dá a volta para 00:00 e a comparação falha, que é o certo.
+                Agora = marcarAgora && hora <= horaAgora && horaAgora < hora.AddMinutes(PassoMinutos),
                 Celulas = celulas
             });
         }

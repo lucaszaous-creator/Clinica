@@ -442,6 +442,21 @@ public interface IClinicaRepositorio
     Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
     /// <summary>
+    /// As evoluções de um HORÁRIO que ainda não apontam para atendimento nenhum — RASTREADAS,
+    /// porque quem as pede vai amarrá-las ao atendimento que está nascendo (set/2026). Sessão
+    /// cancelada fica de fora: ela é registro desdito, e amarrá-la afirmaria que a guia se
+    /// sustenta nela.
+    /// </summary>
+    Task<IReadOnlyList<Evolucao>> EvolucoesSemAtendimentoDoHorarioAsync(int agendamentoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// O atendimento a que o horário aponta — UMA coluna, sem carregar o horário inteiro. É
+    /// o que a gravação da evolução consulta quando o chamador não sabe o atendimento (a tela
+    /// abriu antes de ele existir); nulo quando o horário ainda não tem atendimento.
+    /// </summary>
+    Task<int?> AtendimentoDoHorarioAsync(int agendamentoId, CancellationToken ct = default);
+
+    /// <summary>
     /// Prontuário do paciente, da sessão mais recente para a mais antiga. NÃO traz os
     /// anexos — abrir o prontuário não pode arrastar os arquivos junto.
     ///

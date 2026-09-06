@@ -7,6 +7,7 @@ using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,6 +30,14 @@ public sealed partial class CartaoFila : ObservableObject
     public required string Horario { get; init; }
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
+
+    /// <summary>
+    /// A FAMÍLIA da modalidade (set/2026 — a agenda com cor): abre a linha com o traço de
+    /// 3 px e pinta o avatar, com a MESMA cor que o cartão da grade já tinha. A cor sai do
+    /// enum, nunca do rótulo — a variante cadastrada herda a cor de quem deriva.
+    /// </summary>
+    public required ModalidadeAtendimento ModalidadeFamilia { get; init; }
+
     public required string Profissional { get; init; }
 
     /// <summary>
@@ -230,16 +239,26 @@ public sealed partial class CartaoFila : ObservableObject
     [ObservableProperty]
     private bool _chamadaDemorada;
 
-    public bool PodeChegar => Etapa == EtapaFila.Aguardando;
+    /// <summary>
+    /// A fila corre HOJE — a regra que o Meu dia do médico já tinha, agora nos DOIS
+    /// quadros (set/2026). Chegada, chamada e entrada são carimbos de hora do DIA da
+    /// sessão: registrá-los num horário de amanhã ou de ontem carimba a hora de agora numa
+    /// sessão que não está acontecendo, e a espera e o atraso saem de um horário morto.
+    /// Concluir, fechar a sessão, falta e cancelamento continuam valendo em qualquer dia —
+    /// a sessão de ontem que ficou aberta se conclui hoje.
+    /// </summary>
+    public bool EhHoje => DataHora.Date == DateTime.Today;
+
+    public bool PodeChegar => Etapa == EtapaFila.Aguardando && EhHoje;
 
     /// <summary>
     /// O balcão também pode chamar por conta própria (o profissional avisou pela porta,
     /// a sala vagou): é o mesmo fato, e quem carimba é quem clicar primeiro.
     /// </summary>
-    public bool PodeChamar => Etapa == EtapaFila.Chegou;
+    public bool PodeChamar => Etapa == EtapaFila.Chegou && EhHoje;
 
     /// <summary>"Entrou" — o paciente levantou e foi para a sala.</summary>
-    public bool PodeIniciar => Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado;
+    public bool PodeIniciar => (Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado) && EhHoje;
 
     public bool PodeFinalizar => Etapa == EtapaFila.EmAtendimento;
 
@@ -270,7 +289,7 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public bool PodeFechar => Etapa == EtapaFila.Finalizado;
 
-    public bool PodeVoltar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento;
+    public bool PodeVoltar => (Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento) && EhHoje;
 
     /// <summary>Só horário em aberto aceita falta/cancelamento — o cancelado e a falta já saíram.</summary>
     public bool EmAberto => Etapa is not (EtapaFila.Finalizado or EtapaFila.ForaDaFila);
@@ -286,9 +305,11 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public string ProximoPasso => Etapa switch
     {
-        EtapaFila.Aguardando => "Chegou",
-        EtapaFila.Chegou => "Chamar",
-        EtapaFila.Chamado => "Entrou",
+        // Os três movimentos da fila só existem HOJE (ver `EhHoje`): noutro dia a linha
+        // fica sem passo, como no Meu dia do médico.
+        EtapaFila.Aguardando when EhHoje => "Chegou",
+        EtapaFila.Chegou when EhHoje => "Chamar",
+        EtapaFila.Chamado when EhHoje => "Entrou",
         EtapaFila.EmAtendimento => "Concluir",
         // Concluída pelo Consultório e com pacote por debitar. Sem pendência não há passo
         // nenhum: a raia FINALIZADO volta a ser o registro do dia, e o fechamento
@@ -304,6 +325,14 @@ public sealed partial class CartaoFila : ObservableObject
     /// estrito. Os outros três (chegou, chamar, entrou) são movimento de fila.
     /// </summary>
     public bool ProximoPassoEhConcluir => Etapa == EtapaFila.EmAtendimento;
+
+    /// <summary>
+    /// O próximo passo deste cartão é FECHAR a sessão ("Debitar pacote") — ato do balcão,
+    /// <c>EditarAgenda</c> estrito, como a guarda de <c>FecharSessaoAsync</c>. Enquanto o
+    /// botão seguia a metade larga (<c>EditarAgenda</c> OU <c>MovimentarFila</c>), o perfil
+    /// que só move a fila via "Debitar pacote" ACESO e levava a recusa depois do clique.
+    /// </summary>
+    public bool ProximoPassoEhFechar => Etapa == EtapaFila.Finalizado;
 
 
     /// <summary>
@@ -346,6 +375,12 @@ public sealed partial class ChipProfissional : ObservableObject
     public int? Id { get; init; }
 
     public required string Nome { get; init; }
+
+    /// <summary>Quantos horários vivos do dia o chip recorta (set/2026).</summary>
+    public required int Quantidade { get; init; }
+
+    /// <summary>"Dra. Ana · 5" — o número ao lado do nome, como no mockup aprovado.</summary>
+    public string Rotulo => $"{Nome} · {Quantidade}";
 
     [ObservableProperty]
     private bool _ativo;
@@ -472,17 +507,26 @@ public sealed partial class FilaViewModel : ObservableObject
     [ObservableProperty]
     private DateTime _dia = DateTime.Today;
 
+    /// <summary>O dia aberto é hoje — a pílula "hoje" ao lado da data (set/2026).</summary>
+    public bool EhHoje => Dia.Date == DateTime.Today;
+
     [ObservableProperty]
     private bool _carregando;
 
     /// <summary>
-    /// A linha de contexto do dia: atendidos, em sala, espera média e o que o quadro NÃO
-    /// mostra (faltas e cancelamentos, que saem da fila). Envelhece com o relógio, como a
-    /// espera dos cartões. Os números POR COLUNA continuam no cabeçalho de cada raia — o
-    /// resumo carrega só o que nenhuma coluna diz.
+    /// O PLACAR do dia (set/2026 — a agenda com cor, mockup aprovado): quatro números, cada
+    /// um com o glifo semântico e a cor que a métrica já tem no sistema, no lugar da frase
+    /// corrida "3 atendido(s) · 1 em sala · espera média 12 min". Envelhecem com o relógio,
+    /// como a espera das linhas — a média é a ÚNICA do sistema, a do painel.
     /// </summary>
-    [ObservableProperty]
-    private string _resumoDia = string.Empty;
+    [ObservableProperty] private int _atendidos;
+    [ObservableProperty] private int _emSala;
+
+    /// <summary>"12 min" — ou o travessão, quando ninguém esperou ainda (média sem base é nula, nunca zero).</summary>
+    [ObservableProperty] private string _esperaMedia = "—";
+
+    /// <summary>"1 · 0" — faltas e cancelamentos, que estão na lista apagados.</summary>
+    [ObservableProperty] private string _faltasCancelamentos = "0 · 0";
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -530,6 +574,13 @@ public sealed partial class FilaViewModel : ObservableObject
     /// capacidades que a guarda lhe dá e o menu escondia.
     /// </summary>
     public bool PodeMarcarFaltaOuCancelar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
+    /// Fechar a sessão (pacote, insumo, caixa) é ato do balcão: <c>EditarAgenda</c> estrito,
+    /// a MESMA conta do <c>Exigir</c> de <c>FecharSessaoAsync</c>. É a metade visível do
+    /// botão "Debitar pacote" e do item do menu "⋯" (set/2026).
+    /// </summary>
+    public bool PodeFecharSessao => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
     /// <summary>
     /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
@@ -685,7 +736,11 @@ public sealed partial class FilaViewModel : ObservableObject
     /// <summary>Desliga o relógio (chamado quando a tela sai de cena).</summary>
     public void AoSairDeCena() => _relogio.Stop();
 
-    partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
+    partial void OnDiaChanged(DateTime value)
+    {
+        OnPropertyChanged(nameof(EhHoje));
+        _ = CarregarAsync();
+    }
 
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
@@ -891,15 +946,20 @@ public sealed partial class FilaViewModel : ObservableObject
         if (_filtroProfissionalId is { } vigente && doDia.All(p => p.Id != vigente))
             _filtroProfissionalId = null;
 
+        var vivos = _doDia.Where(a => a.Etapa != EtapaFila.ForaDaFila).ToList();
+
         Profissionais.Clear();
         Profissionais.Add(new ChipProfissional
         {
-            Id = null, Nome = "Todos", Ativo = _filtroProfissionalId is null
+            Id = null, Nome = "Todos", Quantidade = vivos.Count,
+            Ativo = _filtroProfissionalId is null
         });
         foreach (var p in doDia)
             Profissionais.Add(new ChipProfissional
             {
-                Id = p.Id, Nome = p.Nome, Ativo = _filtroProfissionalId == p.Id
+                Id = p.Id, Nome = p.Nome,
+                Quantidade = vivos.Count(a => a.ProfissionalId == p.Id),
+                Ativo = _filtroProfissionalId == p.Id
             });
 
         OnPropertyChanged(nameof(TemFiltroProfissional));
@@ -948,6 +1008,7 @@ public sealed partial class FilaViewModel : ObservableObject
                 // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
                 Modalidade = CatalogoModalidades.Nome(
                     a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+                ModalidadeFamilia = a.ModalidadePrevista,
                 // "sem profissional" é o que a GRADE já escreve, e é aviso, não
                 // enfeite: horário sem dono some do "Meu dia" de quem atende e do
                 // repasse (parcela 69). O travessão calava isso.
@@ -988,8 +1049,9 @@ public sealed partial class FilaViewModel : ObservableObject
             };
 
             Linhas.Add(cartao);
-            // O chamado e ainda não anunciado alimenta a FAIXA do topo, além da linha.
-            if (a.Etapa == EtapaFila.Chamado) Chamados.Add(cartao);
+            // O chamado e ainda não anunciado alimenta a FAIXA do topo, além da linha — só
+            // HOJE: o chamado de ontem que nunca entrou é registro, não recado a anunciar.
+            if (a.Etapa == EtapaFila.Chamado && cartao.EhHoje) Chamados.Add(cartao);
         }
 
         // Quem já SAIU da sala (parcela 74) não sobe mais para a frente: a lista é a ordem
@@ -1068,24 +1130,18 @@ public sealed partial class FilaViewModel : ObservableObject
                 cartao.InicioEm, cartao.FimAtendimentoEm);
         }
 
-        // O resumo do dia envelhece junto (a espera média corre com o relógio). A conta
+        // O placar do dia envelhece junto (a espera média corre com o relógio). A conta
         // da média é a ÚNICA — a mesma do painel (`PainelRecepcaoService`).
-        var atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
-        var emSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
-        var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
-        var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);
-
-        var partes = new List<string> { $"{atendidos} atendido(s)", $"{emSala} em sala" };
-        if (PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media)
-            partes.Add($"espera média {media} min");
-        // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o resumo conta,
+        Atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
+        EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
+        EsperaMedia = PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media
+            ? $"{media} min"
+            : "—";
+        // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o placar conta,
         // não anuncia o que foi escondido.
-        partes.Add((faltas, cancelados) switch
-        {
-            (0, 0) => "sem faltas nem cancelamentos",
-            var (f, c) => $"{f} falta(s), {c} cancelamento(s)"
-        });
-        ResumoDia = string.Join("  ·  ", partes);
+        FaltasCancelamentos =
+            $"{_doDia.Count(a => a.Status == StatusAgendamento.Faltou)} · "
+            + $"{_doDia.Count(a => a.Status == StatusAgendamento.Cancelado)}";
     }
 
     /// <summary>
@@ -1152,6 +1208,22 @@ public sealed partial class FilaViewModel : ObservableObject
     // pela hora não há para onde arrastar. O que ele fazia — andar um passo — é o botão
     // de passo de cada linha, com a mesma regra e a mesma guarda.
 
+    /// <summary>
+    /// A segunda barreira do "a fila corre HOJE" (a primeira é o botão que some — ver
+    /// <see cref="CartaoFila.EhHoje"/>): atalho, faixa e corrida de carregamento passam
+    /// pelo comando, e a guarda DIZ por quê em vez de voltar calada (parcela 41).
+    /// </summary>
+    private bool GarantirHoje(CartaoFila c, string ato)
+    {
+        if (c.EhHoje) return true;
+
+        _dialogo.Aviso("A fila corre no dia da sessão",
+            $"O horário de {c.Paciente} é de {c.DataHora:dd/MM/yyyy}, e {ato} só se registra "
+            + "no dia da sessão. Quem chegou hoje sem horário marcado entra pelo Novo "
+            + "atendimento; o horário de outro dia se remarca pela Grade.");
+        return false;
+    }
+
     /// <summary>Check-in no balcão: o paciente chegou e o cronômetro da espera começa.</summary>
     [RelayCommand]
     private async Task RegistrarChegadaAsync(CartaoFila? cartao)
@@ -1161,6 +1233,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // EditarAgenda OU MovimentarFila — ver a nota no enum Permissao (parcela 61).
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
+            if (!GarantirHoje(c, "a chegada")) return;
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1228,6 +1301,7 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
+            if (!GarantirHoje(c, "a chamada")) return;
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1244,6 +1318,7 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
+            if (!GarantirHoje(c, "a entrada na sala")) return;
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
@@ -1445,6 +1520,7 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
+            if (!GarantirHoje(c, "a volta de etapa")) return;
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()

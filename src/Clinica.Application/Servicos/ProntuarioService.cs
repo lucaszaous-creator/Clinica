@@ -102,6 +102,15 @@ public sealed class ProntuarioService
         // atendimento. Desligar de fato exigiria uma tela que peça isso — não existe.
         destino.AtendimentoId = dados.AtendimentoId ?? destino.AtendimentoId;
         destino.AgendamentoId = dados.AgendamentoId ?? destino.AgendamentoId;
+
+        // A EVOLUÇÃO NASCE COM O NÚMERO DO ATENDIMENTO (set/2026, pedido da direção). O
+        // chamador nem sempre o sabe: a tela do médico guarda o `AtendimentoId` de quando
+        // ABRIU, e o atendimento pode ter nascido depois (o balcão concluiu, ou a marcação
+        // o criou com a chave "guia no agendamento"). Quem sabe é o HORÁRIO — uma coluna,
+        // lida só quando falta. O que ainda não existe é amarrado no instante em que
+        // nasce, por `AgendaService.ConfirmarNucleoAsync`.
+        if (destino.AtendimentoId is null && destino.AgendamentoId is { } agendamentoId)
+            destino.AtendimentoId = await _repo.AtendimentoDoHorarioAsync(agendamentoId, ct);
         destino.Data = dados.Data;
         destino.EvaAntes = dados.EvaAntes;
         destino.EvaDepois = dados.EvaDepois;

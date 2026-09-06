@@ -629,6 +629,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                     id, SessaoUsuario.Atual.Operador);
             }
 
+            // O posto passa a saber o atendimento que acabou de nascer: a próxima gravação
+            // da sessão (uma correção depois de concluir) sai da tela já com o número, sem
+            // depender de o serviço resolvê-lo pelo horário.
+            _foco.Definir(pacienteId, _foco.Nome, id, registro.Atendimento.Id, _foco.DataDoHorario);
+
             await RecarregarHorarioAsync(id);
 
             // Os recados do LANÇAMENTO — o principal é a NÃO CONFORMIDADE reaberta porque

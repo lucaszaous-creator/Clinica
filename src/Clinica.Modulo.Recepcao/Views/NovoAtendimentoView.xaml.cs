@@ -35,7 +35,32 @@ public partial class NovoAtendimentoView : UserControl
         if (e.NewValue is not true) return;
         if (DataContext is not NovoAtendimentoViewModel vm) return;
 
-        vm.RevalidarPacienteEscolhido();
+        // A PRIMEIRA exibição é do CarregarAsync (que consome o pedido da ponte na ordem
+        // certa — equipe carregada, busca inicial feita). Aqui só a volta.
+        if (!_jaFicouVisivel)
+        {
+            _jaFicouVisivel = true;
+            if (vm.SemPaciente) FocarBusca();
+            return;
+        }
+
+        _ = AoVoltarAsync(vm);
+    }
+
+    /// <summary>Já ficou visível uma vez — ver <see cref="AoMudarVisibilidade"/>.</summary>
+    private bool _jaFicouVisivel;
+
+    /// <summary>
+    /// A volta à aba: primeiro o PEDIDO que outra aba deixou na ponte (a fila "Retornos a
+    /// marcar" manda paciente, data e quem atende — set/2026); sem pedido, a revalidação
+    /// do paciente que já estava escolhido. Uma OU outra: aplicar o pedido troca o paciente,
+    /// e a troca já dispara todas as conferências — revalidar o anterior antes disso seria
+    /// pagar duas leituras por um paciente que está saindo da tela.
+    /// </summary>
+    private async System.Threading.Tasks.Task AoVoltarAsync(NovoAtendimentoViewModel vm)
+    {
+        if (!await vm.AplicarPedidoPendenteAsync())
+            vm.RevalidarPacienteEscolhido();
 
         // O foco vai para a busca só quando ela EXISTE na tela — com paciente escolhido o
         // campo está colapsado, e mandar foco para um elemento invisível é um no-op que
