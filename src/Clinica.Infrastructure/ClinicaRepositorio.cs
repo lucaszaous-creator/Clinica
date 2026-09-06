@@ -1033,6 +1033,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(e => e.Versoes)
             .FirstOrDefaultAsync(e => e.Id == evolucaoId, ct);
 
+    // Rastreadas de propósito (vão ser escritas). A COLUNA `CanceladaEm`, nunca a derivada
+    // `Cancelada` — o EF recusa em runtime (parcela 74).
+    public async Task<IReadOnlyList<Evolucao>> EvolucoesSemAtendimentoDoHorarioAsync(
+        int agendamentoId, CancellationToken ct = default)
+        => await _db.Evolucoes
+            .Where(e => e.AgendamentoId == agendamentoId
+                        && e.AtendimentoId == null
+                        && e.CanceladaEm == null)
+            .ToListAsync(ct);
+
+    public Task<int?> AtendimentoDoHorarioAsync(int agendamentoId, CancellationToken ct = default)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.Id == agendamentoId)
+            .Select(a => a.AtendimentoId)
+            .FirstOrDefaultAsync(ct);
+
     // Sem Include dos anexos de propósito: os bytes só saem do banco quando alguém
     // pede um arquivo específico (ver ConteudoDoAnexoAsync).
     //

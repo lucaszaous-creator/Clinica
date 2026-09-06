@@ -3392,6 +3392,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   perguntas são: *quem a carrega na primeira vez? o que ela precisa reler ao VOLTAR? e o
   que ela promete consumir que só consome na montagem?*
 
+- **A EVOLUÇÃO NASCE COM O NÚMERO DO ATENDIMENTO — o mesmo que a recepção gera**
+  (set/2026, pedido da direção). No regime atual o médico ESCREVE a sessão no passo 1 do
+  Finalizar e o atendimento só nasce no passo 3: a evolução ficava com `AtendimentoId`
+  nulo para sempre, e nada ligava os dois depois. Nenhum leitor dependia disso ainda —
+  era a variante "dado sem leitor" pelo avesso: um VÍNCULO sem escritor.
+  ⚠️ **São DUAS metades, e uma sem a outra deixa um caso de fora.** (a) Quem NASCE amarra
+  o que já foi escrito: `ConfirmarNucleoAsync` pendura as evoluções sem atendimento do
+  horário no atendimento que está nascendo, no MESMO commit — pela navegação, porque o
+  Id ainda não existe. (b) Quem GRAVA resolve pelo horário: `ProntuarioService.SalvarAsync`
+  lê `AtendimentoDoHorarioAsync` (uma coluna) quando o chamador mandou nulo — a tela do
+  médico guarda o atendimento de quando ABRIU, e ele pode ter nascido depois (o balcão
+  concluiu, ou a chave "guia no agendamento" o criou na marcação).
+  ⚠️ **O vínculo é pelo HORÁRIO, não pelo autor**: a evolução do colega que cobriu a
+  sessão é amarrada igual ("todos atendem todos"). Sessão CANCELADA fica de fora — registro
+  desdito não sustenta guia —, e há teste para as duas coisas. Três dos quatro testes
+  REPROVAM no código anterior (o quarto é a guarda do que NÃO se amarra, e passa nos
+  dois); foi verificado com o `git stash`, não presumido.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
