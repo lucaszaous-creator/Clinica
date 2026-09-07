@@ -1,5 +1,6 @@
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace Clinica.Desktop.Shell.Modulos;
 
@@ -15,16 +16,28 @@ namespace Clinica.Desktop.Shell.Modulos;
 /// junto do que é da mesma natureza.
 ///
 /// A ordem dos valores é a ordem em que os grupos aparecem na sidebar.
+///
+/// ⚠️ PACIENTE é a PESSOA; ATENDIMENTO é o ATO (set/2026, pedido da direção sobre o
+/// mockup <c>docs/mockups/sidebar-tres-desenhos.html</c>: "precisa separar o que é de
+/// atendimento de paciente"). Até aqui um grupo só juntava a ficha (cadastro, documentos,
+/// pacotes, preços) com o gesto clínico (lançar, prontuário, prescrever, enfermagem). O
+/// corte que separa os dois é o MESMO da permissão (parcela 49): o que fica em PACIENTE
+/// se abre com <c>VerFichaPaciente</c>; o que fica em ATENDIMENTO é dado de saúde ou o
+/// gesto que o cria. Um grupo que mistura os dois é o bit sobrecarregado da parcela 49
+/// vestido de menu — e o mesmo item mora no mesmo grupo nos quatro apps, sempre.
 /// </summary>
 public enum GrupoSidebar
 {
-    /// <summary>O dia da clínica: painel, agenda, fila.</summary>
+    /// <summary>O dia da clínica: painel, agenda, equipe.</summary>
     Gestao,
 
-    /// <summary>A pessoa atendida: cadastro, prontuário, prescrições.</summary>
+    /// <summary>A pessoa atendida: cadastro, documentos, pacotes, preços, retorno.</summary>
     Paciente,
 
-    /// <summary>O dinheiro: pacotes, caixa, faturamento, estoque.</summary>
+    /// <summary>O ato de atender: lançar e marcar, prontuário, prescrições, enfermagem.</summary>
+    Atendimento,
+
+    /// <summary>O dinheiro: caixa, contas, faturamento, estoque.</summary>
     Financeiro,
 
     /// <summary>A leitura do negócio: marketing, BI, configurações.</summary>
@@ -38,6 +51,7 @@ public static class GruposSidebar
     {
         GrupoSidebar.Gestao => "GESTÃO",
         GrupoSidebar.Paciente => "PACIENTE",
+        GrupoSidebar.Atendimento => "ATENDIMENTO",
         GrupoSidebar.Financeiro => "FINANCEIRO",
         GrupoSidebar.Inteligencia => "INTELIGÊNCIA",
         _ => grupo.ToString().ToUpperInvariant()
@@ -52,20 +66,22 @@ public static class GruposSidebar
     {
         GrupoSidebar.Gestao => "Dia",
         GrupoSidebar.Paciente => "Paciente",
+        GrupoSidebar.Atendimento => "Atender",
         GrupoSidebar.Financeiro => "Dinheiro",
         GrupoSidebar.Inteligencia => "Direção",
         _ => Rotulo(grupo)
     };
 
     /// <summary>
-    /// Glifo do grupo no rail. Os quatro são DIFERENTES entre si por obrigação: no rail
-    /// o ícone é a única coisa que identifica a categoria, e dois desenhos iguais fazem
-    /// a pessoa abrir os dois para descobrir qual é qual.
+    /// Glifo do grupo. Os cinco são DIFERENTES entre si por obrigação: onde só o ícone
+    /// identifica a categoria, dois desenhos iguais fazem a pessoa abrir os dois para
+    /// descobrir qual é qual.
     /// </summary>
     public static string Glifo(GrupoSidebar grupo) => grupo switch
     {
         GrupoSidebar.Gestao => "\uE80F",          // Home — o dia da clínica
         GrupoSidebar.Paciente => "\uE77B",        // Contact — a pessoa atendida
+        GrupoSidebar.Atendimento => "\uE95E",     // Health — o ato de atender
         GrupoSidebar.Financeiro => "\uE825",      // Bank — o dinheiro
         GrupoSidebar.Inteligencia => "\uE9D2",    // BarChart — a leitura do negócio
         _ => "\uE700"
@@ -103,8 +119,19 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// <summary>Texto exibido na sidebar.</summary>
     public required string Rotulo { get; init; }
 
-    /// <summary>Glifo Segoe Fluent/MDL2.</summary>
+    /// <summary>
+    /// Glifo Segoe Fluent/MDL2. Desde set/2026 é o CAMINHO DE BAIXO: a sidebar desenha
+    /// <see cref="Icone"/> quando ele existe, e só cai no glifo quando não existe — é o
+    /// que mantém um item novo, publicado sem ícone, visível em vez de sem desenho.
+    /// </summary>
     public required string Glifo { get; init; }
+
+    /// <summary>
+    /// Nome do ícone de TRAÇO no dicionário <c>Styles/Componentes/Icones.xaml</c>
+    /// ("prancheta", "ficha", "rx"…) — os desenhos do mockup que a direção aprovou
+    /// (set/2026: "queremos os ícones"). Nulo = usa o <see cref="Glifo"/>.
+    /// </summary>
+    public string? Icone { get; init; }
 
     /// <summary>
     /// Seção temática onde o item aparece. Declarada pelo módulo, porque só ele sabe a
@@ -182,10 +209,21 @@ public sealed partial class ItemMenuModulo : ObservableObject
 }
 
 /// <summary>
-/// Uma CATEGORIA do rail (parcela 55) — antes era só o cabeçalho de um grupo de itens.
+/// Um GRUPO da sidebar — e, desde set/2026, um grupo que ABRE E FECHA.
 ///
-/// O que mudou: com o rail de 56px a categoria deixou de ser um rótulo e passou a ser o
-/// alvo do clique, então ela precisa de ícone próprio e de saber quando está aberta.
+/// Por que ele abre e fecha: o Gerente Geral carrega os quatro módulos e a sidebar fixa
+/// de 240 px lista 25 itens em cinco grupos — ~1290 px de menu para 658 px de janela, com
+/// FINANCEIRO e INTELIGÊNCIA abaixo da dobra (medido no mockup
+/// <c>docs/mockups/sidebar-tres-desenhos.html</c>, desenho A, aprovado pela direção). Com
+/// um grupo aberto por vez a lista cabe em qualquer app sem rolar, e o cabeçalho
+/// fechado diz quantos itens tem — é a pista que dispensa abrir para lembrar onde mora
+/// "Estoque".
+///
+/// A regra de quem abre: NAVEGAR abre o grupo do destino e fecha os outros (o
+/// acordeão); CLICAR no cabeçalho só alterna aquele grupo, sem mexer nos vizinhos — quem
+/// abriu FINANCEIRO para olhar não quer que GESTÃO se feche por isso. Com a sidebar
+/// RECOLHIDA (Ctrl+B) todos os itens aparecem como ícone, como sempre: 56 px não têm
+/// onde escrever um cabeçalho, e cabeçalho que não se lê não se clica.
 /// </summary>
 public sealed partial class GrupoMenuModulo : ObservableObject
 {
@@ -204,4 +242,21 @@ public sealed partial class GrupoMenuModulo : ObservableObject
     public string Glifo { get; }
     public IReadOnlyList<ItemMenuModulo> Itens { get; }
 
+    /// <summary>Quantos itens o grupo tem — o cabeçalho FECHADO escreve este número.</summary>
+    public int Quantidade => Itens.Count;
+
+    /// <summary>O corpo do grupo está à vista. Quem decide é <c>ShellViewModel.Navegar</c> e o clique no cabeçalho.</summary>
+    [ObservableProperty]
+    private bool _aberto;
+
+    /// <summary>
+    /// O item ativo mora aqui. Serve ao cabeçalho FECHADO: quem fechou o grupo da tela
+    /// aberta precisa continuar vendo, na cor do ativo, em que parte do sistema está.
+    /// </summary>
+    [ObservableProperty]
+    private bool _temAtivo;
+
+    /// <summary>Clique no cabeçalho: alterna SÓ este grupo.</summary>
+    [RelayCommand]
+    private void Alternar() => Aberto = !Aberto;
 }

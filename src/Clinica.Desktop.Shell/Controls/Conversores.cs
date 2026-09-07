@@ -45,3 +45,24 @@ public sealed class ObjetoParaVisibilidade : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Nome do ícone → geometria do dicionário <c>Styles/Componentes/Icones.xaml</c> (set/2026).
+///
+/// A sidebar amarra <c>ItemMenuModulo.Icone</c> (um nome, "prancheta") a um <c>Path</c>, e
+/// XAML não sabe montar a chave de um <c>StaticResource</c> a partir de um binding — o
+/// conversor faz isso, procurando <c>Icone.&lt;nome&gt;</c> nos recursos do app. Nome que
+/// não existe devolve <c>null</c>: o <c>Path</c> desenha nada e o template cai no glifo
+/// da fonte, em vez de estourar a tela inteira por um ícone que alguém esqueceu de
+/// declarar.
+/// </summary>
+public sealed class IconePorNome : IValueConverter
+{
+    public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is string nome && nome.Length > 0
+            ? System.Windows.Application.Current?.TryFindResource($"Icone.{nome}") as System.Windows.Media.Geometry
+            : null;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

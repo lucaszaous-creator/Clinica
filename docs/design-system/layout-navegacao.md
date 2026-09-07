@@ -14,6 +14,25 @@ mockups. As duas agora se equivalem; as diferenças que restam estão anotadas a
 > mudou de lugar: no Gerente Geral a lista completa é mais alta que a janela e ROLA; a
 > pesquisa global (Ctrl+F) segue sendo a rota direta. O texto abaixo fica como registro
 > da decisão anterior e das razões dela.
+>
+> **E o custo foi pago (set/2026, mockup `docs/mockups/sidebar-tres-desenhos.html`,
+> desenho A aprovado pela direção):** os grupos passaram a **abrir e fechar**. Navegar
+> abre o grupo do destino e fecha os outros; o clique no cabeçalho alterna só aquele
+> grupo; o cabeçalho fechado escreve quantos itens tem e, se o item ativo mora nele, a
+> cor do ativo. Com um grupo aberto por vez a lista do Gerente Geral (25 itens, ~1290px)
+> cabe nos 658px da janela. Recolhida (Ctrl+B), todos os itens seguem à vista como ícone.
+> No mesmo mockup a direção pediu para **separar o que é de atendimento de paciente**, e
+> os grupos passaram a ser CINCO: GESTÃO · PACIENTE (a pessoa: cadastro, documentos,
+> pacotes, preços, retorno) · **ATENDIMENTO** (o ato: lançar e marcar, prontuário,
+> prescrições, sala de infusão, enfermagem) · FINANCEIRO · INTELIGÊNCIA. O corte é o da
+> permissão (parcela 49): `VerFichaPaciente` de um lado, dado de saúde do outro. O item
+> "Atendimento" virou "Lançar e marcar" para não repetir o nome do grupo — sem barra,
+> porque item com dois nomes é item que não decidiu o que é. A sidebar do FATURAMENTO
+> não recebeu o acordeão, e é decisão: ela tem poucos itens, não rola, e o app está em
+> produção; o desenho do ITEM continua o mesmo nos dois — com uma diferença desde a
+> rodada seguinte: na suíte o ícone do item é o DESENHO de traço do mockup
+> (`Styles/Componentes/Icones.xaml`, a pedido da direção: "queremos os ícones"), e no
+> faturamento continua o glifo da fonte.
 
 ## Shell da SUÍTE (Recepção · Consultório · Financeiro · Gerente) — parcela 7, refeito na 55
 

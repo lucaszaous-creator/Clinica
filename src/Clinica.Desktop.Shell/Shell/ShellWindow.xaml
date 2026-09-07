@@ -82,12 +82,31 @@
                                         Margin="0,8" Visibility="Collapsed" />
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                                             Margin="12,0">
-                                    <TextBlock x:Name="icone" Text="{Binding Glifo}"
-                                               FontFamily="{StaticResource FonteIcones}"
-                                               FontSize="{StaticResource Fonte.Corpo}" Width="22"
-                                               Foreground="{StaticResource Brush.Sidebar.Texto}"
-                                               VerticalAlignment="Center"
-                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <!-- O ícone é o DESENHO do mockup (Icones.xaml), a pedido da
+                                         direção; o glifo da fonte é o caminho de baixo para item
+                                         publicado sem `Icone`. Viewbox + Canvas de 24 reproduzem o
+                                         SVG tal e qual: o traço escala junto com o desenho. -->
+                                    <Grid Width="22" VerticalAlignment="Center">
+                                        <TextBlock x:Name="icone" Text="{Binding Glifo}"
+                                                   FontFamily="{StaticResource FonteIcones}"
+                                                   FontSize="{StaticResource Fonte.Corpo}"
+                                                   Foreground="{StaticResource Brush.Sidebar.Texto}"
+                                                   VerticalAlignment="Center" Visibility="Collapsed"
+                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                        <Viewbox x:Name="desenho" Width="{StaticResource Icone.Tamanho}"
+                                                 Height="{StaticResource Icone.Tamanho}"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <Canvas Width="{StaticResource Icone.Caixa}"
+                                                    Height="{StaticResource Icone.Caixa}">
+                                                <Path x:Name="traco"
+                                                      Data="{Binding Icone, Converter={StaticResource IconePorNome}}"
+                                                      Stroke="{StaticResource Brush.Sidebar.Texto}"
+                                                      StrokeThickness="{StaticResource Icone.Traco}"
+                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round" Fill="{x:Null}" />
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Grid>
                                     <TextBlock x:Name="rotulo" Text="{Binding Rotulo}"
                                                Margin="8,0,0,0"
                                                FontSize="{StaticResource Fonte.Corpo}"
@@ -112,9 +131,16 @@
                                 <Setter TargetName="barra" Property="Visibility" Value="Visible" />
                                 <Setter TargetName="icone" Property="Foreground"
                                         Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                                <Setter TargetName="traco" Property="Stroke"
+                                        Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
                                 <Setter TargetName="rotulo" Property="Foreground"
                                         Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
                                 <Setter TargetName="rotulo" Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
+                            <!-- Item sem `Icone`: o glifo da fonte volta. -->
+                            <DataTrigger Binding="{Binding Icone}" Value="{x:Null}">
+                                <Setter TargetName="desenho" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="icone" Property="Visibility" Value="Visible" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
                                           RelativeSource={RelativeSource AncestorType=Window}}"
@@ -127,16 +153,104 @@
             </Button>
         </DataTemplate>
 
-        <!-- Grupo da sidebar: cabeçalho em caixa alta + itens. O cabeçalho some quando a
-             sidebar recolhe — 56px não têm onde escrever "INTELIGÊNCIA". -->
+        <!-- Grupo da sidebar: cabeçalho em caixa alta que ABRE E FECHA o corpo (set/2026,
+             o desenho A do mockup docs/mockups/sidebar-tres-desenhos.html, aprovado pela
+             direção). Fechado, o cabeçalho diz quantos itens tem; se o item ativo mora
+             nele, escreve na cor do ativo — quem fechou o grupo da tela aberta continua
+             sabendo em que parte do sistema está. Navegar abre o grupo do destino e fecha
+             os outros (ShellViewModel.Navegar); o clique aqui alterna SÓ este grupo.
+             O cabeçalho some quando a sidebar recolhe — 56px não têm onde escrever
+             "INTELIGÊNCIA" — e aí TODOS os itens aparecem como ícone, como sempre:
+             cabeçalho que não se lê não se clica, e grupo fechado sem cabeçalho seria
+             um menu que some sem dizer por quê. -->
         <DataTemplate x:Key="GrupoDaSidebar" DataType="{x:Type modulos:GrupoMenuModulo}">
             <StackPanel>
-                <TextBlock x:Name="cabecalho" Text="{Binding Nome}" Margin="20,14,12,4"
-                           FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                           TextTrimming="CharacterEllipsis" />
-                <ItemsControl ItemsSource="{Binding Itens}"
-                              ItemTemplate="{StaticResource ItemDaSidebar}" Focusable="False" />
+                <Button x:Name="cabecalho" Command="{Binding AlternarCommand}"
+                        Cursor="Hand" Focusable="True" FocusVisualStyle="{x:Null}"
+                        Background="Transparent" BorderThickness="0"
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.Name="{Binding Nome}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="fundo" Background="{TemplateBinding Background}"
+                                    CornerRadius="{StaticResource Raio.Medio}" Height="40" Margin="8,1">
+                                <DockPanel Margin="12,0" VerticalAlignment="Center">
+                                    <!-- E76C (chevron à direita) fechado; E70D (para baixo) aberto. -->
+                                    <TextBlock x:Name="seta" Text="&#xE76C;" DockPanel.Dock="Left"
+                                               FontFamily="{StaticResource FonteIcones}"
+                                               FontSize="{StaticResource Fonte.Legenda}" Width="22"
+                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <!-- A contagem: a pista que dispensa abrir para lembrar onde
+                                         mora "Estoque". Só faz sentido no grupo FECHADO. -->
+                                    <Border x:Name="contagem" DockPanel.Dock="Right"
+                                            Background="{StaticResource Brush.Superficie.Hover}"
+                                            CornerRadius="{StaticResource Raio.Medio}" Padding="7,1"
+                                            VerticalAlignment="Center" Margin="8,0,0,0">
+                                        <TextBlock x:Name="numero" Text="{Binding Quantidade}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    </Border>
+                                    <TextBlock x:Name="nome" Text="{Binding Nome}" Margin="8,0,0,0"
+                                               FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="fundo" Property="Background"
+                                            Value="{StaticResource Brush.Sidebar.ItemHover}" />
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="fundo" Property="Background"
+                                            Value="{StaticResource Brush.Sidebar.ItemHover}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding Aberto}" Value="True">
+                                    <Setter TargetName="seta" Property="Text" Value="&#xE70D;" />
+                                    <Setter TargetName="contagem" Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <!-- Fechado com o item ativo dentro: a cor do ativo no nome e
+                                     no número. Vem DEPOIS do gatilho de aberto, porque gatilho
+                                     posterior vence e este é o caso que precisa se distinguir. -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding Aberto}" Value="False" />
+                                        <Condition Binding="{Binding TemAtivo}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter TargetName="nome" Property="Foreground"
+                                            Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                                    <Setter TargetName="numero" Property="Foreground"
+                                            Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                                    <Setter TargetName="contagem" Property="Background"
+                                            Value="{StaticResource Brush.Sidebar.ItemAtivo}" />
+                                </MultiDataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <ItemsControl x:Name="corpo" ItemsSource="{Binding Itens}"
+                              ItemTemplate="{StaticResource ItemDaSidebar}" Focusable="False">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Aberto}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <!-- Recolhida (56px): tudo à vista como ícone, aberto ou não.
+                                     Vem por ÚLTIMO para vencer o gatilho de cima. -->
+                                <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
+                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                             Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
+                </ItemsControl>
             </StackPanel>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
@@ -155,12 +269,15 @@
         </Grid.ColumnDefinitions>
 
         <!-- ==================== SIDEBAR (o desenho do mockup) ====================
-             Fixa, 240px: logo, grupos em CAIXA ALTA, item com ícone e rótulo, ativo com
-             fundo azul-suave e barra de 3px. Ctrl+B recolhe para 56px (só ícones, com
-             tooltip) — a mesma sidebar do faturamento. Substituiu o rail + painel da
-             parcela 55 a pedido do cliente; o custo conhecido fica escrito: no Gerente
-             Geral a lista completa é mais alta que a janela e ROLA, e a pesquisa global
-             (Ctrl+F) segue sendo a rota direta de quem já sabe o nome da tela. -->
+             Fixa, 240px: logo, grupos em CAIXA ALTA que ABREM E FECHAM, item com ícone e
+             rótulo, ativo com fundo azul-suave e barra de 3px. Ctrl+B recolhe para 56px
+             (só ícones, com tooltip) — o mesmo ITEM da sidebar do faturamento. Substituiu
+             o rail + painel da parcela 55 a pedido do cliente. O custo que ficou escrito
+             aqui — "no Gerente Geral a lista completa é mais alta que a janela e ROLA" —
+             foi pago em set/2026 pelos grupos recolhíveis (o desenho A de
+             docs/mockups/sidebar-tres-desenhos.html): com um grupo aberto por vez a lista
+             cabe em qualquer app. A pesquisa global (Ctrl+F) segue sendo a rota direta de
+             quem já sabe o nome da tela, e ela enxerga dentro dos grupos fechados. -->
         <Border Grid.Column="0" Width="240"
                 Background="{StaticResource Brush.Sidebar.Fundo}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0">

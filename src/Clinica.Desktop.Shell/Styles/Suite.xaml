@@ -22,5 +22,6 @@
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Graficos.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Midia.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Pacientes.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Icones.xaml" />
     </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>

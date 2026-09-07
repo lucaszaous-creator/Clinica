@@ -117,7 +117,7 @@ public sealed class ModuloClinico : IModuloApp
     /// resultados REGISTRADOS amarrados a cada um. É a mesma família do 2º código — o
     /// que foi pedido e ainda não voltou some da cabeça sem uma lista que cobre.
     /// </summary>
-    public const string ChaveExames = "consultorio-exames";
+    public const string ChaveExames = ChavesSuite.ConsultorioExames;
 
     /// <summary>
     /// A seção "Exames e anexos" do paciente, navegável por chave (oculta do menu — só
@@ -178,11 +178,23 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveGrupoEnfermagem = "consultorio-enfermagem";
 
     /// <summary>
-    /// "Pacientes" — em tratamento, registros e pendências, exames. A MESMA chave que a
-    /// Recepção usa no composto dela (<see cref="ChavesSuite.GrupoPacientes"/>): no Gerente
-    /// a dedupe funde os dois e vence o da Recepção, cujas abas incluem "Em tratamento".
+    /// "Pacientes" — a carteira em tratamento. A MESMA chave que a Recepção usa no
+    /// composto dela (<see cref="ChavesSuite.GrupoPacientes"/>): no Gerente a dedupe funde
+    /// os dois e vence o da Recepção, cujas abas incluem "Em tratamento".
+    ///
+    /// ⚠️ Registros e pendências e Exames SAÍRAM daqui em set/2026 (o grupo ATENDIMENTO):
+    /// os dois são PRONTUÁRIO, não ficha, e moram no composto "Prontuário" abaixo. Sobrou
+    /// uma aba, e o shell mostra a tela direto — o composto continua existindo pela
+    /// chave, que é o que o funde com o da Recepção no Gerente.
     /// </summary>
     public const string ChaveGrupoPacientes = ChavesSuite.GrupoPacientes;
+
+    /// <summary>
+    /// "Prontuário" — registros e pendências, e os exames. A MESMA chave do composto da
+    /// Recepção (<see cref="ChavesSuite.GrupoProntuario"/>), pela razão do de cima: lá as
+    /// abas são "Por paciente · Registros e pendências · Exames", que contêm as duas daqui.
+    /// </summary>
+    public const string ChaveGrupoProntuario = ChavesSuite.GrupoProntuario;
 
     /// <summary>
     /// "Prescrições" — receitas e documentos, e a folha de infusão. A mesma chave do
@@ -219,7 +231,7 @@ public sealed class ModuloClinico : IModuloApp
         // no sistema e caía na fila do balcão).
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoAgenda, Rotulo = "Minha agenda", Glifo = "\uE787",
+            Chave = ChaveGrupoAgenda, Rotulo = "Minha agenda", Glifo = "\uE706", Icone = "sol",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
             Abas =
             [
@@ -230,26 +242,34 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveMeuDia, Rotulo = "Meu dia", Glifo = "\uE787",
+            Chave = ChaveMeuDia, Rotulo = "Meu dia", Glifo = "\uE706", Icone = "sol",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         new ItemMenuModulo
         {
-            Chave = ChaveRegistrosPendentes, Rotulo = "Sess\u00F5es sem evolu\u00E7\u00E3o", Glifo = "\uE73E",
+            Chave = ChaveRegistrosPendentes, Rotulo = "Sess\u00F5es sem evolu\u00E7\u00E3o", Glifo = "\uE73E", Icone = "cheque",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
         {
-            Chave = ChaveMinhaSemana, Rotulo = "Minha semana", Glifo = "\uE8BD",
+            Chave = ChaveMinhaSemana, Rotulo = "Minha semana", Glifo = "\uE8BD", Icone = "semana",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B",
+            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B", Icone = "pessoa",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,
             Abas =
             [
-                new AbaMenu("Em tratamento", ChavePacientesDaClinica),
+                new AbaMenu("Em tratamento", ChavePacientesDaClinica)
+            ]
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3", Icone = "ficha",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario,
+            Abas =
+            [
                 new AbaMenu("Registros e pend\u00EAncias", ChaveProntuarios),
                 new AbaMenu("Exames", ChaveExames)
             ]
@@ -260,7 +280,7 @@ public sealed class ModuloClinico : IModuloApp
             // "meu paciente", todos atendem todos. A CHAVE não muda — ela é contrato de
             // navegação de outros módulos, e renomeá-la para arrumar rótulo quebraria o
             // que funciona lá (a regressão da parcela 37, 4ª rodada).
-            Chave = ChavePacientesDaClinica, Rotulo = "Pacientes", Glifo = "\uE77B",
+            Chave = ChavePacientesDaClinica, Rotulo = "Pacientes", Glifo = "\uE77B", Icone = "pessoa",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
         // As duas telas planas do handoff (set/2026). Sob VerProntuario: as listas
@@ -268,18 +288,18 @@ public sealed class ModuloClinico : IModuloApp
         // foi escrito) \u2014 \u00E9 o corte da parcela 49.
         new ItemMenuModulo
         {
-            Chave = ChaveProntuarios, Rotulo = "Prontu\u00E1rios", Glifo = "\uE7C3",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Chave = ChaveProntuarios, Rotulo = "Prontu\u00E1rios", Glifo = "\uE7C3", Icone = "ficha",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
         {
-            Chave = ChaveExames, Rotulo = "Exames", Glifo = "\uE9D2",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Chave = ChaveExames, Rotulo = "Exames", Glifo = "\uE9D2", Icone = "lista",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,
+            Chave = ChaveGrupoPrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5", Icone = "rx",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario,
             Abas =
             [
                 new AbaMenu("Receitas e documentos", ChavePrescricoes),
@@ -288,13 +308,13 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5", Icone = "rx",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
         {
             Chave = ChavePrescricaoInfusao, Rotulo = "Prescri\u00E7\u00E3o de infus\u00E3o",
-            Glifo = "\uE95E", Grupo = GrupoSidebar.Paciente, Requer = Permissao.Prescrever
+            Glifo = "\uE95E", Icone = "gota", Grupo = GrupoSidebar.Atendimento, Requer = Permissao.Prescrever
         },
         // Na GESTAO, e nao em PACIENTE: a sala responde "o que falta fazer hoje", que e
         // pergunta do dia de trabalho -- e ela e a unica tela do Consultorio que abre sem
@@ -306,8 +326,8 @@ public sealed class ModuloClinico : IModuloApp
         // o médico, que não tem nenhum dos dois, o item simplesmente não existe.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
+            Chave = ChaveGrupoEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E", Icone = "coracao",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda,
             Abas =
             [
                 new AbaMenu("Sala de infus\u00E3o", ChaveSalaInfusao),
@@ -316,8 +336,8 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
+            Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5", Icone = "gota",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.ChecarPrescricao
         },
 
         // A tela da ENFERMAGEM: TODOS os pacientes cadastrados e a evolução de cada
@@ -327,12 +347,12 @@ public sealed class ModuloClinico : IModuloApp
         // Terceira pergunta, terceira tela.
         new ItemMenuModulo
         {
-            Chave = ChaveEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.RegistrarEvolucaoEnfermagem
+            Chave = ChaveEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E", Icone = "coracao",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem
         },
         new ItemMenuModulo
         {
-            Chave = ChaveMeusNumeros, Rotulo = "Meus n\u00FAmeros", Glifo = "\uE9D9",
+            Chave = ChaveMeusNumeros, Rotulo = "Meus n\u00FAmeros", Glifo = "\uE9D9", Icone = "numeros",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAgenda
         },
 
@@ -345,13 +365,13 @@ public sealed class ModuloClinico : IModuloApp
         // não está lá simplesmente não abre.
         new ItemMenuModulo
         {
-            Chave = ChavePaciente, Rotulo = "Paciente", Glifo = "\uE77B",
+            Chave = ChavePaciente, Rotulo = "Paciente", Glifo = "\uE77B", Icone = "pessoa",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
         },
         new ItemMenuModulo
         {
-            Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F", Icone = "prancheta",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
         },
         // O destino do "Atender" da enfermagem. Ele PRECISA estar nesta lista, e não só
         // no rail: o shell navega procurando a chave em `Itens`, e o que não está aqui
@@ -364,43 +384,43 @@ public sealed class ModuloClinico : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveAtendimentoEnfermagem, Rotulo = "Atendimento de enfermagem",
-            Glifo = "\uE95E", Grupo = GrupoSidebar.Paciente,
+            Glifo = "\uE95E", Icone = "coracao", Grupo = GrupoSidebar.Atendimento,
             Requer = Permissao.VerProntuario, Oculto = true
         },
         new ItemMenuModulo
         {
-            Chave = ChaveProntuario, Rotulo = "Prontuário", Glifo = "\uE7C3",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Chave = ChaveProntuario, Rotulo = "Prontuário", Glifo = "\uE7C3", Icone = "ficha",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
         },
         new ItemMenuModulo
         {
-            Chave = ChaveEvolucaoDor, Rotulo = "Evolução da dor", Glifo = "\uEB05",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Chave = ChaveEvolucaoDor, Rotulo = "Evolução da dor", Glifo = "\uEB05", Icone = "grafico",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
         },
         new ItemMenuModulo
         {
-            Chave = ChaveMedidas, Rotulo = "Medidas", Glifo = "\uE9D2",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Chave = ChaveMedidas, Rotulo = "Medidas", Glifo = "\uE9D2", Icone = "barras",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
         },
         new ItemMenuModulo
         {
-            Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9", Icone = "cheque",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
         },
         // O destino do "Ver resultados" da tela de Exames: a seção "Exames e anexos" do
         // paciente. Oculto porque só existe COM alguém escolhido — como seção ela diz
         // sozinha a quem pertence; como item abriria em branco (a regra de leiaute).
         new ItemMenuModulo
         {
-            Chave = ChaveExamesDoPaciente, Rotulo = "Exames e anexos", Glifo = "\uE9D2",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Chave = ChaveExamesDoPaciente, Rotulo = "Exames e anexos", Glifo = "\uE9D2", Icone = "pasta",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
         },
 
         // AJUDA E SUPORTE — tela do shell, sem `Requer` de propósito (o padrão é
         // "sempre visível"): fechar o manual por permissão trancaria quem mais precisa.
         new ItemMenuModulo
         {
-            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897",
+            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897", Icone = "ajuda",
             Grupo = GrupoSidebar.Gestao
         }
     ];

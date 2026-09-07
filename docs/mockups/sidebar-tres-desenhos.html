@@ -1,0 +1,524 @@
+<title>Sidebar em três desenhos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+/* ==================================================================================
+   A página (a moldura de leitura) usa os tokens dos outros mockups da pasta. As
+   SIDEBARS desenhadas dentro das janelas usam os tokens REAIS do design system da
+   suíte (Styles/Tokens.xaml): Cinza.50/100/200/300/500/700/900, Azul.50/100/500/600/
+   700/900, Fonte.Corpo 14 / Tabela 13 / Legenda 12, Raio.Medio 8, item de 40 px com
+   barra de 3 px. Um valor fora deles aqui seria o primeiro ponto em que o mockup e o
+   WPF param de bater.
+   ================================================================================== */
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+
+  /* Tokens do design system da suíte — a janela desenhada é sempre CLARA, como o app. */
+  --ds-cinza-50:#F8FAFC; --ds-cinza-100:#F1F5F9; --ds-cinza-200:#E5E7EB; --ds-cinza-300:#D1D5DB;
+  --ds-cinza-500:#6B7280; --ds-cinza-700:#374151; --ds-cinza-900:#111827;
+  --ds-azul-50:#EEF3FC; --ds-azul-100:#D8E3F7; --ds-azul-500:#3F62C9; --ds-azul-600:#123A9E;
+  --ds-azul-700:#0A2E86; --ds-azul-900:#071F5C;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding:48px 28px 80px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:70ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin:52px 0}
+a{color:var(--acento)}
+
+.placar{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden; margin:34px 0 0}
+.placar div{background:var(--sup); padding:18px 20px}
+.placar .n{font-family:"IBM Plex Mono",monospace; font-size:30px; font-weight:600; letter-spacing:-.03em; line-height:1.1; font-variant-numeric:tabular-nums}
+.placar .n small{font-size:15px; color:var(--mudo); font-weight:400; margin-left:4px}
+.placar .r{font-size:13px; color:var(--mudo); margin-top:4px}
+.placar .rola{color:var(--custo)} .placar .cabe{color:var(--ganho)}
+
+.regras{list-style:none; padding:0; margin:22px 0 0; display:grid; gap:2px; background:var(--fio); border:1px solid var(--fio); border-radius:12px; overflow:hidden}
+.regras li{background:var(--sup); padding:16px 20px; display:grid; grid-template-columns:26px 1fr; gap:14px; align-items:start}
+.regras .marca{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--acento); padding-top:3px}
+.regras b{font-weight:600}
+.regras span.txt{font-size:14.5px; line-height:1.55; color:var(--tinta-2)}
+
+/* Seletor de app: as quatro sidebars são a MESMA árvore com módulos diferentes carregados. */
+.apps{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:28px 0 0; position:sticky; top:0; z-index:5; background:var(--pg); padding:12px 0}
+.apps .rot{font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin-right:6px}
+.chip{border:1px solid var(--fio-forte); background:var(--sup); color:var(--tinta-2); border-radius:999px; padding:6px 14px; font:inherit; font-size:13.5px; cursor:pointer}
+.chip:hover{border-color:var(--acento)}
+.chip[aria-pressed="true"]{background:var(--acento); color:var(--sobre-acento); border-color:var(--acento); font-weight:600}
+.chip:focus-visible{outline:2px solid var(--acento); outline-offset:2px}
+
+.opcao{margin-top:56px; scroll-margin-top:70px}
+.op-topo{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:8px}
+.op-letra{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:13px; background:var(--acento); color:var(--sobre-acento); border-radius:6px; padding:3px 9px; letter-spacing:.04em}
+.op-letra.neutro{background:var(--fio-forte); color:var(--tinta)}
+.contador{margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--mudo); border:1px solid var(--fio-forte); border-radius:999px; padding:4px 12px; white-space:nowrap}
+.contador b{color:var(--tinta); font-weight:600}
+.contador .rola{color:var(--custo); font-weight:600} .contador .cabe{color:var(--ganho); font-weight:600}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-size:17px; line-height:1.6; color:var(--tinta-2); max-width:72ch; margin:0 0 22px}
+.cap{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo); margin:22px 0 8px}
+.cap b{color:var(--tinta); font-weight:600}
+
+.analise{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; margin-top:20px}
+.bloco{border-left:3px solid var(--fio-forte); padding:2px 0 2px 16px}
+.bloco.g{border-color:var(--ganho)} .bloco.c{border-color:var(--custo)} .bloco.e{border-color:var(--acento)}
+.bloco h4{margin:0 0 6px; font-size:11.5px; font-family:"IBM Plex Mono",monospace; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--mudo)}
+.bloco.g h4{color:var(--ganho)} .bloco.c h4{color:var(--custo)} .bloco.e h4{color:var(--acento)}
+.bloco p{font-size:14.5px; line-height:1.55; color:var(--tinta-2); margin:0 0 8px}
+.bloco p:last-child{margin:0}
+
+.reco{background:var(--sup); border:1px solid var(--fio); border-top:3px solid var(--acento); border-radius:12px; padding:28px 30px; margin-top:30px; box-shadow:var(--sombra)}
+.reco h2{margin-bottom:12px}
+.perguntas{list-style:none; padding:0; margin:18px 0 0; display:grid; gap:12px}
+.perguntas li{display:grid; grid-template-columns:22px 1fr; gap:12px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.perguntas .q{font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--acento)}
+
+/* ======================= A JANELA DESENHADA (1:1 em pixels) ======================= */
+.palco{overflow-x:auto; padding-bottom:6px}
+.janela{width:100%; min-width:540px; max-width:640px; height:690px; border:1px solid var(--fio-forte); border-radius:8px; overflow:hidden; background:var(--ds-cinza-50); box-shadow:var(--sombra); display:flex; flex-direction:column; color:var(--ds-cinza-900); font-family:"Segoe UI","IBM Plex Sans",system-ui,sans-serif; font-size:14px; line-height:1.3}
+.titulo{height:32px; flex:none; background:var(--ds-cinza-100); border-bottom:1px solid var(--ds-cinza-200); display:flex; align-items:center; padding:0 12px; font-size:12px; color:var(--ds-cinza-500); gap:8px}
+.titulo .luzes{display:flex; gap:6px; margin-left:auto}
+.titulo .luzes i{width:10px; height:10px; border-radius:2px; border:1px solid var(--ds-cinza-300); display:block}
+.corpo{flex:1; display:flex; min-height:0}
+.miolo{flex:1; min-width:0; display:flex; flex-direction:column}
+.topbar{height:56px; flex:none; background:#FFFFFF; border-bottom:1px solid var(--ds-cinza-200); display:flex; align-items:center; padding:0 16px; gap:10px}
+.topbar svg{width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; flex:none}
+.topbar .ham{width:28px; height:28px; border-radius:6px; display:grid; place-items:center; color:var(--ds-cinza-700)}
+.topbar .busca{margin-left:auto; height:32px; width:170px; border:1px solid var(--ds-cinza-200); border-radius:999px; display:flex; align-items:center; padding:0 12px; gap:8px; font-size:12px; color:var(--ds-cinza-500); background:var(--ds-cinza-50)}
+.topbar .quem{width:26px; height:26px; border-radius:50%; background:var(--ds-azul-100); color:var(--ds-azul-600); font-size:11px; font-weight:600; display:grid; place-items:center}
+.pagina{padding:20px 22px; display:flex; flex-direction:column; gap:12px; min-height:0}
+.pagina .h{font-size:20px; font-weight:600; color:var(--ds-cinza-900)}
+.pagina .s{font-size:13px; color:var(--ds-cinza-500); margin-top:-6px}
+.pagina .abas{display:flex; gap:18px; white-space:nowrap; overflow:hidden; border-bottom:1px solid var(--ds-cinza-200); font-size:13px; color:var(--ds-cinza-500); padding-top:6px}
+.pagina .abas span{padding:0 0 8px}
+.pagina .abas .on{color:var(--ds-azul-600); font-weight:600; border-bottom:2px solid var(--ds-azul-600)}
+.pagina .lin{height:12px; border-radius:4px; background:var(--ds-cinza-200); opacity:.7}
+.pagina .lin.c{width:62%} .pagina .lin.m{width:84%} .pagina .lin.l{width:46%}
+.pagina .card{border:1px solid var(--ds-cinza-200); background:#FFFFFF; border-radius:8px; padding:14px; display:grid; gap:10px; margin-top:4px}
+
+/* ---- Sidebar ATUAL (240 px; o mesmo desenho do ShellWindow.xaml) ---- */
+.sb{width:240px; flex:none; background:#FFFFFF; border-right:1px solid var(--ds-cinza-200); display:flex; flex-direction:column; min-height:0}
+.marca{height:66px; flex:none; display:flex; align-items:center; padding:0 20px; gap:8px}
+.marca .simb{width:26px; height:26px; border-radius:7px; background:var(--ds-azul-600); display:grid; place-items:center}
+.marca .simb svg{width:16px; height:16px; stroke:#fff}
+.marca .nome{font-weight:600; letter-spacing:-.01em; color:var(--ds-azul-900); font-size:15px}
+.lista{overflow-y:auto; flex:1; min-height:0; padding-bottom:12px; scrollbar-width:thin; scrollbar-color:var(--ds-cinza-300) transparent}
+.grupo-cab{margin:14px 12px 4px 20px; font-size:12px; font-weight:600; color:var(--ds-cinza-500); text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.item{height:40px; margin:1px 8px; border-radius:8px; display:flex; align-items:center; padding:0 12px; gap:8px; color:var(--ds-cinza-700); position:relative; white-space:nowrap; cursor:default}
+.item svg{width:18px; height:18px; flex:none; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+.item .ico{width:22px; display:grid; place-items:center; flex:none}
+.item .rot{overflow:hidden; text-overflow:ellipsis; font-size:14px}
+.item:hover{background:var(--ds-cinza-100)}
+.item.on{background:var(--ds-azul-50); color:var(--ds-azul-600); font-weight:600}
+.item.on::before{content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:2px; background:var(--ds-azul-600)}
+.item .n{margin-left:auto; font-size:11px; color:var(--ds-cinza-500); font-weight:500; background:var(--ds-cinza-100); border-radius:999px; padding:1px 7px}
+.item .chev{margin-left:auto; width:14px; height:14px; color:var(--ds-cinza-500); transition:transform .18s}
+
+/* ---- A · grupos recolhíveis ---- */
+.sb.rec .grupo-cab{margin:0}
+.gcab{height:40px; margin:1px 8px; border-radius:8px; display:flex; align-items:center; padding:0 12px; gap:8px; font-size:12px; font-weight:600; color:var(--ds-cinza-500); text-transform:uppercase; letter-spacing:.02em; cursor:pointer; user-select:none}
+.gcab:hover{background:var(--ds-cinza-100)}
+.gcab .n{margin-left:auto; font-size:11px; font-weight:500; background:var(--ds-cinza-100); border-radius:999px; padding:1px 7px; text-transform:none; letter-spacing:0}
+.gcab .chev{width:14px; height:14px; transition:transform .18s}
+.gcab.aberto .chev{transform:rotate(90deg)}
+.gcab.tem-ativo:not(.aberto){color:var(--ds-azul-600)}
+.gcab.tem-ativo:not(.aberto) .n{background:var(--ds-azul-50); color:var(--ds-azul-600)}
+.gcorpo{display:none} .gcorpo.aberto{display:block}
+.gcorpo .item{padding-left:12px}
+
+/* ---- B · rail de 56 + lista fixa de 200 ---- */
+.sbB{display:flex; flex:none; min-height:0}
+.rail{width:56px; background:#FFFFFF; border-right:1px solid var(--ds-cinza-200); display:flex; flex-direction:column; align-items:center; padding:0 0 10px}
+.rail .marca{padding:0; justify-content:center; width:56px}
+.rail .rbt{width:40px; height:40px; margin:1px 0; border-radius:8px; display:grid; place-items:center; color:var(--ds-cinza-700); cursor:pointer; position:relative}
+.rail .rbt svg{width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round}
+.rail .rbt:hover{background:var(--ds-cinza-100)}
+.rail .rbt.on{background:var(--ds-azul-50); color:var(--ds-azul-600)}
+.rail .rbt.on::before{content:""; position:absolute; left:-8px; top:8px; bottom:8px; width:3px; border-radius:2px; background:var(--ds-azul-600)}
+.rail .rbt .n{position:absolute; top:2px; right:1px; font-size:9px; font-weight:600; background:var(--ds-cinza-100); color:var(--ds-cinza-500); border-radius:999px; padding:0 4px; line-height:14px}
+.rail .rbt.on .n{background:var(--ds-azul-600); color:#fff}
+.rail .fim{margin-top:auto}
+.painel{width:200px; background:var(--ds-cinza-50); border-right:1px solid var(--ds-cinza-200); display:flex; flex-direction:column; min-height:0}
+.painel .pt{height:66px; flex:none; display:flex; align-items:flex-end; padding:0 12px 14px 16px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.02em; color:var(--ds-cinza-500)}
+.painel .item{margin:1px 8px}
+.painel .item:hover{background:var(--ds-cinza-200)}
+.painel .item.on{background:#FFFFFF; box-shadow:0 0 0 1px var(--ds-cinza-200)}
+.painel .sub{margin:0 8px 0 40px; height:30px; display:flex; align-items:center; font-size:13px; color:var(--ds-cinza-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-left:10px; border-left:1px solid var(--ds-cinza-200)}
+.painel .sub.on{color:var(--ds-azul-600); font-weight:600; border-left-color:var(--ds-azul-600)}
+
+/* ---- C · escura, densa, com as abas do item ativo em árvore ---- */
+.sb.esc{background:var(--ds-azul-900); border-right-color:var(--ds-azul-900)}
+.sb.esc .marca .simb{background:#FFFFFF} .sb.esc .marca .simb svg{stroke:var(--ds-azul-900)}
+.sb.esc .marca .nome{color:#FFFFFF}
+.sb.esc .grupo-cab{color:rgba(255,255,255,.45); margin-top:12px}
+.sb.esc .item{height:36px; color:var(--ds-cinza-300)}
+.sb.esc .item:hover{background:rgba(255,255,255,.07)}
+.sb.esc .item.on{background:rgba(255,255,255,.12); color:#FFFFFF}
+.sb.esc .item.on::before{background:#FFFFFF}
+.sb.esc .item .n{background:rgba(255,255,255,.10); color:var(--ds-cinza-300)}
+.sb.esc .lista{scrollbar-color:rgba(255,255,255,.25) transparent}
+.sb.esc .sub{margin:0 8px 0 40px; height:30px; display:flex; align-items:center; font-size:13px; color:rgba(255,255,255,.62); padding-left:10px; border-left:1px solid rgba(255,255,255,.18); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.sb.esc .sub.on{color:#FFFFFF; font-weight:600; border-left-color:#FFFFFF}
+.sb.esc .chev{color:rgba(255,255,255,.5)}
+
+.grade2{display:grid; grid-template-columns:repeat(auto-fit,minmax(540px,1fr)); gap:26px}
+.legenda-medida{font-size:12.5px; color:var(--mudo); margin:8px 0 0; font-family:"IBM Plex Mono",monospace}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Suíte clínica · mockup · setembro de 2026</p>
+  <h1>A sidebar em três desenhos, ao lado do atual</h1>
+  <p class="lede">A sidebar de hoje é a de 240 px com grupos em caixa alta — o desenho que o cliente
+  escolheu no lugar do rail. Ela funciona nos três apps de um módulo só e <b>rola</b> no Gerente
+  Geral, que carrega os quatro. Abaixo, o desenho atual e três mudanças possíveis, todas
+  desenhadas em pixels reais (janela de 690 px, a padrão da suíte) com a árvore de menu que
+  cada app publica de verdade — e com a separação pedida: o que é <b>a pessoa</b> (ficha,
+  documentos, pacotes) num grupo, o que é <b>atender</b> (lançar, prontuário, prescrever,
+  enfermagem) em outro. Troque o app nos chips e cada janela se redesenha.</p>
+
+  <div class="placar" id="placar"></div>
+  <p class="legenda-medida">Altura necessária = logo (66) + cabeçalhos + itens de 40 px + 2 de folga cada, contra os 658 px que sobram do corpo da janela. Contagem de itens saída dos módulos (`ModuloRecepcao`, `ModuloFinanceiro`, `ModuloClinico`, `ModuloGerente`), já com a dedupe por chave e as sub-telas escondidas pelos itens compostos. Os cinco grupos (GESTÃO · PACIENTE · ATENDIMENTO · FINANCEIRO · INTELIGÊNCIA) já estão aplicados nas quatro janelas.</p>
+
+  <ul class="regras">
+    <li><span class="marca">R1</span><span class="txt"><b>Nenhuma chave de navegação muda.</b> As quatro variantes trocam o DESENHO da lista; o que cada item abre continua sendo o mesmo — e a pesquisa global (Ctrl+F) continua sendo a rota direta de quem já sabe o nome da tela.</span></li>
+    <li><span class="marca">R2</span><span class="txt"><b>Tudo o que aparece sai de token.</b> Cinza.50/100/200/300/500/700/900, Azul.50/100/500/600/900, Fonte.Corpo 14, Raio.Medio 8, item de 40 px e barra ativa de 3 px. O desenho C usa Azul.900 e Cinza.300, que já existem no dicionário (`Brush.Visor.*` usa a mesma família).</span></li>
+    <li><span class="marca">R3</span><span class="txt"><b>O caso que decide é o Gerente Geral.</b> Recepção, Financeiro e Consultório cabem em qualquer desenho; a direção é quem enxerga a clínica inteira, e é a sidebar dela que rola hoje.</span></li>
+    <li><span class="marca">R4</span><span class="txt"><b>PACIENTE é a pessoa; ATENDIMENTO é o ato.</b> O corte é o mesmo da permissão (parcela 49): o que fica em PACIENTE se abre com <i>VerFichaPaciente</i> — cadastro, documentos, pacotes, preços, retorno —, e o que fica em ATENDIMENTO é dado de saúde ou o gesto que o cria — lançar/marcar, prontuário, prescrições, sala de infusão e enfermagem. Um grupo que mistura os dois é o bit sobrecarregado da parcela 49 vestido de menu. O mesmo item mora no mesmo grupo nos quatro apps, sempre.</span></li>
+  </ul>
+
+  <div class="cap"><b>O que mudou de grupo</b> · em relação à sidebar de hoje</div>
+  <ul class="regras" style="margin-top:0">
+    <li><span class="marca">→</span><span class="txt"><b>Saem de PACIENTE para ATENDIMENTO:</b> Atendimento (que passa a se chamar <i>Lançar e marcar</i>, para o item não repetir o nome do grupo — sem barra, porque item com dois nomes é item que não decidiu o que é), Prontuário, Prescrições e Enfermagem.</span></li>
+    <li><span class="marca">→</span><span class="txt"><b>Saem de GESTÃO para ATENDIMENTO:</b> Sala de infusão (Recepção) e o composto Enfermagem (Consultório e Gerente). A sala é onde se administra, não onde se administra a clínica.</span></li>
+    <li><span class="marca">→</span><span class="txt"><b>Ficam em PACIENTE:</b> Pacientes (Cadastro · Em tratamento), Documentos, Pacotes, Preços do particular, Retorno de pacientes, Importar pacientes. <b>Exames</b> e <b>Registros e pendências</b>, que eram abas de Pacientes no Consultório, vão para o Prontuário — são prontuário.</span></li>
+    <li><span class="marca">→</span><span class="txt"><b>Ficam em GESTÃO:</b> Painel, Início, Agenda, Minha agenda, Profissionais e salas, Ajuda. A agenda é o dia da clínica, ainda que o Atender comece nela. <b>Custo declarado:</b> no Consultório o grupo PACIENTE fica com um item só — é o preço de o mesmo item morar no mesmo grupo em todo app.</span></li>
+  </ul>
+
+  <div class="apps" role="group" aria-label="Escolha o app">
+    <span class="rot">App</span>
+    <button class="chip" data-app="gerente" aria-pressed="true">Gerente Geral</button>
+    <button class="chip" data-app="recepcao" aria-pressed="false">Recepção</button>
+    <button class="chip" data-app="financeiro" aria-pressed="false">Financeiro</button>
+    <button class="chip" data-app="consultorio" aria-pressed="false">Consultório</button>
+  </div>
+
+  <div class="grade2">
+
+    <section class="opcao" id="atual">
+      <div class="op-topo">
+        <span class="op-letra neutro">HOJE</span>
+        <h2>Como está</h2>
+        <span class="contador" id="c-atual"></span>
+      </div>
+      <p class="tese">Lista inteira, sempre aberta, grupos em caixa alta — agora cinco, com ATENDIMENTO separado de PACIENTE. Item ativo com fundo Azul.50 e barra de 3 px. No Gerente a lista é mais alta que a janela e FINANCEIRO e INTELIGÊNCIA ficam abaixo da dobra.</p>
+      <div class="palco"><div class="janela" id="j-atual"></div></div>
+    </section>
+
+    <section class="opcao" id="a">
+      <div class="op-topo">
+        <span class="op-letra">A</span>
+        <h2>Grupos recolhíveis</h2>
+        <span class="contador" id="c-a"></span>
+      </div>
+      <p class="tese">O mesmo desenho, com cada grupo virando uma linha que abre e fecha. Só o grupo do item ativo fica aberto; os outros mostram o nome e quantos itens têm. Clique nos cabeçalhos para experimentar.</p>
+      <div class="palco"><div class="janela" id="j-a"></div></div>
+    </section>
+
+    <section class="opcao" id="b">
+      <div class="op-topo">
+        <span class="op-letra">B</span>
+        <h2>Rail de 56 + lista do grupo</h2>
+        <span class="contador" id="c-b"></span>
+      </div>
+      <p class="tese">Um rail fino com os cinco grupos como ícones e, colado nele, a lista SÓ do grupo escolhido — fixa, não um painel que some com o mouse. O item composto mostra as abas dele embaixo. Clique nos ícones do rail.</p>
+      <div class="palco"><div class="janela" id="j-b"></div></div>
+    </section>
+
+    <section class="opcao" id="c">
+      <div class="op-topo">
+        <span class="op-letra">C</span>
+        <h2>Escura, densa, com as abas em árvore</h2>
+        <span class="contador" id="c-c"></span>
+      </div>
+      <p class="tese">A mudança visual: fundo Azul.900, texto Cinza.300, item de 36 px. O item composto ativo abre as abas na própria sidebar, então a sub-tela fica a um clique. Não resolve a altura sozinha — no Gerente continua rolando.</p>
+      <div class="palco"><div class="janela" id="j-c"></div></div>
+    </section>
+
+  </div>
+
+  <hr class="reg">
+
+  <h2>O que cada desenho ganha e o que ele cobra</h2>
+  <div class="analise">
+    <div class="bloco g"><h4>A · recolhíveis — ganho</h4><p>Menor mudança possível: o XAML atual continua; o cabeçalho do grupo vira botão e o corpo ganha um `Visibility`. Cabe em todos os apps sem rolar, e Ctrl+B (56 px) continua igual.</p></div>
+    <div class="bloco c"><h4>A · recolhíveis — custo</h4><p>Um clique a mais para trocar de grupo, e a pessoa precisa LEMBRAR em que grupo mora "Estoque". A contagem no cabeçalho é o que dá a pista sem abrir.</p></div>
+    <div class="bloco g"><h4>B · rail + lista — ganho</h4><p>Cabe com folga em todo app (a maior lista tem 7 itens), e o quinto grupo custa só um ícone a mais no rail. A lista do grupo é fixa, então não tem o "alvo móvel" do painel de hover que o cliente rejeitou na parcela 55. Abas do composto visíveis.</p></div>
+    <div class="bloco c"><h4>B · rail + lista — custo</h4><p>256 px no lugar de 240, e o menu recolhido (Ctrl+B) deixa de fazer sentido — o rail já é o recolhido. É a mudança mais estrutural das três, e a mais parecida com o que foi trocado.</p></div>
+    <div class="bloco g"><h4>C · escura — ganho</h4><p>Identidade forte, mesma família de cor do visor da clínica, e a sub-tela a um clique. Item de 36 px cabe 10% a mais de lista.</p></div>
+    <div class="bloco c"><h4>C · escura — custo</h4><p>Não resolve o Gerente: ainda rola. Estilo local vs. faturamento: os dois design systems teriam de receber a paleta escura no mesmo commit, senão os dois apps deixam de parecer o mesmo produto.</p></div>
+  </div>
+
+  <div class="reco">
+    <h2>Recomendação</h2>
+    <p class="prosa">Se a queixa é a lista que rola no Gerente, <b>A</b> resolve com a menor mudança e sem tirar nada de ninguém. Se a queixa é "a sidebar parece antiga", <b>C</b> é a resposta — e ela combina com A (grupos recolhíveis no fundo escuro) sem conflito nenhum. <b>B</b> só vale se a direção quiser voltar a um rail, e o custo é reabrir uma decisão já tomada.</p>
+    <ul class="perguntas">
+      <li><span class="q">1</span><span>A mudança é de <b>altura</b> (a lista que rola), de <b>cara</b> (a cor e a densidade), ou das duas?</span></li>
+      <li><span class="q">2</span><span>O menu recolhido de 56 px (Ctrl+B) é usado por alguém hoje? Se não, B fica mais barato do que parece.</span></li>
+      <li><span class="q">3</span><span>A sidebar do <b>faturamento</b> (o outro design system) muda junto? Se a resposta é não, C fica de fora.</span></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ---------- ícones (24×24, traço) ---------- */
+const I = {
+  home:'<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  dia:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 15h5"/>',
+  gota:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/>',
+  equipe:'<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 20a5 5 0 0 1 5.5-5"/>',
+  pessoa:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  prancheta:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 11h6M9 15h4"/>',
+  ficha:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+  rx:'<path d="M7 4h5a3.5 3.5 0 0 1 0 7H7V4ZM7 11v9M12 11l7 9M19 11l-7 9"/>',
+  pasta:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  caixa:'<path d="M3 8 12 4l9 4-9 4z"/><path d="M3 8v8l9 4 9-4V8M12 12v8"/>',
+  etiqueta:'<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+  volta:'<path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/>',
+  ajuda:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
+  coracao:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/><path d="M5 12h4l1.5-3 2 6 1.5-3h5"/>',
+  cofre:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M3 10h2M19 10h2"/>',
+  lista:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  cartao:'<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h4"/>',
+  estoque:'<path d="M3 8h18v12H3z"/><path d="M5 8V5h14v3M10 12h4"/>',
+  repasse:'<path d="M4 12h12M12 8l4 4-4 4"/><path d="M20 6v12"/>',
+  grafico:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+  barras:'<path d="M4 20h16M6 20V9M11 20V5M16 20v-9"/>',
+  painel:'<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/>',
+  recibo:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  alvo:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  pizza:'<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/>',
+  mega:'<path d="M3 10v4h3l7 4V6l-7 4z"/><path d="M17 9a4 4 0 0 1 0 6"/>',
+  escudo:'<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  engr:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  importar:'<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/>',
+  semana:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v11M15 10v11"/>',
+  numeros:'<path d="M4 19h16M4 5h4v14M12 9h4v10M20 13h-4"/>',
+  sol:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/>',
+  cheque:'<path d="m5 12 4 4L19 6"/>',
+  lupa:'<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
+  chev:'<path d="m9 6 6 6-6 6"/>',
+  ham:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+  gestao:'<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/>',
+  paciente:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  financeiro:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M3 10h2M19 10h2"/>',
+  inteligencia:'<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+  cruz:'<path d="M12 5v14M5 12h14"/>',
+  atendimento:'<path d="M6 3v6a5 5 0 0 0 10 0V3"/><path d="M11 14v2a4 4 0 0 0 8 0v-2"/><circle cx="19" cy="11" r="2"/>'
+};
+const svg = (k, cls='') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${I[k]||I.ficha}</svg>`;
+
+/* ---------- a árvore de cada app, como os módulos a publicam ---------- */
+const G = { gestao:'Gestão', paciente:'Paciente', atendimento:'Atendimento', financeiro:'Financeiro', inteligencia:'Inteligência' };
+const it = (rotulo, ico, abas) => ({rotulo, ico, abas});
+
+const APPS = {
+  gerente: { nome:'Gerente Geral', ativo:'Lançar e marcar', grupos:[
+    ['gestao', [ it('Painel','painel',['Direção','Recepção','Meu dia']), it('Agenda','cal',['Dia','Grade','Semana do profissional']),
+                 it('Profissionais e salas','equipe'), it('Minha agenda','sol',['Hoje','Semana','Sem evolução']),
+                 it('Ajuda e suporte','ajuda') ]],
+    ['paciente', [ it('Pacientes','pessoa',['Cadastro','Em tratamento']),
+                   it('Documentos','pasta'), it('Pacotes','caixa'), it('Importar pacientes','importar') ]],
+    ['atendimento', [ it('Lançar e marcar','prancheta',['Lançar','Marcar','Retornos a marcar','Lançamentos','Consultas de convênio']),
+                      it('Prontuário','ficha',['Por paciente','Registros e pendências','Exames']),
+                      it('Prescrições','rx',['Receituário','No consultório','Infusão']),
+                      it('Enfermagem','coracao',['Sala de infusão','Passagens']) ]],
+    ['financeiro', [ it('Caixa','cofre',['Caixa','Fechamento','Fluxo']), it('Contas','lista',['A pagar/receber','Quem me deve','Plano de contas']),
+                     it('Recebimentos','cartao',['Recebíveis de cartão','Conciliação','Extrato do banco','Taxas e impostos']),
+                     it('Estoque','estoque'), it('Repasses','repasse'), it('Faturamento (TISS)','recibo'),
+                     it('Tabela de preço','etiqueta',['Convênios','Particular']) ]],
+    ['inteligencia', [ it('Relatórios / BI','grafico',['Indicadores','Metas','Resultado do mês','Produção','Meus números']),
+                       it('Rentabilidade e custos','pizza',['Por convênio','Custo de taxas e impostos']),
+                       it('Marketing / Recall','mega',['Campanhas','Quem parou de vir','Retorno de pacientes','De onde vêm os pacientes']),
+                       it('Conformidade e acessos','escudo',['Auditoria','Guarda do prontuário','Acessos']),
+                       it('Configurações','engr') ]]
+  ]},
+  recepcao: { nome:'Recepção', ativo:'Lançar e marcar', grupos:[
+    ['gestao', [ it('Início','home'), it('Agenda','cal',['Dia','Grade','Semana do profissional']),
+                 it('Profissionais e salas','equipe'), it('Ajuda e suporte','ajuda') ]],
+    ['paciente', [ it('Pacientes','pessoa',['Cadastro','Em tratamento']),
+                   it('Documentos','pasta'), it('Pacotes','caixa'), it('Preços do particular','etiqueta'), it('Retorno de pacientes','volta') ]],
+    ['atendimento', [ it('Lançar e marcar','prancheta',['Lançar','Marcar','Retornos a marcar','Lançamentos','Consultas de convênio']),
+                      it('Prontuário','ficha',['Por paciente','Registros e pendências']),
+                      it('Prescrições','rx',['Receituário','No consultório','Infusão']),
+                      it('Sala de infusão','gota'), it('Enfermagem','coracao') ]]
+  ]},
+  financeiro: { nome:'Financeiro', ativo:'Recebimentos', grupos:[
+    ['financeiro', [ it('Caixa','cofre',['Caixa','Fechamento','Fluxo']), it('Contas','lista',['A pagar/receber','Quem me deve','Plano de contas']),
+                     it('Recebimentos','cartao',['Recebíveis de cartão','Conciliação','Extrato do banco','Taxas e impostos']),
+                     it('Pacotes','caixa'), it('Estoque','estoque'), it('Repasses','repasse'),
+                     it('Resultado do mês','grafico'), it('Produção','barras') ]],
+    ['gestao', [ it('Ajuda e suporte','ajuda') ]]
+  ]},
+  consultorio: { nome:'Consultório', ativo:'Prontuário', grupos:[
+    ['gestao', [ it('Minha agenda','sol',['Hoje','Semana','Sem evolução']), it('Ajuda e suporte','ajuda') ]],
+    ['paciente', [ it('Pacientes','pessoa',['Em tratamento']) ]],
+    ['atendimento', [ it('Prontuário','ficha',['Registros e pendências','Exames']), it('Prescrições','rx',['Receitas e documentos','Infusão']),
+                      it('Enfermagem','coracao',['Sala de infusão','Passagens']) ]],
+    ['inteligencia', [ it('Meus números','numeros') ]]
+  ]}
+};
+
+const CORPO = 658;            // 690 da janela − 32 da barra de título
+const LOGO = 66, ITEM = 42, CAB = 33, FOLGA = 12;
+
+/* ---------- pedaços comuns ---------- */
+function marca(nome){ return `<div class="marca"><span class="simb">${svg('cruz')}</span><span class="nome">${nome}</span></div>`; }
+function miolo(app, ativo){
+  const item = app.grupos.flatMap(g=>g[1]).find(i=>i.rotulo===ativo);
+  const abas = item && item.abas ? `<div class="abas">${item.abas.map((a,i)=>`<span class="${i===0?'on':''}">${a}</span>`).join('')}</div>` : '';
+  return `<div class="miolo">
+    <div class="topbar"><span class="ham">${svg('ham')}</span>
+      <span class="busca">${svg('lupa')} Ir para… (Ctrl+F)</span><span class="quem">LZ</span></div>
+    <div class="pagina"><div class="h">${ativo}</div><div class="s">${app.nome} · quarta-feira, 9 de setembro</div>${abas}
+      <div class="card"><div class="lin m"></div><div class="lin c"></div><div class="lin l"></div></div>
+      <div class="card"><div class="lin c"></div><div class="lin m"></div></div></div></div>`;
+}
+function janela(app, sidebarHtml, ativo){
+  return `<div class="titulo">${app.nome} — Clínica <span class="luzes"><i></i><i></i><i></i></span></div>
+    <div class="corpo">${sidebarHtml}${miolo(app, ativo)}</div>`;
+}
+const itemHtml = (i, on, extra='') => `<div class="item ${on?'on':''}">
+  <span class="ico">${svg(i.ico)}</span><span class="rot">${i.rotulo}</span>${extra}</div>`;
+const cabe = (h) => h <= CORPO ? `<span class="cabe">cabe</span>` : `<span class="rola">rola</span>`;
+const nItens = (app) => app.grupos.reduce((s,g)=>s+g[1].length,0);
+
+/* ---------- HOJE ---------- */
+function atual(app){
+  const lista = app.grupos.map(([g,itens]) => `<div class="grupo-cab">${G[g]}</div>` + itens.map(i=>itemHtml(i, i.rotulo===app.ativo)).join('')).join('');
+  const h = LOGO + app.grupos.length*CAB + nItens(app)*ITEM + FOLGA;
+  return { html: janela(app, `<div class="sb">${marca('Clínica')}<div class="lista">${lista}</div></div>`, app.ativo),
+           contador: `<b>${nItens(app)}</b> itens · precisa de <b>${h}</b> px · ${cabe(h)}`, h };
+}
+
+/* ---------- A · recolhíveis ---------- */
+function recolhivel(app){
+  const lista = app.grupos.map(([g,itens],idx) => {
+    const temAtivo = itens.some(i=>i.rotulo===app.ativo);
+    return `<div class="gcab ${temAtivo?'aberto tem-ativo':''}" data-g="${idx}" tabindex="0" role="button" aria-expanded="${temAtivo}">
+      ${svg('chev','chev')}<span>${G[g]}</span><span class="n">${itens.length}</span></div>
+      <div class="gcorpo ${temAtivo?'aberto':''}" data-g="${idx}">${itens.map(i=>itemHtml(i, i.rotulo===app.ativo)).join('')}</div>`;
+  }).join('');
+  const aberto = app.grupos.find(g=>g[1].some(i=>i.rotulo===app.ativo)) || app.grupos[0];
+  const h = LOGO + app.grupos.length*ITEM + aberto[1].length*ITEM + FOLGA;
+  return { html: janela(app, `<div class="sb rec">${marca('Clínica')}<div class="lista">${lista}</div></div>`, app.ativo),
+           contador: `<b>${nItens(app)}</b> itens · um grupo aberto: <b>${h}</b> px · ${cabe(h)}`, h,
+           ligar(root){
+             root.querySelectorAll('.gcab').forEach(c=>{
+               const abrir = () => { const on = c.classList.toggle('aberto'); c.setAttribute('aria-expanded', on);
+                 root.querySelector(`.gcorpo[data-g="${c.dataset.g}"]`).classList.toggle('aberto', on); };
+               c.addEventListener('click', abrir);
+               c.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); abrir(); } });
+             });
+           } };
+}
+
+/* ---------- B · rail + lista ---------- */
+function railLista(app){
+  let gAtivo = app.grupos.findIndex(g=>g[1].some(i=>i.rotulo===app.ativo)); if (gAtivo<0) gAtivo=0;
+  const ajuda = app.grupos.flatMap(g=>g[1]).some(i=>i.rotulo==='Ajuda e suporte');
+  function painel(idx){
+    const [g,itens] = app.grupos[idx];
+    return `<div class="pt">${G[g]}</div><div class="lista">${itens.filter(i=>i.rotulo!=='Ajuda e suporte').map(i=>{
+      const on = i.rotulo===app.ativo;
+      const subs = on && i.abas ? i.abas.map((a,k)=>`<div class="sub ${k===0?'on':''}">${a}</div>`).join('') : '';
+      return itemHtml(i,on) + subs; }).join('')}</div>`;
+  }
+  const rail = `<div class="rail">${marca('')}${app.grupos.map(([g,itens],idx)=>
+      `<div class="rbt ${idx===gAtivo?'on':''}" data-g="${idx}" title="${G[g]}" tabindex="0" role="button">${svg(g)}<span class="n">${itens.filter(i=>i.rotulo!=='Ajuda e suporte').length}</span></div>`).join('')}
+    ${ajuda?`<div class="rbt fim" title="Ajuda e suporte">${svg('ajuda')}</div>`:''}</div>`;
+  const maior = Math.max(...app.grupos.map(g=>g[1].length));
+  const h = LOGO + maior*ITEM + FOLGA;
+  return { html: janela(app, `<div class="sbB">${rail}<div class="painel" id="painelB">${painel(gAtivo)}</div></div>`, app.ativo),
+           contador: `<b>${app.grupos.length}</b> grupos no rail · maior lista <b>${maior}</b> itens: <b>${h}</b> px · ${cabe(h)}`, h,
+           ligar(root){
+             root.querySelectorAll('.rail .rbt[data-g]').forEach(b=>{
+               const ir = () => { root.querySelectorAll('.rail .rbt').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+                 root.querySelector('#painelB').innerHTML = painel(+b.dataset.g); };
+               b.addEventListener('click', ir);
+               b.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); ir(); } });
+             });
+           } };
+}
+
+/* ---------- C · escura + árvore ---------- */
+function escura(app){
+  const ITEM_C = 38, SUB = 30;
+  let subs = 0;
+  const lista = app.grupos.map(([g,itens]) => `<div class="grupo-cab">${G[g]}</div>` + itens.map(i=>{
+    const on = i.rotulo===app.ativo;
+    let extra = i.abas ? svg('chev','chev') : '';
+    let arvore = '';
+    if (on && i.abas){ subs = i.abas.length; arvore = i.abas.map((a,k)=>`<div class="sub ${k===0?'on':''}">${a}</div>`).join(''); }
+    return itemHtml(i,on,extra) + arvore; }).join('')).join('');
+  const h = LOGO + app.grupos.length*31 + nItens(app)*ITEM_C + subs*SUB + FOLGA;
+  return { html: janela(app, `<div class="sb esc">${marca('Clínica')}<div class="lista">${lista}</div></div>`, app.ativo),
+           contador: `<b>${nItens(app)}</b> itens + <b>${subs}</b> abas · precisa de <b>${h}</b> px · ${cabe(h)}`, h };
+}
+
+/* ---------- montagem ---------- */
+function desenhar(chave){
+  const app = APPS[chave];
+  const vs = { atual: atual(app), a: recolhivel(app), b: railLista(app), c: escura(app) };
+  for (const [k,v] of Object.entries(vs)){
+    const j = document.getElementById('j-'+k); j.innerHTML = v.html;
+    document.getElementById('c-'+k).innerHTML = v.contador;
+    if (v.ligar) v.ligar(j);
+  }
+  document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed', c.dataset.app===chave ? 'true' : 'false'));
+}
+function placar(){
+  const el = document.getElementById('placar');
+  el.innerHTML = Object.entries(APPS).map(([k,app])=>{
+    const h = atual(app).h;
+    return `<div><div class="n">${nItens(app)}<small>itens</small></div><div class="r">${app.nome} · ${h} px de menu para ${CORPO} · <b class="${h<=CORPO?'cabe':'rola'}">${h<=CORPO?'cabe':'rola'}</b></div></div>`;
+  }).join('');
+}
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click', ()=>desenhar(c.dataset.app)));
+placar();
+desenhar('gerente');
+</script>

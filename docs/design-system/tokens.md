@@ -55,7 +55,9 @@ Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding
 
 ## Iconografia
 
-`FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`, salvar/exportar `E74E`, mensagem/WhatsApp `E8BD`, pessoa `E77B`.
+`FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo.
+
+**A exceção declarada (set/2026): os ícones da SIDEBAR são desenhos de traço**, não glifos — `Styles/Componentes/Icones.xaml`, 34 geometrias (`Icone.<nome>`, 24 unidades mostradas a `Icone.Tamanho` 18, traço `Icone.Traco` 1,6) geradas do mockup `docs/mockups/sidebar-tres-desenhos.html` que a direção aprovou dizendo "queremos os ícones". `ItemMenuModulo.Icone` nomeia o desenho e o conversor `IconePorNome` acha a geometria; item sem ícone cai no `Glifo`. Ícone novo entra no dicionário E no mockup, com o mesmo nome. O resto do sistema continua na fonte. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`, salvar/exportar `E74E`, mensagem/WhatsApp `E8BD`, pessoa `E77B`.
 
 ### A cor da agenda por modalidade (ago/2026)
 

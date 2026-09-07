@@ -18,6 +18,7 @@
                 <ResourceDictionary Source="Styles/Componentes/Cartoes.xaml" />
                 <ResourceDictionary Source="Styles/Componentes/Midia.xaml" />
                 <ResourceDictionary Source="Styles/Componentes/Pacientes.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Icones.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -86,6 +86,24 @@ public static class ChavesSuite
     /// <summary>"Prescrições" — o composto que Recepção e Consultório publicam.</summary>
     public const string GrupoPrescricoes = "receituario";
 
+    /// <summary>
+    /// "Prontuário" — o composto que Recepção e Consultório publicam (set/2026, o grupo
+    /// ATENDIMENTO). A Recepção o publica com "Por paciente · Registros e pendências ·
+    /// Exames"; o Consultório, sem a tela por paciente, com as duas últimas. A MESMA
+    /// chave nos dois é o que faz o Gerente Geral mostrar UMA linha (vence a Recepção,
+    /// carregada antes, cujas abas contêm as do Consultório) — literal à mão nos dois
+    /// módulos seria a duplicata da checagem 45 de novo.
+    /// </summary>
+    public const string GrupoProntuario = "prontuario-geral";
+
+    /// <summary>
+    /// Exames — a lista plana de pedidos e resultados (Consultório). Atravessa módulo
+    /// porque virou aba do composto "Prontuário" da Recepção: exame é prontuário, não
+    /// ficha, e no Gerente ele precisa morar no mesmo item que as outras leituras de
+    /// prontuário.
+    /// </summary>
+    public const string ConsultorioExames = "consultorio-exames";
+
     /// <summary>Agenda do balcão (Recepção).</summary>
     public const string AgendaRecepcao = "agenda-recepcao";
 
