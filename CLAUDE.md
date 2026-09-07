@@ -7791,3 +7791,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   (`ExigirAlgum(EditarAgenda | MovimentarFila)` no movimento de fila, mais
   `LancarAtendimento` no Concluir); `ExecutarAsync` recarrega depois de toda ação; e os
   avisos de guia da falta e do cancelamento saem em DIÁLOGO, nunca em snackbar.
+
+- **A SIDEBAR GANHOU O GRUPO ATENDIMENTO E OS GRUPOS RECOLHÍVEIS** (set/2026; o mockup
+  `docs/mockups/sidebar-tres-desenhos.html` foi aprovado ANTES de uma linha de WPF — o
+  caminho da parcela 87). A cliente pediu para ver a sidebar "se fizéssemos uma
+  mudança", escolheu o desenho A (grupos que abrem e fecham) e pediu para **separar o que
+  é de atendimento de paciente**. Medido antes de desenhar: o Gerente Geral tinha 25
+  itens visíveis pedindo ~1290 px de menu para 658 px de janela — FINANCEIRO e
+  INTELIGÊNCIA abaixo da dobra.
+  ⚠️ **PACIENTE é a PESSOA; ATENDIMENTO é o ATO — e o corte é o da permissão.** O que
+  fica em PACIENTE se abre com `VerFichaPaciente` (cadastro, documentos, pacotes, preços,
+  retorno, importação); o que fica em ATENDIMENTO é dado de saúde ou o gesto que o cria
+  (lançar e marcar, prontuário, prescrições, sala de infusão, enfermagem). Um grupo que
+  mistura os dois é o bit sobrecarregado da parcela 49 vestido de menu. **O mesmo item
+  mora no mesmo grupo nos quatro apps**, e o custo declarado é que no Consultório
+  PACIENTE fica com um item só.
+  ⚠️ **Navegar abre o grupo do destino e fecha os outros; o clique no cabeçalho alterna
+  SÓ aquele grupo.** Sem a primeira metade a lista volta a crescer a cada Ctrl+F; sem a
+  segunda, quem abriu FINANCEIRO para olhar veria GESTÃO se fechar por isso. Navegar para
+  uma tela OCULTA (o paciente em foco, pelo "Atender") **não mexe nos grupos** — fechar
+  tudo deixaria a sidebar sem um item à vista. E com a sidebar RECOLHIDA (Ctrl+B) todos
+  os itens aparecem como ícone: cabeçalho que não se lê não se clica.
+  ⚠️ **"Atendimento" dentro de ATENDIMENTO virou "Lançar e marcar"** — sem barra, pela
+  lição da parcela 95 (item com dois nomes é item que não decidiu o que é). A CHAVE
+  (`atendimento`) não mudou: chave é contrato de navegação.
+  ⚠️ **Registros e pendências e Exames SAÍRAM do composto "Pacientes" do Consultório**:
+  são prontuário, não ficha. O Consultório ganhou o composto "Prontuário" com a MESMA
+  chave do da Recepção (`ChavesSuite.GrupoProntuario`, que passou a atravessar módulo
+  junto com `ConsultorioExames`) — chave literal nos dois módulos seria a duplicata da
+  checagem 45 de novo. O composto "Pacientes" do Consultório sobrou com UMA aba, e o shell
+  mostra a tela direto.
+  ⚠️ **Glifo único por item VISÍVEL**, cobrado de novo: "Pacotes" estava com glifo VAZIO
+  (`""`) desde que subiu ao shell, "Minha agenda" repetia o da Agenda do balcão,
+  "Conformidade" repetia o da Auditoria e "Repasses" usava o de Copiar. A cliente elogiou
+  os ícones DO MOCKUP — que são traço monocromático, a mesma família visual do Segoe
+  Fluent —, e a resposta certa não foi trazer SVG para o WPF: foi dar a cada item o glifo
+  da fonte do design system que diz o que ele é. Iconografia é Segoe Fluent (regra 3 do
+  design system), e um SVG por item seria a segunda definição de ícone que diverge na
+  primeira correção.
+  **A sidebar do FATURAMENTO não recebeu o acordeão, e é decisão**: ela tem poucos itens,
+  não rola, e o app está em produção. O desenho do ITEM (ícone, rótulo, barra de 3 px)
+  continua idêntico nos dois — é ele que faz os dois apps parecerem o mesmo produto.

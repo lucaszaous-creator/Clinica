@@ -122,7 +122,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8",
+            Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE72D",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
 

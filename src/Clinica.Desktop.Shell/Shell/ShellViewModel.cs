@@ -280,6 +280,20 @@ public sealed partial class ShellViewModel : ObservableObject
         _itemAtual = item;
         foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
 
+        // O acordeão (set/2026): o grupo do destino abre e os outros fecham — é isso que
+        // faz a sidebar do Gerente caber na janela. Só quando o destino É linha de
+        // algum grupo: navegar para uma tela OCULTA (a do paciente em foco, aberta pelo
+        // "Atender") não pode fechar tudo e deixar a sidebar sem um item à vista, então
+        // ali os grupos ficam como estavam.
+        if (Grupos.Any(g => g.Itens.Contains(item)))
+        {
+            foreach (var g in Grupos)
+            {
+                g.TemAtivo = g.Itens.Contains(item);
+                g.Aberto = g.TemAtivo;
+            }
+        }
+
         var tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
 

@@ -222,7 +222,7 @@ a{color:var(--acento)}
 
   <div class="cap"><b>O que mudou de grupo</b> · em relação à sidebar de hoje</div>
   <ul class="regras" style="margin-top:0">
-    <li><span class="marca">→</span><span class="txt"><b>Saem de PACIENTE para ATENDIMENTO:</b> Atendimento (que aqui passa a se chamar <i>Lançar / marcar</i>, para o item não repetir o nome do grupo), Prontuário, Prescrições e Enfermagem.</span></li>
+    <li><span class="marca">→</span><span class="txt"><b>Saem de PACIENTE para ATENDIMENTO:</b> Atendimento (que passa a se chamar <i>Lançar e marcar</i>, para o item não repetir o nome do grupo — sem barra, porque item com dois nomes é item que não decidiu o que é), Prontuário, Prescrições e Enfermagem.</span></li>
     <li><span class="marca">→</span><span class="txt"><b>Saem de GESTÃO para ATENDIMENTO:</b> Sala de infusão (Recepção) e o composto Enfermagem (Consultório e Gerente). A sala é onde se administra, não onde se administra a clínica.</span></li>
     <li><span class="marca">→</span><span class="txt"><b>Ficam em PACIENTE:</b> Pacientes (Cadastro · Em tratamento), Documentos, Pacotes, Preços do particular, Retorno de pacientes, Importar pacientes. <b>Exames</b> e <b>Registros e pendências</b>, que eram abas de Pacientes no Consultório, vão para o Prontuário — são prontuário.</span></li>
     <li><span class="marca">→</span><span class="txt"><b>Ficam em GESTÃO:</b> Painel, Início, Agenda, Minha agenda, Profissionais e salas, Ajuda. A agenda é o dia da clínica, ainda que o Atender comece nela. <b>Custo declarado:</b> no Consultório o grupo PACIENTE fica com um item só — é o preço de o mesmo item morar no mesmo grupo em todo app.</span></li>
@@ -357,13 +357,13 @@ const G = { gestao:'Gestão', paciente:'Paciente', atendimento:'Atendimento', fi
 const it = (rotulo, ico, abas) => ({rotulo, ico, abas});
 
 const APPS = {
-  gerente: { nome:'Gerente Geral', ativo:'Lançar / marcar', grupos:[
+  gerente: { nome:'Gerente Geral', ativo:'Lançar e marcar', grupos:[
     ['gestao', [ it('Painel','painel',['Direção','Recepção','Meu dia']), it('Agenda','cal',['Dia','Grade','Semana do profissional']),
                  it('Profissionais e salas','equipe'), it('Minha agenda','sol',['Hoje','Semana','Sem evolução']),
                  it('Ajuda e suporte','ajuda') ]],
     ['paciente', [ it('Pacientes','pessoa',['Cadastro','Em tratamento']),
                    it('Documentos','pasta'), it('Pacotes','caixa'), it('Importar pacientes','importar') ]],
-    ['atendimento', [ it('Lançar / marcar','prancheta',['Lançar','Marcar','Retornos a marcar','Lançamentos','Consultas de convênio']),
+    ['atendimento', [ it('Lançar e marcar','prancheta',['Lançar','Marcar','Retornos a marcar','Lançamentos','Consultas de convênio']),
                       it('Prontuário','ficha',['Por paciente','Registros e pendências','Exames']),
                       it('Prescrições','rx',['Receituário','No consultório','Infusão']),
                       it('Enfermagem','coracao',['Sala de infusão','Passagens']) ]],
@@ -377,12 +377,12 @@ const APPS = {
                        it('Conformidade e acessos','escudo',['Auditoria','Guarda do prontuário','Acessos']),
                        it('Configurações','engr') ]]
   ]},
-  recepcao: { nome:'Recepção', ativo:'Lançar / marcar', grupos:[
+  recepcao: { nome:'Recepção', ativo:'Lançar e marcar', grupos:[
     ['gestao', [ it('Início','home'), it('Agenda','cal',['Dia','Grade','Semana do profissional']),
                  it('Profissionais e salas','equipe'), it('Ajuda e suporte','ajuda') ]],
     ['paciente', [ it('Pacientes','pessoa',['Cadastro','Em tratamento']),
                    it('Documentos','pasta'), it('Pacotes','caixa'), it('Preços do particular','etiqueta'), it('Retorno de pacientes','volta') ]],
-    ['atendimento', [ it('Lançar / marcar','prancheta',['Lançar','Marcar','Retornos a marcar','Lançamentos','Consultas de convênio']),
+    ['atendimento', [ it('Lançar e marcar','prancheta',['Lançar','Marcar','Retornos a marcar','Lançamentos','Consultas de convênio']),
                       it('Prontuário','ficha',['Por paciente','Registros e pendências']),
                       it('Prescrições','rx',['Receituário','No consultório','Infusão']),
                       it('Sala de infusão','gota'), it('Enfermagem','coracao') ]]

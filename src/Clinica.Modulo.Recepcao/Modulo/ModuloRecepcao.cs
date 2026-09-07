@@ -98,7 +98,7 @@ public sealed class ModuloRecepcao : IModuloApp
     /// descobrir o que é cada um. As duas telas existem e respondem perguntas diferentes:
     /// viraram abas, que é onde a diferença se lê.
     /// </summary>
-    public const string ChaveGrupoProntuario = "prontuario-geral";
+    public const string ChaveGrupoProntuario = ChavesSuite.GrupoProntuario;
 
     /// <summary>
     /// Ajuda e suporte — tela do SHELL (a única das 18 do handoff de design que não
@@ -167,7 +167,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infusão", Glifo = "\uE9D5",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.ChecarPrescricao
         },
 
         // A tela da ENFERMAGEM: TODOS os pacientes cadastrados e a evolução de cada
@@ -178,7 +178,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.RegistrarEvolucaoEnfermagem
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem
         },
         // Cadastro da equipe \u00E9 gest\u00E3o da cl\u00EDnica, n\u00E3o do paciente: quem mexe aqui est\u00E1
         // organizando quem atende e onde, n\u00E3o atendendo algu\u00E9m.
@@ -220,8 +220,8 @@ public sealed class ModuloRecepcao : IModuloApp
         // lançar a sessão de hoje e cuidar da consulta que a autoriza.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoAtendimento, Rotulo = "Atendimento", Glifo = "\uEB51",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento,
+            Chave = ChaveGrupoAtendimento, Rotulo = "Lan\u00E7ar e marcar", Glifo = "\uEB51",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento,
             // "Lançar" e "Marcar" são o MESMO ViewModel com o modo fixado (set/2026, "quanto
             // mais simples, melhor"): a pergunta QUANDO saiu do meio do formulário e virou
             // a escolha da aba. A aba Marcar só aparece para quem tem `EditarAgenda` (o
@@ -248,7 +248,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
         // \u26A0\uFE0F A SEGUNDA duplicata da sidebar, e ela \u00E9 a MESMA hist\u00F3ria das "Prescri\u00E7\u00F5es"
         // logo abaixo (set/2026 \u2014 o cliente mandou o print do Gerente com os dois itens):
@@ -263,11 +263,12 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveGrupoProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario,
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario,
             Abas =
             [
                 new AbaMenu("Por paciente", ChaveProntuario),
-                new AbaMenu("Registros e pend\u00EAncias", ChavesSuite.ConsultorioProntuarios)
+                new AbaMenu("Registros e pend\u00EAncias", ChavesSuite.ConsultorioProntuarios),
+                new AbaMenu("Exames", ChavesSuite.ConsultorioExames)
             ]
         },
         // ⚠️ Aqui morava uma DUPLICATA: "Prescrições" era publicado por este módulo e
@@ -279,7 +280,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveGrupoPrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerFichaPaciente,
             Abas =
             [
                 new AbaMenu("Receitu\u00E1rio", ChavePrescricoes),
@@ -313,7 +314,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // sala de infusão na parcela 48, e os dois módulos publicam a MESMA chave.
         new ItemMenuModulo
         {
-            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "",
+            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
 
@@ -344,7 +345,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveNovoAtendimento, Rotulo = "Lan\u00E7ar atendimento", Glifo = "\uEB51",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
         },
         // A aba Marcar. Item declarado pela checagem 28 (toda `AbaMenu` aponta para item
         // de algum m\u00F3dulo); quem o esconde da sidebar \u00E9 o PAI. `EditarAgenda`, e n\u00E3o
@@ -353,12 +354,12 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveMarcarHorario, Rotulo = "Marcar hor\u00E1rio", Glifo = "\uE787",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.EditarAgenda
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.EditarAgenda
         },
         new ItemMenuModulo
         {
             Chave = ChaveConsultas, Rotulo = "Consultas (conv\u00EAnio)", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
         },
         // A confer\u00EAncia do que foi lan\u00E7ado. Item declarado porque a checagem 28 exige
         // que toda chave de `AbaMenu` seja item de algum m\u00F3dulo \u2014 quem o esconde da
@@ -366,14 +367,14 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
         },
         // Retornos a marcar: LEITURA da agenda (VerAgenda). Marcar, dentro dela, exige
         // EditarAgenda no comando — as duas metades em cada linha.
         new ItemMenuModulo
         {
             Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerAgenda
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda
         },
         new ItemMenuModulo
         {
@@ -384,7 +385,7 @@ public sealed class ModuloRecepcao : IModuloApp
             // central de documentos ser cosm\u00E9tica: bastaria a pessoa clicar no item ao
             // lado para ler as mesmas receitas. Checagem de acesso que s\u00F3 existe numa
             // porta \u00E9 o defeito recorrente do projeto, com o agravante de PARECER coberta.
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a

@@ -172,7 +172,7 @@ public sealed class ModuloGerente : IModuloApp
         // grupo exige o menor dos dois, e as abas que a pessoa não pode ver não aparecem.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE81C",
+            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE72E",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria,
             Abas =
             [
