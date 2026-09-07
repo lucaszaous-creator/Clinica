@@ -579,7 +579,22 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             NaturezasComAcao = [NaturezaRegistroClinico.SessaoMedica, NaturezaRegistroClinico.ArquivoDaFicha],
             AcessoParaMexer = Permissao.EditarProntuario,
             AoAbrir = AbrirRegistroAsync,
-            AoCancelar = CancelarRegistroAsync
+            AoCancelar = CancelarRegistroAsync,
+
+            // LER a sessão que já aconteceu — a porta que faltava aqui. Só a SESSÃO
+            // MÉDICA: o arquivo da ficha não tem o que "ver por inteiro", porque abri-lo
+            // já É a leitura, e um segundo botão ao lado do primeiro faria a pessoa
+            // procurar a diferença que não existe.
+            NaturezasComVer = [NaturezaRegistroClinico.SessaoMedica],
+            AcessoParaVer = Permissao.VerProntuario,
+            AoVer = VerRegistroAsync,
+
+            // "Abrir" mentia: na sessão médica o botão abre a janela de EDIÇÃO. No
+            // arquivo da ficha o rótulo fica como está, porque ali abrir é ler.
+            RotulosDeAbrir = new Dictionary<NaturezaRegistroClinico, string>
+            {
+                [NaturezaRegistroClinico.SessaoMedica] = "Editar"
+            }
         };
     }
 
@@ -612,6 +627,53 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         _ => throw new NotSupportedException(
             $"A ficha do paciente não sabe abrir {CatalogoRegistroClinico.Rotular(item.Natureza)}.")
     };
+
+    /// <summary>
+    /// LÊ o registro escolhido — roteado pela natureza, como as outras duas ações.
+    ///
+    /// ⚠️ A ficha tinha UM botão na sessão, chamado "Abrir", e ele abria a janela de
+    /// EDIÇÃO: a sessão de ontem — fato registrado, que não se reescreve por hábito —
+    /// era apresentada como formulário, e quem só tem <c>VerProntuario</c> não via botão
+    /// nenhum. A tela de Prontuário já tinha sido corrigida (Ver · Editar · Cancelar…) e
+    /// a ficha ficou para trás, porque a correção foi feita naquela TELA e não no
+    /// componente que as duas usam.
+    /// </summary>
+    private Task VerRegistroAsync(RegistroClinicoPaciente item) => item.Natureza switch
+    {
+        NaturezaRegistroClinico.SessaoMedica => VerSessaoAsync(item.Id),
+        _ => throw new NotSupportedException(
+            $"A ficha do paciente não sabe ler {CatalogoRegistroClinico.Rotular(item.Natureza)} por inteiro.")
+    };
+
+    /// <summary>
+    /// A sessão por inteiro, para reler e IMPRIMIR — a janela do shell, a MESMA das outras
+    /// portas. Uma cópia aqui divergiria na primeira correção, e a que ficasse para trás
+    /// abriria dado de saúde sem registrar quem leu.
+    /// </summary>
+    private Task VerSessaoAsync(int evolucaoId)
+    {
+        // ⚠️ `Exigir` LANÇA, e o comando do componente não tem try: fora dele a recusa
+        // sobe até a rede do Dispatcher em vez de virar a frase que explica.
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
+
+            // `ofereceAnexos: false`: a janela de anexos POR SESSÃO mora no módulo
+            // Clínico, e este é o da Recepção — o botão fecharia a janela para nada
+            // (parcela 41 construída de propósito). A contagem continua na linha.
+            var vm = new SessaoDoProntuarioViewModel(_escopos, evolucaoId, Nome, ofereceAnexos: false);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — a sessão do prontuário não pôde ser aberta pela ficha", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Os ARQUIVOS DA FICHA (set/2026) — a receita importada do sistema anterior, o laudo

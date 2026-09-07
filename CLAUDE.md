@@ -3063,6 +3063,25 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Recepção exige `EditarProntuario` e o rótulo MENTIA sobre o que ele faz (é a janela de
   edição): quem tem só `VerProntuario` — a técnica de enfermagem, o faturista — não
   alcançava a sessão por porta nenhuma. É o corte da parcela 49 sem a metade de ler.
+  ⚠️ **E A FICHA DO PACIENTE FICOU PARA TRÁS — a correção foi feita na TELA, não no
+  COMPONENTE que as duas usam** (set/2026, o cliente: *"se já é uma sessão feita, não
+  deveria me dar a opção de ver/imprimir? Por que aparece para editar?"*). A tela de
+  Prontuário ganhou `Ver · Editar · Cancelar…`; a aba Prontuário da FICHA, que lista as
+  mesmas sessões pelo `LinhaDoTempoClinicaView`, continuou com **um** botão "Abrir" que
+  abre a janela de EDIÇÃO — a sessão de ontem apresentada como formulário em branco, e
+  nenhuma porta para quem só tem `VerProntuario`. **A cópia que fica para trás é onde a
+  capacidade some** (parcelas 61, 75, 90), na variante em que a "cópia" é a TELA que não
+  recebeu a correção do componente compartilhado. A regra que fica: **quando a correção
+  é de uma tela que usa componente compartilhado, pergunte se ela pertence à tela ou ao
+  componente** — no componente ela chega às outras portas sozinha; na tela, cada porta
+  precisa que alguém lembre.
+  ⚠️ **Ler e mexer viraram DUAS ações injetadas** (`AoVer`/`NaturezasComVer`/
+  `AcessoParaVer` ao lado de `AoAbrir`), e não uma com dois bits: as duas não cobrem as
+  mesmas naturezas — a ficha sabe LER a sessão médica e não tem o que "ver por inteiro"
+  num arquivo, **cujo abrir já É a leitura**. E o RÓTULO do botão de abrir passou a vir da
+  porta (`RotulosDeAbrir`), pela mesma razão: "Abrir" mente na sessão médica (ali ele
+  edita) e está certo no arquivo da ficha. Rótulo fixo no componente compartilhado é a
+  frase que mente numa das portas.
   ⚠️ **A FICHA DO ATENDIMENTO ESTAVA EM TRÊS CÓPIAS, E ELAS JÁ TINHAM DIVERGIDO EM TRÊS
   PONTOS** — cada um uma regra que só existia numa delas: a guarda de paciente que DIZ por
   que não dá (só a da enfermagem), a recusa de permissão que vira frase em vez de exceção
