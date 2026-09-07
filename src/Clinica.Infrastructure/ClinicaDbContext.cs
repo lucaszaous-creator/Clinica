@@ -76,6 +76,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<TaxaCartao> TaxasCartao => Set<TaxaCartao>();
     public DbSet<Tributo> Tributos => Set<Tributo>();
     public DbSet<PrecoConvenio> PrecosConvenio => Set<PrecoConvenio>();
+    public DbSet<PrecoParticular> PrecosParticular => Set<PrecoParticular>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
@@ -1549,11 +1550,17 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.CodigoFaturamento).WithMany()
                 .HasForeignKey(x => x.CodigoFaturamentoId).OnDelete(DeleteBehavior.SetNull);
+            // O pacote que este lançamento paga (set/2026). SetNull, como as vizinhas: a
+            // venda cancelada continua na base, e o dinheiro que entrou por ela também.
+            e.HasOne(x => x.PacotePaciente).WithMany()
+                .HasForeignKey(x => x.PacotePacienteId).OnDelete(DeleteBehavior.SetNull);
 
             e.HasIndex(x => x.Data);
             e.HasIndex(x => x.Status);
             // Conciliação: achar rápido o lançamento de uma guia.
             e.HasIndex(x => x.CodigoFaturamentoId);
+            // "Quanto deste pacote já foi pago" — a lista de pacotes lê em lote por aqui.
+            e.HasIndex(x => x.PacotePacienteId);
             // "O que vence esta semana" é a consulta mais frequente do módulo.
             e.HasIndex(x => x.DataVencimento);
             // "O que a maquininha ainda deve depositar" (parcela 16). O indice e sobre a
@@ -1756,6 +1763,27 @@ public class ClinicaDbContext : DbContext
             // Descricao e vigencia sao CALCULADAS.
             e.Ignore(x => x.Descricao);
             e.Ignore(x => x.Vigencia);
+        });
+
+        // Preço do PARTICULAR por especialidade atendida (set/2026). Sem FK: os códigos
+        // são do catálogo em memória, como no `PrecoConvenio`.
+        b.Entity<PrecoParticular>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ModalidadeCodigo).IsRequired().HasMaxLength(40);
+            e.Property(x => x.EspecialidadeCodigo).HasMaxLength(40);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasIndex(x => new { x.ModalidadeCodigo, x.EspecialidadeCodigo });
+            e.HasIndex(x => x.Ativo);
+
+            e.Ignore(x => x.Descricao);
+            e.Ignore(x => x.Vigencia);
+            e.Ignore(x => x.ModalidadeNome);
+            e.Ignore(x => x.EspecialidadeNome);
         });
 
         b.Entity<RepasseApurado>(e =>

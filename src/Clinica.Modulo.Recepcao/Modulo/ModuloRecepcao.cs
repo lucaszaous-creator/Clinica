@@ -68,6 +68,12 @@ public sealed class ModuloRecepcao : IModuloApp
     /// sala de infusão: string à mão dos dois lados sempre compila.
     /// </summary>
     public const string ChavePacotes = ChavesSuite.Pacotes;
+
+    /// <summary>
+    /// Preços do particular (set/2026) — a direção pediu que a Recepção também cadastre e
+    /// edite. Tela do shell, chave da suíte: o Gerente a publica como aba da Tabela de preço.
+    /// </summary>
+    public const string ChavePrecosParticular = ChavesSuite.PrecosParticular;
     public const string ChaveEquipe = "equipe";
 
     // ===== Itens COMPOSTOS (parcela 55) =====
@@ -311,6 +317,16 @@ public sealed class ModuloRecepcao : IModuloApp
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
 
+        // PREÇOS DO PARTICULAR (set/2026). A direção pediu que a Recepção também cadastre e
+        // edite — quem combina o preço com o paciente é o balcão. É o MESMO bit do Pacotes:
+        // combinar preço é o ato que `VenderPacote` já nomeia, e o enum tem um bit só
+        // sobrando antes de virar `long` numa coluna de produção.
+        new ItemMenuModulo
+        {
+            Chave = ChavePrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
+        },
+
         // ===== Sub-telas =====
         // Continuam sendo itens: `NavegacaoSuite` navega para várias delas por chave, e a
         // dedupe do shell só some com a linha quando o item PAI está presente. Sem o pai
@@ -413,6 +429,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
         // Faltavam as duas coisas — o item acendia na sidebar e nada abria (parcela 62).
         servicos.AddTransient<PacotesViewModel>();
+        servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         servicos.AddTransient<PrescricoesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
@@ -466,6 +483,10 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePacotes => new PacotesView
         {
             DataContext = servicos.GetRequiredService<PacotesViewModel>()
+        },
+        ChavePrecosParticular => new PrecosParticularView
+        {
+            DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },

@@ -1,6 +1,8 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -116,6 +118,10 @@ public sealed class FinanceiroService
         string? bandeira = null,
         ModalidadeCartao? modalidadeCartao = null,
         int? parcelas = null,
+        // Quando a entrada é PREVISTA e tem dia para acontecer (a sessão particular que
+        // "fica a receber", set/2026). Sem vencimento a inadimplência não a enxerga —
+        // ela só conta o que VENCEU.
+        DateOnly? dataVencimento = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(descricao))
@@ -143,6 +149,7 @@ public sealed class FinanceiroService
             ConvenioCodigo = convenioCodigo,
             Observacoes = observacoes,
             DataPagamento = status == StatusLancamento.Realizado ? (dataPagamento ?? data) : dataPagamento,
+            DataVencimento = dataVencimento,
             CriadoPor = operador,
 
             // As deduções vêm COPIADAS do que o TaxaService calculou na hora da venda —
@@ -346,6 +353,74 @@ public sealed class FinanceiroService
             operador: operador,
             deducoes: deducoes,
             ct: ct);
+
+    // ==================== A conciliação do PARTICULAR (set/2026) ====================
+
+    /// <summary>
+    /// Sessões particulares realizadas no período que ainda não têm dinheiro registrado —
+    /// nem recebido, nem a receber, nem sessão de pacote. É a pergunta que o financeiro
+    /// faz à Recepção: "o que aconteceu e ninguém registrou como foi pago?".
+    ///
+    /// O par de <see cref="GuiasSemLancamentoAsync"/> para quem não tem convênio: aquela
+    /// lista é inacessível ao particular por construção (<c>CodigosNoPeriodoAsync</c> exclui
+    /// o <c>NaoAplicavel</c>), e até aqui a sessão particular que saía do balcão sem
+    /// lançamento não aparecia em lugar nenhum — nem no dia, nem depois.
+    /// </summary>
+    public Task<IReadOnlyList<SessaoSemReceita>> SessoesParticularesSemReceitaAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => _repo.SessoesParticularesSemReceitaAsync(inicio, fim, ct);
+
+    /// <summary>
+    /// Registra o dinheiro de uma sessão particular, deixando o vínculo gravado para ela
+    /// sair da conciliação. <paramref name="vencimento"/> nulo = RECEBIDO (na data
+    /// informada, ou na da sessão); com vencimento = fica A RECEBER, previsto, com dono —
+    /// e a inadimplência passa a enxergá-lo quando vencer.
+    /// </summary>
+    public Task<LancamentoFinanceiro> LancarReceitaDaSessaoAsync(
+        SessaoSemReceita sessao,
+        decimal valor,
+        FormaPagamento? forma = null,
+        DateOnly? vencimento = null,
+        DateOnly? dataRecebimento = null,
+        int? categoriaId = null,
+        string? operador = null,
+        DeducoesRecebimento? deducoes = null,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessao);
+        var aReceber = vencimento is not null;
+
+        return LancarAsync(
+            data: sessao.Data,
+            tipo: TipoLancamento.Entrada,
+            descricao: DescricaoDaSessao(sessao.Data, sessao.ModalidadeNome, sessao.Paciente),
+            valor: valor,
+            status: aReceber ? StatusLancamento.Previsto : StatusLancamento.Realizado,
+            // A parcela prevista não tem forma — ela é decidida no dia em que o paciente
+            // paga, e é o `RealizarAsync` que a grava.
+            formaPagamento: aReceber ? null : forma,
+            categoriaId: categoriaId,
+            pacienteId: sessao.PacienteId,
+            atendimentoId: sessao.AtendimentoId,
+            convenio: sessao.Convenio,
+            convenioCodigo: sessao.CodigoParaTabela,
+            dataPagamento: aReceber ? null : dataRecebimento,
+            operador: operador,
+            deducoes: aReceber ? null : deducoes,
+            dataVencimento: vencimento,
+            ct: ct);
+    }
+
+    /// <summary>
+    /// A descrição da receita de uma sessão — a MESMA para o fechamento no balcão e para a
+    /// conciliação depois. Até set/2026 ela era "Sessão de dd/MM/yyyy", e dez sessões do
+    /// mesmo dia eram dez linhas idênticas no extrato do Caixa. Cabe nos 200 da coluna.
+    /// </summary>
+    public static string DescricaoDaSessao(DateOnly data, string modalidade, string paciente)
+    {
+        var texto = $"Sessão de {data:dd/MM/yyyy} — {modalidade} ({paciente})";
+        return texto.Length <= 200 ? texto : texto[..200];
+    }
 
     public Task<IReadOnlyList<CategoriaFinanceira>> CategoriasAsync(CancellationToken ct = default)
         => _repo.CategoriasFinanceirasAsync(ct);

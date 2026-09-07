@@ -123,6 +123,10 @@ public sealed class ContasService
         // aparecia dissolvida na lista, sem ligação com o paciente que a contraiu.
         // Opcional porque conta a PAGAR não tem paciente nenhum.
         int? pacienteId = null,
+        // De QUAL SESSÃO é a conta (set/2026): é o vínculo que tira a sessão particular da
+        // conciliação — "fica a receber" resolve a sessão tanto quanto "pago agora", e sem
+        // o id ela continuaria aparecendo como sem dinheiro registrado.
+        int? atendimentoId = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(descricao))
@@ -146,6 +150,7 @@ public sealed class ContasService
             Observacoes = observacoes,
             OrigemRecorrencia = origemRecorrencia,
             PacienteId = pacienteId,
+            AtendimentoId = atendimentoId,
             CriadoPor = operador
         };
 
@@ -154,7 +159,8 @@ public sealed class ContasService
         {
             Acao = "ContaCriada",
             Detalhe = $"{tipo} de {valor:C} vencendo em {vencimento:dd/MM/yyyy} — {conta.Descricao}",
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            PacienteId = pacienteId
         }, ct);
         await _repo.SalvarAsync(ct);
         return conta;

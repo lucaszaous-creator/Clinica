@@ -98,6 +98,58 @@ public class PacoteServiceTests : IDisposable
         recarregado!.Valor.Should().Be(1000m);
     }
 
+    /// <summary>
+    /// A janela de edição do catálogo (set/2026) manda um objeto NOVO com o Id — não a
+    /// entidade rastreada —, como toda tela deste projeto. O teste faz o mesmo (a lição da
+    /// parcela 74: reenviar a entidade rastreada não testa a cópia campo a campo). O que
+    /// se fixa: o Id não muda (a procedência dos pacotes já vendidos continua apontando
+    /// para a mesma linha), o vendido não é reescrito, e o que a janela NÃO mostra
+    /// (ordem, observações, ativo) é preservado quando vem junto — e apagado quando não
+    /// vem, que é por isso que a janela o carrega.
+    /// </summary>
+    [Fact]
+    public async Task Editar_pacote_do_catalogo_pela_tela_mantem_o_Id_e_preserva_o_que_a_janela_nao_mostra()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var catalogo = await _pacotes.SalvarCatalogoAsync(new PacoteCatalogo
+        {
+            Nome = "Pacote 10 sessões",
+            Tipo = TipoPacote.Sessoes,
+            SessoesIncluidas = 10,
+            Valor = 1000m,
+            ValidadeDias = 90,
+            Ativo = true,
+            Ordem = 3,
+            Observacoes = "Vale para acupuntura e eletro."
+        }, "secretaria");
+        var vendido = await _pacotes.VenderAsync(pacienteId, catalogo.Id, Hoje);
+        _db.ChangeTracker.Clear();
+
+        var editado = await _pacotes.SalvarCatalogoAsync(new PacoteCatalogo
+        {
+            Id = catalogo.Id,
+            Nome = "Pacote 10 sessões (reajustado)",
+            Tipo = TipoPacote.Sessoes,
+            SessoesIncluidas = 10,
+            Valor = 1200m,
+            ValidadeDias = 120,
+            Ativo = true,
+            Ordem = 3,
+            Observacoes = "Vale para acupuntura e eletro."
+        }, "recepcao");
+
+        editado.Id.Should().Be(catalogo.Id, "editar não é excluir e criar outra linha");
+        editado.Valor.Should().Be(1200m);
+        editado.Ordem.Should().Be(3);
+        editado.Observacoes.Should().Be("Vale para acupuntura e eletro.");
+        (await _pacotes.CatalogoAsync(somenteAtivos: false)).Should().ContainSingle();
+
+        _db.ChangeTracker.Clear();
+        var recarregado = await _pacotes.ObterAsync(vendido.Id);
+        recarregado!.Valor.Should().Be(1000m, "a venda COPIA — o reajuste não alcança o que já foi comprado");
+        recarregado.PacoteCatalogoId.Should().Be(catalogo.Id, "a procedência continua apontando para a mesma linha");
+    }
+
     [Fact]
     public async Task Pacote_de_sessoes_sem_numero_de_sessoes_e_recusado()
     {

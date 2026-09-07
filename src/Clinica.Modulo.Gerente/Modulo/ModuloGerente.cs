@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Gerente.ViewModels;
@@ -27,6 +28,8 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveCusto = "custo-transacao";
     public const string ChaveRentabilidade = "rentabilidade-convenio";
     public const string ChavePrecos = "precos-convenio";
+    /// <summary>O item composto "Tabela de preço": Convênios (deste módulo) · Particular (shell, via Recepção).</summary>
+    public const string ChaveGrupoPrecos = "precos";
     public const string ChaveCampanhas = "campanhas";
     public const string ChaveAuditoria = "auditoria";
 
@@ -101,10 +104,18 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
         },
+        // Duas tabelas, um item (set/2026): a por CONVÊNIO (deste módulo) e a do PARTICULAR
+        // (tela do shell, publicada também pela Recepção — ver `ChavesSuite.PrecosParticular`).
+        // É a mesma pergunta, "quanto vale a sessão?", para dois pagadores.
         new ItemMenuModulo
         {
-            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o (conv\u00EAnios)", Glifo = "\uE8EF",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+            Chave = ChaveGrupoPrecos, Rotulo = "Tabela de pre\u00E7o", Glifo = "\uE8EF",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,
+            Abas =
+            [
+                new AbaMenu("Conv\u00EAnios", ChavePrecos),
+                new AbaMenu("Particular", ChavesSuite.PrecosParticular)
+            ]
         },
 
         // ===== INTELIGÊNCIA =====
@@ -200,6 +211,19 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o por conv\u00EAnio", Glifo = "\uE8EF",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        // A tela do shell, declarada também aqui e OCULTA: o composto acima a reivindica,
+        // e declarar garante a aba mesmo num executável que não carregue a Recepção. No
+        // Gerente Geral a dedupe por chave mantém uma só.
+        new ItemMenuModulo
+        {
+            Chave = ChavesSuite.PrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Oculto = true
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
@@ -262,6 +286,7 @@ public sealed class ModuloGerente : IModuloApp
         // um caminho de DI que não existe.
         servicos.AddTransient<FaturamentoTissViewModel>();
         servicos.AddTransient<PrecosConvenioViewModel>();
+        servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<CustoTransacaoViewModel>();
         servicos.AddTransient<RentabilidadeConvenioViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
@@ -294,6 +319,10 @@ public sealed class ModuloGerente : IModuloApp
         ChavePrecos => new PrecosConvenioView
         {
             DataContext = servicos.GetRequiredService<PrecosConvenioViewModel>()
+        },
+        ChavesSuite.PrecosParticular => new PrecosParticularView
+        {
+            DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
         ChaveCusto => new CustoTransacaoView
         {

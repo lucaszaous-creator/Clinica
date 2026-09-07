@@ -16,8 +16,9 @@
             <TextBlock Text="Tabela de preço por convênio" Style="{StaticResource H1}"
                        Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Quanto cada operadora paga por tipo de guia. Cadastrado aqui, na direção — quem negocia tabela — e usado na Conciliação do Financeiro, que passa a PROPOR o valor em vez de pedir que ele seja digitado." />
+                       Text="Quanto cada operadora paga por tipo de guia. Cadastrado aqui, na direção — quem negocia tabela — e usado na Conciliação do Financeiro, que passa a PROPOR o valor em vez de pedir que ele seja digitado. O preço do PARTICULAR é a aba ao lado." />
         </StackPanel>
+
 
         <!-- A visibilidade segue a MENSAGEM; a cor segue a GRAVIDADE (parcela 62).
              Amarrada a `MensagemEhErro`, a caixa só aparecia no erro — e toda mensagem de

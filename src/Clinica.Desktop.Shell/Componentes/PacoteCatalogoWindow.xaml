@@ -12,7 +12,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
-        <TextBlock Text="Pacote novo" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                    Text="O que a clínica vende. A venda COPIA estes dados: mudar o preço aqui em novembro não reescreve o que o paciente comprou em março." />
 
@@ -68,7 +68,7 @@
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
                     IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
-            <Button Content="Acrescentar ao catálogo" Command="{Binding SalvarCommand}"
+            <Button Content="{Binding RotuloDoBotao}" Command="{Binding SalvarCommand}"
                     IsDefault="True" MinWidth="180"
                     ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
         </StackPanel>

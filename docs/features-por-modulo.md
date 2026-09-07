@@ -594,8 +594,13 @@ zero.**
 | Vouchers e planos recorrentes | ✅ | `TipoPacote` — plano sem número de sessões é livre dentro da validade |
 | Baixa ao atender | ✅ | `PacoteService.ConsumirPorAtendimentoAsync`, **chamado** pelo `FechamentoSessaoService` (parcela 6) |
 | **Devolver uma sessão ao saldo** | ✅ | `ConsumosPacoteWindow` → `PacoteService.CancelarConsumoAsync` (parcela 25) |
-| Catálogo do que está à venda | 🔵 | `PacoteCatalogo`, com preço e validade padrão |
+| Catálogo do que está à venda | ✅ set/2026 | `PacoteCatalogo`, com preço e validade padrão; **cadastrar, EDITAR e tirar da venda** pela janela do catálogo (`CatalogoPacotesWindow`), na Recepção e no Financeiro (`VenderPacote` ou `EditarFinanceiro`). Editar mantém o Id — a procedência do que já foi vendido não solta — e a venda COPIA, então o reajuste não reescreve o comprado |
 | Orçamento do pacote em PDF | 🔵 | `DocumentoFinanceiroService.EmitirOrcamentoDoPacoteAsync` |
+| **A venda MOVE dinheiro: à vista ou a prazo (entrada + parcelas)** | ✅ set/2026 | `PagamentoDaVenda` + `ParcelasDaVenda` (puro) → `PacoteService.VenderAsync(pagamento:)`; a janela de venda exige a decisão e mostra a prévia das parcelas |
+| **Parcela do pacote é conta a receber COM DONO** | ✅ set/2026 | `LancamentoFinanceiro.PacotePacienteId`; a inadimplência e o aviso do balcão a enxergam quando vence |
+| **Situação de pagamento na lista** ("pago" · "R$ 400 a receber, 1 vencida" · "sem lançamento") | ✅ set/2026 | `SaldoPacote.PagamentoRotulo`, lida em lote (`LancamentosDosPacotesAsync`) |
+| **Cancelar a venda derruba as parcelas previstas e mantém o recebido** | ✅ set/2026 | `PacoteService.CancelarAsync` devolve o aviso do que já entrou |
+| **Tabela de preço do PARTICULAR por especialidade atendida** | ✅ set/2026 | `PrecoParticular` + `PrecoParticularService`; tela do SHELL (`PrecosParticularView`) publicada pela **Recepção** (item "Preços do particular", bit `VenderPacote`) e pelo Gerente (aba Particular da Tabela de preço) pela mesma chave; lida pelo Finalizar e pela aba Particulares da Conciliação |
 
 > **A venda COPIA o catálogo.** Mudar o preço de tabela em novembro não pode reescrever
 > o que o paciente comprou em março — o vínculo com o catálogo fica só como procedência.
@@ -629,6 +634,16 @@ zero.**
 
 > Cuidado para não confundir com `AutorizacaoSessoes`, que é **cota do convênio** — outra
 > coisa. Pacote é venda da clínica.
+
+> ⚠️ **A venda não movia dinheiro até set/2026.** `VenderAsync` gravava o pacote e mais
+> nada — nem receita, nem previsão, nem cobrança —, e `PacotePaciente.LancamentoFinanceiroId`
+> existia desde a parcela 4 sem um único escritor em produção. Vender dez sessões no balcão
+> não produzia uma linha no caixa. A decisão passou a ser OBRIGATÓRIA na janela (à vista
+> ou a prazo), as parcelas são mensais **contadas do primeiro vencimento** (a regra da
+> conta recorrente: encadear faria o dia 31 virar 28 para sempre), os centavos que sobram
+> vão para a primeira, e a venda e os lançamentos saem no MESMO `SaveChanges`. A prévia da
+> tela e o que o serviço grava saem do mesmo montador puro — prévia que promete três
+> parcelas e grava duas é pior do que prévia nenhuma.
 
 ### Feature 10 · Estoque — ✅ · parcela 4
 
@@ -1000,12 +1015,17 @@ As pontes que existem hoje, e o sentido de cada uma:
 | Pendências, glosas, NC e lotes na direção | Faturamento → Gerente | `FaturamentoTissView` — 5 abas sobre os serviços compartilhados (parcelas 10b–10d) |
 | Configuração da clínica editável fora do app congelado | Gerente → todos | `ConfiguracoesView` sobre `ParametrosService` (parcela 10a) |
 | Preço negociado da guia usado na conciliação | Gerente → Financeiro | `PrecoConvenioService` (parcela 20) |
+| **Preço do particular por especialidade, proposto no Finalizar e na Conciliação** | **Gerente → Recepção, Financeiro** | **`PrecoParticularService` (set/2026)** |
 | Retenção na fonte por operadora | Gerente → Financeiro | `Tributo.ConvenioCodigo` (parcela 18) |
 | Alerta da direção que LEVA à tela dona | Gerente → todos | `PainelDirecaoService` + `NavegacaoSuite`/`ChavesSuite` (parcela 22) |
 | **Glosa que derruba receita já contada** | **Faturamento → Financeiro** | **`ReceitaGlosadaService` (parcela 27)** |
 | **Guia glosada marcada na conciliação** | **Faturamento → Financeiro** | **`GuiaSemLancamento.GlosaEmAberto` (parcela 27)** |
 | **Conta vencida do paciente no balcão** | **Financeiro → Recepção** | **`ElegibilidadeService` + `InadimplenciaService` (parcela 27)** |
 | **Guia glosada no balcão, com o prazo de recurso** | **Faturamento → Recepção** | **`ElegibilidadeService` (parcela 27)** |
+| **Sessão PARTICULAR realizada sem dinheiro registrado** | **Recepção → Financeiro** | **`FinanceiroService.SessoesParticularesSemReceitaAsync` — a aba Particulares da Conciliação (set/2026)** |
+| **"Fica a receber" no Finalizar: conta prevista com dono, vencimento e sessão** | **Recepção → Financeiro** | **`FechamentoSessaoService` + `ContasService.LancarContaAsync(atendimentoId:)` (set/2026)** |
+| **Venda de pacote → caixa (à vista) ou contas a receber (parcelas)** | **Recepção → Financeiro** | **`PacoteService.VenderAsync(pagamento:)`, `LancamentoFinanceiro.PacotePacienteId` (set/2026)** |
+| **Sessão particular sem dinheiro avisa o balcão na visita seguinte** | **Financeiro → Recepção** | **`ElegibilidadeService.SessaoParticularSemReceita` (set/2026)** |
 
 ### O que a parcela 27 corrigiu
 
@@ -1052,6 +1072,7 @@ ao outro aqui não é chamada de método, é **chave estrangeira**.
 |---|---|
 | Recepção → Faturamento → Financeiro | A guia sai da conciliação porque passou a **ter receita** (`CodigoFaturamentoId`), não porque alguém a marcou |
 | Sessão de pacote | Debita o saldo e **não sugere cobrança** — sessão comprada já foi paga |
+| **O PARTICULAR** (`CircuitoParticularTests`, set/2026) | A venda do pacote **move dinheiro**; o particular de primeira vez **sempre** tem a pergunta "como pagou?"; "fica a receber" vira conta com dono que a inadimplência vê; a sessão sem dinheiro **aparece** na Conciliação e sai por passar a TER lançamento; o convênio, o pacote e a estornada **não** aparecem |
 | Glosa → Financeiro | Cancelada a receita PREVISTA, a guia **reaparece sozinha** na conciliação |
 | Glosa → conciliação | A guia volta **marcada**, nunca em branco |
 | NC → Recepção | O paciente que volta **reabre** a não conformidade da guia antiga |

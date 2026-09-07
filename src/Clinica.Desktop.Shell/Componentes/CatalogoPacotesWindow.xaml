@@ -29,7 +29,7 @@
                             <Button Content="Novo pacote" MinHeight="36" MinWidth="140"
                                     VerticalAlignment="Center"
                                     Command="{Binding NovoPacoteCommand}"
-                                    IsEnabled="{Binding PodeEditarFinanceiro}" />
+                                    IsEnabled="{Binding PodeMexerNoCatalogo}" />
                         </StackPanel>
                     </StackPanel>
 
@@ -56,10 +56,21 @@
                                         <TextBlock Text="{Binding ValorFormatado}" FontWeight="SemiBold"
                                                    VerticalAlignment="Center" Margin="0,0,8,0"
                                                    Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                        <!-- Editar (set/2026): reajustar o preço de tabela sem excluir a linha e
+                                             criar outra — a linha nova soltaria a procedência do que já foi vendido. -->
+                                        <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                Margin="0,0,6,0"
+                                                Command="{Binding DataContext.EditarDoCatalogoCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                CommandParameter="{Binding}"
+                                                IsEnabled="{Binding DataContext.PodeMexerNoCatalogo,
+                                                            RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                         <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
                                                 Command="{Binding DataContext.ExcluirDoCatalogoCommand,
                                                           RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}" />
+                                                CommandParameter="{Binding}"
+                                                IsEnabled="{Binding DataContext.PodeMexerNoCatalogo,
+                                                            RelativeSource={RelativeSource AncestorType=ListBox}}" />
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>

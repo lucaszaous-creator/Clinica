@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="Vender pacote" Width="600" Height="620" MinWidth="500" MinHeight="460"
+        Title="Vender pacote" Width="620" Height="690" MinWidth="520" MinHeight="560"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -62,8 +62,66 @@
                            FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
                            Text="O valor vem do catálogo e continua editável: desconto no balcão é regra, não exceção. Sessões e validade são copiadas do pacote escolhido." />
 
+                <!-- ===== Como o paciente paga (set/2026) =====
+                     Decisão obrigatória: a venda que não dizia como era paga não movia
+                     dinheiro nenhum, e o pacote ficava fora do caixa para sempre. -->
+                <TextBlock Text="Como o paciente paga" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Content="À vista" IsChecked="{Binding AVista}" GroupName="Pagamento" />
+                    <RadioButton Content="A prazo" IsChecked="{Binding APrazo}" GroupName="Pagamento"
+                                 Margin="16,0,0,0" />
+                </StackPanel>
+
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Forma" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding Formas}" SelectedItem="{Binding Forma}"
+                                  ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                        <!-- A prazo, a forma é a da ENTRADA; a parcela futura não tem forma
+                             até o dia em que é paga. -->
+                        <TextBlock Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                                   Text="da entrada, se houver"
+                                   Visibility="{Binding APrazo, Converter={StaticResource BoolParaVisibilidade}}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2"
+                                Visibility="{Binding APrazo, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="Entrada hoje" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding Entrada, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="12" ctrl:Ajudantes.Placeholder="em branco = nada" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="4"
+                                Visibility="{Binding APrazo, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="Parcelas · 1º vencimento" Style="{StaticResource Rotulo}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" MaxLength="2"
+                                     Text="{Binding Parcelas, UpdateSourceTrigger=PropertyChanged}" />
+                            <DatePicker Grid.Column="2" SelectedDate="{Binding PrimeiroVencimento}" />
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+
+                <!-- A prévia é o MESMO desenho que o serviço grava — nunca promete
+                     parcelas diferentes das gravadas. Quando a decisão não fecha, a
+                     frase é o motivo. -->
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                           Text="{Binding PreviaDasParcelas}" />
+
                 <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="60"
+                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="48"
                          TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="500" />
             </StackPanel>
 

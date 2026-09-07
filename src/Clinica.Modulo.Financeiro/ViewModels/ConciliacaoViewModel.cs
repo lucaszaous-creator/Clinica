@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -93,6 +94,51 @@ public sealed partial class LinhaReceitaGlosada : ObservableObject
 }
 
 /// <summary>
+/// Sessão PARTICULAR realizada sem dinheiro registrado (set/2026) — a terceira aba.
+///
+/// A linha carrega a DECISÃO que a Recepção não tomou no dia: quanto, e se foi recebido
+/// ou fica a receber com vencimento. As duas respostas resolvem a linha — ela sai da lista
+/// por passar a TER lançamento, nunca por alguém a marcar.
+/// </summary>
+public sealed partial class LinhaSessaoParticular : ObservableObject
+{
+    public required SessaoSemReceita Sessao { get; init; }
+    public required string Data { get; init; }
+    public required string Paciente { get; init; }
+    public required string Modalidade { get; init; }
+    public required string Convenio { get; init; }
+
+    private static readonly IReadOnlyList<FormaPagamento> FormasDisponiveis =
+        Enum.GetValues<FormaPagamento>().Where(f => f != FormaPagamento.Convenio).ToList();
+
+    /// <summary>
+    /// Formas oferecidas: tudo menos "Convênio" — particular não é pago pela operadora.
+    /// Propriedade de INSTÂNCIA de propósito: `{Binding Formas}` não alcança estática.
+    /// </summary>
+    public IReadOnlyList<FormaPagamento> Formas => FormasDisponiveis;
+
+    [ObservableProperty] private string _valor = string.Empty;
+
+    /// <summary>DE ONDE veio o valor (a tabela do particular, quando a direção a cadastrou).</summary>
+    [ObservableProperty] private string? _procedencia;
+
+    [ObservableProperty] private FormaPagamento? _forma = FormaPagamento.Pix;
+
+    /// <summary>Não foi recebido: vira conta a receber do paciente, com vencimento.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Recebido))]
+    private bool _aReceber;
+
+    public bool Recebido
+    {
+        get => !AReceber;
+        set => AReceber = !value;
+    }
+
+    [ObservableProperty] private DateTime _vencimento = DateTime.Today.AddDays(30);
+}
+
+/// <summary>
 /// Conciliação — a tela onde o faturamento e o financeiro se encontram, nos DOIS
 /// sentidos (parcela 27).
 ///
@@ -106,6 +152,12 @@ public sealed partial class LinhaReceitaGlosada : ObservableObject
 ///
 /// As duas ficam no MESMO item da sidebar, em sub-abas: é o mesmo assunto (guia × caixa)
 /// visto pelos dois lados, e a proposta tem um item ali.
+///
+/// A aba "Particulares" (set/2026) é a mesma pergunta para quem não tem guia: sessão que
+/// aconteceu e ainda não tem dinheiro — nem recebido, nem a receber, nem sessão de pacote.
+/// Até aqui ela não tinha resposta em tela nenhuma: a lista de guias é inacessível ao
+/// particular por construção, e a sessão que saía do balcão sem lançamento sumia do
+/// financeiro para sempre.
 /// </summary>
 public sealed partial class ConciliacaoViewModel : ObservableObject
 {
@@ -197,6 +249,16 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
 
     /// <summary>Guias glosadas com receita ainda contada — a aba do caminho de volta.</summary>
     public ObservableCollection<LinhaReceitaGlosada> Glosadas { get; } = [];
+
+    /// <summary>Sessões particulares do mês sem dinheiro registrado — a aba do particular.</summary>
+    public ObservableCollection<LinhaSessaoParticular> Particulares { get; } = [];
+
+    [ObservableProperty]
+    private string _resumoParticulares = string.Empty;
+
+    /// <summary>A leitura das sessões particulares FALHOU — o terceiro estado da terceira aba.</summary>
+    [ObservableProperty]
+    private bool _particularesNaoVerificadas;
 
     [ObservableProperty]
     private DateTime _mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -428,6 +490,126 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         // Cada lado carrega sozinho: a aba das glosadas quebrar não pode levar junto a
         // lista de guias a lançar, que é o trabalho do dia.
         await CarregarGlosadasAsync(geracao);
+        await CarregarParticularesAsync(geracao);
+    }
+
+    private async Task CarregarParticularesAsync(int geracao)
+    {
+        var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
+        var fim = inicio.AddMonths(1).AddDays(-1);
+
+        try
+        {
+            ParticularesNaoVerificadas = false;
+            using var escopo = _escopos.CreateScope();
+            var sessoes = await escopo.ServiceProvider
+                .GetRequiredService<FinanceiroService>().SessoesParticularesSemReceitaAsync(inicio, fim);
+            var precos = escopo.ServiceProvider.GetRequiredService<PrecoParticularService>();
+
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
+            var novas = new List<LinhaSessaoParticular>();
+            foreach (var s in sessoes)
+            {
+                // A tabela de preço do PARTICULAR por especialidade atendida, cadastrada
+                // no Gerente (set/2026). Proposta, não imposição — e sem tabela o campo
+                // fica vazio para digitar.
+                var proposto = await precos.ProporAsync(
+                    s.CodigoDaModalidade, s.Modalidade, s.CodigoDaEspecialidade, s.Data);
+                novas.Add(new LinhaSessaoParticular
+                {
+                    Sessao = s,
+                    Data = s.Data.ToString("dd/MM/yyyy"),
+                    Paciente = s.Paciente,
+                    Modalidade = s.ModalidadeNome,
+                    Convenio = s.ConvenioNome,
+                    Valor = proposto.Houve ? proposto.Valor.ToString("0.##") : string.Empty,
+                    Procedencia = proposto.Houve ? proposto.Procedencia : null
+                });
+            }
+
+            if (geracao != _geracaoCarga) return;
+
+            Particulares.Clear();
+            foreach (var l in novas) Particulares.Add(l);
+
+            var semPreco = Particulares.Count(l => l.Procedencia is null);
+            ResumoParticulares = Particulares.Count == 0
+                ? "Nenhuma sessão particular do mês sem dinheiro registrado."
+                : semPreco == 0
+                    ? $"{Particulares.Count} sessão(ões) particular(es) sem dinheiro registrado — valor proposto pela tabela."
+                    : $"{Particulares.Count} sessão(ões) particular(es) sem dinheiro registrado · {semPreco} sem preço na tabela: informe o valor.";
+        }
+        catch (Exception ex)
+        {
+            // Falha nunca aparece como sucesso: a aba diz que não conseguiu conferir.
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — sessões particulares sem receita não puderam ser carregadas", ex);
+
+            if (geracao != _geracaoCarga) return;
+
+            Particulares.Clear();
+            ParticularesNaoVerificadas = true;
+            ResumoParticulares = $"Não foi possível conferir as sessões particulares deste mês: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Registra o dinheiro de uma sessão particular — recebido, ou a receber com vencimento.
+    /// Nos dois casos a sessão sai da lista por passar a TER lançamento.
+    /// </summary>
+    [RelayCommand]
+    private async Task LancarSessaoAsync(LinhaSessaoParticular? linha)
+    {
+        if (linha is null) return;
+
+        // O mesmo bit do Lançar das guias: é entrar dinheiro (ou dívida) no caixa.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa");
+
+        if (!Valores.TentarLerDecimal(linha.Valor, out var valor) || valor <= 0)
+        {
+            _snackbar.Erro("Informe um valor válido, maior que zero.");
+            return;
+        }
+
+        if (!linha.AReceber && linha.Forma is null)
+        {
+            _snackbar.Erro("Diga como a sessão foi paga — ou marque \"a receber\".");
+            return;
+        }
+
+        var vencimento = linha.AReceber ? DateOnly.FromDateTime(linha.Vencimento) : (DateOnly?)null;
+        if (vencimento is { } v && v < linha.Sessao.Data)
+        {
+            _snackbar.Erro("O vencimento não pode ser anterior à sessão.");
+            return;
+        }
+
+        try
+        {
+            using var escopo = _escopos.CreateScope();
+
+            // A taxa da maquininha e o imposto, como no lançamento manual do Caixa — o
+            // particular que pagou no cartão entra com a dedução ao lado (bruto no valor).
+            // Só no RECEBIDO: parcela futura não tem forma ainda.
+            DeducoesRecebimento? deducoes = null;
+            if (!linha.AReceber && linha.Forma is { } forma)
+                deducoes = await escopo.ServiceProvider.GetRequiredService<TaxaService>()
+                    .CalcularAsync(valor, linha.Sessao.Data, forma, reterImposto: true);
+
+            await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                .LancarReceitaDaSessaoAsync(
+                    linha.Sessao, valor, linha.Forma, vencimento,
+                    operador: SessaoUsuario.Atual.Operador, deducoes: deducoes);
+
+            _snackbar.Sucesso(linha.AReceber
+                ? $"Sessão de {linha.Paciente} registrada como a receber ({valor:C}, vence {vencimento:dd/MM/yyyy})."
+                : $"Receita de {valor:C} lançada para {linha.Paciente}.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro(ex.Message);
+        }
     }
 
     private async Task CarregarGlosadasAsync(int geracao)

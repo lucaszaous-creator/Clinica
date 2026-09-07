@@ -191,4 +191,11 @@ public static class ChavesSuite
     /// abria, e nenhuma rede viu, porque string à mão sempre compila.
     /// </summary>
     public const string Pacotes = "pacotes";
+
+    /// <summary>
+    /// Preços do PARTICULAR por especialidade atendida (set/2026) — tela do shell publicada
+    /// pela Recepção (item) e pelo Gerente (aba da Tabela de preço). Mora aqui pela razão
+    /// do Pacotes: chave diferente faria o Gerente Geral mostrar a tela duas vezes.
+    /// </summary>
+    public const string PrecosParticular = "precos-particular";
 }

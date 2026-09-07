@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -33,10 +34,17 @@ public sealed record PropostaFechamento(
     string? ProcedenciaDoValor,
     FormaPagamento? FormaSugerida,
     bool SugereLancamento,
-    IReadOnlyList<InsumoSugerido> Insumos)
+    IReadOnlyList<InsumoSugerido> Insumos,
+    bool EhParticular = false)
 {
     /// <summary>Há pacote com saldo utilizável hoje.</summary>
     public bool TemPacote => PacoteADebitar is not null;
+
+    /// <summary>
+    /// Particular SEM pacote e SEM preço sugerido — a recepção precisa digitar o valor, e a
+    /// tela diz por quê em vez de deixar o campo vazio parecendo "grátis".
+    /// </summary>
+    public bool ParticularSemPreco => EhParticular && !TemPacote && ValorSugerido is null;
 }
 
 /// <summary>Quantidade decidida para um insumo (o que a recepção confirmou na tela).</summary>
@@ -52,7 +60,13 @@ public sealed record DecisaoFechamento(
     decimal? Valor = null,
     FormaPagamento? Forma = null,
     int? CategoriaId = null,
-    IReadOnlyList<InsumoAConsumir>? Insumos = null);
+    IReadOnlyList<InsumoAConsumir>? Insumos = null,
+    // O paciente NÃO pagou agora — a sessão fica A RECEBER, com vencimento (set/2026).
+    // Vale com `GerarLancamento` ligado: o que muda é o que se grava (conta prevista com
+    // dono e vencimento, em vez de entrada realizada). Sem isto a única saída de quem não
+    // pagou na hora era não registrar nada, e a sessão sumia do dinheiro para sempre.
+    bool FicaAReceber = false,
+    DateOnly? Vencimento = null);
 
 /// <summary>
 /// O que de fato aconteceu. Os <see cref="Avisos"/> são a parte que não pode ser
@@ -118,6 +132,12 @@ public sealed record RegistroAtendimento(
     /// baixar. Quando não há, abrir a janela seria pedir confirmação de uma tela vazia, e
     /// o lançamento termina em um clique.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ O PARTICULAR sem pacote SEMPRE tem decisão (set/2026): como a sessão foi paga.
+    /// Até aqui ele só entrava quando havia histórico de recebimento — o particular de
+    /// primeira vez, sem pacote e sem insumo, dava <c>false</c>, a janela não abria e a
+    /// sessão ficava registrada sem uma linha de dinheiro, com a tela dizendo "concluída".
+    /// </remarks>
     public bool TemDecisao =>
         Proposta.TemPacote || Proposta.SugereLancamento || Proposta.Insumos.Count > 0;
 
@@ -152,19 +172,31 @@ public sealed class FechamentoSessaoService
     private readonly PacoteService _pacotes;
     private readonly EstoqueService _estoque;
     private readonly FinanceiroService _financeiro;
+    private readonly ContasService _contas;
+    private readonly PrecoParticularService? _precos;
 
+    /// <summary>
+    /// <paramref name="precos"/> é opcional pela razão de sempre (o serviço continua
+    /// construível sem a tabela montada): sem ele o particular novo só não recebe preço
+    /// sugerido — a pergunta continua sendo feita. <paramref name="contas"/> nasce do
+    /// próprio repositório quando não vem: a conta a receber grava no mesmo contexto.
+    /// </summary>
     public FechamentoSessaoService(
         IClinicaRepositorio repo,
         AgendaService agenda,
         PacoteService pacotes,
         EstoqueService estoque,
-        FinanceiroService financeiro)
+        FinanceiroService financeiro,
+        PrecoParticularService? precos = null,
+        ContasService? contas = null)
     {
         _repo = repo;
         _agenda = agenda;
         _pacotes = pacotes;
         _estoque = estoque;
         _financeiro = financeiro;
+        _precos = precos;
+        _contas = contas ?? new ContasService(repo);
     }
 
     /// <summary>
@@ -189,8 +221,20 @@ public sealed class FechamentoSessaoService
         // e o `AtendimentoJaConsumiuPacoteAsync` do PacoteService.
         var dia = hoje ?? DateOnly.FromDateTime(ag.DataHora);
 
+        // PARTICULAR = o convênio da ficha não gera guia (parcela 60). É o paciente cujo
+        // dinheiro SÓ entra por aqui — o de convênio entra pela conciliação da guia.
+        var ehParticular = ag.Paciente is { } pac
+                           && !CatalogoConvenios.GeraGuia(pac.ConvenioCodigo ?? pac.Convenio.ToString());
+
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
         var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ct);
+
+        // Sem histórico, o particular ainda pode ter PREÇO: a tabela do particular por
+        // especialidade atendida, cadastrada no Gerente (set/2026). O histórico vem
+        // primeiro porque é o preço COMBINADO com esta pessoa; a tabela é o de lista.
+        if (valor is null && ehParticular && pacote is null)
+            (valor, procedencia) = await PrecoDeTabelaAsync(ag, dia, ct);
+
         var insumos = await InsumosSugeridosAsync(ct);
 
         return new PropostaFechamento(
@@ -202,13 +246,15 @@ public sealed class FechamentoSessaoService
             ValorSugerido: valor,
             ProcedenciaDoValor: procedencia,
             FormaSugerida: forma,
-            // Sugere cobrar só quando há evidência de que este paciente paga no balcão
-            // (já pagou antes) e não há pacote para debitar — pacote é sessão comprada,
-            // e cobrar de novo seria cobrar duas vezes. Paciente de convênio nunca cai
-            // aqui na primeira vez: o dinheiro dele entra pela conciliação da guia, e um
-            // lançamento marcado por padrão viraria receita fantasma no caixa.
-            SugereLancamento: pacote is null && valor is not null,
-            Insumos: insumos);
+            // Sugere cobrar quando não há pacote para debitar (pacote é sessão comprada,
+            // e cobrar de novo seria cobrar duas vezes) E o paciente paga no balcão: ou
+            // porque é PARTICULAR — aí a pergunta é obrigatória, com ou sem preço —, ou
+            // porque já pagou antes. Paciente de convênio sem histórico nunca cai aqui:
+            // o dinheiro dele entra pela conciliação da guia, e um lançamento marcado
+            // por padrão viraria receita fantasma no caixa.
+            SugereLancamento: pacote is null && (ehParticular || valor is not null),
+            Insumos: insumos,
+            EhParticular: ehParticular);
     }
 
     /// <summary>
@@ -334,22 +380,57 @@ public sealed class FechamentoSessaoService
                     throw new InvalidOperationException(
                         "Sem valor não há o que lançar no caixa.");
 
-                lancamento = await _financeiro.LancarAsync(
+                var descricao = FinanceiroService.DescricaoDaSessao(
                     atendimento.Data,
-                    TipoLancamento.Entrada,
-                    $"Sessão de {atendimento.Data:dd/MM/yyyy}",
-                    valor,
-                    formaPagamento: decisao.Forma,
-                    categoriaId: decisao.CategoriaId,
-                    pacienteId: atendimento.PacienteId,
-                    atendimentoId: atendimento.Id,
-                    operador: operador,
-                    ct: ct);
+                    CatalogoModalidades.Nome(atendimento.ModalidadeCodigo, atendimento.Modalidade),
+                    atendimento.Paciente?.Nome ?? "(paciente removido)");
+
+                if (decisao.FicaAReceber)
+                {
+                    // Não pagou agora: conta a receber COM DONO e COM VENCIMENTO, ligada à
+                    // sessão. É o que faz a inadimplência enxergá-la quando vencer, o balcão
+                    // ser avisado na próxima visita e a sessão sair da conciliação do
+                    // particular — "a receber" resolve tanto quanto "pago".
+                    if (decisao.Vencimento is not { } vencimento)
+                        throw new InvalidOperationException(
+                            "Diga quando a sessão será paga — sem vencimento a cobrança não tem dia.");
+                    if (vencimento < atendimento.Data)
+                        throw new InvalidOperationException(
+                            "O vencimento não pode ser anterior à sessão.");
+
+                    lancamento = await _contas.LancarContaAsync(
+                        TipoLancamento.Entrada,
+                        descricao,
+                        valor,
+                        vencimento,
+                        competencia: atendimento.Data,
+                        categoriaId: decisao.CategoriaId,
+                        operador: operador,
+                        pacienteId: atendimento.PacienteId,
+                        atendimentoId: atendimento.Id,
+                        ct: ct);
+                }
+                else
+                {
+                    lancamento = await _financeiro.LancarAsync(
+                        atendimento.Data,
+                        TipoLancamento.Entrada,
+                        descricao,
+                        valor,
+                        formaPagamento: decisao.Forma,
+                        categoriaId: decisao.CategoriaId,
+                        pacienteId: atendimento.PacienteId,
+                        atendimentoId: atendimento.Id,
+                        operador: operador,
+                        ct: ct);
+                }
             }
             catch (Exception ex)
             {
                 Diagnostico.Registrar("Fechamento da sessão — lançamento não pôde ser gravado", ex);
-                avisos.Add($"O dinheiro NÃO entrou no caixa: {ex.Message}");
+                avisos.Add(decisao.FicaAReceber
+                    ? $"A conta a receber NÃO foi registrada: {ex.Message}"
+                    : $"O dinheiro NÃO entrou no caixa: {ex.Message}");
             }
         }
 
@@ -412,6 +493,33 @@ public sealed class FechamentoSessaoService
         {
             Diagnostico.Registrar("Fechamento da sessão — valor sugerido não pôde ser lido", ex);
             return (null, null, null);
+        }
+    }
+
+    /// <summary>
+    /// O preço de LISTA do particular, quando a direção o cadastrou (Gerente → Tabela de
+    /// preço → Particular): por MODALIDADE e, quando a sessão é consulta, pela
+    /// ESPECIALIDADE. Os dois estão no horário, então a proposta não precisa esperar o
+    /// atendimento existir. Sem tabela, nulo — e a tela pede o valor em vez de inventar um.
+    /// </summary>
+    private async Task<(decimal?, string?)> PrecoDeTabelaAsync(
+        Agendamento ag, DateOnly dia, CancellationToken ct)
+    {
+        if (_precos is null) return (null, null);
+
+        try
+        {
+            var proposto = await _precos.ProporAsync(
+                ag.ModalidadeCodigo, ag.ModalidadePrevista,
+                ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(),
+                dia, ct);
+
+            return proposto.Houve ? (proposto.Valor, proposto.Procedencia) : (null, null);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Fechamento da sessão — tabela de preço do particular não pôde ser lida", ex);
+            return (null, null);
         }
     }
 

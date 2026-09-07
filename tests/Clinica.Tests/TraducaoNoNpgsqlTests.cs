@@ -580,4 +580,51 @@ public class TraducaoNoNpgsqlTests
         // A busca de vagas lê só hora, duração e status: nenhum JOIN pode entrar aqui.
         sql.Should().Contain("\"ProfissionalId\"").And.NotContain("JOIN");
     }
+
+    /// <summary>
+    /// A conciliação do PARTICULAR (set/2026): três subconsultas (códigos, lançamentos,
+    /// consumos) e a projeção do TIPO do primeiro código. É o tipo de expressão em que o
+    /// SQLite dos testes e o Npgsql da clínica mais divergem — e a tela que a lê é a que
+    /// afirma "está tudo pago".
+    /// </summary>
+    [Fact]
+    public void Sessoes_particulares_sem_receita_traduzem()
+    {
+        using var db = Postgres();
+
+        var sql = db.Atendimentos.AsNoTracking()
+            .Where(a => a.RealizadoEm != null && a.EstornadoEm == null)
+            .Where(a => a.Codigos.Any() && !a.Codigos.Any(c => c.Status != StatusCodigo.NaoAplicavel))
+            .Where(a => !db.Lancamentos.Any(l => l.AtendimentoId == a.Id
+                                                && l.Tipo == TipoLancamento.Entrada
+                                                && l.Status != StatusLancamento.Cancelado))
+            .Where(a => !db.ConsumosPacote.Any(c => c.AtendimentoId == a.Id && c.CanceladoEm == null))
+            .Where(a => a.Data >= new DateOnly(2026, 9, 1) && a.Data <= new DateOnly(2026, 9, 30))
+            .OrderBy(a => a.Data).ThenBy(a => a.Id)
+            .Select(a => new SessaoSemReceita(
+                a.Id, a.PacienteId, a.Paciente!.Nome, a.Data, a.Modalidade, a.ModalidadeCodigo,
+                a.EspecialidadeConsulta, a.EspecialidadeConsultaCodigo,
+                a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
+                a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First()))
+            .ToQueryString();
+
+        sql.Should().Contain("\"RealizadoEm\" IS NOT NULL")
+            .And.Contain("\"EstornadoEm\" IS NULL")
+            .And.Contain("\"AtendimentoId\"");
+    }
+
+    /// <summary>Os lançamentos que pagam uma lista de pacotes — o `Contains` sobre a FK nova.</summary>
+    [Fact]
+    public void Lancamentos_dos_pacotes_traduzem()
+    {
+        using var db = Postgres();
+        var ids = new List<int> { 1, 2 };
+
+        var sql = db.Lancamentos.AsNoTracking()
+            .Where(l => l.PacotePacienteId != null && ids.Contains(l.PacotePacienteId.Value))
+            .OrderBy(l => l.DataVencimento).ThenBy(l => l.Id)
+            .ToQueryString();
+
+        sql.Should().Contain("\"PacotePacienteId\"");
+    }
 }

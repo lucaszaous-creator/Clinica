@@ -127,6 +127,20 @@ public class LancamentoFinanceiro
     public int? CodigoFaturamentoId { get; set; }
     public CodigoFaturamento? CodigoFaturamento { get; set; }
 
+    /// <summary>
+    /// Pacote vendido que este lançamento PAGA — à vista (um lançamento realizado) ou em
+    /// parcelas (um lançamento previsto por parcela), set/2026.
+    ///
+    /// É o elo que a venda de pacote não tinha: <c>PacotePaciente.LancamentoFinanceiroId</c>
+    /// existia desde a parcela 4 e <b>nenhum caminho de produção o preenchia</b> — vender
+    /// dez sessões no balcão não produzia receita, previsão nem cobrança, e o dinheiro do
+    /// pacote só entrava no caixa se alguém o digitasse à mão, sem vínculo. Aquela coluna
+    /// aponta UM lançamento; a venda parcelada tem vários, então quem aponta é o
+    /// lançamento. Nulo em tudo o que não é pacote (a maioria).
+    /// </summary>
+    public int? PacotePacienteId { get; set; }
+    public PacotePaciente? PacotePaciente { get; set; }
+
     // ---------- Conciliação bancária (parcela 63) ----------
 
     /// <summary>

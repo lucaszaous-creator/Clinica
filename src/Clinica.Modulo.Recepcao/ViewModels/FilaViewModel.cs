@@ -280,6 +280,12 @@ public sealed partial class CartaoFila : ObservableObject
     ///
     /// Os outros dois (insumo e caixa) não somem da vista: "Fechar sessão…" fica no menu
     /// "⋯" de toda sessão concluída, que é onde mora o que se faz de vez em quando.
+    ///
+    /// ⚠️ E o PARTICULAR (set/2026): para quem não tem convênio, o caixa É o pacote — é
+    /// o único dinheiro daquela sessão, e sem fechamento ela some do financeiro para
+    /// sempre. A pendência acende para ele também, sem pacote, e some pela mesma regra
+    /// (qualquer lançamento vivo, inclusive "fica a receber", conta como fechado). O
+    /// convênio sem pacote continua de fora: o dinheiro dele vem pela guia.
     /// </summary>
     public required bool FechamentoPendente { get; init; }
 
@@ -1042,7 +1048,7 @@ public sealed partial class FilaViewModel : ObservableObject
                 FechamentoPendente = a.Etapa == EtapaFila.Finalizado
                                      && a.AtendimentoId is { } atendimentoId
                                      && !_jaFechados.Contains(atendimentoId)
-                                     && _pacotes.ContainsKey(a.PacienteId),
+                                     && (_pacotes.ContainsKey(a.PacienteId) || EhParticular(a.Paciente)),
                 EncerradoEm = a.FimAtendimentoEm is { } fim
                     ? $"Encerrado às {fim:HH\\:mm}"
                     : string.Empty
@@ -1179,6 +1185,15 @@ public sealed partial class FilaViewModel : ObservableObject
     /// insumo e caixa não são anunciados como pendência, e sem o item do menu eles não
     /// teriam por onde ser lançados depois que o médico concluiu.
     /// </summary>
+    /// <summary>
+    /// O convênio da ficha NÃO gera guia (parcela 60). Síncrono, do cache do catálogo —
+    /// o quadro relê a cada minuto e não pode pagar uma consulta por cartão para isso.
+    /// </summary>
+    private static bool EhParticular(Paciente? paciente)
+        => paciente is not null
+           && !Clinica.Domain.Regras.CatalogoConvenios.GeraGuia(
+               paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
+
     [RelayCommand]
     private async Task FecharSessaoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
@@ -1399,10 +1414,13 @@ public sealed partial class FilaViewModel : ObservableObject
                 _dialogo.Aviso($"Atenção — {c.Paciente}",
                     string.Join("\n\n", registro.RecadosDoLancamento));
 
+            // Sem decisão = convênio sem pacote e sem insumo: a guia já está no faturamento
+            // e o dinheiro vem pela conciliação dela. O PARTICULAR nunca cai aqui desde
+            // set/2026 — para ele há sempre a pergunta de como a sessão foi paga.
             if (!registro.TemDecisao)
             {
                 _snackbar.Sucesso(registro.GuiasGeradas == 0
-                    ? $"Sessão de {c.Paciente} concluída — particular, sem guia a faturar."
+                    ? $"Sessão de {c.Paciente} concluída — sem guia a faturar."
                     : $"Sessão de {c.Paciente} concluída — {registro.GuiasGeradas} guia(s) no faturamento.");
                 return;
             }

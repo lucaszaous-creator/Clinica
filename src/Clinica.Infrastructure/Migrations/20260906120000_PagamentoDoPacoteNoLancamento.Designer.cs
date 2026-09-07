@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906120000_PagamentoDoPacoteNoLancamento")]
+    partial class PagamentoDoPacoteNoLancamento
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3552,56 +3555,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("ConvenioCodigo", "Tipo");
 
                     b.ToTable("PrecosConvenio");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.PrecoParticular", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Ativo")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("CriadoPor")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("EspecialidadeCodigo")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("ModalidadeCodigo")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Observacoes")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<decimal>("Valor")
-                        .HasPrecision(14, 2)
-                        .HasColumnType("numeric(14,2)");
-
-                    b.Property<DateOnly?>("VigenteAte")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("VigenteDe")
-                        .HasColumnType("date");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Ativo");
-
-                    b.HasIndex("ModalidadeCodigo", "EspecialidadeCodigo");
-
-                    b.ToTable("PrecosParticular");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.PrescricaoInterna", b =>

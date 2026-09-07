@@ -96,7 +96,14 @@ public class PacotePaciente
     /// <summary>Último dia em que o pacote pode ser usado. Null = sem prazo.</summary>
     public DateOnly? ValidoAte { get; set; }
 
-    /// <summary>Pagamento que quitou o pacote, quando já lançado no caixa.</summary>
+    /// <summary>
+    /// Pagamento que quitou o pacote, quando já lançado no caixa.
+    ///
+    /// ⚠️ Coluna da parcela 4 que <b>nenhum caminho de produção preencheu</b>. Desde
+    /// set/2026 quem aponta é o LANÇAMENTO (<c>LancamentoFinanceiro.PacotePacienteId</c>):
+    /// a venda parcelada tem vários, e uma coluna aqui só cabe um. Fica pela regra
+    /// aditiva do faturamento — não se remove coluna que já existe em produção.
+    /// </summary>
     public int? LancamentoFinanceiroId { get; set; }
     public LancamentoFinanceiro? Lancamento { get; set; }
 
