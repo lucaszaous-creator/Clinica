@@ -48,12 +48,32 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     public int? Limite { get; }
 
     /// <summary>
+    /// A tela abre SEM consultar o banco, e só busca quando alguém digita (set/2026 —
+    /// portado do seletor do shell, que o tem desde set/2026; é a cópia que tinha ficado
+    /// para trás, o débito permanente da Fase 4).
+    ///
+    /// Com o termo vazio a busca não filtra nada: cai no <c>OrderBy(Nome).Take(50)</c> e
+    /// traz ACELINO, ADAISE, ADAO de um banco REMOTO — uma lista com cara de resposta que
+    /// não é resposta de ninguém, numa ida que ninguém pediu.
+    ///
+    /// É <b>opt-in</b> pela razão de sempre: numa tela de LISTAGEM (Pacientes) o despejo é
+    /// o certo — ali a lista É a resposta.
+    /// </summary>
+    public bool SemBuscaInicial { get; init; }
+
+    /// <summary>
     /// Refino opcional em memória sobre o que veio do banco (filtro de convênio, ordenação
     /// alternativa). Fica aqui para a tela não precisar de uma segunda coleção.
     /// </summary>
     public Func<IReadOnlyList<Paciente>, IEnumerable<Paciente>>? Refinar { get; set; }
 
     public ObservableCollection<Paciente> Resultados { get; } = new();
+
+    /// <summary>
+    /// Há linhas a mostrar. Existe para a tela ESCONDER a caixa da lista quando não há —
+    /// uma caixa vazia de 150 px no meio do formulário se lê como lista que não carregou.
+    /// </summary>
+    [ObservableProperty] private bool _temResultados;
 
     [ObservableProperty] private string? _termo;
     [ObservableProperty] private Paciente? _selecionado;
@@ -97,6 +117,18 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
         {
             if (!imediato) await Task.Delay(AtrasoDigitacaoMs, ct);
 
+            // Nada digitado e a tela não quer a listagem: não há o que consultar, e a
+            // lista fica vazia — que é a verdade ("ainda não perguntaram nada").
+            if (SemBuscaInicial && string.IsNullOrWhiteSpace(Termo))
+            {
+                Resultados.Clear();
+                TemResultados = false;
+                Erro = null;
+                Buscando = false;
+                Atualizou?.Invoke();
+                return;
+            }
+
             Buscando = true;
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
@@ -112,6 +144,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
                 Resultados.Add(p);
 
             Erro = null;
+            TemResultados = Resultados.Count > 0;
             Atualizou?.Invoke();
         }
         catch (OperationCanceledException)
@@ -137,6 +170,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
     {
         if (Resultados.All(p => p.Id != paciente.Id))
             Resultados.Insert(0, paciente);
+        TemResultados = Resultados.Count > 0;
         Selecionado = paciente;
     }
 

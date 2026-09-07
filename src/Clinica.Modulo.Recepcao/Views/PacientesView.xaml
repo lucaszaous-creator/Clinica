@@ -304,8 +304,22 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
-                                        <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Descricao}" TextWrapping="Wrap"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <!-- A porta da dívida: só na linha dela, e só para quem pode. -->
+                                            <Button Grid.Column="1" Content="Receber…" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoSecundario}"
+                                                    Visibility="{Binding PodeReceber, Converter={StaticResource BoolParaVisibilidade}}"
+                                                    IsEnabled="{Binding DataContext.Ficha.PodeReceberDivida, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Command="{Binding DataContext.Ficha.ReceberDividaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

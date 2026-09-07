@@ -3572,6 +3572,90 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   REPROVAM no código anterior (o quarto é a guarda do que NÃO se amarra, e passa nos
   dois); foi verificado com o `git stash`, não presumido.
 
+- **O DINHEIRO DO BALCÃO: o alerta que não tinha porta, a receita órfã e o preço que não
+  chegava à decisão** (set/2026, item 3 da lista "o que falta para ficar profissional").
+  Três buracos da mesma família — motor pronto, porta no lugar errado —, e nenhum falhava:
+  build verde, 2321 testes verdes, três redes locais verdes.
+  ⚠️ **(a) O alerta de dívida não tinha porta no app que o mostra.** O
+  `ElegibilidadeService` avisa desde a parcela 27 que o paciente deve, e o argumento
+  escrito ao lado é que *"o momento em que ele está na recepção é o único em que cobrar não
+  custa nada — uma frase; depois custa telefonema, mensagem e constrangimento"*. A única
+  porta para RECEBER ficava no Financeiro — outro app, de outra pessoa. É a parcela 48
+  ("procure o AVISO que a tela dá e pergunte se a porta para resolvê-lo está no mesmo
+  app") cobrada de novo, no aviso que virou dinheiro. `CobrancaDoPacienteWindow` mora no
+  SHELL porque tem duas portas (Novo atendimento e ficha do paciente) e não grava dinheiro
+  por conta própria: passa pelo `InadimplenciaService.ReceberAsync`, que delega ao
+  `FinanceiroService` — quem grava dinheiro continua sendo um só, com a auditoria no mesmo
+  `SaveChanges`.
+  ⚠️ **A permissão é `EditarFinanceiro` OU `LancarAtendimento` OU `VenderPacote`
+  (`ExigirAlgum`), e não um bit novo** — é o argumento do preço do particular (set/2026):
+  receber a parcela vencida é a continuação do passo do CAIXA do Finalizar, que o balcão já
+  faz; e o enum tem UM bit sobrando antes de virar `long` numa coluna de produção.
+  ⚠️ **A FORMA de pagamento é escolhida na LINHA, nunca presumida.** Herdar a última usada
+  gravaria PIX no dinheiro que o paciente acabou de pôr no balcão — e a divergência só
+  apareceria no fechamento do caixa, quando ninguém mais lembra.
+  ⚠️ **(b) O lançamento manual do Caixa era a única porta de dinheiro SEM paciente.** A
+  receita entrava órfã: não ligava à sessão e a linha continuava na aba **Particulares** da
+  Conciliação, cobrando um pagamento que já estava na gaveta — a pendência que não some é a
+  que ensina a ignorar a lista (parcela 68). O campo é **só na ENTRADA** (numa saída, dono
+  e sessão seriam invenção) e o combo de sessão abre em **"(não é de uma sessão)"**: a
+  maioria dos recebimentos manuais é venda de produto ou acerto, e amarrar por padrão daria
+  baixa numa sessão que ninguém pagou, em silêncio. A **sessão de HOJE fica de fora** — ela
+  está sendo fechada agora pelo Finalizar, e oferecê-la daria dois caminhos para o mesmo
+  dinheiro no mesmo minuto.
+  ⚠️ **O seletor nasce com `SemBuscaInicial`**: com o campo vazio a busca não filtra nada e
+  despejaria o começo do alfabeto de 2.238 fichas numa janela que quase nunca precisa de
+  paciente.
+  ⚠️ **(c) O preço do particular não chegava à DECISÃO.** A tabela é lida no Finalizar e na
+  Conciliação desde set/2026 — os dois DEPOIS de a sessão acontecer — e a prévia do Novo
+  atendimento, que é onde a recepcionista escolhe a modalidade com o paciente na frente,
+  não a mostrava. É o MESMO `PrecoParticularService` dos outros dois leitores: dois
+  leitores com duas regras proporiam dois números para a mesma sessão. **Sem preço
+  cadastrado não se inventa valor** — a linha diz que falta cadastrar e aponta onde.
+  ⚠️ **A leitura do preço é SEQUENCIAL dentro do mesmo escopo da prévia**, nunca
+  `Task.WhenAll`: é o mesmo `DbContext`, e o SQLite dos testes esconde (parcela 74).
+  ⚠️ **O que os testes prendem é o CIRCUITO, não a tela** (`CobrancaNoBalcaoTests`):
+  receber pela porta do balcão APAGA o alerta, e amarrar o recebimento manual à sessão a
+  TIRA da lista de sessões sem receita. Elo partido aqui não vira erro — vira alerta que
+  nunca some e linha que nunca sai, indistinguível de "ainda não pagaram".
+
+- **AS TRÊS PEQUENAS DA AGENDA — a data que não reconferia, as férias invisíveis e os três
+  despejos do alfabeto** (set/2026, item 4 da lista). As três estavam na fila escrita da
+  parcela 69, e as três têm a assinatura de sempre: nada falha.
+  ⚠️ **(a) Trocar a DATA no formulário da agenda não reconferia a elegibilidade.**
+  `ConferirAsync` recebe a data e mede tudo contra ela — carteirinha, cota, consulta a
+  renovar, termo —, e só a troca de PACIENTE disparava a reconferência: escolher a pessoa
+  hoje e marcar para o mês que vem deixava na tela o resultado de HOJE. **Aviso
+  desatualizado é pior que aviso nenhum, porque ele AFIRMA** — uma carteirinha aparece
+  válida porque ninguém perguntou de novo. O Novo atendimento já reconferia desde a parcela
+  70; era a cópia do formulário que tinha ficado para trás.
+  ⚠️ **(b) As FÉRIAS eram invisíveis na visão de semana do balcão.** A coluna do dia não
+  tem dono, então `BloqueioDe(quando, null, null)` só enxergava o fechamento da CLÍNICA
+  inteira: o dia de férias de um profissional aparecia apenas com menos horários — e menos
+  horários se lê como "ninguém marcou". São **duas** metades, e uma sem a outra não
+  resolve: com o recorte "só a minha agenda" a coluna passou a ter DONO (e aí férias e
+  jornada dele pintam os vãos, como no modo dia), e na coluna de todos entrou a **linha do
+  cabeçalho** nomeando o que está fechado. Pintar os vãos da coluna de todos seria mentira
+  — os outros atendem —, e é por isso que a resposta ali é uma FRASE, não uma cor.
+  ⚠️ **A frase mora na Application** (`FechamentosDaAgenda.Descrever`), pela regra da
+  `GradeSemana` (parcela 69) e do `ResumoSessaoAnterior` (77): **o que decide o que a tela
+  AFIRMA precisa morar onde o `dotnet test` alcança**. Recurso repetido é dito UMA vez —
+  três bloqueios de tarde da mesma pessoa escreveriam o nome dela três vezes, e a linha
+  deixaria de se ler; e com dono só entra o que alcança ELE, senão o fechamento da sala 2
+  acenderia para quem atende noutra sala.
+  ⚠️ **(c) Os três formulários que despejavam o alfabeto ganharam `SemBuscaInicial`** —
+  agendamento da Recepção, lista de espera e o agendamento do FATURAMENTO. E o débito
+  escrito na parcela 88 era real: **o faturamento tem seletor PRÓPRIO** (o débito
+  permanente da Fase 4), então `SemBuscaInicial` e `TemResultados` tiveram de ser
+  PORTADOS para lá — a cópia que fica para trás é onde a capacidade some (parcelas 61,
+  75, 90).
+  ⚠️ **E o custo previsto se confirmou: `SemBuscaInicial` sozinho abre um VÃO em branco.**
+  Nos dois formulários da Recepção a lista é uma caixa de 150 px sempre visível, e caixa
+  vazia no meio do formulário se lê como lista que não carregou — ela passou a SUMIR
+  (`Seletor.TemResultados`). No do faturamento a lista é a coluna inteira, e esconder
+  deixaria o cartão vazio: ali entrou o CONVITE no lugar dela ("digite o nome ou o CPF").
+  **A pergunta é sempre a mesma — o que ocupa o lugar do que sumiu?**
+
 - **A AGENDA COM COR — a família no traço, no avatar e no cartão; o estado na pílula; o
   placar com glifo** (set/2026; a cliente: *"a nossa agenda está um pouco sem cor,
   consegue dar cor nisso? Não só cor, mas estilizar também"*; mockup aprovado em

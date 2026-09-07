@@ -257,6 +257,20 @@ public sealed class ColunaAgenda
     public required DateOnly Data { get; init; }
 
     public bool Vazia => Horarios.Count == 0;
+
+    /// <summary>
+    /// O que está FECHADO neste dia, escrito no cabeçalho da coluna (set/2026) — "Ana em
+    /// férias · Sala 2 em manutenção".
+    ///
+    /// Só no modo SEMANA, e é ali que ele faltava: a coluna do dia é de TODOS, então
+    /// pintar os vãos seria mentira (os outros atendem), e sem uma palavra no cabeçalho as
+    /// férias de quem quer que seja ficavam invisíveis — a semana mostrava um dia com
+    /// menos horários, que se lê como "ninguém marcou". É a lição do "Agenda fechada neste
+    /// dia" do Meu dia (parcela 69), na tela do balcão.
+    /// </summary>
+    public string Fechamentos { get; init; } = string.Empty;
+
+    public bool TemFechamentos => !string.IsNullOrEmpty(Fechamentos);
 }
 
 /// <summary>Um pedido na lista de espera.</summary>
@@ -896,11 +910,21 @@ public sealed partial class AgendaViewModel : ObservableObject
             // A coluna do dia não tem "um profissional": o cartão já diz de quem é, e
             // amarrá-la a alguém faria o botão de chamar da lista de espera oferecer o
             // profissional errado.
+            //
+            // ⚠️ Com o recorte "só a minha agenda" ela TEM dono — todo cartão é dele —, e
+            // amarrá-la é o que faz as FÉRIAS e a JORNADA dele pintarem os vãos: sem isso,
+            // `BloqueioDe(quando, null, null)` só enxergava o fechamento da clínica inteira,
+            // e quem entrou como profissional olhava a própria semana de férias como uma
+            // semana livre (set/2026).
+            var dono = soMeu ? profissionais.FirstOrDefault(p => p.Id == meu) : null;
+
             colunas.Add(MontarColuna(
-                null,
+                dono?.Id,
                 $"{Dias[i]} {quando:dd/MM}",
                 DateOnly.FromDateTime(quando),
-                recorte));
+                recorte,
+                profissional: dono,
+                fechamentos: FechamentosDoDia(quando, dono)));
         }
 
         Resumo = $"{ocupando} horário(s) na semana de {segunda:dd/MM} a {segunda.AddDays(6):dd/MM}";
@@ -911,7 +935,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     private ColunaAgenda MontarColuna(
         int? profissionalId, string nome, DateOnly data, IEnumerable<Agendamento> agendamentos,
-        int? salaId = null, Profissional? profissional = null)
+        int? salaId = null, Profissional? profissional = null, string fechamentos = "")
     {
         var cartoes = new ObservableCollection<CartaoAgenda>();
         var ocupando = 0;
@@ -955,6 +979,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             ProfissionalId = profissionalId,
             SalaId = salaId,
             Profissional = profissional,
+            Fechamentos = fechamentos,
             Nome = nome,
             Data = data,
             Resumo = $"{ocupando} horário(s)",
@@ -1116,6 +1141,14 @@ public sealed partial class AgendaViewModel : ObservableObject
         return _bloqueios.FirstOrDefault(
             b => b.ColideCom(inicio, fim) && b.AlcancaRecurso(profissionalId, salaId))?.Motivo;
     }
+
+    /// <summary>
+    /// O que está fechado NESTE DIA, para o cabeçalho da coluna da semana (set/2026). A
+    /// regra mora na Application (<see cref="FechamentosDaAgenda"/>), onde o
+    /// <c>dotnet test</c> a alcança.
+    /// </summary>
+    private string FechamentosDoDia(DateTime dia, Profissional? dono)
+        => FechamentosDaAgenda.Descrever(_bloqueios, dia, dono?.Id);
 
     /// <summary>
     /// A jornada do profissional da coluna, quando declarada, contra este vão (set/2026):

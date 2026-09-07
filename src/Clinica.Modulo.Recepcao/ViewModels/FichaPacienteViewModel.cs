@@ -108,6 +108,13 @@ public sealed class LinhaAlerta
 {
     public required string Descricao { get; init; }
     public required bool EhVermelho { get; init; }
+
+    /// <summary>
+    /// A linha da DÍVIDA — a única desta lista que se resolve com dinheiro, e com o
+    /// paciente na frente. Acende o botão "Receber…" (set/2026): a única porta para
+    /// receber ficava no Financeiro, outro app, de outra pessoa.
+    /// </summary>
+    public bool PodeReceber { get; init; }
 }
 
 /// <summary>
@@ -1356,7 +1363,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                 Alertas.Add(new LinhaAlerta
                 {
                     Descricao = a.Descricao,
-                    EhVermelho = a.Urgencia == NivelUrgencia.Vermelho
+                    EhVermelho = a.Urgencia == NivelUrgencia.Vermelho,
+                    PodeReceber = a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito
                 });
 
             ElegibilidadeNaoVerificada = false;
@@ -2099,6 +2107,37 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             MensagemEhErro = true;
         }
     }
+
+    /// <summary>
+    /// A PORTA do alerta de dívida (set/2026): a MESMA janela do Novo atendimento — uma
+    /// definição de "receber no balcão", nunca duas. Recarrega a ficha quando algo foi
+    /// recebido, para o alerta sumir sem a pessoa precisar reabrir a tela.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReceberDividaAsync()
+    {
+        if (PacienteId == 0) return;
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(CobrancaDoPacienteViewModel.QuemRecebe, "receber no balcão");
+
+            var vm = new CobrancaDoPacienteViewModel(
+                _escopos, _dialogo, PacienteId, Nome,
+                Telefone == "—" ? null : Telefone);
+            new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+
+            if (vm.Mudou) await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — cobrança no balcão não pôde abrir", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>Metade visível da permissão de receber; a outra é o <c>ExigirAlgum</c> do comando.</summary>
+    public bool PodeReceberDivida => SessaoUsuario.Atual.PodeAlgum(CobrancaDoPacienteViewModel.QuemRecebe);
 
     /// <summary>Abre o WhatsApp do paciente direto da ficha.</summary>
     [RelayCommand]

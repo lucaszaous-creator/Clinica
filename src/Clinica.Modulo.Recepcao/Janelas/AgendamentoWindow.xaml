@@ -23,9 +23,14 @@
                  Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                  IsEnabled="{Binding Seletor.Editavel}"
                  ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+        <!-- Some quando não há resultado: a tela abre sem consultar o banco, e uma
+             caixa vazia de 150 px no meio do formulário se lê como lista que não
+             carregou. -->
         <ListBox ItemsSource="{Binding Seletor.Resultados}"
                  SelectedItem="{Binding Seletor.Selecionado}"
                  ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                 Visibility="{Binding Seletor.TemResultados,
+                              Converter={StaticResource BoolParaVisibilidade}}"
                  MaxHeight="150" Margin="0,6,0,0"
                      ctrl:Ajudantes.RodaDaPagina="True" />
         <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"

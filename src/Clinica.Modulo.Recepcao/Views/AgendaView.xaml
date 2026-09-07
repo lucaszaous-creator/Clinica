@@ -279,6 +279,16 @@
                                TextTrimming="CharacterEllipsis"
                                FontSize="{StaticResource Fonte.Legenda}"
                                Foreground="{StaticResource Brush.Texto.Secundario}" />
+                    <!-- O que está fechado neste dia (set/2026). Sem esta linha, um dia de
+                         férias aparece só com menos horários — e menos horários se lê como
+                         "ninguém marcou". -->
+                    <TextBlock Text="{Binding Fechamentos}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Fechamentos}"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Aviso}"
+                               Visibility="{Binding TemFechamentos,
+                                            Converter={StaticResource BoolParaVisibilidade}}" />
                 </StackPanel>
             </DockPanel>
         </DataTemplate>

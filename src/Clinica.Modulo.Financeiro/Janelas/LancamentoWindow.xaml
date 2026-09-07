@@ -1,12 +1,14 @@
 <Window x:Class="Clinica.Financeiro.Janelas.LancamentoWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
         Title="Novo lançamento" Width="520" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <!-- O formulário inteiro rola: com a escala do Windows em 150% ou 175% um
@@ -84,6 +86,36 @@
                       ItemTemplate="{StaticResource ItemRotuloEnum}" />
             </StackPanel>
         </Grid>
+
+        <!-- DE QUEM É (set/2026) — só na entrada. Sem este campo a receita entrava órfã:
+             não ligava à sessão e a linha continuava na aba Particulares da Conciliação,
+             cobrando um pagamento que já estava na gaveta. -->
+        <StackPanel Margin="0,12,0,0"
+                    Visibility="{Binding MostrarPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="De quem é (opcional)" Style="{StaticResource Rotulo}" />
+            <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                     MaxLength="80" />
+            <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" Margin="0,4,0,0"
+                       FontSize="{StaticResource Fonte.Legenda}" />
+            <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                     SelectedItem="{Binding Seletor.Selecionado}"
+                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                     MaxHeight="180" Margin="0,6,0,0"
+                     ctrl:Ajudantes.RodaDaPagina="True"
+                     BorderThickness="0" Background="Transparent" />
+
+            <TextBlock Text="Está pagando qual sessão?" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+            <ComboBox ItemsSource="{Binding Sessoes}" SelectedItem="{Binding Sessao}"
+                      DisplayMemberPath="Rotulo" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,3,0,0"
+                       FontSize="{StaticResource Fonte.Legenda}"
+                       Text="Só as sessões particulares que ainda não têm dinheiro registrado. Amarrar aqui é o que tira a sessão da aba Particulares da Conciliação." />
+            <TextBlock Text="{Binding AvisoSessoes}" TextWrapping="Wrap" Margin="0,3,0,0"
+                       FontSize="{StaticResource Fonte.Legenda}"
+                       Foreground="{StaticResource Brush.Erro}"
+                       Visibility="{Binding AvisoSessoes, Converter={StaticResource TextoParaVisibilidade}}" />
+        </StackPanel>
 
         <!-- Cartão: adquirente, bandeira e parcelas definem a taxa que será descontada.
              Só aparece quando a forma é cartão — Pix e dinheiro caem inteiros. -->
