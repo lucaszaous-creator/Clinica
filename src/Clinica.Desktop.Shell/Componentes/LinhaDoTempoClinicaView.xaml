@@ -155,7 +155,31 @@
 
                                     <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                 VerticalAlignment="Center" Margin="10,0,0,0">
-                                        <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
+                                        <!-- VER vem PRIMEIRO, e pede o bit de LER: é o que
+                                             a pessoa quer na maioria das vezes diante de
+                                             um registro que já aconteceu (reler e
+                                             imprimir para o paciente), e é a única porta
+                                             de quem só tem `VerProntuario`. A régua é a
+                                             mesma da tela de Prontuário: Ver · Editar ·
+                                             Cancelar…, nessa ordem. -->
+                                        <Button Content="Ver" Style="{StaticResource BotaoPequeno}"
+                                                Margin="0,0,8,0"
+                                                ToolTip="Abre o registro por inteiro, para ler e imprimir. Não altera nada."
+                                                Visibility="{Binding DataContext.TemAcaoVer,
+                                                             RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.VerCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <!-- O rótulo vem da PORTA: "Abrir" MENTIA na sessão
+                                             médica, onde o botão abre a janela de EDIÇÃO e
+                                             exige o bit de escrever (a correção de rótulo
+                                             da parcela 69, "Excluir" → "Cancelar…"). No
+                                             arquivo da ficha ele continua sendo "Abrir",
+                                             porque ali abrir É ler. -->
+                                        <Button Content="{Binding DataContext.RotuloAbrir,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Style="{StaticResource BotaoPequeno}"
                                                 Visibility="{Binding DataContext.TemAcaoAbrir,
                                                              RelativeSource={RelativeSource AncestorType=ItemsControl},
                                                              Converter={StaticResource BoolParaVisibilidade}}"

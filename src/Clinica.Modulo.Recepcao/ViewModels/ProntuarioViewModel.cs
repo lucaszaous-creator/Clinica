@@ -386,13 +386,14 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
-            var janela = new Janelas.EvolucaoWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
+            // A MESMA folha da tela de Atendimento (set/2026). A janela própria da
+            // Recepção — duas colunas, mapa aberto, quatro dos doze campos — era o segundo
+            // desenho do mesmo ato, e foi por ali que oito campos ficaram de fora do lado
+            // do balcão.
+            var vm = new EscreverSessaoViewModel(
+                _escopos, _dialogo, PacienteId, Paciente, evolucaoId);
 
-            if (janela.ShowDialog() != true) return;
+            if (!EscreverSessaoWindow.Abrir(vm)) return;
 
             _snackbar.Sucesso("Prontuário atualizado.");
             await CarregarAsync();

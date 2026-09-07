@@ -170,20 +170,61 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     public Func<RegistroClinicoPaciente, Task>? AoCancelar { get; init; }
 
     /// <summary>
+    /// LER o registro escolhido por inteiro — a ação que faltava (set/2026).
+    ///
+    /// ⚠️ Ela é SEPARADA de <see cref="AoAbrir"/> porque VER e MEXER são bits diferentes
+    /// (o corte da parcela 49), e enquanto a linha só tinha o de mexer a ficha do paciente
+    /// repetia, letra por letra, o defeito que a tela de Prontuário já tinha corrigido: o
+    /// único botão da sessão abria a janela de EDIÇÃO, e quem tem só <c>VerProntuario</c>
+    /// — a técnica de enfermagem, o faturista — não alcançava a sessão por porta nenhuma,
+    /// com a lista mostrando o resumo cortado. A correção tinha sido feita na tela e não
+    /// no componente que as outras portas usam: a cópia que fica para trás é onde a
+    /// capacidade some.
+    /// </summary>
+    public Func<RegistroClinicoPaciente, Task>? AoVer { get; init; }
+
+    /// <summary>
     /// As naturezas em que a porta sabe abrir/cancelar. Vazio = nenhuma, e os botões não
     /// existem — botão aceso que não faz nada é o defeito da parcela 41.
     /// </summary>
     public IReadOnlyCollection<NaturezaRegistroClinico> NaturezasComAcao { get; init; } = [];
 
+    /// <summary>
+    /// As naturezas em que a porta sabe LER o registro por inteiro. Separada da lista de
+    /// cima porque as duas ações não cobrem as mesmas naturezas: a ficha sabe ler a sessão
+    /// médica e não tem o que "ver por inteiro" num arquivo, cujo abrir JÁ é a leitura.
+    /// </summary>
+    public IReadOnlyCollection<NaturezaRegistroClinico> NaturezasComVer { get; init; } = [];
+
     /// <summary>A permissão que a porta exige para MEXER (a metade visível).</summary>
     public Permissao AcessoParaMexer { get; init; } = Permissao.EditarProntuario;
+
+    /// <summary>A permissão que a porta exige para LER — dado de saúde, art. 5º, II.</summary>
+    public Permissao AcessoParaVer { get; init; } = Permissao.VerProntuario;
+
+    /// <summary>
+    /// O rótulo do botão de <see cref="AoAbrir"/> na seção atual. Ele é da PORTA porque a
+    /// mesma ação quer dizer coisas diferentes conforme a natureza: na sessão médica ela
+    /// EDITA (e o rótulo "Abrir" mentia sobre isso), no arquivo da ficha ela ABRE o PDF,
+    /// que é ler. Sem declaração, "Abrir".
+    /// </summary>
+    public IReadOnlyDictionary<NaturezaRegistroClinico, string> RotulosDeAbrir { get; init; }
+        = new Dictionary<NaturezaRegistroClinico, string>();
+
+    public string RotuloAbrir =>
+        RotulosDeAbrir.TryGetValue(Secao, out var rotulo) ? rotulo : "Abrir";
 
     /// <summary>A seção atual tem ação, e quem está logado pode exercê-la.</summary>
     public bool PodeMexerNaSecao =>
         NaturezasComAcao.Contains(Secao) && SessaoUsuario.Atual.Pode(AcessoParaMexer);
 
+    /// <summary>A seção atual sabe ser lida por inteiro, e quem está logado pode ler.</summary>
+    public bool PodeVerNaSecao =>
+        NaturezasComVer.Contains(Secao) && SessaoUsuario.Atual.Pode(AcessoParaVer);
+
     public bool TemAcaoAbrir => AoAbrir is not null && PodeMexerNaSecao;
     public bool TemAcaoCancelar => AoCancelar is not null && PodeMexerNaSecao;
+    public bool TemAcaoVer => AoVer is not null && PodeVerNaSecao;
 
     /// <summary>
     /// A seção ainda não foi resolvida contra <see cref="SecaoInicial"/>.
@@ -208,8 +249,11 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     {
         Publicar();
         OnPropertyChanged(nameof(PodeMexerNaSecao));
+        OnPropertyChanged(nameof(PodeVerNaSecao));
         OnPropertyChanged(nameof(TemAcaoAbrir));
         OnPropertyChanged(nameof(TemAcaoCancelar));
+        OnPropertyChanged(nameof(TemAcaoVer));
+        OnPropertyChanged(nameof(RotuloAbrir));
     }
 
     [RelayCommand]
@@ -225,6 +269,15 @@ public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
     {
         if (item is null || AoCancelar is null) return;
         await AoCancelar(item);
+    }
+
+    /// <summary>Ler o registro por inteiro — a porta decide em que janela.</summary>
+    [RelayCommand]
+    private async Task VerAsync(RegistroClinicoPaciente? item)
+    {
+        // Guarda sobre PARÂMETRO: não dispara vindo de botão de linha (exceção da 21).
+        if (item is null || AoVer is null) return;
+        await AoVer(item);
     }
 
     /// <summary>Troca a seção pelo chip. Marcar um DESMARCA o irmão — sempre há uma marcada.</summary>

@@ -1,4 +1,5 @@
 using Clinica.Application;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
@@ -199,7 +200,15 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
                 NaturezaRegistroClinico.SessaoMedica,
                 NaturezaRegistroClinico.PrescricaoInterna
             ],
-            SecaoInicial = NaturezaRegistroClinico.SessaoMedica
+            SecaoInicial = NaturezaRegistroClinico.SessaoMedica,
+
+            // LER a sessão médica por inteiro (set/2026). A lista mostra o resumo
+            // CORTADO, e quem executa precisa do que o médico escreveu — a hipótese, o
+            // plano, a conduta — antes de administrar. Só VER: escrever a sessão médica
+            // continua sendo do médico, e a técnica não tem `EditarProntuario`.
+            NaturezasComVer = [NaturezaRegistroClinico.SessaoMedica],
+            AcessoParaVer = Permissao.VerProntuario,
+            AoVer = VerSessaoMedicaAsync
         };
 
         // ⚠️ UMA superfície de mensagem, e ela é da SEÇÃO. Os componentes escrevem na
@@ -442,6 +451,36 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
 
         Mensagem = r.Frase;
         MensagemEhErro = r.EhErro;
+    }
+
+    /// <summary>
+    /// A sessão MÉDICA por inteiro, para ler e imprimir — a janela do shell, a mesma das
+    /// outras portas.
+    ///
+    /// ⚠️ `ofereceAnexos: false`: a janela de anexos POR SESSÃO existe neste módulo, mas
+    /// na seção do PRONTUÁRIO — daqui o botão fecharia a janela e não faria nada, que é o
+    /// defeito da parcela 41 construído de propósito.
+    /// </summary>
+    private Task VerSessaoMedicaAsync(RegistroClinicoPaciente item)
+    {
+        // ⚠️ `Exigir` LANÇA, e o comando do componente não tem try: fora dele a recusa
+        // sobe até a rede do dispatcher em vez de virar a frase que explica.
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir a sessão do prontuário");
+
+            var vm = new SessaoDoProntuarioViewModel(_escopos, item.Id, Paciente, ofereceAnexos: false);
+            new SessaoDoProntuarioWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — a sessão médica não pôde ser aberta pela enfermagem", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

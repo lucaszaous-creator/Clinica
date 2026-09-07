@@ -843,7 +843,36 @@ cancelar do arquivo da ficha passa pelo `ArquivosDaFicha.CancelarAsync`, que tem
 oito ViewModels e é a trilha de LEITURA (`AcessoProntuarioService`) — registrar que alguém
 leu não pode exigir permissão de escrever.
 
-## 29. Como conferir que continua valendo
+## 29. A folha em DUAS portas (set/2026)
+
+A folha do §28 deixou de ser da tela de Atendimento e virou componente do shell —
+`FolhaDaSessaoView` + `FolhaDaSessaoViewModel` —, porque escrever sessão tem **duas
+portas** e elas mostravam coisas diferentes:
+
+| | Consultório (tela de Atendimento) | Recepção/ficha (janela) |
+|---|---|---|
+| antes | a folha única, 12 campos, mapa e detalhe em janela | duas colunas, mapa fixo de 530 px, **4 campos** |
+| agora | a MESMA `FolhaDaSessaoView` | a MESMA `FolhaDaSessaoView` |
+| só ela tem | termo do procedimento, emitir documento, sinais vitais na linha de contexto | **quem atendeu**, **anexos** |
+
+O que decide o que muda entre as portas:
+
+- **no C#**, ganchos virtuais — `PacienteId`, `AgendamentoDaSessao`, `AtendimentoDaSessao`,
+  `ProfissionalDaSessao`, `ModalidadeDaSessaoAsync`, `DepoisDeSalvarAsync`,
+  `AoMudarPresencaDePaciente`, `ContextoDoLog`;
+- **no XAML**, duas propriedades de dependência — `Contexto` (a linha acima da folha) e
+  `Ferramentas` (o que só aquela porta faz, na ponta direita da tira).
+
+Nada é copiado. `AtendimentoViewModel` **herda** a folha, e foi a herança que preservou os
+bindings da tela do Consultório — trocar 40 deles para `Folha.X` seria a classe de erro que
+não quebra build nem teste: o campo apenas para de aparecer.
+
+⚠️ **O vínculo com o horário continua sendo preservado quando a porta não o conhece**: a
+janela do Prontuário manda `AgendamentoId`/`AtendimentoId` nulos, e nulo é "não sei",
+nunca "desligue" (parcela 68) — corrigir pelo balcão uma sessão escrita no posto não a
+solta do horário.
+
+## 30. Como conferir que continua valendo
 
 ```bash
 python3 tools/compilar-sombra.py

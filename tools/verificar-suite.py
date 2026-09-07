@@ -916,16 +916,69 @@ for arq in RAIZ.joinpath("src").rglob("*.cs"):
     _comandos.update(COMANDO_EXPLICITO.findall(texto))
 
 
-def _comandos_do_arquivo(caminho: Path) -> set[str]:
-    """Comandos declarados num .cs específico."""
+# `class XViewModel : YViewModel` — a classe BASE, quando ela é do repositório.
+HERANCA_VM = re.compile(r"class\s+\w+ViewModel\s*:\s*(\w+ViewModel)\b")
+
+
+def _comandos_do_arquivo(caminho: Path, visitados: set[str] | None = None) -> set[str]:
+    """
+    Comandos declarados num .cs específico — e nos das classes BASE dele.
+
+    ⚠️ A herança entra porque a suíte passou a ter compositor compartilhado herdado
+    (set/2026: `AtendimentoViewModel : FolhaDaSessaoViewModel`, a folha da sessão que as
+    duas portas usam). Sem seguir a base, a checagem acusava `SalvarCommand` — declarado
+    na folha, ligado na tela que a herda — como "o clique não faz nada", que é o oposto
+    da verdade. Checagem que reclama do que está certo é checagem que alguém desliga, e
+    aí ela para de pegar o defeito de verdade.
+    """
+    visitados = visitados or set()
+    if caminho.stem in visitados:
+        return set()
+    visitados.add(caminho.stem)
+
     texto = caminho.read_text(encoding="utf-8", errors="ignore")
     achados: set[str] = set()
     for m in RELAY_COMMAND.finditer(texto):
         nome = m.group(1)
         achados.add(f"{nome[:-5] if nome.endswith('Async') else nome}Command")
     achados.update(COMANDO_EXPLICITO.findall(texto))
+
+    for base in HERANCA_VM.findall(texto):
+        for cand in RAIZ.joinpath("src").rglob(f"{base}.cs"):
+            if "/obj/" not in cand.as_posix():
+                achados |= _comandos_do_arquivo(cand, visitados)
+
     return achados
 
+
+# --- autoteste da herança de comandos (set/2026) ---
+#
+# Ele chama a MESMA função da varredura (a regra da parcela 67), sobre os arquivos REAIS
+# do par que motivou a mudança: a folha da sessão declara o Salvar, e a tela de Atendimento
+# o herda. Se alguém desfizer a herança — ou se a busca da base parar de funcionar —, a
+# checagem volta a acusar `SalvarCommand` como "o clique não faz nada", e é este autoteste
+# que reprova antes de a pessoa desligar a checagem por barulho.
+_folha_vm = RAIZ / "src/Clinica.Desktop.Shell/Componentes/FolhaDaSessaoViewModel.cs"
+_atendimento_vm = RAIZ / "src/Clinica.Modulo.Clinico/ViewModels/AtendimentoViewModel.cs"
+if _folha_vm.exists() and _atendimento_vm.exists():
+    _da_folha = _comandos_do_arquivo(_folha_vm)
+    _do_atendimento = _comandos_do_arquivo(_atendimento_vm)
+
+    if "SalvarCommand" not in _da_folha:
+        erros.append(
+            "verificar-suite: o autoteste da herança de comandos perdeu a âncora — "
+            "FolhaDaSessaoViewModel deixou de declarar SalvarCommand.")
+    elif "SalvarCommand" not in _do_atendimento:
+        erros.append(
+            "verificar-suite: a leitura de comandos parou de seguir a classe BASE — "
+            "AtendimentoViewModel herda SalvarCommand da folha, e a checagem o acusaria "
+            "como inexistente.")
+
+    # E ela não pode passar a aceitar QUALQUER nome: o valor da checagem é recusar o que
+    # ninguém declara.
+    if "ComandoQueNinguemDeclaraCommand" in _do_atendimento:
+        erros.append(
+            "verificar-suite: a leitura de comandos passou a aceitar nome inexistente.")
 
 for arq in RAIZ.joinpath("src").rglob("*.xaml"):
     if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():

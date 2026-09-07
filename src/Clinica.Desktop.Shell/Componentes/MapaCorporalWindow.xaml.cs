@@ -1,7 +1,6 @@
 using System.Windows;
-using Clinica.Desktop.Shell.Componentes;
 
-namespace Clinica.Clinico.Janelas;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// O mapa corporal da sessão, em janela.
