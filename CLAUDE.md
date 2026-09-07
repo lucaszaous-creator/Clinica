@@ -458,6 +458,16 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   leitores com duas regras proporiam dois números para a mesma sessão. Modalidade e
   especialidade estão no HORÁRIO, então a proposta não precisa mais esperar o atendimento
   existir.
+  ⚠️ **E o cadastro é da RECEPÇÃO também** (*"o ideal seria a recepção também cadastrar e
+  editar preços"*). A primeira versão nasceu como aba dentro do item do Gerente — a porta
+  no módulo de quem não usa, pela enésima vez. A tela SUBIU para o shell
+  (`PrecosParticularView`), como o Pacotes: a Recepção a publica como item e o Gerente como
+  aba do composto "Tabela de preço" (Convênios · Particular), os dois pela MESMA chave
+  (`ChavesSuite.PrecosParticular`). **A permissão é `VenderPacote` OU `EditarFinanceiro`,
+  e não um bit novo**: combinar preço é o ato que `VenderPacote` já nomeia (o rótulo dele
+  passou a dizer isso), e o enum tem UM bit sobrando antes de virar `long` numa coluna de
+  produção — gastá-lo numa caixinha que o bit existente já cobre seria pagar a migration
+  mais cara do sistema por nada.
   **O que ficou de fora, com o motivo**: o lançamento manual do Caixa continua sem
   seletor de paciente (a receita órfã não liga à sessão nem some da conciliação — a
   correção é dar-lhe o `SeletorPacienteViewModel` da conta a receber); a cobrança de

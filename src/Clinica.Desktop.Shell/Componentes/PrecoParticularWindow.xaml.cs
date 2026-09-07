@@ -1,7 +1,5 @@
 using System.Windows;
-using Clinica.Gerente.ViewModels;
-
-namespace Clinica.Gerente.Janelas;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Quem fecha é o ViewModel, pelo evento Concluido — a janela não conhece serviço.</summary>
 public partial class PrecoParticularWindow : Window

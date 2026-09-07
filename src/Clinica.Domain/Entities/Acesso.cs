@@ -659,7 +659,7 @@ public static class PerfisAcesso
         Permissao.VerFichaPaciente => "Ver ficha do paciente",
         Permissao.EditarPaciente => "Cadastrar e editar paciente",
         Permissao.VerDocumentos => "Abrir a central de documentos",
-        Permissao.VenderPacote => "Vender pacote de sessões",
+        Permissao.VenderPacote => "Vender pacote e definir preço do particular",
         Permissao.DispensarRodadaPendencias => "Entrar sem responder à rodada de pendências",
         Permissao.VerProntuario => "Ver prontuário clínico",
         Permissao.EditarProntuario => "Escrever no prontuário",
@@ -773,9 +773,10 @@ public static class PerfisAcesso
 
         Permissao.VerFinanceiro => "Caixa, conciliação, contas e produção.",
         Permissao.VenderPacote =>
-            "Vender pacote de sessões ao paciente e lançar consumo. É bit próprio de "
-            + "propósito: quem vende as dez sessões é o BALCÃO, com o paciente na frente, "
-            + "e dar o financeiro inteiro a ele abriria junto o caixa e as contas.",
+            "Vender pacote de sessões ao paciente, lançar consumo e cadastrar o preço do "
+            + "particular por especialidade. É bit próprio de propósito: quem combina preço "
+            + "é o BALCÃO, com o paciente na frente, e dar o financeiro inteiro a ele "
+            + "abriria junto o caixa e as contas.",
         Permissao.EditarFinanceiro => "Lançar, realizar e cancelar movimento de caixa.",
 
         Permissao.VerFaturamento => "Ler guias, pendências, lotes e a consulta de guias.",

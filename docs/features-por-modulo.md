@@ -600,7 +600,7 @@ zero.**
 | **Parcela do pacote é conta a receber COM DONO** | ✅ set/2026 | `LancamentoFinanceiro.PacotePacienteId`; a inadimplência e o aviso do balcão a enxergam quando vence |
 | **Situação de pagamento na lista** ("pago" · "R$ 400 a receber, 1 vencida" · "sem lançamento") | ✅ set/2026 | `SaldoPacote.PagamentoRotulo`, lida em lote (`LancamentosDosPacotesAsync`) |
 | **Cancelar a venda derruba as parcelas previstas e mantém o recebido** | ✅ set/2026 | `PacoteService.CancelarAsync` devolve o aviso do que já entrou |
-| **Tabela de preço do PARTICULAR por especialidade atendida** | ✅ set/2026 | `PrecoParticular` + `PrecoParticularService` (Gerente → Tabela de preço → aba Particular); lida pelo Finalizar da Recepção e pela aba Particulares da Conciliação |
+| **Tabela de preço do PARTICULAR por especialidade atendida** | ✅ set/2026 | `PrecoParticular` + `PrecoParticularService`; tela do SHELL (`PrecosParticularView`) publicada pela **Recepção** (item "Preços do particular", bit `VenderPacote`) e pelo Gerente (aba Particular da Tabela de preço) pela mesma chave; lida pelo Finalizar e pela aba Particulares da Conciliação |
 
 > **A venda COPIA o catálogo.** Mudar o preço de tabela em novembro não pode reescrever
 > o que o paciente comprou em março — o vínculo com o catálogo fica só como procedência.

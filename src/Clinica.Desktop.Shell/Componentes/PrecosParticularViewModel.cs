@@ -2,14 +2,13 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
-using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Gerente.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Uma linha da tabela do particular.</summary>
 public sealed class LinhaPrecoParticular
@@ -35,13 +34,25 @@ public sealed class LinhaPrecoParticular
 }
 
 /// <summary>
-/// Tabela de preço do PARTICULAR por especialidade atendida (set/2026) — a segunda aba da
-/// Tabela de preço do Gerente.
+/// Tabela de preço do PARTICULAR por especialidade atendida (set/2026).
 ///
 /// O pedido da direção: <i>"um cadastro de preço por tipo de especialidade atendida quando o
-/// paciente for particular"</i>. Quem lê é o balcão (o Finalizar do particular propõe este
-/// valor) e o Financeiro (a aba Particulares da Conciliação). Sem linha aqui os dois pedem
-/// o valor digitado — o sistema não inventa preço.
+/// paciente for particular"</i> — e, logo depois, <i>"o ideal seria a recepção também
+/// cadastrar e editar preços"</i>. Por isso a tela mora no SHELL, como o Pacotes (parcela
+/// 60): a Recepção a publica como item e o Gerente como aba da Tabela de preço, e os dois
+/// apontam para a MESMA chave (<c>ChavesSuite.PrecosParticular</c>) — o Gerente Geral, que
+/// carrega os dois, mostra uma linha só.
+///
+/// Quem lê é o balcão (o Finalizar do particular propõe este valor) e o Financeiro (a aba
+/// Particulares da Conciliação). Sem linha aqui os dois pedem o valor digitado — o sistema
+/// não inventa preço.
+///
+/// ⚠️ A permissão é <see cref="Permissao.VenderPacote"/> OU <see cref="Permissao.EditarFinanceiro"/>,
+/// e não um bit novo: combinar o preço do particular é o mesmo corte que a parcela 60 fez
+/// para vender o pacote — é do BALCÃO, com o paciente na frente, sem abrir o caixa e as
+/// contas junto. E o enum de permissões tem UM bit sobrando antes de virar <c>long</c>
+/// (coluna de produção); gastá-lo aqui, quando o bit existente já nomeia o ato, seria
+/// pagar a migration mais cara do sistema por uma caixinha a mais em Acessos.
 /// </summary>
 public sealed partial class PrecosParticularViewModel : ObservableObject
 {
@@ -62,8 +73,9 @@ public sealed partial class PrecosParticularViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
-    /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    /// <summary>Metade visível da permissão; a que impede é o <c>ExigirAlgum</c> no comando.</summary>
+    public bool PodeEditar => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
 
     public PrecosParticularViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -131,10 +143,11 @@ public sealed partial class PrecosParticularViewModel : ObservableObject
 
     private async Task AbrirAsync(int precoId)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço do particular");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "cadastrar preço do particular");
 
         var vm = new PrecoParticularEdicaoViewModel(_escopos, precoId);
-        var janela = new Janelas.PrecoParticularWindow(vm)
+        var janela = new PrecoParticularWindow(vm)
         {
             Owner = JanelaDona.Atual()
         };
@@ -155,7 +168,8 @@ public sealed partial class PrecosParticularViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "excluir preço do particular");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.VenderPacote | Permissao.EditarFinanceiro, "excluir preço do particular");
 
             if (!_dialogo.ConfirmarPerigo("Excluir preço",
                     $"Apagar o preço de {linha.Modalidade} ({linha.Especialidade})? Se ele já "
@@ -296,7 +310,8 @@ public sealed partial class PrecoParticularEdicaoViewModel : ObservableObject
         try
         {
             Salvando = true;
-            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço do particular");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.VenderPacote | Permissao.EditarFinanceiro, "cadastrar preço do particular");
 
             using var scope = _escopos.CreateScope();
             await scope.ServiceProvider.GetRequiredService<PrecoParticularService>()
