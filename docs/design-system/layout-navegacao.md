@@ -29,7 +29,10 @@ mockups. As duas agora se equivalem; as diferenças que restam estão anotadas a
 > "Atendimento" virou "Lançar e marcar" para não repetir o nome do grupo — sem barra,
 > porque item com dois nomes é item que não decidiu o que é. A sidebar do FATURAMENTO
 > não recebeu o acordeão, e é decisão: ela tem poucos itens, não rola, e o app está em
-> produção; o desenho do ITEM continua o mesmo nos dois.
+> produção; o desenho do ITEM continua o mesmo nos dois — com uma diferença desde a
+> rodada seguinte: na suíte o ícone do item é o DESENHO de traço do mockup
+> (`Styles/Componentes/Icones.xaml`, a pedido da direção: "queremos os ícones"), e no
+> faturamento continua o glifo da fonte.
 
 ## Shell da SUÍTE (Recepção · Consultório · Financeiro · Gerente) — parcela 7, refeito na 55
 

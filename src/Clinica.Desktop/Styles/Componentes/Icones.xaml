@@ -1,0 +1,73 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:conv="clr-namespace:Clinica.Desktop.Converters">
+
+    <!-- ============================================================
+         ÍCONES DE TRAÇO DA SIDEBAR (set/2026)
+
+         A direção aprovou o mockup docs/mockups/sidebar-tres-desenhos.html e, ao ver
+         o WPF com os glifos da Segoe Fluent, disse: "os ícones não ficaram iguais, e
+         isso é um problema, porque queremos os ícones". Este dicionário é a resposta:
+         os MESMOS desenhos do mockup (24×24, traço, sem preenchimento), convertidos
+         para a mini-linguagem de caminho do WPF por tools — retângulo e círculo viraram
+         arcos, o resto é o `d` do SVG, que o WPF lê tal e qual.
+
+         ⚠️ É o ÚNICO lugar em que o design system tem ícone que NÃO é glifo da fonte
+         (docs/design-system/tokens.md §Iconografia). A regra "iconografia é Segoe
+         Fluent" continua valendo para o resto — o CardKpi, o placar da agenda, os
+         botões de ícone. Aqui a palavra do cliente venceu a regra, e o preço é este
+         dicionário existir nos DOIS design systems (o débito permanente da Fase 4).
+
+         Uso: <Path Data="{Binding Icone, Converter={StaticResource IconePorNome}}" …>
+         dentro de um Viewbox de Icone.Tamanho com um Canvas de Icone.Caixa — ver o
+         ItemDaSidebar em Clinica.Desktop.Shell/Shell/ShellWindow.xaml (a sidebar deste app
+         continua com os glifos — o dicionário está aqui pela regra do porte no mesmo commit). Ícone novo entra aqui E no mockup, com o
+         mesmo nome: dois desenhos do mesmo ícone divergem na primeira correção.
+         ============================================================ -->
+
+    <!-- O traço e a caixa: 24 unidades de desenho, mostradas a 18 px, traço de 1,6 unidade
+         (1,2 px no tamanho da sidebar). São os números do mockup, e o Viewbox que os
+         escala é quem mantém o traço na mesma proporção em qualquer tamanho. -->
+    <sys:Double x:Key="Icone.Caixa">24</sys:Double>
+    <sys:Double x:Key="Icone.Tamanho">18</sys:Double>
+    <sys:Double x:Key="Icone.Traco">1.6</sys:Double>
+
+    <conv:IconePorNomeConverter x:Key="IconePorNome" />
+
+    <Geometry x:Key="Icone.ajuda">M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 9.5 9.5 a 2.5 2.5 0 1 1 3.5 2.3 c -.7 .4 -1 .9 -1 1.7 M 12 17 h .01</Geometry>
+    <Geometry x:Key="Icone.alvo">M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 7 12 A 5 5 0 1 0 17 12 A 5 5 0 1 0 7 12 Z M 10.5 12 A 1.5 1.5 0 1 0 13.5 12 A 1.5 1.5 0 1 0 10.5 12 Z</Geometry>
+    <Geometry x:Key="Icone.barras">M 4 20 h 16 M 6 20 V 9 M 11 20 V 5 M 16 20 v -9</Geometry>
+    <Geometry x:Key="Icone.caixa">M 3 8 12 4 l 9 4 -9 4 z M 3 8 v 8 l 9 4 9 -4 V 8 M 12 12 v 8</Geometry>
+    <Geometry x:Key="Icone.cal">M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4</Geometry>
+    <Geometry x:Key="Icone.cartao">M 5 6 H 19 A 2 2 0 0 1 21 8 V 16 A 2 2 0 0 1 19 18 H 5 A 2 2 0 0 1 3 16 V 8 A 2 2 0 0 1 5 6 Z M 3 10 h 18 M 7 15 h 4</Geometry>
+    <Geometry x:Key="Icone.cheque">m 5 12 4 4 L 19 6</Geometry>
+    <Geometry x:Key="Icone.cofre">M 5 6 H 19 A 2 2 0 0 1 21 8 V 16 A 2 2 0 0 1 19 18 H 5 A 2 2 0 0 1 3 16 V 8 A 2 2 0 0 1 5 6 Z M 9.5 12 A 2.5 2.5 0 1 0 14.5 12 A 2.5 2.5 0 1 0 9.5 12 Z M 3 10 h 2 M 19 10 h 2</Geometry>
+    <Geometry x:Key="Icone.coracao">M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5</Geometry>
+    <Geometry x:Key="Icone.dia">M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4 M 8 15 h 5</Geometry>
+    <Geometry x:Key="Icone.engr">M 9 12 A 3 3 0 1 0 15 12 A 3 3 0 1 0 9 12 Z M 12 2 v 3 M 12 19 v 3 M 2 12 h 3 M 19 12 h 3 M 4.9 4.9 l 2.1 2.1 M 17 17 l 2.1 2.1 M 4.9 19.1 7 17 M 17 7 l 2.1 -2.1</Geometry>
+    <Geometry x:Key="Icone.equipe">M 6 8 A 3 3 0 1 0 12 8 A 3 3 0 1 0 6 8 Z M 3 20 a 6 6 0 0 1 12 0 M 14.5 9 A 2.5 2.5 0 1 0 19.5 9 A 2.5 2.5 0 1 0 14.5 9 Z M 15.5 20 a 5 5 0 0 1 5.5 -5</Geometry>
+    <Geometry x:Key="Icone.escudo">M 12 3 4 6 v 6 c 0 5 3.5 8 8 9 4.5 -1 8 -4 8 -9 V 6 z M 9 12 l 2 2 4 -4</Geometry>
+    <Geometry x:Key="Icone.estoque">M 3 8 h 18 v 12 H 3 z M 5 8 V 5 h 14 v 3 M 10 12 h 4</Geometry>
+    <Geometry x:Key="Icone.etiqueta">M 3 12 V 4 h 8 l 9 9 -8 8 z M 6.2 8.5 A 1.3 1.3 0 1 0 8.8 8.5 A 1.3 1.3 0 1 0 6.2 8.5 Z</Geometry>
+    <Geometry x:Key="Icone.ficha">M 6 3 h 8 l 4 4 v 14 H 6 z M 14 3 v 4 h 4 M 9 12 h 6 M 9 16 h 6</Geometry>
+    <Geometry x:Key="Icone.gota">M 12 3 s 6 6.5 6 11 a 6 6 0 0 1 -12 0 c 0 -4.5 6 -11 6 -11 Z</Geometry>
+    <Geometry x:Key="Icone.grafico">M 4 20 V 10 M 10 20 V 4 M 16 20 v -8 M 22 20 H 2</Geometry>
+    <Geometry x:Key="Icone.home">M 3 11 12 4 l 9 7 M 5 10 v 10 h 14 V 10 M 10 20 v -6 h 4 v 6</Geometry>
+    <Geometry x:Key="Icone.importar">M 12 3 v 12 M 7 10 l 5 5 5 -5 M 4 21 h 16</Geometry>
+    <Geometry x:Key="Icone.lista">M 8 6 h 13 M 8 12 h 13 M 8 18 h 13 M 3 6 h .01 M 3 12 h .01 M 3 18 h .01</Geometry>
+    <Geometry x:Key="Icone.mega">M 3 10 v 4 h 3 l 7 4 V 6 l -7 4 z M 17 9 a 4 4 0 0 1 0 6</Geometry>
+    <Geometry x:Key="Icone.numeros">M 4 19 h 16 M 4 5 h 4 v 14 M 12 9 h 4 v 10 M 20 13 h -4</Geometry>
+    <Geometry x:Key="Icone.painel">M 4.5 3 H 9.5 A 1.5 1.5 0 0 1 11 4.5 V 9.5 A 1.5 1.5 0 0 1 9.5 11 H 4.5 A 1.5 1.5 0 0 1 3 9.5 V 4.5 A 1.5 1.5 0 0 1 4.5 3 Z M 14.5 3 H 19.5 A 1.5 1.5 0 0 1 21 4.5 V 6.5 A 1.5 1.5 0 0 1 19.5 8 H 14.5 A 1.5 1.5 0 0 1 13 6.5 V 4.5 A 1.5 1.5 0 0 1 14.5 3 Z M 14.5 10 H 19.5 A 1.5 1.5 0 0 1 21 11.5 V 19.5 A 1.5 1.5 0 0 1 19.5 21 H 14.5 A 1.5 1.5 0 0 1 13 19.5 V 11.5 A 1.5 1.5 0 0 1 14.5 10 Z M 4.5 13 H 9.5 A 1.5 1.5 0 0 1 11 14.5 V 19.5 A 1.5 1.5 0 0 1 9.5 21 H 4.5 A 1.5 1.5 0 0 1 3 19.5 V 14.5 A 1.5 1.5 0 0 1 4.5 13 Z</Geometry>
+    <Geometry x:Key="Icone.pasta">M 3 7 a 2 2 0 0 1 2 -2 h 4 l 2 2 h 8 a 2 2 0 0 1 2 2 v 9 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 z</Geometry>
+    <Geometry x:Key="Icone.pessoa">M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0</Geometry>
+    <Geometry x:Key="Icone.pizza">M 12 3 a 9 9 0 1 0 9 9 h -9 z M 14 3.2 A 9 9 0 0 1 20.8 10 H 14 z</Geometry>
+    <Geometry x:Key="Icone.prancheta">M 7 4 H 17 A 2 2 0 0 1 19 6 V 19 A 2 2 0 0 1 17 21 H 7 A 2 2 0 0 1 5 19 V 6 A 2 2 0 0 1 7 4 Z M 9 4 V 2 h 6 v 2 M 9 11 h 6 M 9 15 h 4</Geometry>
+    <Geometry x:Key="Icone.recibo">M 6 3 h 12 v 18 l -3 -2 -3 2 -3 -2 -3 2 z M 9 8 h 6 M 9 12 h 6</Geometry>
+    <Geometry x:Key="Icone.repasse">M 4 12 h 12 M 12 8 l 4 4 -4 4 M 20 6 v 12</Geometry>
+    <Geometry x:Key="Icone.rx">M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9</Geometry>
+    <Geometry x:Key="Icone.semana">M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 9 10 v 11 M 15 10 v 11</Geometry>
+    <Geometry x:Key="Icone.sol">M 8 12 A 4 4 0 1 0 16 12 A 4 4 0 1 0 8 12 Z M 12 2 v 2 M 12 20 v 2 M 2 12 h 2 M 20 12 h 2 M 5 5 l 1.5 1.5 M 17.5 17.5 19 19 M 5 19 l 1.5 -1.5 M 17.5 6.5 19 5</Geometry>
+    <Geometry x:Key="Icone.volta">M 4 12 a 8 8 0 1 0 3 -6.2 M 4 4 v 5 h 5</Geometry>
+
+</ResourceDictionary>

@@ -119,8 +119,19 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// <summary>Texto exibido na sidebar.</summary>
     public required string Rotulo { get; init; }
 
-    /// <summary>Glifo Segoe Fluent/MDL2.</summary>
+    /// <summary>
+    /// Glifo Segoe Fluent/MDL2. Desde set/2026 é o CAMINHO DE BAIXO: a sidebar desenha
+    /// <see cref="Icone"/> quando ele existe, e só cai no glifo quando não existe — é o
+    /// que mantém um item novo, publicado sem ícone, visível em vez de sem desenho.
+    /// </summary>
     public required string Glifo { get; init; }
+
+    /// <summary>
+    /// Nome do ícone de TRAÇO no dicionário <c>Styles/Componentes/Icones.xaml</c>
+    /// ("prancheta", "ficha", "rx"…) — os desenhos do mockup que a direção aprovou
+    /// (set/2026: "queremos os ícones"). Nulo = usa o <see cref="Glifo"/>.
+    /// </summary>
+    public string? Icone { get; init; }
 
     /// <summary>
     /// Seção temática onde o item aparece. Declarada pelo módulo, porque só ele sabe a

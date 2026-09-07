@@ -80,7 +80,7 @@ public sealed class ModuloGerente : IModuloApp
         // resolveu (o Gerente abria no painel da RECEPÇÃO) e não pode regredir.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPainel, Rotulo = "Painel", Glifo = "\uF246",
+            Chave = ChaveGrupoPainel, Rotulo = "Painel", Glifo = "\uF246", Icone = "painel",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores, Inicial = true,
             Abas =
             [
@@ -101,7 +101,7 @@ public sealed class ModuloGerente : IModuloApp
         // itens que se queria economizar.
         new ItemMenuModulo
         {
-            Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
+            Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7", Icone = "recibo",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
         },
         // Duas tabelas, um item (set/2026): a por CONVÊNIO (deste módulo) e a do PARTICULAR
@@ -109,7 +109,7 @@ public sealed class ModuloGerente : IModuloApp
         // É a mesma pergunta, "quanto vale a sessão?", para dois pagadores.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoPrecos, Rotulo = "Tabela de pre\u00E7o", Glifo = "\uE8EF",
+            Chave = ChaveGrupoPrecos, Rotulo = "Tabela de pre\u00E7o", Glifo = "\uE8EF", Icone = "etiqueta",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,
             Abas =
             [
@@ -125,7 +125,7 @@ public sealed class ModuloGerente : IModuloApp
         // produtividade, recortado por profissional.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoRelatorios, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
+            Chave = ChaveGrupoRelatorios, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2", Icone = "grafico",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores,
             Abas =
             [
@@ -138,7 +138,7 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoRentabilidade, Rotulo = "Rentabilidade e custos", Glifo = "\uE9F3",
+            Chave = ChaveGrupoRentabilidade, Rotulo = "Rentabilidade e custos", Glifo = "\uE9F3", Icone = "pizza",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro,
             Abas =
             [
@@ -152,7 +152,7 @@ public sealed class ModuloGerente : IModuloApp
         // pergunta que decide onde vale gastar o dinheiro de trazer gente.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoMarketing, Rotulo = "Marketing / Recall", Glifo = "\uE715",
+            Chave = ChaveGrupoMarketing, Rotulo = "Marketing / Recall", Glifo = "\uE715", Icone = "mega",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas,
             Abas =
             [
@@ -172,7 +172,7 @@ public sealed class ModuloGerente : IModuloApp
         // grupo exige o menor dos dois, e as abas que a pessoa não pode ver não aparecem.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE72E",
+            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE72E", Icone = "escudo",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria,
             Abas =
             [
@@ -183,7 +183,7 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713",
+            Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713", Icone = "engr",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         },
 
@@ -192,7 +192,7 @@ public sealed class ModuloGerente : IModuloApp
         // usuários — a direção pode delegar a importação sem entregar os acessos.
         new ItemMenuModulo
         {
-            Chave = ChaveImportacao, Rotulo = "Importar pacientes", Glifo = "\uE8B5",
+            Chave = ChaveImportacao, Rotulo = "Importar pacientes", Glifo = "\uE8B5", Icone = "importar",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.EditarPaciente
         },
 
@@ -201,17 +201,17 @@ public sealed class ModuloGerente : IModuloApp
         // chave. Sem `Oculto`: quem as esconde é o item pai, e só onde ele existe.
         new ItemMenuModulo
         {
-            Chave = ChavePainel, Rotulo = "Painel da dire\u00E7\u00E3o", Glifo = "\uF246",
+            Chave = ChavePainel, Rotulo = "Painel da dire\u00E7\u00E3o", Glifo = "\uF246", Icone = "painel",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores
         },
         new ItemMenuModulo
         {
-            Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
+            Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2", Icone = "grafico",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
         new ItemMenuModulo
         {
-            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o por conv\u00EAnio", Glifo = "\uE8EF",
+            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o por conv\u00EAnio", Glifo = "\uE8EF", Icone = "etiqueta",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         // A tela do shell, declarada também aqui e OCULTA: o composto acima a reivindica,
@@ -219,52 +219,52 @@ public sealed class ModuloGerente : IModuloApp
         // Gerente Geral a dedupe por chave mantém uma só.
         new ItemMenuModulo
         {
-            Chave = ChavesSuite.PrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF",
+            Chave = ChavesSuite.PrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF", Icone = "etiqueta",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Oculto = true
         },
         new ItemMenuModulo
         {
-            Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1",
+            Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1", Icone = "alvo",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
         new ItemMenuModulo
         {
-            Chave = ChaveRentabilidade, Rotulo = "Rentabilidade por conv\u00EAnio", Glifo = "\uE9F3",
+            Chave = ChaveRentabilidade, Rotulo = "Rentabilidade por conv\u00EAnio", Glifo = "\uE9F3", Icone = "pizza",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
-            Chave = ChaveCusto, Rotulo = "Custo de taxas e impostos", Glifo = "\uE9F9",
+            Chave = ChaveCusto, Rotulo = "Custo de taxas e impostos", Glifo = "\uE9F9", Icone = "pizza",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
-            Chave = ChaveCampanhas, Rotulo = "Campanhas", Glifo = "\uE715",
+            Chave = ChaveCampanhas, Rotulo = "Campanhas", Glifo = "\uE715", Icone = "mega",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
         new ItemMenuModulo
         {
-            Chave = ChaveRetencao, Rotulo = "Quem parou de vir", Glifo = "\uE8AF",
+            Chave = ChaveRetencao, Rotulo = "Quem parou de vir", Glifo = "\uE8AF", Icone = "volta",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
         new ItemMenuModulo
         {
-            Chave = ChaveOrigens, Rotulo = "De onde v\u00EAm os pacientes", Glifo = "\uE8AF",
+            Chave = ChaveOrigens, Rotulo = "De onde v\u00EAm os pacientes", Glifo = "\uE8AF", Icone = "mega",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
         new ItemMenuModulo
         {
-            Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C",
+            Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C", Icone = "escudo",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
         },
         new ItemMenuModulo
         {
-            Chave = ChaveGuarda, Rotulo = "Guarda do prontu\u00E1rio", Glifo = "\uE7B8",
+            Chave = ChaveGuarda, Rotulo = "Guarda do prontu\u00E1rio", Glifo = "\uE7B8", Icone = "estoque",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
         },
         new ItemMenuModulo
         {
-            Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
+            Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E", Icone = "escudo",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         },
 
@@ -272,7 +272,7 @@ public sealed class ModuloGerente : IModuloApp
         // "sempre visível"): fechar o manual por permissão trancaria quem mais precisa.
         new ItemMenuModulo
         {
-            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897",
+            Chave = ChaveAjuda, Rotulo = "Ajuda e suporte", Glifo = "\uE897", Icone = "ajuda",
             Grupo = GrupoSidebar.Gestao
         }
     ];

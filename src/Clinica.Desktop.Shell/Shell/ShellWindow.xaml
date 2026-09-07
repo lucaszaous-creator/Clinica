@@ -82,12 +82,31 @@
                                         Margin="0,8" Visibility="Collapsed" />
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
                                             Margin="12,0">
-                                    <TextBlock x:Name="icone" Text="{Binding Glifo}"
-                                               FontFamily="{StaticResource FonteIcones}"
-                                               FontSize="{StaticResource Fonte.Corpo}" Width="22"
-                                               Foreground="{StaticResource Brush.Sidebar.Texto}"
-                                               VerticalAlignment="Center"
-                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <!-- O ícone é o DESENHO do mockup (Icones.xaml), a pedido da
+                                         direção; o glifo da fonte é o caminho de baixo para item
+                                         publicado sem `Icone`. Viewbox + Canvas de 24 reproduzem o
+                                         SVG tal e qual: o traço escala junto com o desenho. -->
+                                    <Grid Width="22" VerticalAlignment="Center">
+                                        <TextBlock x:Name="icone" Text="{Binding Glifo}"
+                                                   FontFamily="{StaticResource FonteIcones}"
+                                                   FontSize="{StaticResource Fonte.Corpo}"
+                                                   Foreground="{StaticResource Brush.Sidebar.Texto}"
+                                                   VerticalAlignment="Center" Visibility="Collapsed"
+                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                        <Viewbox x:Name="desenho" Width="{StaticResource Icone.Tamanho}"
+                                                 Height="{StaticResource Icone.Tamanho}"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <Canvas Width="{StaticResource Icone.Caixa}"
+                                                    Height="{StaticResource Icone.Caixa}">
+                                                <Path x:Name="traco"
+                                                      Data="{Binding Icone, Converter={StaticResource IconePorNome}}"
+                                                      Stroke="{StaticResource Brush.Sidebar.Texto}"
+                                                      StrokeThickness="{StaticResource Icone.Traco}"
+                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round" Fill="{x:Null}" />
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Grid>
                                     <TextBlock x:Name="rotulo" Text="{Binding Rotulo}"
                                                Margin="8,0,0,0"
                                                FontSize="{StaticResource Fonte.Corpo}"
@@ -112,9 +131,16 @@
                                 <Setter TargetName="barra" Property="Visibility" Value="Visible" />
                                 <Setter TargetName="icone" Property="Foreground"
                                         Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                                <Setter TargetName="traco" Property="Stroke"
+                                        Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
                                 <Setter TargetName="rotulo" Property="Foreground"
                                         Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
                                 <Setter TargetName="rotulo" Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
+                            <!-- Item sem `Icone`: o glifo da fonte volta. -->
+                            <DataTrigger Binding="{Binding Icone}" Value="{x:Null}">
+                                <Setter TargetName="desenho" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="icone" Property="Visibility" Value="Visible" />
                             </DataTrigger>
                             <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
                                           RelativeSource={RelativeSource AncestorType=Window}}"

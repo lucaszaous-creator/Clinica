@@ -7821,14 +7821,27 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   junto com `ConsultorioExames`) — chave literal nos dois módulos seria a duplicata da
   checagem 45 de novo. O composto "Pacientes" do Consultório sobrou com UMA aba, e o shell
   mostra a tela direto.
-  ⚠️ **Glifo único por item VISÍVEL**, cobrado de novo: "Pacotes" estava com glifo VAZIO
-  (`""`) desde que subiu ao shell, "Minha agenda" repetia o da Agenda do balcão,
-  "Conformidade" repetia o da Auditoria e "Repasses" usava o de Copiar. A cliente elogiou
-  os ícones DO MOCKUP — que são traço monocromático, a mesma família visual do Segoe
-  Fluent —, e a resposta certa não foi trazer SVG para o WPF: foi dar a cada item o glifo
-  da fonte do design system que diz o que ele é. Iconografia é Segoe Fluent (regra 3 do
-  design system), e um SVG por item seria a segunda definição de ícone que diverge na
-  primeira correção.
+  ⚠️ **OS ÍCONES SÃO OS DO MOCKUP, e a palavra do cliente venceu a regra do design
+  system.** A primeira versão trocou os desenhos do mockup por glifos da Segoe Fluent
+  (regra 3 do design system: "iconografia é Segoe Fluent"), com o argumento de que SVG
+  por item seria uma segunda definição de ícone. A direção respondeu na hora: *"os
+  ícones não ficaram iguais e isso é um problema, pois queremos os ícones!"* — e
+  **mockup aprovado inclui os ícones que ele mostra**: trocá-los por "equivalentes" é
+  entregar outra coisa com o mesmo nome. Os 34 desenhos moram em
+  `Styles/Componentes/Icones.xaml` (geometria de traço, 24 unidades, mostrada a 18 px),
+  gerados DO MESMO texto do mockup (retângulo e círculo viraram arcos; o `d` do SVG o
+  WPF lê tal e qual, depois de um tokenizador que separa os argumentos — as flags de
+  arco coladas ao número seguinte, `1-12`, são o caso que o parser do WPF não devolve
+  igual ao do navegador). `ItemMenuModulo.Icone` é o nome; o conversor `IconePorNome`
+  acha a geometria; o `Glifo` continua como caminho de baixo para item sem ícone.
+  ⚠️ **É a única exceção à regra 3, e ela é DECLARADA no dicionário** — o CardKpi, o
+  placar da agenda e os botões de ícone continuam na fonte. O dicionário e o conversor
+  foram portados ao design system do faturamento no mesmo commit (regra 4), sem mexer na
+  sidebar de lá. E `Application` num arquivo de conversor resolve para o namespace
+  `Clinica.Application`, não para a classe do WPF — pego pelo `compilar-sombra`.
+  De quebra, os glifos de baixo ficaram únicos por item: "Pacotes" estava com glifo
+  VAZIO (`""`) desde que subiu ao shell, "Minha agenda" repetia o da Agenda do balcão,
+  "Conformidade" repetia o da Auditoria e "Repasses" usava o de Copiar.
   **A sidebar do FATURAMENTO não recebeu o acordeão, e é decisão**: ela tem poucos itens,
   não rola, e o app está em produção. O desenho do ITEM (ícone, rótulo, barra de 3 px)
   continua idêntico nos dois — é ele que faz os dois apps parecerem o mesmo produto.
