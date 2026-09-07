@@ -425,11 +425,15 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             SituacaoSessao = $"Horário de {_horario.DataHora:HH\\:mm} — o paciente ainda não "
                              + "entrou na sala";
         else
-            // Só sobra Cancelado/Faltou: dizer "encerrado no balcão" descreveria o
-            // desfecho errado para um horário que não aconteceu.
-            SituacaoSessao = _horario.Status == StatusAgendamento.Faltou
-                ? "Horário marcado como falta"
-                : "Horário cancelado";
+            // Só sobra Cancelado/Faltou/Substituído: dizer "encerrado no balcão" descreveria
+            // o desfecho errado para um horário que não aconteceu — ou que aconteceu noutro
+            // lançamento.
+            SituacaoSessao = _horario.Status switch
+            {
+                StatusAgendamento.Faltou => "Horário marcado como falta",
+                StatusAgendamento.Substituido => "Horário substituído por uma sessão lançada por fora",
+                _ => "Horário cancelado"
+            };
 
         if (EmAtendimento && _naTela) _relogio.Start(); else _relogio.Stop();
     }

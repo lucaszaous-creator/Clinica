@@ -118,7 +118,12 @@ public sealed record LinhaPrevia(
     string Especialidade, bool EhSegundo, string Nota);
 
 /// <summary>Um alerta de elegibilidade na tela, com a urgência para a cor do traço.</summary>
-public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho);
+/// <summary>
+/// Um alerta de elegibilidade na coluna "antes de lançar". <paramref name="PodeReceber"/>
+/// acende o botão "Receber…" na linha da DÍVIDA (set/2026): alerta sem porta no mesmo app
+/// é pior que alerta nenhum (parcela 48), e a única porta para receber ficava no Financeiro.
+/// </summary>
+public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho, bool PodeReceber = false);
 
 /// <summary>
 /// Lança um atendimento AVULSO — o paciente que não estava na agenda. O motor de regras
@@ -182,6 +187,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [NotifyPropertyChangedFor(nameof(TemPrevia))]
     [NotifyPropertyChangedFor(nameof(MostrarPrevia))]
     private string _resumoPrevia = string.Empty;
+
+    /// <summary>
+    /// O PREÇO DO PARTICULAR na prévia (set/2026). A tabela do particular é chaveada por
+    /// modalidade + especialidade e já era proposta no Finalizar e na Conciliação; a prévia
+    /// do Novo atendimento — onde a recepcionista escolhe a modalidade com o paciente na
+    /// frente — não a mostrava. Mesmo serviço dos outros dois leitores: dois leitores com
+    /// duas regras proporiam dois números para a mesma sessão. Vazio para quem tem convênio
+    /// (o dinheiro dele vem pela guia) e para o particular sem preço cadastrado — sem preço
+    /// não se inventa valor.
+    /// </summary>
+    [ObservableProperty] private string _valorPrevisto = string.Empty;
 
     public bool TemPrevia => Previa.Count > 0 && !Lancado;
 
@@ -1245,7 +1261,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             AlertasElegibilidade.Clear();
             foreach (var a in resultado.Alertas.Where(a => !JaDitosPelaTela.Contains(a.Motivo)))
                 AlertasElegibilidade.Add(new LinhaAlertaElegibilidade(
-                    a.Descricao, a.Urgencia == NivelUrgencia.Vermelho));
+                    a.Descricao, a.Urgencia == NivelUrgencia.Vermelho,
+                    PodeReceber: a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito));
         }
         catch (Exception ex)
         {
@@ -1261,6 +1278,38 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 OnPropertyChanged(nameof(TemAlertasElegibilidade));
         }
     }
+
+    /// <summary>
+    /// A PORTA do alerta de dívida (set/2026): abre a janela de cobrança do shell — a
+    /// MESMA da ficha do paciente — e, se algo foi recebido, relê a elegibilidade para o
+    /// alerta sumir na hora. Duas barreiras: <c>PodeReceberDivida</c> acende o botão,
+    /// <c>ExigirAlgum</c> impede.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReceberDividaAsync()
+    {
+        if (PacienteSelecionado is not { } paciente) return;
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(CobrancaDoPacienteViewModel.QuemRecebe, "receber no balcão");
+
+            using var scope = _scopeFactory.CreateScope();
+            var vm = new CobrancaDoPacienteViewModel(
+                _scopeFactory, scope.ServiceProvider.GetRequiredService<IDialogoService>(),
+                paciente.Id, paciente.Nome, paciente.Telefone);
+            new CobrancaDoPacienteWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+
+            if (vm.Mudou) await VerificarElegibilidadeAsync(paciente.Id);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — cobrança no balcão não pôde abrir", ex);
+            Avisar(ex.Message, erro: true);
+        }
+    }
+
+    /// <summary>Metade visível da permissão de receber; a outra é o <c>ExigirAlgum</c> do comando.</summary>
+    public bool PodeReceberDivida => SessaoUsuario.Atual.PodeAlgum(CobrancaDoPacienteViewModel.QuemRecebe);
 
     /// <summary>Descarte de resposta fora de ordem da capa — a data muda por clique de DatePicker.</summary>
     private int _geracaoJaLancado;
@@ -1520,9 +1569,24 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             var porModalidade = await atendimentos.PreverModalidadesAsync(
                 pacienteId, data, codigosDosCartoes);
 
+            // O particular não tem guia: o que a prévia dele mostra é o PREÇO da tabela.
+            // Sequencial, nunca WhenAll — é o mesmo DbContext do escopo (parcela 74).
+            var valor = string.Empty;
+            if (!paciente.ConvenioADefinir
+                && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()))
+            {
+                var preco = await scope.ServiceProvider.GetRequiredService<PrecoParticularService>().ProporAsync(
+                    codigoModalidade, Modalidade,
+                    ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null, data);
+                valor = preco.Houve
+                    ? $"Particular — {preco.Valor:C} ({preco.Procedencia})"
+                    : "Particular — sem preço cadastrado para esta modalidade (Gerente → Tabela de preço → Particular).";
+            }
+
             // Chegou tarde: alguém pediu outra prévia enquanto o banco respondia esta.
             if (geracao != _geracaoPrevia) return;
 
+            ValorPrevisto = valor;
             PublicarPrevia(previa);
             AplicarNosCartoes(porModalidade);
         }
@@ -1532,6 +1596,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             LogSuite.Registrar("Novo atendimento — prévia das guias não pôde ser calculada", ex);
             Previa.Clear();
+            ValorPrevisto = string.Empty;
             ResumoCurtoPrevia = string.Empty;
             ResumoPrevia = "Não foi possível calcular a prévia das guias — o lançamento continua liberado.";
             _totalGuiasPrevia = null;
@@ -1554,6 +1619,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     private void LimparPrevia()
     {
         Previa.Clear();
+        ValorPrevisto = string.Empty;
         ResumoPrevia = string.Empty;
         ResumoCurtoPrevia = string.Empty;
         _totalGuiasPrevia = null;

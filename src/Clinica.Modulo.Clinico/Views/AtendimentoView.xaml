@@ -4,6 +4,7 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              xmlns:views="clr-namespace:Clinica.Clinico.Views"
+             xmlns:vm="clr-namespace:Clinica.Clinico.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -389,6 +390,59 @@
                                 </Border>
                             </Grid>
                         </Button>
+
+                        <!-- ===== O QUE ESTA CLÍNICA ANOTA (set/2026) =====
+                             Os campos personalizados. A região inteira SOME quando a
+                             clínica não cadastrou nenhum — que é o caso padrão —, em vez
+                             de deixar um rótulo em branco no meio da folha. -->
+                        <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding CamposPersonalizados}"
+                                      Margin="0,14,0,0"
+                                      Visibility="{Binding TemCamposPersonalizados,
+                                                   Converter={StaticResource BoolParaVisibilidade}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- Dobra para a linha de baixo: são até 12 campos, e
+                                         numa linha só eles sairiam pela direita. -->
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:CampoDaSessao}">
+                                    <StackPanel Width="230" Margin="0,0,14,10">
+                                        <TextBlock Text="{Binding Rotulo}" Style="{StaticResource Rotulo}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding Ajuda}" />
+
+                                        <TextBox Text="{Binding Resposta, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="500"
+                                                 ctrl:Ajudantes.Placeholder="{Binding Dica}"
+                                                 Visibility="{Binding EhCaixaDeTexto,
+                                                              Converter={StaticResource BoolParaVisibilidade}}" />
+
+                                        <ComboBox ItemsSource="{Binding Opcoes}"
+                                                  SelectedItem="{Binding Resposta}"
+                                                  IsEditable="False"
+                                                  Visibility="{Binding EhLista,
+                                                               Converter={StaticResource BoolParaVisibilidade}}" />
+
+                                        <ComboBox SelectedValue="{Binding Resposta}"
+                                                  SelectedValuePath="Content"
+                                                  Visibility="{Binding EhSimNao,
+                                                               Converter={StaticResource BoolParaVisibilidade}}">
+                                            <ComboBoxItem Content="Sim" />
+                                            <ComboBoxItem Content="Não" />
+                                        </ComboBox>
+
+                                        <TextBlock Text="{Binding Ajuda}" TextWrapping="Wrap"
+                                                   Style="{StaticResource TextoSuave}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Margin="0,3,0,0"
+                                                   Visibility="{Binding TemAjuda,
+                                                                Converter={StaticResource BoolParaVisibilidade}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
                         <!-- ===== A FOLHA ===== -->
                         <DockPanel>

@@ -20,8 +20,21 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 # Um teste específico
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~RegrasFaturamentoTests"
 
+# A MESMA suíte contra um Postgres de verdade (o que o CI faz no job `testes-postgres`).
+# Localmente: apt-get install postgresql-16, `service postgresql start`, senha no usuário
+# postgres, e a variável abaixo — as migrations são aplicadas UMA vez num banco-modelo e
+# cada teste ganha uma cópia dele (tests/Clinica.Tests/BancoDosTestes.cs). ~10 min.
+CLINICA_TESTES_POSTGRES="Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres" \
+  dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
+
 # Rodar o app (apenas Windows — WPF)
 dotnet run --project src/Clinica.Desktop
+
+# A WEB DE LEITURA (set/2026) — roda em Linux, e é a única parte da suíte que roda aqui.
+# Somente leitura: o dia, o mês e a ficha. Ver docs/web-de-leitura.md, inclusive a decisão
+# de ONDE ela pode ser publicada (que não é "na internet").
+ConnectionStrings__Clinica="Host=...;Database=...;Username=...;Password=..." \
+  dotnet run --project src/Clinica.Web
 
 # Verificação estática da suíte multi-exe (roda em qualquer sistema) — RODE ANTES DE TODO PUSH
 python3 tools/verificar-suite.py
@@ -48,9 +61,11 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 
 | ferramenta | cobre | não cobre |
 |---|---|---|
-| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 988 testes | nada das telas |
+| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 2310 testes | nada das telas; e o SQLite não vê tamanho de coluna, `Kind` de data, `xmin` nem migration |
+| `dotnet test` com `CLINICA_TESTES_POSTGRES` | a mesma suíte no Postgres: migrations aplicadas de verdade, tetos de coluna, datas com fuso, tipos de parâmetro | nada das telas |
 | `tools/compilar-sombra.py` | **o C# dos 10 projetos WPF, faturamento incluído** (nome, tipo, aridade, atributo) | XAML |
 | `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução, **migration destrutiva** | semântica de C# |
+| `dotnet build src/Clinica.Web` | a WEB de leitura (set/2026), que é `net8.0` puro e roda em Linux | nada das telas WPF |
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
 da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
@@ -128,7 +143,10 @@ Nenhum deles quebra o build quando é esquecido:
    tela precisa carregá-lo e devolvê-lo intacto, senão ela o apaga;
 7. **o PDF, a exportação, o art. 18 II e a guarda** (ponto 8 do compromisso de conformidade);
 8. **a busca do prontuário** e o `CatalogoRegistroClinico`;
-9. **os TRÊS leitores que só MOSTRAM a sessão** — o `ModeloEvolucao` (parcela 76), o
+9. **os CAMPOS PERSONALIZADOS** (set/2026) — o `GuardarVersao` os guarda como TEXTO, e
+   eles são a variante mais fácil de esquecer do lugar 4: não aparecem na entidade como
+   propriedade, então nada quebra quando ficam de fora;
+10. **os TRÊS leitores que só MOSTRAM a sessão** — o `ModeloEvolucao` (parcela 76), o
    painel da sessão anterior (`ResumoSessaoAnterior`, parcela 77) e a janela que ABRE a
    sessão (`SessaoDoProntuario`, set/2026). Os três já ficaram para trás uma vez cada, e
    pelo mesmo motivo: esquecer um não quebra build, não quebra teste e não acusa em rede
@@ -212,6 +230,14 @@ python3 tools/compilar-sombra.py
 python3 tools/verificar-suite.py
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 ```
+
+⚠️ **`dotnet build` INCREMENTAL esconde warning de arquivo que ele não recompilou.** Ao
+mudar a assinatura de um método público (set/2026: o retorno de `AnexoPacienteService.
+Montar` virou anulável), o chamador que ficou intacto não é recompilado — e o build
+responde "0 Warnings" sobre um `CS8604` que existe. `--no-incremental` é o que mostra a
+verdade, e é o que o CI faz por partir de zero. É a mesma família do "a suíte ficou verde
+contra uma árvore diferente do commit" (parcela 74): **a resposta verde vale pelo que foi
+MEDIDO, não pelo que foi perguntado.**
 
 ⚠️ **Rode a suíte contra a árvore que VAI SER COMMITADA.** Em 23/08 ela ficou verde porque um
 arquivo estava no COMMIT e tinha sido apagado do DISCO — e era justamente o que reprovava.
@@ -373,6 +399,52 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca
   adicione campos de dinheiro/pagamento.
+- **A SUÍTE PASSOU A RODAR CONTRA UM POSTGRES DE VERDADE — e a primeira rodada achou TRÊS
+  defeitos de produção com 2310 testes verdes** (set/2026, item 1 da lista "o que falta
+  para ficar profissional"). Os testes rodam em SQLite, e "só o Postgres pega" já tinha
+  custado à clínica o `xmin`, as seis datas com fuso da parcela 52 e o 22001 do "Imprimir
+  esta sessão" — cada um com uma rede própria escrita DEPOIS do estrago. A rede genérica
+  é o job `testes-postgres` do `verificar.yml`: um Postgres 16 em container, a variável
+  `CLINICA_TESTES_POSTGRES`, e a MESMA suíte.
+  ⚠️ **O interruptor tem o MESMO nome do método do EF de propósito.** Os 147 arquivos de
+  teste montam o banco com `UseSqlite(conn)` + `EnsureCreated()`, sem fixture comum; um
+  helper `BancoDeTeste.Abrir()` seria contrato que depende de alguém lembrar, e o teste
+  escrito daqui a seis meses com o padrão de sempre ficaria fora da rede sem ninguém
+  notar. `BancoDosTestes.UseSqlite` mora no namespace `Clinica.Tests`, e o C# procura
+  extensão do namespace mais interno para fora — a do EF só entra se esta não servir. Com
+  a variável, ela aplica as migrations UMA vez num banco-modelo (é isso que prova a
+  migration escrita à mão, que o SQLite nunca executa) e dá a cada teste uma cópia
+  (`CREATE DATABASE … TEMPLATE`), apagada quando a `SqliteConnection` do fixture é
+  descartada. **A mesma conexão é o mesmo banco**: os testes de "escopo separado como em
+  produção" abrem um segundo contexto sobre a conexão do fixture, e sem a tabela de
+  conexão→banco cada chamada criaria um banco novo e o segundo contexto leria o vazio.
+  Os três defeitos, e o que cada um ensina:
+  (a) **O texto aprovado do TCLE do BSV (parcela 84) tem mais de 4.000 caracteres e
+  `ModelosDocumento.Corpo` era varchar(4000)** — o botão "Criar os termos do BSV" levaria
+  um 22001 na clínica. `DocumentosClinicos.Corpo` foi junto porque é a CÓPIA (a lição da
+  `FichaDaSessaoCabeNaColuna`, duas migrations antes, cobrada de novo). O teste que fixa
+  lê os tetos do MODELO e mede os textos da `ModelosTermoBsv` contra a origem E o destino.
+  (b) **A restauração de backup NUNCA tinha rodado num Postgres.** Dois motivos, ambos
+  invisíveis no SQLite: as migrations SEMEIAM convênios, modalidades e especialidades,
+  então "base vazia" nunca foi verdade numa instalação real e a restauração recusava toda
+  base recém-instalada ("Convenios tem 4 registro(s)"); e o backup grava tudo como texto
+  e mandava o texto cru de volta — o Postgres não converte parâmetro `text` para coluna
+  `integer` sozinho ("42804"). Agora os catálogos semeados não contam como dado da
+  clínica (`BackupService.TabelasSemeadasPelaInstalacao`) e são esvaziados antes da
+  restauração, e cada valor volta TIPADO pelo modelo do EF (`Retipar`, o inverso exato
+  do `Converter`). **Teste de restauração que nunca restaurou no banco de produção é o
+  "backup que ninguém sabe restaurar" com um teste verde ao lado.**
+  (c) **A tradução de erro do banco tem frase própria no Postgres e não tem no SQLite.**
+  O teste da mensagem de gravação provocava uma chave estrangeira quebrada e afirmava
+  "O banco respondeu" — no Postgres o 23503 vira `VinculoQuebrado`, que é o certo. O
+  teste passou a afirmar os dois desfechos, um por banco, em vez de escolher um.
+  ⚠️ **Teste que usa a `SqliteConnection` do fixture para SQL cru lê OUTRO banco** quando a
+  suíte roda no Postgres: a conexão do fixture é só o gancho, e o contexto aponta para o
+  banco copiado. SQL cru sai por `_db.Database.GetDbConnection()`, com identificadores
+  entre aspas — o Postgres dobra `DocumentosClinicos` sem aspas para minúsculas.
+  ⚠️ **Não é substituto do SQLite**: 3 min contra 10, e é por isso que o job roda em
+  PARALELO e não em série. Quando os dois discordam, o Postgres é quem diz a verdade da
+  clínica — e a pergunta certa é "qual dos dois está medindo o banco de produção".
 - **A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz** (parcela 93). A
   clínica não trabalha o check-in pela agenda: a recepcionista vai direto ao Novo
   atendimento. A parcela 91 fez o lançamento reconhecer o **horário do dia** e nascer
@@ -389,13 +461,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   fora** — e aqui lançar criaria um SEGUNDO jogo de guias para a mesma sessão. Por isso a
   linha carrega `HorarioParado.TemSessaoNoDia` e o botão de lançar fica **apagado**, com a
   frase ao lado (botão cinza sem explicação vira "o sistema travou", parcela 41).
-  **Encerrar esse horário pede um `StatusAgendamento` NOVO** e é por isso que ficou de fora:
-  `Cancelado` é contado por `IndicadoresService` e `RelacionamentoService` (uma sessão que
-  ACONTECEU inflaria o indicador de cancelamento) e `Faltou` culparia o paciente. O enum é
-  gravado como TEXTO, então acrescentar é seguro para as linhas salvas — o custo são os
-  **107 usos em 23 arquivos**, e principalmente as comparações NEGATIVAS
-  (`is not (Cancelado or Faltou)`), onde um valor novo cai do lado "ativo" sem ninguém
-  perceber. É parcela própria.
+  **Encerrar esse horário pediu um `StatusAgendamento` NOVO, e ele existe desde set/2026:
+  `Substituido`** (item 2 da lista "o que falta para ficar profissional"). `Cancelado` é
+  contado por `IndicadoresService` e `RelacionamentoService` (uma sessão que ACONTECEU
+  inflaria o indicador de cancelamento), `Faltou` culparia o paciente, e `Realizado`
+  dobraria a ocupação e o repasse (o atendimento já está pendurado no encaixe). Quem
+  aponta para a sessão é `AtendimentoSubstitutoId` (coluna aditiva), NUNCA `AtendimentoId`:
+  o backfill de `RealizadoEm` só carimba atendimento cujos horários estão todos em
+  Realizado, e um segundo horário apontando por aquela coluna o deixaria de fora para
+  sempre. `AgendaService.SubstituirPorSessaoAsync` recusa sessão de outro paciente, de
+  outro dia, estornada e horário que não está em aberto; suspende as guias PRÓPRIAS do
+  horário (chave "guia no agendamento") pelo mesmo caminho da falta; e o Remarcar reabre
+  e solta o vínculo.
+  ⚠️ **As comparações NEGATIVAS foram o custo, e a saída foi trocá-las pela lista
+  POSITIVA.** Eram 120 usos em 28 arquivos; os `is not (Cancelado or Faltou)` viraram
+  `OcupaAgenda` (agendado ou realizado) em memória e `Status == Agendado || Status ==
+  Realizado` nas consultas traduzidas (o EF não traduz a derivada). `StatusDaFila.ForaDaFila`
+  e `SessaoDoDia.ForaDoDia` passaram a ser a NEGAÇÃO dessa lista: o próximo status cai do
+  lado de "não ocupa" sem ninguém lembrar. Os que ficaram por extenso são os dois que
+  excluem SÓ o cancelado de propósito (a lista da Enfermagem e a entrega do paciente ao
+  posto, que mantêm a falta) — ali o substituído entrou nomeado.
+  ⚠️ **Valor novo de enum é o que o binário ANTERIOR não lê** (parcela 67): um app velho
+  lendo um dia com um horário `Substituido` perde a consulta inteira. O valor só é escrito
+  pela conciliação — tela da mesma versão — e a release dos cinco apps é conjunta; o que
+  isto pede é que a conciliação do backlog só comece DEPOIS de os cinco apps terem
+  atualizado, e está escrito no enum.
   ⚠️ **`WithMany()` no mapeamento de `Agendamento.Atendimento` NÃO é descuido, e trocar por
   `WithOne()` NÃO é de graça**: o EF exige índice ÚNICO para o dependente 1‑1, e migration
   roda na ABERTURA do app — índice único que falha na criação é o faturamento não abrindo.
@@ -3499,6 +3589,212 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   desdito não sustenta guia —, e há teste para as duas coisas. Três dos quatro testes
   REPROVAM no código anterior (o quarto é a guarda do que NÃO se amarra, e passa nos
   dois); foi verificado com o `git stash`, não presumido.
+
+- **O DINHEIRO DO BALCÃO: o alerta que não tinha porta, a receita órfã e o preço que não
+  chegava à decisão** (set/2026, item 3 da lista "o que falta para ficar profissional").
+  Três buracos da mesma família — motor pronto, porta no lugar errado —, e nenhum falhava:
+  build verde, 2321 testes verdes, três redes locais verdes.
+  ⚠️ **(a) O alerta de dívida não tinha porta no app que o mostra.** O
+  `ElegibilidadeService` avisa desde a parcela 27 que o paciente deve, e o argumento
+  escrito ao lado é que *"o momento em que ele está na recepção é o único em que cobrar não
+  custa nada — uma frase; depois custa telefonema, mensagem e constrangimento"*. A única
+  porta para RECEBER ficava no Financeiro — outro app, de outra pessoa. É a parcela 48
+  ("procure o AVISO que a tela dá e pergunte se a porta para resolvê-lo está no mesmo
+  app") cobrada de novo, no aviso que virou dinheiro. `CobrancaDoPacienteWindow` mora no
+  SHELL porque tem duas portas (Novo atendimento e ficha do paciente) e não grava dinheiro
+  por conta própria: passa pelo `InadimplenciaService.ReceberAsync`, que delega ao
+  `FinanceiroService` — quem grava dinheiro continua sendo um só, com a auditoria no mesmo
+  `SaveChanges`.
+  ⚠️ **A permissão é `EditarFinanceiro` OU `LancarAtendimento` OU `VenderPacote`
+  (`ExigirAlgum`), e não um bit novo** — é o argumento do preço do particular (set/2026):
+  receber a parcela vencida é a continuação do passo do CAIXA do Finalizar, que o balcão já
+  faz; e o enum tem UM bit sobrando antes de virar `long` numa coluna de produção.
+  ⚠️ **A FORMA de pagamento é escolhida na LINHA, nunca presumida.** Herdar a última usada
+  gravaria PIX no dinheiro que o paciente acabou de pôr no balcão — e a divergência só
+  apareceria no fechamento do caixa, quando ninguém mais lembra.
+  ⚠️ **(b) O lançamento manual do Caixa era a única porta de dinheiro SEM paciente.** A
+  receita entrava órfã: não ligava à sessão e a linha continuava na aba **Particulares** da
+  Conciliação, cobrando um pagamento que já estava na gaveta — a pendência que não some é a
+  que ensina a ignorar a lista (parcela 68). O campo é **só na ENTRADA** (numa saída, dono
+  e sessão seriam invenção) e o combo de sessão abre em **"(não é de uma sessão)"**: a
+  maioria dos recebimentos manuais é venda de produto ou acerto, e amarrar por padrão daria
+  baixa numa sessão que ninguém pagou, em silêncio. A **sessão de HOJE fica de fora** — ela
+  está sendo fechada agora pelo Finalizar, e oferecê-la daria dois caminhos para o mesmo
+  dinheiro no mesmo minuto.
+  ⚠️ **O seletor nasce com `SemBuscaInicial`**: com o campo vazio a busca não filtra nada e
+  despejaria o começo do alfabeto de 2.238 fichas numa janela que quase nunca precisa de
+  paciente.
+  ⚠️ **(c) O preço do particular não chegava à DECISÃO.** A tabela é lida no Finalizar e na
+  Conciliação desde set/2026 — os dois DEPOIS de a sessão acontecer — e a prévia do Novo
+  atendimento, que é onde a recepcionista escolhe a modalidade com o paciente na frente,
+  não a mostrava. É o MESMO `PrecoParticularService` dos outros dois leitores: dois
+  leitores com duas regras proporiam dois números para a mesma sessão. **Sem preço
+  cadastrado não se inventa valor** — a linha diz que falta cadastrar e aponta onde.
+  ⚠️ **A leitura do preço é SEQUENCIAL dentro do mesmo escopo da prévia**, nunca
+  `Task.WhenAll`: é o mesmo `DbContext`, e o SQLite dos testes esconde (parcela 74).
+  ⚠️ **O que os testes prendem é o CIRCUITO, não a tela** (`CobrancaNoBalcaoTests`):
+  receber pela porta do balcão APAGA o alerta, e amarrar o recebimento manual à sessão a
+  TIRA da lista de sessões sem receita. Elo partido aqui não vira erro — vira alerta que
+  nunca some e linha que nunca sai, indistinguível de "ainda não pagaram".
+
+- **AS TRÊS PEQUENAS DA AGENDA — a data que não reconferia, as férias invisíveis e os três
+  despejos do alfabeto** (set/2026, item 4 da lista). As três estavam na fila escrita da
+  parcela 69, e as três têm a assinatura de sempre: nada falha.
+  ⚠️ **(a) Trocar a DATA no formulário da agenda não reconferia a elegibilidade.**
+  `ConferirAsync` recebe a data e mede tudo contra ela — carteirinha, cota, consulta a
+  renovar, termo —, e só a troca de PACIENTE disparava a reconferência: escolher a pessoa
+  hoje e marcar para o mês que vem deixava na tela o resultado de HOJE. **Aviso
+  desatualizado é pior que aviso nenhum, porque ele AFIRMA** — uma carteirinha aparece
+  válida porque ninguém perguntou de novo. O Novo atendimento já reconferia desde a parcela
+  70; era a cópia do formulário que tinha ficado para trás.
+  ⚠️ **(b) As FÉRIAS eram invisíveis na visão de semana do balcão.** A coluna do dia não
+  tem dono, então `BloqueioDe(quando, null, null)` só enxergava o fechamento da CLÍNICA
+  inteira: o dia de férias de um profissional aparecia apenas com menos horários — e menos
+  horários se lê como "ninguém marcou". São **duas** metades, e uma sem a outra não
+  resolve: com o recorte "só a minha agenda" a coluna passou a ter DONO (e aí férias e
+  jornada dele pintam os vãos, como no modo dia), e na coluna de todos entrou a **linha do
+  cabeçalho** nomeando o que está fechado. Pintar os vãos da coluna de todos seria mentira
+  — os outros atendem —, e é por isso que a resposta ali é uma FRASE, não uma cor.
+  ⚠️ **A frase mora na Application** (`FechamentosDaAgenda.Descrever`), pela regra da
+  `GradeSemana` (parcela 69) e do `ResumoSessaoAnterior` (77): **o que decide o que a tela
+  AFIRMA precisa morar onde o `dotnet test` alcança**. Recurso repetido é dito UMA vez —
+  três bloqueios de tarde da mesma pessoa escreveriam o nome dela três vezes, e a linha
+  deixaria de se ler; e com dono só entra o que alcança ELE, senão o fechamento da sala 2
+  acenderia para quem atende noutra sala.
+  ⚠️ **(c) Os três formulários que despejavam o alfabeto ganharam `SemBuscaInicial`** —
+  agendamento da Recepção, lista de espera e o agendamento do FATURAMENTO. E o débito
+  escrito na parcela 88 era real: **o faturamento tem seletor PRÓPRIO** (o débito
+  permanente da Fase 4), então `SemBuscaInicial` e `TemResultados` tiveram de ser
+  PORTADOS para lá — a cópia que fica para trás é onde a capacidade some (parcelas 61,
+  75, 90).
+  ⚠️ **E o custo previsto se confirmou: `SemBuscaInicial` sozinho abre um VÃO em branco.**
+  Nos dois formulários da Recepção a lista é uma caixa de 150 px sempre visível, e caixa
+  vazia no meio do formulário se lê como lista que não carregou — ela passou a SUMIR
+  (`Seletor.TemResultados`). No do faturamento a lista é a coluna inteira, e esconder
+  deixaria o cartão vazio: ali entrou o CONVITE no lugar dela ("digite o nome ou o CPF").
+  **A pergunta é sempre a mesma — o que ocupa o lugar do que sumiu?**
+
+- **A MÍDIA DO PRONTUÁRIO E OS CAMPOS QUE ESTA CLÍNICA ANOTA** (set/2026, item 5 da lista
+  "o que falta para ficar profissional"). Duas metades do mesmo pedido: o que o prontuário
+  não conseguia GUARDAR, e o que ele não conseguia PERGUNTAR.
+  ⚠️ **(a) O vídeo não cabia no banco, e o teto não era capricho.** O anexo guarda os bytes
+  numa coluna, com teto de 10 MB, porque o banco é REMOTO — anexo gigante trava a
+  sincronização de todo mundo e o erro aparece longe da causa. Um vídeo de marcha de
+  quarenta segundos passa disso sem esforço, então o profissional gravava no celular,
+  mandava por WhatsApp, e o registro clínico ficava fora do prontuário: sem guarda, sem
+  trilha de acesso, num aplicativo que a clínica não controla.
+  O arquivo grande vai para o armazenamento que a clínica JÁ tem (o mesmo S3-compatível da
+  publicação de receitas) e a linha continua no banco — `AnexoProntuario.CaminhoRemoto` e
+  `AnexoPaciente.CaminhoRemoto`, migration aditiva, nulo = "está no banco", que é a verdade
+  de toda linha já gravada.
+  ⚠️ **A decisão da feature é o VERBO, não o upload: `GuardarPrivadoAsync`.** O
+  `PublicarAsync` aplica `public-read` — é o desenho inteiro da receita, que precisa abrir
+  para um farmacêutico ANÔNIMO, com o token de 128 bits como barreira e a decisão escrita.
+  Vídeo do paciente é dado de saúde (art. 5º, II): endereço "inadivinhável" vaza por print,
+  por histórico do navegador e por encaminhamento de mensagem, e no dia em que vazar não há
+  como saber quem baixou. Aqui a barreira é a CREDENCIAL, e o caminho inadivinhável é a
+  segunda tranca — nunca a primeira. **Reusar o verbo teria sido de graça e é o erro que
+  esta parcela existe para não cometer.**
+  ⚠️ **Falhar ao guardar IMPEDE o anexo** — a assimetria deliberada em relação a quase todo
+  o resto do sistema, que degrada e avisa. Linha gravada com o arquivo perdido é um "abrir
+  vídeo" que não abre, num registro que a lei manda guardar por 20 anos: o prontuário
+  afirmaria ter uma prova que ninguém tem. E **cancelar NÃO apaga o objeto remoto**, ao
+  contrário da receita publicada: lá o que sai do ar é a PUBLICAÇÃO e os bytes assinados
+  ficam no banco; aqui o objeto remoto É o registro clínico.
+  ⚠️ **O prefixo é `m/`, separado do `r/` das receitas**: uma é pública com prazo, a outra é
+  privada e guardada 20 anos, e uma varredura de expiração que confundisse as duas apagaria
+  registro clínico. A extensão do caminho é SANEADA — o nome do arquivo vem de fora, e
+  deixá-lo compor a chave crua é como se escreve um caminho com `../` dentro.
+  ⚠️ **Os dois lados (anexo de sessão e arquivo da ficha) foram feitos no MESMO commit**:
+  a cópia que fica para trás é onde a capacidade some, e aqui ela sumiria justamente no
+  vídeo que o paciente mandou por WhatsApp e não pertence a sessão nenhuma. E o MIME virou
+  UMA definição (`MidiaClinica.MimeDe`): a que existia na ficha conhecia três formatos, e
+  MIME errado gravado faz o celular baixar o vídeo em vez de tocá-lo.
+  ⚠️ **(b) Os campos personalizados — e o que eles NÃO são.** A evolução tem doze campos, e
+  eles cobrem o que é comum a toda clínica. O específico ("nº de agulhas", "aparelho",
+  "carga do exercício") era escrito no meio do texto livre, quando era escrito: dado dentro
+  de prosa não se compara entre sessões, não vira coluna de relatório e não se acha por
+  busca confiável. **Não é um construtor de prontuário**: os doze campos continuam em
+  CÓDIGO com as regras deles, o campo personalizado é ACRÉSCIMO, e ele não pode impedir o
+  registro — registro clínico que não se consegue salvar é registro que não acontece.
+  ⚠️ **Aplicar COPIA rótulo e tipo** — a regra do protocolo do mapa corporal, das escalas e
+  das medidas. Sem a cópia, renomear "Agulhas" para "Nº de agulhas" reescreveria a sessão
+  do mês passado, e desativar o campo deixaria valores gravados sem rótulo: um número solto
+  no prontuário, pior do que não ter registrado nada. É por copiar que a definição pode ser
+  DESATIVADA — e só desativada: apagá-la quebraria o vínculo pelo qual a clínica sabe que a
+  coluna "Agulhas" de 2026 e a de 2027 são a MESMA pergunta.
+  ⚠️ **O lugar 4 da auditoria de linha na variante mais fácil de esquecer.** O campo
+  personalizado NÃO aparece na entidade como propriedade, então o `GuardarVersao` o
+  esqueceria sem nada quebrar — e corrigir a sessão apagaria os valores anteriores sem
+  rastro (art. 3º da Lei 13.787/2018). Ele entra na versão como TEXTO
+  (`VersaoEvolucao.CamposPersonalizados`), e a escolha é deliberada: o que a lei exige é
+  **recuperar o que estava escrito**, e a versão é lida por gente, não por consulta — uma
+  tabela de versões dos valores custaria entidade, migration e leitura para responder a
+  mesma pergunta com mais peças para divergir.
+  ⚠️ **`null` PRESERVA, lista vazia APAGA.** A janela do balcão não mostra estes campos:
+  `null` quer dizer "esta tela não os edita", e regravar sobre eles apagaria o que o médico
+  escreveu, sem erro e sem aviso (a armadilha da parcela 74). Vazio é outra coisa — é a
+  tela que os MOSTRA e teve todos apagados.
+  ⚠️ **Número e data em cultura INVARIANTE, valor inválido RECUSADO.** Dois postos com
+  culturas diferentes escreveriam "2,5" e "2.5" na mesma coluna, e a comparação entre
+  sessões deixaria de existir sem nada falhar; e descartar em silêncio o que não serve ao
+  tipo deixaria o campo em branco depois de a pessoa o ter preenchido — o registro
+  afirmaria que ninguém respondeu.
+  ⚠️ **Teto de 12 campos ativos, e desativar sempre passa.** Uma folha com trinta campos
+  extras deixa de ser preenchida, e o que se perde não é o trigésimo campo, são os doze do
+  sistema. O teto conta só quando o campo ESTÁ ficando ativo: recusá-lo ao desativar
+  travaria justamente a correção que resolve o excesso.
+  ⚠️ **A MODALIDADE decide onde o campo aparece** — "nº de agulhas" não faz sentido na
+  consulta de psiquiatria, e campo que aparece onde não serve é o campo que ninguém
+  preenche (e que faz parar de preencher os outros). Sem horário em foco valem os de todas
+  as modalidades: mostrar menos do que se sabe esconderia o campo que a clínica cadastrou.
+  ⚠️ **E os `Include` foram o que quase escapou**: sem eles a navegação chega VAZIA em
+  produção — a versão guardaria "nenhum campo" e a folha impressa sairia sem o que a
+  clínica anotou —, com o teste verde pelo relationship fixup do EF (a lição da parcela
+  68). O teste que os prova usa um `DbContext` NOVO.
+
+- **A WEB DE LEITURA — o dia, o mês e a ficha de fora da máquina** (set/2026, item 6 da
+  lista; o mapa está em `docs/web-de-leitura.md`). `Clinica.Web` é ASP.NET Core `net8.0`
+  puro — a ÚNICA parte da suíte que roda em Linux e que o `dotnet build` deste ambiente
+  compila junto do resto.
+  ⚠️ **SOMENTE LEITURA, e a única escrita é a TRILHA.** Lançar, marcar, escrever, receber e
+  assinar continuam nos cinco apps; o que a web grava é o `AcessoProntuarioService`, porque
+  o ponto 4 do compromisso vale para toda tela que ABRE prontuário — porta de leitura sem
+  trilha é o buraco que só aparece no dia em que alguém precisa investigar. Falhar a trilha
+  não impede ler (banco lento não pode travar quem está com o paciente na frente).
+  ⚠️ **A régua de acesso é a MESMA do desktop** (`AcessoWeb`, na Application, com teste):
+  os bits da parcela 49, e o prontuário exigindo `VerProntuario` mesmo para quem abre a
+  ficha. Uma segunda regra — "na web todo mundo vê o resumo" — seria a permissão granular
+  desfeita por uma porta nova, que é o que a parcela 60 achou nas cópias do faturamento.
+  ⚠️ **Sem cookie é `Permissao.Nenhuma`, ao contrário do desktop.** Lá "sem sessão
+  autenticada, `Pode` LIBERA", porque o login é obrigatório e tela vazia parece defeito;
+  aqui a porta está na REDE, e liberar por omissão seria a web inteira aberta a quem não
+  entrou. **Ao portar uma regra de sessão para outro meio, releia o caso-padrão dela.**
+  ⚠️ **ONDE ela roda é decisão da DIREÇÃO, e não foi tomada.** O `banco-na-vps.md` recusou
+  por escrito o desenho "API HTTPS no meio" — *o mais exposto*, porta 443 respondendo a
+  qualquer IP com código nosso atrás. Publicar esta web na internet é tomar aquela decisão
+  pela porta de trás, então o que se entrega é o software, com as duas instalações que não
+  a contradizem (rede da clínica, ou atrás de VPN) e a lista do que ela precisaria ganhar
+  ANTES de ser exposta — segundo fator, limite por IP (hoje o travamento é por USUÁRIO),
+  origem do acesso na trilha. **Quando uma decisão de arquitetura já foi tomada e escrita,
+  a feature nova não pode revogá-la de raspão.**
+  ⚠️ **Não há framework de front, e é a decisão do gráfico desenhado com os tokens
+  (parcela 5) aplicada de novo**: são três páginas de leitura, e um SPA custaria build,
+  dependências que se atualizam sozinhas e uma segunda cópia do design system para manter.
+  O preço disso é que **todo texto do banco passa pelo escape** (`Paginas.T`) — nome de
+  paciente e observação de horário são texto que uma PESSOA digitou, e a CSP é a segunda
+  tranca, nunca a primeira.
+  ⚠️ **`Cache-Control: no-store` em toda resposta**: é o que impede a ficha de ficar no
+  cache do navegador de um computador compartilhado, e o botão "voltar" depois do logout é
+  exatamente onde isso apareceria.
+  ⚠️ **A permissão é FOTOGRAFIA do login**, como o `SessaoUsuario.Entrar` — reler o banco a
+  cada requisição pagaria uma consulta por clique. O preço é o mesmo do desktop e está
+  escrito: permissão retirada passa a valer no próximo login, e o cookie dura 2 h.
+  ⚠️ E as regras da casa atravessaram inteiras: cancelado e falta ficam na lista APAGADOS
+  (a folha do dia), a busca **não consulta com o campo vazio** (`SemBuscaInicial`), o painel
+  DIZ o que não pôde ler (`NaoVerificados` — "nada vencido" por causa de uma consulta
+  quebrada é pior do que um painel que não abre), e quem não alcança página nenhuma **não
+  entra**, com a frase dizendo por quê (a regra da parcela 45).
 
 - **A AGENDA COM COR — a família no traço, no avatar e no cartão; o estado na pílula; o
   placar com glifo** (set/2026; a cliente: *"a nossa agenda está um pouco sem cor,

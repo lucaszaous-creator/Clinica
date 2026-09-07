@@ -248,7 +248,7 @@ manual e não no disco.
 | Destino | pasta escolhida pela clínica (rede ou nuvem sincronizada) |
 | Redundância | **várias cópias**, com rotação (padrão: as **8 mais recentes**) |
 | Conferência | o backup traz **manifesto** e há função de conferir o arquivo sem restaurar |
-| Restauração | testada, e **recusa base que não esteja vazia** |
+| Restauração | testada **também contra um Postgres real** (set/2026), e **recusa base que não esteja vazia** — os catálogos que a instalação semeia (convênios, modalidades, especialidades) não contam como dado da clínica, senão nenhuma base recém-instalada aceitaria restauração |
 | Falha | não impede o app de abrir; vira aviso na tela e registro no log |
 
 **Por que várias cópias e não uma:** guardar só a última é o erro clássico — a corrupção que

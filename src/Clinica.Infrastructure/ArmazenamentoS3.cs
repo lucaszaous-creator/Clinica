@@ -100,6 +100,36 @@ public sealed class ArmazenamentoS3 : IArmazenamentoPublico
     }
 
     /// <summary>
+    /// Guarda PRIVADO: sem ACL pública, para leitura só pela API autenticada. É o caminho
+    /// da mídia do prontuário — ver <see cref="IArmazenamentoPublico.GuardarPrivadoAsync"/>
+    /// para a razão de não reusar <see cref="PublicarAsync"/>.
+    ///
+    /// <c>UseChunkEncoding = false</c> pelo mesmo motivo de lá (compatibilidade com
+    /// S3-compatível), e aqui ele pesa mais: um vídeo de 80 MB é exatamente o tamanho em
+    /// que a assinatura em blocos começaria a fazer diferença — e trocar compatibilidade
+    /// por otimização contraria a razão de existir desta classe.
+    /// </summary>
+    public async Task GuardarPrivadoAsync(
+        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default)
+    {
+        var (cliente, opcoes) = await ClienteAsync(ct);
+        using var _ = cliente;
+
+        using var fluxo = new MemoryStream(conteudo, writable: false);
+
+        await cliente.PutObjectAsync(
+            new PutObjectRequest
+            {
+                BucketName = opcoes.Bucket,
+                Key = caminho,
+                InputStream = fluxo,
+                ContentType = tipoConteudo,
+                UseChunkEncoding = false,
+            },
+            ct);
+    }
+
+    /// <summary>
     /// Tira do ar. <b>Não estoura quando o objeto já não existe</b> — o DELETE do S3 é
     /// idempotente por especificação, e a varredura de expiração roda em toda abertura do
     /// Gerente: falhar por um objeto já removido derrubaria a abertura do app.

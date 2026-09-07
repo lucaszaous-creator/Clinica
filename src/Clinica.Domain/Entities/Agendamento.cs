@@ -6,7 +6,35 @@ public enum StatusAgendamento
     Agendado,
     Realizado, // presença confirmada; gerou atendimento
     Cancelado,
-    Faltou
+    Faltou,
+
+    /// <summary>
+    /// A sessão ACONTECEU e foi lançada POR FORA deste horário (set/2026 — a terceira
+    /// resposta da conciliação da agenda, que até aqui não tinha saída).
+    ///
+    /// É o caso mais comum do backlog da migração: a agenda importada do Smart Clinic
+    /// trouxe o horário numa data, o paciente veio noutra, a recepcionista lançou pelo Novo
+    /// atendimento e o horário ficou "Aguardando" para sempre. Ele não pode virar
+    /// <see cref="Cancelado"/> — uma sessão que aconteceu inflaria o indicador de
+    /// cancelamento —, nem <see cref="Faltou"/> — culparia o paciente por uma falta que não
+    /// houve —, nem <see cref="Realizado"/> — o atendimento já está pendurado no ENCAIXE, e
+    /// dois horários realizados para a mesma sessão dobrariam a ocupação e o repasse.
+    ///
+    /// Quem aponta para a sessão é <see cref="Agendamento.AtendimentoSubstitutoId"/>,
+    /// NUNCA <see cref="Agendamento.AtendimentoId"/>: o backfill de <c>RealizadoEm</c> só
+    /// carimba atendimento cujos horários estão todos em <see cref="Realizado"/>, e um
+    /// segundo horário apontando para o mesmo atendimento por aquela coluna o deixaria de
+    /// fora para sempre.
+    ///
+    /// Fora da fila (como cancelado e falta), fora da ocupação, fora de todo indicador —
+    /// e com VOLTA: remarcar devolve o horário a <see cref="Agendado"/> e solta o vínculo.
+    ///
+    /// ⚠️ Gravado como TEXTO: um binário ANTERIOR a esta versão lendo um dia com um horário
+    /// neste estado falha a consulta inteira (a lição da parcela 67 — valor novo de enum é
+    /// a única coisa que o app velho não lê). O valor só é escrito pela conciliação da
+    /// agenda, que é uma tela da MESMA versão, e a release dos cinco apps é conjunta.
+    /// </summary>
+    Substituido
 }
 
 /// <summary>Como o agendamento nasceu.</summary>
@@ -101,6 +129,15 @@ public class Agendamento
     /// <summary>Preenchido quando a presença é confirmada e um atendimento é gerado.</summary>
     public int? AtendimentoId { get; set; }
     public Atendimento? Atendimento { get; set; }
+
+    /// <summary>
+    /// A sessão lançada POR FORA que encerrou este horário (<see cref="StatusAgendamento.Substituido"/>).
+    /// É procedência: responde "para onde foi esta sessão?" na janela do horário e na
+    /// conciliação. Nulo em todo horário que não foi substituído. Ver o enum para a razão
+    /// de não ser <see cref="AtendimentoId"/>.
+    /// </summary>
+    public int? AtendimentoSubstitutoId { get; set; }
+    public Atendimento? AtendimentoSubstituto { get; set; }
 
     // ---------- Fundação da recepção (parcela 1) ----------
     // Tudo daqui para baixo é ADITIVO e anulável: o faturamento continua marcando
@@ -232,7 +269,8 @@ public class Agendamento
     public EtapaFila Etapa => Status switch
     {
         StatusAgendamento.Realizado => EtapaFila.Finalizado,
-        StatusAgendamento.Cancelado or StatusAgendamento.Faltou => EtapaFila.ForaDaFila,
+        StatusAgendamento.Cancelado or StatusAgendamento.Faltou
+            or StatusAgendamento.Substituido => EtapaFila.ForaDaFila,
         _ when InicioAtendimentoEm is not null => EtapaFila.EmAtendimento,
         _ when ChamadoEm is not null => EtapaFila.Chamado,
         _ when ChegadaEm is not null => EtapaFila.Chegou,
@@ -339,7 +377,14 @@ public class Agendamento
     /// <summary>Quando foi lançado. Nulo nas linhas anteriores à parcela 58.</summary>
     public DateTime? CriadoEm { get; set; }
 
-    /// <summary>Ocupa a agenda (não foi cancelado nem faltou).</summary>
+    /// <summary>
+    /// Ocupa a agenda (não foi cancelado, não faltou, não foi substituído por uma sessão
+    /// lançada por fora). É a lista POSITIVA de propósito: valor novo de status cai do lado
+    /// de "não ocupa" sem ninguém precisar lembrar.
+    /// </summary>
     public bool OcupaAgenda
         => Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado;
+
+    /// <summary>Encerrado por uma sessão lançada por fora — ver <see cref="StatusAgendamento.Substituido"/>.</summary>
+    public bool Substituido => Status == StatusAgendamento.Substituido;
 }

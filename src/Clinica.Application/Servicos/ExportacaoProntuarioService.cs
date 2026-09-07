@@ -107,10 +107,16 @@ public sealed class ExportacaoProntuarioService
             "EvaAntes", "EvaDepois", "QueixaPrincipal", "HistoriaDoencaAtual", "ExameFisico",
             "HipoteseDiagnostica", "CID", "Conduta", "Evolucao", "Orientacoes",
             "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento",
+            // O que ESTA clínica anota além dos campos do sistema (set/2026): uma coluna
+            // com a linha inteira, e não uma coluna por campo — o cabeçalho do CSV é fixo
+            // e cada clínica tem os seus, então colunas por campo dariam uma planilha cujo
+            // formato muda quando alguém cadastra um campo novo.
+            "CamposPersonalizados",
             "CriadoPor", "MotivoCancelamento");
         var versoes = Cabecalho("PacienteId", "SessaoId", "Versao", "SubstituidaEm",
             "SubstituidaPor", "Motivo", "QueixaPrincipal", "Conduta", "Evolucao", "Orientacoes",
-            "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento");
+            "PlanoTerapeutico", "RetornoSugeridoEm", "RetornoSugeridoNota", "Encaminhamento",
+            "CamposPersonalizados");
         var avaliacoes = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "Pontuacao", "PontuacaoMaxima", "Unidade", "Faixa", "Situacao");
         var medidas = Cabecalho("PacienteId", "Paciente", "Data", "Tipo", "Valor",
@@ -207,6 +213,7 @@ public sealed class ExportacaoProntuarioService
                     e.Conduta, e.TextoEvolucao, e.Orientacoes, e.PlanoTerapeutico,
                     e.RetornoSugeridoEm is { } r ? Data(r) : null,
                     e.RetornoSugeridoNota, e.Encaminhamento,
+                    CampoPersonalizadoService.Resumir(e.CamposPersonalizados),
                     e.CriadoPor, e.MotivoCancelamento);
 
                 foreach (var v in await _repo.VersoesDaEvolucaoAsync(e.Id, ct))
@@ -215,7 +222,7 @@ public sealed class ExportacaoProntuarioService
                         v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes,
                         v.PlanoTerapeutico,
                         v.RetornoSugeridoEm is { } rv ? Data(rv) : null,
-                        v.RetornoSugeridoNota, v.Encaminhamento);
+                        v.RetornoSugeridoNota, v.Encaminhamento, v.CamposPersonalizados);
 
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
                     Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,

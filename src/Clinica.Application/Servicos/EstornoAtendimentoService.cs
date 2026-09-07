@@ -256,6 +256,20 @@ public sealed class EstornoAtendimentoService
             liberado = horario.Id;
         }
 
+        // E os horários que ESTA sessão substituiu (conciliação da agenda, set/2026) voltam
+        // a ser pergunta: a sessão que os encerrou deixou de existir. Sem isto eles
+        // ficariam apontando para um atendimento estornado — encerrados por nada.
+        var reabertos = 0;
+        foreach (var substituido in await _repo.AgendamentosSubstituidosPorAsync(atendimentoId, ct))
+        {
+            substituido.Status = StatusAgendamento.Agendado;
+            substituido.AtendimentoSubstitutoId = null;
+            reabertos++;
+        }
+        if (reabertos > 0)
+            avisos.Add($"{reabertos} horário(s) que esta sessão tinha encerrado voltou(aram) a "
+                       + "ficar em aberto — a conciliação da agenda vai perguntar por ele(s) de novo.");
+
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = quem,

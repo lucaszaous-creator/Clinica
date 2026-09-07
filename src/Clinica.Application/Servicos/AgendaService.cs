@@ -259,8 +259,12 @@ public sealed class AgendaService
             ag.EspecialidadeConsultaCodigo = null;
         }
         ag.Observacoes = observacoes;
-        // Remarcar um horário cancelado/faltado o traz de volta para a agenda.
+        // Remarcar um horário cancelado/faltado/substituído o traz de volta para a agenda.
+        // O vínculo com a sessão que o substituiu vai embora junto: horário reaberto é
+        // horário sem substituto — e a conciliação volta a perguntar por ele.
         ag.Status = StatusAgendamento.Agendado;
+        ag.AtendimentoSubstitutoId = null;
+        ag.AtendimentoSubstituto = null;
 
         // ⚠️ E os CARIMBOS DA FILA vão embora com o horário antigo.
         //
@@ -291,7 +295,8 @@ public sealed class AgendaService
         // SaveChanges. Reabrir um cancelado/falta devolve as guias suspensas; data nova
         // desloca as previstas; modalidade nova regera (ou recusa, se algo já saiu da
         // clínica). Nada disso salva sozinho — a atomicidade é a do Remarcar.
-        if (statusAnterior is StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+        if (statusAnterior is StatusAgendamento.Cancelado or StatusAgendamento.Faltou
+            or StatusAgendamento.Substituido)
             Anexar(avisosGuia, await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct));
 
         // A ESPECIALIDADE da consulta conta como "mudou" também: ela vai na guia (é a
@@ -932,6 +937,11 @@ public sealed class AgendaService
                 "Este horário foi cancelado (ou marcado como falta) — provavelmente na outra "
                 + "máquina do balcão. Reabra o horário (Remarcar) antes de concluir a sessão: "
                 + "é a reabertura que devolve as guias suspensas.");
+        if (ag.Status == StatusAgendamento.Substituido)
+            throw new InvalidOperationException(
+                "Este horário foi encerrado porque a sessão dele já está lançada por fora "
+                + "(conciliação da agenda). Concluir aqui criaria um segundo jogo de guias para a "
+                + "mesma sessão. Se a sessão de hoje é OUTRA, reabra o horário pela agenda (Remarcar).");
 
         return await ConfirmarNucleoAsync(ag, operador, ct);
     }
@@ -1174,6 +1184,11 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 $"O horário das {ag.DataHora:HH:mm} foi cancelado (ou marcado como falta). Reabra-o "
                 + "pela agenda (Remarcar) ou lance como encaixe separado.");
+        if (ag.Status == StatusAgendamento.Substituido)
+            throw new InvalidOperationException(
+                $"O horário das {ag.DataHora:HH:mm} já foi encerrado por uma sessão lançada por fora. "
+                + "Lançar de novo criaria OUTRO jogo de guias; confira na lista de lançados do dia, "
+                + "ou reabra o horário pela agenda (Remarcar) se a sessão é outra.");
 
         var modalidadeAnterior = ag.ModalidadeCodigo;
         var especialidadeAnterior = ag.EspecialidadeConsultaCodigo;
@@ -1267,6 +1282,77 @@ public sealed class AgendaService
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = status == StatusAgendamento.Cancelado ? "AgendamentoCancelado" : "AgendamentoFalta",
             Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — de {anterior} para {status}",
+            PacienteId = ag.PacienteId
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return avisos;
+    }
+
+    /// <summary>
+    /// A TERCEIRA RESPOSTA da conciliação da agenda (set/2026): a sessão aconteceu e já foi
+    /// lançada POR FORA deste horário — encerra o horário apontando para ela.
+    ///
+    /// Até aqui esta resposta não tinha saída: a tela dizia qual era o atendimento e o botão
+    /// de lançar ficava apagado, porque lançar criaria um segundo jogo de guias, e nenhum
+    /// status servia (cancelado inflaria o indicador de cancelamento com sessões que
+    /// aconteceram; falta culparia o paciente). O horário ficava "Aguardando" para sempre:
+    /// inflando a ocupação, entrando no "Meu dia" do médico e capturando a evolução
+    /// importada da sessão de verdade.
+    ///
+    /// As recusas dizem o que fazer, e são as que separam "amarrar" de "amarrar errado":
+    /// a sessão tem de ser do MESMO paciente, do MESMO dia e não pode estar estornada —
+    /// amarrar ao atendimento de outra pessoa não estoura nada e esconde uma sessão.
+    ///
+    /// GUIA NO AGENDAMENTO: se o horário tinha atendimento próprio (chave ligada), as guias
+    /// abertas dele são suspensas pelo MESMO caminho da falta — elas seriam o segundo jogo.
+    /// Reabrir pelo Remarcar as devolve e solta o vínculo. Tudo no mesmo SaveChanges.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> SubstituirPorSessaoAsync(
+        int agendamentoId, int atendimentoId, string? operador = null, CancellationToken ct = default)
+    {
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
+
+        if (ag.Status != StatusAgendamento.Agendado)
+            throw new InvalidOperationException(
+                $"O horário das {ag.DataHora:dd/MM/yyyy HH:mm} não está em aberto "
+                + $"({StatusDaFila.Palavra(ag.Status, ag.Etapa).ToLowerInvariant()}); só um horário "
+                + "em aberto pode ser encerrado por uma sessão lançada por fora.");
+
+        var sessao = await _repo.ObterAtendimentoAsync(atendimentoId, ct)
+            ?? throw new InvalidOperationException($"Atendimento {atendimentoId} não encontrado.");
+
+        if (sessao.PacienteId != ag.PacienteId)
+            throw new InvalidOperationException(
+                "A sessão informada é de OUTRO paciente — amarrá-la a este horário esconderia "
+                + "uma sessão na ficha errada.");
+        if (sessao.Data != DateOnly.FromDateTime(ag.DataHora))
+            throw new InvalidOperationException(
+                $"A sessão nº {sessao.Numero ?? "#" + sessao.Id} é de {sessao.Data:dd/MM/yyyy}, e o "
+                + $"horário é de {ag.DataHora:dd/MM/yyyy}. Só a sessão do MESMO dia encerra o horário; "
+                + "se o paciente veio noutro dia, marque falta neste horário.");
+        if (sessao.Estornado)
+            throw new InvalidOperationException(
+                $"A sessão nº {sessao.Numero ?? "#" + sessao.Id} foi ESTORNADA — ela não aconteceu "
+                + "por este lançamento. Lance pelo horário, ou marque falta.");
+        if (ag.AtendimentoId == sessao.Id)
+            throw new InvalidOperationException(
+                "Esta sessão já é a DESTE horário — o que falta aqui é concluir a presença, não substituir.");
+
+        ag.Status = StatusAgendamento.Substituido;
+        ag.AtendimentoSubstitutoId = sessao.Id;
+
+        // As guias do atendimento PRÓPRIO do horário (chave "guia no agendamento"), se
+        // houver: suspensas como na falta, no mesmo commit.
+        var avisos = await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct);
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "AgendamentoSubstituido",
+            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — encerrado pela sessão nº "
+                      + $"{sessao.Numero ?? "#" + sessao.Id} lançada por fora (conciliação da agenda)",
             PacienteId = ag.PacienteId
         }, ct);
 

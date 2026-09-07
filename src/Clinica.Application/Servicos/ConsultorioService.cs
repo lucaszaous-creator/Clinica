@@ -318,7 +318,7 @@ public sealed class ConsultorioService
         var concorrentes = sessoesDoPacienteNoDia
             .Where(s => s.PacienteId == pacienteId
                         && DateOnly.FromDateTime(s.DataHora) == data
-                        && s.Status is not (StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+                        && s.OcupaAgenda // cancelada, falta e substituída não disputam
                         && evolucoes.All(e => e.AgendamentoId != s.Id))
             .OrderBy(s => s.DataHora).ThenBy(s => s.Id)
             .ToList();

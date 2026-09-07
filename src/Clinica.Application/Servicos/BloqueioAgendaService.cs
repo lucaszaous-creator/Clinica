@@ -167,7 +167,9 @@ public sealed class BloqueioAgendaService
 
         foreach (var ag in marcados)
         {
-            if (ag.Status == StatusAgendamento.Realizado) continue;
+            // Realizado não se empurra (a sessão aconteceu); substituído tampouco — a
+            // sessão dele aconteceu noutro lançamento, e remarcá-lo o REABRIRIA.
+            if (ag.Status is StatusAgendamento.Realizado or StatusAgendamento.Substituido) continue;
 
             try
             {

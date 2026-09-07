@@ -40,6 +40,13 @@ public class ClinicaDbContext : DbContext
     public DbSet<VersaoAnamnese> VersoesAnamnese => Set<VersaoAnamnese>();
 
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
+
+    /// <summary>O que ESTA clínica anota além dos campos do sistema (set/2026).</summary>
+    public DbSet<CampoPersonalizadoProntuario> CamposPersonalizadosProntuario
+        => Set<CampoPersonalizadoProntuario>();
+
+    public DbSet<ValorCampoPersonalizado> ValoresCampoPersonalizado
+        => Set<ValorCampoPersonalizado>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
     public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
@@ -299,6 +306,11 @@ public class ClinicaDbContext : DbContext
             // Sem cascade a partir do atendimento (relação opcional).
             e.HasOne(a => a.Atendimento).WithMany().HasForeignKey(a => a.AtendimentoId)
                 .OnDelete(DeleteBehavior.SetNull);
+            // A sessão lançada POR FORA que encerrou o horário (StatusAgendamento.Substituido,
+            // set/2026). WithMany, como o Atendimento: não é 1-1, e índice único que falha
+            // na migration da abertura é o faturamento não abrindo.
+            e.HasOne(a => a.AtendimentoSubstituto).WithMany().HasForeignKey(a => a.AtendimentoSubstitutoId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(a => a.DataHora);
 
             // Fundação da recepção: recursos disputados e carimbos do kanban. Todos
@@ -321,6 +333,7 @@ public class ClinicaDbContext : DbContext
             e.Ignore(a => a.DuracaoEfetiva);
             e.Ignore(a => a.FimPrevisto);
             e.Ignore(a => a.OcupaAgenda);
+            e.Ignore(a => a.Substituido);
         });
 
         // ---------- Fundação da recepção (parcela 1) ----------
@@ -568,10 +581,51 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Descricao).HasMaxLength(500);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            // Caminho do objeto no armazenamento, quando o arquivo é grande demais para o
+            // banco (set/2026). O token tem 26 caracteres; 200 dá folga para prefixo e
+            // extensão sem convidar a guardar URL inteira aqui.
+            e.Property(x => x.CaminhoRemoto).HasMaxLength(200);
 
             // Apagar a evolução leva os anexos junto: anexo órfão não é prontuário.
             e.HasOne(x => x.Evolucao).WithMany(x => x.Anexos)
                 .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoId);
+            e.Ignore(x => x.NoArmazenamentoRemoto);
+        });
+
+        // ---- Campos personalizados do prontuário (set/2026) ----
+        b.Entity<CampoPersonalizadoProntuario>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Rotulo).IsRequired().HasMaxLength(80);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Opcoes).HasMaxLength(1000);
+            e.Property(x => x.Ajuda).HasMaxLength(300);
+            e.Property(x => x.ModalidadeCodigo).HasMaxLength(30);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Ignore(x => x.OpcoesDaLista);
+        });
+
+        b.Entity<ValorCampoPersonalizado>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Rotulo).IsRequired().HasMaxLength(80);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            // Texto sem teto: o campo longo é texto livre da clínica, e cortar registro
+            // clínico em silêncio é o que a parcela 94 aprendeu a não fazer.
+            e.Property(x => x.Valor).IsRequired().HasColumnType("text");
+
+            // Apagar a evolução leva os valores junto — valor órfão não é prontuário.
+            e.HasOne(x => x.Evolucao).WithMany(x => x.CamposPersonalizados)
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.Cascade);
+
+            // A DEFINIÇÃO não se apaga (só se desativa), e mesmo assim o vínculo é
+            // Restrict: o valor copiou rótulo e tipo, então ele sobrevive sozinho — o que
+            // não pode é a procedência apontar para uma linha que sumiu.
+            e.HasOne(x => x.Campo).WithMany()
+                .HasForeignKey(x => x.CampoId).OnDelete(DeleteBehavior.Restrict);
 
             e.HasIndex(x => x.EvolucaoId);
         });
@@ -682,6 +736,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.TipoConteudo).HasMaxLength(120);
             e.Property(x => x.Observacoes).HasMaxLength(1000);
             e.Property(x => x.ChaveImportacao).HasMaxLength(160);
+            e.Property(x => x.CaminhoRemoto).HasMaxLength(200);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CanceladoPor).HasMaxLength(80);
             e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
@@ -700,6 +755,7 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Cancelado);
             e.Ignore(x => x.Importado);
             e.Ignore(x => x.TamanhoLegivel);
+            e.Ignore(x => x.NoArmazenamentoRemoto);
         });
 
         b.Entity<ArquivoAnexoPaciente>(e =>
@@ -889,7 +945,11 @@ public class ClinicaDbContext : DbContext
                     TipoDocumentoClinico.Desconhecido))
                 .HasMaxLength(30);
             e.Property(x => x.Titulo).HasMaxLength(200);
-            e.Property(x => x.Corpo).HasMaxLength(4000);
+            // Sem teto (set/2026): o corpo é COPIADO do ModeloDocumento na emissão, e o texto
+            // aprovado do TCLE do BSV passa de 4.000 caracteres — a rede de CI contra o
+            // Postgres pegou o 22001 antes de a clínica clicar. Origem e cópia largam o
+            // teto JUNTAS (a lição da FichaDaSessaoCabeNaColuna: ao alargar, procure quem copia).
+            e.Property(x => x.Corpo).HasColumnType("text");
             e.Property(x => x.Observacoes).HasMaxLength(1000);
             e.Property(x => x.Cid).HasMaxLength(20);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
@@ -1347,7 +1407,9 @@ public class ClinicaDbContext : DbContext
                 .HasMaxLength(30);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
             e.Property(x => x.Titulo).HasMaxLength(200);
-            e.Property(x => x.Corpo).HasMaxLength(4000);
+            // Sem teto: o TCLE aprovado pelo advogado da clínica (ModelosTermoBsv) tem mais de
+            // 4.000 caracteres, e o botão "Criar os termos do BSV" falharia no Postgres.
+            e.Property(x => x.Corpo).HasColumnType("text");
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");

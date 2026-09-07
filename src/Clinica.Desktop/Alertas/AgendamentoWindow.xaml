@@ -72,6 +72,16 @@
                                Margin="0,8,0,0" Foreground="{StaticResource Brush.Erro.Texto}"
                                Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}}" />
 
+                    <!-- A tela abre sem consultar o banco (set/2026): com o campo vazio a
+                         busca não filtra nada e traria o começo do alfabeto de 2.238
+                         fichas. O convite ocupa o lugar da lista até alguém digitar —
+                         coluna em branco se lê como lista que não carregou. -->
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               Text="Digite o nome ou o CPF do paciente para buscar."
+                               Visibility="{Binding Seletor.TemResultados,
+                                            Converter={StaticResource BoolInvertidoParaVisibilidade}}" />
+
                     <ListBox ItemsSource="{Binding Seletor.Resultados}"
                              SelectedItem="{Binding Seletor.Selecionado}"
                              IsEnabled="{Binding Seletor.Travado, Converter={StaticResource BoolInvertido}}"

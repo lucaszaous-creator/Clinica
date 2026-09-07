@@ -165,6 +165,10 @@ public sealed class TitularDadosService
             Bloco(texto, "evolução", e.TextoEvolucao);
             Bloco(texto, "orientações", e.Orientacoes);
             Bloco(texto, "plano terapêutico", e.PlanoTerapeutico);
+            // O que ESTA clínica anota além dos campos do sistema (set/2026). Deixá-los de
+            // fora daria ao titular um documento que afirma ser tudo o que a clínica
+            // guarda e não é — a regra 8 do compromisso de conformidade.
+            Bloco(texto, "outros registros", CampoPersonalizadoService.Resumir(e.CamposPersonalizados));
         }
         texto.AppendLine();
 

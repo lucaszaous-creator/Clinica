@@ -54,7 +54,7 @@ public static class EntregaDoPaciente
             // "desta sessão" da lista passaria a apontar para a outra.
             var doPaciente = agenda
                 .Where(a => a.PacienteId == pacienteId
-                            && a.Status != StatusAgendamento.Cancelado)
+                            && a.Status is not (StatusAgendamento.Cancelado or StatusAgendamento.Substituido))
                 .OrderBy(a => a.DataHora)
                 .ToList();
 

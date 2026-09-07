@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain.Regras;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +13,14 @@ namespace Clinica.Financeiro.ViewModels;
 
 /// <summary>Opção de categoria no combo (null = sem categoria).</summary>
 public sealed record OpcaoCategoria(int? Id, string Nome);
+
+/// <summary>
+/// Uma sessão do paciente que ainda não tem dinheiro registrado — o que o recebimento
+/// avulso pode estar pagando (set/2026). <c>AtendimentoId</c> nulo é a primeira opção,
+/// "não é de sessão nenhuma": a maioria dos recebimentos manuais é venda de produto ou
+/// acerto, e forçar a escolha de uma sessão faria alguém escolher a errada.
+/// </summary>
+public sealed record OpcaoSessao(int? AtendimentoId, string Rotulo);
 
 /// <summary>
 /// Formulário de um lançamento novo — a entrada manual do caixa (aluguel, material,
@@ -31,6 +42,21 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     public event Action? Concluido;
 
     public ObservableCollection<OpcaoCategoria> Categorias { get; } = [];
+
+    /// <summary>
+    /// DE QUEM É o recebimento (set/2026). O lançamento manual do caixa era a única porta
+    /// de dinheiro sem paciente: a receita entrava órfã — não ligava à sessão, não saía da
+    /// aba Particulares da Conciliação (que responde "que sessão aconteceu e não virou
+    /// dinheiro?") e a linha continuava cobrando um pagamento que já estava na gaveta.
+    ///
+    /// Escolher paciente é um componente só — o mesmo da conta a receber, e com
+    /// <c>SemBuscaInicial</c>: com o campo vazio a busca não filtra nada e despejaria o
+    /// começo do alfabeto de 2.238 fichas numa janela que quase nunca precisa de paciente.
+    /// </summary>
+    public SeletorPacienteViewModel Seletor { get; }
+
+    /// <summary>As sessões sem receita do paciente escolhido — a de cima é "não é de sessão".</summary>
+    public ObservableCollection<OpcaoSessao> Sessoes { get; } = [];
 
     public IReadOnlyList<TipoLancamento> Tipos { get; } =
         [TipoLancamento.Entrada, TipoLancamento.Saida];
@@ -55,6 +81,10 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     private FormaPagamento? _formaPagamento;
 
     [ObservableProperty] private OpcaoCategoria? _categoria;
+    [ObservableProperty] private OpcaoSessao? _sessao;
+
+    /// <summary>A leitura das sessões falhou — combo vazio não é "não há sessão em aberto".</summary>
+    [ObservableProperty] private string _avisoSessoes = string.Empty;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _ocupado;
     [ObservableProperty] private string? _mensagem;
@@ -75,10 +105,73 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     public bool EhCartao => FormaPagamento is Clinica.Domain.Entities.FormaPagamento.CartaoDebito
         or Clinica.Domain.Entities.FormaPagamento.CartaoCredito;
 
+    /// <summary>
+    /// Só a ENTRADA tem dono: saída é aluguel, material, imposto — o paciente ali seria
+    /// campo que não faz nada, e campo que não faz nada é pior que campo nenhum (a lição
+    /// da alíquota única, parcela 49).
+    /// </summary>
+    public bool MostrarPaciente => Tipo == TipoLancamento.Entrada;
+
     public LancamentoEdicaoViewModel(IServiceScopeFactory escopos)
     {
         _escopos = escopos;
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
+        Seletor.SelecaoMudou += paciente => _ = CarregarSessoesAsync();
         _ = CarregarCategoriasAsync();
+    }
+
+    /// <summary>Descarte de resposta fora de ordem: a troca de paciente é por clique.</summary>
+    private int _geracaoSessoes;
+
+    /// <summary>
+    /// As sessões particulares do paciente que ainda não têm dinheiro registrado. Amarrar
+    /// o recebimento a uma delas é o que a tira da aba Particulares da Conciliação — ela
+    /// sai por passar a TER lançamento, nunca porque alguém a marcou.
+    ///
+    /// Só ANTES de hoje: a sessão de hoje está sendo fechada agora, pelo Finalizar.
+    /// </summary>
+    private async Task CarregarSessoesAsync()
+    {
+        var geracao = ++_geracaoSessoes;
+        var paciente = Seletor.Selecionado;
+
+        try
+        {
+            AvisoSessoes = string.Empty;
+            List<OpcaoSessao> opcoes = [new OpcaoSessao(null, "(não é de uma sessão)")];
+
+            if (paciente is not null)
+            {
+                using var escopo = _escopos.CreateScope();
+                var sessoes = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                    .SessoesParticularesSemReceitaDoPacienteAsync(
+                        paciente.Id, DateOnly.FromDateTime(DateTime.Today.AddDays(1)));
+
+                if (geracao != _geracaoSessoes) return;
+
+                opcoes.AddRange(sessoes.Select(x => new OpcaoSessao(
+                    x.AtendimentoId,
+                    $"{x.Data:dd/MM/yyyy} — {CatalogoModalidades.Nome(x.CodigoDaModalidade)}")));
+            }
+
+            if (geracao != _geracaoSessoes) return;
+
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
+            Sessoes.Clear();
+            foreach (var o in opcoes) Sessoes.Add(o);
+            Sessao = Sessoes[0];
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoSessoes) return;
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — sessões sem receita do paciente não puderam ser lidas", ex);
+            Sessoes.Clear();
+            Sessoes.Add(new OpcaoSessao(null, "(não é de uma sessão)"));
+            Sessao = Sessoes[0];
+            AvisoSessoes = "Não foi possível ler as sessões deste paciente — a lista NÃO está "
+                           + "vazia por não haver sessão em aberto.";
+        }
     }
 
     /// <summary>
@@ -87,6 +180,7 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     /// </summary>
     partial void OnTipoChanged(TipoLancamento value)
     {
+        OnPropertyChanged(nameof(MostrarPaciente));
         _ = CarregarCategoriasAsync();
         _ = RecalcularDeducoesAsync();
     }
@@ -221,6 +315,10 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
                 status: Situacao,
                 formaPagamento: FormaPagamento,
                 categoriaId: Categoria?.Id,
+                // Só na ENTRADA: numa saída, dono e sessão seriam invenção — e o
+                // atendimento ali tiraria da Conciliação uma sessão que ninguém pagou.
+                pacienteId: Tipo == TipoLancamento.Entrada ? Seletor.Selecionado?.Id : null,
+                atendimentoId: Tipo == TipoLancamento.Entrada ? Sessao?.AtendimentoId : null,
                 observacoes: string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes,
                 operador: SessaoUsuario.Atual.Operador,
                 deducoes: _deducoes,

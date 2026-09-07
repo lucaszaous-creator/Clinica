@@ -165,6 +165,25 @@
 
                         <Separator Margin="0,18,0,14" />
 
+                        <!-- Ato RARO (combinar o que a clínica passa a registrar em toda
+                             sessão) mora em BOTÃO — a regra de leiaute do README. -->
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Campos do prontuário…"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="170"
+                                    Margin="16,0,0,0" VerticalAlignment="Center"
+                                    Click="AoAbrirCampos" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Campos personalizados do prontuário"
+                                           Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" MaxWidth="820"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Text="O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Dado dentro do texto livre não se compara entre sessões nem vira coluna de relatório; aqui ele vira campo." />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Separator Margin="0,18,0,14" />
+
                         <StackPanel>
                             <TextBlock Text="Certificado em nuvem (SafeID) — opcional"
                                        Style="{StaticResource Rotulo}" Margin="0,0,0,4" />

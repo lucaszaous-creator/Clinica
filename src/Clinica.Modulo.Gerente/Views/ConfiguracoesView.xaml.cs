@@ -47,4 +47,26 @@ public partial class ConfiguracoesView : UserControl
 
         janela.ShowDialog();
     }
+
+    private void AoAbrirCampos(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ConfiguracoesViewModel vm) return;
+
+        var escopos = vm.Escopos;
+        using var scope = escopos.CreateScope();
+
+        var janela = new CamposPersonalizadosWindow(
+            new CamposPersonalizadosViewModel(
+                escopos,
+                scope.ServiceProvider.GetRequiredService<IDialogoService>()))
+        {
+            // A janela ATIVA, não a principal: com um modal aberto, esta nasceria atrás
+            // dele e quem clicou concluiria que o botão não fez nada (parcela 58).
+            Owner = System.Windows.Application.Current?.Windows.OfType<Window>()
+                        .FirstOrDefault(w => w.IsActive)
+                    ?? System.Windows.Application.Current?.MainWindow
+        };
+
+        janela.ShowDialog();
+    }
 }

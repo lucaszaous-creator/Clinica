@@ -157,7 +157,12 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     {
         _scopeFactory = scopeFactory;
         _dialogo = dialogo;
-        Seletor = new SeletorPacienteViewModel(scopeFactory);
+        // ⚠️ SemBuscaInicial (set/2026): com o campo VAZIO a busca não filtra nada — cai no
+        // `OrderBy(Nome).Take(50)` — e ir ao banco REMOTO na abertura para trazer ACELINO,
+        // ADAISE, ADAO é uma consulta que ninguém pediu, numa lista que não é resposta de
+        // ninguém. A tela abre com a caixa vazia e a lista SOME (a lição do seletor: sem a
+        // visibilidade condicional sobraria um vão em branco no meio do formulário).
+        Seletor = new SeletorPacienteViewModel(scopeFactory) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += AoTrocarPaciente;
     }
 

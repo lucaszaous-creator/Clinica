@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
@@ -218,6 +219,17 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// <summary>Evolução em edição. 0 = sessão nova.</summary>
     [ObservableProperty] private int _evolucaoId;
 
+    /// <summary>
+    /// Os CAMPOS PERSONALIZADOS que a clínica cadastrou e valem para esta sessão
+    /// (set/2026) — ver <c>CampoPersonalizadoProntuario</c>.
+    ///
+    /// Vazia na clínica que não cadastrou nenhum, que é o caso padrão: a região inteira
+    /// SOME, em vez de deixar um rótulo em branco no meio da folha.
+    /// </summary>
+    public ObservableCollection<CampoDaSessao> CamposPersonalizados { get; } = [];
+
+    public bool TemCamposPersonalizados => CamposPersonalizados.Count > 0;
+
     [ObservableProperty] private string _paciente = string.Empty;
     [ObservableProperty] private bool _semPaciente = true;
 
@@ -359,6 +371,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         + (string.IsNullOrWhiteSpace(PlanoTerapeutico) ? 0 : 1)
         + (string.IsNullOrWhiteSpace(RetornoSugeridoNota) ? 0 : 1)
         + (string.IsNullOrWhiteSpace(Encaminhamento) ? 0 : 1);
+        // Os campos personalizados NÃO entram nesta conta de propósito: eles estão na
+        // FOLHA, à vista, e o selo do "Detalhar…" conta o que está escondido atrás do
+        // clique. Somá-los faria o número prometer conteúdo que já está na tela.
 
     /// <summary>Há o que ler lá dentro — acende o selo ao lado da linha.</summary>
     public bool TemCamposDetalhados => CamposDetalhados > 0;
@@ -713,6 +728,11 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             // Chegou tarde: o posto já está em outro paciente.
             if (geracao != _geracaoCarga) return;
 
+            // Os campos personalizados que valem para esta sessão. SEQUENCIAL, nunca
+            // WhenAll: é o mesmo DbContext do escopo (a lição da parcela 74).
+            await CarregarCamposPersonalizadosAsync(scope, geracao);
+            if (geracao != _geracaoCarga) return;
+
             // A sessão do horário chamado, quando ela já foi escrita: abrir o atendimento
             // de novo tem de CONTINUAR o registro, nunca criar um segundo para a mesma
             // sessão — dois registros do mesmo atendimento é o defeito que faz a clínica
@@ -1004,6 +1024,61 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         OnPropertyChanged(nameof(PodeColherTermo));
     }
 
+    /// <summary>As definições da última carga — é delas que a gravação copia rótulo e tipo.</summary>
+    private IReadOnlyList<CampoPersonalizadoProntuario> _definicoesDosCampos = [];
+
+    /// <summary>
+    /// Monta a régua dos campos personalizados desta sessão.
+    ///
+    /// A MODALIDADE sai do horário quando há um: é ela que decide quais campos aparecem, e
+    /// campo que aparece onde não serve é o campo que ninguém preenche. Sem horário (quem
+    /// entrou pela busca) valem os campos de TODAS as modalidades — mostrar menos do que se
+    /// sabe esconderia justamente o campo que a clínica cadastrou para aquela sessão.
+    ///
+    /// Falhar aqui NÃO impede escrever: a folha do sistema continua inteira, e o que se
+    /// perde é o acréscimo. Mas vai para o log — sem a linha, a clínica acreditaria que
+    /// ninguém cadastrou campo nenhum.
+    /// </summary>
+    private async Task CarregarCamposPersonalizadosAsync(IServiceScope scope, int geracao)
+    {
+        try
+        {
+            string? modalidade = null;
+            if (_foco.AgendamentoId is { } agendamentoId)
+                modalidade = (await scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                    .ObterAgendamentoAsync(agendamentoId))?.ModalidadeCodigo;
+
+            var definicoes = await scope.ServiceProvider
+                .GetRequiredService<CampoPersonalizadoService>().DaSessaoAsync(modalidade);
+
+            if (geracao != _geracaoCarga) return;
+
+            // Monta fora e publica de uma vez (a regra da parcela 62).
+            var linhas = definicoes.Select(d => new CampoDaSessao
+            {
+                Id = d.Id,
+                Rotulo = d.Rotulo,
+                Tipo = d.Tipo,
+                Ajuda = d.Ajuda,
+                Opcoes = d.OpcoesDaLista
+            }).ToList();
+
+            _definicoesDosCampos = definicoes;
+            CamposPersonalizados.Clear();
+            foreach (var l in linhas) CamposPersonalizados.Add(l);
+            OnPropertyChanged(nameof(TemCamposPersonalizados));
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — campos personalizados não puderam ser lidos", ex);
+            _definicoesDosCampos = [];
+            CamposPersonalizados.Clear();
+            OnPropertyChanged(nameof(TemCamposPersonalizados));
+        }
+    }
+
     private void Preencher(Evolucao e)
     {
         EvolucaoId = e.Id;
@@ -1022,6 +1097,15 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         RetornoSugeridoEm = e.RetornoSugeridoEm?.ToDateTime(TimeOnly.MinValue);
         RetornoSugeridoNota = e.RetornoSugeridoNota;
         Encaminhamento = e.Encaminhamento;
+
+        // O que já foi respondido nos campos personalizados. Casa pelo CampoId, e não pelo
+        // rótulo: o rótulo é uma CÓPIA de quando o valor foi gravado, e ele pode ter sido
+        // renomeado desde então — casar por texto perderia a resposta em silêncio.
+        foreach (var campo in CamposPersonalizados)
+            campo.Resposta = e.CamposPersonalizados
+                .FirstOrDefault(v => v.CampoId == campo.Id) is { } valor
+                ? CampoPersonalizadoService.Exibir(valor)
+                : null;
 
         // ⚠️ Nada mais precisa ser "aberto": as quatro abas mostram sozinhas quais têm
         // conteúdo, pelo ponto no rótulo. O Expander recolhido escondia metade do registro
@@ -1066,6 +1150,8 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         RetornoSugeridoEm = null;
         RetornoSugeridoNota = null;
         Encaminhamento = null;
+
+        foreach (var campo in CamposPersonalizados) campo.Resposta = null;
 
         // A hora da última gravação é DESTA sessão: mantê-la ao trocar de paciente faria o
         // rodapé afirmar, sobre uma folha em branco, que ela foi gravada às 14h37.
@@ -1197,7 +1283,13 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                     ? DateOnly.FromDateTime(r)
                     : null,
                 RetornoSugeridoNota = RetornoSugeridoNota,
-                Encaminhamento = Encaminhamento
+                Encaminhamento = Encaminhamento,
+                // Rótulo e tipo são COPIADOS aqui: renomear o campo depois não pode
+                // reescrever esta sessão. Lista vazia é "a tela os mostra e todos estão em
+                // branco" — nunca `null`, que é o "não edito" do balcão.
+                CamposPersonalizados = CampoPersonalizadoService.Montar(
+                    _definicoesDosCampos,
+                    CamposPersonalizados.ToDictionary(c => c.Id, c => c.Resposta)).ToList()
             }, SessaoUsuario.Atual.Operador);
 
             EvolucaoId = salva.Id;
@@ -1367,4 +1459,43 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         }
     }
 
+}
+
+/// <summary>
+/// Um campo personalizado na folha da sessão: a definição (rótulo, tipo, ajuda) com a
+/// resposta que está sendo escrita.
+///
+/// A resposta é TEXTO para todos os tipos — quem a normaliza é o
+/// <see cref="CampoPersonalizadoService"/>, na gravação, com o tipo ao lado. Um campo por
+/// tipo no ViewModel daria seis propriedades com cinco nulas em toda linha, e a
+/// normalização em dois lugares divergiria na primeira correção.
+/// </summary>
+public sealed partial class CampoDaSessao : ObservableObject
+{
+    public required int Id { get; init; }
+    public required string Rotulo { get; init; }
+    public required TipoCampoPersonalizado Tipo { get; init; }
+    public string? Ajuda { get; init; }
+    public required IReadOnlyList<string> Opcoes { get; init; }
+
+    [ObservableProperty] private string? _resposta;
+
+    /// <summary>Escolha entre opções — o resto é caixa de texto.</summary>
+    public bool EhLista => Tipo == TipoCampoPersonalizado.Lista;
+
+    /// <summary>Sim/Não vira caixinha; a resposta continua sendo texto.</summary>
+    public bool EhSimNao => Tipo == TipoCampoPersonalizado.SimNao;
+
+    /// <summary>Texto livre de uma linha, número ou data — o campo comum.</summary>
+    public bool EhCaixaDeTexto => !EhLista && !EhSimNao;
+
+    /// <summary>A dica do que se espera, sem obrigar a pessoa a errar para descobrir.</summary>
+    public string Dica => Tipo switch
+    {
+        TipoCampoPersonalizado.Numero => "número",
+        TipoCampoPersonalizado.Data => "dd/mm/aaaa",
+        _ => string.Empty
+    };
+
+    public bool TemAjuda => !string.IsNullOrWhiteSpace(Ajuda);
 }

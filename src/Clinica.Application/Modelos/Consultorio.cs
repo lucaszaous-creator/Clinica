@@ -71,8 +71,11 @@ public sealed record SessaoDoDia(
     /// <summary>Fim previsto da sessão.</summary>
     public DateTime FimPrevisto => DataHora.AddMinutes(DuracaoMinutos);
 
-    /// <summary>Cancelado ou falta: a sessão saiu do fluxo do dia, mas a linha fica.</summary>
-    public bool ForaDoDia => Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou;
+    /// <summary>
+    /// Cancelado, falta ou substituído: a sessão saiu do fluxo do dia, mas a linha fica.
+    /// Negação da lista POSITIVA (agendado, realizado) — a mesma de <c>Agendamento.OcupaAgenda</c>.
+    /// </summary>
+    public bool ForaDoDia => Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado);
 
     /// <summary>A sessão já tem evolução no prontuário.</summary>
     public bool EvolucaoEscrita => EvolucaoId is not null;

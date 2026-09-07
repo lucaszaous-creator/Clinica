@@ -103,7 +103,12 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     {
         _escopos = escopos;
         _agendamentoId = agendamentoId;
-        Seletor = new SeletorPacienteViewModel(escopos);
+        // ⚠️ SemBuscaInicial (set/2026): com o campo VAZIO a busca não filtra nada — cai no
+        // `OrderBy(Nome).Take(50)` — e ir ao banco REMOTO na abertura para trazer ACELINO,
+        // ADAISE, ADAO é uma consulta que ninguém pediu, numa lista que não é resposta de
+        // ninguém. A tela abre com a caixa vazia e a lista SOME (a lição do seletor: sem a
+        // visibilidade condicional sobraria um vão em branco no meio do formulário).
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         // Trocar de paciente muda o aviso de choque com a própria agenda dele.
         Seletor.SelecaoMudou += AoTrocarPaciente;
 
@@ -222,10 +227,22 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Trocar a DATA reconfere TUDO o que depende dela — inclusive a elegibilidade
+    /// (set/2026, item 6 da fila da parcela 69).
+    ///
+    /// Carteirinha, cota, consulta a renovar e termo do procedimento são todos conferidos
+    /// <b>na data escolhida</b>: <c>ConferirAsync</c> recebe a data, e o próprio serviço
+    /// mede "vence antes disso" contra ela. Só o paciente disparava a reconferência, então
+    /// escolher a pessoa hoje e depois marcar para o mês que vem deixava na tela o
+    /// resultado de HOJE — uma carteirinha que aparece válida porque ninguém perguntou de
+    /// novo. Aviso desatualizado é pior que aviso nenhum: ele afirma.
+    /// </summary>
     partial void OnDataChanged(DateTime value)
     {
         _ = ConferirConflitosAsync();
         _ = ConferirJaLancadoAsync();
+        _ = ConferirElegibilidadeAsync();
     }
     partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
     partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();

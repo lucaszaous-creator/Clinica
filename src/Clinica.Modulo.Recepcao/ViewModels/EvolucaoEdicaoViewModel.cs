@@ -5,6 +5,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -296,7 +297,9 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
         var dialogo = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Anexar ao prontuário",
-            Filter = "Imagens e documentos (*.jpg;*.jpeg;*.png;*.pdf)|*.jpg;*.jpeg;*.png;*.pdf"
+            Filter = "Imagens, documentos e mídia "
+                     + "(*.jpg;*.jpeg;*.png;*.pdf;*.mp4;*.mov;*.m4a;*.mp3)"
+                     + "|*.jpg;*.jpeg;*.png;*.pdf;*.mp4;*.mov;*.m4a;*.mp3"
                      + "|Todos os arquivos (*.*)|*.*"
         };
         if (dialogo.ShowDialog() != true) return;
@@ -307,17 +310,21 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
             var bytes = await File.ReadAllBytesAsync(dialogo.FileName);
-            var extensao = Path.GetExtension(dialogo.FileName).ToLowerInvariant();
-            var ehImagem = extensao is ".jpg" or ".jpeg" or ".png" or ".bmp";
+            var nome = Path.GetFileName(dialogo.FileName);
+            var tipoConteudo = MidiaClinica.MimeDe(nome);
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
 
+            // A MESMA porta do Consultório (set/2026): tipo pelo arquivo, e quem decide
+            // banco × armazenamento é o tamanho. A cópia que ficasse para trás recusaria o
+            // vídeo justamente na tela do balcão, onde o paciente está na frente.
             await prontuario.AnexarAsync(
-                _evolucaoId.Value, Path.GetFileName(dialogo.FileName), bytes,
-                ehImagem ? TipoAnexo.Imagem : TipoAnexo.Documento,
-                tipoConteudo: ehImagem ? $"image/{extensao.TrimStart('.')}" : null,
-                operador: SessaoUsuario.Atual.Operador);
+                _evolucaoId.Value, nome, bytes,
+                MidiaClinica.TipoDe(tipoConteudo, nome),
+                tipoConteudo: tipoConteudo,
+                operador: SessaoUsuario.Atual.Operador,
+                midia: scope.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
 
             await RecarregarAnexosAsync(prontuario);
             Mensagem = "Arquivo anexado.";
@@ -347,7 +354,8 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            var bytes = await prontuario.ConteudoAnexoAsync(anexo.Id);
+            var bytes = await prontuario.ConteudoAnexoAsync(
+                anexo.Id, scope.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
 
             // TRILHA DE LEITURA (parcela 62): laudo e imagem de exame saindo para o disco
             // é dado de saúde deixando o sistema — o que uma investigação procura primeiro.
@@ -358,7 +366,8 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
             if (bytes is null)
             {
-                Erro("O arquivo não foi encontrado no banco.");
+                Erro("O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira "
+                     + "o armazenamento da clínica em Configurações.");
                 return;
             }
 

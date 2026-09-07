@@ -275,11 +275,13 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
 
             using var escopo = _escopos.CreateScope();
             var prontuario = escopo.ServiceProvider.GetRequiredService<ProntuarioService>();
-            var bytes = await prontuario.ConteudoAnexoAsync(anexo.Id);
+            var bytes = await prontuario.ConteudoAnexoAsync(
+                anexo.Id, escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
 
             if (bytes is null)
             {
-                Mensagem = "O arquivo não foi encontrado no banco.";
+                Mensagem = "O arquivo não foi encontrado. Se ele é um vídeo ou áudio, "
+                           + "confira o armazenamento da clínica em Configurações.";
                 MensagemEhErro = true;
                 return;
             }
@@ -465,8 +467,13 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
             using var escopo = _escopos.CreateScope();
             await escopo.ServiceProvider.GetRequiredService<AnexoPacienteService>().AnexarAsync(
                 pacienteId, data, titulo, nome, bytes,
-                tipoConteudo: TipoConteudoDe(nome),
-                operador: SessaoUsuario.Atual.Operador);
+                // O MIME sai de UMA definição (MidiaClinica.MimeDe): a que existia aqui
+                // conhecia três formatos, e a segunda definição divergiria justamente no
+                // vídeo — MIME errado gravado faz o celular baixar em vez de tocar.
+                tipoConteudo: MidiaClinica.MimeDe(nome),
+                operador: SessaoUsuario.Atual.Operador,
+                // Quem decide banco × armazenamento é o TAMANHO, e a decisão é do serviço.
+                midia: escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
 
             _snackbar.Info("Arquivo anexado à ficha.");
             await CarregarAsync();
@@ -527,13 +534,6 @@ public sealed partial class AnexosPacienteViewModel : ObservableObject
         }
     }
 
-    private static string? TipoConteudoDe(string nome) => Path.GetExtension(nome).ToLowerInvariant() switch
-    {
-        ".pdf" => "application/pdf",
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".png" => "image/png",
-        _ => null
-    };
 
     [RelayCommand]
     private async Task CancelarResultadoAsync(LinhaResultadoExame? linha)

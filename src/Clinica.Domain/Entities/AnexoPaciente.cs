@@ -48,6 +48,21 @@ public class AnexoPaciente
     /// <summary>Tamanho em bytes, para a tela dizer o peso sem abrir o arquivo.</summary>
     public int Tamanho { get; set; }
 
+    /// <summary>
+    /// Onde o arquivo mora quando é GRANDE demais para o banco (set/2026) — a mesma
+    /// decisão do anexo de sessão, ver <see cref="AnexoProntuario.CaminhoRemoto"/> e
+    /// <see cref="Clinica.Domain.MidiaClinica"/>. Nulo = está em
+    /// <see cref="Arquivo"/>, como sempre foi.
+    ///
+    /// Os dois lados foram feitos no MESMO commit de propósito: a cópia que fica para trás
+    /// é onde a capacidade some, e aqui ela sumiria justamente no vídeo que o paciente
+    /// mandou por WhatsApp e não pertence a sessão nenhuma.
+    /// </summary>
+    public string? CaminhoRemoto { get; set; }
+
+    /// <summary>⚠️ Derivada — em consulta traduzida use a COLUNA (<c>CaminhoRemoto != null</c>).</summary>
+    public bool NoArmazenamentoRemoto => !string.IsNullOrEmpty(CaminhoRemoto);
+
     /// <summary>Procedência e nota: "Importado do Smart Clinic · emitido em 26/10/2024".</summary>
     public string? Observacoes { get; set; }
 

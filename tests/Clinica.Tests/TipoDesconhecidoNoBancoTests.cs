@@ -199,15 +199,21 @@ public class TipoDesconhecidoNoBancoTests : IDisposable
     /// </summary>
     private async Task GravarTipoCruAsync(int documentoId, string tipo)
     {
+        // Identificadores entre aspas: o Postgres da rede de CI dobra o nome sem aspas
+        // para minúsculas e não acha "documentosclinicos"; o SQLite aceita os dois.
         await _db.Database.ExecuteSqlRawAsync(
-            "UPDATE DocumentosClinicos SET Tipo = {0} WHERE Id = {1}", tipo, documentoId);
+            "UPDATE \"DocumentosClinicos\" SET \"Tipo\" = {0} WHERE \"Id\" = {1}", tipo, documentoId);
         _db.ChangeTracker.Clear();
     }
 
     private async Task<string?> TipoCruAsync(int documentoId)
     {
-        await using var comando = _conn.CreateCommand();
-        comando.CommandText = "SELECT Tipo FROM DocumentosClinicos WHERE Id = " + documentoId;
+        // Pela conexão do CONTEXTO, nunca pela `_conn` do SQLite: contra o Postgres da rede
+        // de CI o contexto aponta para outro banco, e a conexão do fixture é só o gancho.
+        var conexao = _db.Database.GetDbConnection();
+        if (conexao.State != System.Data.ConnectionState.Open) await conexao.OpenAsync();
+        await using var comando = conexao.CreateCommand();
+        comando.CommandText = "SELECT \"Tipo\" FROM \"DocumentosClinicos\" WHERE \"Id\" = " + documentoId;
         return (string?)await comando.ExecuteScalarAsync();
     }
 }

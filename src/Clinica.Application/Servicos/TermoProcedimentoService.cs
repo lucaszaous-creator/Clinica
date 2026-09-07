@@ -283,7 +283,7 @@ public sealed class TermoProcedimentoService
     private static IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId)>
         ModalidadesQuePedemTermo(IEnumerable<Agendamento> agendamentos)
         => agendamentos
-            .Where(a => a.Status is not (StatusAgendamento.Cancelado or StatusAgendamento.Faltou))
+            .Where(a => a.OcupaAgenda)
             .Select(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo), a.ProfissionalId))
             .Distinct()
             .ToList();

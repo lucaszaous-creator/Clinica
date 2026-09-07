@@ -329,7 +329,11 @@ public sealed class DocumentoClinicoService
                           ? string.Empty
                           : $" ({e.RetornoSugeridoNota})")
                     : null,
-                e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null),
+                e.Encaminhamento is { } enc ? $"encaminhamento: {enc}" : null,
+                // O que ESTA clínica anota além dos campos do sistema (set/2026). Deixá-los
+                // de fora do único papel que sai da clínica seria o defeito recorrente: o
+                // campo gravado, e o relatório do convênio sem ele.
+                CampoPersonalizadoService.Resumir(e.CamposPersonalizados)),
             Quantidade = e.Profissional?.Rotulo,
             // A EVA e as marcações do mapa, na forma que o PDF desenha.
             Desenho = DesenhoDaSessao.De(e, mapas.GetValueOrDefault(e.Id)).Serializar()

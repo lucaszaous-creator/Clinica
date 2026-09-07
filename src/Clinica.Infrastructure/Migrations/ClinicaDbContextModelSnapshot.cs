@@ -33,6 +33,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int?>("AtendimentoId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("AtendimentoSubstitutoId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("ChamadoEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -123,6 +126,8 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.HasIndex("AtendimentoId");
 
+                    b.HasIndex("AtendimentoSubstitutoId");
+
                     b.HasIndex("ChaveImportacao")
                         .IsUnique();
 
@@ -204,6 +209,10 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CaminhoRemoto")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<DateTime?>("CanceladoEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -270,6 +279,10 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CaminhoRemoto")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("CanceladoEm")
                         .HasColumnType("timestamp without time zone");
@@ -735,6 +748,54 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("SalaId");
 
                     b.ToTable("BloqueiosAgenda");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.CampoPersonalizadoProntuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Ajuda")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CriadoPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ModalidadeCodigo")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Opcoes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Rotulo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CamposPersonalizadosProntuario");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.CategoriaFinanceira", b =>
@@ -1536,8 +1597,7 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<string>("Corpo")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
@@ -2924,8 +2984,7 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Corpo")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
@@ -4439,6 +4498,43 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("VersoesAnamnese");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ValorCampoPersonalizado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CampoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EvolucaoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Rotulo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampoId");
+
+                    b.HasIndex("EvolucaoId");
+
+                    b.ToTable("ValoresCampoPersonalizado");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.VersaoEvolucao", b =>
                 {
                     b.Property<int>("Id")
@@ -4446,6 +4542,9 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CamposPersonalizados")
+                        .HasColumnType("text");
 
                     b.Property<string>("CidSessao")
                         .HasMaxLength(20)
@@ -4529,6 +4628,11 @@ namespace Clinica.Infrastructure.Migrations
                         .HasForeignKey("AtendimentoId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Clinica.Domain.Entities.Atendimento", "AtendimentoSubstituto")
+                        .WithMany()
+                        .HasForeignKey("AtendimentoSubstitutoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
                         .WithMany()
                         .HasForeignKey("PacienteId")
@@ -4546,6 +4650,8 @@ namespace Clinica.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Atendimento");
+
+                    b.Navigation("AtendimentoSubstituto");
 
                     b.Navigation("Paciente");
 
@@ -5436,6 +5542,25 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Anamnese");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ValorCampoPersonalizado", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.CampoPersonalizadoProntuario", "Campo")
+                        .WithMany()
+                        .HasForeignKey("CampoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.Evolucao", "Evolucao")
+                        .WithMany("CamposPersonalizados")
+                        .HasForeignKey("EvolucaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campo");
+
+                    b.Navigation("Evolucao");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.VersaoEvolucao", b =>
                 {
                     b.HasOne("Clinica.Domain.Entities.Evolucao", "Evolucao")
@@ -5485,6 +5610,8 @@ namespace Clinica.Infrastructure.Migrations
             modelBuilder.Entity("Clinica.Domain.Entities.Evolucao", b =>
                 {
                     b.Navigation("Anexos");
+
+                    b.Navigation("CamposPersonalizados");
 
                     b.Navigation("Versoes");
                 });

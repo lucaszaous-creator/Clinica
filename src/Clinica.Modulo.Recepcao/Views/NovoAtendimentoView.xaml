@@ -37,6 +37,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
         <!-- ============================================================
              O PAR RÓTULO/VALOR de dado cadastral, usado na FAIXA do paciente e na
@@ -847,6 +848,7 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="3" />
                                                     <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <Border Grid.Column="0" CornerRadius="2">
                                                     <Border.Style>
@@ -862,6 +864,15 @@
                                                 </Border>
                                                 <TextBlock Grid.Column="1" Text="{Binding Descricao}"
                                                            Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                <!-- A PORTA da dívida (set/2026): a única linha desta
+                                                     coluna que se resolve com dinheiro, e com o paciente
+                                                     na frente. Só na linha da dívida; só para quem pode. -->
+                                                <Button Grid.Column="2" Content="Receber…" Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
+                                                        Style="{StaticResource BotaoSecundario}"
+                                                        Visibility="{Binding PodeReceber, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        IsEnabled="{Binding DataContext.PodeReceberDivida, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        Command="{Binding DataContext.ReceberDividaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -1119,6 +1130,13 @@
                                             <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
                                                        HorizontalAlignment="Left" Margin="0,0,0,10"
                                                        FontWeight="SemiBold" />
+
+                                            <!-- O preço do particular, pela MESMA tabela do Finalizar e da
+                                                 Conciliação (set/2026). Some para quem tem convênio. -->
+                                            <TextBlock Text="{Binding ValorPrevisto}" TextWrapping="Wrap"
+                                                       HorizontalAlignment="Left" Margin="0,0,0,10"
+                                                       Foreground="{StaticResource Brush.Acento}"
+                                                       Visibility="{Binding ValorPrevisto, Converter={StaticResource TextoParaVisibilidade}}" />
 
                                             <TextBlock Text="CÓDIGOS" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
 

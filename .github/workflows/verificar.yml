@@ -11,6 +11,7 @@ name: Verificar (Linux)
 #   2. tools/verificar-suite.py     — XAML, pack URIs, chaves do design system
 #   3. tools/compilar-sombra.py     — o C# dos sete projetos WPF
 #   4. dotnet test                  — Domain, Application, Infrastructure
+#   5. dotnet test contra Postgres  — a mesma suíte no banco da clínica (job ao lado)
 #
 # A quarta rede (compilador de marcação do WPF e empacotamento dos quatro .exe)
 # continua sendo do runner Windows: ela precisa do SDK WindowsDesktop, que não
@@ -58,7 +59,60 @@ jobs:
       - name: Testes
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
+      # A web de leitura é `net8.0` puro e NÃO entra na compilação-sombra (que existe
+      # para os projetos WPF). Sem este passo, ela seria a única parte do repositório
+      # que o CI não compila — e o `dotnet test` não a alcança porque a suíte de testes
+      # não a referencia (só o modelo dela, que mora na Application).
+      - name: Compilar a web de leitura
+        run: dotnet build src/Clinica.Web/Clinica.Web.csproj -c Release --nologo
+
       # Por último: é o passo mais lento (baixa as reference assemblies do WPF do
       # NuGet) e o que menos costuma falhar sozinho depois dos anteriores.
       - name: Compilar o C# das telas WPF (compilação-sombra)
         run: python3 tools/compilar-sombra.py
+
+  # A MESMA suíte, contra o banco que a clínica usa.
+  #
+  # Os testes rodam em SQLite, e o SQLite não vê o que o Postgres recusa: o tamanho
+  # declarado de uma coluna de texto (o 22001 do "Imprimir esta sessão"), o Kind das
+  # datas (as seis colunas com fuso da parcela 52), o xmin — e, principalmente, ele
+  # NUNCA executa uma migration (o schema nasce do modelo, por EnsureCreated), que
+  # foi por onde a FK para "UsuariosSistema" derrubou a abertura do Consultório.
+  # Cada uma dessas famílias ganhou uma rede própria DEPOIS do estrago; este job é
+  # a rede genérica, e roda em paralelo com o de cima para não atrasar ninguém.
+  #
+  # O interruptor mora em tests/Clinica.Tests/BancoDosTestes.cs: com a variável
+  # abaixo, as migrations são aplicadas UMA vez num banco-modelo e cada teste ganha
+  # uma cópia dele. É Postgres 16, a versão da VPS da clínica (docs/banco-na-vps.md).
+  testes-postgres:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        # O diretório de dados em memória (tmpfs): são milhares de bancos
+        # descartáveis, e durabilidade em disco aqui só custa minutos. Nada disto se
+        # aplica ao banco da clínica.
+        options: >-
+          --tmpfs /var/lib/postgresql/data:rw
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Testes contra o Postgres
+        env:
+          CLINICA_TESTES_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres
+        run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
