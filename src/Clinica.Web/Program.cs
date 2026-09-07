@@ -90,7 +90,7 @@ app.MapGet("/", (HttpContext ctx) =>
 });
 
 app.MapGet("/entrar", (HttpContext ctx, IAntiforgery antiforgery, string? erro) =>
-    Paginas.Html(Paginas.Login(erro, antiforgery.GetAndStoreTokens(ctx).RequestToken)));
+    Paginas.Html(Paginas.Login(erro, Sessao.Token(ctx, antiforgery))));
 
 app.MapPost("/entrar", async (
     HttpContext ctx, IAntiforgery antiforgery, AcessoService acesso,

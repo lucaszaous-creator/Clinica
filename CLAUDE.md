@@ -231,6 +231,14 @@ python3 tools/verificar-suite.py
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 ```
 
+⚠️ **`dotnet build` INCREMENTAL esconde warning de arquivo que ele não recompilou.** Ao
+mudar a assinatura de um método público (set/2026: o retorno de `AnexoPacienteService.
+Montar` virou anulável), o chamador que ficou intacto não é recompilado — e o build
+responde "0 Warnings" sobre um `CS8604` que existe. `--no-incremental` é o que mostra a
+verdade, e é o que o CI faz por partir de zero. É a mesma família do "a suíte ficou verde
+contra uma árvore diferente do commit" (parcela 74): **a resposta verde vale pelo que foi
+MEDIDO, não pelo que foi perguntado.**
+
 ⚠️ **Rode a suíte contra a árvore que VAI SER COMMITADA.** Em 23/08 ela ficou verde porque um
 arquivo estava no COMMIT e tinha sido apagado do DISCO — e era justamente o que reprovava.
 

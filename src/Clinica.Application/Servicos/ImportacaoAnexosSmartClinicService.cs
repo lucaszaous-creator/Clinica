@@ -175,7 +175,11 @@ public sealed class ImportacaoAnexosSmartClinicService
                 + (l.Detalhe is null ? "" : $" · {l.Detalhe}"),
                 operador, chave);
             await _repo.AdicionarAnexoPacienteAsync(anexo, ct);
-            await _repo.AdicionarArquivoAnexoPacienteAsync(bytes, ct);
+            // O acervo importado vai SEMPRE para o banco: `Montar` só devolve arquivo nulo
+            // quando o chamador informa `caminhoRemoto`, e a importação não informa — o
+            // teto aqui é o do banco, e um ZIP de 756 receitas não é lugar de decidir
+            // upload para a nuvem, arquivo a arquivo, sem ninguém olhando.
+            await _repo.AdicionarArquivoAnexoPacienteAsync(bytes!, ct);
             chaves.Add(chave);
             noLote++;
 
