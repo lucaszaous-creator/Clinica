@@ -1,0 +1,175 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.EscreverSessaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes"
+        xmlns:mod="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
+        Title="Sessão do prontuário" Width="1120" Height="690"
+        MinWidth="900" MinHeight="440"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================================
+         ESCREVER A SESSÃO PELO PRONTUÁRIO — a MESMA folha do atendimento (set/2026).
+
+         Ela substituiu a janela de duas colunas da Recepção, que tinha o mapa corporal
+         aberto num painel fixo de 530 px e QUATRO dos doze campos da sessão. A cliente
+         viu a tela e disse o que era: *"esse modal aí não está condizente com o do
+         atendimento médico/enfermagem"*. Dois desenhos para o mesmo ato é o que faz a
+         recepcionista achar que abriu outro programa — e foi assim que oito campos
+         ficaram de fora deste lado.
+
+         O que esta janela tem a MAIS que a folha do posto, e a razão de cada um:
+           · QUEM ATENDEU — no Consultório é quem fez login; aqui a recepcionista registra
+             a sessão de outra pessoa, e sem o campo a sessão nasceria assinada por ela;
+           · ANEXOS — a foto e o laudo, que o balcão anexa desde a parcela 2.
+
+         ⚠️ Rodapé ancorado e declarado ANTES do miolo: no DockPanel o filho que PREENCHE
+         vem por último, senão a folha rolante come a barra (parcela 47).
+         ============================================================================ -->
+
+    <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <Border DockPanel.Dock="Bottom" Margin="0,14,0,0" Padding="0,12,0,0"
+                BorderThickness="0,1,0,0" BorderBrush="{StaticResource Brush.Borda}">
+            <DockPanel>
+                <!-- Sem Style: o implícito de Button na suíte JÁ é o primário. -->
+                <Button DockPanel.Dock="Right" Content="Salvar sessão" MinWidth="150"
+                        VerticalAlignment="Center" IsDefault="True"
+                        IsEnabled="{Binding PodeEditarProntuario}"
+                        Command="{Binding SalvarCommand}" />
+                <Button DockPanel.Dock="Right" Content="Fechar" MinWidth="110" Margin="0,0,8,0"
+                        VerticalAlignment="Center" IsCancel="True"
+                        Style="{StaticResource BotaoSecundario}" Click="Fechar" />
+
+                <!-- A hora da última gravação, como no rodapé da tela de Atendimento.
+                     ⚠️ Ela NÃO promete gravação automática — a folha não salva sozinha
+                     (cada gravação de uma sessão que já existe cria uma versão). -->
+                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center"
+                           Style="{StaticResource TextoSuave}" Margin="12,0,12,0"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding DicaRodape}" />
+
+                <!-- Uma superfície de mensagem, ao lado do clique que a escreve: quem
+                     decide se ela aparece é o TEXTO, e a COR segue a gravidade
+                     (a lição das parcelas 62 e 64). -->
+                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                           Text="{Binding Mensagem}" Margin="0,0,12,0"
+                           Visibility="{Binding Mensagem,
+                                        Converter={StaticResource TextoParaVisibilidade},
+                                        FallbackValue=Collapsed}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== QUEM É E QUEM ATENDEU ===== -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Paciente}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,2,0,0" />
+            </StackPanel>
+
+            <!-- ⚠️ Aqui a sessão pode ser de OUTRA pessoa: quem registra é o balcão, e
+                 gravar o login de quem digitou faria o repasse pagar a pessoa errada e a
+                 auditoria responder o nome errado para "quem atendeu?". -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Bottom">
+                <TextBlock Text="Quem atendeu" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Profissionais}" MinWidth="260"
+                          SelectedItem="{Binding Profissional}"
+                          DisplayMemberPath="Rotulo" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ===== ANEXOS =====
+             Ancorados embaixo, com TETO: a lista cresce com o dado, e sem limite ela
+             empurraria a folha — que é o assunto da janela — para fora da vista
+             (a lição da parcela 90). -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Padding="12,10"
+                Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Medio}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Anexar arquivo…" MinWidth="150"
+                        VerticalAlignment="Center" Margin="12,0,0,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeAnexar}"
+                        ToolTip="Foto da região, laudo, exame. O anexo se prende à sessão — salve antes."
+                        Command="{Binding AnexarCommand}" />
+
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="Anexos" Style="{StaticResource Rotulo}" />
+                    <!-- ⚠️ Por GATILHO, e não por `ConverterParameter=Inverso`: o
+                         `BooleanToVisibilityConverter` do WPF IGNORA o parâmetro, e a
+                         frase apareceria exatamente ao contrário — visível quando já dá
+                         para anexar, escondida quando não dá. Nada falharia. -->
+                    <TextBlock TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Text="Salve a sessão antes de anexar — o arquivo precisa de uma sessão para se prender.">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PodeAnexar}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Anexos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type mod:AnexoResumo}">
+                                <DockPanel Margin="0,4,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Retirar…"
+                                            Style="{StaticResource BotaoAcaoGridPerigo}"
+                                            Margin="8,0,0,0"
+                                            ToolTip="Tira o anexo da lista, com motivo escrito. O arquivo NÃO é apagado — a guarda é de 20 anos."
+                                            Command="{Binding DataContext.RemoverAnexoCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button DockPanel.Dock="Right" Content="Salvar como…"
+                                            Style="{StaticResource BotaoPequeno}"
+                                            Command="{Binding DataContext.BaixarAnexoCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                    <TextBlock Text="{Binding NomeArquivo}" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- A folha PREENCHE o que sobra: janela maior, folha maior. -->
+        <Border Style="{StaticResource Card}">
+            <comp:FolhaDaSessaoView Contexto="{Binding Contexto}" />
+        </Border>
+    </DockPanel>
+</Window>

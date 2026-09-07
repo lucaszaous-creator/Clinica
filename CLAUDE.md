@@ -3089,6 +3089,58 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **Quando o componente ganha uma capacidade, as portas que já sofriam da falta dela
   entram no mesmo commit** — senão a correção fica onde alguém reclamou e falta onde
   ninguém reclamou ainda.
+
+- **A FOLHA DA SESSÃO VIROU COMPONENTE — e o modal do balcão tinha QUATRO dos doze campos**
+  (set/2026; a cliente, abrindo Prontuário → Nova sessão: *"esse modal aí não está
+  condizente com o do atendimento médico/enfermagem. Não queremos esse tipo de modal/box
+  de atendimento"*). Havia DOIS desenhos para o mesmo ato: a folha única do Consultório
+  (mockup 01, aprovado) e um formulário de duas colunas na Recepção, com o mapa corporal
+  aberto num painel FIXO de 530 px. O segundo tinha ficado para trás nas parcelas 73, 75,
+  76 e 77: história da doença atual, exame físico, hipótese, CID, plano, retorno,
+  encaminhamento e os campos personalizados não existiam lá.
+  ⚠️ **Ele PRESERVAVA os oito na gravação (a regra do lugar 6), e foi isso que escondeu a
+  divergência**: nada se perdia, nada falhava, e a única forma de notar era abrir as duas
+  telas lado a lado — que é o que a cliente fez. **Preservar o que não se edita evita o
+  estrago e não corrige o desenho**; a pergunta que faltou, a cada campo novo, era *"a
+  outra porta de escrita mostra isto?"*.
+  ⚠️ **A extração foi por HERANÇA, e a razão não é gosto**: `AtendimentoViewModel :
+  FolhaDaSessaoViewModel`. Compor obrigaria a trocar ~40 bindings da tela mais crítica do
+  módulo clínico (`{Binding TextoEvolucao}` → `{Binding Folha.TextoEvolucao}`), e binding
+  que deixa de casar **não quebra build nem teste** — o campo simplesmente para de
+  aparecer. Herdar preservou todos eles; o que muda entre as portas entra por gancho
+  (`PacienteId`, `AgendamentoDaSessao`, `AtendimentoDaSessao`, `ProfissionalDaSessao`,
+  `ModalidadeDaSessaoAsync`, `DepoisDeSalvarAsync`) e, no XAML, por propriedade de
+  dependência (`Contexto`, `Ferramentas`) — nunca por cópia.
+  ⚠️ **`partial void On<X>Changed` é gerado NA BASE, e a derivada não pode implementá-lo.**
+  `OnSemPacienteChanged` virou o gancho `AoMudarPresencaDePaciente`; sem ele a tela de
+  Atendimento pararia de reavaliar "Emitir documento" e "Imprimir a sessão" ao trocar de
+  paciente — a parcela 41 pela porta de trás. O mesmo vale para o `PodeAnexar` da janela,
+  que passou a escutar o `PropertyChanged`.
+  ⚠️ **A janela nova ganhou o que só existe FORA do posto, e cada peça tem razão**: *quem
+  atendeu* (no Consultório é sempre quem fez login; no balcão a sessão é de outra pessoa, e
+  o repasse e a auditoria leem essa coluna) e os *anexos* (que o balcão faz desde a parcela
+  2 — tirá-los seria tirar capacidade de quem a usa). E **Salvar não fecha**, como na folha
+  do posto: é isso que destrava o anexo numa sessão nova, porque o arquivo se prende à
+  evolução e antes dela não há a que se prender.
+  ⚠️ **Sem snackbar, a gravação ficava MUDA.** O host do snackbar mora na `ShellWindow`,
+  atrás da janela modal, e a base só escrevia `Mensagem` quando a EVA estava pela metade —
+  então o Salvar da janela não dizia nada. Gravação que não responde é o que faz a pessoa
+  clicar de novo (o incidente dos três encaixes em 71 segundos, parcela 65): quando não há
+  snackbar, a confirmação vai para a mensagem inline. **Ao tornar opcional uma dependência
+  de FEEDBACK, procure o que ela dizia e escreva onde a nova porta lê.**
+  ⚠️ **O combo lista só a equipe ATIVA — e o profissional que saiu da clínica sumia da
+  sessão.** Abrir uma sessão antiga para corrigir uma vírgula deixava o campo em branco, e
+  o Salvar gravaria `ProfissionalId = null`. É "quem não edita, PRESERVA" na variante em
+  que o campo ESTÁ na tela e o VALOR é que não está na lista; o defeito vinha do modal
+  antigo e foi corrigido na mudança (`_profissionalOriginal` como caminho de baixo).
+  ⚠️ **A checagem de comando não seguia a classe BASE**, e acusou `SalvarCommand` — que a
+  folha declara e a tela herda — como "o botão aparece e o clique não faz nada". Checagem
+  que reclama do que está certo é checagem que alguém desliga: ela passou a seguir a
+  herança, com autoteste que reprova quando a busca da base quebra.
+  ⚠️ E `BooleanToVisibilityConverter` **ignora o `ConverterParameter`**: o "Salve a sessão
+  antes de anexar" nasceu com `ConverterParameter=Inverso` e apareceria exatamente ao
+  contrário — visível quando já dá para anexar. Inversão de visibilidade é `DataTrigger`,
+  como o resto da suíte.
   ⚠️ **A FICHA DO ATENDIMENTO ESTAVA EM TRÊS CÓPIAS, E ELAS JÁ TINHAM DIVERGIDO EM TRÊS
   PONTOS** — cada um uma regra que só existia numa delas: a guarda de paciente que DIZ por
   que não dá (só a da enfermagem), a recusa de permissão que vira frase em vez de exceção

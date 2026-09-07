@@ -1528,13 +1528,12 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
             if (PacienteId == 0) return;
 
-            var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
-            var janela = new Janelas.EvolucaoWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
+            // A MESMA folha da tela de Atendimento (set/2026) — ver
+            // <see cref="EscreverSessaoViewModel"/> para o que ela substituiu.
+            var vm = new EscreverSessaoViewModel(_escopos, _dialogo, PacienteId, Nome, evolucaoId);
 
-            if (janela.ShowDialog() != true) return;
+            if (!EscreverSessaoWindow.Abrir(vm)) return;
+
             _snackbar.Sucesso("Prontuário atualizado.");
             await CarregarAsync();
         }
