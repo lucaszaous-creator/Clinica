@@ -42,7 +42,21 @@ public enum OrigemAcessoProntuario
     /// casa por prefixo, então o valor novo é aditivo — nenhuma consulta de app velho
     /// quebra por causa dele.
     /// </summary>
-    SalaInfusao
+    SalaInfusao,
+
+    /// <summary>
+    /// A WEB DE LEITURA (set/2026): o prontuário aberto de FORA da máquina da clínica —
+    /// do celular, de casa, da rede de outro consultório.
+    ///
+    /// Origem própria porque é a distinção que mais importa numa investigação: "abriu no
+    /// balcão às 14h" e "abriu de fora às 23h" são fatos de naturezas diferentes sobre o
+    /// mesmo paciente, e fundi-los apagaria justamente o padrão que se procura.
+    ///
+    /// ⚠️ Aditiva pela mesma razão da <see cref="SalaInfusao"/>: a origem é gravada como
+    /// TEXTO dentro da ação e a leitura casa por prefixo — nenhuma consulta de app velho
+    /// quebra por causa dela.
+    /// </summary>
+    WebDeLeitura
 }
 
 /// <summary>
@@ -236,6 +250,7 @@ public sealed class AcessoProntuarioService
         // ⚠️ Sem o case aqui a trilha cai no "_" e diz "Prontuário acessado" — some
         // justamente a distinção que o valor novo existe para dar.
         OrigemAcessoProntuario.SalaInfusao => "Sala de infusão aberta",
+        OrigemAcessoProntuario.WebDeLeitura => "Prontuário aberto pela web de leitura (fora da clínica)",
         _ => "Prontuário acessado"
     };
 }

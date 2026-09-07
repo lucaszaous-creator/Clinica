@@ -59,6 +59,13 @@ jobs:
       - name: Testes
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
+      # A web de leitura é `net8.0` puro e NÃO entra na compilação-sombra (que existe
+      # para os projetos WPF). Sem este passo, ela seria a única parte do repositório
+      # que o CI não compila — e o `dotnet test` não a alcança porque a suíte de testes
+      # não a referencia (só o modelo dela, que mora na Application).
+      - name: Compilar a web de leitura
+        run: dotnet build src/Clinica.Web/Clinica.Web.csproj -c Release --nologo
+
       # Por último: é o passo mais lento (baixa as reference assemblies do WPF do
       # NuGet) e o que menos costuma falhar sozinho depois dos anteriores.
       - name: Compilar o C# das telas WPF (compilação-sombra)

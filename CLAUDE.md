@@ -30,6 +30,12 @@ CLINICA_TESTES_POSTGRES="Host=localhost;Port=5432;Username=postgres;Password=pos
 # Rodar o app (apenas Windows — WPF)
 dotnet run --project src/Clinica.Desktop
 
+# A WEB DE LEITURA (set/2026) — roda em Linux, e é a única parte da suíte que roda aqui.
+# Somente leitura: o dia, o mês e a ficha. Ver docs/web-de-leitura.md, inclusive a decisão
+# de ONDE ela pode ser publicada (que não é "na internet").
+ConnectionStrings__Clinica="Host=...;Database=...;Username=...;Password=..." \
+  dotnet run --project src/Clinica.Web
+
 # Verificação estática da suíte multi-exe (roda em qualquer sistema) — RODE ANTES DE TODO PUSH
 python3 tools/verificar-suite.py
 
@@ -59,6 +65,7 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 | `dotnet test` com `CLINICA_TESTES_POSTGRES` | a mesma suíte no Postgres: migrations aplicadas de verdade, tetos de coluna, datas com fuso, tipos de parâmetro | nada das telas |
 | `tools/compilar-sombra.py` | **o C# dos 10 projetos WPF, faturamento incluído** (nome, tipo, aridade, atributo) | XAML |
 | `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução, **migration destrutiva** | semântica de C# |
+| `dotnet build src/Clinica.Web` | a WEB de leitura (set/2026), que é `net8.0` puro e roda em Linux | nada das telas WPF |
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
 da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
@@ -3737,6 +3744,49 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   produção — a versão guardaria "nenhum campo" e a folha impressa sairia sem o que a
   clínica anotou —, com o teste verde pelo relationship fixup do EF (a lição da parcela
   68). O teste que os prova usa um `DbContext` NOVO.
+
+- **A WEB DE LEITURA — o dia, o mês e a ficha de fora da máquina** (set/2026, item 6 da
+  lista; o mapa está em `docs/web-de-leitura.md`). `Clinica.Web` é ASP.NET Core `net8.0`
+  puro — a ÚNICA parte da suíte que roda em Linux e que o `dotnet build` deste ambiente
+  compila junto do resto.
+  ⚠️ **SOMENTE LEITURA, e a única escrita é a TRILHA.** Lançar, marcar, escrever, receber e
+  assinar continuam nos cinco apps; o que a web grava é o `AcessoProntuarioService`, porque
+  o ponto 4 do compromisso vale para toda tela que ABRE prontuário — porta de leitura sem
+  trilha é o buraco que só aparece no dia em que alguém precisa investigar. Falhar a trilha
+  não impede ler (banco lento não pode travar quem está com o paciente na frente).
+  ⚠️ **A régua de acesso é a MESMA do desktop** (`AcessoWeb`, na Application, com teste):
+  os bits da parcela 49, e o prontuário exigindo `VerProntuario` mesmo para quem abre a
+  ficha. Uma segunda regra — "na web todo mundo vê o resumo" — seria a permissão granular
+  desfeita por uma porta nova, que é o que a parcela 60 achou nas cópias do faturamento.
+  ⚠️ **Sem cookie é `Permissao.Nenhuma`, ao contrário do desktop.** Lá "sem sessão
+  autenticada, `Pode` LIBERA", porque o login é obrigatório e tela vazia parece defeito;
+  aqui a porta está na REDE, e liberar por omissão seria a web inteira aberta a quem não
+  entrou. **Ao portar uma regra de sessão para outro meio, releia o caso-padrão dela.**
+  ⚠️ **ONDE ela roda é decisão da DIREÇÃO, e não foi tomada.** O `banco-na-vps.md` recusou
+  por escrito o desenho "API HTTPS no meio" — *o mais exposto*, porta 443 respondendo a
+  qualquer IP com código nosso atrás. Publicar esta web na internet é tomar aquela decisão
+  pela porta de trás, então o que se entrega é o software, com as duas instalações que não
+  a contradizem (rede da clínica, ou atrás de VPN) e a lista do que ela precisaria ganhar
+  ANTES de ser exposta — segundo fator, limite por IP (hoje o travamento é por USUÁRIO),
+  origem do acesso na trilha. **Quando uma decisão de arquitetura já foi tomada e escrita,
+  a feature nova não pode revogá-la de raspão.**
+  ⚠️ **Não há framework de front, e é a decisão do gráfico desenhado com os tokens
+  (parcela 5) aplicada de novo**: são três páginas de leitura, e um SPA custaria build,
+  dependências que se atualizam sozinhas e uma segunda cópia do design system para manter.
+  O preço disso é que **todo texto do banco passa pelo escape** (`Paginas.T`) — nome de
+  paciente e observação de horário são texto que uma PESSOA digitou, e a CSP é a segunda
+  tranca, nunca a primeira.
+  ⚠️ **`Cache-Control: no-store` em toda resposta**: é o que impede a ficha de ficar no
+  cache do navegador de um computador compartilhado, e o botão "voltar" depois do logout é
+  exatamente onde isso apareceria.
+  ⚠️ **A permissão é FOTOGRAFIA do login**, como o `SessaoUsuario.Entrar` — reler o banco a
+  cada requisição pagaria uma consulta por clique. O preço é o mesmo do desktop e está
+  escrito: permissão retirada passa a valer no próximo login, e o cookie dura 2 h.
+  ⚠️ E as regras da casa atravessaram inteiras: cancelado e falta ficam na lista APAGADOS
+  (a folha do dia), a busca **não consulta com o campo vazio** (`SemBuscaInicial`), o painel
+  DIZ o que não pôde ler (`NaoVerificados` — "nada vencido" por causa de uma consulta
+  quebrada é pior do que um painel que não abre), e quem não alcança página nenhuma **não
+  entra**, com a frase dizendo por quê (a regra da parcela 45).
 
 - **A AGENDA COM COR — a família no traço, no avatar e no cartão; o estado na pílula; o
   placar com glifo** (set/2026; a cliente: *"a nossa agenda está um pouco sem cor,
