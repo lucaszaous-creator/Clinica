@@ -1033,6 +1033,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.Evolucoes
             .Include(e => e.Profissional)
             .Include(e => e.Versoes)
+            // ⚠️ Sem este Include, a EDIÇÃO chegaria com a lista vazia e a versão anterior
+            // guardaria "nenhum campo personalizado" — o rastro que o art. 3º da Lei
+            // 13.787/2018 exige sumiria em silêncio. E o teste NÃO pegaria: com o mesmo
+            // DbContext, o relationship fixup do EF preenche a navegação sozinho (a lição
+            // da parcela 68).
+            .Include(e => e.CamposPersonalizados)
             .FirstOrDefaultAsync(e => e.Id == evolucaoId, ct);
 
     // Rastreadas de propósito (vão ser escritas). A COLUNA `CanceladaEm`, nunca a derivada
@@ -1116,6 +1122,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         int pacienteId, bool incluirCanceladas, CancellationToken ct = default)
         => await _db.Evolucoes.AsNoTracking()
             .Include(e => e.Profissional)
+            // São poucas linhas curtas por sessão (o teto é 12 campos ativos) e elas são
+            // lidas em TODA porta que mostra o prontuário — a folha impressa, a exportação
+            // e a tela. Sem o Include a navegação chega vazia em produção e a folha sairia
+            // sem o que a clínica anotou, com o teste verde pelo fixup do EF.
+            .Include(e => e.CamposPersonalizados)
             .Where(e => e.PacienteId == pacienteId)
             .Where(e => incluirCanceladas || e.CanceladaEm == null)
             .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
@@ -1198,6 +1209,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 a.Id, a.EvolucaoId, a.NomeArquivo, a.Tipo, a.TipoConteudo,
                 a.Tamanho, a.Descricao, a.CriadoEm))
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CampoPersonalizadoProntuario>> CamposPersonalizadosAsync(
+        CancellationToken ct = default)
+        => await _db.CamposPersonalizadosProntuario.AsNoTracking()
+            .OrderBy(c => c.Ordem).ThenBy(c => c.Id)
+            .ToListAsync(ct);
+
+    public Task<CampoPersonalizadoProntuario?> ObterCampoPersonalizadoAsync(
+        int campoId, CancellationToken ct = default)
+        => _db.CamposPersonalizadosProntuario.FirstOrDefaultAsync(c => c.Id == campoId, ct);
+
+    public async Task AdicionarCampoPersonalizadoAsync(
+        CampoPersonalizadoProntuario campo, CancellationToken ct = default)
+        => await _db.CamposPersonalizadosProntuario.AddAsync(campo, ct);
 
     public async Task<byte[]?> ConteudoDoAnexoAsync(int anexoId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()

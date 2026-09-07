@@ -137,6 +137,15 @@ public sealed class ProntuarioService
         destino.RetornoSugeridoNota = Limpar(dados.RetornoSugeridoNota);
         destino.Encaminhamento = Limpar(dados.Encaminhamento);
 
+        // ⚠️ OS CAMPOS PERSONALIZADOS, e o "quem não edita PRESERVA" (set/2026).
+        //
+        // `null` quer dizer "esta tela não os edita" — é o caso da janela do BALCÃO, que
+        // não os mostra; regravar sobre eles apagaria o que o médico escreveu, sem erro e
+        // sem aviso (a armadilha da parcela 74). Lista VAZIA é outra coisa: é a tela que
+        // os mostra e teve todos apagados, e aí apagar é o certo.
+        if (dados.CamposPersonalizados is { } respostas && !ReferenceEquals(respostas, destino.CamposPersonalizados))
+            AplicarCamposPersonalizados(destino, respostas);
+
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
@@ -186,11 +195,41 @@ public sealed class ProntuarioService
             RetornoSugeridoEm = atual.RetornoSugeridoEm,
             RetornoSugeridoNota = atual.RetornoSugeridoNota,
             Encaminhamento = atual.Encaminhamento,
+            // Sem esta linha, corrigir a sessão apagaria os campos personalizados
+            // anteriores SEM RASTRO — e eles são a variante mais fácil de esquecer do
+            // lugar 4 da auditoria de linha: não aparecem na entidade como propriedade.
+            CamposPersonalizados = CampoPersonalizadoService.Resumir(atual.CamposPersonalizados),
             ProfissionalId = atual.ProfissionalId,
             SubstituidaEm = DateTime.Now,
             SubstituidaPor = operador,
             Motivo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim()
         });
+
+    /// <summary>
+    /// Troca os valores dos campos personalizados da sessão pelos que a tela mandou.
+    ///
+    /// É uma SUBSTITUIÇÃO, não uma fusão: quem edita a sessão vê a folha inteira, e um
+    /// campo apagado na tela tem de sumir do registro. O que já estava é guardado na
+    /// versão anterior pelo <see cref="GuardarVersao"/>, que roda ANTES — a ordem é
+    /// amarra, não estilo.
+    /// </summary>
+    private static void AplicarCamposPersonalizados(
+        Evolucao destino, IReadOnlyList<ValorCampoPersonalizado> respostas)
+    {
+        destino.CamposPersonalizados.Clear();
+        foreach (var r in respostas)
+            destino.CamposPersonalizados.Add(new ValorCampoPersonalizado
+            {
+                EvolucaoId = destino.Id,
+                Evolucao = destino,
+                CampoId = r.CampoId,
+                // Rótulo e tipo COPIADOS: renomear o campo não pode reescrever a sessão do
+                // mês passado (a regra do protocolo, das escalas e das medidas).
+                Rotulo = r.Rotulo,
+                Tipo = r.Tipo,
+                Valor = r.Valor
+            });
+    }
 
     /// <summary>Quantas correções cada sessão teve — para a lista marcar quais foram mexidas.</summary>
     public Task<IReadOnlyDictionary<int, int>> ContagemDeVersoesAsync(
@@ -381,10 +420,34 @@ public sealed class ProntuarioService
     public Task<byte[]?> ConteudoAnexoAsync(int anexoId, CancellationToken ct = default)
         => _repo.ConteudoDoAnexoAsync(anexoId, ct);
 
+    /// <summary>
+    /// Os bytes venham eles de onde vierem — banco ou armazenamento (set/2026). A tela
+    /// chama ESTE método e não precisa saber onde o arquivo mora; sem ele, cada porta de
+    /// "abrir anexo" decidiria por conta própria, e a que ficasse para trás abriria vazio
+    /// justamente o vídeo.
+    /// </summary>
+    public async Task<byte[]?> ConteudoAnexoAsync(
+        int anexoId, MidiaProntuarioService midia, CancellationToken ct = default)
+    {
+        var anexo = await _repo.ObterAnexoAsync(anexoId, ct);
+        if (anexo is null) return null;
+
+        return await midia.LerAsync(
+            anexo.CaminhoRemoto, c => _repo.ConteudoDoAnexoAsync(anexoId, c), ct);
+    }
+
+    /// <param name="midia">
+    /// Quando informado, arquivo GRANDE (vídeo, áudio) vai para o armazenamento da clínica
+    /// em vez da coluna do banco — ver <see cref="MidiaProntuarioService"/>. Nulo mantém o
+    /// comportamento de sempre: só cabe o que cabe em <see cref="TamanhoMaximoAnexo"/>.
+    /// É opcional porque o anexo comum não pode passar a depender de a clínica ter
+    /// contratado armazenamento nenhum.
+    /// </param>
     public async Task<AnexoProntuario> AnexarAsync(
         int evolucaoId, string nomeArquivo, byte[] conteudo,
         TipoAnexo tipo = TipoAnexo.Documento, string? tipoConteudo = null,
-        string? descricao = null, string? operador = null, CancellationToken ct = default)
+        string? descricao = null, string? operador = null,
+        MidiaProntuarioService? midia = null, CancellationToken ct = default)
     {
         var evolucao = await _repo.ObterEvolucaoAsync(evolucaoId, ct)
             ?? throw new InvalidOperationException("Evolução não encontrada.");
@@ -392,12 +455,20 @@ public sealed class ProntuarioService
         if (conteudo.Length == 0)
             throw new InvalidOperationException("O arquivo está vazio.");
 
-        // O limite protege o banco remoto: um anexo gigante trava a sincronização de
-        // todo mundo, e o erro apareceria longe da causa.
-        if (conteudo.Length > TamanhoMaximoAnexo)
+        // Sem o serviço de mídia o teto é o do BANCO — o limite protege o banco remoto: um
+        // anexo gigante trava a sincronização de todo mundo, e o erro apareceria longe da
+        // causa. Com ele, quem passa do teto vai para o armazenamento da clínica.
+        if (midia is null && conteudo.Length > TamanhoMaximoAnexo)
             throw new InvalidOperationException(
                 $"O arquivo tem {conteudo.Length / (1024 * 1024)} MB e o limite é "
                 + $"{TamanhoMaximoAnexo / (1024 * 1024)} MB.");
+
+        // ⚠️ ANTES de montar a linha: guardar que falha IMPEDE o anexo (a assimetria
+        // escrita no serviço). Linha gravada com o arquivo perdido é um "abrir" que não
+        // abre, num registro que a lei manda guardar por 20 anos.
+        var destino = midia is null
+            ? new MidiaProntuarioService.Destino(conteudo, null)
+            : await midia.GuardarAsync(conteudo, nomeArquivo, tipoConteudo, ct);
 
         var anexo = new AnexoProntuario
         {
@@ -405,7 +476,8 @@ public sealed class ProntuarioService
             NomeArquivo = nomeArquivo.Trim(),
             Tipo = tipo,
             TipoConteudo = tipoConteudo,
-            Conteudo = conteudo,
+            Conteudo = destino.NoBanco,
+            CaminhoRemoto = destino.CaminhoRemoto,
             Tamanho = conteudo.Length,
             Descricao = Limpar(descricao),
             CriadoEm = DateTime.Now,

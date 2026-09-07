@@ -55,4 +55,22 @@ public interface IArmazenamentoPublico
     /// pública — o desktop tem credencial, e é ela que prova que quem lê é a clínica.
     /// </summary>
     Task<byte[]?> LerAsync(string caminho, CancellationToken ct = default);
+
+    /// <summary>
+    /// Guarda um objeto <b>PRIVADO</b> — sem ACL pública, para ser lido só pela API
+    /// autenticada (set/2026, a mídia do prontuário).
+    ///
+    /// ⚠️ <b>É verbo separado de propósito, e a separação é a decisão da feature.</b>
+    /// <see cref="PublicarAsync"/> aplica <c>public-read</c>: é o desenho inteiro da
+    /// receita, que precisa abrir para um farmacêutico ANÔNIMO. Vídeo de marcha e áudio de
+    /// ausculta são dado de saúde do art. 5º, II — pô-los no mesmo verbo daria um objeto
+    /// legível por quem tiver o endereço, e endereço vaza por print, por histórico do
+    /// navegador e por encaminhamento de mensagem. Aqui a barreira é a CREDENCIAL, e o
+    /// caminho inadivinhável é a segunda tranca, nunca a primeira.
+    ///
+    /// Também não leva <c>Content-Disposition</c> de PDF: quem lê é o app, não um
+    /// navegador.
+    /// </summary>
+    Task GuardarPrivadoAsync(
+        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default);
 }

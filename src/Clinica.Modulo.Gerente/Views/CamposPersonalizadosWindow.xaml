@@ -1,0 +1,170 @@
+<Window x:Class="Clinica.Gerente.Views.CamposPersonalizadosWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        xmlns:vm="clr-namespace:Clinica.Gerente.ViewModels"
+        Title="Campos do prontuário" Width="980" Height="640"
+        MinWidth="860" MinHeight="540"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Campos do prontuário" Style="{StaticResource DialogoTitulo}"
+                       HorizontalAlignment="Left" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       HorizontalAlignment="Left" MaxWidth="880"
+                       Text="O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Eles aparecem na folha da sessão, entram no prontuário e saem na exportação. Não substituem nenhum campo do sistema." />
+            <TextBlock Text="{Binding LimiteTexto}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="880"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+            <Border Margin="0,0,0,10"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                        IsCancel="True" MinWidth="110" Margin="0,0,8,0"
+                        VerticalAlignment="Center" />
+                <Button Content="Salvar campo" Command="{Binding SalvarCommand}"
+                        MinWidth="150" VerticalAlignment="Center"
+                        IsEnabled="{Binding PodeConfigurar}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="380" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== O que já está cadastrado ===== -->
+            <Grid Grid.Column="0">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" Content="Novo campo"
+                                Style="{StaticResource BotaoSecundario}" MinWidth="120"
+                                IsEnabled="{Binding PodeConfigurar}"
+                                Command="{Binding NovoCommand}" />
+                        <TextBlock Text="CADASTRADOS" Style="{StaticResource Rotulo}"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <DataGrid ItemsSource="{Binding Campos}" AutoGenerateColumns="False"
+                              IsReadOnly="True" HeadersVisibility="Column"
+                              ctrl:Ajudantes.RodaDaPagina="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Campo" Binding="{Binding Rotulo}" Width="*" />
+                            <DataGridTextColumn Header="Tipo" Binding="{Binding Tipo}" Width="110" />
+                            <DataGridTextColumn Header="Onde aparece" Binding="{Binding Onde}" Width="160" />
+                            <DataGridTextColumn Header="Situação" Binding="{Binding Situacao}" Width="90" />
+                            <DataGridTemplateColumn Header="" Width="180">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LinhaCampoPersonalizado}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
+                                                    Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.EditarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" />
+                                            <!-- Não há "excluir": a definição é a PROCEDÊNCIA do
+                                                 valor gravado. Desativar tira da folha e mantém
+                                                 o que já foi registrado. -->
+                                            <Button Command="{Binding DataContext.AlternarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource BotaoPequeno}">
+                                                        <Setter Property="Content" Value="Reativar" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Ativo}" Value="True">
+                                                                <Setter Property="Content" Value="Desativar" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <!-- A sobreposição pertence à REGIÃO cujo vazio ela explica, e é o ÚLTIMO
+                     filho do Grid (checagem 25). -->
+                <ctrl:EstadoDaTela Itens="{Binding Campos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Titulo="Nenhum campo cadastrado"
+                                   Descricao="A folha da sessão fica só com os campos do sistema — que é o caso da maioria das clínicas."
+                                   TextoCarregando="Lendo os campos…"
+                                   TextoNaoVerificado="Não foi possível ler os campos. Isto NÃO quer dizer que não há nenhum." />
+            </Grid>
+
+            <!-- ===== O campo em edição ===== -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                          ctrl:Ajudantes.RodaDaPagina="True">
+                <StackPanel>
+                    <TextBlock Text="O CAMPO" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+
+                    <TextBlock Text="Nome (o que o profissional lê)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Rotulo, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Ex.: Nº de agulhas" />
+
+                    <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                    <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}"
+                              ItemTemplate="{StaticResource ItemRotuloEnum}" />
+
+                    <StackPanel Visibility="{Binding EhLista, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="Opções (uma por linha)" Style="{StaticResource Rotulo}"
+                                   Margin="0,10,0,0" />
+                        <TextBox Text="{Binding Opcoes}" AcceptsReturn="True" Height="90"
+                                 TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                    </StackPanel>
+
+                    <TextBlock Text="Onde aparece" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                    <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}"
+                              DisplayMemberPath="Nome" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0"
+                               Text="Campo que aparece onde não serve é o campo que ninguém preenche — e que faz parar de preencher os outros." />
+
+                    <TextBlock Text="Ajuda (o que a clínica entende por isto)"
+                               Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                    <TextBox Text="{Binding Ajuda}" MaxLength="300" AcceptsReturn="True"
+                             Height="56" TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0"
+                               Text="Sem isto, dois profissionais preenchem o mesmo campo com coisas diferentes e a coluna deixa de comparar." />
+
+                    <CheckBox Content="Ativo (aparece na folha da sessão)"
+                              IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -136,7 +136,10 @@ Nenhum deles quebra o build quando é esquecido:
    tela precisa carregá-lo e devolvê-lo intacto, senão ela o apaga;
 7. **o PDF, a exportação, o art. 18 II e a guarda** (ponto 8 do compromisso de conformidade);
 8. **a busca do prontuário** e o `CatalogoRegistroClinico`;
-9. **os TRÊS leitores que só MOSTRAM a sessão** — o `ModeloEvolucao` (parcela 76), o
+9. **os CAMPOS PERSONALIZADOS** (set/2026) — o `GuardarVersao` os guarda como TEXTO, e
+   eles são a variante mais fácil de esquecer do lugar 4: não aparecem na entidade como
+   propriedade, então nada quebra quando ficam de fora;
+10. **os TRÊS leitores que só MOSTRAM a sessão** — o `ModeloEvolucao` (parcela 76), o
    painel da sessão anterior (`ResumoSessaoAnterior`, parcela 77) e a janela que ABRE a
    sessão (`SessaoDoProntuario`, set/2026). Os três já ficaram para trás uma vez cada, e
    pelo mesmo motivo: esquecer um não quebra build, não quebra teste e não acusa em rede
@@ -3655,6 +3658,85 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   (`Seletor.TemResultados`). No do faturamento a lista é a coluna inteira, e esconder
   deixaria o cartão vazio: ali entrou o CONVITE no lugar dela ("digite o nome ou o CPF").
   **A pergunta é sempre a mesma — o que ocupa o lugar do que sumiu?**
+
+- **A MÍDIA DO PRONTUÁRIO E OS CAMPOS QUE ESTA CLÍNICA ANOTA** (set/2026, item 5 da lista
+  "o que falta para ficar profissional"). Duas metades do mesmo pedido: o que o prontuário
+  não conseguia GUARDAR, e o que ele não conseguia PERGUNTAR.
+  ⚠️ **(a) O vídeo não cabia no banco, e o teto não era capricho.** O anexo guarda os bytes
+  numa coluna, com teto de 10 MB, porque o banco é REMOTO — anexo gigante trava a
+  sincronização de todo mundo e o erro aparece longe da causa. Um vídeo de marcha de
+  quarenta segundos passa disso sem esforço, então o profissional gravava no celular,
+  mandava por WhatsApp, e o registro clínico ficava fora do prontuário: sem guarda, sem
+  trilha de acesso, num aplicativo que a clínica não controla.
+  O arquivo grande vai para o armazenamento que a clínica JÁ tem (o mesmo S3-compatível da
+  publicação de receitas) e a linha continua no banco — `AnexoProntuario.CaminhoRemoto` e
+  `AnexoPaciente.CaminhoRemoto`, migration aditiva, nulo = "está no banco", que é a verdade
+  de toda linha já gravada.
+  ⚠️ **A decisão da feature é o VERBO, não o upload: `GuardarPrivadoAsync`.** O
+  `PublicarAsync` aplica `public-read` — é o desenho inteiro da receita, que precisa abrir
+  para um farmacêutico ANÔNIMO, com o token de 128 bits como barreira e a decisão escrita.
+  Vídeo do paciente é dado de saúde (art. 5º, II): endereço "inadivinhável" vaza por print,
+  por histórico do navegador e por encaminhamento de mensagem, e no dia em que vazar não há
+  como saber quem baixou. Aqui a barreira é a CREDENCIAL, e o caminho inadivinhável é a
+  segunda tranca — nunca a primeira. **Reusar o verbo teria sido de graça e é o erro que
+  esta parcela existe para não cometer.**
+  ⚠️ **Falhar ao guardar IMPEDE o anexo** — a assimetria deliberada em relação a quase todo
+  o resto do sistema, que degrada e avisa. Linha gravada com o arquivo perdido é um "abrir
+  vídeo" que não abre, num registro que a lei manda guardar por 20 anos: o prontuário
+  afirmaria ter uma prova que ninguém tem. E **cancelar NÃO apaga o objeto remoto**, ao
+  contrário da receita publicada: lá o que sai do ar é a PUBLICAÇÃO e os bytes assinados
+  ficam no banco; aqui o objeto remoto É o registro clínico.
+  ⚠️ **O prefixo é `m/`, separado do `r/` das receitas**: uma é pública com prazo, a outra é
+  privada e guardada 20 anos, e uma varredura de expiração que confundisse as duas apagaria
+  registro clínico. A extensão do caminho é SANEADA — o nome do arquivo vem de fora, e
+  deixá-lo compor a chave crua é como se escreve um caminho com `../` dentro.
+  ⚠️ **Os dois lados (anexo de sessão e arquivo da ficha) foram feitos no MESMO commit**:
+  a cópia que fica para trás é onde a capacidade some, e aqui ela sumiria justamente no
+  vídeo que o paciente mandou por WhatsApp e não pertence a sessão nenhuma. E o MIME virou
+  UMA definição (`MidiaClinica.MimeDe`): a que existia na ficha conhecia três formatos, e
+  MIME errado gravado faz o celular baixar o vídeo em vez de tocá-lo.
+  ⚠️ **(b) Os campos personalizados — e o que eles NÃO são.** A evolução tem doze campos, e
+  eles cobrem o que é comum a toda clínica. O específico ("nº de agulhas", "aparelho",
+  "carga do exercício") era escrito no meio do texto livre, quando era escrito: dado dentro
+  de prosa não se compara entre sessões, não vira coluna de relatório e não se acha por
+  busca confiável. **Não é um construtor de prontuário**: os doze campos continuam em
+  CÓDIGO com as regras deles, o campo personalizado é ACRÉSCIMO, e ele não pode impedir o
+  registro — registro clínico que não se consegue salvar é registro que não acontece.
+  ⚠️ **Aplicar COPIA rótulo e tipo** — a regra do protocolo do mapa corporal, das escalas e
+  das medidas. Sem a cópia, renomear "Agulhas" para "Nº de agulhas" reescreveria a sessão
+  do mês passado, e desativar o campo deixaria valores gravados sem rótulo: um número solto
+  no prontuário, pior do que não ter registrado nada. É por copiar que a definição pode ser
+  DESATIVADA — e só desativada: apagá-la quebraria o vínculo pelo qual a clínica sabe que a
+  coluna "Agulhas" de 2026 e a de 2027 são a MESMA pergunta.
+  ⚠️ **O lugar 4 da auditoria de linha na variante mais fácil de esquecer.** O campo
+  personalizado NÃO aparece na entidade como propriedade, então o `GuardarVersao` o
+  esqueceria sem nada quebrar — e corrigir a sessão apagaria os valores anteriores sem
+  rastro (art. 3º da Lei 13.787/2018). Ele entra na versão como TEXTO
+  (`VersaoEvolucao.CamposPersonalizados`), e a escolha é deliberada: o que a lei exige é
+  **recuperar o que estava escrito**, e a versão é lida por gente, não por consulta — uma
+  tabela de versões dos valores custaria entidade, migration e leitura para responder a
+  mesma pergunta com mais peças para divergir.
+  ⚠️ **`null` PRESERVA, lista vazia APAGA.** A janela do balcão não mostra estes campos:
+  `null` quer dizer "esta tela não os edita", e regravar sobre eles apagaria o que o médico
+  escreveu, sem erro e sem aviso (a armadilha da parcela 74). Vazio é outra coisa — é a
+  tela que os MOSTRA e teve todos apagados.
+  ⚠️ **Número e data em cultura INVARIANTE, valor inválido RECUSADO.** Dois postos com
+  culturas diferentes escreveriam "2,5" e "2.5" na mesma coluna, e a comparação entre
+  sessões deixaria de existir sem nada falhar; e descartar em silêncio o que não serve ao
+  tipo deixaria o campo em branco depois de a pessoa o ter preenchido — o registro
+  afirmaria que ninguém respondeu.
+  ⚠️ **Teto de 12 campos ativos, e desativar sempre passa.** Uma folha com trinta campos
+  extras deixa de ser preenchida, e o que se perde não é o trigésimo campo, são os doze do
+  sistema. O teto conta só quando o campo ESTÁ ficando ativo: recusá-lo ao desativar
+  travaria justamente a correção que resolve o excesso.
+  ⚠️ **A MODALIDADE decide onde o campo aparece** — "nº de agulhas" não faz sentido na
+  consulta de psiquiatria, e campo que aparece onde não serve é o campo que ninguém
+  preenche (e que faz parar de preencher os outros). Sem horário em foco valem os de todas
+  as modalidades: mostrar menos do que se sabe esconderia o campo que a clínica cadastrou.
+  ⚠️ **E os `Include` foram o que quase escapou**: sem eles a navegação chega VAZIA em
+  produção — a versão guardaria "nenhum campo" e a folha impressa sairia sem o que a
+  clínica anotou —, com o teste verde pelo relationship fixup do EF (a lição da parcela
+  68). O teste que os prova usa um `DbContext` NOVO.
 
 - **A AGENDA COM COR — a família no traço, no avatar e no cartão; o estado na pílula; o
   placar com glifo** (set/2026; a cliente: *"a nossa agenda está um pouco sem cor,

@@ -28,9 +28,15 @@ public sealed class AnexoPacienteService
     /// Valida e monta o anexo + os bytes, SEM gravar. Quem grava é o chamador: a tela
     /// (<see cref="AnexarAsync"/>) num SaveChanges com a trilha; a importação, em lotes.
     /// </summary>
-    public static (AnexoPaciente Anexo, ArquivoAnexoPaciente Arquivo) Montar(
+    /// <param name="caminhoRemoto">
+    /// Preenchido quando o arquivo foi para o armazenamento da clínica em vez do banco
+    /// (set/2026, a mídia): os bytes NÃO vão para <see cref="ArquivoAnexoPaciente"/>, e é
+    /// o caminho que a leitura usa depois.
+    /// </param>
+    public static (AnexoPaciente Anexo, ArquivoAnexoPaciente? Arquivo) Montar(
         int pacienteId, DateOnly data, string titulo, string nomeArquivo, byte[] conteudo,
-        string? tipoConteudo, string? observacoes, string? operador, string? chaveImportacao = null)
+        string? tipoConteudo, string? observacoes, string? operador, string? chaveImportacao = null,
+        string? caminhoRemoto = null)
     {
         if (string.IsNullOrWhiteSpace(titulo))
             throw new InvalidOperationException("Diga o que é o arquivo — o título é obrigatório.");
@@ -40,8 +46,10 @@ public sealed class AnexoPacienteService
         if (conteudo.Length == 0)
             throw new InvalidOperationException("O arquivo está vazio — confira o que foi escolhido.");
         // O MESMO teto do anexo de prontuário: dois limites divergiriam na primeira
-        // correção, e o de baixo é o que ninguém lembraria de ajustar.
-        if (conteudo.Length > ProntuarioService.TamanhoMaximoAnexo)
+        // correção, e o de baixo é o que ninguém lembraria de ajustar. Não vale para o que
+        // já foi guardado no armazenamento — lá o teto é o da mídia, e quem o cobra é o
+        // <see cref="MidiaProntuarioService"/>, antes de chegar aqui.
+        if (caminhoRemoto is null && conteudo.Length > ProntuarioService.TamanhoMaximoAnexo)
             throw new InvalidOperationException(
                 $"O arquivo tem {conteudo.Length / (1024 * 1024)} MB e o limite é "
                 + $"{ProntuarioService.TamanhoMaximoAnexo / (1024 * 1024)} MB.");
@@ -61,12 +69,17 @@ public sealed class AnexoPacienteService
             NomeArquivo = Cortar(nomeArquivo.Trim(), 260)!,
             TipoConteudo = Cortar(tipoConteudo, 120),
             Tamanho = conteudo.Length,
+            CaminhoRemoto = caminhoRemoto,
             Observacoes = Cortar(string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim(), 1000),
             ChaveImportacao = Cortar(chaveImportacao, 160),
             CriadoEm = DateTime.Now,
             CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : Cortar(operador.Trim(), 80)
         };
-        var arquivo = new ArquivoAnexoPaciente { Anexo = anexo, Conteudo = conteudo };
+        // Guardado no armazenamento: não há linha de bytes — duplicá-los no banco seria
+        // pagar o preço que a decisão existe para evitar.
+        var arquivo = caminhoRemoto is null
+            ? new ArquivoAnexoPaciente { Anexo = anexo, Conteudo = conteudo }
+            : null;
         return (anexo, arquivo);
     }
 
@@ -77,16 +90,23 @@ public sealed class AnexoPacienteService
     public async Task<AnexoPaciente> AnexarAsync(
         int pacienteId, DateOnly data, string titulo, string nomeArquivo, byte[] conteudo,
         string? tipoConteudo = null, string? observacoes = null, string? operador = null,
-        CancellationToken ct = default)
+        MidiaProntuarioService? midia = null, CancellationToken ct = default)
     {
         _ = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
 
+        // ⚠️ ANTES de montar: guardar que falha IMPEDE o anexo. Linha gravada com o
+        // arquivo perdido é um "abrir" que não abre, num registro de guarda de 20 anos.
+        var destino = midia is null
+            ? new MidiaProntuarioService.Destino(conteudo, null)
+            : await midia.GuardarAsync(conteudo, nomeArquivo, tipoConteudo, ct);
+
         var (anexo, arquivo) = Montar(
-            pacienteId, data, titulo, nomeArquivo, conteudo, tipoConteudo, observacoes, operador);
+            pacienteId, data, titulo, nomeArquivo, conteudo, tipoConteudo, observacoes, operador,
+            caminhoRemoto: destino.CaminhoRemoto);
 
         await _repo.AdicionarAnexoPacienteAsync(anexo, ct);
-        await _repo.AdicionarArquivoAnexoPacienteAsync(arquivo, ct);
+        if (arquivo is not null) await _repo.AdicionarArquivoAnexoPacienteAsync(arquivo, ct);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
@@ -139,6 +159,21 @@ public sealed class AnexoPacienteService
     /// <summary>Os bytes, sob demanda.</summary>
     public Task<byte[]?> ConteudoAsync(int anexoId, CancellationToken ct = default)
         => _repo.ConteudoDoAnexoPacienteAsync(anexoId, ct);
+
+    /// <summary>
+    /// Os bytes venham eles de onde vierem — banco ou armazenamento (set/2026). A porta
+    /// única de abrir arquivo da ficha chama ESTE método: sem ele, o vídeo abriria vazio
+    /// nas três telas que a usam, e "não encontrado" mandaria procurar no lugar errado.
+    /// </summary>
+    public async Task<byte[]?> ConteudoAsync(
+        int anexoId, MidiaProntuarioService midia, CancellationToken ct = default)
+    {
+        var anexo = await _repo.ObterAnexoPacienteAsync(anexoId, ct);
+        if (anexo is null) return null;
+
+        return await midia.LerAsync(
+            anexo.CaminhoRemoto, c => _repo.ConteudoDoAnexoPacienteAsync(anexoId, c), ct);
+    }
 
     private static string? Cortar(string? texto, int max)
         => texto is null ? null : texto.Length <= max ? texto : texto[..max];

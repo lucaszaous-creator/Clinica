@@ -35,13 +35,18 @@ public static class ArquivosDaFicha
             nome = anexo.NomeArquivo;
 
             // SEQUENCIAL, nunca WhenAll: mesmo escopo, mesmo DbContext.
-            bytes = await servico.ConteudoAsync(anexoId);
+            // Pelo serviço de mídia: o arquivo grande (vídeo, áudio) mora no armazenamento
+            // da clínica, não na coluna — e esta é a porta ÚNICA de abrir arquivo da ficha.
+            bytes = await servico.ConteudoAsync(
+                anexoId, escopo.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
             await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
                 .RegistrarAsync(anexo.PacienteId, SessaoUsuario.Atual.Operador,
                     OrigemAcessoProntuario.ExportacaoClinica);
         }
 
-        if (bytes is null || bytes.Length == 0) return "O arquivo não foi encontrado no banco.";
+        if (bytes is null || bytes.Length == 0)
+            return "O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira o "
+                   + "armazenamento da clínica em Configurações.";
         return await ImpressaoPdf.SalvarEAbrirAsync(bytes, ImpressaoPdf.NomeSeguro(nome));
     }
 

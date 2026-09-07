@@ -32,6 +32,10 @@ public static class DependencyInjection
         services.AddScoped<BloqueioAgendaService>();
         services.AddScoped<PainelRecepcaoService>();
         services.AddScoped<ProntuarioService>();
+        // Onde a mídia grande do prontuário mora (set/2026): banco ou armazenamento.
+        services.AddScoped<MidiaProntuarioService>();
+        // O catálogo do que ESTA clínica anota além dos campos do sistema (set/2026).
+        services.AddScoped<CampoPersonalizadoService>();
         services.AddScoped<AnamneseService>();
         services.AddScoped<MapaCorporalService>();
         // Consultório (parcela 36): o dia de quem atende e as escalas por especialidade.

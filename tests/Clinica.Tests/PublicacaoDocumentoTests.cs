@@ -55,6 +55,19 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
         if (Quebrado) throw new InvalidOperationException("armazenamento fora do ar");
         return Task.FromResult(Objetos.TryGetValue(caminho, out var b) ? b : null);
     }
+
+    /// <summary>Os caminhos guardados como PRIVADOS — é o que prova que a mídia clínica
+    /// não passou pelo verbo que aplica ACL pública.</summary>
+    public HashSet<string> Privados { get; } = [];
+
+    public Task GuardarPrivadoAsync(
+        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default)
+    {
+        if (Quebrado) throw new InvalidOperationException("armazenamento fora do ar");
+        Objetos[caminho] = conteudo;
+        Privados.Add(caminho);
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>

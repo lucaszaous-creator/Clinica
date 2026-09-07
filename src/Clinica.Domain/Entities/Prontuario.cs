@@ -280,6 +280,13 @@ public class Evolucao
     public List<AnexoProntuario> Anexos { get; set; } = new();
 
     /// <summary>
+    /// O que ESTA clínica anota além dos campos do sistema (set/2026) — ver
+    /// <see cref="CampoPersonalizadoProntuario"/>. Vazio na clínica que não cadastrou
+    /// nenhum, que é o caso padrão.
+    /// </summary>
+    public List<ValorCampoPersonalizado> CamposPersonalizados { get; set; } = new();
+
+    /// <summary>
     /// O conteúdo que esta sessão já teve antes das correções. Ver <see cref="VersaoEvolucao"/>.
     /// </summary>
     public List<VersaoEvolucao> Versoes { get; set; } = new();
@@ -322,6 +329,22 @@ public enum TipoAnexo
     /// <summary>Laudo, exame, encaminhamento — PDF ou documento.</summary>
     Documento,
 
+    /// <summary>
+    /// Vídeo (set/2026): a marcha antes e depois, a amplitude do ombro, a execução do
+    /// exercício em casa. É o registro que o texto da evolução não substitui — "melhora da
+    /// marcha" não se compara com a sessão do mês passado; o vídeo, sim.
+    ///
+    /// ⚠️ Valor NOVO de enum é o que o binário ANTERIOR não lê (parcela 67): o enum é
+    /// gravado como TEXTO, e um app velho lendo um anexo de vídeo perderia a consulta
+    /// inteira. Ele só é escrito pela tela da mesma versão, e a release dos cinco apps é
+    /// conjunta — o que isto pede é que a clínica atualize todos antes de anexar o
+    /// primeiro vídeo.
+    /// </summary>
+    Video,
+
+    /// <summary>Áudio: a ausculta, o relato do paciente que ele autorizou gravar.</summary>
+    Audio,
+
     Outro
 }
 
@@ -348,10 +371,49 @@ public class AnexoProntuario
     /// <summary>Tipo MIME, quando conhecido (ex.: <c>image/jpeg</c>).</summary>
     public string? TipoConteudo { get; set; }
 
-    /// <summary>Bytes do arquivo. Só sai do banco quando alguém pede este anexo.</summary>
+    /// <summary>
+    /// Bytes do arquivo, quando ele mora NO BANCO. Só sai de lá quando alguém pede este
+    /// anexo — vazio quando o arquivo está no armazenamento remoto
+    /// (<see cref="CaminhoRemoto"/>).
+    /// </summary>
     public byte[] Conteudo { get; set; } = Array.Empty<byte>();
 
-    /// <summary>Tamanho em bytes, replicado para a lista não precisar ler o conteúdo.</summary>
+    /// <summary>
+    /// Onde o arquivo mora quando ele é GRANDE demais para o banco (set/2026) — a mídia
+    /// do prontuário. Nulo = está no <see cref="Conteudo"/>, como sempre foi.
+    ///
+    /// Por que uma coluna e não um teto maior no banco
+    /// -----------------------------------------------
+    /// O teto de 10 MB do <c>AnexoProntuario</c> não é capricho: o banco é REMOTO, e um
+    /// anexo gigante trava a sincronização de todo mundo — o erro apareceria longe da
+    /// causa. Um vídeo de marcha de 40 s passa disso sem esforço, e subir o teto pagaria
+    /// esse preço em toda leitura de prontuário.
+    ///
+    /// ⚠️ <b>O objeto é PRIVADO</b> (<c>IArmazenamentoPublico.GuardarPrivadoAsync</c>), e
+    /// isso é a decisão da feature, não um detalhe: a receita publicada abre para um
+    /// farmacêutico ANÔNIMO de propósito; um vídeo do paciente é dado de saúde do art. 5º,
+    /// II, e um endereço "inadivinhável" vaza por print e por encaminhamento. Quem lê é o
+    /// app, com credencial.
+    ///
+    /// ⚠️ <b>Cancelar NÃO apaga o objeto remoto</b>, ao contrário da publicação de receita.
+    /// Ali o que sai do ar é a PUBLICAÇÃO e os bytes assinados ficam no banco; aqui o
+    /// objeto remoto É o registro clínico, e a guarda é de 20 anos (Lei 13.787/2018). O
+    /// anexo é cancelado com motivo e a linha fica — como todo o resto do prontuário.
+    /// </summary>
+    public string? CaminhoRemoto { get; set; }
+
+    /// <summary>⚠️ Derivada — em consulta traduzida use a COLUNA (<c>CaminhoRemoto != null</c>).</summary>
+    public bool NoArmazenamentoRemoto => !string.IsNullOrEmpty(CaminhoRemoto);
+
+    /// <summary>
+    /// Tamanho em bytes, replicado para a lista não precisar ler o conteúdo. Vale para os
+    /// dois lugares: é ele que a tela mostra quando o arquivo está no remoto e nem chegou
+    /// a ser baixado.
+    ///
+    /// Continua <c>int</c> de propósito: 2 GB é o teto do tipo e o da mídia é 200 MB —
+    /// alargar para <c>bigint</c> seria um <c>AlterColumn</c> em tabela CLÍNICA, que a
+    /// regra 3 do compromisso de conformidade proíbe sem razão escrita, e não há razão.
+    /// </summary>
     public int Tamanho { get; set; }
 
     public string? Descricao { get; set; }
@@ -491,6 +553,22 @@ public class VersaoEvolucao
 
     /// <summary>Ver <see cref="Evolucao.PlanoTerapeutico"/>. Lugar 4 da auditoria de linha.</summary>
     public string? PlanoTerapeutico { get; set; }
+
+    /// <summary>
+    /// Os CAMPOS PERSONALIZADOS como estavam, em texto: uma linha por campo, no formato
+    /// <c>Rótulo: valor</c> (set/2026).
+    ///
+    /// Não é tabela de versão dos valores, e a escolha é deliberada: o que a lei exige
+    /// (art. 3º da Lei 13.787/2018) é <b>recuperar o que estava escrito</b>, e o texto
+    /// responde isso inteiro. Uma tabela de versões dos valores custaria entidade,
+    /// migration e leitura para responder a mesma pergunta com mais peças para divergir —
+    /// e a versão é lida por gente, não por consulta.
+    ///
+    /// ⚠️ Sem esta linha, corrigir a sessão apagaria os campos personalizados anteriores
+    /// SEM RASTRO. É o lugar 4 da auditoria de linha, e o campo personalizado é a variante
+    /// mais fácil de esquecer: ele não aparece na entidade como propriedade.
+    /// </summary>
+    public string? CamposPersonalizados { get; set; }
 
     /// <summary>
     /// QUANDO reavaliar — a data que a consulta de hoje sugere para a próxima (parcela 77).

@@ -4,6 +4,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -49,9 +50,17 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
     /// <summary>Metade VISÍVEL da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
-    /// <summary>Teto de um arquivo, dito na tela em vez de descoberto no erro.</summary>
+    /// <summary>
+    /// Teto de um arquivo, dito na tela em vez de descoberto no erro — e ele agora tem
+    /// DOIS degraus (set/2026): até 10 MB o arquivo fica no banco; acima disso, vídeo e
+    /// áudio vão para o armazenamento da clínica, até 200 MB. A frase diz os dois porque
+    /// o segundo depende de a clínica ter configurado o armazenamento, e quem descobre
+    /// isso pelo erro conclui que o sistema não aceita vídeo.
+    /// </summary>
     public string LimiteTexto =>
-        $"Até {ProntuarioService.TamanhoMaximoAnexo / (1024 * 1024)} MB por arquivo.";
+        $"Até {MidiaClinica.TamanhoLegivel(MidiaClinica.LimiteDoBanco)} por arquivo. "
+        + $"Vídeo e áudio até {MidiaClinica.TamanhoLegivel(MidiaClinica.TamanhoMaximo)}, "
+        + "guardados no armazenamento da clínica (Configurações).";
 
     public AnexosSessaoViewModel(
         IServiceScopeFactory escopos, int evolucaoId, string sessao, int pacienteId)
@@ -122,23 +131,32 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
             var dialogo = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Anexar ao prontuário",
-                Filter = "Imagens e documentos (*.jpg;*.jpeg;*.png;*.pdf)|*.jpg;*.jpeg;*.png;*.pdf"
+                Filter = "Imagens, documentos e mídia "
+                         + "(*.jpg;*.jpeg;*.png;*.pdf;*.mp4;*.mov;*.m4a;*.mp3)"
+                         + "|*.jpg;*.jpeg;*.png;*.pdf;*.mp4;*.mov;*.m4a;*.mp3"
                          + "|Todos os arquivos (*.*)|*.*"
             };
             if (dialogo.ShowDialog() != true) return;
 
             var bytes = await File.ReadAllBytesAsync(dialogo.FileName);
-            var extensao = Path.GetExtension(dialogo.FileName).ToLowerInvariant();
-            var ehImagem = extensao is ".jpg" or ".jpeg" or ".png" or ".bmp";
+            var nome = Path.GetFileName(dialogo.FileName);
+
+            // O tipo sai do arquivo, não de um combo: quem anexa um vídeo não deveria ter
+            // de dizer que é vídeo, e a lista precisa saber para mostrar o que é.
+            var tipoConteudo = MidiaClinica.MimeDe(nome);
+            var tipo = MidiaClinica.TipoDe(tipoConteudo, nome);
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
 
             await prontuario.AnexarAsync(
-                _evolucaoId, Path.GetFileName(dialogo.FileName), bytes,
-                ehImagem ? TipoAnexo.Imagem : TipoAnexo.Documento,
-                tipoConteudo: ehImagem ? $"image/{extensao.TrimStart('.')}" : null,
-                operador: SessaoUsuario.Atual.Operador);
+                _evolucaoId, nome, bytes, tipo,
+                tipoConteudo: tipoConteudo,
+                operador: SessaoUsuario.Atual.Operador,
+                // Passa o serviço de mídia SEMPRE: quem decide se o arquivo vai para o
+                // banco ou para o armazenamento é o tamanho, não a tela — duas decisões
+                // divergiriam, e a de baixo é a que ninguém lembraria de ajustar.
+                midia: scope.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
 
             await CarregarAsync();
             Mensagem = "Arquivo anexado à sessão.";
@@ -181,11 +199,16 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            var bytes = await prontuario.ConteudoAnexoAsync(anexo.Id);
+            var bytes = await prontuario.ConteudoAnexoAsync(
+                anexo.Id, scope.ServiceProvider.GetRequiredService<MidiaProntuarioService>());
 
             if (bytes is null)
             {
-                Erro("O arquivo não foi encontrado no banco.");
+                // Vale para os dois lugares onde o arquivo pode morar: no banco e no
+                // armazenamento da clínica. Dizer "no banco" mandaria procurar no lugar
+                // errado justamente quando o problema é o armazenamento.
+                Erro("O arquivo não foi encontrado. Se ele é um vídeo ou áudio, confira o "
+                     + "armazenamento da clínica em Configurações.");
                 return;
             }
 

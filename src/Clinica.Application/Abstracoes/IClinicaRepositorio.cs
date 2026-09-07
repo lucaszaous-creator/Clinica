@@ -541,6 +541,22 @@ public interface IClinicaRepositorio
     /// <summary>Bytes de UM anexo. É a única consulta que materializa o arquivo.</summary>
     Task<byte[]?> ConteudoDoAnexoAsync(int anexoId, CancellationToken ct = default);
 
+    // ---- Campos personalizados do prontuário (set/2026) ----
+
+    /// <summary>
+    /// O catálogo inteiro (ativos e desativados), na ordem cadastrada. É lido a cada
+    /// abertura de sessão: são poucas linhas, e filtrar por modalidade em memória evita
+    /// uma consulta por modalidade aberta.
+    /// </summary>
+    Task<IReadOnlyList<CampoPersonalizadoProntuario>> CamposPersonalizadosAsync(
+        CancellationToken ct = default);
+
+    Task<CampoPersonalizadoProntuario?> ObterCampoPersonalizadoAsync(
+        int campoId, CancellationToken ct = default);
+
+    Task AdicionarCampoPersonalizadoAsync(
+        CampoPersonalizadoProntuario campo, CancellationToken ct = default);
+
     Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default);
 
     /// <summary>
