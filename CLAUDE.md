@@ -3082,6 +3082,13 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   porta (`RotulosDeAbrir`), pela mesma razão: "Abrir" mente na sessão médica (ali ele
   edita) e está certo no arquivo da ficha. Rótulo fixo no componente compartilhado é a
   frase que mente numa das portas.
+  ⚠️ **E a mesma lacuna estava na tela de ATENDIMENTO DA ENFERMAGEM**, onde ela custa
+  conduta: a coluna que relê as sessões do médico mostra o resumo CORTADO, e quem executa
+  precisa da hipótese e do plano ANTES de administrar. Ela ganhou só o **Ver** — escrever
+  a sessão médica continua sendo do médico, e a técnica não tem `EditarProntuario`.
+  **Quando o componente ganha uma capacidade, as portas que já sofriam da falta dela
+  entram no mesmo commit** — senão a correção fica onde alguém reclamou e falta onde
+  ninguém reclamou ainda.
   ⚠️ **A FICHA DO ATENDIMENTO ESTAVA EM TRÊS CÓPIAS, E ELAS JÁ TINHAM DIVERGIDO EM TRÊS
   PONTOS** — cada um uma regra que só existia numa delas: a guarda de paciente que DIZ por
   que não dá (só a da enfermagem), a recusa de permissão que vira frase em vez de exceção
