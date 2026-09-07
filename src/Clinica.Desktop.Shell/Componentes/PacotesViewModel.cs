@@ -18,6 +18,20 @@ public sealed class LinhaCatalogo
     public required string Resumo { get; init; }
     public required string ValorFormatado { get; init; }
     public required bool Ativo { get; init; }
+
+    /// <summary>
+    /// Os campos que a janela de EDIÇÃO carrega e devolve (set/2026). São VALORES, não a
+    /// entidade: a linha atravessa escopos (a tela é de vida longa, checagem 37) e quem
+    /// regrava é o serviço, sobre a linha rastreada do escopo da operação. Ordem e
+    /// observações não têm campo na janela e viajam para serem PRESERVADOS — quem não
+    /// edita, preserva (lugar 6 da lista de conferência).
+    /// </summary>
+    public required TipoPacote Tipo { get; init; }
+    public required int? Sessoes { get; init; }
+    public required decimal Valor { get; init; }
+    public required int? ValidadeDias { get; init; }
+    public required int Ordem { get; init; }
+    public required string? Observacoes { get; init; }
 }
 
 /// <summary>Um pacote vendido, com o saldo já calculado.</summary>
@@ -119,11 +133,23 @@ public sealed partial class PacotesViewModel : ObservableObject
     [ObservableProperty] private string _resumo = "—";
 
     /// <summary>
-    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// O CATÁLOGO — cadastrar, editar e tirar da venda — é do balcão também (set/2026,
+    /// pedido da direção: "o ideal seria a recepção também cadastrar e editar preços").
+    ///
+    /// Até aqui o catálogo ficava sob <c>EditarFinanceiro</c>, com o argumento de que
+    /// "mudar o preço vale para todo mundo". A direção decidiu o contrário para o preço
+    /// do particular por especialidade — e o preço de tabela do PACOTE é o mesmo ato,
+    /// com a mesma pessoa: quem combina preço é o balcão, com o paciente na frente.
+    /// Duas tabelas de preço do particular com duas regras de acesso seriam a segunda
+    /// definição que diverge na primeira correção. É a metade VISÍVEL da permissão: o
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
-    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    ///
+    /// ⚠️ Não é um bit novo (o enum tem UM bit sobrando antes de virar <c>long</c> numa
+    /// coluna de produção): <see cref="Permissao.VenderPacote"/> já nomeia "vender pacote
+    /// e definir preço do particular", e o rótulo dele diz isso em Acessos.
     /// </summary>
-    public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    public bool PodeMexerNoCatalogo => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
 
     /// <summary>
     /// VENDER, consumir e orçar — os atos do BALCÃO (parcela 62).
@@ -134,11 +160,11 @@ public sealed partial class PacotesViewModel : ObservableObject
     /// desfecho possível de uma permissão bem-intencionada: o item abre para quem tem o
     /// bit e nenhum botão funciona.
     ///
-    /// O corte é o do ato, não o da tela: <b>vender, debitar sessão e orçar</b> são do
-    /// balcão; <b>o CATÁLOGO</b> (preço de tabela) e o <b>CANCELAMENTO de uma venda</b>
-    /// continuam sob <c>EditarFinanceiro</c> — o primeiro muda o preço para todo mundo,
-    /// o segundo desfaz o dinheiro que outra pessoa registrou (a regra 2 da parcela 49,
-    /// a mesma que separou <c>EstornarBaixa</c> de <c>BaixarGuia</c>).
+    /// O corte é o do ato, não o da tela: <b>vender, debitar sessão, orçar e o
+    /// catálogo</b> são do balcão; o <b>CANCELAMENTO de uma venda</b> continua sob
+    /// <c>EditarFinanceiro</c> — ele desfaz o dinheiro que outra pessoa registrou (a
+    /// regra 2 da parcela 49, a mesma que separou <c>EstornarBaixa</c> de
+    /// <c>BaixarGuia</c>).
     /// </summary>
     public bool PodeVender => SessaoUsuario.Atual.PodeAlgum(
         Permissao.VenderPacote | Permissao.EditarFinanceiro);
@@ -185,7 +211,13 @@ public sealed partial class PacotesViewModel : ObservableObject
                     Nome = p.Nome,
                     Resumo = ResumirCatalogo(p),
                     ValorFormatado = p.Valor.ToString("C"),
-                    Ativo = p.Ativo
+                    Ativo = p.Ativo,
+                    Tipo = p.Tipo,
+                    Sessoes = p.SessoesIncluidas,
+                    Valor = p.Valor,
+                    ValidadeDias = p.ValidadeDias,
+                    Ordem = p.Ordem,
+                    Observacoes = p.Observacoes
                 });
 
             var vendidos = await pacotes.VendidosAsync();
@@ -289,7 +321,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoPacoteAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
 
         var vm = new PacoteCatalogoEdicaoViewModel(_escopos);
         var janela = new PacoteCatalogoWindow(vm)
@@ -302,12 +335,39 @@ public sealed partial class PacotesViewModel : ObservableObject
         await CarregarAsync();
     }
 
+    /// <summary>
+    /// EDITAR um pacote do catálogo (set/2026). Até aqui só havia Novo e Excluir: reajustar
+    /// o preço de tabela obrigava a excluir a linha e criar outra — e a linha nova nascia
+    /// com outro Id, soltando a procedência (<c>PacotePaciente.PacoteCatalogoId</c>) de
+    /// tudo o que já tinha sido vendido dela. É seguro porque a venda COPIA: mudar o preço
+    /// aqui não reescreve o que alguém já comprou, e há teste fixando isso.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditarDoCatalogoAsync(LinhaCatalogo? linha)
+    {
+        if (linha is null) return;
+
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
+
+        var vm = PacoteCatalogoEdicaoViewModel.Para(linha, _escopos);
+        var janela = new PacoteCatalogoWindow(vm)
+        {
+            Owner = JanelaDona.Atual()
+        };
+
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso($"\"{linha.Nome}\" atualizado no catálogo. O que já foi vendido não muda.");
+        await CarregarAsync();
+    }
+
     [RelayCommand]
     private async Task ExcluirDoCatalogoAsync(LinhaCatalogo? linha)
     {
         if (linha is null) return;
 
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
         if (!_dialogo.ConfirmarPerigo("Excluir do catálogo",
                 $"Tirar \"{linha.Nome}\" da lista de venda? Os pacotes JÁ VENDIDOS continuam "
                 + "valendo — eles guardam a própria cópia do que foi contratado.")) return;
@@ -509,7 +569,27 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
 
+    /// <summary>
+    /// Zero = pacote NOVO; qualquer outro = edição da linha existente (set/2026). O
+    /// serviço decide pelo Id se acrescenta ou regrava, e regravar mantém a procedência
+    /// dos pacotes já vendidos a partir desta linha.
+    /// </summary>
+    private readonly int _id;
+
+    /// <summary>
+    /// Ordem e observações não têm campo nesta janela. Viajam da linha para o Salvar
+    /// para serem PRESERVADOS — o serviço copia campo a campo, e o que chegar nulo é
+    /// apagado na primeira edição (lugar 3 e lugar 6 da lista de conferência).
+    /// </summary>
+    private readonly int _ordem;
+    private readonly string? _observacoes;
+    private readonly bool _ativo = true;
+
     public IReadOnlyList<TipoPacote> Tipos { get; } = Enum.GetValues<TipoPacote>();
+
+    public bool EhEdicao => _id != 0;
+    public string Titulo => EhEdicao ? "Editar pacote do catálogo" : "Pacote novo";
+    public string RotuloDoBotao => EhEdicao ? "Salvar alterações" : "Acrescentar ao catálogo";
 
     [ObservableProperty] private string? _nome;
     [ObservableProperty] private TipoPacote _tipo = TipoPacote.Sessoes;
@@ -525,6 +605,25 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
 
     public PacoteCatalogoEdicaoViewModel(IServiceScopeFactory escopos) => _escopos = escopos;
 
+    private PacoteCatalogoEdicaoViewModel(LinhaCatalogo linha, IServiceScopeFactory escopos)
+    {
+        _escopos = escopos;
+        _id = linha.Id;
+        _ordem = linha.Ordem;
+        _observacoes = linha.Observacoes;
+        _ativo = linha.Ativo;
+
+        _nome = linha.Nome;
+        _tipo = linha.Tipo;
+        _sessoes = linha.Sessoes?.ToString();
+        _valor = linha.Valor.ToString("0.00");
+        _validadeDias = linha.ValidadeDias?.ToString();
+    }
+
+    /// <summary>A janela aberta sobre uma linha existente, com os campos preenchidos.</summary>
+    public static PacoteCatalogoEdicaoViewModel Para(LinhaCatalogo linha, IServiceScopeFactory escopos)
+        => new(linha, escopos);
+
     [RelayCommand]
     private async Task SalvarAsync()
     {
@@ -534,19 +633,23 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
         try
         {
             // A segunda barreira na JANELA que grava, não só na porta que a abre.
-            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
             Salvando = true;
 
             using var escopo = _escopos.CreateScope();
             await escopo.ServiceProvider.GetRequiredService<PacoteService>()
                 .SalvarCatalogoAsync(new PacoteCatalogo
             {
+                Id = _id,
                 Nome = Nome ?? string.Empty,
                 Tipo = Tipo,
                 SessoesIncluidas = LerInteiro(Sessoes, "as sessões"),
                 Valor = LerDecimal(Valor, "o valor") ?? 0m,
                 ValidadeDias = LerInteiro(ValidadeDias, "a validade"),
-                Ativo = true
+                Ativo = _ativo,
+                Ordem = _ordem,
+                Observacoes = _observacoes
             }, SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();

@@ -594,7 +594,7 @@ zero.**
 | Vouchers e planos recorrentes | ✅ | `TipoPacote` — plano sem número de sessões é livre dentro da validade |
 | Baixa ao atender | ✅ | `PacoteService.ConsumirPorAtendimentoAsync`, **chamado** pelo `FechamentoSessaoService` (parcela 6) |
 | **Devolver uma sessão ao saldo** | ✅ | `ConsumosPacoteWindow` → `PacoteService.CancelarConsumoAsync` (parcela 25) |
-| Catálogo do que está à venda | 🔵 | `PacoteCatalogo`, com preço e validade padrão |
+| Catálogo do que está à venda | ✅ set/2026 | `PacoteCatalogo`, com preço e validade padrão; **cadastrar, EDITAR e tirar da venda** pela janela do catálogo (`CatalogoPacotesWindow`), na Recepção e no Financeiro (`VenderPacote` ou `EditarFinanceiro`). Editar mantém o Id — a procedência do que já foi vendido não solta — e a venda COPIA, então o reajuste não reescreve o comprado |
 | Orçamento do pacote em PDF | 🔵 | `DocumentoFinanceiroService.EmitirOrcamentoDoPacoteAsync` |
 | **A venda MOVE dinheiro: à vista ou a prazo (entrada + parcelas)** | ✅ set/2026 | `PagamentoDaVenda` + `ParcelasDaVenda` (puro) → `PacoteService.VenderAsync(pagamento:)`; a janela de venda exige a decisão e mostra a prévia das parcelas |
 | **Parcela do pacote é conta a receber COM DONO** | ✅ set/2026 | `LancamentoFinanceiro.PacotePacienteId`; a inadimplência e o aviso do balcão a enxergam quando vence |

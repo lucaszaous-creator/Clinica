@@ -60,6 +60,15 @@ O corte é o da **LGPD**: dado de contato de um lado, dado sensível (art. 5º, 
 > ⚠️ `Pode` com bits combinados é um **E**, não um OU. `Pode(A | B)` só passa para quem tem
 > os dois — use `PodeAlgum` / `ExigirAlgum` quando a pergunta for "qualquer um dos dois".
 
+> **O catálogo de pacotes e o preço do particular são do balcão também (set/2026)** — a
+> direção: *"o ideal seria a recepção também cadastrar e editar preços"*. O catálogo de
+> pacotes (cadastrar, editar, tirar da venda) ficava sob `EditarFinanceiro` com o argumento
+> de que "mudar o preço vale para todo mundo"; com a tabela do particular decidida para a
+> Recepção, manter o pacote noutra regra seria duas tabelas de preço com dois donos. Os
+> dois passaram a `VenderPacote` **ou** `EditarFinanceiro`, sem bit novo (o enum tem UM
+> sobrando). O que continua só do Financeiro é **cancelar uma venda** — desfaz o dinheiro
+> que outra pessoa registrou (a regra 2 acima).
+
 ## O padrão
 
 | Permissão | Recepção | Profissional | Enfermagem | Financeiro | Faturista | Gerente |

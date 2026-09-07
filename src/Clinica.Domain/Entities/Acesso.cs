@@ -773,8 +773,9 @@ public static class PerfisAcesso
 
         Permissao.VerFinanceiro => "Caixa, conciliação, contas e produção.",
         Permissao.VenderPacote =>
-            "Vender pacote de sessões ao paciente, lançar consumo e cadastrar o preço do "
-            + "particular por especialidade. É bit próprio de propósito: quem combina preço "
+            "Vender pacote de sessões ao paciente, lançar consumo, cadastrar e editar o "
+            + "catálogo de pacotes e o preço do particular por especialidade. É bit próprio "
+            + "de propósito: quem combina preço "
             + "é o BALCÃO, com o paciente na frente, e dar o financeiro inteiro a ele "
             + "abriria junto o caixa e as contas.",
         Permissao.EditarFinanceiro => "Lançar, realizar e cancelar movimento de caixa.",

@@ -468,6 +468,21 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   passou a dizer isso), e o enum tem UM bit sobrando antes de virar `long` numa coluna de
   produção — gastá-lo numa caixinha que o bit existente já cobre seria pagar a migration
   mais cara do sistema por nada.
+  ⚠️ **E O CATÁLOGO DE PACOTES SEGUIU A MESMA DECISÃO** (*"e como ficou a questão dos
+  pacotes?"*). A tela de Pacotes já era do shell e a Recepção já a publicava (parcela 60),
+  mas o CATÁLOGO — o que está à venda e por quanto — exigia `EditarFinanceiro`, com o
+  argumento de que "mudar o preço vale para todo mundo": a recepcionista vendia e não
+  cadastrava. É o mesmo argumento que a direção acabou de derrubar para o preço do
+  particular, e o preço de tabela do pacote é o mesmo ato — duas tabelas de preço do
+  particular com dois donos divergiriam na primeira correção. Passou a `VenderPacote` OU
+  `EditarFinanceiro`; **cancelar a venda continua só do Financeiro** (desfaz o dinheiro que
+  outra pessoa registrou). E **não existia EDITAR um pacote do catálogo, para ninguém** —
+  só Novo e Excluir: reajustar preço era excluir a linha e criar outra, que nasce com outro
+  Id e SOLTA a procedência (`PacotePaciente.PacoteCatalogoId`) de tudo o que foi vendido
+  dela. A janela de edição manda objeto NOVO com o Id, e carrega o que ela NÃO mostra
+  (ordem, observações, ativo) para devolver intacto — a cópia campo a campo do
+  `SalvarCatalogoAsync` apagaria o que chegasse nulo (lugares 3 e 6). O teste faz o mesmo
+  caminho da tela (parcela 74: entidade rastreada reenviada não testa a cópia).
   **O que ficou de fora, com o motivo**: o lançamento manual do Caixa continua sem
   seletor de paciente (a receita órfã não liga à sessão nem some da conciliação — a
   correção é dar-lhe o `SeletorPacienteViewModel` da conta a receber); a cobrança de

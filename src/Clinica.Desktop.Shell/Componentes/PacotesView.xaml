@@ -27,8 +27,8 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
                             Command="{Binding AbrirCatalogoCommand}"
-                            IsEnabled="{Binding PodeEditarFinanceiro}"
-                            ToolTip="O que está à venda — a tabela que a clínica define uma vez. Mudar o preço vale para todo mundo, então fica no financeiro." />
+                            IsEnabled="{Binding PodeMexerNoCatalogo}"
+                            ToolTip="O que está à venda — a tabela de pacotes. Cadastrar, editar e tirar da venda; mudar o preço aqui não reescreve o que já foi vendido." />
                     <Button Content="Orçamento…" MinHeight="36" MinWidth="130"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
