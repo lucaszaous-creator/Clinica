@@ -68,7 +68,7 @@ public sealed class PainelRecepcaoService
     public static int? EsperaMediaMinutos(IEnumerable<Agendamento> doDia, DateTime referencia)
     {
         var esperas = doDia
-            .Where(a => a.Status is not StatusAgendamento.Cancelado and not StatusAgendamento.Faltou)
+            .Where(a => a.OcupaAgenda)
             .Select(a => a.EsperaMinutos(referencia))
             .Where(m => m is not null)
             .Select(m => m!.Value)

@@ -103,7 +103,7 @@ public sealed class AgendaPdfService
 
                     foreach (var a in linhas)
                     {
-                        var apagado = a.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou;
+                        var apagado = !a.OcupaAgenda;
                         var cor = apagado ? TextoSecundario : TextoPrimario;
 
                         Celula(tabela, a.DataHora.ToString("HH:mm"), cor);
@@ -270,6 +270,7 @@ public sealed class AgendaPdfService
     {
         StatusAgendamento.Cancelado => "CANCELADO",
         StatusAgendamento.Faltou => "FALTOU",
+        StatusAgendamento.Substituido => "SUBSTITUÍDO",
         StatusAgendamento.Realizado => "atendido",
         _ => a.Encaixe ? "encaixe" : "marcado"
     };

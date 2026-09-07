@@ -37,14 +37,18 @@ paciente**.
 |---|---|---|
 | **O paciente não veio** | "Foi falta" | Marca falta. Entra nos indicadores de falta e no histórico de relacionamento dele. |
 | **Veio, e ninguém lançou** | "Aconteceu — lançar" | Lança o atendimento **pelo horário**, datado do **dia do horário** — não de hoje. As guias nascem com a data prevista daquele dia, então já entram no painel de pendências do faturamento. |
-| **Veio, e já foi lançado por fora** | *(nada, por enquanto)* | A linha diz qual é o atendimento e **o botão de lançar fica apagado**. Lançar aqui criaria um **segundo jogo de guias** para a mesma sessão. |
+| **Veio, e já foi lançado por fora** | "Já foi lançada — encerrar" | O horário vira **Substituído**, apontando para a sessão que já existe. Sai da ocupação, do "Meu dia" do profissional e da disputa pela evolução — **sem contar como cancelamento nem como falta**, porque a sessão aconteceu. O botão de lançar fica apagado: lançar aqui criaria um **segundo jogo de guias** para a mesma sessão. |
 
-⚠️ **A terceira é a mais comum no backlog da migração, e é por isso que o botão é apagado
-em vez de "esperto".** Encerrar o horário apontando para a sessão que já existe pede um
-estado que o sistema ainda não tem: "cancelado" contaria como cancelamento nos indicadores
-— uma sessão que **aconteceu** inflando o número de cancelamentos —, e "faltou" culparia o
-paciente por uma falta que não houve. Enquanto esse estado não existe, a tela **impede o
-estrago** em vez de fingir que resolve. Deixe essas linhas como estão.
+⚠️ **A terceira é a mais comum no backlog da migração.** Ela ficou sem saída até set/2026
+porque nenhum status servia: "cancelado" contaria como cancelamento nos indicadores — uma
+sessão que **aconteceu** inflando o número de cancelamentos —, e "faltou" culparia o
+paciente por uma falta que não houve. O status **Substituído** existe para isto, e só a
+conciliação o escreve. Com mais de uma sessão lançada no dia, a tela pergunta **qual**.
+
+Se depois se descobrir que a sessão era outra, o **Remarcar** da agenda reabre o horário:
+ele volta a "Aguardando", solta o vínculo e a conciliação volta a perguntar por ele. Na
+janela do horário ele aparece como "Substituído por uma sessão lançada por fora"; na lista
+do dia e no Meu dia, como "Substituído", apagado como cancelado e falta.
 
 ## A segunda lista: realizados sem atendimento
 

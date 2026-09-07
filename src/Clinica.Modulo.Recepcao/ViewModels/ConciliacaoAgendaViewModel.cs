@@ -22,6 +22,9 @@ public sealed partial class LinhaConciliacao : ObservableObject
     public required bool TemSessaoNoDia { get; init; }
     public required string Situacao { get; init; }
 
+    /// <summary>As sessões lançadas no dia — é a que se escolhe ao encerrar o horário.</summary>
+    public required IReadOnlyList<SessaoLancadaNoDia> Sessoes { get; init; }
+
     /// <summary>Some da lista assim que é resolvida — sem esperar a recarga.</summary>
     [ObservableProperty] private bool _resolvida;
 
@@ -42,10 +45,17 @@ public sealed partial class LinhaConciliacao : ObservableObject
 
     public bool PodeMarcarFalta => !Resolvida;
 
+    /// <summary>
+    /// A terceira resposta (set/2026): a sessão já está lançada por fora — encerra o
+    /// horário apontando para ela. Só com sessão no dia, pela razão inversa do lançar.
+    /// </summary>
+    public bool PodeSubstituir => TemSessaoNoDia && !Resolvida;
+
     partial void OnResolvidaChanged(bool value)
     {
         OnPropertyChanged(nameof(PodeLancar));
         OnPropertyChanged(nameof(PodeMarcarFalta));
+        OnPropertyChanged(nameof(PodeSubstituir));
     }
 }
 
@@ -78,9 +88,9 @@ public sealed class LinhaOrfa
 /// botão de lançar fica APAGADO. Lançar aqui geraria um segundo jogo de guias para a mesma
 /// sessão. Encerrar o horário apontando para a sessão que já existe pede um
 /// <c>StatusAgendamento</c> novo (nem "cancelado", que inflaria o indicador de
-/// cancelamento com sessões que aconteceram, nem "faltou", que culparia o paciente) — e
-/// isso é a parcela seguinte. Até lá, a tela IMPEDE o estrago em vez de fingir que
-/// resolve.</item>
+/// cancelamento com sessões que aconteceram, nem "faltou", que culparia o paciente) —
+/// e ele existe desde set/2026: <c>StatusAgendamento.Substituido</c>, o botão "Já foi
+/// lançada — encerrar", que aponta o horário para a sessão e o tira da agenda.</item>
 /// </list>
 /// </summary>
 public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
@@ -152,7 +162,8 @@ public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
                 Profissional = string.IsNullOrWhiteSpace(p.Profissional) ? "—" : p.Profissional,
                 DiasParado = p.DiasParado,
                 TemSessaoNoDia = p.TemSessaoNoDia,
-                Situacao = p.Situacao
+                Situacao = p.Situacao,
+                Sessoes = p.SessoesDoDia
             }).ToList();
 
             var orfaos = c.Orfaos.Select(o => new LinhaOrfa
@@ -251,6 +262,64 @@ public sealed partial class ConciliacaoAgendaViewModel : ObservableObject
                     linha.AgendamentoId, null, operador: SessaoUsuario.Atual.Operador);
             return $"Atendimento nº {lancamento.Atendimento.Numero} lançado com "
                    + $"{lancamento.Atendimento.Codigos.Count} código(s).";
+        });
+    }
+
+    /// <summary>
+    /// Resposta (3): a sessão aconteceu e JÁ está lançada por fora. O horário é encerrado
+    /// apontando para ela — sai da ocupação, do "Meu dia" e da disputa pela evolução, sem
+    /// virar cancelamento nem falta. Com mais de uma sessão no dia, pergunta qual.
+    /// </summary>
+    [RelayCommand]
+    private async Task SubstituirAsync(LinhaConciliacao? linha)
+    {
+        if (linha is null || Ocupado) return;
+        SessaoUsuario.Atual.Exigir(
+            Permissao.EditarAgenda | Permissao.LancarAtendimento, "encerrar o horário");
+
+        // A guarda que vale por toda a tela: sem sessão no dia não há o que apontar.
+        if (!linha.TemSessaoNoDia || linha.Sessoes.Count == 0)
+        {
+            Avisar($"{linha.Paciente} NÃO tem sessão lançada em {linha.Quando:dd/MM/yyyy}. "
+                   + "Sem sessão, a resposta é falta ou lançar retroativo.", erro: true);
+            return;
+        }
+
+        var sessao = linha.Sessoes[0];
+        if (linha.Sessoes.Count > 1)
+        {
+            var numeros = string.Join(" ou ", linha.Sessoes.Select(s => s.Numero));
+            var escolhido = _dialogo.PerguntarTexto("Qual sessão encerra este horário?",
+                $"{linha.Paciente} tem {linha.Sessoes.Count} sessões lançadas em "
+                + $"{linha.Quando:dd/MM/yyyy}:\n\n"
+                + string.Join("\n", linha.Sessoes.Select(s => "• " + s.Resumo))
+                + $"\n\nDigite o número da sessão ({numeros}):");
+            if (escolhido is null) return;
+            sessao = linha.Sessoes.FirstOrDefault(s =>
+                string.Equals(s.Numero.Trim(), escolhido.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (sessao is null)
+            {
+                Avisar($"\"{escolhido}\" não é o número de nenhuma das sessões do dia ({numeros}).",
+                    erro: true);
+                return;
+            }
+        }
+
+        if (!_dialogo.Confirmar("Encerrar o horário pela sessão lançada?",
+                $"{linha.Paciente} — horário de {linha.Quando:dd/MM/yyyy HH:mm}.\n\n"
+                + $"O horário será encerrado apontando para a sessão {sessao.Resumo}. Ele sai da "
+                + "ocupação, do dia do profissional e da conciliação — sem contar como "
+                + "cancelamento nem como falta, porque a sessão aconteceu.\n\n"
+                + "Se depois se descobrir que a sessão é OUTRA, o Remarcar da agenda reabre o "
+                + "horário.\n\nConfirma?")) return;
+
+        await ExecutarAsync(linha, async servicos =>
+        {
+            var avisos = await servicos.GetRequiredService<AgendaService>()
+                .SubstituirPorSessaoAsync(linha.AgendamentoId, sessao.AtendimentoId,
+                    SessaoUsuario.Atual.Operador);
+            return $"Horário encerrado pela sessão nº {sessao.Numero}."
+                   + (avisos.Count > 0 ? " " + string.Join(" ", avisos) : string.Empty);
         });
     }
 

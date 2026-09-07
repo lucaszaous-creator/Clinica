@@ -53,7 +53,41 @@ public class FalhaDeGravacaoDizACausaTests : IDisposable
     [Fact]
     public async Task Falha_de_gravacao_leva_a_resposta_do_BANCO_para_a_tela()
     {
-        // Documento clínico apontando para um paciente que não existe: o banco recusa.
+        // Documento clínico sem NÚMERO: a coluna é NOT NULL nos dois bancos, e nenhum dos
+        // dois traduz essa recusa numa frase própria — é o caminho "não sei o que é isto",
+        // que é justamente o que chega à clínica.
+        _db.DocumentosClinicos.Add(new DocumentoClinico
+        {
+            Numero = null!,
+            CodigoVerificacao = "ABC123",
+            Tipo = TipoDocumentoClinico.Receita,
+            PacienteId = await PacienteAsync(),
+            Data = new DateOnly(2026, 8, 14)
+        });
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.SalvarAsync());
+
+        // A frase do EF não pode ser a única coisa na tela...
+        erro.Message.Should().NotBe(
+            "An error occurred while saving the entity changes. See the inner exception for details.");
+
+        // ...e o que o BANCO disse tem de estar nela — a coluna, no caso.
+        erro.Message.Should().Contain("O banco respondeu");
+        erro.Message.Should().ContainEquivalentOf("Numero");
+
+        // "Veja a inner exception" é instrução para programador, não para quem está no balcão.
+        erro.Message.Should().NotContainEquivalentOf("inner exception");
+    }
+
+    /// <summary>
+    /// A chave estrangeira quebrada tem frase PRÓPRIA no Postgres (23503 →
+    /// <c>MensagensDeErro.VinculoQuebrado</c>) — e não tem no SQLite, que só diz "FOREIGN
+    /// KEY constraint failed". Os dois desfechos são os certos para o banco em que a suíte
+    /// está rodando, e é por isso que o teste os afirma um a um em vez de escolher um.
+    /// </summary>
+    [Fact]
+    public async Task Vinculo_quebrado_tem_frase_propria_no_Postgres_e_leva_a_causa_no_SQLite()
+    {
         _db.DocumentosClinicos.Add(new DocumentoClinico
         {
             Numero = "2026/0001",
@@ -65,15 +99,21 @@ public class FalhaDeGravacaoDizACausaTests : IDisposable
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => _repo.SalvarAsync());
 
-        // A frase do EF não pode ser a única coisa na tela...
-        erro.Message.Should().NotBe(
-            "An error occurred while saving the entity changes. See the inner exception for details.");
-
-        // ...e o que o BANCO disse tem de estar nela.
-        erro.Message.Should().Contain("O banco respondeu");
-        erro.Message.Should().ContainEquivalentOf("FOREIGN KEY");
-
-        // "Veja a inner exception" é instrução para programador, não para quem está no balcão.
+        if (BancoDosTestes.NoPostgres)
+            erro.Message.Should().Be(MensagensDeErro.VinculoQuebrado);
+        else
+        {
+            erro.Message.Should().Contain("O banco respondeu");
+            erro.Message.Should().ContainEquivalentOf("FOREIGN KEY");
+        }
         erro.Message.Should().NotContainEquivalentOf("inner exception");
+    }
+
+    private async Task<int> PacienteAsync()
+    {
+        var p = new Paciente { Nome = "Paciente de Teste" };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+        return p.Id;
     }
 }

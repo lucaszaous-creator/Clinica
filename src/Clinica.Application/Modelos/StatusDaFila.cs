@@ -19,15 +19,21 @@ namespace Clinica.Application.Modelos;
 /// </summary>
 public static class StatusDaFila
 {
-    /// <summary>Cancelado ou falta — a linha que fica APAGADA, sem ação de fila.</summary>
+    /// <summary>
+    /// Cancelado, falta ou substituído — a linha que fica APAGADA, sem ação de fila. A lista
+    /// é a NEGAÇÃO de <c>Agendamento.OcupaAgenda</c>: o que não ocupa a agenda não está na
+    /// fila, e a próxima situação nova cai do lado certo sem ninguém lembrar.
+    /// </summary>
     public static bool ForaDaFila(StatusAgendamento status)
-        => status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou;
+        => status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado);
 
     /// <summary>A etapa em UMA palavra. "Marcado" é quem ainda não chegou.</summary>
     public static string Palavra(StatusAgendamento status, EtapaFila etapa) => status switch
     {
         StatusAgendamento.Cancelado => "Cancelado",
         StatusAgendamento.Faltou => "Faltou",
+        // A sessão aconteceu, noutro lançamento: nem falta nem cancelamento.
+        StatusAgendamento.Substituido => "Substituído",
         _ => etapa switch
         {
             EtapaFila.Chegou => "No local",

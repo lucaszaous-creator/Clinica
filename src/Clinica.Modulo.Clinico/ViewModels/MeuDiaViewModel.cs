@@ -209,6 +209,7 @@ public sealed class LinhaSessao
         StatusAgendamento.Realizado => "Atendido",
         StatusAgendamento.Cancelado => "Cancelado",
         StatusAgendamento.Faltou => "Faltou",
+        StatusAgendamento.Substituido => "Substituído",
         _ => etapa switch
         {
             EtapaFila.Chegou => "Na recepção",

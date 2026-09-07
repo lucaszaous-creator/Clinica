@@ -299,6 +299,11 @@ public class ClinicaDbContext : DbContext
             // Sem cascade a partir do atendimento (relação opcional).
             e.HasOne(a => a.Atendimento).WithMany().HasForeignKey(a => a.AtendimentoId)
                 .OnDelete(DeleteBehavior.SetNull);
+            // A sessão lançada POR FORA que encerrou o horário (StatusAgendamento.Substituido,
+            // set/2026). WithMany, como o Atendimento: não é 1-1, e índice único que falha
+            // na migration da abertura é o faturamento não abrindo.
+            e.HasOne(a => a.AtendimentoSubstituto).WithMany().HasForeignKey(a => a.AtendimentoSubstitutoId)
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(a => a.DataHora);
 
             // Fundação da recepção: recursos disputados e carimbos do kanban. Todos
@@ -321,6 +326,7 @@ public class ClinicaDbContext : DbContext
             e.Ignore(a => a.DuracaoEfetiva);
             e.Ignore(a => a.FimPrevisto);
             e.Ignore(a => a.OcupaAgenda);
+            e.Ignore(a => a.Substituido);
         });
 
         // ---------- Fundação da recepção (parcela 1) ----------
@@ -889,7 +895,11 @@ public class ClinicaDbContext : DbContext
                     TipoDocumentoClinico.Desconhecido))
                 .HasMaxLength(30);
             e.Property(x => x.Titulo).HasMaxLength(200);
-            e.Property(x => x.Corpo).HasMaxLength(4000);
+            // Sem teto (set/2026): o corpo é COPIADO do ModeloDocumento na emissão, e o texto
+            // aprovado do TCLE do BSV passa de 4.000 caracteres — a rede de CI contra o
+            // Postgres pegou o 22001 antes de a clínica clicar. Origem e cópia largam o
+            // teto JUNTAS (a lição da FichaDaSessaoCabeNaColuna: ao alargar, procure quem copia).
+            e.Property(x => x.Corpo).HasColumnType("text");
             e.Property(x => x.Observacoes).HasMaxLength(1000);
             e.Property(x => x.Cid).HasMaxLength(20);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
@@ -1347,7 +1357,9 @@ public class ClinicaDbContext : DbContext
                 .HasMaxLength(30);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
             e.Property(x => x.Titulo).HasMaxLength(200);
-            e.Property(x => x.Corpo).HasMaxLength(4000);
+            // Sem teto: o TCLE aprovado pelo advogado da clínica (ModelosTermoBsv) tem mais de
+            // 4.000 caracteres, e o botão "Criar os termos do BSV" falharia no Postgres.
+            e.Property(x => x.Corpo).HasColumnType("text");
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");

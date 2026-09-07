@@ -597,12 +597,20 @@ public sealed class AtendimentoService
         var atendimento = await _repo.ObterAtendimentoAsync(id, ct);
         if (atendimento is null) return avisos;
 
-        if (ag.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+        if (ag.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou
+            or StatusAgendamento.Substituido)
         {
-            // A sessão não aconteceu — o carimbo de realizado sai junto.
+            // A sessão não aconteceu POR ESTE HORÁRIO — o carimbo de realizado sai junto.
+            // No substituído a sessão aconteceu, mas está pendurada no encaixe: as guias
+            // que este horário gerou (chave "guia no agendamento") seriam o segundo jogo.
             atendimento.RealizadoEm = null;
 
-            var motivo = ag.Status == StatusAgendamento.Faltou ? "falta" : "cancelamento";
+            var motivo = ag.Status switch
+            {
+                StatusAgendamento.Faltou => "falta",
+                StatusAgendamento.Substituido => "substituição por sessão lançada por fora",
+                _ => "cancelamento"
+            };
             var suspensas = 0;
             foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
             {

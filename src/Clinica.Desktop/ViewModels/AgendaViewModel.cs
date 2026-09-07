@@ -288,6 +288,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
                 StatusAgendamento.Realizado => "Atendido",
                 StatusAgendamento.Faltou => "Faltou",
                 StatusAgendamento.Cancelado => "Cancelado",
+                StatusAgendamento.Substituido => "Substituído",
                 _ => "Agendado"
             },
             a.Paciente?.FotoMiniatura,

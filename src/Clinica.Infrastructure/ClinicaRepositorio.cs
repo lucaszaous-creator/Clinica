@@ -384,8 +384,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await _db.Agendamentos.AsNoTracking()
             .Where(a => pacienteIds.Contains(a.PacienteId)
                         && a.DataHora >= corte
-                        && a.Status != StatusAgendamento.Cancelado
-                        && a.Status != StatusAgendamento.Faltou)
+                        // A lista POSITIVA (a coluna, nunca `OcupaAgenda`, que o EF não traduz):
+                        // cancelado, falta e substituído não são "horário posterior".
+                        && (a.Status == StatusAgendamento.Agendado
+                            || a.Status == StatusAgendamento.Realizado))
             .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
             .ToListAsync(ct);
     }
@@ -2013,6 +2015,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.Agendamentos
             .OrderBy(a => a.Id)
             .FirstOrDefaultAsync(a => a.AtendimentoId == atendimentoId, ct);
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosSubstituidosPorAsync(
+        int atendimentoId, CancellationToken ct = default)
+        // RASTREADO, como o de cima: o estorno reabre no mesmo commit.
+        => await _db.Agendamentos
+            .Where(a => a.AtendimentoSubstitutoId == atendimentoId)
+            .OrderBy(a => a.Id)
+            .ToListAsync(ct);
 
     public Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default)
         => _db.ConsumosPacote.AsNoTracking()

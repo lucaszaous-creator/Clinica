@@ -762,6 +762,49 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     /// Refazer o que faltou não pode duplicar nada — nem o modelo (mesmo nome sobrescreve)
     /// nem a amarração (a mesma exigência atualiza). A versão anterior travava aqui: o
     /// guarda comparava o NOME, achava o consentimento que sobrou e recusava tudo, deixando
+    /// <summary>
+    /// O texto APROVADO do BSV cabe nas colunas que o guardam — o modelo E a cópia que a
+    /// emissão faz dele (set/2026, achado da primeira rodada da suíte contra o Postgres).
+    ///
+    /// O TCLE do advogado tem mais de 4.000 caracteres e <c>ModelosDocumento.Corpo</c> era
+    /// varchar(4000): o botão "Criar os termos do BSV" levaria <i>22001: value too long</i>
+    /// na clínica, com 2310 testes verdes — o SQLite ignora o tamanho declarado. Os tetos
+    /// são lidos do MODELO do EF, como em <c>RelatorioCabeNaColunaTests</c>, para o teste
+    /// reprovar no commit em que alguém devolver um teto a qualquer uma das colunas.
+    /// </summary>
+    [Fact]
+    public void Os_textos_aprovados_do_BSV_cabem_no_modelo_e_na_copia_que_a_emissao_faz()
+    {
+        int? Teto(Type entidade, string propriedade)
+            => _db.Model.FindEntityType(entidade)!.FindProperty(propriedade)!.GetMaxLength();
+
+        void Cabe(string? valor, Type entidade, string propriedade)
+        {
+            if (valor is null || Teto(entidade, propriedade) is not { } teto) return;
+            valor.Length.Should().BeLessThanOrEqualTo(teto,
+                $"{entidade.Name}.{propriedade} tem teto {teto} e o texto aprovado tem {valor.Length}");
+        }
+
+        foreach (var modelo in new[] { ModelosTermoBsv.Consentimento(), ModelosTermoBsv.TermoDaSessao() })
+        {
+            // Onde o modelo é gravado…
+            Cabe(modelo.Nome, typeof(ModeloDocumento), nameof(ModeloDocumento.Nome));
+            Cabe(modelo.Titulo, typeof(ModeloDocumento), nameof(ModeloDocumento.Titulo));
+            Cabe(modelo.Corpo, typeof(ModeloDocumento), nameof(ModeloDocumento.Corpo));
+            // …e para onde a emissão o COPIA (a segunda via tem de sair idêntica).
+            Cabe(modelo.Titulo, typeof(DocumentoClinico), nameof(DocumentoClinico.Titulo));
+            Cabe(modelo.Corpo, typeof(DocumentoClinico), nameof(DocumentoClinico.Corpo));
+
+            foreach (var item in modelo.Itens)
+            {
+                Cabe(item.Descricao, typeof(ItemModelo), nameof(ItemModelo.Descricao));
+                Cabe(item.Detalhe, typeof(ItemModelo), nameof(ItemModelo.Detalhe));
+                Cabe(item.Descricao, typeof(ItemDocumento), nameof(ItemDocumento.Descricao));
+                Cabe(item.Detalhe, typeof(ItemDocumento), nameof(ItemDocumento.Detalhe));
+            }
+        }
+    }
+
     /// a declaração de jejum sem existir e o BSV sem cobrar termo nenhum — em silêncio.
     /// </summary>
     [Fact]

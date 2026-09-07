@@ -319,9 +319,11 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
             if (geracao != _geracaoLista) return;
 
-            // Cancelado não é passagem: quem desmarcou não passa pela enfermagem.
+            // Cancelado não é passagem: quem desmarcou não passa pela enfermagem. E o
+            // horário SUBSTITUÍDO também não — a sessão dele está no encaixe, que já entra.
             var doDia = agenda
-                .Where(a => a.Status != StatusAgendamento.Cancelado && a.Paciente is not null)
+                .Where(a => a.Status is not (StatusAgendamento.Cancelado or StatusAgendamento.Substituido)
+                            && a.Paciente is not null)
                 .OrderBy(a => a.DataHora)
                 .Select(a => a.Paciente!)
                 .DistinctBy(p => p.Id)

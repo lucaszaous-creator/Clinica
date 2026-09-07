@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907120000_CorpoDoDocumentoSemTeto")]
+    partial class CorpoDoDocumentoSemTeto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -31,9 +34,6 @@ namespace Clinica.Infrastructure.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("AtendimentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("AtendimentoSubstitutoId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("ChamadoEm")
@@ -125,8 +125,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AtendimentoId");
-
-                    b.HasIndex("AtendimentoSubstitutoId");
 
                     b.HasIndex("ChaveImportacao")
                         .IsUnique();
@@ -4532,11 +4530,6 @@ namespace Clinica.Infrastructure.Migrations
                         .HasForeignKey("AtendimentoId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Clinica.Domain.Entities.Atendimento", "AtendimentoSubstituto")
-                        .WithMany()
-                        .HasForeignKey("AtendimentoSubstitutoId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
                         .WithMany()
                         .HasForeignKey("PacienteId")
@@ -4554,8 +4547,6 @@ namespace Clinica.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Atendimento");
-
-                    b.Navigation("AtendimentoSubstituto");
 
                     b.Navigation("Paciente");
 

@@ -1,8 +1,10 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Text.Json;
 using Clinica.Application;
 using Clinica.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Clinica.Infrastructure;
 
@@ -22,8 +24,17 @@ public sealed record ManifestoBackup(
     int TotalLinhas,
     IReadOnlyList<TabelaBackup> Tabelas)
 {
-    /// <summary>Base sem nenhuma linha: backup tecnicamente válido e praticamente inútil.</summary>
-    public bool Vazio => TotalLinhas == 0;
+    /// <summary>
+    /// Base sem nenhuma linha DA CLÍNICA: backup tecnicamente válido e praticamente inútil.
+    ///
+    /// Os catálogos que a instalação semeia (<see cref="BackupService.TabelasSemeadasPelaInstalacao"/>)
+    /// não contam: uma base recém-migrada no Postgres já tem os convênios, as modalidades e
+    /// as especialidades embutidas, e um backup só deles é tão inútil quanto um de base
+    /// vazia — o que diria "N registros" seria o esqueleto do sistema, não a clínica.
+    /// </summary>
+    public bool Vazio => Tabelas
+        .Where(t => !BackupService.TabelasSemeadasPelaInstalacao.Contains(t.Nome))
+        .Sum(t => t.Linhas) == 0;
 
     public TabelaBackup? Tabela(string nome)
         => Tabelas.FirstOrDefault(t => string.Equals(t.Nome, nome, StringComparison.OrdinalIgnoreCase));
@@ -81,6 +92,30 @@ public sealed class BackupService
     };
 
     public BackupService(ClinicaDbContext db) => _db = db;
+
+    /// <summary>
+    /// As tabelas que as MIGRATIONS semeiam — o que uma base tem antes de a clínica gravar
+    /// a primeira linha dela.
+    ///
+    /// Existe porque "base vazia" nunca foi verdade numa instalação real: a migration
+    /// <c>ConveniosDinamicos</c> insere os convênios embutidos e a
+    /// <c>ModalidadesEspecialidadesDinamicas</c> insere modalidades e especialidades, no
+    /// <c>MigrateAsync</c> da abertura. A restauração recusava toda base recém-instalada
+    /// ("Convenios tem 4 registro(s)") — e a única forma de restaurar um backup na clínica
+    /// era apagar à mão, no banco, o que a própria migration acabara de criar. Os testes não
+    /// viam: o SQLite monta o schema pelo modelo, por <c>EnsureCreated</c>, sem executar
+    /// migration nenhuma. Foi a rede de CI contra o Postgres (set/2026) que mostrou.
+    ///
+    /// Estas tabelas não entram na conta de "tem dados?" e são ESVAZIADAS antes da
+    /// restauração: o backup traz a versão da clínica delas (com os convênios que ela
+    /// cadastrou), e inserir por cima das semeadas colidiria no código único.
+    ///
+    /// ⚠️ Só o que a MIGRATION escreve entra aqui. Usuário, configuração e auditoria
+    /// aparecem quando alguém USA o sistema — e base usada é exatamente o que a restauração
+    /// tem de recusar.
+    /// </summary>
+    public static readonly IReadOnlySet<string> TabelasSemeadasPelaInstalacao =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Convenios", "Modalidades", "Especialidades" };
 
     /// <summary>Nome de cada tabela do modelo, em ordem de dependência (pai antes de filho).</summary>
     private IReadOnlyList<string> TabelasEmOrdem()
@@ -202,6 +237,60 @@ public sealed class BackupService
         _ => valor.ToString() ?? string.Empty
     };
 
+    /// <summary>
+    /// O tipo que o BANCO recebe em cada coluna da tabela — o do conversor quando há um
+    /// (enum gravado como texto), senão o CLR da propriedade. É pelo modelo, e não por
+    /// <c>information_schema</c>, pela mesma razão da lista de tabelas: o backup é do que o
+    /// aplicativo é dono.
+    /// </summary>
+    private Dictionary<string, Type> TiposDasColunas(string tabela)
+    {
+        var tipos = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entidade in _db.Model.GetEntityTypes().Where(t => t.GetTableName() == tabela))
+        {
+            var id = StoreObjectIdentifier.Table(tabela, entidade.GetSchema());
+            foreach (var prop in entidade.GetProperties())
+            {
+                var coluna = prop.GetColumnName(id);
+                if (coluna is null) continue;
+                tipos[coluna] = prop.GetValueConverter()?.ProviderClrType ?? prop.ClrType;
+            }
+        }
+        return tipos;
+    }
+
+    /// <summary>
+    /// O inverso exato de <see cref="Converter"/>: o texto do arquivo volta a ser o valor
+    /// que a coluna guarda. Coluna que o modelo não conhece (backup de outra versão) vai
+    /// como texto — é o melhor palpite, e o banco diz se serve.
+    /// </summary>
+    private static object Retipar(string? texto, Type? tipo)
+    {
+        if (texto is null) return DBNull.Value;
+        if (tipo is null) return texto;
+
+        var t = Nullable.GetUnderlyingType(tipo) ?? tipo;
+        var inv = CultureInfo.InvariantCulture;
+
+        if (t == typeof(string)) return texto;
+        if (t == typeof(int)) return int.Parse(texto, inv);
+        if (t == typeof(long)) return long.Parse(texto, inv);
+        if (t == typeof(short)) return short.Parse(texto, inv);
+        if (t == typeof(bool)) return texto == "true" || texto == "True" || texto == "1";
+        if (t == typeof(decimal)) return decimal.Parse(texto, NumberStyles.Number, inv);
+        if (t == typeof(double)) return double.Parse(texto, NumberStyles.Float, inv);
+        if (t == typeof(float)) return float.Parse(texto, NumberStyles.Float, inv);
+        if (t == typeof(DateTime)) return DateTime.Parse(texto, inv, DateTimeStyles.RoundtripKind);
+        if (t == typeof(DateTimeOffset)) return DateTimeOffset.Parse(texto, inv, DateTimeStyles.RoundtripKind);
+        if (t == typeof(DateOnly)) return DateOnly.Parse(texto, inv);
+        if (t == typeof(TimeOnly)) return TimeOnly.Parse(texto, inv);
+        if (t == typeof(byte[])) return Convert.FromBase64String(texto);
+        if (t == typeof(Guid)) return Guid.Parse(texto);
+        if (t == typeof(uint)) return uint.Parse(texto, inv);
+
+        return texto;
+    }
+
     private sealed record ArquivoBackup(
         ManifestoBackup Manifesto,
         Dictionary<string, List<Dictionary<string, string?>>> Tabelas);
@@ -276,6 +365,7 @@ public sealed class BackupService
         var ordem = TabelasEmOrdem();
 
         await RecusarSeTiverDadosAsync(conexao, ordem, ct);
+        await EsvaziarSemeadasAsync(conexao, ordem, ct);
 
         var avisos = new List<string>();
         var tabelasFeitas = 0;
@@ -293,6 +383,8 @@ public sealed class BackupService
 
             if (linhas.Count == 0) continue;
 
+            var tiposDaTabela = TiposDasColunas(tabela);
+
             foreach (var linha in linhas)
             {
                 using var cmd = conexao.CreateCommand();
@@ -307,7 +399,13 @@ public sealed class BackupService
                 {
                     var p = cmd.CreateParameter();
                     p.ParameterName = "@p" + i;
-                    p.Value = (object?)linha[colunas[i]] ?? DBNull.Value;
+                    // ⚠️ TIPADO, nunca o texto cru (set/2026). O backup grava tudo como texto,
+                    // e o Postgres não converte parâmetro de texto para a coluna sozinho:
+                    // "42804: column Id is of type integer but expression is of type text".
+                    // A restauração NUNCA tinha rodado num Postgres — os testes passavam
+                    // porque o SQLite aceita qualquer valor em qualquer coluna. Aqui o
+                    // texto volta a ser o valor que era, pelo tipo que o MODELO declara.
+                    p.Value = Retipar(linha[colunas[i]], tiposDaTabela.GetValueOrDefault(colunas[i]));
                     cmd.Parameters.Add(p);
                 }
 
@@ -341,6 +439,9 @@ public sealed class BackupService
     {
         foreach (var tabela in tabelas)
         {
+            // O que a migration semeou não é dado da clínica (ver TabelasSemeadasPelaInstalacao).
+            if (TabelasSemeadasPelaInstalacao.Contains(tabela)) continue;
+
             using var cmd = conexao.CreateCommand();
             cmd.CommandText = $"SELECT COUNT(*) FROM {Aspas(tabela)}";
 
@@ -350,6 +451,26 @@ public sealed class BackupService
                     $"A base não está vazia ({tabela} tem {total} registro(s)). "
                     + "Restaurar por cima misturaria os dados sem volta — "
                     + "esvazie a base antes de restaurar.");
+        }
+    }
+
+    /// <summary>
+    /// Esvazia os catálogos semeados pela instalação — em ordem INVERSA de dependência,
+    /// porque uma modalidade cadastrada pode apontar para outra (a variante para a
+    /// família), e o filho sai antes do pai. Só roda depois de a base ter passado na
+    /// recusa acima: o que se apaga aqui é o que a migration acabou de criar, nunca dado
+    /// da clínica.
+    /// </summary>
+    private static async Task EsvaziarSemeadasAsync(
+        DbConnection conexao, IReadOnlyList<string> ordem, CancellationToken ct)
+    {
+        foreach (var tabela in ordem.Reverse())
+        {
+            if (!TabelasSemeadasPelaInstalacao.Contains(tabela)) continue;
+
+            using var cmd = conexao.CreateCommand();
+            cmd.CommandText = $"DELETE FROM {Aspas(tabela)}";
+            await cmd.ExecuteNonQueryAsync(ct);
         }
     }
 

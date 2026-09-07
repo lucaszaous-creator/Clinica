@@ -20,6 +20,13 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 # Um teste específico
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedName~RegrasFaturamentoTests"
 
+# A MESMA suíte contra um Postgres de verdade (o que o CI faz no job `testes-postgres`).
+# Localmente: apt-get install postgresql-16, `service postgresql start`, senha no usuário
+# postgres, e a variável abaixo — as migrations são aplicadas UMA vez num banco-modelo e
+# cada teste ganha uma cópia dele (tests/Clinica.Tests/BancoDosTestes.cs). ~10 min.
+CLINICA_TESTES_POSTGRES="Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres" \
+  dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
+
 # Rodar o app (apenas Windows — WPF)
 dotnet run --project src/Clinica.Desktop
 
@@ -48,7 +55,8 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 
 | ferramenta | cobre | não cobre |
 |---|---|---|
-| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 988 testes | nada das telas |
+| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 2310 testes | nada das telas; e o SQLite não vê tamanho de coluna, `Kind` de data, `xmin` nem migration |
+| `dotnet test` com `CLINICA_TESTES_POSTGRES` | a mesma suíte no Postgres: migrations aplicadas de verdade, tetos de coluna, datas com fuso, tipos de parâmetro | nada das telas |
 | `tools/compilar-sombra.py` | **o C# dos 10 projetos WPF, faturamento incluído** (nome, tipo, aridade, atributo) | XAML |
 | `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução, **migration destrutiva** | semântica de C# |
 
@@ -373,6 +381,52 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca
   adicione campos de dinheiro/pagamento.
+- **A SUÍTE PASSOU A RODAR CONTRA UM POSTGRES DE VERDADE — e a primeira rodada achou TRÊS
+  defeitos de produção com 2310 testes verdes** (set/2026, item 1 da lista "o que falta
+  para ficar profissional"). Os testes rodam em SQLite, e "só o Postgres pega" já tinha
+  custado à clínica o `xmin`, as seis datas com fuso da parcela 52 e o 22001 do "Imprimir
+  esta sessão" — cada um com uma rede própria escrita DEPOIS do estrago. A rede genérica
+  é o job `testes-postgres` do `verificar.yml`: um Postgres 16 em container, a variável
+  `CLINICA_TESTES_POSTGRES`, e a MESMA suíte.
+  ⚠️ **O interruptor tem o MESMO nome do método do EF de propósito.** Os 147 arquivos de
+  teste montam o banco com `UseSqlite(conn)` + `EnsureCreated()`, sem fixture comum; um
+  helper `BancoDeTeste.Abrir()` seria contrato que depende de alguém lembrar, e o teste
+  escrito daqui a seis meses com o padrão de sempre ficaria fora da rede sem ninguém
+  notar. `BancoDosTestes.UseSqlite` mora no namespace `Clinica.Tests`, e o C# procura
+  extensão do namespace mais interno para fora — a do EF só entra se esta não servir. Com
+  a variável, ela aplica as migrations UMA vez num banco-modelo (é isso que prova a
+  migration escrita à mão, que o SQLite nunca executa) e dá a cada teste uma cópia
+  (`CREATE DATABASE … TEMPLATE`), apagada quando a `SqliteConnection` do fixture é
+  descartada. **A mesma conexão é o mesmo banco**: os testes de "escopo separado como em
+  produção" abrem um segundo contexto sobre a conexão do fixture, e sem a tabela de
+  conexão→banco cada chamada criaria um banco novo e o segundo contexto leria o vazio.
+  Os três defeitos, e o que cada um ensina:
+  (a) **O texto aprovado do TCLE do BSV (parcela 84) tem mais de 4.000 caracteres e
+  `ModelosDocumento.Corpo` era varchar(4000)** — o botão "Criar os termos do BSV" levaria
+  um 22001 na clínica. `DocumentosClinicos.Corpo` foi junto porque é a CÓPIA (a lição da
+  `FichaDaSessaoCabeNaColuna`, duas migrations antes, cobrada de novo). O teste que fixa
+  lê os tetos do MODELO e mede os textos da `ModelosTermoBsv` contra a origem E o destino.
+  (b) **A restauração de backup NUNCA tinha rodado num Postgres.** Dois motivos, ambos
+  invisíveis no SQLite: as migrations SEMEIAM convênios, modalidades e especialidades,
+  então "base vazia" nunca foi verdade numa instalação real e a restauração recusava toda
+  base recém-instalada ("Convenios tem 4 registro(s)"); e o backup grava tudo como texto
+  e mandava o texto cru de volta — o Postgres não converte parâmetro `text` para coluna
+  `integer` sozinho ("42804"). Agora os catálogos semeados não contam como dado da
+  clínica (`BackupService.TabelasSemeadasPelaInstalacao`) e são esvaziados antes da
+  restauração, e cada valor volta TIPADO pelo modelo do EF (`Retipar`, o inverso exato
+  do `Converter`). **Teste de restauração que nunca restaurou no banco de produção é o
+  "backup que ninguém sabe restaurar" com um teste verde ao lado.**
+  (c) **A tradução de erro do banco tem frase própria no Postgres e não tem no SQLite.**
+  O teste da mensagem de gravação provocava uma chave estrangeira quebrada e afirmava
+  "O banco respondeu" — no Postgres o 23503 vira `VinculoQuebrado`, que é o certo. O
+  teste passou a afirmar os dois desfechos, um por banco, em vez de escolher um.
+  ⚠️ **Teste que usa a `SqliteConnection` do fixture para SQL cru lê OUTRO banco** quando a
+  suíte roda no Postgres: a conexão do fixture é só o gancho, e o contexto aponta para o
+  banco copiado. SQL cru sai por `_db.Database.GetDbConnection()`, com identificadores
+  entre aspas — o Postgres dobra `DocumentosClinicos` sem aspas para minúsculas.
+  ⚠️ **Não é substituto do SQLite**: 3 min contra 10, e é por isso que o job roda em
+  PARALELO e não em série. Quando os dois discordam, o Postgres é quem diz a verdade da
+  clínica — e a pergunta certa é "qual dos dois está medindo o banco de produção".
 - **A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz** (parcela 93). A
   clínica não trabalha o check-in pela agenda: a recepcionista vai direto ao Novo
   atendimento. A parcela 91 fez o lançamento reconhecer o **horário do dia** e nascer
@@ -389,13 +443,31 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   fora** — e aqui lançar criaria um SEGUNDO jogo de guias para a mesma sessão. Por isso a
   linha carrega `HorarioParado.TemSessaoNoDia` e o botão de lançar fica **apagado**, com a
   frase ao lado (botão cinza sem explicação vira "o sistema travou", parcela 41).
-  **Encerrar esse horário pede um `StatusAgendamento` NOVO** e é por isso que ficou de fora:
-  `Cancelado` é contado por `IndicadoresService` e `RelacionamentoService` (uma sessão que
-  ACONTECEU inflaria o indicador de cancelamento) e `Faltou` culparia o paciente. O enum é
-  gravado como TEXTO, então acrescentar é seguro para as linhas salvas — o custo são os
-  **107 usos em 23 arquivos**, e principalmente as comparações NEGATIVAS
-  (`is not (Cancelado or Faltou)`), onde um valor novo cai do lado "ativo" sem ninguém
-  perceber. É parcela própria.
+  **Encerrar esse horário pediu um `StatusAgendamento` NOVO, e ele existe desde set/2026:
+  `Substituido`** (item 2 da lista "o que falta para ficar profissional"). `Cancelado` é
+  contado por `IndicadoresService` e `RelacionamentoService` (uma sessão que ACONTECEU
+  inflaria o indicador de cancelamento), `Faltou` culparia o paciente, e `Realizado`
+  dobraria a ocupação e o repasse (o atendimento já está pendurado no encaixe). Quem
+  aponta para a sessão é `AtendimentoSubstitutoId` (coluna aditiva), NUNCA `AtendimentoId`:
+  o backfill de `RealizadoEm` só carimba atendimento cujos horários estão todos em
+  Realizado, e um segundo horário apontando por aquela coluna o deixaria de fora para
+  sempre. `AgendaService.SubstituirPorSessaoAsync` recusa sessão de outro paciente, de
+  outro dia, estornada e horário que não está em aberto; suspende as guias PRÓPRIAS do
+  horário (chave "guia no agendamento") pelo mesmo caminho da falta; e o Remarcar reabre
+  e solta o vínculo.
+  ⚠️ **As comparações NEGATIVAS foram o custo, e a saída foi trocá-las pela lista
+  POSITIVA.** Eram 120 usos em 28 arquivos; os `is not (Cancelado or Faltou)` viraram
+  `OcupaAgenda` (agendado ou realizado) em memória e `Status == Agendado || Status ==
+  Realizado` nas consultas traduzidas (o EF não traduz a derivada). `StatusDaFila.ForaDaFila`
+  e `SessaoDoDia.ForaDoDia` passaram a ser a NEGAÇÃO dessa lista: o próximo status cai do
+  lado de "não ocupa" sem ninguém lembrar. Os que ficaram por extenso são os dois que
+  excluem SÓ o cancelado de propósito (a lista da Enfermagem e a entrega do paciente ao
+  posto, que mantêm a falta) — ali o substituído entrou nomeado.
+  ⚠️ **Valor novo de enum é o que o binário ANTERIOR não lê** (parcela 67): um app velho
+  lendo um dia com um horário `Substituido` perde a consulta inteira. O valor só é escrito
+  pela conciliação — tela da mesma versão — e a release dos cinco apps é conjunta; o que
+  isto pede é que a conciliação do backlog só comece DEPOIS de os cinco apps terem
+  atualizado, e está escrito no enum.
   ⚠️ **`WithMany()` no mapeamento de `Agendamento.Atendimento` NÃO é descuido, e trocar por
   `WithOne()` NÃO é de graça**: o EF exige índice ÚNICO para o dependente 1‑1, e migration
   roda na ABERTURA do app — índice único que falha na criação é o faturamento não abrindo.

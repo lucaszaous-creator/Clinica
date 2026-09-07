@@ -1860,6 +1860,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         StatusAgendamento.Realizado => "Atendido",
         StatusAgendamento.Cancelado => "Cancelado",
         StatusAgendamento.Faltou => "Faltou",
+        StatusAgendamento.Substituido => "Substituído por uma sessão lançada por fora",
         _ => status.ToString()
     };
 }

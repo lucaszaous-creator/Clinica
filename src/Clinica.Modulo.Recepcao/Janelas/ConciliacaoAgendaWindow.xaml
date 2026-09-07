@@ -101,7 +101,7 @@
                                                    HorizontalAlignment="Left"
                                                    Foreground="{StaticResource Brush.Erro}"
                                                    Visibility="{Binding TemSessaoNoDia, Converter={StaticResource BoolParaVisibilidade}}"
-                                                   Text="A sessão deste dia já está lançada — lançar de novo criaria um segundo jogo de guias. Este horário será encerrado apontando para ela numa próxima versão; por ora, deixe-o como está." />
+                                                   Text="A sessão deste dia já está lançada — lançar de novo criaria um segundo jogo de guias. Use “Já foi lançada — encerrar”: o horário aponta para a sessão e sai da agenda sem contar como falta nem cancelamento." />
 
                                         <TextBlock Text="{Binding Desfecho}" Margin="0,5,0,0"
                                                    TextWrapping="Wrap" HorizontalAlignment="Left"
@@ -123,6 +123,15 @@
                                                 IsEnabled="{Binding PodeLancar}"
                                                 ToolTip="Lança o atendimento datado do dia do horário"
                                                 Command="{Binding DataContext.LancarRetroativoCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                        <!-- A terceira resposta (set/2026): acende exatamente
+                                             quando o de cima apaga. -->
+                                        <Button Content="Já foi lançada — encerrar" MinWidth="150" MinHeight="32"
+                                                Margin="0,6,0,0"
+                                                IsEnabled="{Binding PodeSubstituir}"
+                                                ToolTip="Encerra o horário apontando para a sessão já lançada por fora"
+                                                Command="{Binding DataContext.SubstituirCommand,
                                                           RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding}" />
                                     </StackPanel>

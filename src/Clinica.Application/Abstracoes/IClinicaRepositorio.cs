@@ -343,8 +343,9 @@ public interface IClinicaRepositorio
         DateOnly retornoDesde, CancellationToken ct = default);
 
     /// <summary>
-    /// Os horários ATIVOS (nem cancelado, nem falta) dos pacientes informados a partir de um
-    /// dia — só quem e quando. Uma consulta para o conjunto.
+    /// Os horários ATIVOS (agendado ou realizado — nem cancelado, nem falta, nem substituído
+    /// por sessão lançada por fora) dos pacientes informados a partir de um dia — só quem e
+    /// quando. Uma consulta para o conjunto.
     /// </summary>
     Task<IReadOnlyList<Modelos.HorarioPosterior>> HorariosAtivosDosPacientesAsync(
         IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default);
@@ -1092,6 +1093,13 @@ public interface IClinicaRepositorio
     /// do app, e índice único que falha na criação é o faturamento não abrindo.
     /// </summary>
     Task<Agendamento?> AgendamentoDoAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os horários que este atendimento SUBSTITUIU (<c>AtendimentoSubstitutoId</c>) — quem
+    /// estorna a sessão precisa reabri-los, porque a sessão que os encerrou deixou de
+    /// existir. Rastreado: o chamador muta no mesmo commit.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosSubstituidosPorAsync(int atendimentoId, CancellationToken ct = default);
 
     /// <summary>Consumo já registrado para este atendimento? Evita debitar duas vezes.</summary>
     Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default);
