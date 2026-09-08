@@ -124,11 +124,21 @@ faz”), com capítulo próprio de *perguntas frequentes* e glossário.
 | Administrativo | [`manuais/pdf/manual-financeiro.pdf`](manuais/pdf/manual-financeiro.pdf) |
 | Direção | [`manuais/pdf/manual-gerente.pdf`](manuais/pdf/manual-gerente.pdf) |
 
+Os PDFs são **interativos**: marcadores no painel lateral do leitor, sumário clicável,
+remissões que saltam para o capítulo e texto marcado para leitor de tela.
+
+⚠️ **As figuras ainda são reproduções, não capturas de tela** — cada uma sai com um selo
+laranja avisando, porque os apps são WPF e só rodam no Windows, e os manuais são gerados no
+ambiente de desenvolvimento (Linux). Cada figura é um **encaixe**: basta pôr o PNG em
+`manuais/capturas/` com o nome do roteiro e rodar `node tools/gerar-manuais.js` — a foto
+entra no lugar do desenho e o selo some, sem editar nada. O roteiro (o que capturar, em que
+estado, e a regra de **não usar paciente real**) está em
+[`manuais/capturas/ROTEIRO.md`](manuais/capturas/ROTEIRO.md).
+
 ⚠️ **Parcela que renomear item de menu, botão ou aba mexe no manual daquele módulo no
 mesmo commit.** O manual não compila contra nada: uma frase que descreve um botão que não
-existe é a garantia aparente em prosa, e quem a encontra é o cliente. Regerar é
-`node tools/gerar-manuais.js`; o porquê de cada decisão está em
-[`manuais/README.md`](manuais/README.md).
+existe é a garantia aparente em prosa, e quem a encontra é o cliente. O porquê de cada
+decisão está em [`manuais/README.md`](manuais/README.md).
 
 ## A conexão — resolvido na parcela 0
 

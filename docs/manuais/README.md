@@ -1,51 +1,71 @@
 # Manuais de uso — os cinco aplicativos
 
 Um PDF por aplicativo, escrito para **quem vai usar** (as funcionárias da clínica), e não
-para quem programa. Linguagem simples, passo a passo, com uma **ilustração de tela** por
-assunto e uma tabela “o que cada botão faz”.
+para quem programa. Linguagem simples, passo a passo, uma figura por assunto e uma tabela
+“o que cada botão faz”.
 
-| Manual | Para quem | Páginas |
+| Manual | Para quem | Págs |
 |---|---|---|
-| [`pdf/manual-recepcao.pdf`](pdf/manual-recepcao.pdf) | recepcionistas e balcão (e a enfermagem, quando usa este exe) | ~43 |
+| [`pdf/manual-recepcao.pdf`](pdf/manual-recepcao.pdf) | recepcionistas e balcão (e a enfermagem, quando usa este exe) | ~42 |
 | [`pdf/manual-consultorio.pdf`](pdf/manual-consultorio.pdf) | médicos, fisioterapeutas, acupunturistas, enfermagem | ~30 |
 | [`pdf/manual-financeiro.pdf`](pdf/manual-financeiro.pdf) | quem cuida do dinheiro | ~26 |
 | [`pdf/manual-gerente.pdf`](pdf/manual-gerente.pdf) | direção | ~24 |
 | [`pdf/manual-faturamento.pdf`](pdf/manual-faturamento.pdf) | faturista | ~24 |
 
-## Como gerar de novo
+## Gerar de novo
 
 ```bash
 node tools/gerar-manuais.js
 ```
 
-Lê os `manual-*.html` desta pasta e imprime os PDFs em `pdf/`. Exige Playwright + Chromium
-(já presentes no ambiente de trabalho). O rodapé com “página X de Y” é desenhado pelo
-gerador, e não por CSS — o Chromium não implementa as caixas de margem do `@page`.
+Exige Playwright + Chromium (já presentes no ambiente de trabalho).
 
-## Como as ilustrações de tela funcionam
+## O PDF é interativo
 
-⚠️ **Elas não são capturas de tela.** O WPF só roda no Windows, e estes manuais são
-gerados no ambiente de desenvolvimento (Linux). As figuras são **reproduções em HTML/CSS**
-da tela real, e o que as mantém honestas é o seguinte:
+| Recurso | Como funciona |
+|---|---|
+| **Marcadores** (painel lateral do leitor) | `outline: true` no gerador, montado dos `<h1>`/`<h2>` — dá ~70 entradas por manual |
+| **Sumário clicável** | cada item é `<a href="#cap-N">` e salta para o capítulo |
+| **Voltar ao sumário** | link no cabeçalho de cada capítulo |
+| **Remissões** | “Veja o capítulo 8” é link |
+| **Texto pesquisável e marcado** | `tagged: true` — árvore de estrutura para leitor de tela e reflow |
+| **Rodapé com “página X de Y”** | desenhado pelo gerador, não por CSS: o Chromium não implementa as caixas de margem do `@page` |
+
+## As figuras: encaixe para a captura real
+
+⚠️ **As figuras de hoje NÃO são capturas de tela**, e cada uma sai com um selo laranja
+dizendo isso. O WPF só roda no Windows (`net8.0-windows` + `UseWPF` nos dez projetos) e os
+manuais são gerados no ambiente de desenvolvimento, que é Linux — o SDK de Linux nem traz
+o `Microsoft.NET.Sdk.WindowsDesktop`, então aqui não há como **nem construir** os `.exe`.
+
+Cada `<figure data-captura="nome">` é um **encaixe**. O gerador procura
+`capturas/<nome>.png` (ou `.jpg`):
+
+- **achou** → a figura sai com a foto e **sem** o selo;
+- **não achou** → sai a reprodução com o selo.
+
+Nenhum HTML precisa ser editado. O roteiro do que capturar, com o nome exato de cada
+arquivo e o estado em que cada tela deve estar, é
+[`capturas/ROTEIRO.md`](capturas/ROTEIRO.md) — inclusive a regra de **não capturar com
+paciente real** e como rodar um build portátil contra um banco de teste.
+
+O que mantém as reproduções honestas enquanto elas existem:
 
 1. **Os rótulos vêm do XAML.** Nome de botão, cabeçalho de coluna, rótulo de campo, texto
-   de dica — tudo foi lido dos `*.xaml` de cada módulo, não escrito de memória.
+   de dica — lidos dos `*.xaml` de cada módulo, não escritos de memória.
 2. **As cores vêm dos tokens.** O `_estilo.css` repete os valores de
-   `src/Clinica.Desktop.Shell/Styles/Tokens.xaml`. Mudar um lá sem mudar aqui torna o
-   manual mentiroso — é o mesmo débito das duas cópias do design system (parcela 7).
-3. **O conteúdo é de exemplo.** Os pacientes, valores e datas das figuras são inventados
-   de propósito; nenhum dado real da clínica entra num documento que vai por e-mail.
+   `src/Clinica.Desktop.Shell/Styles/Tokens.xaml`. Mudar um lá sem mudar aqui torna a
+   figura mentirosa — é o mesmo débito das duas cópias do design system (parcela 7).
+3. **O conteúdo é de exemplo.** Pacientes, valores e datas são inventados de propósito;
+   nenhum dado real entra num documento que vai por e-mail.
 
-Quando alguém puder rodar os cinco apps no Windows, o caminho de melhoria é trocar as
-figuras por capturas de verdade — a estrutura dos manuais não muda, só o `<figure>`.
-
-## O que fazer quando uma tela mudar
+## Quando uma tela mudar
 
 O manual é a **promessa mais barata de quebrar** do repositório: ele não compila contra
-nada, e uma frase que descreve um botão que não existe é a garantia aparente em prosa
-(a mesma razão por que a tela de Ajuda do sistema fala de regras, e não de leiaute).
+nada, e uma frase que descreve um botão que não existe é a garantia aparente em prosa —
+com o agravante de que quem a encontra é o cliente. Por isso o texto fala de **regras
+estáveis** (a guia nasce quando o atendimento entra, prontuário não se apaga, previsto ≠
+realizado, “—” é não medido) e cita leiaute só onde ele é o assunto.
 
-Por isso os manuais falam de **regras estáveis** (a guia nasce quando o atendimento entra,
-prontuário não se apaga, previsto ≠ realizado) e citam leiaute só onde ele é o assunto.
-Ainda assim: **parcela que renomear item de menu, botão ou aba mexe no manual do módulo
-dela no mesmo commit.** É mais barato do que descobrir pelo cliente.
+**Parcela que renomear item de menu, botão ou aba mexe no manual daquele módulo no mesmo
+commit.** É mais barato do que descobrir pelo cliente.

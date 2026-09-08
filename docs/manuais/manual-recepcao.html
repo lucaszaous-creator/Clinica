@@ -31,34 +31,33 @@
 </section>
 
 <!-- ==================== SUMÁRIO ==================== -->
-<section class="sumario">
+<section class="sumario" id="sumario">
   <div class="cap-num">Sumário</div>
   <h1 class="cap-titulo">O que você vai encontrar aqui</h1>
   <div class="cap-linha"></div>
   <ol>
-    <li><em>Antes de começar</em><span>ligar o programa, entrar com seu usuário e entender a tela</span></li>
-    <li><em>O dia no balcão, do começo ao fim</em><span>o caminho que o paciente faz dentro do sistema</span></li>
-    <li><em>Início — o painel da recepção</em><span>como está o dia agora</span></li>
-    <li><em>Agenda · aba Dia</em><span>quem chegou, quem espera, quem está na sala</span></li>
-    <li><em>Agenda · aba Grade</em><span>marcar horário, remarcar, fechar a agenda</span></li>
-    <li><em>Lançar e marcar</em><span>o atendimento entra no sistema e a guia nasce</span></li>
-    <li><em>Fechar a sessão</em><span>pacote, material e o dinheiro do particular</span></li>
-    <li><em>Pacientes</em><span>cadastro, ficha completa, convênio, LGPD</span></li>
-    <li><em>Prontuário e Receituário</em><span>o que a recepção alcança e o que não alcança</span></li>
-    <li><em>Documentos</em><span>as folhas que a clínica entrega ao paciente</span></li>
-    <li><em>Pacotes e preços do particular</em><span>vender sessões e combinar valores</span></li>
-    <li><em>Retorno de pacientes</em><span>chamar de volta quem parou de vir</span></li>
-    <li><em>Profissionais e salas</em><span>quem atende, quando e onde</span></li>
-    <li><em>Se você é da enfermagem</em><span>sala de infusão e passagem de enfermagem</span></li>
-    <li><em>Quando algo dá errado</em><span>as mensagens do sistema e o que fazer</span></li>
-    <li><em>Perguntas frequentes</em><span>as dúvidas do dia a dia</span></li>
-    <li><em>Glossário</em><span>as palavras que aparecem nas telas</span></li>
+    <li><a href="#cap-1"><em>Antes de começar</em><span>ligar o programa, entrar com seu usuário e entender a tela</span></a></li>
+    <li><a href="#cap-2"><em>O dia no balcão, do começo ao fim</em><span>o caminho que o paciente faz dentro do sistema</span></a></li>
+    <li><a href="#cap-3"><em>Início — o painel da recepção</em><span>como está o dia agora</span></a></li>
+    <li><a href="#cap-4"><em>Agenda · aba Dia</em><span>quem chegou, quem espera, quem está na sala</span></a></li>
+    <li><a href="#cap-5"><em>Agenda · aba Grade</em><span>marcar horário, remarcar, fechar a agenda</span></a></li>
+    <li><a href="#cap-6"><em>Lançar e marcar</em><span>o atendimento entra no sistema e a guia nasce</span></a></li>
+    <li><a href="#cap-7"><em>Fechar a sessão</em><span>pacote, material e o dinheiro do particular</span></a></li>
+    <li><a href="#cap-8"><em>Pacientes</em><span>cadastro, ficha completa, convênio, LGPD</span></a></li>
+    <li><a href="#cap-9"><em>Prontuário, Receituário e Documentos</em><span>o que a recepção alcança, e o que não</span></a></li>
+    <li><a href="#cap-10"><em>Pacotes e preços do particular</em><span>vender sessões e combinar valores</span></a></li>
+    <li><a href="#cap-11"><em>Retorno de pacientes</em><span>chamar de volta quem parou de vir</span></a></li>
+    <li><a href="#cap-12"><em>Profissionais e salas</em><span>quem atende, quando e onde</span></a></li>
+    <li><a href="#cap-13"><em>Se você é da enfermagem</em><span>sala de infusão e passagem de enfermagem</span></a></li>
+    <li><a href="#cap-14"><em>Quando algo dá errado</em><span>as mensagens do sistema e o que fazer</span></a></li>
+    <li><a href="#cap-15"><em>Perguntas frequentes</em><span>as dúvidas do dia a dia</span></a></li>
+    <li><a href="#cap-16"><em>Glossário</em><span>as palavras que aparecem nas telas</span></a></li>
   </ol>
 </section>
 
 <!-- ==================== 1. ANTES DE COMEÇAR ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 1</div>
+<section class="cap" id="cap-1">
+  <div class="cap-num">Capítulo 1<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Antes de começar</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Três coisas para aprender de uma vez só: como abrir o programa, como entrar
@@ -66,9 +65,11 @@
 
   <div class="nota">
     <b>Como ler este manual</b>
-    <p>As imagens são <b>desenhos das telas</b> feitos a partir do próprio sistema: os nomes dos botões,
-    das colunas e dos campos são exatamente os que você vai ver no computador. As cores e as posições
-    também. O que muda é o conteúdo — no seu computador aparecem os pacientes de verdade da clínica.</p>
+    <p>As figuras <b>ainda não são fotos do sistema</b> — são reproduções feitas a partir do próprio
+    código, e cada uma sai marcada com um selo laranja avisando disso. Elas são fiéis no que importa:
+    os nomes dos botões, das colunas e dos campos são <b>exatamente</b> os que você vai ver no
+    computador, e as cores também. Assim que as capturas reais forem tiradas, elas entram no lugar
+    e o selo some.</p>
   </div>
 
   <h2>1.1 · Abrir o programa</h2>
@@ -88,7 +89,7 @@
   sistema fica registrado no nome de quem entrou. Se duas pessoas dividem o mesmo computador, cada uma
   entra com o seu login — senão o sistema responde o nome errado quando a direção perguntar “quem fez isto?”.</p>
 
-  <figure>
+  <figure data-captura="recepcao-01-login">
     <div class="app" style="max-width:110mm;margin:0 auto;">
       <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Entrar no sistema</span></div>
       <div style="padding:6mm 8mm;background:#fff;">
@@ -121,7 +122,7 @@
   <h2>1.3 · A tela por dentro</h2>
   <p>Todas as telas do sistema seguem o mesmo desenho. Aprendendo este, você já sabe se localizar em qualquer uma.</p>
 
-  <figure>
+  <figure data-captura="recepcao-02-inicio">
     <div class="app">
       <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
       <div class="corpo">
@@ -203,8 +204,8 @@
 </section>
 
 <!-- ==================== 2. O DIA NO BALCÃO ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 2</div>
+<section class="cap" id="cap-2">
+  <div class="cap-num">Capítulo 2<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">O dia no balcão, do começo ao fim</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Antes de entrar tela por tela, entenda o caminho. Todo paciente percorre estas
@@ -247,8 +248,8 @@
 </section>
 
 <!-- ==================== 3. INÍCIO ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 3</div>
+<section class="cap" id="cap-3">
+  <div class="cap-num">Capítulo 3<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Início — o painel da recepção</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">É a tela que abre quando o programa liga. Ela responde uma pergunta: <b>como está
@@ -291,8 +292,8 @@
 </section>
 
 <!-- ==================== 4. AGENDA · DIA ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 4</div>
+<section class="cap" id="cap-4">
+  <div class="cap-num">Capítulo 4<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Agenda · aba <span style="color:var(--accent)">Dia</span></h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Esta é <b>a tela do dia de trabalho</b> — a que fica aberta quase o tempo todo.
@@ -300,7 +301,7 @@
 
   <p><span class="caminho">Menu <b>GESTÃO › Agenda</b> › aba <b>Dia</b></span></p>
 
-  <figure>
+  <figure data-captura="recepcao-03-agenda-dia">
     <div class="app">
       <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
       <div class="corpo">
@@ -417,8 +418,8 @@
 </section>
 
 <!-- ==================== 5. AGENDA · GRADE ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 5</div>
+<section class="cap" id="cap-5">
+  <div class="cap-num">Capítulo 5<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Agenda · aba <span style="color:var(--accent)">Grade</span></h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">A aba <b>Dia</b> responde “em que pé está cada paciente”. A <b>Grade</b> responde outra
@@ -426,7 +427,7 @@
 
   <p><span class="caminho">Menu <b>GESTÃO › Agenda</b> › aba <b>Grade</b></span></p>
 
-  <figure>
+  <figure data-captura="recepcao-04-agenda-grade">
     <div class="app">
       <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
       <div class="corpo">
@@ -556,8 +557,8 @@
 </section>
 
 <!-- ==================== 6. LANÇAR E MARCAR ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 6</div>
+<section class="cap" id="cap-6">
+  <div class="cap-num">Capítulo 6<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Lançar e marcar</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Este é o item mais importante do balcão: é por aqui que o atendimento
@@ -579,7 +580,7 @@
 
   <h2>6.1 · Aba <span style="color:var(--accent)">Lançar</span> — passo a passo</h2>
 
-  <figure>
+  <figure data-captura="recepcao-05-lancar">
     <div class="app">
       <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
       <div class="corpo">
@@ -761,8 +762,8 @@
 </section>
 
 <!-- ==================== 7. FECHAR A SESSÃO ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 7</div>
+<section class="cap" id="cap-7">
+  <div class="cap-num">Capítulo 7<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Fechar a sessão — o dinheiro do balcão</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Concluir a sessão gera as <b>guias</b>. Fechar a sessão cuida das outras três
@@ -771,7 +772,7 @@
 
   <p><span class="caminho">Agenda do dia › <b>“⋯” › Fechar sessão (pacote, insumo, caixa)…</b></span></p>
 
-  <figure>
+  <figure data-captura="recepcao-06-fechar-sessao">
     <div class="app" style="max-width:130mm;margin:0 auto;">
       <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Fechar a sessão — Pedro Alves</span></div>
       <div style="padding:4mm;background:#fff;">
@@ -853,8 +854,8 @@
 </section>
 
 <!-- ==================== 8. PACIENTES ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 8</div>
+<section class="cap" id="cap-8">
+  <div class="cap-num">Capítulo 8<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Pacientes</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">O cadastro da clínica. A tela funciona em dois tempos: primeiro a <b>lista</b>, para
@@ -915,7 +916,7 @@
       <tr><td class="bt">Abrir na agenda</td><td>Leva à agenda no dia do próximo horário dele.</td></tr>
       <tr><td class="bt">Receber…</td><td>Só aparece com conta em aberto. Cobra ali mesmo.</td></tr>
       <tr><td class="bt">Nova autorização</td><td>Registra a senha que o convênio liberou: número, validade e quantas sessões. É isso que faz o sistema avisar quando a cota está acabando.</td></tr>
-      <tr><td class="bt">Colher um termo… / Colher assinatura…</td><td>Colhe a assinatura do paciente num termo (consentimento, jejum). Veja o capítulo 9.</td></tr>
+      <tr><td class="bt">Colher um termo… / Colher assinatura…</td><td>Colhe a assinatura do paciente num termo (consentimento, jejum). Veja o <a class="remissao" href="#cap-9">capítulo 9</a>.</td></tr>
       <tr><td class="bt">Novo documento… / Relatório de evolução / Anamnese</td><td>Emitem folhas para o paciente levar (depende do seu acesso).</td></tr>
       <tr><td class="bt">Exportar meus dados</td><td>Direito do paciente pela LGPD: gera um arquivo com tudo o que a clínica guarda sobre ele.</td></tr>
       <tr><td class="bt">Anonimizar cadastro</td><td>Apaga nome, documento, telefone e foto, mantendo o histórico sem dono. <b>Não tem volta</b> e normalmente é a direção que faz.</td></tr>
@@ -947,8 +948,8 @@
 </section>
 
 <!-- ==================== 9. PRONTUÁRIO, RECEITUÁRIO E DOCUMENTOS ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 9</div>
+<section class="cap" id="cap-9">
+  <div class="cap-num">Capítulo 9<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Prontuário, Receituário e Documentos</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Três telas que lidam com papel e com registro clínico. O que você alcança em cada
@@ -1037,8 +1038,8 @@
 </section>
 
 <!-- ==================== 10. PACOTES E PREÇOS ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 10</div>
+<section class="cap" id="cap-10">
+  <div class="cap-num">Capítulo 10<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Pacotes e preços do particular</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Duas telas do dinheiro que ficam no balcão porque é aqui que se combina preço com o
@@ -1106,8 +1107,8 @@
 </section>
 
 <!-- ==================== 11. RETORNO DE PACIENTES ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 11</div>
+<section class="cap" id="cap-11">
+  <div class="cap-num">Capítulo 11<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Retorno de pacientes</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">A lista de quem <b>parou de vir</b> — para o balcão telefonar e chamar de volta.</p>
@@ -1132,8 +1133,8 @@
 </section>
 
 <!-- ==================== 12. PROFISSIONAIS E SALAS ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 12</div>
+<section class="cap" id="cap-12">
+  <div class="cap-num">Capítulo 12<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Profissionais e salas</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">O cadastro que destrava a agenda: <b>quem atende</b>, <b>quando</b> e <b>onde</b>.
@@ -1178,8 +1179,8 @@
 </section>
 
 <!-- ==================== 13. ENFERMAGEM ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 13</div>
+<section class="cap" id="cap-13">
+  <div class="cap-num">Capítulo 13<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Se você é da enfermagem</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Estes dois itens só aparecem para quem tem acesso de enfermagem. Se você é
@@ -1274,8 +1275,8 @@
 </section>
 
 <!-- ==================== 14. QUANDO ALGO DÁ ERRADO ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 14</div>
+<section class="cap" id="cap-14">
+  <div class="cap-num">Capítulo 14<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Quando algo dá errado</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">O sistema foi feito para <b>nunca mostrar falha como se fosse sucesso</b>. Quando
@@ -1312,8 +1313,8 @@
 </section>
 
 <!-- ==================== 15. PERGUNTAS FREQUENTES ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 15</div>
+<section class="cap" id="cap-15">
+  <div class="cap-num">Capítulo 15<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Perguntas frequentes</h1>
   <div class="cap-linha"></div>
 
@@ -1367,8 +1368,8 @@
 </section>
 
 <!-- ==================== 16. GLOSSÁRIO ==================== -->
-<section class="cap">
-  <div class="cap-num">Capítulo 16</div>
+<section class="cap" id="cap-16">
+  <div class="cap-num">Capítulo 16<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Glossário</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">As palavras que aparecem nas telas, explicadas em português do dia a dia.</p>
