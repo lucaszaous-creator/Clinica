@@ -435,10 +435,16 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             SituacaoSessao = $"Atendimento encerrado às {_horario.FimAtendimentoEm:HH\\:mm}"
                              + (duracao is null ? "" : $" · durou {duracao} min");
         else if (EmAtendimento)
-            // "há 0 min" lê-se como defeito; "agora mesmo" é a mesma verdade em português.
-            SituacaoSessao = duracao is null or 0
-                ? "Em atendimento — começou agora mesmo"
-                : $"Em atendimento há {duracao} min";
+            // ⚠️ SEM O TEMPO desde set/2026, e é o cronômetro que o tirou daqui. Enquanto
+            // esta era a única leitura, "há 12 min" era a resposta; com o visor "00:12:35"
+            // ao lado, as duas ficavam lado a lado dizendo o mesmo em granularidades
+            // diferentes — e uma delas ia envelhecer sozinha na primeira correção. A pílula
+            // responde EM QUE PÉ o horário está; o visor, HÁ QUANTO TEMPO.
+            //
+            // (Foi por isso que o "começou agora mesmo" saiu junto: ele existia para "há
+            // 0 min" não se ler como defeito, e o visor resolve o primeiro minuto sozinho,
+            // mostrando 00:00:00 e andando.)
+            SituacaoSessao = "Em atendimento";
         else if (PodeIniciar)
             SituacaoSessao = $"Horário de {_horario.DataHora:HH\\:mm} — o paciente ainda não "
                              + "entrou na sala";

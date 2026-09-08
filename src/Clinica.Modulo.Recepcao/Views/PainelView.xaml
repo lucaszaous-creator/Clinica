@@ -74,7 +74,7 @@
                             <!-- O delta é a ÚLTIMA linha do cartão (o desenho do KpiCard
                                  do handoff), e só existe em dia ENCERRADO, vs. o mesmo
                                  dia da semana anterior — ver as Variacao* na ViewModel.
-                                 Cartão AO VIVO (Na recepção, Em atendimento, Lista de
+                                 Cartão AO VIVO (A atender, Em atendimento, Lista de
                                  espera) não ganha delta. -->
                             <TextBlock DataContext="{Binding VariacaoAgendados}" Style="{StaticResource CardKpi.Delta}">
                                 <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"

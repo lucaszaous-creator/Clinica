@@ -358,12 +358,45 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// </summary>
     private int? _agendamentoId;
 
+    /// <summary>O número da folha de infusão, guardado para a frase do contexto poder ser
+    /// remontada quando o horário chega depois do construtor.</summary>
+    private readonly string? _folha;
+
     /// <summary>
     /// Amarra a passagem ao horário em curso, quando quem monta o compositor descobre isso
     /// DEPOIS. Nulo desamarra — é o que acontece ao trocar de paciente, e amarrar a
     /// passagem de um ao horário de outro gravaria no prontuário certo com a sessão errada.
+    ///
+    /// ⚠️ ELE RECARREGA, e não é conforto. O construtor já dispara a carga, então quando
+    /// esta chamada chega a lista JÁ FOI montada com <c>agendamentoAberto: null</c> — o
+    /// selo "DESTA SESSÃO" não acenderia nunca, e o <c>Contexto</c> continuaria dizendo que
+    /// a passagem não está ligada a horário nenhum. Seriam duas frases prometendo o que o
+    /// código não faz (a lição da parcela 67).
+    ///
+    /// Só quando MUDA: quem chama é a tela da Enfermagem a cada recarga, inclusive depois
+    /// de gravar, e recarregar a lista de novo a cada passagem registrada seria uma ida ao
+    /// banco por clique, para chegar ao mesmo resultado.
     /// </summary>
-    public void FixarHorario(int? agendamentoId) => _agendamentoId = agendamentoId;
+    public void FixarHorario(int? agendamentoId)
+    {
+        if (_agendamentoId == agendamentoId) return;
+
+        _agendamentoId = agendamentoId;
+        Contexto = DescreverContexto(_prescricaoId, _folha, agendamentoId);
+        _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// A frase que diz A QUE esta passagem se liga. Saiu do construtor quando o horário
+    /// passou a poder chegar depois dele: duas montagens da mesma frase divergiriam, e a
+    /// que ninguém lembrasse de ajustar é a que fica na tela.
+    /// </summary>
+    private static string DescreverContexto(int? prescricaoId, string? folha, int? agendamentoId)
+        => prescricaoId is not null
+            ? $"Durante a folha de infusão {folha}."
+            : agendamentoId is not null
+                ? "Ligada ao horário do atendimento — a passagem fica registrada nesta sessão."
+                : "Registro do paciente — esta passagem não está ligada a uma folha de infusão.";
 
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 60): a janela recarrega a cada
@@ -702,6 +735,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         _pacienteId = pacienteId;
         _prescricaoId = prescricaoId;
         _agendamentoId = agendamentoId;
+        _folha = folha;
         Paciente = paciente;
 
         // Os dois catálogos, com a LEITURA e a ESCRITA apontando para este mesmo objeto —
@@ -751,11 +785,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         // sessão e na conferência do consultório; solta, é registro do paciente e não de
         // sessão nenhuma. Escrever "não está ligada a uma folha" para quem veio da agenda
         // seria verdade pela metade, e é a metade que não interessa.
-        Contexto = prescricaoId is not null
-            ? $"Durante a folha de infusão {folha}."
-            : agendamentoId is not null
-                ? "Ligada ao horário do atendimento — a passagem fica registrada nesta sessão."
-                : "Registro do paciente — esta passagem não está ligada a uma folha de infusão.";
+        Contexto = DescreverContexto(prescricaoId, folha, agendamentoId);
 
         _ = CarregarAsync();
     }
