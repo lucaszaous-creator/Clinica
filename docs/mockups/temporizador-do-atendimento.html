@@ -1,0 +1,209 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Temporizador do atendimento — três desenhos</title>
+<style>
+  :root{
+    --azul:#123A9E; --cinza50:#F8FAFC; --cinza100:#F1F5F9; --cinza200:#E5E7EB;
+    --cinza500:#6B7280; --cinza900:#111827;
+    --verde50:#F0FDF4; --verde100:#DCFCE7; --verde600:#16A34A; --verde700:#15803D;
+    --ambar:#B45309; --ambar50:#FFFBEB;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cinza50);color:var(--cinza900);
+       font:14px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif}
+  .pag{max-width:1080px;margin:0 auto;padding:32px 28px 72px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--cinza500);margin:0 0 28px;max-width:70ch}
+  h2{font-size:18px;margin:36px 0 6px;letter-spacing:-.2px}
+  h2 .n{display:inline-block;min-width:26px;height:26px;line-height:26px;text-align:center;
+        background:var(--azul);color:#fff;border-radius:999px;font-size:13px;margin-right:9px}
+  .porque{color:var(--cinza500);margin:0 0 14px;max-width:74ch}
+  .quadro{background:#fff;border:1px solid var(--cinza200);border-radius:12px;
+          padding:18px 20px;margin:0 0 10px}
+  .rot{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--cinza500);
+       margin:0 0 12px;font-weight:600}
+
+  /* ---- o crachá real da tela do paciente ---- */
+  .cracha{display:flex;align-items:center;gap:14px}
+  .av{width:44px;height:44px;border-radius:999px;background:var(--azul);color:#fff;
+      display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;flex:0 0 auto}
+  .quem{flex:1;min-width:0}
+  .nome{font-size:17px;font-weight:600;line-height:1.25}
+  .meta{color:var(--cinza500);font-size:12.5px;margin-top:1px}
+  .dir{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto}
+  .acoes{display:flex;gap:14px}
+  .link{color:var(--azul);font-size:12.5px;cursor:default}
+
+  .pil{display:inline-flex;align-items:center;gap:7px;padding:5px 13px;border-radius:999px;
+       font-size:12.5px;font-weight:600;background:var(--cinza100);color:var(--cinza900);white-space:nowrap}
+  .pil.viva{background:var(--verde100);color:var(--verde700)}
+  .ponto{width:7px;height:7px;border-radius:999px;background:var(--verde600);flex:0 0 auto}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  .hoje{border-left:3px solid var(--cinza200);padding-left:14px;margin:14px 0 0;
+        color:var(--cinza500);font-size:12.5px}
+  .hoje b{color:var(--cinza900)}
+
+  .par{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:820px){.par{grid-template-columns:1fr}}
+
+  .nota{background:var(--verde50);border-left:3px solid var(--verde600);padding:12px 15px;
+        border-radius:0 8px 8px 0;margin:12px 0;font-size:13px}
+  .aten{background:var(--ambar50);border-left:3px solid var(--ambar);padding:12px 15px;
+        border-radius:0 8px 8px 0;margin:12px 0;font-size:13px}
+  .nota .t,.aten .t{display:block;margin-bottom:3px;font-size:11px;letter-spacing:.6px;
+                    text-transform:uppercase;font-weight:700}
+  .nota .t{color:var(--verde700)} .aten .t{color:var(--ambar)}
+
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+  th{text-align:left;font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+     color:var(--cinza500);border-bottom:1px solid var(--cinza200);padding:0 10px 7px 0;font-weight:600}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--cinza100);vertical-align:top}
+  td:first-child{white-space:nowrap}
+  .selo{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+  .rec{background:var(--verde100);color:var(--verde700)}
+  .alt{background:var(--cinza100);color:var(--cinza500)}
+  .rodape{margin-top:44px;padding-top:16px;border-top:1px solid var(--cinza200);
+          color:var(--cinza500);font-size:12.5px}
+  code{background:var(--cinza100);padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+<div class="pag">
+
+<h1>Temporizador do atendimento</h1>
+<p class="sub">Três desenhos para o mesmo pedido: <b>o profissional saber há quanto tempo está com
+aquele paciente naquela consulta</b>. O relógio começa no clique de <b>Atender</b>, é só dele, e não
+aparece em lugar nenhum que o paciente veja.</p>
+
+<div class="quadro">
+  <div class="rot">Como está hoje na tela do paciente (Consultório)</div>
+  <div class="cracha">
+    <div class="av">JR</div>
+    <div class="quem">
+      <div class="nome">Joana Ribeiro</div>
+      <div class="meta">34 anos · Unimed · em tratamento desde 03/2025 · alergia a dipirona</div>
+    </div>
+    <div class="dir">
+      <span class="pil viva">Em atendimento há 12 min</span>
+      <div class="acoes"><span class="link">Trocar paciente</span></div>
+    </div>
+  </div>
+  <p class="hoje">A pílula verde já existe e já conta do carimbo de <b>Atender</b>, atualizando-se
+  sozinha. O que ela ainda não é: <b>um número que se lê de relance</b> — é uma frase, e frase se lê
+  palavra por palavra. E <b>a tela da Enfermagem não tem nenhuma</b>: quem atende por lá não vê tempo.</p>
+</div>
+
+<h2><span class="n">1</span>Relógio na pílula que já existe <span class="selo rec">recomendado</span></h2>
+<p class="porque">A frase vira número. Mesmo lugar, mesma cor, mesmo tamanho — o olho pega o
+<b>12 min</b> sem ler o resto, e a palavra "Atendendo" fica como rótulo pequeno ao lado. Passa a
+existir também na tela da Enfermagem, que hoje não mostra nada.</p>
+<div class="quadro">
+  <div class="cracha">
+    <div class="av">JR</div>
+    <div class="quem">
+      <div class="nome">Joana Ribeiro</div>
+      <div class="meta">34 anos · Unimed · em tratamento desde 03/2025 · alergia a dipirona</div>
+    </div>
+    <div class="dir">
+      <span class="pil viva"><span class="ponto"></span>Atendendo <span class="num">12 min</span></span>
+      <div class="acoes"><span class="link">Trocar paciente</span></div>
+    </div>
+  </div>
+  <div class="par">
+    <div>
+      <div class="rot" style="margin:14px 0 8px">Passando de uma hora</div>
+      <span class="pil viva"><span class="ponto"></span>Atendendo <span class="num">1h04</span></span>
+    </div>
+    <div>
+      <div class="rot" style="margin:14px 0 8px">Encerrado (o relógio para)</div>
+      <span class="pil">Encerrado às 15h02 · durou <span class="num">24 min</span></span>
+    </div>
+  </div>
+</div>
+
+<h2><span class="n">2</span>Relógio quieto ao lado do nome</h2>
+<p class="porque">Sai da pílula colorida e vira um número cinza, pequeno, encostado no nome — como a
+hora no canto do celular. É o mais discreto dos três: só quem procura enxerga. O custo é que ele
+também é o mais fácil de <b>não</b> ver.</p>
+<div class="quadro">
+  <div class="cracha">
+    <div class="av">JR</div>
+    <div class="quem">
+      <div class="nome">Joana Ribeiro
+        <span style="color:var(--cinza500);font-weight:400;font-size:13px;margin-left:8px"
+              class="num">· 12 min de consulta</span></div>
+      <div class="meta">34 anos · Unimed · em tratamento desde 03/2025 · alergia a dipirona</div>
+    </div>
+    <div class="dir">
+      <span class="pil viva">Em atendimento</span>
+      <div class="acoes"><span class="link">Trocar paciente</span></div>
+    </div>
+  </div>
+</div>
+
+<h2><span class="n">3</span>No pé da folha, junto da última gravação</h2>
+<p class="porque">O rodapé da folha já diz <i>"Última gravação às 14h37"</i> — o tempo entra ali, na
+mesma linha de coisas sobre relógio. Fica longe do olho enquanto se escreve, e é onde a pessoa já
+olha antes de clicar em Finalizar.</p>
+<div class="quadro" style="padding:0;overflow:hidden">
+  <div style="padding:26px 20px;color:var(--cinza500);font-size:13px;background:var(--cinza50)">
+    <i>(a folha da sessão — queixa, evolução, conduta…)</i></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:11px 20px;border-top:1px solid var(--cinza200)">
+    <span style="color:var(--cinza500);font-size:12.5px">
+      Última gravação às 14h37 · <span class="num" style="color:var(--verde700);font-weight:600">atendendo há 12 min</span></span>
+    <span style="flex:1"></span>
+    <span style="padding:6px 14px;border:1px solid var(--cinza200);border-radius:8px;font-size:13px">Imprimir</span>
+    <span style="padding:6px 14px;border:1px solid var(--cinza200);border-radius:8px;font-size:13px">Salvar</span>
+    <span style="padding:6px 14px;background:var(--azul);color:#fff;border-radius:8px;font-size:13px;font-weight:600">Finalizar</span>
+  </div>
+</div>
+
+<h2>Minutos ou minutos e segundos?</h2>
+<p class="porque">É a única decisão que muda o caráter da coisa, e ela é da clínica.</p>
+<table>
+  <thead><tr><th style="width:150px">Formato</th><th>O que acontece na tela</th></tr></thead>
+  <tbody>
+    <tr><td><span class="num" style="font-weight:600">12 min</span> <span class="selo rec">recomendado</span></td>
+        <td>Muda uma vez por minuto. Fica <b>parado</b> no canto do olho — que é o que "nada
+        chamativo" quer dizer. E responde a pergunta real: ninguém decide nada com a diferença
+        entre 12 e 12 e meio.</td></tr>
+    <tr><td><span class="num" style="font-weight:600">12:34</span> <span class="selo alt">alternativa</span></td>
+        <td>Os segundos correm. Parece mais com um cronômetro — e é justamente o movimento que
+        <b>puxa o olho</b> a cada segundo, no campo de visão de quem está tentando ouvir o paciente.
+        Dá para fazer; só não é discreto.</td></tr>
+  </tbody>
+</table>
+
+<h2>O que o relógio faz em cada situação</h2>
+<table>
+  <thead><tr><th style="width:270px">Situação</th><th>O que aparece</th></tr></thead>
+  <tbody>
+    <tr><td>Clicou em <b>Atender</b></td><td>Começa a contar. No primeiro minuto: <b>"agora mesmo"</b> — "0 min" se lê como defeito.</td></tr>
+    <tr><td>Saiu da tela e voltou</td><td><b>Continua no número certo.</b> A conta é feita do carimbo gravado no banco, não de quando a tela abriu.</td></tr>
+    <tr><td>Fechou o programa e reabriu</td><td>Idem. É o mesmo carimbo que o balcão lê.</td></tr>
+    <tr><td>Clicou em <b>Finalizar</b></td><td>Para, e a frase vira o fato: <b>"durou 24 min"</b>.</td></tr>
+    <tr><td>Abriu o prontuário pela carteira,<br>ou uma sessão de outro dia</td><td><b>Não aparece nada.</b> Não há consulta em curso para cronometrar, e um relógio parado em 00:00 convidaria a "iniciar" um atendimento que não existe na agenda de ninguém.</td></tr>
+    <tr><td>Horário cancelado ou falta</td><td>Nada. A pílula diz o que houve, sem tempo.</td></tr>
+  </tbody>
+</table>
+
+<div class="nota">
+  <span class="t">O paciente não vê</span>
+  A segunda tela (o monitor onde ele assina os termos) mostra só o termo — título, nome, texto,
+  declarações e o espaço da assinatura. Ela não conhece a tela do profissional, então o tempo não
+  tem por onde chegar lá. Ele também não sai em papel nenhum: nem na ficha do atendimento, nem no
+  relatório do convênio, nem no termo.
+</div>
+
+<div class="aten">
+  <span class="t">O que eu não vou fazer sem você pedir</span>
+  Nada de <b>alerta de tempo</b> ("você já passou de 30 min"), nada de cor que muda para vermelho, e
+  nada de guardar o tempo para ranking ou relatório de produtividade. O pedido foi <i>o profissional
+  saber</i> — e um número que passa a cobrar é outra coisa, que muda como as pessoas atendem.
+</div>
+
+<p class="rodape">Mockup para aprovação — nenhuma linha de tela foi escrita ainda.
+A metade que já existe: o carimbo (<code>InicioAtendimentoEm</code>), a conta
+(<code>DuracaoDoAtendimento</code>) e o relógio que redesenha. O que falta: o formato, o lugar, e a
+tela da Enfermagem, que hoje não mostra tempo nenhum.</p>
+
+</div>
