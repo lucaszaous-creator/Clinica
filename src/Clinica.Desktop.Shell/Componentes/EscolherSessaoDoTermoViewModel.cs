@@ -21,20 +21,34 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// ⚠️ "Nenhuma — termo avulso" é opção de primeira classe, e não uma saída de emergência:
 /// é o caso do paciente que assina o consentimento na consulta em que veio tirar dúvidas.
 /// Sem ela, a janela obrigaria a inventar uma procedência para poder fechar.
+///
+/// ⚠️ As sessões chegam PRONTAS, e a janela não vai ao banco. Quem já as leu é a porta —
+/// é a leitura dela que decide se esta janela precisa existir —, e ler de novo aqui seria
+/// pagar duas idas a um banco remoto por um clique, com o risco de as duas listas
+/// DISCORDAREM se a outra máquina mexer na agenda entre elas.
 /// </summary>
 public sealed partial class EscolherSessaoDoTermoViewModel : ObservableObject
 {
-    private readonly TermoProcedimentoService _termos;
-    private readonly int _pacienteId;
-
     public EscolherSessaoDoTermoViewModel(
-        TermoProcedimentoService termos, int pacienteId, string pacienteNome, string nomeDoTermo)
+        IReadOnlyList<SessaoParaTermo> sessoes, string pacienteNome, string nomeDoTermo)
     {
-        _termos = termos;
-        _pacienteId = pacienteId;
+        ArgumentNullException.ThrowIfNull(sessoes);
+
         PacienteNome = pacienteNome;
         NomeDoTermo = nomeDoTermo;
-        _ = CarregarAsync();
+
+        foreach (var sessao in sessoes)
+            Opcoes.Add(new OpcaoSessaoTermo(
+                sessao.AgendamentoId, sessao.Rotulo, sessao.Detalhe, sessao.Hoje));
+
+        Opcoes.Add(OpcaoSessaoTermo.Avulso);
+
+        // A sessão de HOJE já vem marcada quando é uma só: é o caso esperado, e deixar a
+        // janela sem escolha obrigaria um clique para confirmar o óbvio. Com duas, nada vem
+        // marcado — marcar a primeira seria decidir pela pessoa justamente no caso em que a
+        // pergunta existe.
+        var deHoje = Opcoes.Where(o => o.Hoje).ToList();
+        if (deHoje.Count == 1) Selecionada = deHoje[0];
     }
 
     public string PacienteNome { get; }
@@ -45,68 +59,16 @@ public sealed partial class EscolherSessaoDoTermoViewModel : ObservableObject
 
     [ObservableProperty] private OpcaoSessaoTermo? _selecionada;
 
-    [ObservableProperty] private bool _carregando;
-
-    [ObservableProperty] private string _mensagem = string.Empty;
-
     /// <summary>A sessão escolhida. Nulo = termo avulso, sem sessão.</summary>
     public int? Escolhida => Selecionada?.AgendamentoId;
 
     /// <summary>Dispara quando a pessoa confirma — a janela fecha.</summary>
     public event Action? Escolheu;
 
-    public bool PodeConfirmar => Selecionada is not null && !Carregando;
+    public bool PodeConfirmar => Selecionada is not null;
 
     partial void OnSelecionadaChanged(OpcaoSessaoTermo? value)
         => OnPropertyChanged(nameof(PodeConfirmar));
-
-    partial void OnCarregandoChanged(bool value)
-        => OnPropertyChanged(nameof(PodeConfirmar));
-
-    private async Task CarregarAsync()
-    {
-        Carregando = true;
-
-        try
-        {
-            var sessoes = await _termos.SessoesParaTermoAsync(
-                _pacienteId, DateOnly.FromDateTime(DateTime.Today));
-
-            // Entre o Clear e o último Add não pode haver await (a regra da parcela 62):
-            // a lista é montada FORA e publicada numa passada só.
-            var opcoes = sessoes
-                .Select(s => new OpcaoSessaoTermo(s.AgendamentoId, s.Rotulo, s.Detalhe, s.Hoje))
-                .ToList();
-
-            opcoes.Add(OpcaoSessaoTermo.Avulso);
-
-            Opcoes.Clear();
-            foreach (var opcao in opcoes) Opcoes.Add(opcao);
-
-            // A sessão de HOJE já vem marcada quando é uma só: é o caso esperado, e deixar
-            // a janela sem escolha obrigaria um clique para confirmar o óbvio. Com duas,
-            // nada vem marcado — marcar a primeira seria decidir pela pessoa justamente no
-            // caso em que a pergunta existe.
-            var deHoje = opcoes.Where(o => o.Hoje).ToList();
-            if (deHoje.Count == 1) Selecionada = deHoje[0];
-        }
-        catch (Exception ex)
-        {
-            Application.Diagnostico.Registrar("Escolha da sessão do termo", ex);
-            Mensagem = "Não foi possível ler a agenda deste paciente. "
-                       + "Você ainda pode colher o termo sem ligá-lo a uma sessão.";
-
-            // Terceiro estado: a leitura falhou e o avulso continua possível. Lista vazia
-            // aqui seria lida como "este paciente não tem sessão nenhuma", que é uma
-            // afirmação que ninguém conferiu.
-            Opcoes.Clear();
-            Opcoes.Add(OpcaoSessaoTermo.Avulso);
-        }
-        finally
-        {
-            Carregando = false;
-        }
-    }
 
     [RelayCommand]
     private void Confirmar()

@@ -63,6 +63,41 @@ public class TraducaoNoNpgsqlTests
         doHorario.Should().Contain("\"AtendimentoId\"").And.NotContain("JOIN");
     }
 
+    /// <summary>
+    /// As duas leituras do TERMO LIGADO À SESSÃO (set/2026).
+    ///
+    /// A primeira é o método NOVO — e a regra do projeto é que método de repositório novo
+    /// que use navegação entra nesta suíte, porque a tradução acontece em RUNTIME e o
+    /// SQLite dos testes não é o Postgres da clínica.
+    ///
+    /// A segunda é a que ganhou um <c>Include</c>: sem ele a procedência chegaria nula em
+    /// produção e a linha da sessão sumiria da ficha, com o teste passando pelo fixup do
+    /// EF (a lição da parcela 68).
+    /// </summary>
+    [Fact]
+    public void As_leituras_do_termo_ligado_a_sessao_traduzem()
+    {
+        using var db = Postgres();
+
+        var inicio = new DateTime(2026, 9, 8);
+        var fim = new DateTime(2026, 11, 7);
+
+        var sessoes = db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Where(a => a.PacienteId == 1 && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToQueryString();
+        sessoes.Should().Contain("\"DataHora\"").And.Contain("JOIN");
+
+        var documentos = db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Profissional)
+            .Include(d => d.Agendamento)
+            .Where(d => d.PacienteId == 1)
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToQueryString();
+        documentos.Should().Contain("\"AgendamentoId\"");
+    }
+
     [Fact]
     public void Historico_de_sessoes_traduz()
     {

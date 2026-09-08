@@ -144,8 +144,12 @@ public static class ColetaDeTermo
         if (sessoes.Count == 1 && sessoes[0].Hoje)
             return (sessoes[0].AgendamentoId, Descrever(sessoes[0]), false);
 
+        // As sessões vão PRONTAS para a janela: quem já as leu foi esta função, e é a
+        // leitura dela que decidiu que a janela precisava existir. Ler de novo lá dentro
+        // pagaria duas idas ao banco por um clique — e as duas listas poderiam discordar
+        // se a outra máquina mexesse na agenda entre elas.
         var escolha = new EscolherSessaoDoTermoViewModel(
-            termos, pacienteId, pacienteNome, await NomeDoModeloAsync(termos, modeloId));
+            sessoes, pacienteNome, await NomeDoModeloAsync(termos, modeloId));
 
         var janela = new EscolherSessaoDoTermoWindow(escolha) { Owner = Dono() };
         if (janela.ShowDialog() != true) return (null, null, true);

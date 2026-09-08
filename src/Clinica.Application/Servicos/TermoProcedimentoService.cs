@@ -333,8 +333,21 @@ public sealed class TermoProcedimentoService
         ModalidadesQuePedemTermo(IEnumerable<Agendamento> agendamentos)
         => agendamentos
             .Where(a => a.OcupaAgenda)
-            .GroupBy(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo), a.ProfissionalId))
-            .Select(g => (g.Key.ModalidadePrevista, g.Key.Codigo, g.Key.ProfissionalId,
+            // ⚠️ O agrupamento é por MODALIDADE, e o profissional NÃO entra na chave.
+            //
+            // Ele entrava, e isso abria um buraco na regra do horário: duas sessões de BSV
+            // no mesmo dia com médicos diferentes viravam dois grupos de UM, e cada um
+            // trazia o próprio `AgendamentoId` — o `Resolver` pegava o primeiro e gravava
+            // procedência ESCOLHIDA POR ACIDENTE, que é exatamente o que a coluna nova
+            // existe para não fazer. O teste não pegava porque os dois horários dele não
+            // tinham profissional, e aí caíam no mesmo grupo.
+            //
+            // O profissional continua saindo daqui (o primeiro do grupo), como sempre saiu:
+            // com dois médicos no mesmo procedimento o `Resolver` já escolhia um, e isso
+            // não mudou.
+            .GroupBy(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo)))
+            .Select(g => (g.Key.ModalidadePrevista, g.Key.Codigo,
+                          ProfissionalId: g.First().ProfissionalId,
                           AgendamentoId: g.Count() == 1 ? g.First().Id : (int?)null))
             .ToList();
 

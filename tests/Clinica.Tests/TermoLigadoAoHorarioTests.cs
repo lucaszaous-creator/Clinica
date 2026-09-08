@@ -246,6 +246,37 @@ public class TermoLigadoAoHorarioTests : IDisposable
         situacao[0].AgendamentoId.Should().BeNull();
     }
 
+    /// <summary>
+    /// Dois horários da mesma modalidade com PROFISSIONAIS DIFERENTES continuam sem
+    /// sessão — e é a falha que o teste anterior não pegava.
+    ///
+    /// ⚠️ O agrupamento incluía o profissional, então dois médicos viravam dois grupos de
+    /// UM, e cada um trazia o próprio horário: a porta gravaria uma procedência escolhida
+    /// por acidente, que é exatamente o que a coluna nova existe para não fazer. O teste
+    /// de cima passava porque os dois horários dele não tinham profissional, e por isso
+    /// caíam no mesmo grupo.
+    /// </summary>
+    [Fact]
+    public async Task Dois_horarios_com_medicos_diferentes_tambem_nao_escolhem_por_ninguem()
+    {
+        var paciente = Paciente();
+        var modelo = Modelo();
+        var helena = new Profissional { Nome = "Helena Prado", Ativo = true };
+        var rafael = new Profissional { Nome = "Rafael Nunes", Ativo = true };
+        _db.Profissionais.AddRange(helena, rafael);
+        _db.SaveChanges();
+
+        Horario(paciente.Id, DateTime.Today.AddHours(9), profissionalId: helena.Id);
+        Horario(paciente.Id, DateTime.Today.AddHours(15), profissionalId: rafael.Id);
+        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, modelo.Id, operador: "Ana");
+
+        var situacao = await _termos.SituacaoDoDiaAsync(paciente.Id, _hoje);
+
+        situacao.Should().ContainSingle();
+        situacao[0].AgendamentoId.Should().BeNull(
+            "com dois horários a procedência é escolha de quem está com o paciente na frente");
+    }
+
     // ==================== o que NÃO mudou ====================
 
     /// <summary>
