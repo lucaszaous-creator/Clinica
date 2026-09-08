@@ -36,6 +36,14 @@
   .bt.on{background:var(--verde-s);border-color:var(--verde);color:var(--verde-f);font-weight:600}
   .lido{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mudo);font-size:13px}
 
+  /* ====== a pergunta do momento: qual dos dois é "cronômetro"? ====== */
+  .duas{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+  @media(max-width:820px){.duas{grid-template-columns:1fr}}
+  .digital{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";
+           font-family:"Segoe UI Semibold","Segoe UI",system-ui,sans-serif;letter-spacing:.5px}
+  .digitao{font-size:54px;font-weight:600;color:var(--verde-f);line-height:1.1}
+  .digitao .s{font-size:34px;opacity:.75}
+
   /* ====== a vitrine dos três mostradores ====== */
   .vitrine{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}
   @media(max-width:900px){.vitrine{grid-template-columns:1fr}}
@@ -141,6 +149,47 @@ de <b>Atender</b>, é só do profissional, e nenhum deles aparece em algo que o 
   <span class="lido">consulta em curso há <b id="lido" class="num">12:00</b></span>
 </div>
 
+<h2>Antes de tudo: qual destes dois é o "cronômetro"?</h2>
+<p class="porque">A palavra serve para os dois, e eles dão desenhos diferentes — por isso não vou
+adivinhar. <b>Os dois estão correndo agora.</b></p>
+
+<div class="duas">
+  <div class="card">
+    <div class="rot">Leitura 1</div>
+    <h3>Cronômetro de ponteiro</h3>
+    <svg class="grande" viewBox="0 0 100 100" data-relogio="C" aria-label="Cronômetro de ponteiro"></svg>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="estado"><svg viewBox="0 0 100 100" data-relogio="C"></svg>Atendendo <span class="num" data-txt>12 min</span></span>
+    </div>
+    <p>O mostrador com botão e orelhas, ponteiro grande girando. É o <b>modelo C</b> que você já viu
+    — o "relógio correndo" da mensagem anterior. Quem passa a saber o tempo lê a <b>posição</b> do
+    ponteiro; o número exato fica no texto ao lado.</p>
+  </div>
+
+  <div class="card">
+    <div class="rot">Leitura 2</div>
+    <h3>Cronômetro de números</h3>
+    <div class="grande" style="display:flex;align-items:center;justify-content:center">
+      <span class="digital digitao"><span data-dig>12</span>:<span class="s" data-dig-s>34</span></span>
+    </div>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="estado"><svg viewBox="0 0 100 100" data-relogio="C"></svg>Atendendo
+        <span class="digital" data-dig-par>12:34</span></span>
+    </div>
+    <p>Os dígitos do cronômetro de celular. <b>Os segundos viram o assunto</b>: mudam à vista o tempo
+    todo, e dá para ler o tempo exato sem interpretar posição nenhuma. É o mais literal de
+    "cronômetro" — e o mais insistente no canto do olho.</p>
+  </div>
+</div>
+
+<p class="porque" style="margin-top:14px">Se for a leitura 2, o desenho de ponteiro sai de cena e os
+três modelos abaixo deixam de valer — eu volto com três variações de <b>números</b> (com e sem
+segundos, com e sem o ícone ao lado, dentro e fora da pílula). <b>Os três de ponteiro seguem abaixo,
+para o caso de ser a leitura 1.</b></p>
+
+<h2>Os três mostradores de ponteiro</h2>
 <div class="vitrine">
   <div class="card">
     <div class="rot">Modelo A</div>
@@ -410,6 +459,15 @@ para os dois lados: Consultório e tela da Enfermagem.</p>
       }
     }
     document.querySelectorAll('[data-txt]').forEach(e => e.textContent = texto(s));
+
+    // O cronômetro de NÚMEROS: min:seg, e h:mm:ss quando passa de uma hora.
+    const tm = Math.floor(s/60), ts = Math.floor(s%60), th = Math.floor(tm/60);
+    const dd = document.querySelector('[data-dig]'), ds = document.querySelector('[data-dig-s]');
+    if (dd) dd.textContent = th > 0 ? `${th}:${String(tm%60).padStart(2,'0')}` : String(tm);
+    if (ds) ds.textContent = String(ts).padStart(2,'0');
+    document.querySelectorAll('[data-dig-par]').forEach(e => e.textContent =
+      th > 0 ? `${th}:${String(tm%60).padStart(2,'0')}:${String(ts).padStart(2,'0')}`
+             : `${tm}:${String(ts).padStart(2,'0')}`);
     const m = Math.floor(s/60), r = Math.floor(s%60);
     document.getElementById('lido').textContent =
       `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;
