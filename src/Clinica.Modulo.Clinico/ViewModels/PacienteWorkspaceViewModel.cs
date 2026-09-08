@@ -52,17 +52,22 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     /// <summary>
-    /// O relógio da barra de atendimento. Ele NÃO lê o banco — recalcula a frase a partir
-    /// do carimbo que já está na memória —, então bater a cada 15 s não custa nada e é o
-    /// que faz o minuto virar na tela sem parecer travado. É diferente das releituras
-    /// silenciosas do balcão, que vão ao banco e por isso batem a cada minuto ou dois.
+    /// O relógio da barra de atendimento. Ele NÃO lê o banco — recalcula as frases a partir
+    /// do carimbo que já está na memória —, e é o que faz o tempo andar na tela sem parecer
+    /// travado. É diferente das releituras silenciosas do balcão, que vão ao banco e por
+    /// isso batem a cada minuto ou dois.
+    ///
+    /// ⚠️ UM SEGUNDO desde set/2026, e não os 15 de antes: o CRONÔMETRO mostra segundos, e
+    /// um visor que anda de quinze em quinze não é um cronômetro — é um relógio quebrado.
+    /// O custo é reescrever quatro strings por segundo, sem tocar no banco; a releitura do
+    /// prontuário continua no ritmo de sempre.
     ///
     /// ⚠️ Quem o liga e desliga é a VIEW (Loaded/Unloaded), como o quadro do "Meu dia" desde
     /// a parcela 38 — e não é conforto: o shell constrói uma tela nova a cada navegação, e um
     /// timer ligado mantém viva a ViewModel que o criou, junto com as SETE sub-ViewModels
     /// dela. Num turno de vinte pacientes seriam vinte workspaces abandonados batendo.
     /// </summary>
-    private readonly DispatcherTimer _relogio = new() { Interval = TimeSpan.FromSeconds(15) };
+    private readonly DispatcherTimer _relogio = new() { Interval = TimeSpan.FromSeconds(1) };
 
     /// <summary>
     /// A tela está montada. Sem isto, <see cref="DescreverSessao"/> religaria o relógio de uma
@@ -208,6 +213,19 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
     /// <summary>"Em atendimento há 12 min" / "Encerrado às 14h32 · durou 24 min".</summary>
     [ObservableProperty] private string _situacaoSessao = string.Empty;
+
+    /// <summary>
+    /// O CRONÔMETRO — "00:12:35" (set/2026, pedido da direção e mockup aprovado).
+    ///
+    /// VAZIO quando não há consulta em curso, e é o vazio que a tela usa para não desenhar
+    /// o visor: prontuário aberto pela carteira, sessão de outro dia, horário cancelado ou
+    /// já encerrado. Um visor zerado convidaria a "iniciar" um atendimento que não existe
+    /// na agenda de ninguém — e a regra da casa é que "não medido" nunca vira zero.
+    ///
+    /// Quem decide o texto é <see cref="CronometroDaSessao"/>, na Application: é o que a
+    /// clínica lê o dia inteiro, e precisa morar onde o <c>dotnet test</c> alcança.
+    /// </summary>
+    [ObservableProperty] private string _cronometro = string.Empty;
 
     /// <summary>O paciente entrou na sala e o atendimento ainda não foi encerrado.</summary>
     [ObservableProperty] private bool _emAtendimento;
@@ -434,6 +452,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                 StatusAgendamento.Substituido => "Horário substituído por uma sessão lançada por fora",
                 _ => "Horário cancelado"
             };
+
+        // O visor corre por conta própria: ele existe só no atendimento EM CURSO, e o
+        // `TemSessao`/`SituacaoSessao` acima respondem a outra pergunta (o que houve com o
+        // horário). Amarrar os dois faria o visor aparecer parado numa sessão encerrada.
+        Cronometro = CronometroDaSessao.De(_horario, agora) ?? string.Empty;
 
         if (EmAtendimento && _naTela) _relogio.Start(); else _relogio.Stop();
     }

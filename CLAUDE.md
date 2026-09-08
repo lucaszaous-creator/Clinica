@@ -8166,6 +8166,52 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `LancarAtendimento` no Concluir); `ExecutarAsync` recarrega depois de toda ação; e os
   avisos de guia da falta e do cancelamento saem em DIÁLOGO, nunca em snackbar.
 
+- **O CRONÔMETRO DO ATENDIMENTO — e o que "respeitando o design system" significa quando a
+  referência vem de fora** (set/2026; a direção: *"um temporizador dentro da consulta quando
+  o médico/enfermeiro clica em atender, só para ele saber há quanto tempo já está atendendo
+  aquele paciente"*, com a foto de um painel de LED de academia e a emenda *"claro que
+  respeitando nosso design system"*; mockups em `docs/mockups/temporizador-*.html`).
+  ⚠️ **METADE JÁ EXISTIA, e dizer isso foi a primeira resposta.** A pílula verde "Em
+  atendimento há 12 min" está no crachá desde a parcela 74, contando do carimbo e se
+  reescrevendo sozinha. O que faltava eram duas coisas: ela é uma FRASE (lê-se palavra por
+  palavra, e um cronômetro se lê de relance) e **a tela da Enfermagem não tinha nenhuma**.
+  Cobrar como feature nova o que já está no repositório é o oposto do que este documento
+  pede; o trabalho foi medir antes e mostrar o que sobrava.
+  ⚠️ **O fundo escuro NÃO É COR NOVA** — `Brush.Visor.Fundo`/`Texto` existem nos tokens
+  desde a captura do retrato do paciente. Traduzir uma referência de fora é separar o
+  CONCEITO (visor escuro, dígitos grandes, h:mm:ss correndo) da PALETA: o painel dela é um
+  objeto de um metro visto de longe numa academia; este são poucos centímetros a sessenta do
+  olho, e o azul-neon sobre preto não sobrevive à tradução. **Antes de inventar um token,
+  procure o que o design system já tem para aquele papel.**
+  ⚠️ **MONOESPAÇADA não é gosto**: num visor que muda a cada segundo, fonte de largura
+  variável faz os dígitos DANÇAREM e o vizinho pular — o movimento que se nota deixa de ser
+  o tempo passando e passa a ser o leiaute se mexendo.
+  ⚠️ **A conta é UMA.** `Agendamento.DuracaoDoAtendimento` passou a derivar de
+  `TempoDeAtendimento`: o visor e a frase da pílula saem do mesmo cálculo, senão o médico
+  veria o número discordar da frase ao lado dele. E o que decide o TEXTO mora na Application
+  (`CronometroDaSessao`, puro e testado) — a regra da `GradeSemana` e do
+  `ResumoSessaoAnterior`: o que a tela AFIRMA precisa morar onde o `dotnet test` alcança.
+  ⚠️ **Sem consulta em curso não há visor** — nem zerado. Prontuário aberto pela carteira,
+  sessão de outro dia, horário cancelado, sessão encerrada: nada. Um cronômetro parado em
+  `00:00:00` convidaria a "iniciar" um atendimento que não existe na agenda de ninguém, e
+  depois do Finalizar quem fala é a pílula ("durou 24 min") — dois leitores da mesma coisa
+  com pesos diferentes é o defeito de sempre. **As horas aparecem SEMPRE** (`00:12:35`):
+  escondê-las até virar a hora faz o visor mudar de LARGURA no meio do atendimento.
+  ⚠️ **A promessa do mockup obrigou o trabalho na Enfermagem.** Eu escrevi ali que o visor
+  valeria "para os dois lados, Consultório e tela da Enfermagem" — e a tela da Enfermagem
+  abre o paciente SEM vir da agenda: a lista dela guarda o `Paciente` e descarta o horário.
+  Ou eu cumpria ou corrigia a promessa (a lição da parcela 67, agora num documento que vai à
+  direção). Cumpri com uma leitura pequena que já existia (`AgendamentosDoPacienteNoDiaAsync`)
+  mais a decisão `CronometroDaSessao.EmCurso`, testada — e isso **destravou o selo "DESTA
+  SESSÃO"** da linha do tempo, que naquela tela nunca acendia porque `agendamentoAberto`
+  chegava sempre nulo: `EvolucaoEnfermagem.AgendamentoId` era gravado, calculado e lido só
+  pela seção do Consultório.
+  ⚠️ **E o bloqueador foi o de sempre, pego na releitura do próprio diff: criei o
+  `DispatcherTimer` e não registrei o `Tick`.** O visor ficaria congelado no valor da carga —
+  um cronômetro que não anda, que é pior do que cronômetro nenhum —, e nada falharia: build,
+  2405 testes e as três redes verdes. **Timer novo se confere pelo par: quem o liga (a VIEW,
+  no Loaded/Unloaded) e quem o ESCUTA.**
+
 - **OS BOTÕES DE FILA SAÍRAM — e a conta que eles sustentavam saiu junto, em vez de virar
   ZERO** (set/2026; a direção, depois de ler o manual: *"pode retirar os botões, deixe
   somente o atender para o médico — a cliente não quer todo esse fluxo"*). A fila em

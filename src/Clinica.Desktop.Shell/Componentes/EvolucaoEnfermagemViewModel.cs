@@ -350,7 +350,20 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
     private readonly int _pacienteId;
     private readonly int? _prescricaoId;
-    private readonly int? _agendamentoId;
+    /// <summary>
+    /// O horário a que esta passagem pertence. NÃO é `readonly` desde set/2026: a tela da
+    /// Enfermagem monta o compositor ANTES de saber qual horário está em curso (ela abre o
+    /// paciente e só então lê o dia), e sem <see cref="FixarHorario"/> ela gravaria toda
+    /// passagem solta — e o selo "DESTA SESSÃO" da linha do tempo nunca acenderia ali.
+    /// </summary>
+    private int? _agendamentoId;
+
+    /// <summary>
+    /// Amarra a passagem ao horário em curso, quando quem monta o compositor descobre isso
+    /// DEPOIS. Nulo desamarra — é o que acontece ao trocar de paciente, e amarrar a
+    /// passagem de um ao horário de outro gravaria no prontuário certo com a sessão errada.
+    /// </summary>
+    public void FixarHorario(int? agendamentoId) => _agendamentoId = agendamentoId;
 
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 60): a janela recarrega a cada

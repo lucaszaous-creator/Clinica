@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application;
+using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Modulos;
@@ -235,6 +237,10 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         _escopos = escopos;
         _dialogo = dialogo;
+
+        // ⚠️ Sem esta linha o timer bate e NINGUÉM escuta: o visor ficaria parado no valor
+        // da carga — um cronômetro que não anda, que é pior do que cronômetro nenhum.
+        _relogio.Tick += (_, _) => AtualizarCronometro();
 
         Seletor = new SeletorPacienteViewModel(escopos, limite: null);
 
@@ -487,6 +493,10 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         FolhaDeHoje = null;
         MostrandoLista = false;
         Mensagem = null;
+        // ANTES do await: o visor do paciente ANTERIOR não pode ficar correndo debaixo do
+        // nome de quem acabou de entrar (a lição da parcela 89).
+        _emCurso = null;
+        AtualizarCronometro();
         LigarPassagem(paciente);
 
         await RecarregarAsync();
@@ -545,6 +555,10 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         Escolhido = null;
         MostrandoLista = true;
         Mensagem = null;
+        // O visor é do paciente aberto: voltando à lista ele sai, e o relógio para junto —
+        // bater a cada segundo para uma tela que não o mostra é trabalho sem leitor.
+        _emCurso = null;
+        AtualizarCronometro();
         DesligarPassagem();
         _ = LinhaDoTempo.CarregarAsync(0);
         _ = Plano.CarregarAsync(0);
@@ -622,6 +636,65 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         await RecarregarAsync();
     }
 
+    /// <summary>
+    /// O CRONÔMETRO do atendimento em curso — "00:12:35" (set/2026, mockup aprovado).
+    ///
+    /// ⚠️ ESTA TELA ABRE O PACIENTE SEM VIR DA AGENDA — é a porta da passagem fora de
+    /// horário (curativo, triagem, observação), e a lista dela guarda o <c>Paciente</c>, não
+    /// o horário. Sem procurar o atendimento em curso, a enfermeira que ENTRA por aqui não
+    /// veria tempo nenhum, e o mockup teria prometido um visor que a tela não mostra.
+    ///
+    /// Vazio quando não há consulta em curso, e é o vazio que esconde o visor: a passagem
+    /// que acontece fora de um horário não tem o que cronometrar, e um visor zerado seria a
+    /// medida inventada que este projeto recusa.
+    /// </summary>
+    [ObservableProperty] private string _cronometro = string.Empty;
+
+    /// <summary>
+    /// O horário em curso, guardado para o relógio recontar sem voltar ao banco. É o mesmo
+    /// que vai ao compositor da passagem — ver <see cref="LigarPassagem"/>.
+    /// </summary>
+    private Agendamento? _emCurso;
+
+    /// <summary>
+    /// O relógio do visor. NÃO lê o banco: recalcula o texto do carimbo que já está em
+    /// memória. Um segundo, porque o visor mostra segundos — de quinze em quinze ele não
+    /// seria um cronômetro, seria um relógio quebrado.
+    ///
+    /// ⚠️ Quem o liga e desliga é a VIEW (Loaded/Unloaded), como em toda tela da suíte com
+    /// timer desde a parcela 38: o shell constrói uma tela nova a cada navegação, e um
+    /// timer ligado mantém viva a ViewModel que o criou.
+    /// </summary>
+    private readonly System.Windows.Threading.DispatcherTimer _relogio =
+        new() { Interval = TimeSpan.FromSeconds(1) };
+
+    private bool _naTela;
+
+    /// <summary>A View montou.</summary>
+    public void AoEntrarEmCena()
+    {
+        _naTela = true;
+        if (Cronometro.Length > 0) _relogio.Start();
+    }
+
+    /// <summary>A View saiu. Ver o comentário do <see cref="_relogio"/>.</summary>
+    public void AoSairDeCena()
+    {
+        _naTela = false;
+        _relogio.Stop();
+    }
+
+    /// <summary>
+    /// Reescreve o visor do carimbo que já está em memória, e liga/desliga o relógio: sem
+    /// consulta em curso ele para — bater a cada segundo para reescrever vazio é trabalho
+    /// sem leitor.
+    /// </summary>
+    private void AtualizarCronometro()
+    {
+        Cronometro = CronometroDaSessao.De(_emCurso, DateTime.Now) ?? string.Empty;
+        if (Cronometro.Length > 0 && _naTela) _relogio.Start(); else _relogio.Stop();
+    }
+
     private async Task RecarregarAsync()
     {
         if (_pacienteId == 0) return;
@@ -657,6 +730,24 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                     .RegistrarAsync(pacienteId, SessaoUsuario.Atual.Operador,
                         OrigemAcessoProntuario.SalaInfusao);
             }
+
+            // O ATENDIMENTO EM CURSO deste paciente hoje: é dele que sai o cronômetro, e é
+            // ele que o compositor precisa para o selo "DESTA SESSÃO" da linha do tempo.
+            // Leitura pequena — os horários de UM paciente num dia —, SEQUENCIAL como todas
+            // as outras: é o mesmo DbContext, e o SQLite dos testes esconderia a
+            // sobreposição (a regra da parcela 74).
+            var doDia = await servicos.GetRequiredService<IClinicaRepositorio>()
+                .AgendamentosDoPacienteNoDiaAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
+
+            if (geracao != _geracaoCarga) return;
+
+            _emCurso = CronometroDaSessao.EmCurso(doDia);
+            AtualizarCronometro();
+            // O compositor nasceu antes desta leitura (o Abrir monta a tela e só então
+            // carrega), então o vínculo com o horário chega aqui — e é ele que faz o selo
+            // "DESTA SESSÃO" acender, que nesta tela nunca acendia: `AgendamentoId` era
+            // calculado e lido só pela seção do Consultório.
+            Passagem?.FixarHorario(_emCurso?.Id);
 
             var lista = await servicos.GetRequiredService<EvolucaoEnfermagemService>()
                 .DoPacienteAsync(pacienteId, limite: 100);

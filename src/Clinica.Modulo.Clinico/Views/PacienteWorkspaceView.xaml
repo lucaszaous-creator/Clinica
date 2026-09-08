@@ -230,6 +230,24 @@
                          ainda não entrou; Reabrir, entre o encerramento e a conclusão)
                          ficam ao lado dela, discretos; o Finalizar está no pé da folha. -->
                     <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <!-- O CRONÔMETRO e a pílula, lado a lado (set/2026, mockup aprovado —
+                             o "visor neutro"). São DUAS perguntas: o visor diz há quanto tempo
+                             a consulta corre, a pílula diz em que pé o horário está. O visor
+                             neutro não carrega estado — foi por isso que a pílula ficou.
+
+                             ⚠️ A visibilidade segue o TEXTO do cronômetro, não o `EmAtendimento`:
+                             quem decide se há o que cronometrar é `CronometroDaSessao`, e ligar
+                             o visor a um segundo booleano daria duas respostas para a mesma
+                             pergunta — a que alguém esqueceria de corrigir seria esta.
+                             `TextoParaVisibilidade` porque `Cronometro` é string: o conversor de
+                             bool devolveria Collapsed para SEMPRE (parcela 61). -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Border Style="{StaticResource Visor.Cronometro}" Margin="0,0,8,0"
+                                    Visibility="{Binding Cronometro,
+                                                 Converter={StaticResource TextoParaVisibilidade}}">
+                                <TextBlock Text="{Binding Cronometro}"
+                                           Style="{StaticResource Visor.Cronometro.Digitos}" />
+                            </Border>
                         <Border HorizontalAlignment="Right" Padding="12,4"
                                 ctrl:Ajudantes.Pilula="True"
                                 Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
@@ -257,6 +275,7 @@
                                 </TextBlock.Style>
                             </TextBlock>
                         </Border>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
                             <Button Content="Iniciar atendimento" Padding="4,0" Margin="0,0,12,0"
                                     Style="{StaticResource BotaoFantasma}"
