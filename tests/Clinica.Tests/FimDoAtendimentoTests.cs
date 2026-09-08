@@ -186,7 +186,10 @@ public class FimDoAtendimentoTests : IDisposable
         // num passo próprio consumia o clique SEM mover o cartão enquanto as duas telas
         // afirmavam que ele tinha voltado. Sair da sala é o fato: quem não está mais em
         // atendimento não tem fim de atendimento.
-        lido.Etapa.Should().Be(EtapaFila.Chamado);
+        // O passo anterior é o carimbo que EXISTE: o helper registra a chegada e a entrada,
+        // e entrar não inventa mais a chamada (set/2026 — os botões de fila saíram, e
+        // carimbar chegada junto daria espera ZERO para toda a clínica).
+        lido.Etapa.Should().Be(EtapaFila.Chegou);
         lido.InicioAtendimentoEm.Should().BeNull();
         lido.FimAtendimentoEm.Should().BeNull();
 

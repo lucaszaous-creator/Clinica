@@ -38,6 +38,7 @@ public class FluxoAtenderTests : IDisposable
     private readonly FechamentoSessaoService _fechamento;
     private readonly PacoteService _pacotes;
     private readonly EstoqueService _estoque;
+    private readonly PainelRecepcaoService _painel;
 
     private static readonly DateTime Sessao = new(2026, 8, 20, 14, 0, 0);
     private static DateOnly Dia => DateOnly.FromDateTime(Sessao);
@@ -63,6 +64,7 @@ public class FluxoAtenderTests : IDisposable
         _estoque = new EstoqueService(_repo);
         _fechamento = new FechamentoSessaoService(
             _repo, _agenda, _pacotes, _estoque, new FinanceiroService(_repo));
+        _painel = new PainelRecepcaoService(_repo, _agenda, new PendenciaService(_repo));
     }
 
     private async Task<int> CriarPacienteAsync(string nome = "Maria")
@@ -258,6 +260,55 @@ public class FluxoAtenderTests : IDisposable
     [Fact]
     public async Task Sem_atendimentos_a_conferir_a_leitura_devolve_vazio()
         => (await _repo.AtendimentosComFechamentoAsync([])).Should().BeEmpty();
+
+    // ==================== 4) O que o fluxo curto DEIXA DE MEDIR ====================
+
+    /// <summary>
+    /// A CONSEQUÊNCIA HONESTA DE TIRAR O CHECK-IN (set/2026): sem chegada carimbada, a
+    /// espera não existe como medida — e o painel escreve "—", nunca "0 min".
+    ///
+    /// A direção mandou tirar os botões de fila (*"a cliente quer só o Marcou + atender"*),
+    /// e o "Atender" do médico chama <c>IniciarAtendimentoAsync</c>. Enquanto ele carimbava
+    /// a chegada junto, TODO paciente da clínica passaria a ter espera ZERO, e o cartão do
+    /// painel anunciaria "espera média 0 min" — uma medida inventada com cara de exata, que
+    /// é a garantia aparente que este projeto recusa desde a parcela 3.
+    ///
+    /// Nulo é a resposta certa: "não medido" e "ninguém espera" são afirmações diferentes.
+    /// </summary>
+    [Fact]
+    public async Task Sem_check_in_o_painel_nao_inventa_espera_zero()
+    {
+        var ag = await MarcarAsync();
+
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "medica", Sessao.AddMinutes(4));
+
+        var resumo = await _painel.ResumoAsync(Dia, Sessao.AddMinutes(20));
+
+        resumo.EsperaMediaMinutos.Should().BeNull(
+            "chegada inventada daria 0 min para a clínica inteira");
+        resumo.NaRecepcao.Should().Be(0, "ninguém faz check-in neste fluxo");
+        resumo.EmAtendimento.Should().Be(1, "a etapa sai do início do atendimento");
+    }
+
+    /// <summary>
+    /// O cartão que substituiu "Na recepção" no painel: quantos do dia ainda não entraram
+    /// na sala. É a contagem que o balcão de fato quer no fluxo curto — e ela estava
+    /// calculada e sem leitor desde que o painel nasceu.
+    /// </summary>
+    [Fact]
+    public async Task A_atender_conta_quem_ainda_nao_entrou_na_sala()
+    {
+        var atendido = await MarcarAsync();
+        await MarcarAsync(await CriarPacienteAsync("Vem depois"), minutos: 60);
+        await MarcarAsync(await CriarPacienteAsync("Vem mais tarde"), minutos: 120);
+
+        await _agenda.IniciarAtendimentoAsync(atendido.Id, "medica", Sessao.AddMinutes(2));
+
+        var resumo = await _painel.ResumoAsync(Dia, Sessao.AddMinutes(20));
+
+        resumo.Aguardando.Should().Be(2);
+        resumo.EmAtendimento.Should().Be(1);
+    }
 
     public void Dispose()
     {

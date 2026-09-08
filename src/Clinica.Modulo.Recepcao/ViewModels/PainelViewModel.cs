@@ -86,11 +86,19 @@ public sealed partial class PainelViewModel : ObservableObject
     [ObservableProperty] private bool _carregando;
 
     [ObservableProperty] private string _agendados = "—";
-    [ObservableProperty] private string _naRecepcao = "—";
+
+    /// <summary>
+    /// Quantos do dia ainda não entraram na sala. Ocupou o lugar de "Na recepção"
+    /// (set/2026): aquele contava quem tinha feito CHECK-IN, e sem os botões de fila o
+    /// carimbo de chegada não existe mais — o cartão diria ZERO todo dia, e cartão que
+    /// diz sempre a mesma coisa é o que ensina a não olhar a fileira. Esta contagem
+    /// (<c>ResumoDiaRecepcao.Aguardando</c>) estava calculada e sem leitor desde que o
+    /// painel nasceu, e é a que o balcão de fato quer: quantos ainda faltam hoje.
+    /// </summary>
+    [ObservableProperty] private string _aAtender = "—";
     [ObservableProperty] private string _emAtendimento = "—";
     [ObservableProperty] private string _atendidos = "—";
     [ObservableProperty] private string _faltas = "—";
-    [ObservableProperty] private string _esperaMedia = "—";
     [ObservableProperty] private string _listaDeEspera = "—";
     [ObservableProperty] private string _encaixes = "—";
     [ObservableProperty] private string _taxaFalta = "—";
@@ -125,7 +133,6 @@ public sealed partial class PainelViewModel : ObservableObject
     [ObservableProperty] private VariacaoKpi? _variacaoAgendados;
     [ObservableProperty] private VariacaoKpi? _variacaoAtendidos;
     [ObservableProperty] private VariacaoKpi? _variacaoFaltas;
-    [ObservableProperty] private VariacaoKpi? _variacaoEspera;
     [ObservableProperty] private VariacaoKpi? _variacaoTaxaFalta;
 
     /// <summary>Feedback inline: fica na tela enquanto o problema existir.</summary>
@@ -168,8 +175,8 @@ public sealed partial class PainelViewModel : ObservableObject
     ///
     /// O shell resolve esta tela do provedor RAIZ, e serviço Scoped pedido à raiz vive no
     /// escopo raiz: pela vida inteira do aplicativo, com o <c>DbContext</c> junto. As
-    /// contagens do painel (Aguardando · Na recepção · Em atendimento · Faltas · espera
-    /// média) ficavam congeladas no número da ABERTURA do app, a manhã inteira, porque a
+    /// contagens do painel (A atender · Em atendimento · Atendidos · Faltas) ficavam
+    /// congeladas no número da ABERTURA do app, a manhã inteira, porque a
     /// releitura de dois minutos relia pelo mesmo contexto — que devolve o que ele já
     /// rastreava. Só o que era clicado NESTA máquina aparecia, o que faz o painel parecer
     /// perfeito justamente para quem está olhando.
@@ -361,7 +368,7 @@ public sealed partial class PainelViewModel : ObservableObject
     {
         const string rotuloDelta = "vs. semana anterior";
         // Delta só com base honesta: dia-base sem agenda nenhuma não compara com nada.
-        // "Na recepção", "Em atendimento" e "Na lista de espera" NUNCA têm delta — são
+        // "A atender", "Em atendimento" e "Na lista de espera" NUNCA têm delta — são
         // estado AO VIVO, e num dia passado valem zero por definição.
         VariacaoAgendados = VariacaoKpi.Relativa(
             resumo.Agendados, anterior?.Agendados, rotuloDelta, detalheDelta);
@@ -369,21 +376,16 @@ public sealed partial class PainelViewModel : ObservableObject
             resumo.Atendidos, anterior?.Atendidos, rotuloDelta, detalheDelta);
         VariacaoFaltas = VariacaoKpi.Relativa(
             resumo.Faltas, anterior?.Faltas, rotuloDelta, detalheDelta, melhorQuandoMenor: true);
-        VariacaoEspera = VariacaoKpi.EmValor(
-            resumo.Agendados > 0 ? resumo.EsperaMediaMinutos : null,
-            anterior is { Agendados: > 0 } ? anterior.EsperaMediaMinutos : null,
-            "min", rotuloDelta, detalheDelta, melhorQuandoMenor: true);
         VariacaoTaxaFalta = VariacaoKpi.EmPontos(
             resumo.Atendidos + resumo.Faltas > 0 ? resumo.TaxaFaltaPercentual : null,
             anterior is { } a && a.Atendidos + a.Faltas > 0 ? a.TaxaFaltaPercentual : null,
             rotuloDelta, detalheDelta, melhorQuandoMenor: true);
 
         Agendados = resumo.Agendados.ToString();
-        NaRecepcao = resumo.NaRecepcao.ToString();
+        AAtender = resumo.Aguardando.ToString();
         EmAtendimento = resumo.EmAtendimento.ToString();
         Atendidos = resumo.Atendidos.ToString();
         Faltas = resumo.Faltas.ToString();
-        EsperaMedia = $"{resumo.EsperaMediaMinutos} min";
         ListaDeEspera = resumo.NaListaDeEspera.ToString();
         Encaixes = resumo.Encaixes.ToString();
         TaxaFalta = $"{resumo.TaxaFaltaPercentual}%";

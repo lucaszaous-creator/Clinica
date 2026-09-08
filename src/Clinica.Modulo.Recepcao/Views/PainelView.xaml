@@ -16,7 +16,7 @@
             <StackPanel>
                 <TextBlock Text="Painel da recepção" Style="{StaticResource H1}" Margin="0,0,0,4" />
                 <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0"
-                           Text="Como está o dia no balcão: quem chegou, quem espera e quanto cada profissional tem na agenda." />
+                           Text="Como está o dia no balcão: quantos faltam atender, quem está na sala e quanto cada profissional tem na agenda." />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -87,11 +87,14 @@
                             <DockPanel>
                                 <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE77B;" Style="{StaticResource CardKpi.Icone}" />
-                                    <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
+                                    <!-- "A atender" no lugar de "Na recepção" (set/2026): aquele
+                                         contava quem tinha feito CHECK-IN, e a clínica dispensou o
+                                         check-in — o cartão diria ZERO todo dia. -->
+                                    <TextBlock Text="A atender" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </DockPanel>
-                            <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding AAtender}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
@@ -106,7 +109,7 @@
                             <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132">
                         <StackPanel>
                             <DockPanel>
                                 <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
@@ -129,23 +132,12 @@
                             </TextBlock>
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Height="132">
-                        <StackPanel>
-                            <DockPanel>
-                                <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE916;" Style="{StaticResource CardKpi.Icone}" />
-                                    <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </DockPanel>
-                            <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
-
-                            <TextBlock DataContext="{Binding VariacaoEspera}" Style="{StaticResource CardKpi.Delta}">
-                                <Run Text="{Binding Texto, Mode=OneWay}" /><Run Text=" " /><Run FontWeight="Normal"
-                                     Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Rotulo, Mode=OneWay}" />
-                            </TextBlock>
-                        </StackPanel>
-                    </Border>
+                    <!-- ⛔ O cartão "Espera média" SAIU (set/2026), e não por leiaute: a
+                         espera vai da CHEGADA do paciente até a chamada, e sem os botões de
+                         fila nenhum horário carimba chegada. O número passou a ser "—" em
+                         todo dia da clínica, e cartão que diz sempre a mesma coisa é o que
+                         ensina a não olhar a fileira. Ele volta junto com o check-in — a
+                         conta continua no PainelRecepcaoService, certa e testada. -->
                 </WrapPanel>
 
                 <!-- WrapPanel pela mesma razão da fileira acima (parcela 50): o UniformGrid

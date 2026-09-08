@@ -398,8 +398,13 @@ public class AgendaMultiprofissionalTests : IDisposable
             "a chamada aconteceu e foi carimbada — o fato medido não some com o desfecho");
     }
 
+    /// <summary>
+    /// Entrar sem check-in deixa a espera NÃO MEDIDA (set/2026 — este teste fixava o
+    /// contrário e virou com a regra). Carimbar a chegada junto dava espera ZERO para
+    /// todo paciente da clínica, e "0 min" é uma afirmação sobre a fila; "—" é a verdade.
+    /// </summary>
     [Fact]
-    public async Task Chamar_SemPassarPeloCheckIn_CarimbaAChegadaTambem()
+    public async Task Entrar_SemPassarPeloCheckIn_DeixaAEsperaNaoMedida()
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
@@ -407,8 +412,9 @@ public class AgendaMultiprofissionalTests : IDisposable
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha);
 
         var lido = await _agenda.ObterAsync(ag.Id);
-        lido!.ChegadaEm.Should().NotBeNull();
-        lido.EsperaMinutos(Manha.AddHours(1)).Should().Be(0);
+        lido!.ChegadaEm.Should().BeNull();
+        lido.EsperaMinutos(Manha.AddHours(1)).Should().BeNull();
+        lido.Etapa.Should().Be(EtapaFila.EmAtendimento, "a etapa sai do início do atendimento");
     }
 
     [Fact]
@@ -417,11 +423,12 @@ public class AgendaMultiprofissionalTests : IDisposable
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: _profPadrao);
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
+        await _agenda.ChamarAsync(ag.Id, "teste", Manha.AddMinutes(3));
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha.AddMinutes(5));
 
-        // A parcela 38 pôs "Chamado" entre "Chegou" e "Em atendimento": quem entrou na
-        // sala foi chamado antes, e voltar uma etapa devolve o cartão para a chamada —
-        // não direto para a sala de espera.
+        // A parcela 38 pôs "Chamado" entre "Chegou" e "Em atendimento": voltar uma etapa
+        // devolve o cartão para a chamada — não direto para a sala de espera. (Entrar já
+        // não carimba a chamada sozinho desde set/2026: o que se desfaz é o que existe.)
         await _agenda.VoltarEtapaAsync(ag.Id, "teste");
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chamado);
 

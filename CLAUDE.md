@@ -8166,6 +8166,43 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `LancarAtendimento` no Concluir); `ExecutarAsync` recarrega depois de toda ação; e os
   avisos de guia da falta e do cancelamento saem em DIÁLOGO, nunca em snackbar.
 
+- **OS BOTÕES DE FILA SAÍRAM — e a conta que eles sustentavam saiu junto, em vez de virar
+  ZERO** (set/2026; a direção, depois de ler o manual: *"pode retirar os botões, deixe
+  somente o atender para o médico — a cliente não quer todo esse fluxo"*). A fila em
+  etapas (Chegou · Chamar · Entrou · Voltar) morreu nas DUAS listas do dia: o balcão ficou
+  com o "⋯" e o profissional com o **Atender**, que carimba a entrada desde a parcela 95.
+  ⚠️ **O que a remoção transforma em MENTIRA é o que decide o tamanho da parcela.**
+  `IniciarAtendimentoAsync` carimbava `ChegadaEm` e `ChamadoEm` junto com a entrada, com o
+  argumento — então correto — de que "entrar direto" era a EXCEÇÃO e o kanban precisava
+  distinguir quem esperou. Sem os botões ela virou a REGRA, e a ficção passaria a produzir
+  um número: chegada igual à entrada dá `EsperaMinutos = 0` para todo paciente, e o painel
+  anunciaria **"espera média 0 min"** — *ninguém espera nesta clínica*. Nada falharia. O
+  carimbo inventado saiu, a espera voltou a ser NULA ("não medido"), e os dois cartões que
+  a liam foram embora com ela (o "espera média" do painel e do placar da lista); "Na
+  recepção" — que contava check-in — virou **"A atender"**, ligado ao `Aguardando` que
+  estava calculado e sem leitor desde que o painel nasceu.
+  A regra que fica: **ao apagar uma PORTA, procure o que ela alimentava e pergunte se o
+  número que sobra ainda é verdade.** Métrica cuja base deixou de ser coletada não vira
+  zero — ela deixa de existir, e o cartão que a mostrava sai da tela: cartão que diz
+  sempre a mesma coisa é o que ensina a não olhar a fileira.
+  ⚠️ **O MOTOR fica, e está escrito no motor.** `RegistrarChegadaAsync`, `ChamarAsync`,
+  `DesfazerChamadaAsync` e `VoltarEtapaAsync` continuam no `AgendaService`, testados e
+  **sem porta em produção** — decisão, não esquecimento: a fila volta a ter tela no dia em
+  que uma clínica a quiser, e apagá-la obrigaria a reescrevê-la. Quem varrer "método sem
+  chamador" (parcela 63) lê o aviso antes de remover. O que SAIU foram as derivadas que
+  serviam só ao botão (`DiaDoProfissional.NaRecepcao`/`Chamados`/`ProximoAChamar`): essas
+  eram contagem sem leitor, o defeito na versão barata de remover.
+  ⚠️ **Cinco testes existiam para fixar o CONTRÁRIO, e foram parte da mudança** (a regra da
+  parcela 95): `IniciarAtendimento_SemChamadaAnterior_CarimbaAChamadaJunto` virou
+  `..._SemChegada_NaoInventaEsperaZero`, e os três de "voltar etapa desce uma coluna"
+  passaram a carimbar a chamada de propósito — o que se desfaz é o carimbo que EXISTE.
+  Dois testes novos prendem a regra onde a clínica a vê: o painel devolve espera NULA no
+  fluxo curto, e "A atender" conta quem ainda não entrou na sala.
+  ⚠️ **E o TEXTO da tela é parte da remoção.** O subtítulo do painel dizia "quem chegou,
+  quem espera" sobre uma tela que não sabe mais nenhuma das duas coisas. Frase que
+  descreve um mecanismo removido é a mesma família do comentário que promete o que o
+  código não faz (parcela 67) — só que impressa na cara de quem usa.
+
 - **A SIDEBAR GANHOU O GRUPO ATENDIMENTO E OS GRUPOS RECOLHÍVEIS** (set/2026; o mockup
   `docs/mockups/sidebar-tres-desenhos.html` foi aprovado ANTES de uma linha de WPF — o
   caminho da parcela 87). A cliente pediu para ver a sidebar "se fizéssemos uma

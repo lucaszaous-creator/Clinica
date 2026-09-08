@@ -12,7 +12,7 @@
   <div>
     <div class="marca">Clínica SemDor · Manual de uso</div>
     <h1>Recepção</h1>
-    <p class="sub">O manual do balcão, passo a passo: marcar, receber quem chegou,
+    <p class="sub">O manual do balcão, passo a passo: marcar, receber quem chega,
        lançar o atendimento, cuidar da ficha do paciente e fechar o dia.</p>
     <div class="paraquem">
       <b>Para quem é este manual</b>
@@ -39,7 +39,7 @@
     <li><a href="#cap-1"><em>Antes de começar</em><span>ligar o programa, entrar com seu usuário e entender a tela</span></a></li>
     <li><a href="#cap-2"><em>O dia no balcão, do começo ao fim</em><span>o caminho que o paciente faz dentro do sistema</span></a></li>
     <li><a href="#cap-3"><em>Início — o painel da recepção</em><span>como está o dia agora</span></a></li>
-    <li><a href="#cap-4"><em>Agenda · aba Dia</em><span>quem chegou, quem espera, quem está na sala</span></a></li>
+    <li><a href="#cap-4"><em>Agenda · aba Dia</em><span>a lista do dia: quem já foi atendido e quem falta</span></a></li>
     <li><a href="#cap-5"><em>Agenda · aba Grade</em><span>marcar horário, remarcar, fechar a agenda</span></a></li>
     <li><a href="#cap-6"><em>Lançar e marcar</em><span>o atendimento entra no sistema e a guia nasce</span></a></li>
     <li><a href="#cap-7"><em>Fechar a sessão</em><span>pacote, material e o dinheiro do particular</span></a></li>
@@ -146,10 +146,10 @@
           </div>
           <div class="tela">
             <div class="h1">Painel da recepção</div>
-            <div class="sub">Como está o dia no balcão: quem chegou, quem espera e quanto cada profissional tem na agenda.</div>
+            <div class="sub">Como está o dia no balcão: quantos faltam atender, quem está na sala e quanto cada profissional tem na agenda.</div>
             <div class="kpis">
               <div class="kpi"><div class="rot">Agendados</div><div class="val">18</div></div>
-              <div class="kpi"><div class="rot">Na recepção</div><div class="val">3</div></div>
+              <div class="kpi"><div class="rot">A atender</div><div class="val">7</div></div>
               <div class="kpi"><div class="rot">Em atendimento</div><div class="val">2</div></div>
               <div class="kpi"><div class="rot">Concluídos</div><div class="val">9</div></div>
             </div>
@@ -186,7 +186,7 @@
       <tr><td class="bt">Um botão apagado (cinza claro)</td>
           <td>O botão está dizendo que <b>ainda falta alguma coisa</b>: escolher o paciente, preencher um campo, ou você não tem aquela permissão. Não está quebrado. Passe o mouse em cima que costuma aparecer a explicação.</td></tr>
       <tr><td class="bt">Um traço “—” no lugar de um número</td>
-          <td><b>Não foi medido</b> — é diferente de zero. Um dia sem atendimento concluído não tem “tempo médio de espera”. O sistema nunca troca “não sei” por “zero”.</td></tr>
+          <td><b>Não foi medido</b> — é diferente de zero. Um profissional sem sessão no período não tem “queda média da dor”: 0% diria que o tratamento não funcionou. O sistema nunca troca “não sei” por “zero”.</td></tr>
       <tr><td class="bt">Uma faixa <b>vermelha</b></td>
           <td>Deu erro, ou o sistema recusou o que você pediu. O motivo vem escrito ali mesmo, perto do botão que você clicou.</td></tr>
       <tr><td class="bt">Uma faixa <b>verde</b> ou um aviso que some sozinho</td>
@@ -220,10 +220,9 @@
 
   <div class="dica">
     <b>É só isso</b>
-    <p>Não existe passo obrigatório entre um e outro. Quando o profissional clica em <b>Atender</b>, o
-    sistema registra sozinho que o paciente chegou, foi chamado e entrou na sala — os três de uma vez.
-    E quando ele clica em <b>Finalizar</b>, o horário é dado por realizado e as guias são geradas.
-    <b>O balcão não precisa clicar em nada.</b></p>
+    <p>Não existe passo entre um e outro. Quando o profissional clica em <b>Atender</b>, o sistema
+    registra sozinho que o paciente entrou na sala; quando ele clica em <b>Finalizar</b>, o horário é
+    dado por realizado e as guias são geradas. <b>O balcão não precisa clicar em nada.</b></p>
   </div>
 
   <h2>2.1 · O que continua sendo do balcão</h2>
@@ -242,11 +241,11 @@
   </table>
 
   <div class="nota">
-    <b>E os botões “Chegou”, “Chamar” e “Entrou”?</b>
-    <p>Eles existem na tela e <b>são opcionais</b>. Servem a quem quer acompanhar quanto tempo o paciente
-    espera na recepção — e é só para isso. Se a sua clínica não usa, o dia funciona igual: o
-    <b>Atender</b> do profissional registra tudo. Estão explicados no <a class="remissao" href="#cap-4">capítulo 4</a>,
-    numa seção à parte.</p>
+    <b>Não existem botões de “Chegou”, “Chamar” e “Entrou”</b>
+    <p>Outros sistemas pedem que o balcão marque cada passo do paciente pela sala de espera. <b>Este
+    não.</b> A clínica escolheu o caminho curto, e a tela foi feita para ele: a linha do dia vai de
+    <b>Marcado</b> direto para <b>Em atendimento</b> quando o profissional clica em <b>Atender</b>.
+    Não há passo esquecido possível, porque não há passo.</p>
   </div>
 
 <h2>2.2 · Convênio, particular e “a definir”</h2>
@@ -281,7 +280,7 @@
     <thead><tr><th>Bloco</th><th>Para que serve</th></tr></thead>
     <tbody>
       <tr><td class="bt">Agendados</td><td>Quantas pessoas estão marcadas para o dia escolhido.</td></tr>
-      <tr><td class="bt">Na recepção</td><td>Quantas já chegaram e estão esperando. <b>Só tem número se a clínica usar os botões de espera</b> (capítulo 4.3) — sem eles ele fica em zero, e não é defeito.</td></tr>
+      <tr><td class="bt">A atender</td><td>Quantas do dia ainda não entraram na sala. É o número que responde “quanto falta hoje”.</td></tr>
       <tr><td class="bt">Em atendimento</td><td>Quantas estão dentro da sala agora.</td></tr>
       <tr><td class="bt">Concluídos</td><td>Sessões já encerradas hoje.</td></tr>
       <tr><td class="bt">Lista de espera</td><td>Quantas pessoas querem um horário que ainda não existe. Quando alguém desmarca, é aqui que você procura quem chamar.</td></tr>
@@ -302,13 +301,12 @@
     </tbody>
   </table>
 
-  <div class="atencao">
-    <b>Dois números dependem dos botões de espera</b>
-    <p><b>Na recepção</b> e o <b>tempo médio de espera</b> só existem se alguém clicar em <b>Chegou</b>
-    quando o paciente aparece. Se a clínica trabalha no caminho curto — a secretária marca, o
-    profissional atende —, esses dois ficam em zero e em <b>“—”</b>. <b>Não é defeito</b>: é o sistema
-    dizendo que ninguém mediu. Os outros números (agendados, em atendimento, concluídos) continuam
-    certos, porque vêm dos cliques do profissional.</p>
+  <div class="nota">
+    <b>Por que não há “tempo médio de espera”</b>
+    <p>Esse número se conta da hora em que o paciente <b>chega ao balcão</b> até a hora em que ele é
+    chamado — e neste fluxo ninguém registra a chegada. O sistema prefere não mostrar o número a mostrar
+    um número inventado: “0 min” faria parecer que ninguém espera nesta clínica, o que não é uma coisa
+    que alguém tenha medido.</p>
   </div>
 
   <div class="nota">
@@ -366,9 +364,9 @@
                 <tr><td>09:00</td><td><b>Joana Ribeiro</b><br><span style="color:#6B7280">BSV · Particular</span></td><td>Dra. Ana Prado</td>
                     <td><span class="pill info">Em atendimento</span><br><span style="color:#6B7280">desde 09:04</span></td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
                 <tr><td>09:30</td><td><b>Pedro Alves</b><br><span style="color:#6B7280">Acupuntura · Petrobras</span></td><td>Dr. Carlos Nunes</td>
-                    <td>Marcado</td><td style="text-align:right"><span class="btn sec">Chegou</span> <span class="btn sec">⋯</span></td></tr>
+                    <td>Marcado</td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
                 <tr><td>10:00</td><td><b>Marta Souza</b> <span class="pill err">Termo</span><br><span style="color:#6B7280">BSV · Amil</span></td><td>Dra. Ana Prado</td>
-                    <td>Marcado</td><td style="text-align:right"><span class="btn sec">Chegou</span> <span class="btn sec">⋯</span></td></tr>
+                    <td>Marcado</td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
                 <tr class="apagada"><td>10:30</td><td>Rita Campos</td><td>Dr. Carlos Nunes</td><td>Cancelado</td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
               </tbody>
             </table>
@@ -377,8 +375,8 @@
       </div>
     </div>
     <figcaption><b>A agenda do dia.</b> A coluna <b>Status</b> é a que importa: ela conta o dia sozinha,
-    porque muda quando o profissional clica em Atender e em Finalizar. Os botões azuis das linhas são
-    <b>opcionais</b> — veja 4.3.</figcaption>
+    porque muda quando o profissional clica em Atender e em Finalizar. A linha do balcão tem só o
+    <b>“⋯”</b> — não há passo de fila para clicar.</figcaption>
   </figure>
 
   <h2>4.1 · A coluna Status conta o dia sozinha</h2>
@@ -388,10 +386,9 @@
   <table class="botoes">
     <thead><tr><th>Status</th><th>Quer dizer</th></tr></thead>
     <tbody>
-      <tr><td class="bt">Marcado</td><td>O horário existe e ainda não começou. <b>É assim que quase toda linha nasce.</b></td></tr>
+      <tr><td class="bt">Marcado</td><td>O horário existe e ainda não começou. <b>É assim que toda linha nasce</b>, e assim ela fica até o profissional chamar o paciente.</td></tr>
       <tr><td class="bt">Em atendimento</td><td>O profissional clicou em <b>Atender</b> — o paciente está com ele. Aparece desde que horas.</td></tr>
       <tr><td class="bt">Concluído</td><td>O profissional clicou em <b>Finalizar</b>. <b>A guia do convênio já nasceu.</b></td></tr>
-      <tr><td class="bt">No local · Chamado</td><td>Só aparecem se alguém usar os botões de espera (4.3). Sem eles, a linha vai de <b>Marcado</b> direto para <b>Em atendimento</b>.</td></tr>
       <tr><td class="bt">Cancelado · Faltou</td><td>A linha fica na lista, em cinza — para você saber que aquele horário vagou.</td></tr>
     </tbody>
   </table>
@@ -403,13 +400,14 @@
   </div>
 
   <h2>4.2 · O que o balcão faz nesta tela</h2>
-  <p>Quatro coisas, todas no menu <b>“⋯”</b> de cada linha:</p>
+  <p>Tudo pelo menu <b>“⋯”</b> de cada linha:</p>
   <table class="botoes">
     <thead><tr><th>Item do menu</th><th>Quando usar</th></tr></thead>
     <tbody>
       <tr><td class="bt">Marcar falta</td><td>O paciente não veio e não avisou.</td></tr>
       <tr><td class="bt">Cancelar o horário</td><td>Ele desmarcou, ou a clínica desmarcou. O vão volta a ficar livre na grade.</td></tr>
       <tr><td class="bt">Fechar sessão (pacote, insumo, caixa)…</td><td>O dinheiro: descontar o pacote, registrar material e o pagamento do particular. Veja o <a class="remissao" href="#cap-7">capítulo 7</a>.</td></tr>
+      <tr><td class="bt">Conferir convênio e cota…</td><td><b>Use quando o paciente estiver no balcão.</b> O sistema confere carteirinha vencida, cota do convênio estourada, conta em atraso e guia pendente, e escreve o que achou. É a última chance de resolver com uma ligação — depois da sessão a mesma coisa vira glosa.</td></tr>
       <tr><td class="bt">Abrir na grade…</td><td>Leva à janela do horário — <b>remarcar</b>, <b>reabrir</b> um cancelado, comprovante e confirmação por WhatsApp.</td></tr>
       <tr><td class="bt">Colher o termo do procedimento…</td><td>Só aparece quando falta o termo assinado daquele procedimento (a linha mostra um selo vermelho <b>Termo</b>).</td></tr>
     </tbody>
@@ -427,30 +425,32 @@
     <p><b>“⋯” › Abrir na grade</b> › <b>Reabrir este horário</b>. Ele volta ao normal.</p>
   </div>
 
-  <h2>4.3 · Os botões de espera — <span style="color:var(--warn)">opcionais</span></h2>
-  <p>Cada linha traz um botão azul com o próximo passo da fila: <b>Chegou</b>, <b>Chamar</b>,
-  <b>Entrou</b>. Eles existem para um caso só: <b>a clínica que quer medir quanto tempo o paciente
-  espera na recepção</b>.</p>
+  <h2>4.3 · Não há passo de fila para clicar</h2>
+  <p>Em outros sistemas cada linha traz botões de <b>Chegou</b>, <b>Chamar</b> e <b>Entrou</b>: o
+  balcão marca cada etapa do paciente pela sala de espera. <b>Aqui não existem</b> — a clínica
+  escolheu o caminho curto, e a tela foi feita para ele.</p>
 
-  <div class="nota">
-    <b>Se a sua clínica não usa, ignore-os</b>
-    <p>O dia acontece igual. O <b>Atender</b> do profissional registra chegada, chamada e entrada de uma
-    vez só — e a linha vai de <b>Marcado</b> direto para <b>Em atendimento</b>. Nada fica pendente, nada
-    fica pela metade.</p>
+  <div class="dica">
+    <b>Por que isso é bom</b>
+    <p>Passo que se pode esquecer é passo que um dia fica esquecido — e uma lista com metade das linhas
+    paradas em “chegou” deixa de valer. Sem esses botões, a coluna <b>Status</b> nunca fica atrasada:
+    ela só muda com os dois cliques do profissional, e ele os dá com o paciente na frente.</p>
   </div>
 
-  <p>Para quem usa, é um clique por etapa, sempre no botão azul da linha:</p>
-  <table class="botoes">
-    <thead><tr><th>Botão</th><th>O que registra</th></tr></thead>
-    <tbody>
-      <tr><td class="bt">Chegou</td><td>A hora em que o paciente apareceu no balcão. É daí que o sistema conta a espera dele.</td></tr>
-      <tr><td class="bt">Chamar</td><td>Que é a vez dele. O nome aparece na tela do profissional, e uma faixa azul aqui em cima diz quem chamar e para qual sala.</td></tr>
-      <tr><td class="bt">Entrou</td><td>Que ele entrou na sala. É o mesmo que o profissional faz ao clicar em <b>Atender</b>.</td></tr>
-      <tr><td class="bt">Voltar uma etapa</td><td>No “⋯”: desfaz o último clique, quando você marcou na linha errada.</td></tr>
-    </tbody>
-  </table>
-  <p class="suave">Esses três botões só aparecem <b>no dia de hoje</b> — a fila corre hoje. Navegando
-  para outro dia, a linha fica só com o “⋯”.</p>
+  <div class="nota">
+    <b>O que você perde, e é pouco</b>
+    <p>O sistema deixa de saber <b>quanto tempo cada paciente esperou</b> — não há a hora da chegada
+    para contar. Por isso o painel não mostra “tempo médio de espera”: ele prefere não dizer nada a
+    dizer “0 min”, que faria parecer que ninguém espera nesta clínica.</p>
+  </div>
+
+  <div class="dica">
+    <b>A conferência do convênio continua a um clique</b>
+    <p>Carteirinha vencida e cota estourada apareciam quando alguém clicava em <b>Chegou</b>. Agora
+    estão no <b>“⋯” › Conferir convênio e cota…</b> de cada linha — com o paciente na frente, é o
+    mesmo aviso na hora certa. <b>Vale o hábito:</b> conferir custa um clique; descobrir depois da
+    sessão custa a guia.</p>
+  </div>
 
   <h2>4.4 · “Concluir” — a exceção, não a regra</h2>
   <p>Quando o profissional finaliza pela tela dele, a sessão é concluída e a guia nasce sem o balcão
@@ -510,13 +510,13 @@
                     <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Carlos Menezes</b><br><span style="color:#6B7280">Acupuntura · Concluído</span></td>
                     <td style="color:#C7CDD8;text-align:center">+</td><td style="color:#C7CDD8;text-align:center">+</td></tr>
                 <tr><td style="color:#6B7280">08:30</td><td style="color:#C7CDD8;text-align:center">+</td>
-                    <td style="background:#F0FDFA;border-left:3px solid #0D9488"><b>Luís Braga</b><br><span style="color:#6B7280">BSV · No local</span></td><td style="color:#C7CDD8;text-align:center">+</td></tr>
+                    <td style="background:#F0FDFA;border-left:3px solid #0D9488"><b>Luís Braga</b><br><span style="color:#6B7280">BSV · Em atendimento</span></td><td style="color:#C7CDD8;text-align:center">+</td></tr>
                 <tr><td style="color:#6B7280">09:00</td>
-                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Joana Ribeiro</b><br><span style="color:#6B7280">Chamado</span></td>
+                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Joana Ribeiro</b><br><span style="color:#6B7280">Acupuntura</span></td>
                     <td style="background:repeating-linear-gradient(45deg,#F1F5F9,#F1F5F9 2px,#E5E7EB 2px,#E5E7EB 4px);color:#6B7280;text-align:center">Almoço</td>
                     <td style="color:#C7CDD8;text-align:center">+</td></tr>
                 <tr><td style="color:#6B7280">09:30</td><td style="color:#C7CDD8;text-align:center">+</td>
-                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Pedro Alves</b><br><span style="color:#6B7280">No local</span></td><td style="color:#C7CDD8;text-align:center">+</td></tr>
+                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Pedro Alves</b><br><span style="color:#6B7280">Acupuntura</span></td><td style="color:#C7CDD8;text-align:center">+</td></tr>
               </tbody>
             </table>
             <div style="margin-top:2mm;color:#6B7280;font-size:6.4pt;">
@@ -587,7 +587,7 @@
   <table class="botoes">
     <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
     <tbody>
-      <tr><td class="bt">Remarcar</td><td>Muda dia, hora, profissional, sala ou duração. Se a <b>data</b> mudar, o sistema apaga os registros de chegada/chamada — porque eles eram do dia antigo.</td></tr>
+      <tr><td class="bt">Remarcar</td><td>Muda dia, hora, profissional, sala ou duração. Se a <b>data</b> mudar, o sistema apaga o registro de entrada na sala — ele era do dia antigo.</td></tr>
       <tr><td class="bt">Confirmar pelo WhatsApp</td><td>Abre a conversa com a mensagem de confirmação pronta.</td></tr>
       <tr><td class="bt">Comprovante</td><td>Imprime o papelzinho com o horário para o paciente levar.</td></tr>
       <tr><td class="bt">Quem chamar?</td><td>Mostra quem da lista de espera serve para aquele horário que acabou de vagar.</td></tr>
@@ -1381,8 +1381,8 @@
 
   <h3>Preciso clicar em alguma coisa quando o paciente chega?</h3>
   <p><b>Não.</b> Marque o horário e pronto: quem clica em <b>Atender</b> é o profissional, e é esse
-  clique que registra que o paciente entrou. Os botões <b>Chegou</b>, <b>Chamar</b> e <b>Entrou</b> só
-  servem se a clínica quiser medir o tempo de espera na recepção.</p>
+  clique que registra que o paciente entrou. Não existem botões de <b>Chegou</b>, <b>Chamar</b> ou
+  <b>Entrou</b> nesta tela — a clínica escolheu o caminho curto, e a lista foi feita para ele.</p>
 
   <h3>Então quem gera a guia do convênio?</h3>
   <p>O profissional, quando clica em <b>Finalizar atendimento</b> na tela dele. A linha aqui vira
@@ -1433,8 +1433,9 @@
   mensagem já escrita. Você confere antes de enviar.</p>
 
   <h3>Um número apareceu como “—”. Está quebrado?</h3>
-  <p>Não. O traço quer dizer <b>“não medido”</b>, que é diferente de zero. Um dia sem sessão concluída não
-  tem tempo médio de espera.</p>
+  <p>Não. O traço quer dizer <b>“não medido”</b>, que é diferente de zero — e o sistema nunca troca um
+  pelo outro. Um profissional que não atendeu ninguém no período não tem “queda média da dor”, por
+  exemplo: mostrar 0% ali diria que o tratamento dele não funcionou.</p>
 
   <h3>Posso deixar o sistema aberto e sair para o almoço?</h3>
   <p>Pode — mas se outra pessoa for usar o computador, faça <b>Trocar usuário</b>. Tudo o que for feito

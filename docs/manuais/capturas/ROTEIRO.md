@@ -57,7 +57,7 @@ Salve cada um com **exatamente** este nome, dentro desta pasta (`docs/manuais/ca
 |---|---|---|
 | `recepcao-01-login.png` | Janela de entrada | Com um usuário digitado e a senha em pontinhos |
 | `recepcao-02-inicio.png` | **GESTÃO › Início** | Um dia com movimento: contadores preenchidos e a ocupação por profissional visível |
-| `recepcao-03-agenda-dia.png` | **GESTÃO › Agenda › aba Dia** | O melhor print do conjunto. Um dia no **caminho curto**: uma linha **Concluído**, uma **Em atendimento**, duas **Marcado** e uma **Cancelado** (em cinza). Se a clínica usar os botões de espera, inclua também uma **No local** |
+| `recepcao-03-agenda-dia.png` | **GESTÃO › Agenda › aba Dia** | O melhor print do conjunto. Um dia no **caminho curto**: uma linha **Concluído**, uma **Em atendimento**, duas **Marcado** e uma **Cancelado** (em cinza). Não há botões de fila na linha — só o **⋯** |
 | `recepcao-04-agenda-grade.png` | **GESTÃO › Agenda › aba Grade** | Duas ou três colunas de profissional, alguns horários ocupados e vãos livres à vista |
 | `recepcao-05-lancar.png` | **ATENDIMENTO › Lançar e marcar › aba Lançar** | Com paciente já escolhido, uma modalidade marcada e a **prévia da guia** desenhada na coluna da direita |
 | `recepcao-06-fechar-sessao.png` | Janela **Fechar a sessão** | Aberta pelo “⋯ › Fechar sessão” de um paciente **com pacote**, para aparecerem os três blocos (pacote, insumos, dinheiro) |

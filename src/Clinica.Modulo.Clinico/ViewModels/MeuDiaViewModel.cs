@@ -94,27 +94,14 @@ public sealed class LinhaSessao
     public bool EhHoje => Data == DateOnly.FromDateTime(DateTime.Today);
 
     /// <summary>
-    /// Só se chama quem já CHEGOU: chamar quem não fez check-in faria a recepção anunciar
-    /// um nome para uma sala de espera onde a pessoa não está.
+    /// A chamada está pendente há tempo demais — vale insistir com o balcão.
+    ///
+    /// ⛔ DORMENTE desde set/2026, junto de <see cref="ChamadoHaMinutos"/> e de
+    /// <see cref="EsperaMinutos"/>: sem os botões de fila ninguém carimba chegada nem
+    /// chamada, então os três ficam nulos e o gatilho da linha nunca dispara. Não foram
+    /// removidos porque o MOTOR da fila ficou (ver <c>AgendaService</c>) — eles voltam a
+    /// valer com o check-in, sem uma linha nova.
     /// </summary>
-    public bool PodeChamar => Etapa == EtapaFila.Chegou && EhHoje;
-
-    /// <summary>Já foi chamado — o consultório pode desistir, e o balcão para de anunciar.</summary>
-    public bool PodeDesfazerChamada => Etapa == EtapaFila.Chamado && EhHoje;
-
-    /// <summary>
-    /// O paciente pode ENTRAR: já fez check-in (chamado ou não — quem entra sem ter sido
-    /// chamado teve a chamada carimbada junto, ver <c>AgendaService.IniciarAtendimentoAsync</c>).
-    /// </summary>
-    public bool PodeEntrar => (Etapa is EtapaFila.Chegou or EtapaFila.Chamado) && EhHoje;
-
-    /// <summary>
-    /// Desfazer o "entrou" clicado por engano. Só de quem está EM ATENDIMENTO: a chamada tem
-    /// o próprio desfazer, e o check-in é ato do balcão — não se desfaz daqui.
-    /// </summary>
-    public bool PodeVoltarEtapa => Etapa == EtapaFila.EmAtendimento && EhHoje;
-
-    /// <summary>A chamada está pendente há tempo demais — vale insistir com o balcão.</summary>
     public bool ChamadaDemorada { get; init; }
 
     public DateTime? ChegadaEm { get; init; }
@@ -341,38 +328,6 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     [ObservableProperty] private string? _agendaFechada;
 
     /// <summary>
-    /// Quem seria chamado se o profissional clicasse agora: o primeiro da recepção, pelo
-    /// horário. Vazio quando não há ninguém no balcão — e aí o botão fica desabilitado,
-    /// em vez de chamar o ar.
-    /// </summary>
-    [ObservableProperty] private string _proximoNome = string.Empty;
-
-    private int _proximoAgendamentoId;
-
-    /// <summary>Há alguém no balcão para chamar.</summary>
-    public bool TemProximo => _proximoAgendamentoId != 0;
-
-    /// <summary>
-    /// O botão grande do dia: precisa de alguém no balcão, da permissão de mover a fila
-    /// E de um profissional vinculado. Composto no VM porque o botão só liga UMA
-    /// propriedade — as duas condições em MultiBinding no XAML seriam a versão frágil
-    /// disto.
-    ///
-    /// ⚠️ NO MODO "LISTA DA CLÍNICA" ele fica desligado, e é decisão: nesse modo a lista
-    /// mostra a clínica inteira, e "o primeiro da recepção" pode ser paciente de OUTRO
-    /// profissional — o clique cego anunciaria um nome para a sala do colega. Chamar por uma
-    /// LINHA específica continua liberado: ali a escolha é de quem olhou o nome antes de
-    /// clicar.
-    ///
-    /// São DOIS os caminhos até esse modo (ver <see cref="PostoClinico"/>): não haver
-    /// cadastro vinculado, e não haver agenda própria — que é o caso da enfermagem.
-    /// </summary>
-    public bool PodeChamarProximo => TemProximo && PodeMovimentarFila && !ListaDaClinica;
-
-    partial void OnListaDaClinicaChanged(bool value)
-        => OnPropertyChanged(nameof(PodeChamarProximo));
-
-    /// <summary>
     /// Metade visível da permissão de abrir prontuário: "Atender" e a dívida de sessões
     /// sem evolução levam a telas que exigem <c>VerProntuario</c>, e
     /// <c>NavegacaoSuite.Ir</c> devolve false EM SILÊNCIO quando o destino não existe
@@ -389,14 +344,12 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// </summary>
     public bool EhHoje => Dia.Date == DateTime.Today;
 
-    /// <summary>
-    /// Metade visível da permissão de mover a fila; a que impede é o <c>ExigirAlgum</c>
-    /// nos comandos. A regra é UMA nos dois quadros (balcão e consultório):
-    /// <c>EditarAgenda</c> OU <c>MovimentarFila</c> — mover a fila grava carimbo de hora,
-    /// e escrita sob <c>VerAgenda</c> era a divergência que a parcela 61 corrigiu.
-    /// </summary>
-    public bool PodeMovimentarFila => SessaoUsuario.Atual.PodeAlgum(
-        Permissao.EditarAgenda | Permissao.MovimentarFila);
+    // A metade VISÍVEL da permissão de mover a fila saiu com os botões dela (set/2026):
+    // nenhum botão desta tela pode ficar apagado por causa desse bit — "Atender" existe
+    // para quem NÃO o tem, e ali o que se perde é só o recado ao balcão, que
+    // `CarimbarEntradaAsync` diz em palavras. A regra em si (`EditarAgenda` OU
+    // `MovimentarFila`, a mesma dos dois quadros) continua onde ela impede: no
+    // `PodeAlgum` daquele método.
 
     private readonly System.Windows.Threading.DispatcherTimer _relogio;
 
@@ -581,10 +534,6 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             Sessoes.Clear();
             foreach (var l in linhas) Sessoes.Add(l);
 
-            _proximoAgendamentoId = doDia.ProximoAChamar?.AgendamentoId ?? 0;
-            ProximoNome = doDia.ProximoAChamar?.PacienteNome ?? string.Empty;
-            OnPropertyChanged(nameof(TemProximo));
-            OnPropertyChanged(nameof(PodeChamarProximo));
             OnPropertyChanged(nameof(QuadroVazio));
 
             // Não há linha de "resumo" abaixo do título: a lista é curta o bastante para
@@ -664,193 +613,24 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// AVISA A RECEPÇÃO que este paciente pode entrar (parcela 38).
-    ///
-    /// Não é o médico que chama pelo nome na sala de espera — ele está na sala, com a
-    /// porta fechada. O que este botão faz é o recado atravessar: a linha passa a
-    /// "Chamado" e o cartão aparece destacado na fila do balcão, que anuncia a pessoa.
-    ///
-    /// A sincronização entre os dois módulos é o BANCO, como todo o resto da suíte: não
-    /// há fila de mensagens nem evento. O consultório carimba a hora, a recepção lê a
-    /// mesma linha — e é por isso que os dois quadros nunca divergem.
-    /// </summary>
-    [RelayCommand]
-    private Task ChamarAsync(LinhaSessao? linha)
-        => linha is null ? Task.CompletedTask : ChamarPorIdAsync(linha.AgendamentoId, linha.Paciente);
-
-    /// <summary>Chama o primeiro da recepção, sem procurar a linha na lista.</summary>
-    [RelayCommand]
-    private Task ChamarProximoAsync()
-    {
-        if (_proximoAgendamentoId == 0) return Task.CompletedTask;
-
-        // A segunda barreira do modo sem vínculo (a primeira é o IsEnabled): atalho e
-        // corrida de carregamento passam pelo comando, e a guarda diz por quê em vez de
-        // voltar calada.
-        if (ListaDaClinica)
-        {
-            // ⚠️ A frase sai do PONTO ÚNICO, e não é uma escrita à mão aqui. Ela dizia
-            // "peça à direção para ligar o seu usuário ao seu cadastro" — verdade para
-            // quem não tem vínculo, e MENTIRA para a enfermagem, que está vinculada e
-            // simplesmente não tem agenda própria. Instrução errada com cara de instrução
-            // certa manda o suporte procurar um defeito que não existe.
-            Mensagem = MotivoDaLista
-                       + " Como a lista é a da clínica, o primeiro da fila pode ser "
-                       + "paciente de outro profissional: chame pela linha dele.";
-            MensagemEhErro = true;
-            return Task.CompletedTask;
-        }
-
-        return ChamarPorIdAsync(_proximoAgendamentoId, ProximoNome);
-    }
-
-    private async Task ChamarPorIdAsync(int agendamentoId, string paciente)
-    {
-        try
-        {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "chamar o paciente");
-
-            using var scope = _escopos.CreateScope();
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.ChamarAsync(agendamentoId, SessaoUsuario.Atual.Operador);
-
-            Mensagem = $"{paciente} foi chamado — a recepção já está vendo o aviso.";
-            MensagemEhErro = false;
-            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
-            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
-            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
-            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
-            // recarga de fundo não apaga o recado da última ação; o que faltava era
-            // ESTA chamada usá-la.
-            await CarregarAsync(silencioso: true);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — paciente não pôde ser chamado", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    /// <summary>Desfaz a chamada: enganou-se de paciente, ou vai demorar mais.</summary>
-    [RelayCommand]
-    private async Task DesfazerChamadaAsync(LinhaSessao? linha)
-    {
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "desfazer a chamada");
-
-            using var scope = _escopos.CreateScope();
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.DesfazerChamadaAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
-
-            Mensagem = $"Chamada de {linha.Paciente} desfeita.";
-            MensagemEhErro = false;
-            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
-            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
-            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
-            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
-            // recarga de fundo não apaga o recado da última ação; o que faltava era
-            // ESTA chamada usá-la.
-            await CarregarAsync(silencioso: true);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — chamada não pôde ser desfeita", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    /// <summary>
-    /// O paciente ENTROU na sala. Era a transição que faltava do lado do médico: sem ela,
-    /// o "Em atendimento" do lado dele só acontecia se o BALCÃO clicasse — e quem
-    /// abre a porta para o paciente é o profissional, não a recepção. Entrar sem ter sido
-    /// chamado carimba a chamada junto (linha do tempo com entrada e sem chamada não
-    /// existe — regra do <c>AgendaService</c>).
-    /// </summary>
-    [RelayCommand]
-    private async Task EntrarAsync(LinhaSessao? linha)
-    {
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "marcar a entrada");
-
-            using var scope = _escopos.CreateScope();
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.IniciarAtendimentoAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
-
-            Mensagem = $"{linha.Paciente} em atendimento.";
-            MensagemEhErro = false;
-            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
-            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
-            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
-            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
-            // recarga de fundo não apaga o recado da última ação; o que faltava era
-            // ESTA chamada usá-la.
-            await CarregarAsync(silencioso: true);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — entrada não pôde ser marcada", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
-
-    /// <summary>
-    /// Desfaz o "entrou" clicado por engano — um passo por vez, como no balcão: apagar
-    /// mais de um carimbo de uma vez inventaria uma linha do tempo que não aconteceu.
-    ///
-    /// FINALIZAR não fica no QUADRO, e continua sendo decisão: finalizar é o desfecho de
-    /// um atendimento que se acabou de escrever, e o botão dele mora na tela do paciente,
-    /// ao lado do que foi registrado. Desde a parcela 95 ele CONCLUI a sessão (carimba a
-    /// presença e gera as guias); o que segue no balcão é o dinheiro — pacote, insumo e
-    /// caixa —, que aparece na fila como fechamento pendente.
-    /// </summary>
-    [RelayCommand]
-    private async Task VoltarEtapaAsync(LinhaSessao? linha)
-    {
-        if (linha is null) return;
-
-        try
-        {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "voltar a etapa");
-
-            using var scope = _escopos.CreateScope();
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.VoltarEtapaAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
-
-            Mensagem = $"{linha.Paciente} devolvido à etapa anterior.";
-            MensagemEhErro = false;
-            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
-            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
-            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
-            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
-            // recarga de fundo não apaga o recado da última ação; o que faltava era
-            // ESTA chamada usá-la.
-            await CarregarAsync(silencioso: true);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — etapa não pôde ser desfeita", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-    }
+    // ⛔ OS BOTÕES DE FILA SAÍRAM DAQUI (decisão da clínica, set/2026).
+    //
+    // "Chamar", "Desfazer chamada", "Entrou" e "Voltar" eram os quatro movimentos que
+    // esta tela oferecia ao profissional, e a direção pediu para tirá-los: *"a cliente
+    // quer só o Marcou + atender — a secretaria marca e o médico/enfermeiro atende, sem
+    // precisar de todo esse fluxo grande"*.
+    //
+    // Nada se perdeu do que o dia precisa: o "Atender" abaixo JÁ carimba a entrada na
+    // sala desde a parcela 95, e o "Finalizar atendimento" da tela do paciente encerra e
+    // CONCLUI a sessão (carimba a presença e gera as guias). O que segue no balcão é o
+    // dinheiro — pacote, insumo e caixa —, que aparece na Agenda do dia como fechamento
+    // pendente.
+    //
+    // ⚠️ Os métodos do <c>AgendaService</c> (ChamarAsync, DesfazerChamadaAsync,
+    // VoltarEtapaAsync, RegistrarChegadaAsync) CONTINUAM existindo, testados, e agora sem
+    // porta em produção — está escrito lá. É decisão, não esquecimento: a fila em etapas
+    // volta a ter tela no dia em que uma clínica a quiser, e apagar o motor obrigaria a
+    // reescrevê-lo.
 
     [RelayCommand]
     private void DiaAnterior() => Dia = Dia.AddDays(-1);
@@ -873,9 +653,9 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// ninguém dava. O quadro do balcão então mentia sobre quem estava ocupado, e a
     /// espera do paciente continuava correndo depois de ele ter entrado.
     ///
-    /// O que se carimba é FATO: quem clica em Atender está com a pessoa na frente. É o
-    /// mesmo <c>IniciarAtendimentoAsync</c> do botão "Entrou" (que continua existindo, para
-    /// quem quer mover a fila sem abrir o prontuário), e o desfazer é o "Voltar" de sempre.
+    /// O que se carimba é FATO: quem clica em Atender está com a pessoa na frente. Desde
+    /// set/2026 é o ÚNICO carimbo de fila desta tela — os botões de chamar, entrar e
+    /// voltar saíram por decisão da clínica (ver o bloco acima).
     ///
     /// ⚠️ Falhar o carimbo NÃO impede abrir o prontuário: ler o registro do paciente que
     /// está na sala não pode depender de o banco ter respondido a uma escrita de fila. A
