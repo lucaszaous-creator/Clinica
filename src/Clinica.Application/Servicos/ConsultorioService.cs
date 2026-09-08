@@ -429,7 +429,8 @@ public sealed class ConsultorioService
             p.Id,
             p.Nome,
             p.FotoMiniatura,
-            IdadeEm(p.DataNascimento, hoje),
+            IdadeDoPaciente.Anos(p.DataNascimento, hoje),
+            IdadeDoPaciente.Implausivel(p.DataNascimento, hoje),
             p.Sexo,
             CatalogoConvenios.Nome(p.ConvenioCodigo, p.Convenio),
             p.Carteirinha,
@@ -439,19 +440,6 @@ public sealed class ConsultorioService
             alergias,
             ativos,
             hipoteses);
-    }
-
-    /// <summary>
-    /// Anos COMPLETOS. A conta pelo ano subtraído erra metade do ano de todo mundo, e num
-    /// crachá clínico a idade errada muda conduta — a dose pediátrica e a geriátrica não
-    /// são a mesma.
-    /// </summary>
-    private static int? IdadeEm(DateOnly? nascimento, DateOnly hoje)
-    {
-        if (nascimento is not { } n || n > hoje) return null;
-        var anos = hoje.Year - n.Year;
-        if (hoje < n.AddYears(anos)) anos--;
-        return anos;
     }
 
     /// <summary>

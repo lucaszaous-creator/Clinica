@@ -31,7 +31,15 @@ namespace Clinica.Application.Modelos;
 /// grande mora noutra tabela e não é carregada aqui: o cabeçalho é desenhado em 48 px.
 /// </param>
 /// <param name="Idade">Anos completos hoje. Null quando a data de nascimento não foi
-/// cadastrada — e null é a resposta certa, porque "0 ano" seria um recém-nascido.</param>
+/// cadastrada — e null é a resposta certa, porque "0 ano" seria um recém-nascido. Também
+/// null quando a data é IMPLAUSÍVEL: ver <paramref name="NascimentoImplausivel"/>.</param>
+/// <param name="NascimentoImplausivel">
+/// A ficha TEM data de nascimento e ela não descreve uma pessoa viva — foi o "1851 anos"
+/// que a direção fotografou (set/2026). Ausente e implausível são coisas DIFERENTES e por
+/// isso são dois campos: ficha sem data é o caso normal da clínica e a linha só pula a
+/// idade; data errada é um defeito de CADASTRO, e sumir com ela em silêncio a deixaria
+/// errada para sempre. Quem a conserta é o balcão, e ele precisa vê-la.
+/// </param>
 /// <param name="Sexo">Como está no cadastro.</param>
 /// <param name="ConvenioNome">
 /// O nome da OPERADORA, resolvido pelo catálogo com a família como caminho de baixo
@@ -54,6 +62,7 @@ public sealed record CabecalhoClinicoPaciente(
     string Nome,
     byte[]? Foto,
     int? Idade,
+    bool NascimentoImplausivel,
     Sexo Sexo,
     string ConvenioNome,
     string? Carteirinha,
@@ -70,6 +79,10 @@ public sealed record CabecalhoClinicoPaciente(
     /// Montada aqui, e não no XAML, porque ela pula o que não existe: um paciente sem data
     /// de nascimento não pode produzir "· anos ·" com um vão no meio, e cadastro novo não
     /// tem "desde". Frase montada por concatenação de binding não sabe pular.
+    ///
+    /// ⚠️ E ela escreve o TERCEIRO ESTADO da idade em vez de calar (set/2026): sem data,
+    /// pula; com data implausível, "idade a conferir". As duas somem numa linha só se a
+    /// distinção não estiver aqui — e a segunda é a única que pede conserto de alguém.
     /// </summary>
     public string Linha
     {
@@ -77,6 +90,7 @@ public sealed record CabecalhoClinicoPaciente(
         {
             var partes = new List<string>();
             if (Idade is { } i) partes.Add(i == 1 ? "1 ano" : $"{i} anos");
+            else if (NascimentoImplausivel) partes.Add("idade a conferir");
             partes.Add(Sexo == Sexo.Feminino ? "feminino" : "masculino");
             partes.Add(ConvenioNome);
             if (PrimeiraSessao is { } p) partes.Add($"paciente desde {p:dd/MM/yyyy}");

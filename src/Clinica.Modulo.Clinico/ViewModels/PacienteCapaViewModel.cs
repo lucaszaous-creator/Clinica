@@ -459,11 +459,4 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
     /// <summary>Abre a tela de medidas do mesmo paciente, sem perder o foco do posto.</summary>
 
-    private static int Idade(DateOnly nascimento)
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var idade = hoje.Year - nascimento.Year;
-        if (nascimento > hoje.AddYears(-idade)) idade--;
-        return idade;
-    }
 }

@@ -328,6 +328,18 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             ? ModuloClinico.ChavePacientesDaClinica
             : ModuloClinico.ChaveMeuDia);
 
+    /// <summary>
+    /// O RÓTULO do botão de voltar — "Meu dia" ou "Pacientes" (set/2026, modelo 3).
+    ///
+    /// ⚠️ Ele é derivado do MESMO campo que o <see cref="VoltarCommand"/> lê para decidir
+    /// o destino. Rótulo fixo ("← Meu dia", como no mockup) mentiria em metade dos
+    /// cliques: quem abriu o prontuário pela carteira não tem horário nenhum e volta para
+    /// "Pacientes". Botão que anuncia um destino e leva a outro é a mesma família do botão
+    /// que não faz nada (parcela 41) — só que pior, porque ele FUNCIONA.
+    /// </summary>
+    public string RotuloVoltar
+        => _foco.AgendamentoId is null ? "Pacientes" : "Meu dia";
+
     /// <summary>Abre a carteira para escolher outra pessoa.</summary>
     [RelayCommand]
     private void TrocarPaciente() => NavegacaoSuite.Ir(ModuloClinico.ChavePacientesDaClinica);
@@ -412,6 +424,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// </summary>
     private void DescreverSessao()
     {
+        // O destino do "voltar" segue o foco, e o foco pode mudar sem a tela ser
+        // remontada (a troca de paciente pela carteira). Sem esta linha o botão continuaria
+        // anunciando o destino do paciente anterior.
+        OnPropertyChanged(nameof(RotuloVoltar));
+
         if (_horario is null) { TemSessao = false; _relogio.Stop(); return; }
 
         TemSessao = true;

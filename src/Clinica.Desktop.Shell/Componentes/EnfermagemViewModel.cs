@@ -906,13 +906,12 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         var partes = new List<string>();
 
-        if (paciente.DataNascimento is { } nascimento)
-        {
-            var hoje = DateOnly.FromDateTime(DateTime.Today);
-            var idade = hoje.Year - nascimento.Year;
-            if (nascimento > hoje.AddYears(-idade)) idade--;
-            partes.Add($"{idade} anos");
-        }
+        // A idade só entra quando é plausível (`IdadeDoPaciente`, no Domínio): esta linha
+        // é o contexto que a técnica lê para reconhecer o paciente, e "1851 anos" nela
+        // gasta a linha inteira dizendo o que ninguém pode usar.
+        if (IdadeDoPaciente.Anos(paciente.DataNascimento, DateOnly.FromDateTime(DateTime.Today))
+            is { } idade)
+            partes.Add(idade == 1 ? "1 ano" : $"{idade} anos");
 
         if (!string.IsNullOrWhiteSpace(paciente.ConvenioNome))
             partes.Add(paciente.ConvenioNome);

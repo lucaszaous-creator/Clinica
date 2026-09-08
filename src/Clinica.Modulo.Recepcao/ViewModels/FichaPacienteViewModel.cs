@@ -843,7 +843,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         Nome = p.Nome;
         Documento = string.IsNullOrWhiteSpace(p.Documento) ? "—" : Cpf.Formatar(p.Documento);
         Telefone = string.IsNullOrWhiteSpace(p.Telefone) ? "—" : p.Telefone!;
-        Nascimento = p.DataNascimento is { } n ? $"{n:dd/MM/yyyy} ({Idade(n)} anos)" : "—";
+        // ⚠️ Esta é a porta onde a data errada se CONSERTA, então é aqui que ela mais
+        // precisa aparecer: "01/01/1851 (data a conferir)" em vez de "(175 anos)".
+        // A regra é UMA (`IdadeDoPaciente`, no Domínio) — eram três cópias da conta, e as
+        // três imprimiam a idade impossível que a direção fotografou.
+        Nascimento = p.DataNascimento is { } n
+            ? $"{n:dd/MM/yyyy} ({IdadeDoPaciente.Texto(n, DateOnly.FromDateTime(DateTime.Today))})"
+            : "—";
         _convenioCodigo = p.ConvenioCodigo ?? p.Convenio.ToString();
         Convenio = CatalogoConvenios.Nome(_convenioCodigo);
         Carteirinha = string.IsNullOrWhiteSpace(p.Carteirinha)
@@ -872,14 +878,6 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         UltimaSessao = p.Atendimentos.Count == 0
             ? "—"
             : p.Atendimentos.Max(a => a.Data).ToString("dd/MM/yyyy");
-    }
-
-    private static int Idade(DateOnly nascimento)
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var idade = hoje.Year - nascimento.Year;
-        if (nascimento > hoje.AddYears(-idade)) idade--;
-        return idade;
     }
 
     private async Task CarregarProntuarioAsync(IServiceScope scope, int pacienteId, int geracao)

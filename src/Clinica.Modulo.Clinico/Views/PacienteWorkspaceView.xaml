@@ -27,13 +27,24 @@
          3. A IDENTIDADE ERA UM NOME. Idade, convênio, desde quando se trata aqui e — o que
             mais importa — as ALERGIAS estavam no banco e não no olho de quem atende.
 
-         Por que RAIL VERTICAL e não abas
-         ................................
-         São SETE seções. O TabPanel padrão do WPF ESPREME as abas quando julga que a régua
-         não cabe (o defeito da parcela 50: "Convê", "Prontu", "Documer"), e mesmo com o
-         WrapPanel sete rótulos quebram em duas linhas de régua. A lista vertical dá a cada
-         seção o rótulo inteiro, cresce sem quebrar nada e é o desenho de todo prontuário
-         eletrônico — inclusive o que a clínica usa hoje.
+         O DESENHO DE HOJE: o modelo 3, "o cabeçalho claro" (set/2026)
+         .............................................................
+         A direção mandou a foto desta tela e pediu para profissionalizá-la; saíram dez
+         desenhos em duas rodadas e o aprovado foi o modelo 3 de
+         `docs/mockups/atendimento-sem-barras-cinco.html`. Duas bandas claras no topo — o
+         CRACHÁ e a RÉGUA das sete seções — e a folha logo abaixo.
+
+         ⚠️ O RAIL VERTICAL SAIU, e o comentário que ficava aqui defendia a escolha
+         contrária: "sete rótulos quebram em duas linhas de régua". O argumento estava
+         certo sobre o `TabPanel`, que ESPREME (o defeito da parcela 50: "Convê", "Prontu",
+         "Documer") — e errado sobre a régua, porque quem a monta aqui é um `WrapPanel`,
+         que dá a cada filho a largura que ele PEDE e DOBRA para a linha de baixo quando
+         não couber. Aba na segunda linha se lê; "Documer" não. É a mesma lição da parcela
+         50, aplicada do outro lado.
+
+         O que a troca devolve é ALTURA: os 212 px do rail eram uma coluna permanente ao
+         lado da folha, que é onde se escreve. E o que ela devolve de LARGURA vai para a
+         folha inteira, em todas as sete seções.
          ============================================================================ -->
 
     <UserControl.Resources>
@@ -42,38 +53,46 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
         <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
 
-        <!-- Uma seção do rail. Fundo e traço à esquerda marcam a escolhida — a mesma
-             gramática da sidebar do shell, para as duas não parecerem apps diferentes. -->
+        <!-- Uma seção da RÉGUA (set/2026, modelo 3 aprovado). Era uma linha de rail
+             vertical, com traço de 3 px à esquerda; virou uma aba horizontal com
+             SUBLINHADO de 2 px. A gramática é a das abas da suíte (Abas.xaml), não a da
+             sidebar do shell: aqui a régua é DA TELA, não do app.
+
+             ⚠️ O sublinhado ocupa o lugar mesmo APAGADO (Transparent, nunca Collapsed):
+             sem isso o rótulo sobe 2 px ao ser escolhido e a régua treme a cada troca —
+             a mesma decisão do `Abas.xaml` desde a parcela 47.
+
+             ⚠️ E o vão entre as seções é o Padding da RAIZ, não uma margem do sublinhado:
+             assim o traço mede exatamente o rótulo, e não o rótulo mais o vão. -->
         <Style x:Key="ItemSecaoClinica" TargetType="ListBoxItem">
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="Margin" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="raiz" Background="Transparent" CornerRadius="6"
-                                Padding="10,9">
+                        <Border x:Name="raiz" Background="Transparent" Padding="0,0,26,0"
+                                TextElement.Foreground="{StaticResource Brush.Texto.Secundario}">
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <!-- O traço ocupa o lugar mesmo apagado: sem isso o rótulo
-                                     anda 3 px ao ser escolhido e a régua treme. -->
-                                <Border x:Name="traco" Grid.Column="0" Width="3"
-                                        CornerRadius="2" Background="Transparent" />
-                                <ContentPresenter Grid.Column="1" Margin="9,0,0,0"
-                                                  VerticalAlignment="Center" />
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="2" />
+                                </Grid.RowDefinitions>
+                                <ContentPresenter Grid.Row="0" VerticalAlignment="Center"
+                                                  Margin="0,13,0,11" />
+                                <Border x:Name="traco" Grid.Row="1" Background="Transparent" />
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="raiz" Property="Background"
-                                        Value="{StaticResource Brush.Superficie.Hover}" />
+                                <Setter TargetName="raiz" Property="TextElement.Foreground"
+                                        Value="{StaticResource Brush.Texto.Primario}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="raiz" Property="Background"
-                                        Value="{StaticResource Brush.Acento.Tint}" />
+                                <Setter TargetName="raiz" Property="TextElement.Foreground"
+                                        Value="{StaticResource Brush.Acento}" />
+                                <Setter TargetName="raiz" Property="TextElement.FontWeight"
+                                        Value="SemiBold" />
                                 <Setter TargetName="traco" Property="Background"
                                         Value="{StaticResource Brush.Acento}" />
                             </Trigger>
@@ -82,7 +101,7 @@
                 </Setter.Value>
             </Setter>
             <!-- A seção de escrita do OUTRO lado some (parcela 95). COLAPSA, nunca sai da
-                 lista: o índice do rail é a régua do TabControl (ver ItemDoRail).
+                 lista: o índice da régua é a régua do TabControl (ver ItemDoRail).
                  ⚠️ DEPOIS de todos os Setter: Style.Triggers é elemento de PROPRIEDADE, e
                  elemento de propriedade no MEIO do conteúdo é MC3088 — só o compilador
                  de marcação do CI o vê (checagem 46). -->
@@ -104,7 +123,11 @@
                          AcaoCommand="{Binding TrocarPacienteCommand}"
                          Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
 
-        <DockPanel Margin="24,16,24,0">
+        <!-- O casco tem margem ZERO: o cabeçalho e a régua são bandas de largura
+             inteira (o modelo 3), e margem lateral aqui as deixaria flutuando com o fundo
+             aparecendo dos dois lados. Quem recupera o respiro é o Padding do conteúdo,
+             mais abaixo. -->
+        <DockPanel>
             <DockPanel.Style>
                 <Style TargetType="DockPanel">
                     <Setter Property="Visibility" Value="Visible" />
@@ -116,37 +139,46 @@
                 </Style>
             </DockPanel.Style>
 
-            <!-- ===================== O CRACHÁ DA PESSOA, EM DUAS LINHAS =====================
-                 (set/2026, "uma folha, dois lados"). Eram seis linhas — nome, idade,
-                 contexto, a alergia numa faixa vermelha de largura inteira, "em
-                 acompanhamento", "últimas hipóteses" — e embaixo uma BARRA VERDE de 74 px
-                 cuja única informação era "em atendimento há 12 min". Somados, uns 225 px
-                 antes de qualquer seção; a folha ficava com o menor pedaço da tela.
-                 A primeira linha é QUEM (nome · idade · convênio · carteirinha); a segunda
-                 é o que muda a conduta (a alergia como pílula vermelha, o acompanhamento, a
-                 última hipótese). A situação da sessão virou o CRONÔMETRO e uma PÍLULA à direita, com
-                 "Iniciar" e "Reabrir" ao lado quando cabem; o Finalizar desceu para o pé da
-                 folha, ao lado do Salvar — onde a sessão termina.
-                 ⚠️ A ALERGIA continua sendo ATRIBUTO DA PESSOA, não alerta do dia (parcela
-                 74): ela fica ao lado do nome enquanto o prontuário estiver aberto. O que
-                 mudou foi o peso — pílula, não faixa — e a faixa era a razão de o crachá
-                 ter seis linhas. -->
-            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="14,10"
-                    Margin="0,0,0,12">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Content="&#xE72B;" Padding="4,0" Margin="0,0,8,0"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoFantasma}"
-                            ToolTip="Voltar para a lista"
-                            Command="{Binding VoltarCommand}" />
+            <!-- ==================== BANDA 1 · O CABEÇALHO CLARO ====================
+                 (set/2026, modelo 3 aprovado.) Era um `Card` com moldura e duas linhas
+                 dentro da área de conteúdo; virou a BANDA do topo da tela — superfície
+                 branca, um filete embaixo, sem moldura em volta. É o que o mockup chama de
+                 "uma banda a menos entre o nome do paciente e a folha".
+
+                 A ordem é a da leitura: por onde eu VOLTO · QUEM é · o que MUDA A CONDUTA ·
+                 em que PÉ está a sessão.
+
+                 ⚠️ MinHeight, nunca Height. Os 70 px do mockup são a altura do caso comum;
+                 o paciente com três alergias, dois problemas ativos e as últimas hipóteses
+                 precisa de mais, e altura TRAVADA não encolhe conteúdo — ela o DECEPA
+                 (parcela 79, nesta mesma tela). O que cresce com o dado dobra de linha; o
+                 que não cabe nunca é cortado. -->
+            <Border DockPanel.Dock="Top" Padding="20,10"
+                    MinHeight="70"
+                    Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                <DockPanel>
+
+                    <!-- POR ONDE EU VOLTO. O rótulo é do DESTINO, e o destino depende de
+                         como se chegou: quem veio de um horário volta para "Meu dia", quem
+                         veio da carteira volta para "Pacientes" (`Voltar`, no ViewModel).
+                         Um rótulo fixo mentiria em metade dos cliques. -->
+                    <Button DockPanel.Dock="Left" VerticalAlignment="Center"
+                            Margin="0,0,14,0" MinWidth="110"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding VoltarCommand}"
+                            ToolTip="Fechar este prontuário e voltar para a lista de onde ele foi aberto">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72B;" FontFamily="{StaticResource FonteIcones}"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding RotuloVoltar}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Button>
+
                     <!-- A FOTO do cadastro, quando existe; senão as iniciais. -->
-                    <Grid Grid.Column="1" Width="40" Height="40" VerticalAlignment="Center">
+                    <Grid DockPanel.Dock="Left" Width="40" Height="40" VerticalAlignment="Center">
                         <ctrl:Avatar Tamanho="40" Nome="{Binding Paciente}" />
                         <Border CornerRadius="20" ClipToBounds="True"
                                 Visibility="{Binding Foto, Converter={StaticResource ObjetoParaVisibilidade},
@@ -156,15 +188,139 @@
                             </Border.Background>
                         </Border>
                     </Grid>
-                    <StackPanel Grid.Column="2" Margin="12,0,12,0" VerticalAlignment="Center">
-                        <!-- Linha 1: quem. WrapPanel dentro de painel VERTICAL, nunca docado
-                             (checagem 32): numa janela estreita a carteirinha desce de linha
-                             em vez de sair pela borda. -->
+
+                    <!-- ==================== EM QUE PÉ ESTÁ A SESSÃO ====================
+                         Docado à DIREITA e declarado ANTES do miolo: no DockPanel quem é
+                         declarado depois é quem sobra com o resto, e é o miolo (a
+                         identidade) que tem de ceder — nunca a pílula, que tem largura
+                         conhecida.
+
+                         ⚠️ E é por isso que esta ponta tem ORÇAMENTO DE LARGURA. Um
+                         `StackPanel` horizontal dá a cada filho a largura que ele PEDE e
+                         nunca dobra a linha (a lição da parcela 58): sem teto na pílula, a
+                         frase longa do horário que ainda não começou ("Horário de 09:00 — o
+                         paciente ainda não entrou na sala") somada aos dois botões comeria
+                         a faixa inteira, e quem some é o NOME DO PACIENTE. Com 260 px o
+                         pior caso — um botão de etapa, o "Trocar paciente" e a pílula —
+                         fica em ~515 px: cabe com folga a 1366 (a tela do balcão) e, na
+                         janela mínima de 960, o nome apenas encurta com reticências em vez
+                         de desaparecer. Os dois botões de etapa nunca aparecem juntos
+                         (`PodeIniciar` e `PodeReabrir` são estados opostos do horário). -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                VerticalAlignment="Center" Margin="14,0,0,0">
+
+                        <Button Content="Iniciar atendimento" Padding="4,0" Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BotaoFantasma}"
+                                ToolTip="O paciente entrou na sala — o balcão vê o cartão mudar de raia."
+                                Command="{Binding IniciarSessaoCommand}"
+                                IsEnabled="{Binding PodeMoverFila}"
+                                Visibility="{Binding PodeIniciar,
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                        <!-- Finalizou no paciente errado, ou precisou chamá-lo de volta. A
+                             porta é daqui: pedir ao balcão que "volte a etapa" tiraria o
+                             paciente da SALA, que é o contrário do que se quer. -->
+                        <Button Content="Reabrir atendimento" Padding="4,0" Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BotaoFantasma}"
+                                Command="{Binding ReabrirSessaoCommand}"
+                                IsEnabled="{Binding PodeMoverFila}"
+                                Visibility="{Binding PodeReabrir,
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                        <Button Content="Trocar paciente" Padding="4,0" Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BotaoFantasma}"
+                                ToolTip="Abrir a carteira e escolher outra pessoa"
+                                Command="{Binding TrocarPacienteCommand}" />
+
+                        <!-- ===== A PÍLULA: o cronômetro e o estado do horário =====
+                             (modelo 3.) Eram DUAS peças lado a lado — o visor escuro do
+                             cronômetro e uma pílula com o estado —, e o desenho aprovado as
+                             funde numa só: ponto verde, o estado em cima, os dígitos
+                             embaixo. Verde enquanto a consulta corre, neutra fora dela.
+
+                             ⚠️ Só existe quando há HORÁRIO de origem (`TemSessao`):
+                             desenhar um cronômetro parado convidaria a "iniciar" um
+                             atendimento que não existe na agenda de ninguém.
+
+                             ⚠️ E os DÍGITOS seguem o TEXTO do cronômetro, nunca o
+                             `EmAtendimento`: quem decide se há o que cronometrar é
+                             `CronometroDaSessao` (Application), e ligar o visor a um
+                             segundo booleano daria duas respostas para a mesma pergunta.
+                             `TextoParaVisibilidade` porque `Cronometro` é string — o
+                             conversor de bool devolveria Collapsed para SEMPRE (parcela 61).
+
+                             ⚠️ A borda é `Brush.Sucesso.Suave`, e não o `#BBEBCB` do
+                             mockup: valor visual sai de TOKEN, nunca de número solto (a
+                             regra 1 do design system). É um degrau acima do fundo, que é o
+                             que o desenho pede. -->
+                        <Border ctrl:Ajudantes.Pilula="True" Padding="14,5"
+                                MaxWidth="260" VerticalAlignment="Center"
+                                Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                                    <Setter Property="BorderThickness" Value="1" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <!-- O ponto só acende com a consulta correndo: ele é o
+                                     sinal de "está andando", não um marcador de pílula. -->
+                                <Ellipse Width="7" Height="7" Margin="0,0,9,0"
+                                         VerticalAlignment="Center"
+                                         Fill="{StaticResource Brush.Sucesso}"
+                                         Visibility="{Binding EmAtendimento,
+                                                      Converter={StaticResource BoolParaVisibilidade}}" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SituacaoSessao}"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontWeight="SemiBold"
+                                               FontSize="{StaticResource Fonte.Legenda}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Cronometro}"
+                                               FontFamily="Consolas, Segoe UI"
+                                               FontSize="{StaticResource Fonte.H3}"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="None"
+                                               Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                               Visibility="{Binding Cronometro,
+                                                            Converter={StaticResource TextoParaVisibilidade}}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ==================== QUEM É, E O QUE MUDA A CONDUTA ====================
+                         O filho que PREENCHE, então ele recebe largura FINITA e os
+                         WrapPanel de dentro dobram de verdade (a checagem 32 pelo avesso:
+                         num filho docado eles seriam medidos com largura infinita e nunca
+                         quebrariam). -->
+                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                         <WrapPanel>
                             <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}"
                                        Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
                             <!-- "45 anos · feminino · Amil · paciente desde 26/03/2022 · 18
-                                 sessões". Montada no modelo, que sabe PULAR o que não existe. -->
+                                 sessões". Montada no modelo, que sabe PULAR o que não existe
+                                 — e que desde set/2026 escreve "idade a conferir" quando a
+                                 data de nascimento é implausível, em vez do "1851 anos" que
+                                 a direção fotografou. -->
                             <TextBlock Text="{Binding Cabecalho.Linha}" TextWrapping="Wrap"
                                        Style="{StaticResource TextoSuave}" Margin="0,0,10,0"
                                        VerticalAlignment="Center"
@@ -191,7 +347,10 @@
                                 <Run Text="{Binding Cabecalho.CarteirinhaTexto, Mode=OneWay}" />
                             </TextBlock>
                         </WrapPanel>
-                        <!-- Linha 2: o que muda a conduta. Some inteira quando não há nada. -->
+                        <!-- Linha 2: o que muda a conduta. Some inteira quando não há nada.
+                             ⚠️ A ALERGIA continua sendo ATRIBUTO DA PESSOA, não alerta do
+                             dia (parcela 74): ela fica ao lado do nome enquanto o prontuário
+                             estiver aberto, e é a "tag" vermelha do mockup. -->
                         <WrapPanel Margin="0,4,0,0"
                                    Visibility="{Binding Cabecalho.TemContextoClinico,
                                                 Converter={StaticResource BoolParaVisibilidade},
@@ -223,84 +382,83 @@
                             </TextBlock>
                         </WrapPanel>
                     </StackPanel>
-                    <!-- A SITUAÇÃO DA SESSÃO, como pílula: verde em curso, neutra fora dele.
-                         Só existe quando há horário de origem — desenhar um cronômetro
-                         parado convidaria a "iniciar" um atendimento que não existe na
-                         agenda de ninguém. Os dois atos raros (Iniciar, quando o paciente
-                         ainda não entrou; Reabrir, entre o encerramento e a conclusão)
-                         ficam ao lado dela, discretos; o Finalizar está no pé da folha. -->
-                    <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
-                        <!-- O CRONÔMETRO e a pílula, lado a lado (set/2026, mockup aprovado —
-                             o "visor neutro"). São DUAS perguntas: o visor diz há quanto tempo
-                             a consulta corre, a pílula diz em que pé o horário está. O visor
-                             neutro não carrega estado — foi por isso que a pílula ficou.
-
-                             ⚠️ A visibilidade segue o TEXTO do cronômetro, não o `EmAtendimento`:
-                             quem decide se há o que cronometrar é `CronometroDaSessao`, e ligar
-                             o visor a um segundo booleano daria duas respostas para a mesma
-                             pergunta — a que alguém esqueceria de corrigir seria esta.
-                             `TextoParaVisibilidade` porque `Cronometro` é string: o conversor de
-                             bool devolveria Collapsed para SEMPRE (parcela 61). -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Border Style="{StaticResource Visor.Cronometro}" Margin="0,0,8,0"
-                                    Visibility="{Binding Cronometro,
-                                                 Converter={StaticResource TextoParaVisibilidade}}">
-                                <TextBlock Text="{Binding Cronometro}"
-                                           Style="{StaticResource Visor.Cronometro.Digitos}" />
-                            </Border>
-                        <Border HorizontalAlignment="Right" Padding="12,4"
-                                ctrl:Ajudantes.Pilula="True"
-                                Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding SituacaoSessao}" TextTrimming="CharacterEllipsis"
-                                       FontWeight="SemiBold" FontSize="{StaticResource Fonte.Tabela}">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding EmAtendimento}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
-                            <Button Content="Iniciar atendimento" Padding="4,0" Margin="0,0,12,0"
-                                    Style="{StaticResource BotaoFantasma}"
-                                    ToolTip="O paciente entrou na sala — o balcão vê o cartão mudar de raia."
-                                    Command="{Binding IniciarSessaoCommand}"
-                                    IsEnabled="{Binding PodeMoverFila}"
-                                    Visibility="{Binding PodeIniciar,
-                                                 Converter={StaticResource BoolParaVisibilidade}}" />
-                            <!-- Finalizou no paciente errado, ou precisou chamá-lo de volta. A
-                                 porta é daqui: pedir ao balcão que "volte a etapa" tiraria o
-                                 paciente da SALA, que é o contrário do que se quer. -->
-                            <Button Content="Reabrir atendimento" Padding="4,0" Margin="0,0,12,0"
-                                    Style="{StaticResource BotaoFantasma}"
-                                    Command="{Binding ReabrirSessaoCommand}"
-                                    IsEnabled="{Binding PodeMoverFila}"
-                                    Visibility="{Binding PodeReabrir,
-                                                 Converter={StaticResource BoolParaVisibilidade}}" />
-                            <Button Content="Trocar paciente" Padding="4,0"
-                                    Style="{StaticResource BotaoFantasma}"
-                                    Command="{Binding TrocarPacienteCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
+                </DockPanel>
             </Border>
-            <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+
+            <!-- ==================== BANDA 2 · A RÉGUA DAS SEÇÕES ====================
+                 O antigo rail de 212 px, deitado. `SelectedIndex` continua sendo `AbaAtual`
+                 e a fonte continua sendo `SecoesAgrupadas`: as chaves de navegação de
+                 outros módulos caem cada uma na sua seção (`ModuloClinico.AbaDe`), e trocar
+                 o leiaute não pode quebrar contrato de navegação (a regressão da parcela
+                 37, 4ª rodada). O que mudou foi o PAINEL e o desenho do item — nada do
+                 contrato.
+
+                 ⚠️ `WrapPanel`, e as duas metades andam juntas: ele só dobra se receber
+                 largura FINITA, e quem a dá é o `ScrollViewer` com a rolagem horizontal
+                 DESLIGADA (com ela ligada o painel é medido com largura infinita e a régua
+                 nunca quebra — a checagem 32 de novo). A 1366 px a régua cabe numa linha; na
+                 janela mínima (960) ela dobra para duas, que é o que se lê. -->
+            <Border DockPanel.Dock="Top" Padding="20,0"
+                    Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                <DockPanel>
+                    <!-- A PENDÊNCIA DO TERMO, no fim da régua (modelo 3). Ela era uma faixa
+                         inteira dentro da seção Atendimento — logo, invisível nas outras
+                         seis. Aqui ela acompanha o prontuário aberto, que é o certo: o
+                         paciente que não assinou continua sem assinar enquanto se lê o
+                         histórico dele.
+                         ⚠️ O estado e o comando vêm de `Atendimento`, nunca de uma cópia:
+                         duas definições de "falta o termo" divergiriam na primeira correção,
+                         e a que ninguém lembraria de ajustar seria esta. -->
+                    <Button DockPanel.Dock="Right" VerticalAlignment="Center"
+                            Margin="16,0,0,0"
+                            Style="{StaticResource BotaoSecundarioPerigo}"
+                            Command="{Binding Atendimento.ColherTermoCommand}"
+                            IsEnabled="{Binding Atendimento.PodeColherTermo}"
+                            ToolTip="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui."
+                            Visibility="{Binding Atendimento.TemTermoPendente,
+                                         Converter={StaticResource BoolParaVisibilidade},
+                                         FallbackValue=Collapsed}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource FonteIcones}"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="Termo não assinado · colher"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <ListBox Background="Transparent" BorderThickness="0" Padding="0"
+                             ItemsSource="{Binding SecoesAgrupadas}"
+                             ItemContainerStyle="{StaticResource ItemSecaoClinica}"
+                             SelectedIndex="{Binding AbaAtual}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <!-- QUEBRA, nunca corta (a decisão do rail antigo, parcela
+                                     50): num WrapPanel o item recebe a largura que PEDE, e
+                                     "Atendimento de enfermagem" cabe com folga na janela
+                                     mínima — o Wrap é a rede para o caso em que não coubesse,
+                                     onde dobrar se lê e cortar não. -->
+                                <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <!-- Sem cabeçalho de grupo: os grupos continuam no C#
+                             (`GruposDoPaciente`) porque é a vista agrupada que mantém a
+                             ordem estável — e é essa ordem que a checagem 38 casa com o
+                             XAML. Numa régua horizontal, títulos de grupo seriam três
+                             rótulos a mais competindo com as sete seções. -->
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Top" Margin="24,12,24,0"
                     Visibility="{Binding MensagemSessao, Converter={StaticResource TextoParaVisibilidade},
                                  FallbackValue=Collapsed}">
                 <Border.Style>
@@ -316,37 +474,15 @@
                 <TextBlock Text="{Binding MensagemSessao}" TextWrapping="Wrap" />
             </Border>
 
-            <!-- ===================== O RAIL DAS SEÇÕES =====================
-                 SelectedIndex continua sendo AbaAtual: as chaves de navegação de outros
-                 módulos caem cada uma na sua seção (ModuloClinico.AbaDe), e trocar o
-                 leiaute não pode quebrar contrato de navegação (a regressão da parcela
-                 37, 4ª rodada). -->
-            <!-- 212 e não 196: "Atendimento de enfermagem" (o rótulo mais longo) saía
-                 com reticências no rail — rótulo cortado no menu é o defeito da parcela 50. -->
-            <ListBox DockPanel.Dock="Left" Width="212" Margin="0,0,16,0"
-                     Background="Transparent" BorderThickness="0"
-                     ItemsSource="{Binding SecoesAgrupadas}"
-                     ItemContainerStyle="{StaticResource ItemSecaoClinica}"
-                     SelectedIndex="{Binding AbaAtual}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <!-- QUEBRA, nunca corta: "Atendimento de enfermagem" e "Prescrições
-                             e documentos" não cabem em 196 px, e rótulo de menu cortado ao
-                             meio já foi reprovação do cliente (parcela 50: "Convê",
-                             "Prontu", "Documer"). -->
-                        <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-                <!-- Sem cabeçalho de grupo (set/2026): com seis linhas por lado, "SESSÃO"
-                     seria o título de UMA linha, e título de um item só é moldura. Os
-                     grupos continuam no C# (`GruposDoPaciente`): a vista agrupada é o
-                     que mantém a ordem estável, e a checagem 38 casa as duas listas. -->
-            </ListBox>
+            <!-- ==================== O CONTEÚDO ====================
+                 O respiro que o casco perdeu volta AQUI, como Padding: as duas bandas
+                 acima são de largura inteira e o conteúdo é que tem margem. Sem isto as
+                 sete seções encostariam na borda da janela.
 
-            <!-- O conteúdo. TabControl com a régua ESCONDIDA: ele já resolve montar só a
-                 seção escolhida (as sete Views não são construídas de uma vez), e quem
-                 desenha os rótulos é o rail ao lado. -->
+                 TabControl com a régua ESCONDIDA: ele já resolve montar só a seção
+                 escolhida (as sete Views não são construídas de uma vez), e quem desenha os
+                 rótulos é a régua acima. -->
+            <Border Padding="24,16,24,0">
             <TabControl SelectedIndex="{Binding AbaAtual}"
                         Background="Transparent" BorderThickness="0">
                 <TabControl.Template>
@@ -381,6 +517,7 @@
                     <views:AcompanhamentoView />
                 </TabItem>
             </TabControl>
+            </Border>
         </DockPanel>
     </Grid>
 </UserControl>

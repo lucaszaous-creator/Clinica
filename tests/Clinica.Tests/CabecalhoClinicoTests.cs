@@ -133,12 +133,14 @@ public class CabecalhoClinicoTests : IDisposable
     public void Idade_conta_anos_COMPLETOS(int an, int mn, int dn,
                                            int ah, int mh, int dh, int esperado)
     {
-        var idade = typeof(ConsultorioService)
-            .GetMethod("IdadeEm", System.Reflection.BindingFlags.NonPublic
-                                  | System.Reflection.BindingFlags.Static)!
-            .Invoke(null, [(DateOnly?)new DateOnly(an, mn, dn), new DateOnly(ah, mh, dh)]);
-
-        idade.Should().Be(esperado);
+        // ⚠️ Este teste alcançava a conta por REFLEXÃO, num `private static IdadeEm` do
+        // `ConsultorioService` — e a reflexão era o sintoma: a regra estava PRIVADA num
+        // serviço, então cada porta que precisava dela escreveu a sua. Eram OITO cópias, e
+        // sete imprimiam o "1851 anos" que a direção fotografou (set/2026). A regra subiu
+        // para `IdadeDoPaciente`, no Domínio, e o teste passou a chamá-la pela porta da
+        // frente — os três casos continuam os mesmos.
+        IdadeDoPaciente.Anos(new DateOnly(an, mn, dn), new DateOnly(ah, mh, dh))
+            .Should().Be(esperado);
     }
 
     [Fact]

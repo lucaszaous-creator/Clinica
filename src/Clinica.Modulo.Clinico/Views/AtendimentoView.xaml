@@ -71,7 +71,6 @@
                                 <MultiDataTrigger.Conditions>
                                     <Condition Binding="{Binding AlertasClinicos.Count}" Value="0" />
                                     <Condition Binding="{Binding Alertas.Count}" Value="0" />
-                                    <Condition Binding="{Binding TemTermoPendente}" Value="False" />
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </MultiDataTrigger>
@@ -86,27 +85,16 @@
                     <ItemsControl ItemsSource="{Binding Alertas}"
                                   ItemTemplate="{StaticResource LinhaAviso}" />
 
-                    <!-- A PORTA do termo na própria linha (parcelas 48 e 66): alerta sem
-                         porta no mesmo app ensina a pessoa a ignorá-lo. É a MESMA janela
-                         do balcão, não uma cópia. -->
-                    <Grid Margin="0,3"
-                          Visibility="{Binding TemTermoPendente, Converter={StaticResource BoolParaVisibilidade}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="3" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" CornerRadius="2"
-                                Background="{StaticResource Brush.Semaforo.Vermelho}" />
-                        <TextBlock Grid.Column="1" Margin="10,0,12,0" TextWrapping="Wrap"
-                                   VerticalAlignment="Center" FontWeight="SemiBold"
-                                   Text="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui." />
-                        <Button Grid.Column="2" Content="Colher assinatura…"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="160"
-                                VerticalAlignment="Center"
-                                IsEnabled="{Binding PodeColherTermo}"
-                                Command="{Binding ColherTermoCommand}" />
-                    </Grid>
+                    <!-- ⚠️ A LINHA DO TERMO SAIU DAQUI, e subiu para a RÉGUA do workspace
+                         (set/2026, modelo 3 aprovado). Ela não foi apagada: mudou de lugar,
+                         e o lugar novo é melhor por uma razão que não é de leiaute — aqui
+                         ela só existia DENTRO da seção Atendimento, logo era invisível nas
+                         outras seis. Quem estivesse lendo o histórico do paciente não via
+                         que ele não assinou. Na régua ela acompanha o prontuário aberto.
+
+                         Mantê-la nos dois lugares seria o que o projeto recusa desde
+                         sempre: duas portas para o mesmo ato, na MESMA tela, com o dobro
+                         das chances de uma delas divergir. -->
                 </StackPanel>
             </Border>
 

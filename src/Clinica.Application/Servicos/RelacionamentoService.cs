@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -110,13 +111,15 @@ public sealed class RelacionamentoService
             .Select(p =>
             {
                 var nascimento = p.DataNascimento!.Value;
-                // Idade só quando o ano de nascimento é plausível: cadastro antigo às
-                // vezes traz 01/01/0001, e "2025 anos" na tela é pior que campo vazio.
-                int? idade = nascimento.Year > 1900
-                    ? dia.Year - nascimento.Year -
-                      (dia.Month < nascimento.Month ||
-                       (dia.Month == nascimento.Month && dia.Day < nascimento.Day) ? 1 : 0)
-                    : null;
+                // Idade só quando a data é plausível — e a regra é a MESMA do resto do
+                // sistema (`IdadeDoPaciente`, no Domínio). Esta era a única porta que já
+                // tinha percebido o defeito, e a corrigiu com um limiar PRÓPRIO
+                // (`Year > 1900`): duas definições de "esta data serve?" divergem na
+                // primeira correção, e foi por isso que as outras sete continuaram
+                // imprimindo "1851 anos".
+                // ⚠️ A idade é a DO DIA da lista, não a de hoje: quem faz aniversário
+                // sexta completa a idade na sexta.
+                int? idade = IdadeDoPaciente.Anos(nascimento, dia);
 
                 return new Aniversariante(
                     p.Id, p.Nome, p.Telefone, nascimento, idade, vemHoje.Contains(p.Id));

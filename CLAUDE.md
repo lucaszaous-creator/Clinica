@@ -3952,6 +3952,77 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   nome qualificado noutro ponto, e o campo novo não. Rede que roda antes do push é rede
   que pega antes do CI.
 
+- **A TELA APROVADA CONSTRUÍDA, e a idade impossível em OITO cópias** (set/2026 — a
+  direção: *"eu aprovei esse tipo de tela de atendimento porém ao abrir o sistema não foi
+  aplicado, aí cabe a dúvida se as outras coisas também foram aplicadas!"*). O modelo 3
+  ("o cabeçalho claro") tinha sido aprovado em mockup e a parcela anterior entregou o
+  DESENHO, não a tela; os dois defeitos que a foto do dia mostrava seguiam de pé.
+  ⚠️ **A pergunta da direção é a lição de método, e ela vale mais que a parcela:** entregar
+  o desenho de uma tela aprovada e não construí-la gasta a confiança em TUDO o que foi
+  entregue junto — inclusive no que estava certo. **Parcela que separa "o desenho" da
+  "tela" precisa dizer, para quem aprovou, que o que ele vai ver no sistema não mudou** —
+  senão o próximo relato não é "a tela não veio", é "será que alguma coisa vem?".
+  **O RAIL VERTICAL DE 212 px DEITOU e virou RÉGUA.** As sete seções são as mesmas, na
+  mesma ordem, da MESMA lista do C# (`SecoesAgrupadas`) e com o mesmo `SelectedIndex` —
+  trocar leiaute não pode quebrar contrato de navegação (a regressão da parcela 37, 4ª
+  rodada). O que mudou foi o PAINEL (`WrapPanel`) e o desenho do item (sublinhado de 2 px
+  no lugar do traço à esquerda).
+  ⚠️ **O comentário do arquivo defendia a decisão CONTRÁRIA** — *"sete rótulos quebram em
+  duas linhas de régua"* — e estava meio certo: o `TabPanel` ESPREME (parcela 50: "Convê",
+  "Prontu", "Documer"), o `WrapPanel` DOBRA. Aba na segunda linha se lê; "Documer" não. É a
+  mesma lição da parcela 50 pelo outro lado, e ela estava escrita neste arquivo. **Comentário
+  que justifica uma decisão a torna invisível para quem a revisita** (parcela 74): ao trocar
+  a decisão, o comentário entra no mesmo commit.
+  ⚠️ **A pendência do TERMO subiu para a régua, e o ganho não é de leiaute:** ela era uma
+  faixa dentro da seção Atendimento, logo **invisível nas outras seis** — quem lia o
+  histórico não via que o paciente não assinou. Na régua ela acompanha o prontuário aberto.
+  A faixa antiga foi REMOVIDA no mesmo commit: mantê-la seriam duas portas para o mesmo ato
+  na mesma tela.
+  ⚠️ **`StackPanel` horizontal docado NUNCA cede, e quem some é o NOME DO PACIENTE.** A
+  ponta direita da banda (botão de etapa + "Trocar paciente" + a pílula) precisou de
+  ORÇAMENTO de largura — `MaxWidth` na pílula —, senão a frase longa do horário que ainda
+  não começou comeria a faixa e o miolo, que é o filho que PREENCHE, ficaria com zero. É a
+  parcela 58 aplicada a uma banda de cabeçalho: **num DockPanel, o docado ganha e o fill
+  paga; então quem tem tamanho imprevisível é que precisa de teto.**
+  ⚠️ **A IDADE ESTAVA EM OITO CÓPIAS, e sete imprimiam "1851 anos".** A conta estava certa;
+  errada estava a DATA (importação do Smart Clinic, ou dedo no teclado), e nenhuma das
+  portas perguntava se aquilo podia ser uma pessoa viva. As sete: o crachá, as duas fichas
+  (balcão e faturamento), a busca do Novo atendimento, o contexto da Enfermagem, a lista do
+  faturamento e — a pior — **o PDF que o paciente leva embora**. A oitava, a capa do
+  paciente, era código morto.
+  ⚠️ **E a NONA já tinha corrigido o defeito com regra PRÓPRIA**: o aniversário
+  (`RelacionamentoService`) filtrava por `Year > 1900`, com um comentário dizendo *"2025
+  anos na tela é pior que campo vazio"*. Alguém encontrou o defeito, resolveu-o no lugar
+  onde doeu e a solução não alcançou as outras oito. **Correção local de um defeito geral é
+  o que faz o defeito geral sobreviver** — e a próxima pessoa a encontrá-lo vai achar que é
+  novo. A regra virou UMA (`IdadeDoPaciente`, no Domínio), e a FRASE também
+  (`Texto` → "38 anos" / "data a conferir"): corrigir a conta e deixar a frase em três
+  cópias seria fazer metade do serviço, porque é a frase que o paciente lê.
+  ⚠️ **A regra é a da MEDIDA CLÍNICA: recusa-se o IMPLAUSÍVEL, nunca o anormal.** Teto de
+  130 anos (o recorde verificado é 122): um teto apertado apagaria a idade da paciente de
+  103, que é justamente aquela em que a idade MUDA a conduta. E **AUSENTE ≠ IMPLAUSÍVEL** —
+  ficha sem data é o caso normal da clínica (a linha só pula a idade); data errada é
+  defeito de CADASTRO, e sumir com ela em silêncio a deixaria errada para sempre. Daí o
+  terceiro estado escrito: "idade a conferir" no crachá, "data a conferir" ao lado da data
+  nas fichas e no PDF. Quem conserta é o balcão, e ele precisa VER.
+  ⚠️ **Um teste alcançava a regra por REFLEXÃO num `private static`, e a reflexão era o
+  SINTOMA**: a regra estava privada dentro de um serviço, então cada porta que precisou
+  dela escreveu a sua. **Teste que precisa de reflexão para alcançar uma regra está dizendo
+  que a regra está no lugar errado.**
+  ⚠️ **O "EMITIR DOCUMENTO" DUPLICADO ERA UM BOTÃO ACESO QUE NÃO FAZIA NADA — na OUTRA
+  porta.** Ele estava no corpo COMPARTILHADO da `FolhaDaSessaoView` e no slot `Ferramentas`
+  do Consultório: dois botões idênticos lado a lado ali. E `EmitirDocumentoCommand` /
+  `PodeEmitirDocumento` só existem em `AtendimentoViewModel`, **não na base** — então na
+  janela "Nova sessão" do Prontuário (`EscreverSessaoViewModel`) os dois bindings não
+  resolviam: comando nulo e `IsEnabled` caindo no padrão `true`. O defeito da parcela 41,
+  dentro do componente que a extração criou, e o comentário do slot logo acima já dizia por
+  escrito que emitir documento é do Consultório.
+  **A regra que fica: ao extrair um componente para DUAS portas, todo binding do corpo
+  compartilhado tem de resolver na ViewModel BASE.** O que só uma porta tem entra pelo
+  slot. Nenhuma rede pega isto — o XAML é bem-formado, o `compilar-sombra` não lê o corpo
+  do XAML e o binding morto é silencioso —, e a conferência é `grep` do membro no tipo
+  base.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
