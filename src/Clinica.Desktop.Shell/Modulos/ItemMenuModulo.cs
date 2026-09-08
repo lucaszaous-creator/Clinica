@@ -204,6 +204,25 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public IReadOnlyList<AbaMenu> Abas { get; init; } = [];
 
+    /// <summary>
+    /// Enquanto esta tela está aberta, o app é ELA: o shell recolhe a sidebar e a barra
+    /// de cima (set/2026, o mockup <c>docs/mockups/atendimento-sem-barras-cinco.html</c>,
+    /// modelo 3, aprovado pela direção — "some toda barra vertical, inclusive a tira de
+    /// ícones do shell").
+    ///
+    /// ⚠️ <b>Item imersivo declara as PORTAS DE SAÍDA dentro da própria tela</b>, porque
+    /// as do shell somem junto: a do paciente tem o "← Meu dia" e o "Trocar paciente" no
+    /// cabeçalho, e o estado vazio dela tem o "Ir para Pacientes" (o cabeçalho colapsa
+    /// quando não há ninguém escolhido). Tela imersiva sem saída própria é a pessoa
+    /// trancada no app — o oposto do que o desenho quer.
+    ///
+    /// ⚠️ Quem DESLIGA o modo é a navegação: <c>ShellViewModel.Navegar</c> lê esta marca
+    /// a cada destino, então ir para qualquer outro item devolve as duas barras sozinho.
+    /// Ctrl+B e Ctrl+F também as devolvem — atalho que não faz nada numa tela é o defeito
+    /// da parcela 41 vestido de teclado.
+    /// </summary>
+    public bool Imersivo { get; init; }
+
     [ObservableProperty]
     private bool _estaAtivo;
 }

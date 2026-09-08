@@ -363,15 +363,26 @@ public sealed class ModuloClinico : IModuloApp
         // abrem alguém. Tirá-las da lista — e não só do menu — foi o que quebrou todos
         // esses botões de uma vez: o shell navega procurando a chave em `Itens`, e o que
         // não está lá simplesmente não abre.
+        //
+        // ⚠️ AS OITO SÃO `Imersivo`: as oito caem na MESMA tela (ver CriarTela), cada uma
+        // numa seção, e o mockup aprovado é da TELA e não da porta por onde se entra nela.
+        // Marcar só a que a fila usa deixaria o app com duas caras para a mesma tela,
+        // conforme o botão que se clicou — e sem sintoma nenhum: build, testes e as três
+        // redes seguiriam verdes.
+        //
+        // ⚠️ E a saída mora na própria tela: o "← Meu dia"/"Pacientes" e o "Trocar
+        // paciente" no cabeçalho, mais o "Ir para Pacientes" do estado vazio (o cabeçalho
+        // colapsa quando não há ninguém escolhido). Sem elas, com a sidebar e a barra de
+        // cima recolhidas, a pessoa ficaria trancada.
         new ItemMenuModulo
         {
             Chave = ChavePaciente, Rotulo = "Paciente", Glifo = "\uE77B", Icone = "pessoa",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         new ItemMenuModulo
         {
             Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F", Icone = "prancheta",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         // O destino do "Atender" da enfermagem. Ele PRECISA estar nesta lista, e não só
         // no rail: o shell navega procurando a chave em `Itens`, e o que não está aqui
@@ -385,27 +396,27 @@ public sealed class ModuloClinico : IModuloApp
         {
             Chave = ChaveAtendimentoEnfermagem, Rotulo = "Atendimento de enfermagem",
             Glifo = "\uE95E", Icone = "coracao", Grupo = GrupoSidebar.Atendimento,
-            Requer = Permissao.VerProntuario, Oculto = true
+            Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         new ItemMenuModulo
         {
             Chave = ChaveProntuario, Rotulo = "Prontuário", Glifo = "\uE7C3", Icone = "ficha",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         new ItemMenuModulo
         {
             Chave = ChaveEvolucaoDor, Rotulo = "Evolução da dor", Glifo = "\uEB05", Icone = "grafico",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         new ItemMenuModulo
         {
             Chave = ChaveMedidas, Rotulo = "Medidas", Glifo = "\uE9D2", Icone = "barras",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         new ItemMenuModulo
         {
             Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9", Icone = "cheque",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
         // O destino do "Ver resultados" da tela de Exames: a seção "Exames e anexos" do
         // paciente. Oculto porque só existe COM alguém escolhido — como seção ela diz
@@ -413,7 +424,7 @@ public sealed class ModuloClinico : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveExamesDoPaciente, Rotulo = "Exames e anexos", Glifo = "\uE9D2", Icone = "pasta",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario, Oculto = true, Imersivo = true
         },
 
         // AJUDA E SUPORTE — tela do shell, sem `Requer` de propósito (o padrão é

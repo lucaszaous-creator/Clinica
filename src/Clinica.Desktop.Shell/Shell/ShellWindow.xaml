@@ -284,6 +284,15 @@
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>
+                        <!-- Modo imersivo: a sidebar SOME. Quem some é a Visibility e
+                             nunca a Width — a largura já é animada logo abaixo, e
+                             animação vence valor local e de estilo: um terceiro estado
+                             na mesma propriedade brigaria com o Storyboard, e o desfecho
+                             só apareceria na tela montada. A coluna Width="Auto" da raiz
+                             encolhe para zero sozinha com o filho Collapsed. -->
+                        <DataTrigger Binding="{Binding Imersivo}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
                         <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
                             <DataTrigger.EnterActions>
                                 <BeginStoryboard>
@@ -348,9 +357,23 @@
 
         <!-- ==================== CONTEÚDO ==================== -->
         <DockPanel Grid.Column="1">
+            <!-- A barra de cima também some no modo imersivo (o mockup do modelo 3 vai da
+                 barra de título do Windows direto ao cabeçalho do paciente). O que ela
+                 leva junto — sino, pesquisa, "Trocar usuário" — volta a um clique de
+                 distância pelo "← Meu dia" do cabeçalho, e Ctrl+B e Ctrl+F a devolvem
+                 sem sair da tela. -->
             <Border DockPanel.Dock="Top" Height="56"
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Imersivo}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <DockPanel Margin="16,0,24,0">
 
                     <Button DockPanel.Dock="Left" Style="{StaticResource BotaoIcone}"
