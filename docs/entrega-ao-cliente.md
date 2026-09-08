@@ -109,6 +109,27 @@ PostgreSQL — não há comunicação entre eles.
 O Gerente Geral **carrega os módulos dos outros** — quem o instala não precisa da Recepção,
 do Consultório nem do Financeiro na mesma máquina.
 
+### O manual que vai junto do instalador
+
+Cada posto recebe **o PDF do seu app**, e nenhum outro — manual de módulo que a pessoa não
+usa é papel que ninguém lê. Eles ficam em [`manuais/`](manuais/), um por aplicativo,
+escritos para quem opera (passo a passo, ilustração de tela e uma tabela “o que cada botão
+faz”), com capítulo próprio de *perguntas frequentes* e glossário.
+
+| Posto | Manual |
+|---|---|
+| Faturista | [`manuais/pdf/manual-faturamento.pdf`](manuais/pdf/manual-faturamento.pdf) |
+| Balcão | [`manuais/pdf/manual-recepcao.pdf`](manuais/pdf/manual-recepcao.pdf) |
+| Consultório e enfermagem | [`manuais/pdf/manual-consultorio.pdf`](manuais/pdf/manual-consultorio.pdf) |
+| Administrativo | [`manuais/pdf/manual-financeiro.pdf`](manuais/pdf/manual-financeiro.pdf) |
+| Direção | [`manuais/pdf/manual-gerente.pdf`](manuais/pdf/manual-gerente.pdf) |
+
+⚠️ **Parcela que renomear item de menu, botão ou aba mexe no manual daquele módulo no
+mesmo commit.** O manual não compila contra nada: uma frase que descreve um botão que não
+existe é a garantia aparente em prosa, e quem a encontra é o cliente. Regerar é
+`node tools/gerar-manuais.js`; o porquê de cada decisão está em
+[`manuais/README.md`](manuais/README.md).
+
 ## A conexão — resolvido na parcela 0
 
 Até a parcela 0, Recepção, Financeiro e Gerente só subiam se o Faturamento estivesse

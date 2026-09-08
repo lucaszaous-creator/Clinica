@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Manual do Faturamento — Clínica SemDor</title>
+<link rel="stylesheet" href="_estilo.css">
+</head>
+<body>
+
+<section class="capa">
+  <div>
+    <div class="marca">Clínica SemDor · Manual de uso</div>
+    <h1>Faturamento<br><span style="font-size:20pt;color:#B0D3F3;">TISS e convênios</span></h1>
+    <p class="sub">O manual de quem fatura: as pendências do dia, a baixa das guias,
+       as glosas, os lotes TISS e os relatórios do convênio.</p>
+    <div class="paraquem">
+      <b>Para quem é este manual</b>
+      <p>Faturista e quem cuida das guias dos convênios.<br>
+         É o programa que <b>não pode ficar um dia sem alguém abrir</b> — é nele que as guias
+         pendentes cobram decisão.</p>
+    </div>
+  </div>
+  <div class="capa-temas">
+    <b>Neste manual</b>
+    <div><span>Pendências do dia</span><span>Baixa de guias</span><span>Glosas e recursos</span><span>Lotes TISS</span><span>Relatórios do período</span></div>
+  </div>
+  <div class="rodape">
+    Programa: <b>Clínica SemDor — Faturamento</b> (o ícone azul principal na área de trabalho).<br>
+    Explica cada tela, cada botão e a rotina do dia, da semana e do mês.
+  </div>
+</section>
+
+<section class="sumario">
+  <div class="cap-num">Sumário</div>
+  <h1 class="cap-titulo">O que você vai encontrar aqui</h1>
+  <div class="cap-linha"></div>
+  <ol>
+    <li><em>Antes de começar</em><span>abrir, entrar e entender a tela</span></li>
+    <li><em>Como a guia nasce e morre</em><span>o ciclo inteiro, em um desenho</span></li>
+    <li><em>Pendências</em><span>a tela de abertura, e o trabalho do dia</span></li>
+    <li><em>Dar baixa numa guia</em><span>o ato mais repetido do seu dia</span></li>
+    <li><em>A rodada obrigatória</em><span>quando o sistema trava, e por quê</span></li>
+    <li><em>Não conformidades (NC)</em><span>decidir não faturar, com justificativa</span></li>
+    <li><em>Consultar guias e Faturados</em><span>achar qualquer guia, estornar, imprimir</span></li>
+    <li><em>Controle de glosas</em><span>recorrer no prazo e recuperar</span></li>
+    <li><em>Guias TISS — lotes</em><span>gerar o XML, enviar e registrar o retorno</span></li>
+    <li><em>Pacientes e ficha</em><span>carteirinha, autorizações, consultas</span></li>
+    <li><em>Relatórios</em><span>a leitura do período</span></li>
+    <li><em>Configurações</em><span>convênios, modalidades, prazos, dados da clínica</span></li>
+    <li><em>Acessos</em><span>usuários e permissões</span></li>
+    <li><em>Quando algo dá errado · FAQ · Glossário</em></li>
+  </ol>
+</section>
+
+<!-- ==================== 1 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 1</div>
+  <h1 class="cap-titulo">Antes de começar</h1>
+  <div class="cap-linha"></div>
+
+  <div class="nota">
+    <b>Como ler este manual</b>
+    <p>As imagens são <b>desenhos das telas</b> feitos a partir do próprio sistema: os nomes dos botões,
+    das colunas e dos campos são exatamente os que você vai ver no computador. O que muda é o conteúdo —
+    no seu computador aparecem as guias de verdade da clínica.</p>
+  </div>
+
+  <h2>1.1 · Abrir e entrar</h2>
+  <p>Dê dois cliques no ícone <b>Clínica SemDor</b>. Ele pede <b>usuário</b> e <b>senha</b>: toda baixa,
+  todo estorno e toda glosa ficam registrados no nome de quem entrou — é assim que a direção responde
+  “quem fez isso?”.</p>
+  <ul>
+    <li><b>Primeiro acesso:</b> senha provisória entregue pela direção; o sistema pede uma nova.</li>
+    <li><b>Trocar a senha</b> e <b>Trocar usuário</b>: no seu nome, no canto superior direito.</li>
+    <li>Se aparecer <b>“Seu acesso não permite abrir o faturamento”</b>, fale com a direção — é permissão,
+      e ela diz isso já na porta em vez de deixar você entrar numa tela vazia.</li>
+  </ul>
+
+  <h2>1.2 · A tela por dentro</h2>
+  <figure>
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Faturamento</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Painel</div>
+          <div class="item on"><i></i>Pendências</div>
+          <div class="item"><i></i>NC</div>
+          <div class="grupo">Agenda</div>
+          <div class="item"><i></i>Agenda</div>
+          <div class="grupo">Faturamento</div>
+          <div class="item"><i></i>Consultar guias</div>
+          <div class="item"><i></i>Faturados</div>
+          <div class="item"><i></i>Glosas</div>
+          <div class="item"><i></i>Guias TISS</div>
+          <div class="grupo">Cadastros e ajustes</div>
+          <div class="item"><i></i>Pacientes</div>
+          <div class="item"><i></i>Relatórios</div>
+          <div class="item"><i></i>Acessos</div>
+          <div class="item"><i></i>Configurações</div>
+        </div>
+        <div class="main">
+          <div class="top"><span class="busca">&nbsp;</span><span class="user"><span class="av">LM</span>Lúcia M. ▾</span></div>
+          <div class="tela">
+            <div class="h1">Pendências de faturamento</div>
+            <div class="sub">As guias que já podiam ter sido tiradas e ainda não foram.</div>
+            <div class="kpis">
+              <div class="kpi"><div class="rot">Pendentes</div><div class="val">23</div></div>
+              <div class="kpi"><div class="rot">Atrasadas</div><div class="val" style="color:#DC2626">7</div></div>
+              <div class="kpi"><div class="rot">Glosas em recurso</div><div class="val">3</div></div>
+              <div class="kpi"><div class="rot">Carteirinhas vencendo</div><div class="val">5</div></div>
+            </div>
+            <div class="card">
+              <div class="tit">Guias e códigos pendentes</div>
+              <div class="barra-acoes"><span class="pill err">Atrasadas 7</span><span class="pill warn">No prazo 16</span>
+                <span class="pill neutro">1º código 9</span><span class="pill neutro">2º código 14</span>
+                <span style="flex:1"></span><span class="btn sec">Limpar filtros</span></div>
+              <table class="tab">
+                <thead><tr><th>Paciente</th><th>Convênio</th><th>Código</th><th>Prevista</th><th>Atraso</th><th style="text-align:right">Ação</th></tr></thead>
+                <tbody>
+                  <tr><td>Pedro Alves</td><td>Petrobras</td><td>2º código</td><td>01/09</td><td><span class="pill err">7 dias</span></td>
+                      <td style="text-align:right"><span class="btn">Dar baixa</span> <span class="btn sec">NC</span></td></tr>
+                  <tr><td>Marta Souza</td><td>Amil</td><td>2º código</td><td>05/09</td><td><span class="pill warn">3 dias</span></td>
+                      <td style="text-align:right"><span class="btn">Dar baixa</span> <span class="btn sec">NC</span></td></tr>
+                  <tr><td>Joana Ribeiro</td><td>Unimed</td><td>1º código</td><td>08/09</td><td><span class="pill ok">hoje</span></td>
+                      <td style="text-align:right"><span class="btn">Dar baixa</span> <span class="btn sec">NC</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A tela de abertura.</b> As pílulas em cima são filtros com a contagem <b>antes</b> do
+    clique: dá para ver quantas são de 1º e de 2º código sem filtrar nada.</figcaption>
+  </figure>
+
+  <h2>1.3 · Quatro coisas que valem em todas as telas</h2>
+  <table class="botoes">
+    <thead><tr><th>Você vê</th><th>Quer dizer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Botão apagado</td><td>Falta escolher a linha, preencher um campo, ou falta permissão.</td></tr>
+      <tr><td class="bt">Traço “—”</td><td><b>Não medido</b>, diferente de zero.</td></tr>
+      <tr><td class="bt">Semáforo (verde/amarelo/vermelho)</td><td>A urgência daquela pendência: quanto tempo falta (ou já passou) para a decisão.</td></tr>
+      <tr><td class="bt">“Tentar de novo”</td><td>A leitura falhou. <b>Não é “nada pendente”.</b></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 2 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 2</div>
+  <h1 class="cap-titulo">Como a guia nasce e morre</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Entender este caminho resolve metade das dúvidas do dia a dia.</p>
+
+  <div class="fluxo">
+    <div class="et"><b>1 · Nasce</b><span>O atendimento entra no sistema (pelo balcão ou pelo consultório) e as guias daquele convênio são geradas.</span></div>
+    <div class="et"><b>2 · Libera</b><span>Cada código tem uma <b>data prevista</b>. O 2º código de vários convênios só libera <b>24h depois</b>.</span></div>
+    <div class="et"><b>3 · Pendência</b><span>Chegada a data, a guia aparece aqui cobrando decisão.</span></div>
+  </div>
+  <div class="fluxo">
+    <div class="et"><b>4 · Baixa</b><span>Você tira a guia no site do convênio e registra <b>o número que ele devolveu</b>.</span></div>
+    <div class="et"><b>5 · Lote TISS</b><span>As guias baixadas entram num lote e vão para a operadora.</span></div>
+    <div class="et"><b>6 · Retorno</b><span>A operadora responde. O que ela recusar vira <b>glosa</b>, com prazo de recurso.</span></div>
+  </div>
+
+  <div class="nota">
+    <b>“Dar baixa” não é dinheiro entrando</b>
+    <p>Baixa quer dizer <b>“a guia foi efetivada no sistema do convênio”</b>. O dinheiro é acompanhado no
+    módulo Financeiro, na Conciliação. São coisas diferentes de propósito: aqui não existe nenhum campo de
+    valor.</p>
+  </div>
+
+  <div class="atencao">
+    <b>A pendência que dá nome ao sistema</b>
+    <p>O <b>2º código</b> é o que a clínica mais esquece: ele não existe no dia do atendimento, e quando
+    passa a existir já não há ninguém lembrando dele. É por isso que ele vira pendência com data, semáforo
+    e — passado o prazo — uma janela que <b>trava o sistema</b> até alguém decidir.</p>
+  </div>
+
+  <h2>2.1 · A rotina</h2>
+  <h3>Todo dia</h3>
+  <ol class="passos">
+    <li>Abra o programa e olhe a tela de <b>Pendências</b>.</li>
+    <li>Comece pelas <b>atrasadas</b> (pílula vermelha). Para cada uma: tire a guia no portal do convênio e
+      registre a baixa.</li>
+    <li>O que não dá para faturar, marque como <b>NC</b> com justificativa — em vez de deixar apodrecendo.</li>
+  </ol>
+  <h3>Toda semana</h3>
+  <ol class="passos">
+    <li><b>Glosas</b>: veja o que está com prazo de recurso terminando e reapresente.</li>
+    <li><b>Carteirinhas vencidas</b> e <b>consultas a renovar</b>: avise a recepção para resolver com o
+      paciente.</li>
+  </ol>
+  <h3>Todo mês</h3>
+  <ol class="passos">
+    <li><b>Guias TISS</b>: gere o lote das guias baixadas, mande à operadora e marque como enviado.</li>
+    <li>Quando o demonstrativo chegar, <b>registre o retorno</b>.</li>
+    <li><b>Relatórios</b>: confira a taxa de baixa e a de glosa do período.</li>
+  </ol>
+</section>
+
+<!-- ==================== 3 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 3</div>
+  <h1 class="cap-titulo">Pendências</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A tela de abertura, e o seu trabalho do dia. Quatro blocos, cada um cobrando uma
+  coisa diferente.</p>
+
+  <p><span class="caminho">Menu <b>Painel › Pendências</b></span></p>
+
+  <table class="botoes">
+    <thead><tr><th>Bloco</th><th>O que cobra</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Guias e códigos pendentes</td><td>O principal: guias que já podiam ter sido tiradas. Traz <b>como obter</b> cada uma (portal, telefone, app do paciente) e o <b>atraso em dias</b>.</td></tr>
+      <tr><td class="bt">Glosas — prazo de recurso correndo</td><td>Guias recusadas com o prazo andando. Passado o prazo, não é mais pendência: é prejuízo.</td></tr>
+      <tr><td class="bt">Carteirinhas vencidas ou vencendo (30 dias)</td><td>Guia de carteirinha vencida é recusada. Avise a recepção para pedir a nova.</td></tr>
+      <tr><td class="bt">Consultas a renovar</td><td>Convênios que exigem consulta válida para autorizar sessões. Vencida, as guias começam a ser recusadas.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3.1 · Os filtros</h2>
+  <p>As <b>pílulas</b> mostram a contagem <b>antes</b> do clique — dá para ver quantas são de cada tipo sem
+  filtrar nada. Elas funcionam em pares: marcar uma desmarca a irmã; desmarcar as duas é “todas”.</p>
+  <ul>
+    <li><b>1º código × 2º código</b></li>
+    <li><b>Atrasadas × No prazo</b></li>
+    <li>Além delas, há combos para <b>tipo do código</b>, <b>modalidade</b>, <b>especialidade</b> e
+      <b>convênio</b>.</li>
+  </ul>
+  <div class="dica">
+    <b>O resumo diz o recorte por extenso</b>
+    <p>“12 de 30 — 2º código · acupuntura”. É o que impede alguém de voltar do café, ver “nenhuma
+    pendência” e dar o dia por resolvido com um filtro esquecido ligado.</p>
+  </div>
+
+  <h2>3.2 · Os botões da linha</h2>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Dar baixa</td><td>Registra que a guia foi efetivada no convênio. Veja o capítulo 4.</td></tr>
+      <tr><td class="bt">NC</td><td>Marca como <b>não conformidade</b>: a decisão de não faturar, com justificativa. Veja o capítulo 6.</td></tr>
+      <tr><td class="bt">Anotar / Observação</td><td>Escreve o que aconteceu com aquela pendência (“portal fora do ar”), para você e para quem vier depois.</td></tr>
+      <tr><td class="bt">Abrir glosas / Abrir ficha</td><td>Levam à tela de glosas daquela guia e à ficha do paciente.</td></tr>
+      <tr><td class="bt">Renovar</td><td>No bloco de consultas: renova a consulta do convênio.</td></tr>
+      <tr><td class="bt">Copiar (clique no dado)</td><td>Clicando em cima do <b>nome</b>, do <b>telefone</b> ou do <b>número da guia</b>, o dado é copiado. É para colar no portal do convênio sem redigitar — redigitar é onde nasce o “O” no lugar do zero.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 4 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 4</div>
+  <h1 class="cap-titulo">Dar baixa numa guia</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O ato mais repetido do seu dia, e o que exige mais cuidado: um dígito errado aqui
+  só aparece semanas depois, no retorno da operadora, com boa parte do prazo de recurso já corrida.</p>
+
+  <figure>
+    <div class="app" style="max-width:112mm;margin:0 auto;">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Dar baixa na guia</span></div>
+      <div style="padding:5mm 6mm;background:#fff;">
+        <div style="font-weight:700;font-size:9pt;">Pedro Alves — Petrobras</div>
+        <div style="color:#6B7280;margin-bottom:3mm;">2º código · atendimento de 01/09/2026</div>
+        <div class="rot">Nº da guia no sistema do convênio</div>
+        <div class="campo preenchido" style="margin-bottom:1mm;">PB-2026-004512</div>
+        <div style="color:#16A34A;margin-bottom:2.6mm;">✓ está no formato aceito por este convênio (letras e números)</div>
+        <div class="grade2">
+          <div><div class="rot">Data da baixa</div><div class="campo preenchido">08/09/2026</div></div>
+          <div><div class="rot">Observação (opcional)</div><div class="campo">Como o convênio devolveu</div></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:2mm;margin-top:3.4mm;">
+          <span class="btn sec">Cancelar</span><span class="btn">Registrar baixa</span>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A janela da baixa.</b> A crítica do número aparece <b>enquanto você digita</b>, e o botão
+    fica apagado enquanto o número não serve para aquele convênio.</figcaption>
+  </figure>
+
+  <ol class="passos">
+    <li>Tire a guia no <b>portal do convênio</b> (ou pelo caminho que a coluna “como obter” indica).</li>
+    <li>Clique em <b>Dar baixa</b> na linha da pendência.</li>
+    <li>Digite o <b>número que o convênio devolveu</b>. Prefira <b>copiar e colar</b> — clicando no dado da
+      linha o sistema copia para você.</li>
+    <li>Confira a <b>data da baixa</b>.</li>
+    <li>Se quiser, escreva uma <b>observação</b>.</li>
+    <li><b>Registrar baixa.</b></li>
+  </ol>
+
+  <div class="nota">
+    <b>Cada convênio numera de um jeito, e o sistema sabe disso</b>
+    <p>A Unimed numera <b>só com dígitos</b>; Petrobras, Amil e Sul América misturam letra e número. O
+    sistema confere o formato daquele convênio <b>enquanto você digita</b> — é assim que o “O” maiúsculo
+    digitado no lugar do zero é pego <b>antes</b> de a guia ser dada por baixada.</p>
+    <p>Ele confere <b>a forma</b>, e não tamanho nem dígito verificador: cada operadora tem o seu, eles
+    mudam sem aviso, e regra apertada demais recusaria guia legítima — o que é pior, porque trava o
+    faturamento do dia e você não tem como contornar (o número não é inventado por você).</p>
+  </div>
+
+  <h2>4.1 · Baixa em lote</h2>
+  <p>Quando você tirou várias guias de uma vez no portal, use a baixa em lote: cada linha tem o seu campo
+  de número, <b>criticado com o formato do convênio daquela linha</b>. O sistema confere <b>todas antes de
+  processar</b> — senão uma linha ruim no meio de dez deixaria as anteriores baixadas e você sem saber onde
+  parou.</p>
+
+  <h2>4.2 · Estornar uma baixa</h2>
+  <p>Em <b>Faturados</b>, botão <b>Estornar</b>. Isso desfaz o trabalho registrado por alguém — por isso é
+  uma permissão à parte, normalmente só da direção. A guia volta a ser pendência, e se ela já estava num
+  lote TISS, o vínculo com o lote é solto (o lote antigo fica registrado na observação).</p>
+</section>
+
+<!-- ==================== 5 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 5</div>
+  <h1 class="cap-titulo">A rodada obrigatória</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Quando uma guia passa do <b>prazo de decisão</b> (padrão: 10 dias), o sistema abre
+  uma janela na abertura do programa e <b>não deixa trabalhar</b> até que cada guia vencida tenha uma
+  decisão. É a rede que o produto inteiro existe para sustentar.</p>
+
+  <figure>
+    <div class="app" style="max-width:130mm;margin:0 auto;">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Rodar pendências</span></div>
+      <div style="padding:5mm;background:#fff;">
+        <div style="font-weight:700;font-size:9.4pt;">Rodar pendências</div>
+        <div style="color:#6B7280;margin-bottom:2.6mm;">Data da baixa: <b>08/09/2026</b></div>
+        <table class="tab">
+          <thead><tr><th>Paciente / guia</th><th>Situação</th><th>Nº da guia (baixa)</th><th>ou justificativa (NC)</th></tr></thead>
+          <tbody>
+            <tr><td>Pedro Alves<br><span style="color:#6B7280">2º código · Petrobras</span></td>
+                <td><span class="pill err">atrasada há 7 dias</span></td>
+                <td><span class="campo preenchido">PB-2026-004512</span></td><td><span class="campo">—</span></td></tr>
+            <tr><td>Marta Souza<br><span style="color:#6B7280">2º código · Amil</span></td>
+                <td><span class="pill err">atrasada há 12 dias</span></td>
+                <td><span class="campo">&nbsp;</span></td><td><span class="campo preenchido">Paciente não fez a 2ª sessão</span></td></tr>
+          </tbody>
+        </table>
+        <div style="color:#6B7280;margin:2mm 0;">Para cada guia: informe o nº da guia (baixa) <b>OU</b> uma justificativa (não conformidade).</div>
+        <div style="display:flex;justify-content:flex-end;gap:2mm;">
+          <span class="btn sec">Cancelar</span><span class="btn">Concluir rodada</span>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A rodada.</b> Uma decisão por guia: ou o número (baixa), ou a justificativa (NC).
+    O sistema critica cada número com o formato do convênio <b>daquela linha</b> antes de processar.</figcaption>
+  </figure>
+
+  <ol class="passos">
+    <li>Para cada linha, escolha um dos dois caminhos: <b>número da guia</b> (você conseguiu tirar) ou
+      <b>justificativa</b> (não vai ser faturada).</li>
+    <li><b>Concluir rodada.</b></li>
+  </ol>
+
+  <div class="atencao">
+    <b>Se você não pode marcar NC</b>
+    <p>Marcar não conformidade é uma permissão à parte. Se o seu acesso não a tem e você não conseguiu o
+    número da guia, avise a direção — ela consegue liberar a permissão para você em <b>Acessos</b>, num
+    clique.</p>
+  </div>
+  <div class="nota">
+    <b>Por que existe uma carência</b>
+    <p>Guias que já estavam pendentes antes de a clínica passar a usar esta versão só começam a contar
+    prazo a partir da ativação — para o acumulado antigo não travar tudo de uma vez no primeiro dia.</p>
+    <p>E quem tem permissão para <b>dispensar a rodada</b> (a direção) continua vendo o aviso no painel: o
+    que se desliga é a janela que <b>trava</b>, nunca a capacidade de ver que há guia vencida.</p>
+  </div>
+</section>
+
+<!-- ==================== 6 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 6</div>
+  <h1 class="cap-titulo">Não conformidades (NC)</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A NC é a decisão registrada de <b>não faturar</b> uma guia — com justificativa
+  escrita. É a única coisa no sistema que faz uma pendência sumir do painel <b>sem a guia ter sido
+  faturada</b>.</p>
+
+  <p><span class="caminho">Menu <b>Painel › NC</b> — ou o botão <b>NC</b> na linha da pendência</span></p>
+
+  <ol class="passos">
+    <li>Na pendência, clique em <b>NC</b>.</li>
+    <li>Escreva a <b>justificativa</b> — <b>é obrigatória</b>. Escreva o que aconteceu de verdade (“paciente
+      não retornou para a 2ª sessão”, “convênio recusou autorizar fora do prazo”).</li>
+    <li><b>Marcar não conformidade.</b></li>
+  </ol>
+
+  <p>A guia sai das pendências ativas e vai para a aba <b>NC</b>, onde ficam todas — com a justificativa
+  legível e o botão <b>Reabrir</b>.</p>
+
+  <div class="nota">
+    <b>A NC volta sozinha quando o paciente volta</b>
+    <p>Se aquele paciente for atendido de novo, o sistema <b>reabre</b> as NCs dele e avisa quem lançou o
+    atendimento — para a guia ser cobrada na hora, com a pessoa na clínica. É o caminho de volta
+    funcionando sem ninguém precisar lembrar.</p>
+  </div>
+  <div class="atencao">
+    <b>NC não é lixeira</b>
+    <p>Ela entra nos relatórios e a direção acompanha. Marcar NC “para limpar a tela” transforma o painel
+    numa lista que não quer dizer nada — que é exatamente o problema que este sistema existe para resolver.</p>
+  </div>
+</section>
+
+<!-- ==================== 7 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 7</div>
+  <h1 class="cap-titulo">Consultar guias e Faturados</h1>
+  <div class="cap-linha"></div>
+
+  <h2>7.1 · Consultar guias</h2>
+  <p><span class="caminho">Menu <b>Faturamento › Consultar guias</b></span></p>
+  <p>Acha <b>qualquer</b> guia da clínica, em qualquer situação. É a tela para responder a pergunta do
+  convênio ou da direção.</p>
+  <table class="botoes">
+    <thead><tr><th>Filtro</th><th>Para que serve</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Paciente (nome ou CPF)</td><td>Busca enquanto você digita; acento não atrapalha.</td></tr>
+      <tr><td class="bt">Nº da guia</td><td>Acha por trecho do número.</td></tr>
+      <tr><td class="bt">De (atendimento) / Até</td><td>O período do atendimento.</td></tr>
+      <tr><td class="bt">Status</td><td>Pendente, baixada, glosada, NC…</td></tr>
+      <tr><td class="bt">Convênio</td><td>Por família de regra — a variante cadastrada responde junto da embutida que ela deriva.</td></tr>
+      <tr><td class="bt">Modalidade / Especialidade</td><td>Responde “o que vem sendo feito”. A especialidade casa com a do código e, quando ele não a tem, com a do atendimento.</td></tr>
+    </tbody>
+  </table>
+  <p>As colunas trazem <b>data, nº do atendimento, quem lançou, paciente, convênio, modalidade,
+  especialidade, código, ordem, nº da guia, situação, glosa e observação</b>.</p>
+  <p><b>Capa</b> imprime a capa do atendimento; <b>Histórico</b> mostra tudo o que já aconteceu com aquela
+  guia — quando, quem e o quê.</p>
+  <div class="dica">
+    <b>O resumo diz que está filtrado</b>
+    <p>“12 guias” e “12 guias de acupuntura em psiquiatria” respondem perguntas diferentes — e quem volta
+    à tela depois do café não lembra o que deixou marcado.</p>
+  </div>
+
+  <h2>7.2 · Faturados</h2>
+  <p><span class="caminho">Menu <b>Faturamento › Faturados</b></span></p>
+  <p>As guias já baixadas. É de onde saem o <b>estorno</b> e o registro de <b>glosa</b>.</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Capa / Guia</td><td>Imprimem a capa do atendimento e a guia no leiaute da ANS.</td></tr>
+      <tr><td class="bt">Glosar</td><td>Registra que a operadora recusou aquela guia. Veja o capítulo 8.</td></tr>
+      <tr><td class="bt">Estornar</td><td>Desfaz a baixa. A guia volta a ser pendência.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 8 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 8</div>
+  <h1 class="cap-titulo">Controle de glosas</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Glosa é o convênio recusando pagar uma guia. Existe <b>prazo</b> para recorrer, e o
+  sistema vigia esse prazo — passado ele, não é mais pendência: é prejuízo consumado.</p>
+
+  <p><span class="caminho">Menu <b>Faturamento › Glosas</b></span></p>
+
+  <h2>8.1 · Registrar</h2>
+  <ol class="passos">
+    <li>Em <b>Faturados</b>, ache a guia e clique em <b>Glosar</b>.</li>
+    <li>Informe a <b>data da glosa</b> e o <b>motivo (tabela ANS)</b> — o código que o demonstrativo trouxe.</li>
+    <li>Escreva o <b>complemento</b> se precisar.</li>
+    <li><b>Registrar glosa.</b> A partir daí o prazo de recurso começa a contar e a guia aparece no painel.</li>
+  </ol>
+
+  <h2>8.2 · Recorrer e recuperar</h2>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Reapresentar</td><td>Registra que a clínica recorreu daquela glosa.</td></tr>
+      <tr><td class="bt">Recuperada</td><td>Registra que o convênio acabou pagando.</td></tr>
+      <tr><td class="bt">Entenda</td><td>Abre a explicação dos motivos de glosa — <b>o que mais glosa nesta clínica</b> e como evitar cada um.</td></tr>
+      <tr><td class="bt">Mostrar só glosas em aberto / Só prazo vencido</td><td>Estreitam a lista.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nota">
+    <b>A glosa também mexe no Financeiro</b>
+    <p>Quando uma guia é glosada, a receita <b>prevista</b> dela é cancelada — receita fantasma é a pior
+    espécie de número errado, porque tem cara de número exato. A receita já <b>recebida</b> não é
+    cancelada: o dinheiro entrou na conta, e um estorno da operadora é uma <b>saída</b>, com a data dele.</p>
+    <p>E a guia glosada <b>volta sozinha</b> para a lista da Conciliação do Financeiro — porque deixou de
+    ter receita ativa.</p>
+  </div>
+
+  <div class="dica">
+    <b>A prevenção fica na exportação do lote</b>
+    <p>Ao gerar o lote, o sistema faz um “radar de glosas”: avisa sobre carteirinha vencida, duplicidade e
+    os motivos que mais glosam naquele convênio. É mais barato corrigir antes de enviar.</p>
+  </div>
+</section>
+
+<!-- ==================== 9 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 9</div>
+  <h1 class="cap-titulo">Guias TISS — lotes</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O <b>lote TISS</b> é o pacote de guias enviado à operadora em arquivo XML, no padrão
+  da ANS.</p>
+
+  <p><span class="caminho">Menu <b>Faturamento › Guias TISS</b></span></p>
+
+  <h2>9.1 · Gerar</h2>
+  <ol class="passos">
+    <li>Escolha o <b>período</b>. O bloco de cima lista as guias <b>baixadas e ainda sem lote</b>.</li>
+    <li>Clique em <b>Gerar lote TISS (.xml)</b>.</li>
+    <li>O sistema gera <b>um lote por operadora</b> — o arquivo é endereçado a uma operadora só, e misturar
+      todas num arquivo faria as demais nunca mais entrarem em lote.</li>
+    <li>Salve o arquivo e envie pelo canal da operadora.</li>
+  </ol>
+
+  <h2>9.2 · Acompanhar</h2>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">XML</td><td>Abre (ou salva de novo) o arquivo daquele lote.</td></tr>
+      <tr><td class="bt">Marcar enviado</td><td>Registra a <b>data do envio</b> e o <b>protocolo</b> que a operadora devolveu.</td></tr>
+      <tr><td class="bt">Registrar retorno</td><td>Lança o demonstrativo: marque as guias <b>glosadas</b>, com motivo e complemento. Se a operadora mandou o retorno em XML, o sistema lê o arquivo e já pré-preenche as decisões, casando pelo número real da guia.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="atencao">
+    <b>Guia que já está num lote não entra em outro</b>
+    <p>Por isso o estorno de uma baixa <b>solta</b> o vínculo com o lote — senão a guia rebaixada com o
+    número certo nunca mais apareceria como candidata, e a tela diria “nenhuma guia nova”, que se lê como
+    dia fraco.</p>
+  </div>
+  <div class="nota">
+    <b>Gerar lote é só deste aplicativo</b>
+    <p>No Gerente Geral a aba de Lotes é <b>só leitura</b>: o número do lote é uma sequência, e dois
+    programas gerando ao mesmo tempo produziriam lotes duplicados que a operadora recusa semanas depois.</p>
+  </div>
+</section>
+
+<!-- ==================== 10 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 10</div>
+  <h1 class="cap-titulo">Pacientes e a ficha</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>Cadastros e ajustes › Pacientes</b></span></p>
+  <p>Busque por nome ou CPF e clique em <b>Ficha</b>. A ficha traz quatro abas:</p>
+  <table class="botoes">
+    <thead><tr><th>Aba</th><th>O que tem</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Atendimentos</td><td>Todos os atendimentos do paciente, com quantas guias cada um gerou e quantas foram baixadas. <b>Estornar</b> desfaz um atendimento.</td></tr>
+      <tr><td class="bt">Guias e códigos</td><td>Guia por guia: código, ordem, número, quando foi baixada.</td></tr>
+      <tr><td class="bt">Autorizações</td><td>As senhas do convênio: número, validade, quantas sessões foram autorizadas, quantas já foram usadas e o <b>saldo</b>. É isto que faz o sistema avisar antes de a cota estourar.</td></tr>
+      <tr><td class="bt">Consultas</td><td>As consultas do convênio e a validade de cada uma, com o botão de <b>renovar</b>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Cadastrar uma autorização</h3>
+  <ol class="passos">
+    <li><b>Nova autorização</b>.</li>
+    <li><b>Nº da senha</b>, <b>convênio</b>, <b>emitida em</b>, <b>válida até</b> e <b>sessões
+      autorizadas</b>.</li>
+    <li><b>Já usadas fora do sistema</b>: quantas sessões daquela senha foram feitas antes de a clínica
+      passar a usar o sistema.</li>
+    <li>Salve.</li>
+  </ol>
+  <div class="nota">
+    <b>Carteirinha e app do convênio</b>
+    <p>Na edição do paciente há a caixinha <b>“possui o app do convênio”</b>. Em alguns convênios, o
+    segundo código é obtido pelo <b>app do paciente</b> — e o semáforo da urgência muda conforme ele
+    tenha ou não o aplicativo.</p>
+  </div>
+</section>
+
+<!-- ==================== 11 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 11</div>
+  <h1 class="cap-titulo">Relatórios</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>Cadastros e ajustes › Relatórios</b></span></p>
+  <p>Escolha o período e clique em <b>Gerar</b>. Cinco blocos:</p>
+  <table class="botoes">
+    <thead><tr><th>Bloco</th><th>O que mostra</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Faturamento por convênio</td><td>Guias geradas, baixadas, pendentes, <b>% de baixa</b>, glosadas, <b>% de glosa</b> e o tempo médio até a baixa.</td></tr>
+      <tr><td class="bt">Consultas por especialidade</td><td>Quantas consultas e quantas baixadas por especialidade.</td></tr>
+      <tr><td class="bt">Não conformidades</td><td>As guias justificadas, com a justificativa e a data.</td></tr>
+      <tr><td class="bt">Pendências em aberto</td><td>Por faixa de atraso — o envelhecimento da fila.</td></tr>
+      <tr><td class="bt">Evolução mensal</td><td>Os últimos 6 meses.</td></tr>
+    </tbody>
+  </table>
+  <div class="dica">
+    <b>Os números são por OPERADORA</b>
+    <p>E não por família de regra: duas operadoras que compartilham a mesma regra são negócios diferentes,
+    e somá-las daria um número que a direção usaria para negociar tabela sem saber que são duas.</p>
+  </div>
+</section>
+
+<!-- ==================== 12 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 12</div>
+  <h1 class="cap-titulo">Configurações</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>Cadastros e ajustes › Configurações</b></span></p>
+  <p>Cinco abas. Mexe-se pouco, e o que se mexe aqui vale para toda a clínica.</p>
+
+  <h2>12.1 · Convênios</h2>
+  <p>A lista das operadoras atendidas. Cada linha diz, de relance: a <b>família de regra</b> que ela segue,
+  se <b>gera guia</b>, a <b>forma do número da guia</b> e o <b>registro ANS</b>. Clique em <b>Abrir</b> para
+  configurar.</p>
+  <table class="botoes">
+    <thead><tr><th>Campo do convênio</th><th>O que ele decide</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Nome do convênio</td><td>Como a operadora se chama. É o que aparece nas telas e nos relatórios.</td></tr>
+      <tr><td class="bt">Segue a regra de faturamento de</td><td>Qual fluxograma ela usa. Operadora nova costuma seguir a regra de uma que já existe.</td></tr>
+      <tr><td class="bt">Gera guia para faturar</td><td>Desmarcado = <b>particular</b>: o atendimento é registrado e nenhuma guia é gerada. É assim que o particular não entope o painel de pendências.</td></tr>
+      <tr><td class="bt">Como é o número da guia aqui</td><td>A forma que o sistema critica na baixa: só dígitos, ou letras e números.</td></tr>
+      <tr><td class="bt">Registro ANS desta operadora</td><td>Vai no XML do lote TISS. Em branco, usa o da clínica.</td></tr>
+      <tr><td class="bt">Gera um 2º código alguns dias depois</td><td>Liga a segunda guia, e <b>Dias até o 2º código</b> diz quantos dias.</td></tr>
+      <tr><td class="bt">Como o 2º código é obtido</td><td>O texto que aparece na coluna “como obter” da pendência (portal, telefone, app).</td></tr>
+      <tr><td class="bt">O 2º código só é possível com o app</td><td>Quando aquela operadora só libera pelo aplicativo do paciente.</td></tr>
+      <tr><td class="bt">Validade da consulta, em dias</td><td>De quanto em quanto tempo a consulta precisa ser renovada. “Não renova” = não vence.</td></tr>
+      <tr><td class="bt">Semáforo com app / sem app</td><td>A urgência que a pendência recebe em cada caso.</td></tr>
+      <tr><td class="bt">Atende com eletroacupuntura / Fatura BSV / datas invertidas no BSV</td><td>Particularidades daquela operadora que o sistema respeita ao gerar as guias.</td></tr>
+    </tbody>
+  </table>
+  <div class="atencao">
+    <b>Não renomeie a linha “Personalizado”</b>
+    <p>Ela é a linha da <b>família de regra</b>, não uma operadora. Para cadastrar uma operadora nova use
+    <b>+ Novo convênio</b>. Renomear aquela linha faz o nome dela aparecer em guias de <b>outras</b>
+    operadoras — o erro mais difícil de perceber, porque o nome errado é um nome de verdade.</p>
+  </div>
+
+  <h2>12.2 · Modalidades e Especialidades</h2>
+  <p><b>Modalidades</b> são o que a clínica faz (acupuntura, eletroacupuntura, BSV, consulta); cada uma diz
+  <b>como se comporta</b> (de qual embutida ela deriva). <b>Especialidades</b> são as da consulta. As duas
+  listas alimentam os seletores de todo o sistema.</p>
+
+  <h2>12.3 · Prazos</h2>
+  <p>Alerta de consulta, recurso de glosa e prazo de decisão — os mesmos explicados no manual do Gerente.
+  Mais as duas caixinhas que estendem a rodada obrigatória a <b>consultas a renovar</b> e
+  <b>carteirinhas a vencer</b>.</p>
+
+  <h2>12.4 · Clínica / prestador</h2>
+  <p>Razão social, nome fantasia, CNPJ, CNES, endereço, telefone, e-mail, <b>código do prestador na
+  operadora</b> e <b>registro ANS</b>. É o que sai na capa, na guia impressa e no XML do lote.
+  <b>Abrir pasta de logs</b> abre a pasta com o registro técnico — é o que o suporte pede quando algo dá
+  errado.</p>
+
+  <h2>12.5 · Códigos TUSS</h2>
+  <p>Os códigos de cada procedimento (acupuntura, eletroacupuntura, BSV, consulta, consulta de
+  especialidade), como a operadora os exige.</p>
+</section>
+
+<!-- ==================== 13 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 13</div>
+  <h1 class="cap-titulo">Acessos</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>Cadastros e ajustes › Acessos</b></span></p>
+  <p>O cadastro de usuários e permissões — <b>o mesmo</b> do Gerente Geral, porque o que liga os
+  aplicativos é o banco de dados. Normalmente só a direção alcança esta tela.</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Novo usuário</td><td>Cria o acesso: nome, login, senha provisória e perfil.</td></tr>
+      <tr><td class="bt">Editar</td><td>Ajusta as permissões daquela pessoa, uma a uma.</td></tr>
+      <tr><td class="bt">Redefinir senha</td><td>Gera uma provisória, que a pessoa troca ao entrar.</td></tr>
+      <tr><td class="bt">Excluir</td><td>Remove o acesso. O sistema recusa deixar a clínica sem ninguém que gerencie usuários.</td></tr>
+    </tbody>
+  </table>
+  <p>A explicação completa dos cortes de permissão está no <b>manual do Gerente Geral, capítulo 10</b>.</p>
+</section>
+
+<!-- ==================== 14 ==================== -->
+<section class="cap">
+  <div class="cap-num">Capítulo 14</div>
+  <h1 class="cap-titulo">Quando algo dá errado · FAQ · Glossário</h1>
+  <div class="cap-linha"></div>
+
+  <h2>14.1 · Quando algo dá errado</h2>
+  <table class="botoes">
+    <thead><tr><th>O que aparece</th><th>O que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">“Seu acesso não permite abrir o faturamento”</td><td>Fale com a direção. Ela libera na tela de Acessos.</td></tr>
+      <tr><td class="bt">O botão “Registrar baixa” está apagado</td><td>O número digitado não serve para o formato daquele convênio. A crítica aparece logo abaixo do campo.</td></tr>
+      <tr><td class="bt">“Tentar de novo” no painel</td><td>A leitura falhou. <b>Não é “nada pendente”.</b></td></tr>
+      <tr><td class="bt">A janela obrigatória não fecha</td><td>Ela só fecha quando <b>toda</b> guia vencida tiver decisão: número ou justificativa. Se faltar permissão para NC, chame a direção.</td></tr>
+      <tr><td class="bt">A guia não aparece nas candidatas do lote</td><td>Ou ela não está baixada, ou já está em outro lote. Confira em <b>Faturados</b>.</td></tr>
+      <tr><td class="bt">Um erro em inglês</td><td>Falha técnica. Anote a hora e o que estava fazendo. <b>Configurações › Abrir pasta de logs</b> abre o arquivo que o suporte vai pedir.</td></tr>
+      <tr><td class="bt">Pergunta sobre “informar outra conexão”</td><td>Responda <b>Não</b> e chame a direção.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>14.2 · Perguntas frequentes</h2>
+  <h3>Digitei o número da guia errado. E agora?</h3>
+  <p>Em <b>Faturados</b>, <b>Estornar</b> a baixa e dar baixa de novo com o número certo. O estorno é uma
+  permissão à parte — se você não a tiver, chame a direção.</p>
+
+  <h3>O convênio não libera a guia. O que eu faço?</h3>
+  <p>Marque <b>NC</b> com a justificativa real. É melhor do que deixar a pendência apodrecendo — e, se o
+  paciente voltar, o sistema reabre a NC sozinho para você cobrar na hora.</p>
+
+  <h3>O que é o “2º código”?</h3>
+  <p>É a segunda guia do mesmo atendimento, que vários convênios só liberam <b>algum tempo depois</b>
+  (normalmente 24 horas). Ela nasce junto com a primeira, com a data em que libera, e vira pendência
+  naquele dia.</p>
+
+  <h3>Uma guia sumiu do painel e eu não dei baixa nela.</h3>
+  <p>Três possibilidades: alguém marcou <b>NC</b> (procure na aba NC), o atendimento foi <b>estornado</b>
+  pelo balcão, ou o horário foi <b>cancelado / marcado como falta</b> — nesse caso a guia é suspensa
+  automaticamente, porque a sessão não aconteceu.</p>
+
+  <h3>Preciso do papel da guia para o convênio.</h3>
+  <p>Em <b>Faturados</b>, botão <b>Guia</b> (leiaute da ANS) ou <b>Capa</b> (a capa do atendimento).</p>
+
+  <h3>Como sei quantas sessões ainda estão autorizadas?</h3>
+  <p>Ficha do paciente, aba <b>Autorizações</b>: cada senha mostra autorizadas, usadas e <b>saldo</b>.</p>
+
+  <h3>Posso lançar atendimento aqui?</h3>
+  <p>O lançamento de atendimento é do balcão (aplicativo Recepção) e do consultório. Aqui você
+  <b>fatura</b> o que eles lançaram.</p>
+
+  <h2>14.3 · Glossário</h2>
+  <table class="glossario">
+    <tbody>
+      <tr><td>Guia</td><td>O documento com que a clínica cobra o convênio pela sessão.</td></tr>
+      <tr><td>Código</td><td>Cada item de uma guia. Um atendimento pode gerar dois: o 1º hoje, o 2º dias depois.</td></tr>
+      <tr><td>2º código</td><td>A segunda guia, liberada só algum tempo depois do atendimento. É a que mais se perde.</td></tr>
+      <tr><td>Dar baixa</td><td>Registrar que a guia foi efetivada no sistema do convênio, com o número devolvido por ele. <b>Não é dinheiro entrando.</b></td></tr>
+      <tr><td>Estorno</td><td>Desfazer uma baixa. A guia volta a ser pendência.</td></tr>
+      <tr><td>Pendência</td><td>Guia que já podia ter sido tirada e ainda não foi.</td></tr>
+      <tr><td>Prazo de decisão</td><td>Quantos dias uma guia pode ficar pendente antes de a rodada obrigatória travar o sistema.</td></tr>
+      <tr><td>NC (não conformidade)</td><td>A decisão registrada de não faturar, com justificativa.</td></tr>
+      <tr><td>Glosa</td><td>Recusa de pagamento pelo convênio, com prazo para recurso.</td></tr>
+      <tr><td>Reapresentar</td><td>Recorrer de uma glosa.</td></tr>
+      <tr><td>TISS</td><td>O padrão da ANS para trocar informação com as operadoras.</td></tr>
+      <tr><td>Lote TISS</td><td>O arquivo XML com um pacote de guias, endereçado a <b>uma</b> operadora.</td></tr>
+      <tr><td>Protocolo</td><td>O número que a operadora devolve ao receber o lote.</td></tr>
+      <tr><td>Retorno / demonstrativo</td><td>A resposta da operadora dizendo o que aceitou e o que glosou.</td></tr>
+      <tr><td>Registro ANS</td><td>O número de registro da operadora na ANS. Vai no XML.</td></tr>
+      <tr><td>TUSS</td><td>A tabela de códigos de procedimento usada nas guias.</td></tr>
+      <tr><td>Carteirinha</td><td>O número do paciente no convênio, com validade. Vencida, a guia é recusada.</td></tr>
+      <tr><td>Autorização / senha</td><td>A liberação do convênio para um número de sessões.</td></tr>
+      <tr><td>Cota</td><td>Quantas sessões daquela autorização ainda restam.</td></tr>
+      <tr><td>Semáforo</td><td>A cor da urgência de uma pendência: verde, amarelo, vermelho.</td></tr>
+    </tbody>
+  </table>
+
+  <hr>
+  <p class="suave" style="font-size:9.4pt;">
+    <b>Este manual descreve o aplicativo Faturamento da Clínica SemDor.</b> Os nomes de botões, colunas e
+    campos foram tirados do próprio sistema. Se a sua tela tiver mais (ou menos) itens de menu, é o seu
+    acesso — quem concede é a direção, na tela de Acessos.
+  </p>
+</section>
+
+</body>
+</html>
