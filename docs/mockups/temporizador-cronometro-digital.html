@@ -1,0 +1,417 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cronômetro digital — três visores</title>
+<style>
+  :root{
+    --azul:#123A9E; --azul-suave:#EAF0FB;
+    --pg:#EDEFF4; --sup:#FFFFFF; --sup2:#F6F7FB;
+    --tinta:#101728; --corpo:#3A4258; --mudo:#6B7280;
+    --fio:#DCE0E9; --fio2:#C3C9D6;
+    --verde:#16A34A; --verde-f:#15803D; --verde-s:#DCFCE7; --verde-t:#F0FDF4;
+    --verde-led:#4ADE80;                 /* Brush.Snackbar.Sucesso — já existe nos tokens */
+    --visor:#111827;                     /* Brush.Visor.Fundo — Cinza.900 */
+    --visor-txt:#D1D5DB;                 /* Brush.Visor.Texto — Cinza.300 */
+    --amb:#B45309; --amb-f:#FFFBEB;
+    --som:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--pg);color:var(--tinta);
+       font:15px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .pag{max-width:1240px;margin:0 auto;padding:30px 24px 80px}
+  h1{font-size:27px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--mudo);margin:0 0 6px;max-width:82ch}
+  h2{font-size:19px;margin:40px 0 4px;letter-spacing:-.2px}
+  .porque{color:var(--corpo);margin:5px 0 14px;max-width:86ch;font-size:14px}
+  .selo{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;
+        background:var(--verde-s);color:var(--verde-f);vertical-align:middle;margin-left:6px}
+
+  /* ===== os dígitos ===== */
+  .dig{font-family:Consolas,"Cascadia Mono","DejaVu Sans Mono",monospace;
+       font-variant-numeric:tabular-nums;letter-spacing:.5px}
+
+  /* o visor escuro, com os tokens da casa */
+  .visor{display:inline-flex;align-items:baseline;gap:1px;background:var(--visor);
+         border-radius:7px;padding:5px 11px;color:var(--verde-led)}
+  .visor.neutro{color:var(--visor-txt)}
+  .visor .h{opacity:.45}
+  .visor .s{opacity:.8}
+  .visor.menor .s{font-size:.66em}
+
+  /* a pílula da casa, com números no lugar da frase */
+  .pilula{display:inline-flex;align-items:center;gap:8px;background:var(--verde-s);
+          color:var(--verde-f);border-radius:999px;padding:4px 14px;font-weight:600;font-size:13px}
+  .pilula .dig{font-size:14.5px}
+  .pilula.grandao .dig{font-size:38px}
+  .pilula svg{width:16px;height:16px}
+
+  /* ===== controles ===== */
+  .ctrl{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:13px;flex-wrap:wrap;
+        background:var(--sup);border:1px solid var(--fio);border-radius:11px;padding:11px 15px;
+        margin:14px 0 6px;box-shadow:var(--som)}
+  .ctrl b{font-size:12.5px;color:var(--mudo);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+  .seg{display:inline-flex;background:var(--sup2);border:1px solid var(--fio);border-radius:999px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;border-radius:999px;padding:5px 13px;font-size:13px;
+              font-weight:500;color:var(--corpo);cursor:pointer;font-family:inherit}
+  .seg button.on{background:var(--azul);color:#fff;font-weight:600}
+  .bt{border:1px solid var(--fio2);background:var(--sup);border-radius:8px;padding:5px 12px;
+      font-size:13px;color:var(--corpo);cursor:pointer;font-family:inherit}
+  .bt.on{background:var(--verde-s);border-color:var(--verde);color:var(--verde-f);font-weight:600}
+
+  /* ===== vitrine ===== */
+  .vitrine{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}
+  @media(max-width:960px){.vitrine{grid-template-columns:1fr}}
+  .card{background:var(--sup);border:1px solid var(--fio);border-radius:11px;padding:20px 18px;
+        box-shadow:var(--som);text-align:center}
+  .card .rot{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--mudo);font-weight:600}
+  .card h3{font-size:16px;margin:5px 0 16px;letter-spacing:-.1px}
+  .card p{font-size:13px;color:var(--corpo);margin:14px 0 0;text-align:left;line-height:1.55}
+  .grandao{font-size:38px;font-weight:600}
+  .real{margin-top:16px;padding-top:13px;border-top:1px dashed var(--fio)}
+  .real .rot{margin-bottom:8px}
+
+  /* ===== a tela ===== */
+  .janela{border:1px solid var(--fio2);border-radius:11px;overflow:hidden;box-shadow:var(--som);
+          background:var(--sup);margin-top:14px}
+  .chrome{display:flex;align-items:center;gap:7px;padding:8px 13px;background:var(--sup2);border-bottom:1px solid var(--fio)}
+  .chrome i{width:10px;height:10px;border-radius:999px;background:var(--fio2);display:block}
+  .chrome .tit{margin-left:8px;font-size:12px;color:var(--mudo)}
+  .app{display:flex;min-height:430px}
+  .side{width:178px;flex:none;background:var(--sup);border-right:1px solid var(--fio);padding:10px 8px;font-size:13px}
+  .side .gr{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--mudo);padding:9px 9px 4px;font-weight:600}
+  .side a{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;color:var(--corpo);text-decoration:none}
+  .side a.on{background:var(--azul-suave);color:var(--azul);font-weight:600}
+  .side a .g{width:15px;text-align:center;opacity:.75;font-size:13px}
+  .miolo{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sup2)}
+  .cracha{background:var(--sup);border-bottom:1px solid var(--fio);padding:9px 18px;display:flex;align-items:center;gap:12px}
+  .volta{width:26px;height:26px;border-radius:7px;border:1px solid var(--fio);background:var(--sup);
+         color:var(--mudo);flex:none;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .av{width:40px;height:40px;border-radius:999px;background:var(--azul);color:#fff;flex:none;
+      display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
+  .ident{flex:1;min-width:0}
+  .l1{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .nomep{font-size:16.5px;font-weight:600}
+  .meta{font-size:12.5px;color:var(--mudo)}
+  .l2{display:flex;gap:11px;flex-wrap:wrap;margin-top:3px;font-size:12.5px;color:var(--corpo);align-items:center}
+  .l2 .k{color:var(--mudo)}
+  .bd{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#FBECEC;color:#B91C1C}
+  .sit{margin-left:auto;text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .lk{color:var(--azul);font-size:12.5px}
+  .corpo{display:flex;flex:1;min-height:0}
+  .rail{width:190px;flex:none;background:var(--sup);border-right:1px solid var(--fio);padding:9px 7px;
+        display:flex;flex-direction:column;gap:1px;font-size:13px}
+  .rail div{padding:7px 10px;border-radius:7px;color:var(--corpo)}
+  .rail div.on{background:var(--azul-suave);color:var(--azul);font-weight:600}
+  .princ{flex:1;min-width:0;padding:12px 16px 14px;display:flex;flex-direction:column}
+  .abas{display:flex;gap:20px;border-bottom:1px solid var(--fio);font-size:13.5px;color:var(--mudo)}
+  .abas span{padding:0 0 8px}
+  .abas span.on{color:var(--azul);font-weight:600;box-shadow:inset 0 -2px 0 var(--azul)}
+  .cx{border:1px solid var(--fio2);border-radius:6px;padding:3px 8px;font-size:13px;display:inline-block;min-width:42px;background:var(--sup)}
+  .cx.w{min-width:98px}
+  .cardf{background:var(--sup);border:1px solid var(--fio);border-radius:8px;margin-top:10px;padding:11px 13px;
+         display:flex;flex-direction:column;flex:1}
+  .tira{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px}
+  .t .k{display:block;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--mudo);font-weight:600}
+  .sep{width:1px;height:26px;background:var(--fio)}
+  .ferr{margin-left:auto;display:flex;gap:6px}
+  .btn{border:1px solid var(--fio2);background:var(--sup);border-radius:7px;padding:4px 11px;font-size:12.5px;color:var(--corpo);display:inline-block}
+  .btn.pri{background:var(--azul);border-color:var(--azul);color:#fff;font-weight:600}
+  .ctx{font-size:12.5px;color:var(--mudo);margin-bottom:8px;line-height:1.5}
+  .ctx b{color:var(--corpo)}
+  .folha{flex:1;border:1px solid var(--fio2);border-radius:6px;padding:10px 12px;min-height:110px;
+         font-size:13.5px;line-height:1.62;color:var(--tinta);background:#fff;white-space:pre-wrap}
+  .pe{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:12.5px;color:var(--mudo);flex-wrap:wrap}
+  .pe .acs{margin-left:auto;display:flex;gap:7px}
+
+  .nota{background:var(--verde-t);border-left:3px solid var(--verde);padding:11px 15px;border-radius:0 8px 8px 0;
+        margin:16px 0 0;font-size:13.5px;max-width:94ch}
+  .aten{background:var(--amb-f);border-left:3px solid var(--amb);padding:11px 15px;border-radius:0 8px 8px 0;
+        margin:14px 0 0;font-size:13.5px;max-width:94ch}
+  .nota .r,.aten .r{display:block;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;font-weight:700;margin-bottom:3px}
+  .nota .r{color:var(--verde-f)} .aten .r{color:var(--amb)}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px;max-width:1040px}
+  th{text-align:left;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--mudo);
+     border-bottom:1px solid var(--fio);padding:0 10px 7px 0;font-weight:600}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--sup2);vertical-align:top}
+  td:first-child{white-space:nowrap;font-weight:600}
+  .rod{margin-top:44px;padding-top:16px;border-top:1px solid var(--fio);color:var(--mudo);font-size:12.5px}
+  code{background:var(--sup2);border:1px solid var(--fio);padding:1px 6px;border-radius:5px;font-size:12.5px}
+</style>
+<div class="pag">
+
+<h1>Cronômetro digital — três visores</h1>
+<p class="sub">O painel da referência traduzido para a tela: <b>horas, minutos e segundos correndo</b>,
+com os tokens da casa. O fundo escuro do visor fica — ele já existe no design system
+(<code>Brush.Visor.Fundo</code>, o mesmo da captura de foto) — e o azul-neon sobre preto, não: aquele
+painel é um objeto de um metro visto de longe numa academia; aqui são poucos centímetros a sessenta
+centímetros do olho. <b>Os três estão correndo.</b></p>
+
+<div class="ctrl">
+  <b>Horas</b>
+  <div class="seg" id="horas">
+    <button data-h="sempre" class="on">Sempre 00:</button>
+    <button data-h="quando">Só ao passar de 1h</button>
+  </div>
+  <b>Segundos</b>
+  <div class="seg" id="segs">
+    <button data-s="igual" class="on">Do mesmo tamanho</button>
+    <button data-s="menor">Menores</button>
+  </div>
+  <b>Tempo</b>
+  <button class="bt on" data-vel="1">normal</button>
+  <button class="bt" data-vel="60">×60</button>
+  <button class="bt" id="zerar">recomeçar</button>
+</div>
+
+<div class="vitrine">
+  <div class="card">
+    <div class="rot">Visor A</div>
+    <h3>Visor verde</h3>
+    <span class="visor grandao dig" data-visor></span>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="visor dig" style="font-size:15px" data-visor></span>
+    </div>
+    <p>O mais próximo da referência: fundo escuro e dígitos em verde claro. O verde é o mesmo que o
+    sistema já usa para <b>"em atendimento"</b> — o visor diz o estado e o tempo de uma vez, sem
+    precisar da palavra.</p>
+  </div>
+
+  <div class="card">
+    <div class="rot">Visor B</div>
+    <h3>Visor neutro</h3>
+    <span class="visor neutro grandao dig" data-visor></span>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="visor neutro dig" style="font-size:15px" data-visor></span>
+      <div style="margin-top:7px"><span class="pilula" style="font-size:12px">Em atendimento</span></div>
+    </div>
+    <p>O mesmo visor com dígitos claros, sem cor. Fica com cara de <b>instrumento</b>, e não de placar
+    de academia — mas aí ele não diz mais o estado, então a pílula verde continua ao lado para dizer
+    "em atendimento".</p>
+  </div>
+
+  <div class="card">
+    <div class="rot">Visor C</div>
+    <h3>Números na pílula</h3>
+    <span class="pilula grandao" style="padding:8px 20px">
+      <svg viewBox="0 0 100 100" style="width:34px;height:34px" data-crono></svg>
+      <span class="dig" data-visor-txt></span></span>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="pilula"><svg viewBox="0 0 100 100" data-crono></svg><span class="dig" data-visor-txt></span></span>
+    </div>
+    <p>Sem retângulo escuro: os números entram na <b>pílula que já existe</b> no crachá, com o ícone
+    de cronômetro ao lado. É o que menos destoa do resto da tela — e o que menos lembra um placar.</p>
+  </div>
+</div>
+
+<h2>Na tela, no tamanho real <span class="selo">troque o visor pelos botões</span></h2>
+<div class="ctrl" style="position:static;margin-top:0">
+  <b>Visor na tela</b>
+  <div class="seg" id="qual">
+    <button data-qual="A" class="on">A · verde</button>
+    <button data-qual="B">B · neutro</button>
+    <button data-qual="C">C · na pílula</button>
+  </div>
+</div>
+
+<div class="janela">
+  <div class="chrome"><i></i><i></i><i></i><span class="tit">Consultório — Dra. Ana Beatriz Rocha</span></div>
+  <div class="app">
+    <div class="side">
+      <div class="gr">Atendimento</div>
+      <a class="on"><span class="g">🗓</span>Minha agenda</a>
+      <a><span class="g">🩺</span>Enfermagem</a>
+      <a><span class="g">℞</span>Prescrições</a>
+      <div class="gr">Paciente</div>
+      <a><span class="g">👤</span>Pacientes</a>
+      <a><span class="g">📁</span>Prontuário</a>
+    </div>
+    <div class="miolo">
+      <div class="cracha">
+        <div class="volta">‹</div>
+        <div class="av">MS</div>
+        <div class="ident">
+          <div class="l1"><span class="nomep">Maria da Silva</span><span class="meta">61 anos · Unimed Costa do Sol · em tratamento desde mar/2025 · 18 sessões</span></div>
+          <div class="l2"><span class="bd">ALERGIA · dipirona</span><span><span class="k">Em acompanhamento:</span> lombalgia crônica · HAS</span></div>
+        </div>
+        <div class="sit" id="sit-tela"></div>
+      </div>
+      <div class="corpo">
+        <div class="rail">
+          <div class="on">Atendimento</div><div>Atendimento de enfermagem</div><div>Paciente</div>
+          <div>Histórico</div><div>Exames e anexos</div><div>Prescrições e documentos</div><div>Acompanhamento</div>
+        </div>
+        <div class="princ">
+          <div class="abas"><span class="on">A sessão de hoje</span><span>Sessões anteriores</span><span>Enfermagem e infusões</span></div>
+          <div class="cardf">
+            <div class="tira">
+              <div class="t"><span class="k">Data da sessão</span><span class="cx w">05/09/2026</span></div>
+              <span class="sep"></span>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">EVA depois</span><span class="cx">—</span></div>
+              <div class="ferr"><span class="btn">Mapa corporal</span><span class="btn">Emitir documento</span></div>
+            </div>
+            <div class="ctx"><b>Última sessão 28/08</b> · EVA 8 → 3 · retorno sugerido para hoje &nbsp;·&nbsp; <b>Enfermagem hoje 13:55</b> · PA 120/80 · FC 72 · SpO₂ 98%</div>
+            <div class="folha">Refere melhora da lombalgia desde a última sessão (EVA 8 → 3), com recorrência leve após esforço no fim de semana.
+
+Exame: contratura paravertebral L4-L5 à direita, Lasègue negativo bilateral.
+
+Conduta: acupuntura — BL23, BL25, GB30 bilateral, com eletro 2 Hz por 20 min.</div>
+            <div class="pe"><span>Última gravação às 14h37</span>
+              <span class="acs"><span class="btn">Imprimir</span><span class="btn">Salvar</span><span class="btn pri">Finalizar</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>As duas decisões dos botões lá em cima</h2>
+<table>
+  <thead><tr><th style="width:210px">Decisão</th><th>O que muda</th></tr></thead>
+  <tbody>
+    <tr><td>Horas <b>sempre</b></td>
+        <td>É como o painel da referência: <code>00:12:34</code>. Fiel ao pedido, e o preço é que os
+        dois primeiros dígitos são <b>zero o expediente inteiro</b> — uma consulta não chega a uma hora.</td></tr>
+    <tr><td>Horas <b>só ao passar de 1h</b></td>
+        <td><code>12:34</code> na consulta normal e <code>1:04:22</code> quando estica. Mostra só o que
+        existe — mas o visor <b>muda de largura</b> ao virar a hora, e o que estava ao lado dá um
+        pulinho. Dá para reservar o espaço desde o começo; é uma linha a mais.</td></tr>
+    <tr><td>Segundos <b>do mesmo tamanho</b></td>
+        <td>O placar clássico. Os dois dígitos que mudam a cada segundo têm o mesmo peso de tudo.</td></tr>
+    <tr><td>Segundos <b>menores</b></td>
+        <td>Horas e minutos em destaque, segundos em corpo menor. <b>Continuam correndo</b> — o
+        cronômetro não deixa de ser cronômetro —, e o movimento no canto do olho pesa menos.</td></tr>
+  </tbody>
+</table>
+
+<h2>O que o cronômetro faz em cada situação</h2>
+<table>
+  <thead><tr><th style="width:280px">Situação</th><th>O que aparece</th></tr></thead>
+  <tbody>
+    <tr><td>Clicou em <b>Atender</b></td><td>Parte de <code>00:00:00</code> e começa a correr.</td></tr>
+    <tr><td>Saiu da tela e voltou</td><td><b>Está no número certo.</b> A conta vem do carimbo gravado no banco, não de quando a tela abriu.</td></tr>
+    <tr><td>Fechou o programa e reabriu</td><td>Idem. É o mesmo carimbo que o balcão lê.</td></tr>
+    <tr><td>Clicou em <b>Finalizar</b></td><td>O visor <b>para e sai da tela</b>; no lugar dele a pílula diz o fato: "Encerrado às 15h02 · durou 24 min".</td></tr>
+    <tr><td>Abriu o prontuário pela carteira,<br>ou uma sessão de outro dia</td><td><b>Não aparece visor nenhum.</b> Não há consulta em curso, e um cronômetro zerado convidaria a "iniciar" um atendimento que não existe na agenda de ninguém.</td></tr>
+    <tr><td>Horário cancelado ou falta</td><td>Nada. A pílula diz o que houve, sem cronômetro.</td></tr>
+  </tbody>
+</table>
+
+<div class="nota">
+  <span class="r">O que isso custa de máquina: quase nada</span>
+  O que muda a cada segundo é <b>um texto na tela</b>, calculado do carimbo que já está em memória —
+  não há ida ao banco. A leitura do prontuário continua no ritmo de hoje; quem passa a bater de
+  segundo em segundo é só o visor, e ele para junto com a tela quando o profissional sai dela.
+</div>
+
+<div class="aten">
+  <span class="r">O que eu não vou fazer sem você pedir</span>
+  Nada de <b>contagem regressiva</b> (o painel da referência conta para baixo, com round e apito — é
+  de treino, não de consulta), nada de <b>alarme</b> ao passar de X minutos, nada de visor que fica
+  vermelho, e nada de guardar o tempo para ranking ou relatório de produtividade. O pedido foi <i>o
+  profissional saber há quanto tempo está com aquele paciente</i>.
+</div>
+
+<div class="aten">
+  <span class="r">O paciente não vê</span>
+  A segunda tela — o monitor onde ele assina os termos — mostra só o termo e não conhece esta tela. O
+  tempo também não sai em papel nenhum: nem na ficha do atendimento, nem no relatório do convênio.
+</div>
+
+<p class="rod">Mockup para aprovação — nenhuma linha de tela foi escrita. Falta decidir <b>qual visor</b>
+(A, B ou C), <b>se as horas aparecem sempre</b> e <b>o tamanho dos segundos</b>. Feito o desenho em
+WPF, ele vale para os dois lados: Consultório e tela da Enfermagem, que hoje não mostra tempo nenhum.
+Os dígitos usam a fonte monoespaçada do Windows (Consolas) ou a Segoe UI com numeração tabular — nas
+duas, os números não dançam de largura ao mudar.</p>
+
+</div>
+
+<script>
+(function(){
+  const T0 = 12*60 + 34;
+  let base = T0, marca = performance.now(), vel = 1;
+  let horasSempre = true, segMenor = false, qual = 'A';
+  const decorridos = () => base + (performance.now() - marca) / 1000 * vel;
+
+  // ---- o ícone de cronômetro (o mesmo desenho do mockup de ponteiro) ----
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (t,a) => { const e = document.createElementNS(ns,t);
+    for (const k in a) e.setAttribute(k,a[k]); return e; };
+  function icone(svg){
+    svg.textContent = '';
+    svg.appendChild(el('rect',{x:44,y:2,width:12,height:7,rx:2.4,fill:'currentColor'}));
+    svg.appendChild(el('line',{x1:32,y1:12,x2:39,y2:8,stroke:'currentColor','stroke-width':5,'stroke-linecap':'round'}));
+    svg.appendChild(el('line',{x1:68,y1:12,x2:61,y2:8,stroke:'currentColor','stroke-width':5,'stroke-linecap':'round'}));
+    svg.appendChild(el('circle',{cx:50,cy:55,r:40,fill:'none',stroke:'currentColor','stroke-width':7}));
+    const p = el('line',{x1:50,y1:55,x2:50,y2:26,stroke:'currentColor','stroke-width':6,'stroke-linecap':'round'});
+    svg.appendChild(p); svg.__p = p;
+  }
+  const icones = () => [...document.querySelectorAll('svg[data-crono]')];
+  icones().forEach(icone);
+
+  // ---- o texto do visor, nas partes que o desenho separa ----
+  function partes(s){
+    const t = Math.floor(s), h = Math.floor(t/3600), m = Math.floor(t/60)%60, g = t%60;
+    const dois = n => String(n).padStart(2,'0');
+    if (horasSempre || h > 0) return { h: dois(h) + ':', mm: dois(m), ss: ':' + dois(g) };
+    return { h: '', mm: String(m).padStart(2,'0'), ss: ':' + dois(g) };
+  }
+
+  function pintar(){
+    const s = decorridos(), p = partes(s);
+    document.querySelectorAll('[data-visor]').forEach(e => {
+      e.classList.toggle('menor', segMenor);
+      e.innerHTML = `<span class="h">${p.h}</span><span class="m">${p.mm}</span><span class="s">${p.ss}</span>`;
+    });
+    document.querySelectorAll('[data-visor-txt]').forEach(e => {
+      e.innerHTML = `<span style="opacity:.55">${p.h}</span>${p.mm}` +
+                    `<span${segMenor ? ' style="font-size:.72em"' : ''}>${p.ss}</span>`;
+    });
+    // O ponteiro do ícone dá uma volta por minuto, como num cronômetro de verdade.
+    const ang = (s % 60) * 6;
+    icones().forEach(sv => sv.__p.setAttribute('transform', `rotate(${ang} 50 55)`));
+    requestAnimationFrame(pintar);
+  }
+  requestAnimationFrame(pintar);
+
+  // ---- o que a tela mostra, conforme o visor escolhido ----
+  function montarTela(){
+    const sit = document.getElementById('sit-tela');
+    const visor = qual === 'C'
+      ? '<span class="pilula"><svg viewBox="0 0 100 100" data-crono></svg><span class="dig" data-visor-txt></span></span>'
+      : `<span class="visor dig${qual === 'B' ? ' neutro' : ''}" style="font-size:15px" data-visor></span>`;
+    // O visor NEUTRO não diz o estado: a pílula fica ao lado para dizê-lo.
+    const estado = qual === 'B'
+      ? '<span class="pilula" style="font-size:12px;padding:2px 11px">Em atendimento</span>' : '';
+    sit.innerHTML = (estado ? `<div style="display:flex;gap:7px;align-items:center">${estado}${visor}</div>` : visor)
+                  + '<span class="lk">Trocar paciente</span>';
+    icones().forEach(icone);
+  }
+  montarTela();
+
+  // ---- controles ----
+  document.getElementById('horas').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    horasSempre = b.dataset.h === 'sempre';
+    [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+  };
+  document.getElementById('segs').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    segMenor = b.dataset.s === 'menor';
+    [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+  };
+  document.getElementById('qual').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    qual = b.dataset.qual;
+    [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+    montarTela();
+  };
+  document.querySelectorAll('.bt[data-vel]').forEach(b => b.onclick = () => {
+    base = decorridos(); marca = performance.now(); vel = +b.dataset.vel;
+    document.querySelectorAll('.bt[data-vel]').forEach(x => x.classList.toggle('on', x === b));
+  });
+  document.getElementById('zerar').onclick = () => { base = 0; marca = performance.now(); };
+})();
+</script>
