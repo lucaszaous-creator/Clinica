@@ -57,7 +57,7 @@ Salve cada um com **exatamente** este nome, dentro desta pasta (`docs/manuais/ca
 |---|---|---|
 | `recepcao-01-login.png` | Janela de entrada | Com um usuário digitado e a senha em pontinhos |
 | `recepcao-02-inicio.png` | **GESTÃO › Início** | Um dia com movimento: contadores preenchidos e a ocupação por profissional visível |
-| `recepcao-03-agenda-dia.png` | **GESTÃO › Agenda › aba Dia** | O melhor print do conjunto: um dia com pacientes em estados **diferentes** — um concluído, um chamado, um no local, um marcado e um cancelado |
+| `recepcao-03-agenda-dia.png` | **GESTÃO › Agenda › aba Dia** | O melhor print do conjunto. Um dia no **caminho curto**: uma linha **Concluído**, uma **Em atendimento**, duas **Marcado** e uma **Cancelado** (em cinza). Se a clínica usar os botões de espera, inclua também uma **No local** |
 | `recepcao-04-agenda-grade.png` | **GESTÃO › Agenda › aba Grade** | Duas ou três colunas de profissional, alguns horários ocupados e vãos livres à vista |
 | `recepcao-05-lancar.png` | **ATENDIMENTO › Lançar e marcar › aba Lançar** | Com paciente já escolhido, uma modalidade marcada e a **prévia da guia** desenhada na coluna da direita |
 | `recepcao-06-fechar-sessao.png` | Janela **Fechar a sessão** | Aberta pelo “⋯ › Fechar sessão” de um paciente **com pacote**, para aparecerem os três blocos (pacote, insumos, dinheiro) |
@@ -66,7 +66,7 @@ Salve cada um com **exatamente** este nome, dentro desta pasta (`docs/manuais/ca
 
 | Arquivo | Tela | Em que estado |
 |---|---|---|
-| `consultorio-01-meu-dia.png` | **GESTÃO › Minha agenda › aba Hoje** | Alguns pacientes, com a coluna **Prontuário** mostrando “escrito” e “pendente” |
+| `consultorio-01-meu-dia.png` | **GESTÃO › Minha agenda › aba Hoje** | Alguns pacientes, com a coluna **Prontuário** mostrando “escrito” e “pendente”, e o botão **Atender** visível nas linhas |
 | `consultorio-02-tela-do-paciente.png` | Tela do paciente, seção **Atendimento** | Com a folha da sessão preenchida (EVA antes/depois e texto), o crachá do paciente no alto e o rail à esquerda |
 
 ### Manual do Financeiro — aplicativo **Financeiro**

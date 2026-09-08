@@ -114,11 +114,11 @@
               <span style="padding:1mm 2mm;color:#6B7280;">Sem evolução</span>
             </div>
             <div class="h1">Meu dia</div>
-            <div class="sub">Quem eu atendo hoje, em que pé está cada um e o que já foi escrito.</div>
+            <div class="sub">Dra. Ana Prado</div>
             <div class="barra-acoes">
               <span class="btn sec">&lt;</span><span class="campo preenchido">08/09/2026</span><span class="btn sec">&gt;</span>
               <span class="btn sec">Hoje</span><span class="btn sec">Atualizar</span>
-              <span style="flex:1"></span><span class="btn">Chamar próximo — Pedro Alves</span>
+              <span style="flex:1"></span><span class="btn sec">Chamar próximo — Pedro Alves</span>
             </div>
             <table class="tab">
               <thead><tr><th>Horário</th><th>Paciente</th><th>Status</th><th>Prontuário</th><th style="text-align:right">Ação</th></tr></thead>
@@ -129,7 +129,7 @@
                     <td><span class="pill info">Em atendimento</span><br><span style="color:#6B7280">desde 09:04</span></td>
                     <td><span class="pill warn">Pendente</span></td><td style="text-align:right"><span class="btn">Atender</span></td></tr>
                 <tr><td>09:30</td><td><b>Pedro Alves</b><br><span style="color:#6B7280">Acupuntura</span></td>
-                    <td><span class="pill warn">No local</span><br><span style="color:#6B7280">chegou às 09:22 · espera 12 min</span></td>
+                    <td>Marcado</td>
                     <td>—</td><td style="text-align:right"><span class="btn sec">Chamar</span> <span class="btn">Atender</span></td></tr>
                 <tr class="apagada"><td>10:00</td><td>Rita Campos</td><td>Faltou</td><td>—</td><td></td></tr>
               </tbody>
@@ -139,7 +139,8 @@
       </div>
     </div>
     <figcaption><b>A tela “Meu dia”.</b> Uma linha por horário, com o estado do paciente e se a evolução
-    daquela sessão já foi escrita. O botão <b>Atender</b> abre o prontuário e marca que ele entrou na sala.</figcaption>
+    daquela sessão já foi escrita. <b>Atender</b> é o botão do dia: abre o prontuário e registra a entrada
+    na sala. O “Chamar” ao lado é opcional.</figcaption>
   </figure>
 
   <ol class="legenda">
@@ -167,17 +168,29 @@
   <div class="cap-num">Capítulo 2<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">O caminho de um atendimento</h1>
   <div class="cap-linha"></div>
-  <p class="cap-intro">Cinco passos, todos na mesma tela. Aprendendo este caminho, o resto do manual é
-  detalhe.</p>
+  <p class="cap-intro">Três cliques, todos na sua tela: <b>Atender</b>, escrever, <b>Finalizar</b>.
+  A secretária marca o horário — o resto é com você, e o balcão não precisa fazer nada no meio.</p>
 
   <div class="fluxo">
-    <div class="et"><b>1 · Chamar</b><span>No <b>Meu dia</b>, clique em <b>Chamar</b>. A recepção vê o aviso e chama o paciente pelo nome.</span></div>
-    <div class="et"><b>2 · Atender</b><span>Clique em <b>Atender</b>: abre o prontuário dele e marca que ele entrou na sala.</span></div>
-    <div class="et"><b>3 · Escrever</b><span>A folha da sessão: queixa, EVA, conduta, e o que mais você quiser detalhar.</span></div>
+    <div class="et"><b>1 · Atender</b><span>No <b>Meu dia</b>, na linha do paciente. Abre o prontuário
+      dele e registra que ele entrou na sala.</span></div>
+    <div class="et"><b>2 · Escrever</b><span>A folha da sessão: queixa, EVA, conduta — e o que mais
+      você quiser detalhar.</span></div>
+    <div class="et"><b>3 · Finalizar</b><span>Encerra a sessão, avisa o balcão que a sala vagou e
+      <b>gera as guias do convênio</b>.</span></div>
   </div>
-  <div class="fluxo">
-    <div class="et"><b>4 · Salvar</b><span>Grava a sessão. Pode salvar várias vezes durante o atendimento.</span></div>
-    <div class="et"><b>5 · Finalizar</b><span><b>Encerra o atendimento e gera as guias do convênio.</b> A recepção vê que a sala vagou.</span></div>
+
+  <div class="dica">
+    <b>Um clique registra os três carimbos</b>
+    <p>Ao clicar em <b>Atender</b>, o sistema marca de uma vez que o paciente chegou, foi chamado e
+    entrou na sala. Você não precisa que a recepção tenha clicado em nada antes — e ela não precisa
+    clicar em nada depois.</p>
+  </div>
+
+  <div class="nota">
+    <b>E o “Chamar”?</b>
+    <p>É <b>opcional</b>. Serve quando você quer avisar a recepção para chamar o paciente pelo nome na
+    sala de espera antes de recebê-lo. Se você mesmo chama à porta, vá direto ao <b>Atender</b>.</p>
   </div>
 
   <div class="nota">
@@ -190,8 +203,9 @@
   <div class="atencao">
     <b>Finalizar não é o mesmo que “fechar o caixa”</b>
     <p>O dinheiro, o pacote e o material continuam sendo do balcão. Depois que você finaliza, a linha
-    daquele paciente aparece na recepção com um botão de <b>Fechar sessão</b> — é lá que se debita o pacote
-    e se registra o pagamento do particular.</p>
+    daquele paciente aparece na recepção com um botão de <b>Fechar sessão</b> — e ele só aparece quando há
+    algo a resolver: pacote a descontar, material gasto ou paciente particular. Convênio sem pacote e sem
+    material acaba no seu <b>Finalizar</b>.</p>
   </div>
 
   <div class="proibido">
@@ -213,17 +227,18 @@
 
   <h2>3.1 · Aba <span style="color:var(--accent)">Hoje</span> (Meu dia)</h2>
   <p>A lista do seu dia, uma linha por horário. Cada linha diz em que pé está o paciente e se a evolução
-  daquela sessão já foi escrita.</p>
+  daquela sessão já foi escrita. <b>O botão que importa é o “Atender”</b> — os outros são atalhos de
+  quem quer avisar a recepção antes de receber o paciente.</p>
 
   <table class="botoes">
     <thead><tr><th>Coluna / botão</th><th>O que mostra ou faz</th></tr></thead>
     <tbody>
-      <tr><td class="bt">Status</td><td><b>Marcado</b> (ainda não chegou) · <b>No local</b> (chegou, com o tempo de espera) · <b>Chamado</b> · <b>Em atendimento</b> · <b>Concluído</b>. Cancelados e faltas ficam na lista, em cinza — para você saber que o horário vagou.</td></tr>
+      <tr><td class="bt">Status</td><td>No caminho normal são três: <b>Marcado</b> → <b>Em atendimento</b> (quando você clica em Atender) → <b>Concluído</b> (quando finaliza). <b>No local</b> e <b>Chamado</b> só aparecem se a recepção usar os botões de espera. Cancelados e faltas ficam na lista, em cinza — para você saber que o horário vagou.</td></tr>
       <tr><td class="bt">Prontuário</td><td><b>Escrito</b> ou <b>Pendente</b>: se aquela sessão já tem evolução.</td></tr>
-      <tr><td class="bt">Chamar próximo</td><td>Chama o primeiro da fila que já fez check-in. O nome aparece no balcão, e a recepção chama pelo nome.</td></tr>
-      <tr><td class="bt">Chamar (na linha)</td><td>Chama aquele paciente específico.</td></tr>
+      <tr><td class="bt">Atender</td><td><b>O botão do dia.</b> Abre a tela do paciente e registra, de uma vez, que ele chegou, foi chamado e entrou na sala. É por onde o atendimento começa.</td></tr>
+      <tr><td class="bt">Chamar próximo <span class="pill neutro">opcional</span></td><td>Avisa a recepção para chamar pelo nome o primeiro da fila que já fez check-in. Só faz sentido se a clínica usa os botões de espera do balcão.</td></tr>
+      <tr><td class="bt">Chamar (na linha) <span class="pill neutro">opcional</span></td><td>O mesmo, para um paciente específico.</td></tr>
       <tr><td class="bt">Desfazer chamada</td><td>Cancela a chamada. Chamar de novo <b>não zera</b> o cronômetro: quem insiste precisa continuar vendo há quanto tempo chamou.</td></tr>
-      <tr><td class="bt">Atender</td><td>Abre a tela do paciente <b>e</b> marca que ele entrou na sala.</td></tr>
       <tr><td class="bt">Voltar</td><td>Desfaz uma etapa (se você marcou entrada por engano).</td></tr>
       <tr><td class="bt">&lt; &gt; Hoje</td><td>Navegam entre os dias. <b>Em outro dia os botões de movimento somem</b> — a fila só corre hoje.</td></tr>
     </tbody>
@@ -845,6 +860,14 @@
   <div class="cap-num">Capítulo 15<a class="voltar" href="#sumario">sumário</a></div>
   <h1 class="cap-titulo">Perguntas frequentes</h1>
   <div class="cap-linha"></div>
+
+  <h3>Preciso esperar a recepção marcar a chegada do paciente?</h3>
+  <p><b>Não.</b> Clique em <b>Atender</b> direto na linha dele — o sistema registra chegada, chamada e
+  entrada de uma vez. A recepção não precisa ter feito nada antes.</p>
+
+  <h3>E depois que eu finalizo, sobra alguma coisa para o balcão?</h3>
+  <p>Só o dinheiro, e só quando existe: pacote a descontar, material gasto ou paciente particular. A
+  <b>guia do convênio já nasceu</b> no seu Finalizar.</p>
 
   <h3>Esqueci de escrever a evolução de ontem. Onde acho?</h3>
   <p><b>Minha agenda › Sem evolução</b>. A lista traz todas as sessões que aconteceram e não têm registro,
