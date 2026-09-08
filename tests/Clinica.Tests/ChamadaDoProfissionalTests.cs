@@ -130,12 +130,21 @@ public class ChamadaDoProfissionalTests : IDisposable
     }
 
     /// <summary>
-    /// O balcão pode levar o paciente direto para a sala (o profissional avisou pela
-    /// porta). Uma linha do tempo com entrada e sem chamada não existe, então a chamada
-    /// é carimbada junto — senão o histórico diria que a pessoa entrou sem ser chamada.
+    /// ENTRAR DIRETO NÃO INVENTA A CHEGADA NEM A CHAMADA (set/2026 — a regra virou, e este
+    /// teste virou com ela: ele existia para fixar exatamente o contrário).
+    ///
+    /// Até aqui a entrada direta carimbava os três no mesmo instante, com o argumento
+    /// então correto de que o kanban precisava distinguir quem esperou; entrar direto era
+    /// a EXCEÇÃO. Sem os botões de fila — a clínica dispensou o check-in —, ela virou a
+    /// regra, e a ficção passaria a produzir um NÚMERO FALSO: chegada igual à entrada dá
+    /// espera ZERO para todo paciente, e o painel anunciaria "espera média 0 min", isto é,
+    /// que ninguém espera nesta clínica.
+    ///
+    /// Sem chegada, a espera é NULA — "não medido", que é a verdade —, e a etapa continua
+    /// certa porque <c>Etapa</c> olha <c>InicioAtendimentoEm</c> PRIMEIRO.
     /// </summary>
     [Fact]
-    public async Task IniciarAtendimento_SemChamadaAnterior_CarimbaAChamadaJunto()
+    public async Task IniciarAtendimento_SemChegada_NaoInventaEsperaZero()
     {
         var ag = await AgendarAsync();
         var agora = DateTime.Today.AddHours(14).AddMinutes(3);
@@ -143,10 +152,12 @@ public class ChamadaDoProfissionalTests : IDisposable
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", agora);
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
-        depois.ChegadaEm.Should().Be(agora);
-        depois.ChamadoEm.Should().Be(agora);
+        depois.ChegadaEm.Should().BeNull("inventar a chegada faria a espera valer zero");
+        depois.ChamadoEm.Should().BeNull();
         depois.InicioAtendimentoEm.Should().Be(agora);
         depois.Etapa.Should().Be(EtapaFila.EmAtendimento);
+        depois.EsperaMinutos(agora.AddMinutes(30)).Should().BeNull(
+            "\"não medido\" e \"0 min\" são respostas diferentes");
     }
 
     /// <summary>Já chamado, entrar não pode reescrever a hora em que foi chamado.</summary>
@@ -206,14 +217,16 @@ public class ChamadaDoProfissionalTests : IDisposable
     }
 
     /// <summary>
-    /// Voltar etapa desce UMA coluna por clique, agora passando pela chamada. Pular a
-    /// coluna nova mandaria quem clicou errado de volta ao check-in de uma vez.
+    /// Voltar etapa desce UMA coluna por clique — e o que ele desfaz é o carimbo que
+    /// EXISTE. Entrar não inventa mais chegada nem chamada (set/2026), então o caminho
+    /// completo só aparece quando os três foram de fato carimbados.
     /// </summary>
     [Fact]
     public async Task VoltarEtapa_DesceUmaColunaPorVez()
     {
         var ag = await AgendarAsync();
         await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
+        await _agenda.ChamarAsync(ag.Id, "teste");
         await _agenda.IniciarAtendimentoAsync(ag.Id, "teste");
 
         (await _agenda.VoltarEtapaAsync(ag.Id, "teste")).Etapa.Should().Be(EtapaFila.Chamado);

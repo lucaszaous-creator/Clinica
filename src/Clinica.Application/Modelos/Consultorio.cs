@@ -105,20 +105,10 @@ public sealed record DiaDoProfissional(
 
     public int AEsperar => Sessoes.Count(s => s.Status == StatusAgendamento.Agendado);
 
-    /// <summary>Já no prédio, esperando ser chamado — é sobre estes que se decide o próximo.</summary>
-    public int NaRecepcao => Sessoes.Count(s => s.Etapa == EtapaFila.Chegou);
-
-    /// <summary>Chamados e ainda não entraram (parcela 38).</summary>
-    public int Chamados => Sessoes.Count(s => s.Etapa == EtapaFila.Chamado);
-
-    /// <summary>
-    /// O próximo a chamar: quem já chegou, pelo horário. Null quando não há ninguém no
-    /// balcão — e aí o botão de chamar fica desabilitado em vez de chamar o ar.
-    /// </summary>
-    public SessaoDoDia? ProximoAChamar => Sessoes
-        .Where(s => s.Etapa == EtapaFila.Chegou)
-        .OrderBy(s => s.DataHora)
-        .FirstOrDefault();
+    // ⛔ NaRecepcao, Chamados e ProximoAChamar SAÍRAM (set/2026). Serviam ao botão
+    // "Chamar próximo" e às colunas do kanban, que a clínica dispensou — o fluxo passou a
+    // ser "a secretaria marca, o profissional atende". Sem leitor, eram contagem derivada
+    // que ninguém lê: o defeito que este projeto persegue, na versão barata de remover.
 
     /// <summary>Sessões que aconteceram e ainda não têm evolução escrita.</summary>
     public int RegistrosPendentes => Sessoes.Count(s => s.RegistroPendente);

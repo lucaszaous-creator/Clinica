@@ -66,7 +66,12 @@ public sealed record ResumoDiaRecepcao(
     int Faltas,
     int Cancelados,
     int Encaixes,
-    int EsperaMediaMinutos,
+    // NULO quer dizer NÃO MEDIDO, nunca zero. Desde set/2026, com a clínica sem check-in
+    // no balcão (o fluxo virou "a secretaria marca, o profissional atende"), nenhum
+    // horário carimba chegada — e a espera deixou de existir como medida. Este campo era
+    // `int` com um `?? 0` na origem, e o painel teria anunciado "espera média 0 min":
+    // uma medida inventada com cara de exata.
+    int? EsperaMediaMinutos,
     int NaListaDeEspera,
     IReadOnlyList<OcupacaoProfissional> Ocupacao)
 {

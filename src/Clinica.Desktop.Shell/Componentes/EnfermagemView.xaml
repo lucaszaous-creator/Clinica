@@ -210,6 +210,23 @@
                      papel da passagem foi para o rodapé, ao lado do Registrar (mockup 01:
                      as ações do fim da passagem no mesmo lugar). -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- O CRONÔMETRO do atendimento em curso (set/2026, mockup aprovado — o
+                         "visor neutro"). Ele vem PRIMEIRO na barra: é leitura, e as duas
+                         portas ao lado são ação.
+
+                         ⚠️ Só existe quando há consulta em curso. A passagem fora de horário
+                         — curativo, triagem, observação — não tem o que cronometrar, e um
+                         visor zerado seria a medida inventada que este projeto recusa.
+                         `TextoParaVisibilidade` porque `Cronometro` é string: o conversor de
+                         bool devolveria Collapsed para SEMPRE (parcela 61). -->
+                    <Border Style="{StaticResource Visor.Cronometro}" Margin="0,0,12,0"
+                            ToolTip="Há quanto tempo esta consulta está em curso. Conta do momento em que o Atender foi clicado."
+                            Visibility="{Binding Cronometro,
+                                         Converter={StaticResource TextoParaVisibilidade}}">
+                        <TextBlock Text="{Binding Cronometro}"
+                                   Style="{StaticResource Visor.Cronometro.Digitos}" />
+                    </Border>
+
                     <Button Content="{Binding FolhaDeHoje}" MinWidth="150" Margin="0,0,8,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"

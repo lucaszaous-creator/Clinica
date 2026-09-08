@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Manual do Gerente Geral — Clínica SemDor</title>
+<link rel="stylesheet" href="_estilo.css">
+</head>
+<body>
+
+<section class="capa">
+  <div>
+    <div class="marca">Clínica SemDor · Manual de uso</div>
+    <h1>Gerente Geral</h1>
+    <p class="sub">O manual da direção: o painel do dia, os números da clínica, as metas,
+       o marketing, os acessos de cada pessoa e as configurações do sistema.</p>
+    <div class="paraquem">
+      <b>Para quem é este manual</b>
+      <p>Direção e gerência da clínica.<br>
+         Este aplicativo enxerga <b>tudo</b> — inclusive as telas da Recepção, do Consultório
+         e do Financeiro, que têm manuais próprios.</p>
+    </div>
+  </div>
+  <div class="capa-temas">
+    <b>Neste manual</b>
+    <div><span>Painel da direção</span><span>Indicadores e metas</span><span>Rentabilidade</span><span>Acessos e auditoria</span><span>Configurações e backup</span></div>
+  </div>
+  <div class="rodape">
+    Programa: <b>Clínica SemDor — Gerente Geral</b> (ícone azul com o nome “Gerente” na área de trabalho).<br>
+    Aqui estão as telas que <b>só a direção</b> tem, e as decisões que só ela pode tomar.
+  </div>
+</section>
+
+<section class="sumario" id="sumario">
+  <div class="cap-num">Sumário</div>
+  <h1 class="cap-titulo">O que você vai encontrar aqui</h1>
+  <div class="cap-linha"></div>
+  <ol>
+    <li><a href="#cap-1"><em>Antes de começar</em><span>abrir, entrar e entender a tela</span></a></li>
+    <li><a href="#cap-2"><em>Painel da direção</em><span>o que exige ação hoje</span></a></li>
+    <li><a href="#cap-3"><em>Relatórios / BI</em><span>indicadores, metas, resultado e produção</span></a></li>
+    <li><a href="#cap-4"><em>Metas</em><span>o alvo do mês, e por que ele muda a leitura</span></a></li>
+    <li><a href="#cap-5"><em>Rentabilidade e custos</em><span>quanto rende cada convênio</span></a></li>
+    <li><a href="#cap-6"><em>Faturamento (TISS)</em><span>a leitura gerencial das guias</span></a></li>
+    <li><a href="#cap-7"><em>Tabela de preço</em><span>convênios e particular</span></a></li>
+    <li><a href="#cap-8"><em>Marketing / Recall</em><span>campanhas, quem sumiu, de onde vêm</span></a></li>
+    <li><a href="#cap-9"><em>Conformidade e acessos</em><span>auditoria, guarda do prontuário, usuários</span></a></li>
+    <li><a href="#cap-10"><em>Acessos</em><span>quem pode o quê — a tela mais importante da direção</span></a></li>
+    <li><a href="#cap-11"><em>Configurações</em><span>a clínica, os prazos, backup, termos, e-mail</span></a></li>
+    <li><a href="#cap-12"><em>Importar pacientes</em><span>trazer a carteira do sistema antigo</span></a></li>
+    <li><a href="#cap-13"><em>Quando algo dá errado · FAQ · Glossário</em></a></li>
+  </ol>
+</section>
+
+<!-- ==================== 1 ==================== -->
+<section class="cap" id="cap-1">
+  <div class="cap-num">Capítulo 1<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Antes de começar</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O Gerente Geral é o único aplicativo que carrega <b>todos</b> os módulos. Por isso o
+  menu dele é o maior — e por isso ele vem agrupado por assunto, com os grupos que abrem e fecham.</p>
+
+  <div class="nota">
+    <b>Como ler este manual</b>
+    <p>As figuras <b>ainda não são fotos do sistema</b> — são reproduções feitas a partir do próprio
+    código, e cada uma sai marcada com um selo laranja avisando disso. Elas são fiéis no que importa:
+    os nomes dos botões, das colunas e dos campos são <b>exatamente</b> os que você vai ver no
+    computador, e as cores também. Assim que as capturas reais forem tiradas, elas entram no lugar
+    e o selo some.</p>
+  </div>
+
+  <div class="atencao">
+    <b>Este manual não repete os outros</b>
+    <p>As telas da Recepção (agenda, pacientes, lançamento), do Consultório (prontuário, prescrições) e do
+    Financeiro (caixa, contas, conciliação) aparecem no seu menu e estão explicadas nos <b>manuais daqueles
+    módulos</b>. Aqui estão só as telas que <b>a direção tem e os outros não</b>.</p>
+  </div>
+
+  <h2>1.1 · A tela por dentro</h2>
+  <figure data-captura="gerente-01-painel-direcao">
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Gerente Geral</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Gestão ▾</div>
+          <div class="item on"><i></i>Painel</div>
+          <div class="item"><i></i>Agenda</div>
+          <div class="item"><i></i>Profissionais e salas</div>
+          <div class="grupo">Paciente ▸</div>
+          <div class="grupo">Atendimento ▸</div>
+          <div class="grupo">Financeiro ▸</div>
+          <div class="grupo">Inteligência ▾</div>
+          <div class="item"><i></i>Relatórios / BI</div>
+          <div class="item"><i></i>Rentabilidade e custos</div>
+          <div class="item"><i></i>Marketing / Recall</div>
+          <div class="item"><i></i>Conformidade e acessos</div>
+          <div class="item"><i></i>Configurações</div>
+        </div>
+        <div class="main">
+          <div class="top"><span class="busca">Ir para… (Ctrl+F)</span><span class="user"><span class="av">DS</span>Direção ▾</span></div>
+          <div class="tela">
+            <div style="display:flex;gap:3mm;border-bottom:1px solid #E5E7EB;margin-bottom:2.4mm;">
+              <span style="padding:1mm 2mm;border-bottom:2px solid #123A9E;color:#123A9E;font-weight:700;">Direção</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Recepção</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Meu dia</span>
+            </div>
+            <div class="h1">Boa tarde</div>
+            <div class="sub">terça-feira, 08 de setembro de 2026</div>
+            <div class="kpis">
+              <div class="kpi"><div class="rot">Faturado no mês</div><div class="val">R$ 84.2k</div><div class="dt">▲ 12% vs. mês anterior</div></div>
+              <div class="kpi"><div class="rot">Sessões</div><div class="val">412</div><div class="dt">▲ 6%</div></div>
+              <div class="kpi"><div class="rot">Ocupação</div><div class="val">68%</div><div class="dt baixa">▼ 3%</div></div>
+              <div class="kpi"><div class="rot">Resultado</div><div class="val">R$ 21.7k</div><div class="dt">▲ 9%</div></div>
+            </div>
+            <div class="card">
+              <div class="tit">O que exige ação hoje</div>
+              <table class="tab">
+                <tr><td><span class="pill err">Urgente</span></td><td>7 guias com prazo de decisão vencido</td><td style="text-align:right"><span class="btn sec">Abrir</span></td></tr>
+                <tr><td><span class="pill warn">Atenção</span></td><td>3 glosas com prazo de recurso terminando</td><td style="text-align:right"><span class="btn sec">Abrir</span></td></tr>
+                <tr><td><span class="pill warn">Atenção</span></td><td>12 sessões sem evolução escrita</td><td style="text-align:right"><span class="btn sec">Abrir</span></td></tr>
+                <tr><td><span class="pill info">Aviso</span></td><td>R$ 4.310 de pacientes devendo</td><td style="text-align:right"><span class="btn sec">Abrir</span></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>O painel da direção.</b> Cada alerta <b>leva</b> à tela onde ele se resolve — o botão
+    fica apagado quando aquele destino não existe para o seu acesso.</figcaption>
+  </figure>
+
+  <h2>1.2 · Os grupos do menu</h2>
+  <table class="botoes">
+    <thead><tr><th>Grupo</th><th>O que tem dentro</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">GESTÃO</td><td>O dia da clínica: painel, agenda, profissionais e salas, ajuda.</td></tr>
+      <tr><td class="bt">PACIENTE</td><td>A pessoa: cadastro, documentos, pacotes, preços, retorno, importação.</td></tr>
+      <tr><td class="bt">ATENDIMENTO</td><td>O ato de atender: lançar e marcar, prontuário, prescrições, enfermagem.</td></tr>
+      <tr><td class="bt">FINANCEIRO</td><td>O dinheiro: caixa, contas, recebimentos, estoque, repasses, faturamento, tabela de preço.</td></tr>
+      <tr><td class="bt">INTELIGÊNCIA</td><td>A leitura do negócio: BI, metas, rentabilidade, marketing, conformidade, configurações.</td></tr>
+    </tbody>
+  </table>
+  <p class="suave">Clicar no nome do grupo abre e fecha aquele grupo. Navegar para uma tela abre o grupo
+  dela e fecha os outros — assim a lista não cresce sem parar.</p>
+  <p class="suave"><b>Ctrl + B</b> recolhe o menu para só os ícones (e devolve); <b>Ctrl + F</b> abre a
+  busca de telas, que também procura dentro das abas e diz o caminho (“Fechamento de caixa — em Caixa”).</p>
+</section>
+
+<!-- ==================== 2 ==================== -->
+<section class="cap" id="cap-2">
+  <div class="cap-num">Capítulo 2<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Painel da direção</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A tela que abre o aplicativo. Ela não calcula nada por conta própria: cada número
+  vem do serviço que é dono dele, para não haver duas respostas para a mesma pergunta.</p>
+
+  <p><span class="caminho">Menu <b>GESTÃO › Painel</b> › aba <b>Direção</b></span></p>
+
+  <h2>2.1 · Os blocos</h2>
+  <table class="botoes">
+    <thead><tr><th>Bloco</th><th>O que responde</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Metas do mês</td><td>Como o mês está indo <b>contra o alvo</b> que a direção definiu. Sem meta cadastrada, ele compara com o mês anterior — que responde “melhorou?”, nunca “chegamos onde a gente disse que ia chegar?”.</td></tr>
+      <tr><td class="bt">O que exige ação hoje</td><td>A lista de alertas, cada um com um botão que <b>leva</b> à tela onde ele se resolve.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Os alertas que aparecem</h3>
+  <table class="botoes">
+    <thead><tr><th>Alerta</th><th>Significa</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Guias com prazo de decisão vencido</td><td>Guias pendentes há mais dias do que o prazo configurado. Se ninguém decidir, o faturamento trava numa janela obrigatória.</td></tr>
+      <tr><td class="bt">Glosas com prazo de recurso terminando</td><td>Passado o prazo, não é mais pendência — é prejuízo consumado.</td></tr>
+      <tr><td class="bt">Prontuário em aberto</td><td>Sessões que aconteceram e não têm evolução escrita.</td></tr>
+      <tr><td class="bt">Guia faturada sem prontuário</td><td>Mais grave que o anterior: é cobrança sem o documento que a sustenta.</td></tr>
+      <tr><td class="bt">Infusão aguardando</td><td>Folhas de infusão com item por executar.</td></tr>
+      <tr><td class="bt">Infusão sem assinatura</td><td>Folhas encerradas esperando a assinatura da enfermagem.</td></tr>
+      <tr><td class="bt">Contas a pagar / pacientes devendo</td><td>São <b>dois</b> alertas separados: um se resolve pagando, o outro cobrando. Somá-los daria um número sem significado.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nota">
+    <b>Cada bloco falha sozinho</b>
+    <p>Se uma leitura não puder ser feita, aquele bloco mostra <b>“não foi possível verificar”</b> e o resto
+    continua. Um painel dizendo “nada vencido” por causa de uma consulta quebrada seria pior do que um
+    painel que avisa.</p>
+  </div>
+
+  <div class="atencao">
+    <b>A comparação é com o MESMO trecho do mês anterior</b>
+    <p>No dia 5, ele compara cinco dias com cinco dias — não cinco com trinta. Senão todo começo de mês
+    apontaria queda de 80%, e qualquer pessoa aprenderia a ignorar a seta.</p>
+  </div>
+
+  <p>As outras duas abas do <b>Painel</b> são o painel da <b>Recepção</b> (como está o balcão agora) e o
+  <b>Meu dia</b> do profissional — explicados nos manuais daqueles módulos.</p>
+</section>
+
+<!-- ==================== 3 ==================== -->
+<section class="cap" id="cap-3">
+  <div class="cap-num">Capítulo 3<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Relatórios / BI</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Cinco abas com a leitura do desempenho da clínica.</p>
+
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Relatórios / BI</b></span></p>
+
+  <h2>3.1 · Indicadores</h2>
+  <table class="botoes">
+    <thead><tr><th>Coluna</th><th>O que mede</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Atendidos</td><td>Sessões concluídas por profissional no período.</td></tr>
+      <tr><td class="bt">Faltas / No-show (%)</td><td>Quantos não vieram. <b>Cancelamento avisado não conta como falta</b> — quem desmarcou deu chance de reocupar.</td></tr>
+      <tr><td class="bt">Horas</td><td>Tempo de agenda ocupado.</td></tr>
+      <tr><td class="bt">Evoluções / Prontuário</td><td>Quantas sessões têm registro escrito, e o percentual. <b>“—” quando não houve sessão</b> — não se acusa de negligência quem tirou férias.</td></tr>
+      <tr><td class="bt">Queda média da dor</td><td>A diferença média entre a EVA antes e depois.</td></tr>
+      <tr><td class="bt">Ocupação por profissional</td><td>Medida contra os dias em que ele <b>teve agenda</b> × a jornada configurada — e não contra um calendário inventado.</td></tr>
+    </tbody>
+  </table>
+  <p><b>Exportar</b> gera a planilha. <b>Métrica sem base de cálculo sai como “—” também na planilha</b>,
+  para o Excel não calcular média sobre um número que não existe.</p>
+
+  <h2>3.2 · As outras abas</h2>
+  <ul>
+    <li><b>Metas</b> — o capítulo 4.</li>
+    <li><b>Resultado do mês</b> — a demonstração do período (manual do Financeiro, capítulo 15).</li>
+    <li><b>Produção</b> — volume de sessões e receita em 6 ou 12 meses.</li>
+    <li><b>Meus números</b> — a tela do profissional (manual do Consultório).</li>
+  </ul>
+</section>
+
+<!-- ==================== 4 ==================== -->
+<section class="cap" id="cap-4">
+  <div class="cap-num">Capítulo 4<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Metas</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Sem meta, o painel só sabe comparar com o mês anterior — e variação responde
+  “melhorou?”, nunca <b>“chegamos onde a gente disse que ia chegar?”</b>. Um mês 10% melhor que um mês ruim
+  aparece como vitória.</p>
+
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Relatórios / BI</b> › aba <b>Metas</b></span></p>
+
+  <ol class="passos">
+    <li>Escolha o mês (◀ ▶) e clique em <b>Nova meta</b>.</li>
+    <li><b>Indicador</b> (faturamento, sessões, ocupação…), <b>de quem</b> (a clínica ou um profissional) e
+      o <b>alvo</b>.</li>
+    <li>Salve. A tela passa a mostrar <b>Realizado</b> e <b>Situação</b> ao lado do alvo.</li>
+  </ol>
+
+  <table class="botoes">
+    <thead><tr><th>Regra</th><th>Por quê</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Uma meta por mês, por indicador, por pessoa</td><td>Duas metas para a mesma pergunta dariam duas réguas, e a tela escolheria uma sem dizer qual.</td></tr>
+      <tr><td class="bt">Sem meta ≠ meta zero</td><td>Sem linha é “não decidimos”; zero é “decidimos que é zero”. Inventar zero faria todo mês não planejado aparecer como alvo batido.</td></tr>
+      <tr><td class="bt">Reajustar agosto não reescreve julho</td><td>Cada mês é uma linha própria.</td></tr>
+      <tr><td class="bt">Não se projeta mês com menos de 5 dias</td><td>Projetar no dia 2 multiplica ruído por quinze.</td></tr>
+      <tr><td class="bt">Ocupação não se projeta por regra de três</td><td>Ela já é uma média; multiplicá-la pelos dias que faltam daria 300%.</td></tr>
+    </tbody>
+  </table>
+  <div class="nota">
+    <b>Ver o número e decidir sobre ele são acessos diferentes</b>
+    <p>Dar acesso ao BI não dá o poder de apagar as metas do ano. São dois bits separados, e a direção pode
+    conceder um sem o outro.</p>
+  </div>
+</section>
+
+<!-- ==================== 5 ==================== -->
+<section class="cap" id="cap-5">
+  <div class="cap-num">Capítulo 5<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Rentabilidade e custos</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Rentabilidade e custos</b></span></p>
+
+  <h2>5.1 · Por convênio</h2>
+  <p>A leitura que decide negociação de tabela.</p>
+  <table class="botoes">
+    <thead><tr><th>Coluna</th><th>O que é</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Guias</td><td>Quantas guias daquela operadora no período.</td></tr>
+      <tr><td class="bt">Bruto</td><td>O valor cheio.</td></tr>
+      <tr><td class="bt">Retido</td><td>O imposto que a operadora reteve na fonte.</td></tr>
+      <tr><td class="bt">Líquido</td><td>O que sobrou.</td></tr>
+      <tr><td class="bt">Por guia</td><td><b>A leitura central.</b> É o único número comparável entre operadoras com valores e volumes diferentes — a “menos rentável” é apurada por guia, e não pelo total, que apontaria sempre a de menor volume.</td></tr>
+      <tr><td class="bt">Prazo</td><td>O tempo médio até o pagamento. <b>Só conta o que já foi pago</b> — incluir o previsto mediria uma promessa, e quem atrasa teria o melhor número.</td></tr>
+    </tbody>
+  </table>
+  <div class="atencao">
+    <b>O agrupamento é por OPERADORA, não por família de regra</b>
+    <p>Duas operadoras podem compartilhar a mesma regra de faturamento e mesmo assim ser negócios
+    diferentes. Somá-las daria “Porto Saúde: 143 guias” quando são duas operadoras juntas — o número que a
+    direção usa para negociar.</p>
+  </div>
+
+  <h2>5.2 · Custo de taxas e impostos</h2>
+  <p>Quanto a clínica paga de maquininha e de imposto, mês a mês. A leitura que só existe aqui é a
+  <b>taxa efetiva contra a de tabela</b>: a tabela diz 3,1%, e se a clínica parcela mais do que imagina o
+  efetivo é 3,9%. É essa diferença que dá argumento na renegociação.</p>
+  <p class="suave">A tabela vem como <b>faixa</b> (menor e maior taxa vigente), porque uma adquirente tem
+  várias taxas e um número só teria de escolher uma modalidade.</p>
+</section>
+
+<!-- ==================== 6 ==================== -->
+<section class="cap" id="cap-6">
+  <div class="cap-num">Capítulo 6<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Faturamento (TISS)</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A leitura <b>gerencial</b> do faturamento, em cinco abas. Quem opera as guias no dia
+  a dia é o aplicativo de Faturamento (manual próprio); aqui a direção acompanha e, quando precisa, age.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Faturamento (TISS)</b></span></p>
+
+  <table class="botoes">
+    <thead><tr><th>Aba</th><th>O que mostra</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Visão geral</td><td>Por convênio: guias geradas, baixadas, pendentes, <b>taxa de baixa</b>, glosa e tempo médio. Mais a evolução da taxa de baixa e as pendências por faixa de atraso.</td></tr>
+      <tr><td class="bt">Pendências</td><td>As guias esperando baixa, com filtros por convênio, urgência e paciente. Dá para <b>Dar baixa</b> e <b>Anotar</b> aqui mesmo.</td></tr>
+      <tr><td class="bt">Glosas</td><td>As guias recusadas, com prazo de recurso. <b>Reapresentar</b> registra o recurso; <b>Recuperada</b> registra que o convênio pagou.</td></tr>
+      <tr><td class="bt">Não conformidades</td><td>As guias que alguém decidiu <b>não faturar</b>, com a justificativa escrita. <b>Reabrir</b> devolve a guia à fila de pendências.</td></tr>
+      <tr><td class="bt">Lotes</td><td>Os lotes TISS gerados, enviados e com retorno. Aqui é <b>só leitura</b>: gerar lote é do aplicativo de Faturamento, porque o número do lote é uma sequência e dois programas gerando ao mesmo tempo produziriam lotes duplicados que a operadora recusa.</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>Fechamento em PDF</b> gera o relatório do período para arquivar ou mandar ao contador.</p>
+
+  <div class="nota">
+    <b>Dar baixa daqui é o mesmo ato do faturamento</b>
+    <p>Inclusive a conferência do <b>número da guia</b>: cada convênio tem um formato (a Unimed só numera
+    com dígitos, por exemplo), e o sistema critica enquanto você digita — para o “O” no lugar do zero não
+    passar e só aparecer no retorno da operadora, semanas depois.</p>
+  </div>
+</section>
+
+<!-- ==================== 7 ==================== -->
+<section class="cap" id="cap-7">
+  <div class="cap-num">Capítulo 7<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Tabela de preço</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>FINANCEIRO › Tabela de preço</b></span></p>
+
+  <h2>7.1 · Convênios</h2>
+  <p>Quanto cada convênio paga por cada tipo de guia. É o que faz a <b>Conciliação</b> do Financeiro abrir
+  já com o valor preenchido e a procedência escrita ao lado.</p>
+  <ol class="passos">
+    <li><b>Novo preço</b>.</li>
+    <li>Escolha o <b>convênio</b>, o tipo de guia e, se o preço muda por especialidade, a
+      <b>especialidade</b>.</li>
+    <li>Informe o <b>valor</b> e a <b>vigência</b>.</li>
+    <li>Salve.</li>
+  </ol>
+  <ul>
+    <li>A regra <b>mais específica ganha</b> — especialidade vence o genérico.</li>
+    <li>Reajuste é <b>linha nova</b>: a guia de março segue valendo o preço de março.</li>
+    <li><b>Sem preço cadastrado o campo fica vazio</b>, e não zero — chutar um valor de mercado daria
+      receita errada com aparência de exata.</li>
+    <li><b>Só o que vale hoje</b> esconde as linhas fora de vigência.</li>
+  </ul>
+
+  <h2>7.2 · Particular</h2>
+  <p>A mesma ideia para quem não tem convênio, chaveada pelo que a clínica <b>faz</b>: <b>modalidade</b>
+  (obrigatória) + <b>especialidade atendida</b> (opcional). Está explicada no manual da Recepção,
+  capítulo 10 — a direção e o balcão cadastram na mesma tela.</p>
+</section>
+
+<!-- ==================== 8 ==================== -->
+<section class="cap" id="cap-8">
+  <div class="cap-num">Capítulo 8<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Marketing / Recall</h1>
+  <div class="cap-linha"></div>
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Marketing / Recall</b></span></p>
+
+  <h2>8.1 · Campanhas</h2>
+  <p>Três tipos de contato, todos com o mesmo registro:</p>
+  <table class="botoes">
+    <thead><tr><th>Rodada</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Confirmações de amanhã</td><td>Monta a lista de quem tem horário amanhã, para confirmar. <b>Não exige autorização de marketing</b> — confirmar a própria sessão é assunto do atendimento.</td></tr>
+      <tr><td class="bt">NPS de ontem</td><td>Pergunta a nota a quem foi atendido ontem. <b>Exige autorização.</b></td></tr>
+      <tr><td class="bt">Recall do mês</td><td>Convida de volta quem não vem há um tempo. <b>Exige autorização.</b></td></tr>
+    </tbody>
+  </table>
+  <ol class="passos">
+    <li>Clique no botão da rodada que quer gerar.</li>
+    <li>A lista aparece com <b>paciente, telefone, campanha e situação</b>.</li>
+    <li><b>WhatsApp</b> abre a conversa com a mensagem pronta — um clique por pessoa, porque o número é o
+      WhatsApp da clínica.</li>
+    <li><b>Respondeu</b> / <b>Nota</b> registram o retorno; <b>Dispensar</b> tira o contato da fila.</li>
+  </ol>
+  <div class="atencao">
+    <b>Quem não autorizou aparece contado, com o motivo</b>
+    <p>Em vez de sumir da lista. Some da lista, some da cabeça — e “12 pacientes” que eram 30 faz a clínica
+    concluir que quase ninguém está sumindo. <b>Dispensar</b> é a permissão que faz um contato sumir da fila
+    <b>sem ninguém ter falado com o paciente</b>, e por isso ela é da direção.</p>
+  </div>
+
+  <h2>8.2 · Quem parou de vir</h2>
+  <p>A lista caso a caso, para a direção decidir quem vale um telefonema de verdade — o paciente de
+  tratamento longo que some vale dez recalls disparados no vazio.</p>
+  <ul>
+    <li><b>Quem tem sessão futura marcada não aparece</b>, por mais tempo que faça desde a última: ele já
+      voltou, só ainda não veio.</li>
+    <li><b>Só quem era frequente</b> e <b>Só com pacote em aberto</b> estreitam a lista. O segundo é o caso
+      que a clínica deve tanto ao paciente quanto a si: ele pagou sessões que não usou.</li>
+    <li><b>Chamar de volta</b> abre o WhatsApp; <b>Exportar CSV</b> gera a planilha.</li>
+  </ul>
+
+  <h2>8.3 · De onde vêm os pacientes</h2>
+  <p>Responde a pergunta que justifica a pergunta do balcão (“como conheceu a clínica?”):</p>
+  <ul>
+    <li><b>Origem × na base × % da base × estrearam no período.</b></li>
+    <li><b>Quem mais indica (10 maiores)</b> — as pessoas que trazem pacientes.</li>
+    <li><b>“Estreou no período”</b> = o <b>primeiro atendimento</b> daquela pessoa caiu no período. Cadastro
+      sem atendimento é intenção; atendimento é a clínica trabalhando.</li>
+    <li><b>“Não perguntado”</b> aparece como linha normal, ordenada junto das outras. Quando ela encabeça a
+      tabela, o achado do relatório é que o balcão parou de perguntar.</li>
+  </ul>
+
+  <h2>8.4 · Retorno de pacientes</h2>
+  <p>A tela de telefonar, que a Recepção também tem — está no manual dela, capítulo 11.</p>
+</section>
+
+<!-- ==================== 9 ==================== -->
+<section class="cap" id="cap-9">
+  <div class="cap-num">Capítulo 9<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Conformidade e acessos</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Três abas que respondem às perguntas de uma auditoria: <b>quem fez</b>, <b>quem
+  leu</b> e <b>o que a clínica guarda</b>.</p>
+
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Conformidade e acessos</b></span></p>
+
+  <h2>9.1 · Auditoria</h2>
+  <p>A trilha de tudo o que foi feito no sistema: quem, quando e o quê.</p>
+  <ol class="passos">
+    <li>Escolha o período em <b>De</b> e <b>Até</b> (o dia final entra inteiro).</li>
+    <li>Filtre por <b>ação</b> (basta o começo: “Conta” acha ContaCriada e ContaReagendada),
+      <b>operador</b>, <b>paciente</b> ou um trecho <b>no detalhe</b>.</li>
+    <li>Marque <b>Só quem ABRIU o prontuário</b> para investigar acesso indevido de <b>leitura</b> — que é o
+      caso clássico numa clínica, e o que a permissão sozinha não cobre.</li>
+    <li><b>Consultar</b>. <b>Exportar</b> gera a planilha.</li>
+  </ol>
+  <div class="proibido">
+    <b>A trilha é somente leitura</b>
+    <p>Não há como editar nem apagar um registro de auditoria — nem aqui, nem em lugar nenhum. Registro de
+    auditoria que se pode alterar não é auditoria, é rascunho.</p>
+  </div>
+  <div class="nota">
+    <b>Quando ele avisa que bateu no limite</b>
+    <p>A consulta tem um teto de linhas. Se ele for atingido, a tela <b>diz</b> — “300 eventos” que na
+    verdade são 300 de 4.000 faria a direção concluir que o período teve pouca movimentação.</p>
+  </div>
+
+  <h2>9.2 · Guarda do prontuário</h2>
+  <p>A tela que responde ao auditor <b>“o que vocês guardam, e por quanto tempo”</b>.</p>
+  <table class="botoes">
+    <thead><tr><th>Bloco</th><th>O que mostra</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">A clínica inteira</td><td>Prazo legal, quantos pacientes, quantos têm prontuário, quantos registros guardados, quantos já cumpriram o prazo e qual é o registro mais antigo.</td></tr>
+      <tr><td class="bt">Um paciente</td><td>Escolha a pessoa e clique em <b>Calcular a guarda</b>: até quando aquele prontuário precisa ser guardado.</td></tr>
+      <tr><td class="bt">Quem abriu este prontuário</td><td>A trilha de leitura daquele paciente — quem abriu, quando e por qual porta.</td></tr>
+      <tr><td class="bt">Exportar o prontuário</td><td>De uma pessoa, ou da clínica inteira.</td></tr>
+    </tbody>
+  </table>
+  <div class="atencao">
+    <b>O prazo conta do ÚLTIMO registro, e o sistema não elimina nada</b>
+    <p>São <b>20 anos</b> a partir do último registro de qualquer natureza, e o prazo é legal — não é
+    configurável, justamente para ninguém baixá-lo sem perceber. Vencido o prazo, o prontuário fica
+    <b>elegível</b>; a decisão de eliminar é da clínica, com a comissão prevista em lei. Eliminar sozinho
+    seria ler um <b>piso</b> de guarda como agendamento de destruição.</p>
+  </div>
+
+  <h2>9.3 · Acessos</h2>
+  <p>É o <a class="remissao" href="#cap-10">capítulo 10</a> — a tela mais importante da direção.</p>
+</section>
+
+<!-- ==================== 10 ==================== -->
+<section class="cap" id="cap-10">
+  <div class="cap-num">Capítulo 10<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Acessos — quem pode o quê</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Cada pessoa entra com o próprio usuário, e o que ela alcança é decidido aqui.
+  <b>Item que a pessoa não pode usar simplesmente não aparece no menu dela.</b></p>
+
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Conformidade e acessos</b> › aba <b>Acessos</b></span></p>
+
+  <h2>10.1 · Criar um usuário</h2>
+  <ol class="passos">
+    <li><b>Novo usuário</b>.</li>
+    <li><b>Nome</b>, <b>login</b> (sem espaços) e uma <b>senha provisória</b>.</li>
+    <li><b>Perfil</b>: Recepção, Profissional, Enfermagem, Financeiro, Faturista ou Gerente. O perfil é só o
+      <b>ponto de partida</b> das permissões.</li>
+    <li><b>Profissional</b>: se a pessoa atende, ligue o usuário ao cadastro dela. <b>É essa ligação</b> que
+      faz a agenda ser a dela, o conselho (CRM/COREN) ser copiado nos registros e o CPF do certificado
+      digital ser conferido na assinatura.</li>
+    <li>Salve. Na primeira entrada, o sistema pede que ela troque a senha.</li>
+  </ol>
+
+  <h2>10.2 · Ajustar permissões</h2>
+  <p>Dentro do usuário, as permissões vêm <b>agrupadas por assunto</b>, com a <b>consequência escrita ao
+  lado de cada caixinha</b> e a <b>procedência</b> de cada uma: padrão da função, liberada à mão ou tirada à
+  mão.</p>
+  <ul>
+    <li><b>Marcar</b> uma caixinha libera aquela função só para aquela pessoa.</li>
+    <li><b>Desmarcar</b> tira. O que foi tirado à mão <b>vence</b> o padrão do perfil.</li>
+    <li>Corrigir o <b>padrão de um perfil</b> alcança quem já está cadastrado — o cálculo é
+      <i>padrão + liberadas − tiradas</i>, feito toda vez que a pessoa entra.</li>
+  </ul>
+
+  <h2>10.3 · Os cortes que valem a pena entender</h2>
+  <table class="botoes">
+    <thead><tr><th>Separação</th><th>Por quê</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Ficha × Prontuário</td><td><b>Ver ficha</b> é contato (telefone, convênio). <b>Ver prontuário</b> é dado de saúde. É o corte da LGPD, e é o que impede a recepção de ler a evolução de todo mundo para marcar um horário.</td></tr>
+      <tr><td class="bt">Baixar × Estornar</td><td>Errar a baixa é acidente; estornar apaga o trabalho de outra pessoa. Por isso o faturista baixa e não estorna.</td></tr>
+      <tr><td class="bt">Marcar agenda × Mover a fila</td><td>O profissional registra a entrada do paciente na sala (o clique de <b>Atender</b>) <b>sem</b> ganhar a agenda do balcão, que continua marcando e remarcando.</td></tr>
+      <tr><td class="bt">Ver indicadores × Definir metas</td><td>O realizado é fato; a meta é a decisão da direção sobre o fato.</td></tr>
+      <tr><td class="bt">Não conformidade</td><td>É a única permissão que faz uma pendência <b>sumir do painel sem a guia ter sido faturada</b> — quem a tem pode zerar o alarme sobre o próprio trabalho que ele cobra.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="atencao">
+    <b>Trocar de usuário reabre o aplicativo</b>
+    <p>É de propósito: as telas leem a permissão quando são construídas, e metade delas já está aberta.
+    Permissão que <b>parece</b> aplicada e não está é pior do que permissão nenhuma.</p>
+  </div>
+  <div class="nota">
+    <b>Redefinir senha</b>
+    <p>Gera uma provisória, que a pessoa troca ao entrar. A direção <b>não vê</b> a senha de ninguém — e
+    entregar a senha nova pronta trocaria um segredo comprometido por um que já nasce compartilhado.</p>
+  </div>
+  <div class="proibido">
+    <b>O sistema não deixa a clínica ficar sem ninguém que gerencie acessos</b>
+    <p>Ele recusa excluir ou rebaixar o último usuário com essa permissão. E se a base ainda não tiver
+    usuário nenhum, o primeiro acesso cria um Gerente — em vez de trancar todo mundo do lado de fora.</p>
+  </div>
+</section>
+
+<!-- ==================== 11 ==================== -->
+<section class="cap" id="cap-11">
+  <div class="cap-num">Capítulo 11<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Configurações</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Sete blocos. Cada um tem o seu próprio botão de <b>Salvar</b> — salvar um não mexe
+  nos outros.</p>
+
+  <p><span class="caminho">Menu <b>INTELIGÊNCIA › Configurações</b></span></p>
+
+  <h2>11.1 · A clínica</h2>
+  <p>Razão social, nome fantasia, CNPJ, CNES, endereço, telefone, e-mail, cidade e <b>chave Pix</b>. É o que
+  sai impresso no cabeçalho de todas as folhas que a clínica entrega.</p>
+
+  <h2>11.2 · Operação e marketing</h2>
+  <table class="botoes">
+    <thead><tr><th>Campo</th><th>O que muda</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Jornada diária (minutos)</td><td>A base da <b>ocupação</b>. Sem ela, a ocupação seria calculada contra dias úteis inventados.</td></tr>
+      <tr><td class="bt">Recall: dias sem vir</td><td>A partir de quantos dias o paciente entra na lista de recall.</td></tr>
+      <tr><td class="bt">Faturamento na marcação</td><td>Liga a opção de <b>a guia nascer já quando o horário é marcado</b>, e não só quando o atendimento é lançado. Veja o aviso abaixo.</td></tr>
+      <tr><td class="bt">Escrever termos…</td><td>Cadastra os termos que o paciente assina (consentimento, jejum) e diz qual procedimento exige cada um. Há um botão que cria <b>os termos do BSV</b> prontos.</td></tr>
+      <tr><td class="bt">Campos do prontuário…</td><td>Cria campos próprios da clínica na folha da sessão (“nº de agulhas”, “aparelho”). Cada campo diz <b>em que modalidade</b> aparece.</td></tr>
+    </tbody>
+  </table>
+  <div class="atencao">
+    <b>Antes de ligar “a guia nasce na marcação”</b>
+    <p><b>Atualize os cinco aplicativos primeiro.</b> Um programa desatualizado não entende os registros que
+    o novo cria, e a tela dele pode parar de abrir. A própria tela avisa isso ao lado da caixinha.</p>
+  </div>
+
+  <h2>11.3 · Regras de faturamento (os prazos)</h2>
+  <table class="botoes">
+    <thead><tr><th>Prazo</th><th>O que ele controla</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Alerta de consulta (dias)</td><td>Com quantos dias de antecedência o sistema avisa que a consulta do convênio vai vencer.</td></tr>
+      <tr><td class="bt">Recurso de glosa (dias)</td><td>O prazo para recorrer de uma glosa. É ele que o painel vigia.</td></tr>
+      <tr><td class="bt">Prazo de decisão (dias)</td><td>Quantos dias uma guia pode ficar pendente antes de o sistema <b>travar</b> o faturamento numa janela obrigatória. Padrão: 10.</td></tr>
+      <tr><td class="bt">Consultas a renovar / Carteirinhas a vencer</td><td>Duas caixinhas que estendem a rodada obrigatória a esses dois assuntos.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>11.4 · Backup da clínica</h2>
+  <ol class="passos">
+    <li><b>Escolher pasta…</b> — onde as cópias serão guardadas.</li>
+    <li><b>Copiar a cada (dias)</b> e <b>Cópias a guardar</b> — a rotação. Guardar só a última é o erro
+      clássico: a corrupção que ninguém viu na sexta é copiada por cima da única cópia boa no sábado.</li>
+    <li><b>Salvar política.</b> A partir daí a cópia acontece na <b>abertura do Gerente</b>, quando o prazo
+      vence.</li>
+    <li><b>Copiar agora</b> força uma cópia; <b>Conferir um backup</b> verifica um arquivo já gravado.</li>
+  </ol>
+  <div class="proibido">
+    <b>Guarde a cópia FORA da máquina</b>
+    <p>O sistema não tem como saber se a pasta escolhida está num pen drive, num HD externo ou na nuvem —
+    e por isso ele <b>não promete</b> que o backup está seguro. Escolha uma pasta que seja sincronizada
+    para fora do computador, e confira de vez em quando.</p>
+  </div>
+
+  <h2>11.5 · Lembretes por e-mail</h2>
+  <p>Servidor SMTP, porta, usuário, senha, remetente e nome do remetente. Com isso configurado, o sistema
+  manda o lembrete da sessão por e-mail na abertura do dia — e quem já foi avisado pelo WhatsApp
+  <b>não</b> recebe e-mail. <b>Enviar arquivo de teste</b> confere se está funcionando antes de valer para
+  os pacientes.</p>
+  <p class="suave">Sem servidor configurado, <b>nada muda</b>: o balcão continua confirmando por WhatsApp,
+  um clique por pessoa, exatamente como antes.</p>
+
+  <h2>11.6 · Publicação de documentos assinados</h2>
+  <p>Onde ficam hospedados os documentos assinados que o paciente leva com QR code (para a farmácia
+  conferir). Campos: domínio da clínica, dias no ar e os dados do armazenamento.
+  <b>Enviar arquivo de teste</b> grava um PDF de exemplo e devolve o endereço para você abrir no navegador —
+  é o teste que prova que o farmacêutico vai conseguir abrir.</p>
+
+  <h2>11.7 · Tela do paciente</h2>
+  <p>Escolhe qual <b>monitor</b> é o do paciente, quando a clínica tem um monitor com toque para colher
+  assinatura. Há um botão <b>Testar</b>: as telas se chamam “DISPLAY1” e “DISPLAY2” e ninguém sabe qual é
+  qual pelo nome — sem testar, o primeiro a descobrir que abriu no monitor errado seria o paciente.</p>
+</section>
+
+<!-- ==================== 12 ==================== -->
+<section class="cap" id="cap-12">
+  <div class="cap-num">Capítulo 12<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Importar pacientes</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Traz a carteira de pacientes (e o prontuário) do sistema antigo. Funciona em
+  <b>dois tempos</b>: primeiro ele mostra o que <b>vai</b> acontecer, sem gravar nada; depois você manda gravar.</p>
+
+  <p><span class="caminho">Menu <b>PACIENTE › Importar pacientes</b></span></p>
+
+  <ol class="passos">
+    <li><b>1 · O arquivo.</b> Escolha o pacote (ZIP) do sistema antigo, ou um CSV de pacientes, ou o ZIP de
+      arquivos (receitas, laudos).</li>
+    <li><b>2 · O que cada coluna significa.</b> O sistema <b>sugere</b> a correspondência entre as colunas do
+      arquivo e os campos daqui. <b>Confira uma por uma</b> — nomes de coluna enganam (“operadora” pode ser a
+      do celular, não o convênio).</li>
+    <li>Aponte cada <b>convênio do arquivo</b> para um convênio cadastrado aqui. O que você não apontar
+      entra como <b>“A definir”</b>, e o sistema vai perguntar no balcão quando aquele paciente aparecer.</li>
+    <li><b>Gerar a prévia.</b></li>
+    <li><b>3 · O que vai acontecer.</b> Linha por linha: qual ficha será <b>criada</b>, qual será
+      <b>completada</b> e qual será <b>ignorada</b> — com o motivo.</li>
+    <li>Só então mande executar.</li>
+  </ol>
+
+  <div class="nota">
+    <b>Importar duas vezes não duplica</b>
+    <p>Cada ficha guarda a chave do sistema de origem. Quem já existe é <b>completado</b>, nunca
+    sobrescrito: o convênio que a clínica já ajustou aqui permanece. E duplicatas <b>dentro do próprio
+    arquivo</b> entram fundidas numa ficha só.</p>
+  </div>
+  <div class="atencao">
+    <b>A ordem importa para o ZIP de arquivos</b>
+    <p>Importe primeiro o pacote de <b>pacientes</b>, depois o ZIP de <b>arquivos</b> — os arquivos são
+    ligados às fichas pelo id do sistema antigo. Quando o arquivo só traz o nome, ele é ligado apenas se o
+    nome for <b>único</b>; homônimos ficam de fora <b>com o motivo escrito</b>, em vez de irem para a ficha
+    errada.</p>
+  </div>
+  <div class="dica">
+    <b>“Fechou” não quer dizer “tudo entrou”</b>
+    <p>Quer dizer que <b>o que não entrou está listado, com a razão</b>. Leia a lista do que ficou de fora
+    antes de dar a importação por concluída.</p>
+  </div>
+</section>
+
+<!-- ==================== 13 ==================== -->
+<section class="cap" id="cap-13">
+  <div class="cap-num">Capítulo 13<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Quando algo dá errado · FAQ · Glossário</h1>
+  <div class="cap-linha"></div>
+
+  <h2>13.1 · Quando algo dá errado</h2>
+  <table class="botoes">
+    <thead><tr><th>O que aparece</th><th>O que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">“Não foi possível verificar” num bloco do painel</td><td>Aquela leitura falhou. <b>Não é “nada pendente”.</b> Use <b>Atualizar</b>; se insistir, é problema de conexão ou defeito.</td></tr>
+      <tr><td class="bt">Uma pessoa diz que “sumiu um menu”</td><td>É permissão. Abra <b>Acessos</b>, o usuário dela, e confira a caixinha correspondente.</td></tr>
+      <tr><td class="bt">A agenda de um profissional aparece vazia no app dele</td><td>O usuário dele não está ligado ao cadastro de profissional. Corrija em <b>Acessos</b>.</td></tr>
+      <tr><td class="bt">Um número não bate com outra tela</td><td>Confira se as duas usam o mesmo período e o mesmo recorte. Cada número vem do serviço dono dele — as telas não recalculam por conta própria.</td></tr>
+      <tr><td class="bt">Um erro em inglês</td><td>Falha técnica. Anote a hora e o que estava sendo feito. O detalhe fica em <i>erros-ano-mês.txt</i>, na pasta “logs” ao lado do programa — é o que o suporte vai pedir.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>13.2 · Perguntas frequentes</h2>
+  <h3>Como libero uma função só para uma pessoa?</h3>
+  <p><b>Acessos</b> › o usuário › marque a caixinha. Não é preciso mudar o perfil dela nem mexer no das
+  colegas.</p>
+
+  <h3>A recepcionista precisa digitar a evolução que o profissional dita.</h3>
+  <p>Conceda <b>Escrever no prontuário</b> àquela pessoa, em Acessos. Foi exatamente para isso que a
+  permissão é granular.</p>
+
+  <h3>Como sei quem abriu o prontuário de um paciente?</h3>
+  <p><b>Conformidade e acessos › Guarda do prontuário</b>, escolha o paciente e veja
+  <b>“Quem abriu este prontuário”</b>. Ou <b>Auditoria</b> com a marca <b>“Só quem ABRIU o prontuário”</b>.</p>
+
+  <h3>Um paciente pediu para excluir os dados dele.</h3>
+  <p>Prontuário não se apaga (a lei manda guardar 20 anos). O caminho é a <b>anonimização</b>, na ficha do
+  paciente, aba LGPD: nome, documento, telefone e foto saem; o histórico fica sem dono identificável. A
+  tela avisa isso <b>antes</b> de fazer.</p>
+
+  <h3>Quero mudar o prazo em que uma guia vira “urgente”.</h3>
+  <p><b>Configurações › Regras de faturamento › Prazo de decisão (dias)</b>.</p>
+
+  <h3>Onde vejo se o backup está sendo feito?</h3>
+  <p><b>Configurações › Backup da clínica</b>. Ele roda na abertura deste aplicativo, quando o prazo vence.
+  Se ninguém abrir o Gerente, o backup não acontece.</p>
+
+  <h3>Posso gerar o lote TISS aqui?</h3>
+  <p>Não — só no aplicativo de Faturamento. O número do lote é uma sequência, e dois programas gerando ao
+  mesmo tempo produziriam lotes duplicados que a operadora recusa semanas depois.</p>
+
+  <h2>13.3 · Glossário</h2>
+  <table class="glossario">
+    <tbody>
+      <tr><td>Indicador</td><td>Um número que mede a clínica (sessões, ocupação, faltas, margem).</td></tr>
+      <tr><td>Meta</td><td>O alvo definido pela direção para um indicador, num mês.</td></tr>
+      <tr><td>Teto de gasto</td><td>O limite de despesa de uma categoria no mês.</td></tr>
+      <tr><td>Ocupação</td><td>Quanto da agenda foi usado, contra os dias em que o profissional teve agenda × a jornada configurada.</td></tr>
+      <tr><td>No-show</td><td>Faltas sem aviso, em percentual.</td></tr>
+      <tr><td>Rentabilidade por guia</td><td>Quanto sobra por guia de cada convênio — o número comparável entre operadoras.</td></tr>
+      <tr><td>Taxa de baixa</td><td>Quantas das guias geradas foram efetivadas no convênio.</td></tr>
+      <tr><td>Glosa</td><td>Recusa de pagamento pelo convênio, com prazo para recurso.</td></tr>
+      <tr><td>NC (não conformidade)</td><td>A decisão registrada de não faturar uma guia, com justificativa.</td></tr>
+      <tr><td>Lote TISS</td><td>O pacote de guias enviado ao convênio no padrão da ANS.</td></tr>
+      <tr><td>Recall</td><td>Chamar de volta quem parou de vir. Exige autorização de contato.</td></tr>
+      <tr><td>NPS</td><td>A nota que o paciente dá à clínica depois do atendimento.</td></tr>
+      <tr><td>Auditoria</td><td>A trilha do que foi feito no sistema: quem, quando e o quê. Somente leitura.</td></tr>
+      <tr><td>Guarda</td><td>O prazo legal de 20 anos em que o prontuário precisa ser conservado.</td></tr>
+      <tr><td>Anonimização</td><td>Apagar a identificação do paciente mantendo o histórico. É o que a LGPD permite quando o prontuário não pode ser destruído.</td></tr>
+      <tr><td>Perfil</td><td>O ponto de partida das permissões de um cargo. As permissões individuais vencem o perfil.</td></tr>
+    </tbody>
+  </table>
+
+  <hr>
+  <p class="suave" style="font-size:9.4pt;">
+    <b>Este manual descreve as telas exclusivas do Gerente Geral.</b> As telas que ele compartilha com os
+    outros aplicativos estão nos manuais da <b>Recepção</b>, do <b>Consultório</b>, do <b>Financeiro</b> e do
+    <b>Faturamento</b>.
+  </p>
+</section>
+
+</body>
+</html>

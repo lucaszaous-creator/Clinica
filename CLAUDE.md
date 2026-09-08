@@ -8166,6 +8166,89 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `LancarAtendimento` no Concluir); `ExecutarAsync` recarrega depois de toda ação; e os
   avisos de guia da falta e do cancelamento saem em DIÁLOGO, nunca em snackbar.
 
+- **O CRONÔMETRO DO ATENDIMENTO — e o que "respeitando o design system" significa quando a
+  referência vem de fora** (set/2026; a direção: *"um temporizador dentro da consulta quando
+  o médico/enfermeiro clica em atender, só para ele saber há quanto tempo já está atendendo
+  aquele paciente"*, com a foto de um painel de LED de academia e a emenda *"claro que
+  respeitando nosso design system"*; mockups em `docs/mockups/temporizador-*.html`).
+  ⚠️ **METADE JÁ EXISTIA, e dizer isso foi a primeira resposta.** A pílula verde "Em
+  atendimento há 12 min" está no crachá desde a parcela 74, contando do carimbo e se
+  reescrevendo sozinha. O que faltava eram duas coisas: ela é uma FRASE (lê-se palavra por
+  palavra, e um cronômetro se lê de relance) e **a tela da Enfermagem não tinha nenhuma**.
+  Cobrar como feature nova o que já está no repositório é o oposto do que este documento
+  pede; o trabalho foi medir antes e mostrar o que sobrava.
+  ⚠️ **O fundo escuro NÃO É COR NOVA** — `Brush.Visor.Fundo`/`Texto` existem nos tokens
+  desde a captura do retrato do paciente. Traduzir uma referência de fora é separar o
+  CONCEITO (visor escuro, dígitos grandes, h:mm:ss correndo) da PALETA: o painel dela é um
+  objeto de um metro visto de longe numa academia; este são poucos centímetros a sessenta do
+  olho, e o azul-neon sobre preto não sobrevive à tradução. **Antes de inventar um token,
+  procure o que o design system já tem para aquele papel.**
+  ⚠️ **MONOESPAÇADA não é gosto**: num visor que muda a cada segundo, fonte de largura
+  variável faz os dígitos DANÇAREM e o vizinho pular — o movimento que se nota deixa de ser
+  o tempo passando e passa a ser o leiaute se mexendo.
+  ⚠️ **A conta é UMA.** `Agendamento.DuracaoDoAtendimento` passou a derivar de
+  `TempoDeAtendimento`: o visor e a frase da pílula saem do mesmo cálculo, senão o médico
+  veria o número discordar da frase ao lado dele. E o que decide o TEXTO mora na Application
+  (`CronometroDaSessao`, puro e testado) — a regra da `GradeSemana` e do
+  `ResumoSessaoAnterior`: o que a tela AFIRMA precisa morar onde o `dotnet test` alcança.
+  ⚠️ **Sem consulta em curso não há visor** — nem zerado. Prontuário aberto pela carteira,
+  sessão de outro dia, horário cancelado, sessão encerrada: nada. Um cronômetro parado em
+  `00:00:00` convidaria a "iniciar" um atendimento que não existe na agenda de ninguém, e
+  depois do Finalizar quem fala é a pílula ("durou 24 min") — dois leitores da mesma coisa
+  com pesos diferentes é o defeito de sempre. **As horas aparecem SEMPRE** (`00:12:35`):
+  escondê-las até virar a hora faz o visor mudar de LARGURA no meio do atendimento.
+  ⚠️ **A promessa do mockup obrigou o trabalho na Enfermagem.** Eu escrevi ali que o visor
+  valeria "para os dois lados, Consultório e tela da Enfermagem" — e a tela da Enfermagem
+  abre o paciente SEM vir da agenda: a lista dela guarda o `Paciente` e descarta o horário.
+  Ou eu cumpria ou corrigia a promessa (a lição da parcela 67, agora num documento que vai à
+  direção). Cumpri com uma leitura pequena que já existia (`AgendamentosDoPacienteNoDiaAsync`)
+  mais a decisão `CronometroDaSessao.EmCurso`, testada — e isso **destravou o selo "DESTA
+  SESSÃO"** da linha do tempo, que naquela tela nunca acendia porque `agendamentoAberto`
+  chegava sempre nulo: `EvolucaoEnfermagem.AgendamentoId` era gravado, calculado e lido só
+  pela seção do Consultório.
+  ⚠️ **E o bloqueador foi o de sempre, pego na releitura do próprio diff: criei o
+  `DispatcherTimer` e não registrei o `Tick`.** O visor ficaria congelado no valor da carga —
+  um cronômetro que não anda, que é pior do que cronômetro nenhum —, e nada falharia: build,
+  2405 testes e as três redes verdes. **Timer novo se confere pelo par: quem o liga (a VIEW,
+  no Loaded/Unloaded) e quem o ESCUTA.**
+
+- **OS BOTÕES DE FILA SAÍRAM — e a conta que eles sustentavam saiu junto, em vez de virar
+  ZERO** (set/2026; a direção, depois de ler o manual: *"pode retirar os botões, deixe
+  somente o atender para o médico — a cliente não quer todo esse fluxo"*). A fila em
+  etapas (Chegou · Chamar · Entrou · Voltar) morreu nas DUAS listas do dia: o balcão ficou
+  com o "⋯" e o profissional com o **Atender**, que carimba a entrada desde a parcela 95.
+  ⚠️ **O que a remoção transforma em MENTIRA é o que decide o tamanho da parcela.**
+  `IniciarAtendimentoAsync` carimbava `ChegadaEm` e `ChamadoEm` junto com a entrada, com o
+  argumento — então correto — de que "entrar direto" era a EXCEÇÃO e o kanban precisava
+  distinguir quem esperou. Sem os botões ela virou a REGRA, e a ficção passaria a produzir
+  um número: chegada igual à entrada dá `EsperaMinutos = 0` para todo paciente, e o painel
+  anunciaria **"espera média 0 min"** — *ninguém espera nesta clínica*. Nada falharia. O
+  carimbo inventado saiu, a espera voltou a ser NULA ("não medido"), e os dois cartões que
+  a liam foram embora com ela (o "espera média" do painel e do placar da lista); "Na
+  recepção" — que contava check-in — virou **"A atender"**, ligado ao `Aguardando` que
+  estava calculado e sem leitor desde que o painel nasceu.
+  A regra que fica: **ao apagar uma PORTA, procure o que ela alimentava e pergunte se o
+  número que sobra ainda é verdade.** Métrica cuja base deixou de ser coletada não vira
+  zero — ela deixa de existir, e o cartão que a mostrava sai da tela: cartão que diz
+  sempre a mesma coisa é o que ensina a não olhar a fileira.
+  ⚠️ **O MOTOR fica, e está escrito no motor.** `RegistrarChegadaAsync`, `ChamarAsync`,
+  `DesfazerChamadaAsync` e `VoltarEtapaAsync` continuam no `AgendaService`, testados e
+  **sem porta em produção** — decisão, não esquecimento: a fila volta a ter tela no dia em
+  que uma clínica a quiser, e apagá-la obrigaria a reescrevê-la. Quem varrer "método sem
+  chamador" (parcela 63) lê o aviso antes de remover. O que SAIU foram as derivadas que
+  serviam só ao botão (`DiaDoProfissional.NaRecepcao`/`Chamados`/`ProximoAChamar`): essas
+  eram contagem sem leitor, o defeito na versão barata de remover.
+  ⚠️ **Cinco testes existiam para fixar o CONTRÁRIO, e foram parte da mudança** (a regra da
+  parcela 95): `IniciarAtendimento_SemChamadaAnterior_CarimbaAChamadaJunto` virou
+  `..._SemChegada_NaoInventaEsperaZero`, e os três de "voltar etapa desce uma coluna"
+  passaram a carimbar a chamada de propósito — o que se desfaz é o carimbo que EXISTE.
+  Dois testes novos prendem a regra onde a clínica a vê: o painel devolve espera NULA no
+  fluxo curto, e "A atender" conta quem ainda não entrou na sala.
+  ⚠️ **E o TEXTO da tela é parte da remoção.** O subtítulo do painel dizia "quem chegou,
+  quem espera" sobre uma tela que não sabe mais nenhuma das duas coisas. Frase que
+  descreve um mecanismo removido é a mesma família do comentário que promete o que o
+  código não faz (parcela 67) — só que impressa na cara de quem usa.
+
 - **A SIDEBAR GANHOU O GRUPO ATENDIMENTO E OS GRUPOS RECOLHÍVEIS** (set/2026; o mockup
   `docs/mockups/sidebar-tres-desenhos.html` foi aprovado ANTES de uma linha de WPF — o
   caminho da parcela 87). A cliente pediu para ver a sidebar "se fizéssemos uma

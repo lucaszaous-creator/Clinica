@@ -228,20 +228,32 @@ public class Agendamento
         => FimAtendimentoEm is not null && Status == StatusAgendamento.Agendado;
 
     /// <summary>
+    /// Há quanto tempo o atendimento corre (ou correu, se já foi encerrado). Null quando o
+    /// paciente não entrou na sala — e null é a resposta certa, não zero: "não começou" e
+    /// "começou agora" são coisas diferentes.
+    ///
+    /// É daqui que sai o CRONÔMETRO da tela de atendimento (set/2026) e a duração em
+    /// minutos abaixo. Uma conta só: duas contas do mesmo tempo divergiriam na primeira
+    /// correção, e o médico veria o visor discordar da frase ao lado dele.
+    /// </summary>
+    public TimeSpan? TempoDeAtendimento(DateTime agora)
+    {
+        if (InicioAtendimentoEm is null) return null;
+        var fim = FimAtendimentoEm ?? agora;
+        var corrido = fim - InicioAtendimentoEm.Value;
+        // Relógio que anda para trás (fuso, acerto de hora) não pode produzir duração
+        // negativa numa tela que o médico olha o tempo todo.
+        return corrido < TimeSpan.Zero ? TimeSpan.Zero : corrido;
+    }
+
+    /// <summary>
     /// Quantos minutos o atendimento durou (ou dura, se ainda está em curso). Null quando
     /// o paciente não entrou na sala — e null é a resposta certa, não zero: "não começou"
     /// e "começou agora" são coisas diferentes, e zero apareceria como um atendimento
     /// relâmpago no relatório de quem mede duração.
     /// </summary>
     public int? DuracaoDoAtendimento(DateTime agora)
-    {
-        if (InicioAtendimentoEm is null) return null;
-        var fim = FimAtendimentoEm ?? agora;
-        // Relógio que anda para trás (fuso, acerto de hora) não pode produzir duração
-        // negativa numa tela que o médico olha o tempo todo.
-        var minutos = (int)Math.Round((fim - InicioAtendimentoEm.Value).TotalMinutes);
-        return minutos < 0 ? 0 : minutos;
-    }
+        => TempoDeAtendimento(agora) is { } t ? (int)Math.Round(t.TotalMinutes) : null;
 
     /// <summary>Duração padrão da clínica quando ninguém informou nada.</summary>
     public const int DuracaoPadraoMinutos = 30;

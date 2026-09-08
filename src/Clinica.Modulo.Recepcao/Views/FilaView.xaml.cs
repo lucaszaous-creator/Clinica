@@ -9,8 +9,8 @@ namespace Clinica.Recepcao.Views;
 /// <summary>
 /// A agenda do dia do balcão, em lista (set/2026).
 ///
-/// A View liga e desliga o relógio que envelhece os tempos de espera e relê o dia — é
-/// por ele que a chamada feita no consultório chega ao balcão (parcela 38). O shell
+/// A View liga e desliga o relógio que relê o dia — é por ele que o "Atender" e o
+/// "Finalizar" do consultório chegam ao balcão sem ninguém apertar Atualizar. O shell
 /// constrói uma tela nova a cada navegação, e um <c>DispatcherTimer</c> rodando manteria
 /// vivo cada ViewModel já trocado (e faria vários irem ao banco pela mesma coisa).
 ///
@@ -36,16 +36,16 @@ public partial class FilaView : UserControl
     // ==================== O "⋯" da linha ====================
 
     /// <summary>
-    /// As ações de exceção da linha: o termo, o fechamento, voltar etapa, falta,
-    /// cancelamento — e a porta para a GRADE, onde mora a janela do horário (remarcar,
-    /// reabrir, comprovante, WhatsApp).
+    /// As ações de exceção da linha: o termo, o fechamento, a conferência de convênio e
+    /// cota, falta, cancelamento — e a porta para a GRADE, onde mora a janela do horário
+    /// (remarcar, reabrir, comprovante, WhatsApp).
     ///
     /// ⚠️ A visibilidade de cada item é ESTADO **e** PERMISSÃO. O bloco não segue um
     /// `IsEnabled` só porque os atos pedem bits diferentes — colher o termo é
     /// `ColherAssinaturaPaciente` (a técnica de enfermagem o tem e não tem o da agenda),
-    /// mover a fila é `EditarAgenda` OU `MovimentarFila`, e falta/cancelamento são do
-    /// balcão, `EditarAgenda` estrito. Sem esta metade, o item aparecia aceso e a recusa
-    /// só chegava depois do clique.
+    /// conferir convênio é `VerFichaPaciente`, e falta/cancelamento são do balcão,
+    /// `EditarAgenda` estrito. Sem esta metade, o item aparecia aceso e a recusa só
+    /// chegava depois do clique.
     /// </summary>
     private void AoAbrirMenuDaLinha(object sender, RoutedEventArgs e)
     {
@@ -70,8 +70,8 @@ public partial class FilaView : UserControl
             if (menu.Items.Count > 0 && menu.Items[^1] is not Separator) menu.Items.Add(new Separator());
         }
 
-        // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o alerta do
-        // check-in diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
+        // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o SELO da
+        // linha diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
         // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).
         Acrescentar("Colher o termo do procedimento…", vm.ColherTermoCommand,
             cartao.TemTermoPendente && vm.PodeColherTermo);
@@ -83,12 +83,14 @@ public partial class FilaView : UserControl
         Acrescentar("Fechar sessão (pacote, insumo, caixa)…", vm.FecharSessaoCommand,
             cartao.PodeFechar && vm.PodeFecharSessao);
 
-        Separar();
-
-        Acrescentar("Voltar uma etapa", vm.VoltarEtapaCommand,
-            cartao.PodeVoltar && vm.PodeEditarAgenda);
-        Acrescentar("Entrou (pular a chamada)", vm.IniciarAtendimentoCommand,
-            cartao.PodeIniciar && cartao.Etapa != EtapaFila.Chamado && vm.PodeEditarAgenda);
+        // CONFERIR CONVÊNIO E COTA — a porta que o check-in levou embora (set/2026).
+        // Carteirinha vencida, cota estourada, dívida e glosa chegavam ao balcão pelo
+        // clique de "Chegou"; sem ele o aviso ficaria sem porta neste app, que é o defeito
+        // da parcela 48. Só para quem AINDA VEM: depois de concluída a sessão, a mesma
+        // informação não tem mais o que evitar. Pede `VerFichaPaciente` — é dado cadastral
+        // e de convênio, não prontuário.
+        Acrescentar("Conferir convênio e cota…", vm.ConferirElegibilidadeCommand,
+            cartao.EmAberto && vm.PodeVerFicha);
 
         Separar();
 

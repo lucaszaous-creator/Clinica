@@ -221,7 +221,15 @@ public sealed partial class CartaoFila : ObservableObject
     [ObservableProperty]
     private string _espera = string.Empty;
 
-    /// <summary>Espera longa (30 min ou mais) — o cartão fica em destaque.</summary>
+    /// <summary>
+    /// Espera longa (30 min ou mais) — o cartão fica em destaque.
+    ///
+    /// ⛔ DORMENTE desde set/2026, junto de <see cref="ChamadaDemorada"/> e de
+    /// <see cref="Espera"/>/<see cref="ChamadoHa"/>: sem os botões de fila ninguém carimba
+    /// chegada nem chamada, então os quatro ficam vazios e os gatilhos nunca disparam. Não
+    /// foram removidos porque o MOTOR da fila ficou (ver <c>AgendaService</c>): eles voltam
+    /// a valer com o check-in, sem uma linha nova.
+    /// </summary>
     [ObservableProperty]
     private bool _esperaLonga;
 
@@ -248,17 +256,6 @@ public sealed partial class CartaoFila : ObservableObject
     /// a sessão de ontem que ficou aberta se conclui hoje.
     /// </summary>
     public bool EhHoje => DataHora.Date == DateTime.Today;
-
-    public bool PodeChegar => Etapa == EtapaFila.Aguardando && EhHoje;
-
-    /// <summary>
-    /// O balcão também pode chamar por conta própria (o profissional avisou pela porta,
-    /// a sala vagou): é o mesmo fato, e quem carimba é quem clicar primeiro.
-    /// </summary>
-    public bool PodeChamar => Etapa == EtapaFila.Chegou && EhHoje;
-
-    /// <summary>"Entrou" — o paciente levantou e foi para a sala.</summary>
-    public bool PodeIniciar => (Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado) && EhHoje;
 
     public bool PodeFinalizar => Etapa == EtapaFila.EmAtendimento;
 
@@ -295,8 +292,6 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public bool PodeFechar => Etapa == EtapaFila.Finalizado;
 
-    public bool PodeVoltar => (Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento) && EhHoje;
-
     /// <summary>Só horário em aberto aceita falta/cancelamento — o cancelado e a falta já saíram.</summary>
     public bool EmAberto => Etapa is not (EtapaFila.Finalizado or EtapaFila.ForaDaFila);
 
@@ -311,15 +306,17 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public string ProximoPasso => Etapa switch
     {
-        // Os três movimentos da fila só existem HOJE (ver `EhHoje`): noutro dia a linha
-        // fica sem passo, como no Meu dia do médico.
-        EtapaFila.Aguardando when EhHoje => "Chegou",
-        EtapaFila.Chegou when EhHoje => "Chamar",
-        EtapaFila.Chamado when EhHoje => "Entrou",
+        // ⚠️ "Chegou", "Chamar" e "Entrou" SAÍRAM (decisão da clínica, set/2026): ela não
+        // quer o fluxo de fila. Quem registra a entrada na sala é o "Atender" do
+        // profissional (`AgendaService.IniciarAtendimentoAsync`), e a linha vai de
+        // Marcado direto para EM ATENDIMENTO. O balcão marca o horário e o profissional
+        // atende — os dois passos que a direção pediu, e nada entre eles.
+        //
+        // O que sobra aqui é o que continua sendo do balcão:
         EtapaFila.EmAtendimento => "Concluir",
         // Concluída pelo Consultório e com pacote por debitar. Sem pendência não há passo
-        // nenhum: a raia FINALIZADO volta a ser o registro do dia, e o fechamento
-        // continua a um clique no "⋯".
+        // nenhum: a linha concluída é o registro do dia, e o fechamento continua a um
+        // clique no "⋯".
         EtapaFila.Finalizado when FechamentoPendente => "Debitar pacote",
         _ => string.Empty
     };
@@ -454,17 +451,6 @@ public sealed partial class FilaViewModel : ObservableObject
     private HashSet<int> _jaFechados = [];
 
     /// <summary>
-    /// Os chamados e não anunciados — a única coleção por etapa que sobreviveu ao kanban
-    /// (set/2026). Ela alimenta a FAIXA do topo, e é isso que a mantém viva.
-    ///
-    /// As outras quatro (aguardando, na recepção, em atendimento, finalizados) eram as
-    /// raias, e continuaram sendo preenchidas a cada carga depois de a lista substituí-las
-    /// — escritas por ninguém lidas, em duas telas por dia. Código que sobrevive ao
-    /// desenho que o justificava é a segunda definição esperando divergir.
-    /// </summary>
-    public ObservableCollection<CartaoFila> Chamados { get; } = [];
-
-    /// <summary>
     /// O DIA INTEIRO, na ordem da hora — o que a lista mostra (set/2026). Inclui cancelado
     /// e falta, que a coleção acima não tem: eles ficam na lista, apagados.
     /// </summary>
@@ -475,31 +461,6 @@ public sealed partial class FilaViewModel : ObservableObject
     /// é dia com movimento, não dia vazio.
     /// </summary>
     public bool QuadroVazio => Linhas.Count == 0;
-
-    /// <summary>
-    /// Há gente chamada esperando ser anunciada. É o que acende a faixa no topo da tela:
-    /// a linha sozinha não bastaria, porque o balcão passa o dia com esta tela aberta e
-    /// os olhos no paciente à frente dele — linha que muda de status calada no meio de
-    /// trinta é linha que ninguém vê.
-    /// </summary>
-    public bool TemChamados => Chamados.Count > 0;
-
-    /// <summary>
-    /// O chamado MAIS ANTIGO — quem a faixa CHAMANDO nomeia, com sala e cronômetro, e
-    /// quem o botão "Entrou" da própria faixa move. A ação mora na faixa porque é nela
-    /// que a recepcionista está olhando quando o paciente levanta: caçar o cartão na
-    /// terceira coluna é o clique que ela não tem tempo de dar.
-    /// </summary>
-    [ObservableProperty]
-    private CartaoFila? _primeiroChamado;
-
-    /// <summary>"Também chamados: Fulano · Beltrano" — só quando há mais de um.</summary>
-    [ObservableProperty]
-    private string _outrosChamados = string.Empty;
-
-    public bool TemOutrosChamados => OutrosChamados.Length > 0;
-
-    partial void OnOutrosChamadosChanged(string value) => OnPropertyChanged(nameof(TemOutrosChamados));
 
     /// <summary>Chips do filtro por profissional. "Todos" + quem tem horário no dia.</summary>
     public ObservableCollection<ChipProfissional> Profissionais { get; } = [];
@@ -520,16 +481,17 @@ public sealed partial class FilaViewModel : ObservableObject
     private bool _carregando;
 
     /// <summary>
-    /// O PLACAR do dia (set/2026 — a agenda com cor, mockup aprovado): quatro números, cada
-    /// um com o glifo semântico e a cor que a métrica já tem no sistema, no lugar da frase
-    /// corrida "3 atendido(s) · 1 em sala · espera média 12 min". Envelhecem com o relógio,
-    /// como a espera das linhas — a média é a ÚNICA do sistema, a do painel.
+    /// O PLACAR do dia (set/2026 — a agenda com cor, mockup aprovado): cada número com o
+    /// glifo semântico e a cor que a métrica já tem no sistema, no lugar da frase corrida
+    /// "3 atendido(s) · 1 em sala".
+    ///
+    /// ⛔ A "espera média" saiu quando os botões de fila saíram: ela vai da CHEGADA do
+    /// paciente até a chamada, e sem check-in nenhum horário carimba chegada — o número
+    /// seria "—" todo dia. A conta segue no <c>PainelRecepcaoService</c>, certa e testada,
+    /// esperando a tela que a devolva.
     /// </summary>
     [ObservableProperty] private int _atendidos;
     [ObservableProperty] private int _emSala;
-
-    /// <summary>"12 min" — ou o travessão, quando ninguém esperou ainda (média sem base é nula, nunca zero).</summary>
-    [ObservableProperty] private string _esperaMedia = "—";
 
     /// <summary>"1 · 0" — faltas e cancelamentos, que estão na lista apagados.</summary>
     [ObservableProperty] private string _faltasCancelamentos = "0 · 0";
@@ -544,8 +506,7 @@ public sealed partial class FilaViewModel : ObservableObject
     /// `Profissional` — que a parcela 61 criou com `MovimentarFila` e sem `EditarAgenda` —
     /// abria o quadro do balcão com TODOS os cartões apagados e o arrasto travado, apesar
     /// de as guardas o autorizarem. Metade visível mais restrita que a guarda é pior do
-    /// que metade nenhuma: ela mente sobre o que a pessoa pode fazer. O Consultório já
-    /// fazia certo (<c>MeuDiaViewModel.PodeMovimentarFila</c>).
+    /// que metade nenhuma: ela mente sobre o que a pessoa pode fazer.
     /// </summary>
     public bool PodeEditarAgenda => SessaoUsuario.Atual.PodeAlgum(
         Permissao.EditarAgenda | Permissao.MovimentarFila);
@@ -596,6 +557,14 @@ public sealed partial class FilaViewModel : ObservableObject
     /// depois do clique.
     /// </summary>
     public bool PodeColherTermo => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
+
+    /// <summary>
+    /// A metade visível do "Conferir convênio e cota…". É <c>VerFichaPaciente</c>, e não
+    /// <c>VerProntuario</c>, pelo corte da parcela 49: carteirinha, cota, dívida e guia são
+    /// dado CADASTRAL e de convênio — quem recebe no balcão precisa deles e não precisa da
+    /// evolução.
+    /// </summary>
+    public bool PodeVerFicha => SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente);
 
     /// <summary>
     /// A leitura FALHOU — o terceiro estado (parcela 62). Sem ele, a fila do balcão
@@ -979,7 +948,6 @@ public sealed partial class FilaViewModel : ObservableObject
     private void MontarQuadro()
     {
         Linhas.Clear();
-        Chamados.Clear();
 
         // Na ordem da HORA: é a agenda do dia, não um quadro por estado. Cancelado e falta
         // ENTRAM (apagados na tela) — quem lê às 14h precisa saber que as 15h vagaram.
@@ -1055,32 +1023,18 @@ public sealed partial class FilaViewModel : ObservableObject
             };
 
             Linhas.Add(cartao);
-            // O chamado e ainda não anunciado alimenta a FAIXA do topo, além da linha — só
-            // HOJE: o chamado de ontem que nunca entrou é registro, não recado a anunciar.
-            if (a.Etapa == EtapaFila.Chamado && cartao.EhHoje) Chamados.Add(cartao);
         }
 
         // Quem já SAIU da sala (parcela 74) não sobe mais para a frente: a lista é a ordem
         // da hora, e é o selo "Encerrado" (e a cor do status) que o aponta.
 
-        // A lista mudou: a tela precisa reavaliar se o dia está vazio e se há alguém
-        // esperando ser anunciado.
+        // A lista mudou: a tela precisa reavaliar se o dia está vazio.
+        //
+        // ⚠️ A faixa "CHAMANDO" saiu daqui junto com o botão Chamar (set/2026): sem quem
+        // chamar, não há recado a anunciar. A etapa `Chamado` continua existindo em
+        // `StatusDaFila` porque os horários registrados ANTES desta mudança a têm — o
+        // que sumiu foi a porta, não o vocabulário.
         OnPropertyChanged(nameof(QuadroVazio));
-        OnPropertyChanged(nameof(TemChamados));
-
-        // A faixa nomeia o chamado MAIS ANTIGO — é ele que está há mais tempo sem
-        // notícia, e é nele que o "Entrou" da faixa age. Os demais viram uma linha.
-        var chamadaPorId = _doDia
-            .Where(a => a.ChamadoEm is not null)
-            .ToDictionary(a => a.Id, a => a.ChamadoEm!.Value);
-        var porIdade = Chamados
-            .OrderBy(c => chamadaPorId.GetValueOrDefault(c.AgendamentoId, DateTime.MaxValue))
-            .ToList();
-        PrimeiroChamado = porIdade.FirstOrDefault();
-        OutrosChamados = porIdade.Count <= 1
-            ? string.Empty
-            : "Também: " + string.Join(" · ", porIdade.Skip(1)
-                .Select(c => c.TemSala ? $"{c.Paciente} → sala {c.Sala}" : c.Paciente));
     }
 
     /// <summary>
@@ -1136,13 +1090,8 @@ public sealed partial class FilaViewModel : ObservableObject
                 cartao.InicioEm, cartao.FimAtendimentoEm);
         }
 
-        // O placar do dia envelhece junto (a espera média corre com o relógio). A conta
-        // da média é a ÚNICA — a mesma do painel (`PainelRecepcaoService`).
         Atendidos = _doDia.Count(a => a.Status == StatusAgendamento.Realizado);
         EmSala = _doDia.Count(a => a.Etapa == EtapaFila.EmAtendimento);
-        EsperaMedia = PainelRecepcaoService.EsperaMediaMinutos(_doDia, agora) is { } media
-            ? $"{media} min"
-            : "—";
         // Falta e cancelamento ESTÃO na lista (apagados) desde set/2026 — o placar conta,
         // não anuncia o que foi escondido.
         FaltasCancelamentos =
@@ -1163,9 +1112,8 @@ public sealed partial class FilaViewModel : ObservableObject
 
         switch (cartao.Etapa)
         {
-            case EtapaFila.Aguardando: await RegistrarChegadaAsync(cartao); break;
-            case EtapaFila.Chegou: await ChamarAsync(cartao); break;
-            case EtapaFila.Chamado: await IniciarAtendimentoAsync(cartao); break;
+            // Chegada, chamada e entrada saíram (ver `CartaoFila.ProximoPasso`): quem
+            // registra a entrada é o "Atender" do profissional.
             case EtapaFila.EmAtendimento: await FinalizarAsync(cartao); break;
             case EtapaFila.Finalizado: await FecharSessaoAsync(cartao); break;
         }
@@ -1224,124 +1172,6 @@ public sealed partial class FilaViewModel : ObservableObject
     // de passo de cada linha, com a mesma regra e a mesma guarda.
 
     /// <summary>
-    /// A segunda barreira do "a fila corre HOJE" (a primeira é o botão que some — ver
-    /// <see cref="CartaoFila.EhHoje"/>): atalho, faixa e corrida de carregamento passam
-    /// pelo comando, e a guarda DIZ por quê em vez de voltar calada (parcela 41).
-    /// </summary>
-    private bool GarantirHoje(CartaoFila c, string ato)
-    {
-        if (c.EhHoje) return true;
-
-        _dialogo.Aviso("A fila corre no dia da sessão",
-            $"O horário de {c.Paciente} é de {c.DataHora:dd/MM/yyyy}, e {ato} só se registra "
-            + "no dia da sessão. Quem chegou hoje sem horário marcado entra pelo Novo "
-            + "atendimento; o horário de outro dia se remarca pela Grade.");
-        return false;
-    }
-
-    /// <summary>Check-in no balcão: o paciente chegou e o cronômetro da espera começa.</summary>
-    [RelayCommand]
-    private async Task RegistrarChegadaAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, async c =>
-        {
-            // Mover a fila é UM ato com UMA regra nos dois quadros (balcão e consultório):
-            // EditarAgenda OU MovimentarFila — ver a nota no enum Permissao (parcela 61).
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
-            if (!GarantirHoje(c, "a chegada")) return;
-
-            using (var e = _escopos.CreateScope())
-                await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .RegistrarChegadaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
-
-            // O check-in é o ÚLTIMO momento barato: o paciente está no balcão, e
-            // carteirinha vencida ou cota estourada ainda dá para resolver com um
-            // telefonema. Depois da sessão, a mesma informação só vira glosa.
-            var elegibilidade = await ConferirElegibilidadeAsync(c);
-
-            var recados = new List<string>();
-            if (c.TemGuiaPendente)
-                recados.Add("Tem GUIA PENDENTE de baixa — aproveite que ele está aqui e peça "
-                            + "o documento; depois a cobrança vira telefonema.");
-            recados.AddRange(elegibilidade);
-
-            if (recados.Count > 0)
-                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", recados));
-            else
-                _snackbar.Sucesso($"{c.Paciente} chegou.");
-        }, "chegada");
-
-    /// <summary>
-    /// Conferência de elegibilidade do paciente que acabou de chegar.
-    ///
-    /// É chamada UMA vez, no check-in, e não para os trinta cartões do dia: a conferência
-    /// custa quatro consultas por paciente, e rodá-la a cada abertura da fila tornaria a
-    /// tela lenta para entregar um aviso que só importa quando alguém chega.
-    ///
-    /// Falha aqui NÃO derruba a chegada: o paciente chegou, e isso já está gravado. O que
-    /// se perde é o aviso — e o aviso perdido fica no log, nunca disfarçado de "tudo certo".
-    /// </summary>
-    private async Task<IReadOnlyList<string>> ConferirElegibilidadeAsync(CartaoFila cartao)
-    {
-        try
-        {
-            using var scope = _escopos.CreateScope();
-            var elegibilidade = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
-
-            var resultado = await elegibilidade.ConferirAsync(
-                cartao.PacienteId, DateOnly.FromDateTime(Dia));
-
-            return resultado.Alertas.Select(a => a.Descricao).ToList();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — elegibilidade não pôde ser conferida no check-in", ex);
-            return ["Não foi possível conferir carteirinha e cota agora — confira na ficha."];
-        }
-    }
-
-    /// <summary>
-    /// Chama o paciente pelo balcão — o mesmo fato que o botão do consultório grava.
-    ///
-    /// Existe dos dois lados de propósito: metade das clínicas o profissional avisa pela
-    /// porta, e obrigar o balcão a esperar um clique da sala faria a coluna "chamado"
-    /// nascer sempre vazia num fluxo que funciona há anos. Quem carimba é quem clicar
-    /// primeiro (<see cref="AgendaService.ChamarAsync"/> é idempotente): a hora da
-    /// chamada é uma só, e a segunda chamada não reinicia o relógio de quem já se levantou.
-    /// </summary>
-    [RelayCommand]
-    private async Task ChamarAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, async c =>
-        {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
-            if (!GarantirHoje(c, "a chamada")) return;
-
-            using (var e = _escopos.CreateScope())
-                await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .ChamarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info(c.TemSala
-                ? $"{c.Paciente} chamado — anuncie para a sala {c.Sala}."
-                : $"{c.Paciente} chamado — anuncie o nome na sala de espera.");
-        }, "chamada do paciente");
-
-    /// <summary>O paciente levantou e entrou: fim da espera, começo da sessão.</summary>
-    [RelayCommand]
-    private async Task IniciarAtendimentoAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, async c =>
-        {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
-            if (!GarantirHoje(c, "a entrada na sala")) return;
-
-            using (var e = _escopos.CreateScope())
-                await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .IniciarAtendimentoAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Sucesso($"{c.Paciente} em atendimento.");
-        }, "início do atendimento");
-
-    /// <summary>
     /// Encerra a sessão. Concluir são QUATRO fatos do mesmo ato — a guia nasce, o pacote
     /// debita, o insumo sai do estoque e o dinheiro entra no caixa —, e por muito tempo só
     /// o primeiro acontecia. Ver <see cref="FechamentoSessaoService"/>.
@@ -1355,6 +1185,10 @@ public sealed partial class FilaViewModel : ObservableObject
     ///
     /// A janela continua sendo PROPOSTA confirmada, e agora só abre quando há o que
     /// decidir (pacote, dinheiro ou insumo). Fechá-la não desfaz nada.
+    ///
+    /// ⚠️ Desde set/2026 este é o caminho de EXCEÇÃO: com os botões de fila fora, quem
+    /// conclui é o "Finalizar atendimento" do profissional (parcela 95). O botão fica
+    /// para o caso contrário — a sessão aconteceu e ninguém finalizou pelo consultório.
     /// </summary>
     [RelayCommand]
     private async Task FinalizarAsync(CartaoFila? cartao)
@@ -1531,20 +1365,60 @@ public sealed partial class FilaViewModel : ObservableObject
             await CarregarAsync();
         }, "coleta do termo");
 
-    /// <summary>Volta o cartão uma coluna — clicar errado no kanban é rotina.</summary>
+    /// <summary>
+    /// CONFERIR CONVÊNIO E COTA com o paciente na frente — a porta que o check-in levou
+    /// embora (set/2026).
+    ///
+    /// ⚠️ Ela existe porque tirar um botão não pode tirar um AVISO junto. Carteirinha
+    /// vencida, cota do convênio estourada, dívida em aberto e glosa a recorrer chegavam
+    /// ao balcão pelo clique de "Chegou", e o comentário daquele código dizia por quê: é o
+    /// ÚLTIMO momento barato — com a pessoa aqui, resolve-se com um telefonema; depois da
+    /// sessão a mesma informação só vira glosa. Sem os botões de fila, o balcão ficaria
+    /// com os selos da linha (termo, guia, pacote) e SEM os quatro do
+    /// <see cref="ElegibilidadeService"/>. Alerta que perde a porta é a parcela 48 pelo
+    /// avesso.
+    ///
+    /// É ato do "⋯" e não conferência automática de toda linha, pela regra de sempre: a
+    /// conferência custa quatro consultas POR PACIENTE, e rodá-la nos trinta cartões do
+    /// dia tornaria a tela lenta para entregar um aviso que só importa quando alguém está
+    /// no balcão. O que se faz de vez em quando mora no botão.
+    ///
+    /// Falha NÃO passa calada nem vira "tudo certo": vira o terceiro estado escrito.
+    /// </summary>
     [RelayCommand]
-    private async Task VoltarEtapaAsync(CartaoFila? cartao)
+    private async Task ConferirElegibilidadeAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.ExigirAlgum(
-                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
-            if (!GarantirHoje(c, "a volta de etapa")) return;
+            var recados = new List<string>();
+            if (c.TemGuiaPendente)
+                recados.Add("Tem GUIA PENDENTE de baixa — aproveite que ele está aqui e peça "
+                            + "o documento; depois a cobrança vira telefonema.");
 
-            using (var e = _escopos.CreateScope())
-                await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .VoltarEtapaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Cartão devolvido para a coluna anterior.");
-        }, "volta de etapa");
+            try
+            {
+                using var escopo = _escopos.CreateScope();
+                var elegibilidade = escopo.ServiceProvider
+                    .GetRequiredService<ElegibilidadeService>();
+
+                var resultado = await elegibilidade.ConferirAsync(
+                    c.PacienteId, DateOnly.FromDateTime(Dia));
+
+                recados.AddRange(resultado.Alertas.Select(a => a.Descricao));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — elegibilidade não pôde ser conferida", ex);
+                recados.Add("Não foi possível conferir carteirinha e cota agora — "
+                            + "confira na ficha do paciente.");
+            }
+
+            _dialogo.Aviso($"{c.Paciente} — convênio e cota",
+                recados.Count > 0
+                    ? string.Join("\n\n", recados)
+                    : "Nada a resolver: carteirinha em dia, cota disponível, sem guia "
+                      + "pendente e sem conta vencida.");
+        }, "conferência de convênio e cota");
 
     [RelayCommand]
     private async Task MarcarFaltaAsync(CartaoFila? cartao)

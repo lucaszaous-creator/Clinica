@@ -210,21 +210,9 @@
                             </StackPanel>
                         </DockPanel>
                     </Border>
-                    <Border Style="{StaticResource KpiDia}"
-                            ToolTip="Da chegada ao balcão até a chamada — só de quem já foi chamado hoje. A mesma conta do painel.">
-                        <DockPanel>
-                            <Border Style="{StaticResource KpiDiaIcone}"
-                                    Background="{StaticResource Brush.Aviso.Suave}">
-                                <TextBlock Style="{StaticResource KpiDiaGlifo}" Text="&#xE916;"
-                                           Foreground="{StaticResource Brush.Aviso}" />
-                            </Border>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Style="{StaticResource KpiDiaNumero}" Text="{Binding EsperaMedia}"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Style="{StaticResource KpiDiaRotulo}" Text="espera média" />
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
+                    <!-- ⛔ "espera média" SAIU (set/2026): a espera vai da CHEGADA do
+                         paciente até a chamada, e sem os botões de fila nenhum horário
+                         carimba chegada — o número seria "—" em todo dia da clínica. -->
                     <!-- Mudo de propósito: falta e cancelamento já estão na lista, apagados —
                          o placar conta, não alarma. -->
                     <Border Style="{StaticResource KpiDia}"
@@ -308,82 +296,6 @@
                         ToolTip="Marcar um horário neste dia. Exige a permissão Editar agenda." />
             </StackPanel>
         </Grid>
-
-        <!-- ============ CHAMANDO ============
-             A faixa existe porque a linha sozinha não bastaria: o balcão passa o dia com
-             esta tela aberta e os olhos no paciente à frente dele, e uma linha que muda
-             de status em silêncio é uma linha que ninguém vê. Ela nomeia o chamado MAIS
-             ANTIGO, com a sala e o cronômetro — e carrega o "Entrou" DENTRO dela, porque
-             é para ela que a recepcionista está olhando quando o paciente levanta. -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Erro}"
-                CornerRadius="{StaticResource Raio.Medio}" Padding="14,9" Margin="0,0,0,12"
-                Visibility="{Binding TemChamados, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
-                <DockPanel>
-                    <!-- Entrou direto da faixa: age no chamado nomeado, pelo MESMO comando
-                         (e a mesma guarda) do botão da linha. `VerticalAlignment` no botão,
-                         senão a linha que cresce o estica (parcela 47). -->
-                    <Button DockPanel.Dock="Right" Content="Entrou"
-                            VerticalAlignment="Center" Margin="12,0,0,0"
-                            FontWeight="SemiBold" Padding="14,5"
-                            Background="{StaticResource Brush.Superficie}"
-                            Foreground="{StaticResource Brush.Erro}"
-                            BorderThickness="0" Cursor="Hand"
-                            IsEnabled="{Binding PodeEditarAgenda}"
-                            Command="{Binding AvancarCommand}"
-                            CommandParameter="{Binding PrimeiroChamado}" />
-
-                    <Grid VerticalAlignment="Center">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="CHAMANDO" FontWeight="Bold"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Invertido}"
-                                   VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <TextBlock Grid.Column="1" Text="{Binding PrimeiroChamado.Paciente}"
-                                   FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Texto.Invertido}"
-                                   TextTrimming="CharacterEllipsis" MaxWidth="380"
-                                   VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <!-- A pílula SOME quando o horário não tem sala: a faixa é o
-                             recado que a recepcionista lê em voz alta, e "sala —" gritado
-                             na sala de espera não é instrução nenhuma. -->
-                        <Border Grid.Column="2" Background="{StaticResource Brush.Superficie}"
-                                ctrl:Ajudantes.Pilula="True" Padding="9,2"
-                                VerticalAlignment="Center" Margin="0,0,10,0"
-                                Visibility="{Binding PrimeiroChamado.Sala,
-                                             Converter={StaticResource TextoParaVisibilidade},
-                                             FallbackValue=Collapsed}">
-                            <TextBlock FontSize="{StaticResource Fonte.Legenda}"
-                                       FontWeight="SemiBold" MaxWidth="180"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource Brush.Erro}">
-                                <Run Text="sala" /><Run Text=" " />
-                                <Run Text="{Binding PrimeiroChamado.Sala, Mode=OneWay}" />
-                            </TextBlock>
-                        </Border>
-                        <TextBlock Grid.Column="3" VerticalAlignment="Center"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Erro.Suave}"
-                                   TextTrimming="CharacterEllipsis">
-                            <Run Text="{Binding PrimeiroChamado.ChamadoHa, Mode=OneWay}" />
-                            <Run Text="— anuncie na sala de espera" />
-                        </TextBlock>
-                    </Grid>
-                </DockPanel>
-
-                <TextBlock Text="{Binding OutrosChamados}" Margin="0,4,0,0"
-                           FontSize="{StaticResource Fonte.Legenda}"
-                           Foreground="{StaticResource Brush.Texto.Invertido}"
-                           TextWrapping="Wrap"
-                           Visibility="{Binding TemOutrosChamados,
-                                        Converter={StaticResource BoolParaVisibilidade}}" />
-            </StackPanel>
-        </Border>
 
         <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
              declarada ANTES do miolo que preenche — senão o miolo a come (parcela 47). -->

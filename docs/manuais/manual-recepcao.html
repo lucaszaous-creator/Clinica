@@ -1,0 +1,1490 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Manual da Recepção — Clínica SemDor</title>
+<link rel="stylesheet" href="_estilo.css">
+</head>
+<body>
+
+<!-- ==================== CAPA ==================== -->
+<section class="capa">
+  <div>
+    <div class="marca">Clínica SemDor · Manual de uso</div>
+    <h1>Recepção</h1>
+    <p class="sub">O manual do balcão, passo a passo: marcar, receber quem chega,
+       lançar o atendimento, cuidar da ficha do paciente e fechar o dia.</p>
+    <div class="paraquem">
+      <b>Para quem é este manual</b>
+      <p>Recepcionistas, secretárias e quem atende o balcão da clínica.<br>
+         Não é preciso saber nada de computador além de clicar e digitar.</p>
+    </div>
+  </div>
+  <div class="capa-temas">
+    <b>Neste manual</b>
+    <div><span>Agenda e fila do dia</span><span>Lançar atendimento</span><span>Ficha do paciente</span><span>Pacotes e preços</span><span>Documentos e termos</span></div>
+  </div>
+  <div class="rodape">
+    Programa: <b>Clínica SemDor — Recepção</b> (ícone azul com o nome “Recepção” na área de trabalho).<br>
+    Este manual explica o que cada tela faz, para que serve cada botão e o que fazer quando algo dá errado.
+  </div>
+</section>
+
+<!-- ==================== SUMÁRIO ==================== -->
+<section class="sumario" id="sumario">
+  <div class="cap-num">Sumário</div>
+  <h1 class="cap-titulo">O que você vai encontrar aqui</h1>
+  <div class="cap-linha"></div>
+  <ol>
+    <li><a href="#cap-1"><em>Antes de começar</em><span>ligar o programa, entrar com seu usuário e entender a tela</span></a></li>
+    <li><a href="#cap-2"><em>O dia no balcão, do começo ao fim</em><span>o caminho que o paciente faz dentro do sistema</span></a></li>
+    <li><a href="#cap-3"><em>Início — o painel da recepção</em><span>como está o dia agora</span></a></li>
+    <li><a href="#cap-4"><em>Agenda · aba Dia</em><span>a lista do dia: quem já foi atendido e quem falta</span></a></li>
+    <li><a href="#cap-5"><em>Agenda · aba Grade</em><span>marcar horário, remarcar, fechar a agenda</span></a></li>
+    <li><a href="#cap-6"><em>Lançar e marcar</em><span>o atendimento entra no sistema e a guia nasce</span></a></li>
+    <li><a href="#cap-7"><em>Fechar a sessão</em><span>pacote, material e o dinheiro do particular</span></a></li>
+    <li><a href="#cap-8"><em>Pacientes</em><span>cadastro, ficha completa, convênio, LGPD</span></a></li>
+    <li><a href="#cap-9"><em>Prontuário, Receituário e Documentos</em><span>o que a recepção alcança, e o que não</span></a></li>
+    <li><a href="#cap-10"><em>Pacotes e preços do particular</em><span>vender sessões e combinar valores</span></a></li>
+    <li><a href="#cap-11"><em>Retorno de pacientes</em><span>chamar de volta quem parou de vir</span></a></li>
+    <li><a href="#cap-12"><em>Profissionais e salas</em><span>quem atende, quando e onde</span></a></li>
+    <li><a href="#cap-13"><em>Se você é da enfermagem</em><span>sala de infusão e passagem de enfermagem</span></a></li>
+    <li><a href="#cap-14"><em>Quando algo dá errado</em><span>as mensagens do sistema e o que fazer</span></a></li>
+    <li><a href="#cap-15"><em>Perguntas frequentes</em><span>as dúvidas do dia a dia</span></a></li>
+    <li><a href="#cap-16"><em>Glossário</em><span>as palavras que aparecem nas telas</span></a></li>
+  </ol>
+</section>
+
+<!-- ==================== 1. ANTES DE COMEÇAR ==================== -->
+<section class="cap" id="cap-1">
+  <div class="cap-num">Capítulo 1<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Antes de começar</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Três coisas para aprender de uma vez só: como abrir o programa, como entrar
+  com o seu usuário e o que é cada pedaço da tela. Depois disto, todas as outras telas ficam parecidas.</p>
+
+  <div class="nota">
+    <b>Como ler este manual</b>
+    <p>As figuras <b>ainda não são fotos do sistema</b> — são reproduções feitas a partir do próprio
+    código, e cada uma sai marcada com um selo laranja avisando disso. Elas são fiéis no que importa:
+    os nomes dos botões, das colunas e dos campos são <b>exatamente</b> os que você vai ver no
+    computador, e as cores também. Assim que as capturas reais forem tiradas, elas entram no lugar
+    e o selo some.</p>
+  </div>
+
+  <h2>1.1 · Abrir o programa</h2>
+  <p>Na área de trabalho do computador do balcão existe um ícone azul chamado <b>Recepção</b>.
+  Dê dois cliques nele. O sistema demora alguns segundos para abrir na primeira vez do dia — ele está
+  conferindo se há atualização e conectando ao banco de dados da clínica. É normal.</p>
+
+  <div class="dica">
+    <b>Deixe aberto o dia todo</b>
+    <p>Não precisa fechar o programa entre um paciente e outro. Ele se atualiza sozinho: a agenda e a
+    fila do dia se recarregam a cada minuto, então o que a colega marca no outro computador aparece
+    no seu sem você fazer nada.</p>
+  </div>
+
+  <h2>1.2 · Entrar com o seu usuário</h2>
+  <p>O sistema pede <b>usuário</b> e <b>senha</b>. Esse login não é enfeite: tudo o que for feito no
+  sistema fica registrado no nome de quem entrou. Se duas pessoas dividem o mesmo computador, cada uma
+  entra com o seu login — senão o sistema responde o nome errado quando a direção perguntar “quem fez isto?”.</p>
+
+  <figure data-captura="recepcao-01-login">
+    <div class="app" style="max-width:110mm;margin:0 auto;">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Entrar no sistema</span></div>
+      <div style="padding:6mm 8mm;background:#fff;">
+        <div style="font-size:12pt;font-weight:700;letter-spacing:-.01em;">Clínica SemDor</div>
+        <div style="color:#6B7280;font-size:7.6pt;margin-bottom:4mm;">Recepção</div>
+        <div class="rot">Usuário</div>
+        <div class="campo preenchido" style="margin-bottom:2.6mm;">maria.silva</div>
+        <div class="rot">Senha</div>
+        <div class="campo preenchido" style="margin-bottom:4mm;">••••••••</div>
+        <div style="display:flex;justify-content:flex-end;gap:2mm;">
+          <span class="btn sec">Sair</span><span class="btn">Entrar</span>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A tela de entrada.</b> É a primeira coisa que aparece. Se você errar a senha, ele avisa na hora.</figcaption>
+  </figure>
+
+  <h3>Situações comuns na entrada</h3>
+  <table class="botoes">
+    <thead><tr><th>O que aconteceu</th><th>O que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">É o seu primeiro acesso</td><td>A direção lhe entrega uma senha provisória. Ao entrar com ela, o sistema pede que você escolha uma senha nova — escolha uma que só você saiba.</td></tr>
+      <tr><td class="bt">Esqueceu a senha</td><td>Só a direção pode redefinir (tela <b>Acessos</b>, no Gerente Geral). Ela gera uma provisória e você troca ao entrar.</td></tr>
+      <tr><td class="bt">Quer trocar a sua senha</td><td>Com o programa aberto, clique no seu nome no canto superior direito e escolha <b>Trocar a senha</b>. Ele pede a senha atual — é assim que ele confere que é você.</td></tr>
+      <tr><td class="bt">A colega vai assumir o balcão</td><td>Clique no seu nome no canto superior direito e escolha <b>Trocar usuário</b>. O programa reabre pedindo login. <b>Não continue trabalhando no login da colega.</b></td></tr>
+      <tr><td class="bt">“Seu acesso não permite…”</td><td>Não é defeito: aquela ação é de outro cargo. Fale com a direção — ela consegue liberar só aquela função para você, sem mexer no acesso das colegas.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>1.3 · A tela por dentro</h2>
+  <p>Todas as telas do sistema seguem o mesmo desenho. Aprendendo este, você já sabe se localizar em qualquer uma.</p>
+
+  <figure data-captura="recepcao-02-inicio">
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Gestão</div>
+          <div class="item on"><i></i>Início</div>
+          <div class="item"><i></i>Agenda</div>
+          <div class="item"><i></i>Profissionais e salas</div>
+          <div class="grupo">Paciente</div>
+          <div class="item"><i></i>Pacientes</div>
+          <div class="item"><i></i>Documentos</div>
+          <div class="item"><i></i>Pacotes</div>
+          <div class="grupo">Atendimento</div>
+          <div class="item"><i></i>Lançar e marcar</div>
+          <div class="item"><i></i>Prontuário</div>
+        </div>
+        <div class="main">
+          <div class="top">
+            <span class="busca">Ir para… (Ctrl+F)</span>
+            <span class="user"><span class="av">MS</span>Maria Silva ▾</span>
+          </div>
+          <div class="tela">
+            <div class="h1">Painel da recepção</div>
+            <div class="sub">Como está o dia no balcão: quantos faltam atender, quem está na sala e quanto cada profissional tem na agenda.</div>
+            <div class="kpis">
+              <div class="kpi"><div class="rot">Agendados</div><div class="val">18</div></div>
+              <div class="kpi"><div class="rot">A atender</div><div class="val">7</div></div>
+              <div class="kpi"><div class="rot">Em atendimento</div><div class="val">2</div></div>
+              <div class="kpi"><div class="rot">Concluídos</div><div class="val">9</div></div>
+            </div>
+            <div class="card"><div class="tit">Ocupação por profissional</div>
+              <table class="tab"><tr><td>Dra. Ana Prado</td><td style="width:40%"><div style="background:#E5E7EB;height:2mm;border-radius:9px"><div style="background:#123A9E;height:2mm;width:72%;border-radius:9px"></div></div></td><td style="text-align:right">72%</td></tr>
+              <tr><td>Dr. Carlos Nunes</td><td><div style="background:#E5E7EB;height:2mm;border-radius:9px"><div style="background:#123A9E;height:2mm;width:45%;border-radius:9px"></div></div></td><td style="text-align:right">45%</td></tr></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>As quatro regiões de qualquer tela.</b> À esquerda o menu; em cima a busca e o seu nome;
+    no meio o conteúdo, sempre começando pelo título e por uma frase explicando o que aquela tela responde.</figcaption>
+  </figure>
+
+  <ol class="legenda">
+    <li><b>Menu lateral (esquerda).</b> É por aqui que se troca de tela. Ele vem separado por assunto:
+      <b>GESTÃO</b> (o dia da clínica), <b>PACIENTE</b> (a pessoa), <b>ATENDIMENTO</b> (o ato de atender),
+      <b>FINANCEIRO</b> (o dinheiro) e <b>INTELIGÊNCIA</b> (os números da direção). Clicar no nome do grupo
+      abre e fecha aquele grupo. O item aberto fica azul, com um risco à esquerda.</li>
+    <li><b>Busca de telas (em cima).</b> Digite parte do nome (“pacote”, “caixa”, “agenda”) e ele mostra
+      onde aquilo fica. Serve para não decorar o menu. O atalho é <b>Ctrl + F</b>.</li>
+    <li><b>Menu estreito.</b> <b>Ctrl + B</b> recolhe a coluna da esquerda para só os ícones, e devolve.
+      Útil em monitor pequeno, quando a tabela não cabe.</li>
+    <li><b>Seu nome (canto direito).</b> Clicando ali aparecem <b>Trocar a senha</b> e <b>Trocar usuário</b>.</li>
+    <li><b>Conteúdo.</b> Sempre com o título em negrito e, embaixo, uma frase cinza dizendo para que a tela serve.
+      Quando a tela tem mais de um assunto, aparecem <b>abas</b> logo abaixo do título.</li>
+  </ol>
+
+  <h2>1.4 · Cinco regras que valem em todas as telas</h2>
+  <table class="botoes">
+    <thead><tr><th>Você vê</th><th>Quer dizer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Um botão apagado (cinza claro)</td>
+          <td>O botão está dizendo que <b>ainda falta alguma coisa</b>: escolher o paciente, preencher um campo, ou você não tem aquela permissão. Não está quebrado. Passe o mouse em cima que costuma aparecer a explicação.</td></tr>
+      <tr><td class="bt">Um traço “—” no lugar de um número</td>
+          <td><b>Não foi medido</b> — é diferente de zero. Um profissional sem sessão no período não tem “queda média da dor”: 0% diria que o tratamento não funcionou. O sistema nunca troca “não sei” por “zero”.</td></tr>
+      <tr><td class="bt">Uma faixa <b>vermelha</b></td>
+          <td>Deu erro, ou o sistema recusou o que você pediu. O motivo vem escrito ali mesmo, perto do botão que você clicou.</td></tr>
+      <tr><td class="bt">Uma faixa <b>verde</b> ou um aviso que some sozinho</td>
+          <td>Deu certo. Se você clicou em Salvar e <b>não</b> apareceu nada, algo travou — não clique de novo várias vezes; leia a tela.</td></tr>
+      <tr><td class="bt">“Não foi possível verificar”</td>
+          <td>A internet ou o banco de dados falharam naquele instante. <b>Não é “está tudo em dia”.</b> Clique em <b>Atualizar</b>. Se insistir, avise a direção.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="atencao">
+    <b>O botão “Atualizar”</b>
+    <p>Quase toda tela tem um. Ele relê os dados agora. Use sempre que desconfiar de que a tela está
+    mostrando algo velho — por exemplo, depois de a colega ter marcado alguma coisa no outro computador.</p>
+  </div>
+</section>
+
+<!-- ==================== 2. O DIA NO BALCÃO ==================== -->
+<section class="cap" id="cap-2">
+  <div class="cap-num">Capítulo 2<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">O dia no balcão, do começo ao fim</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O caminho é curto de propósito: <b>a secretária marca, o profissional atende.</b>
+  Dois passos, duas pessoas — e o balcão não precisa clicar em mais nada para o dia acontecer.</p>
+
+  <div class="fluxo">
+    <div class="et"><b>1 · A secretária marca</b><span>Na <b>Agenda</b>, cria o horário com o paciente e
+      <b>quem vai atender</b>. O horário cai na agenda daquele profissional.</span></div>
+    <div class="et"><b>2 · O profissional atende</b><span>Na tela dele, clica em <b>Atender</b>, escreve
+      a sessão e clica em <b>Finalizar atendimento</b>. <b>A guia do convênio nasce aí.</b></span></div>
+  </div>
+
+  <div class="dica">
+    <b>É só isso</b>
+    <p>Não existe passo entre um e outro. Quando o profissional clica em <b>Atender</b>, o sistema
+    registra sozinho que o paciente entrou na sala; quando ele clica em <b>Finalizar</b>, o horário é
+    dado por realizado e as guias são geradas. <b>O balcão não precisa clicar em nada.</b></p>
+  </div>
+
+  <h2>2.1 · O que continua sendo do balcão</h2>
+  <p>Três coisas, e nenhuma delas é passo de fila:</p>
+  <table class="botoes">
+    <thead><tr><th>O quê</th><th>Onde</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Marcar, remarcar e desmarcar</td>
+          <td>A <b>Agenda</b>. É o trabalho principal do balcão.</td></tr>
+      <tr><td class="bt">Falta e cancelamento</td>
+          <td>Quando o paciente não vem ou desmarca — o profissional não tem como saber isso.</td></tr>
+      <tr><td class="bt">O dinheiro</td>
+          <td><b>Fechar a sessão</b>: descontar o pacote, registrar o material usado e o pagamento do
+          particular. Só aparece quando há alguma dessas coisas a resolver (capítulo 7).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nota">
+    <b>Não existem botões de “Chegou”, “Chamar” e “Entrou”</b>
+    <p>Outros sistemas pedem que o balcão marque cada passo do paciente pela sala de espera. <b>Este
+    não.</b> A clínica escolheu o caminho curto, e a tela foi feita para ele: a linha do dia vai de
+    <b>Marcado</b> direto para <b>Em atendimento</b> quando o profissional clica em <b>Atender</b>.
+    Não há passo esquecido possível, porque não há passo.</p>
+  </div>
+
+<h2>2.2 · Convênio, particular e “a definir”</h2>
+  <table class="botoes">
+    <thead><tr><th>Situação do paciente</th><th>O que o sistema faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Tem convênio</td><td>Gera as guias daquele convênio, com as datas em que cada uma pode ser tirada. Elas viram tarefa do faturamento.</td></tr>
+      <tr><td class="bt">É particular</td><td>Não gera guia (não há convênio para cobrar). Em vez disso o sistema pergunta como o paciente pagou — dinheiro, cartão, Pix — ou se vai <b>ficar a receber</b>.</td></tr>
+      <tr><td class="bt">Está como “A definir”</td><td>É a ficha que veio da importação do sistema antigo <b>sem convênio</b>. O sistema <b>recusa</b> lançar o atendimento e mostra um botão para escolher o convênio na hora, com o paciente na frente. Escolheu, ele segue normalmente.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="atencao">
+    <b>Por que ele recusa em vez de só avisar</b>
+    <p>Sem convênio escolhido, o atendimento entraria no sistema <b>sem guia nenhuma</b> — a clínica atenderia
+    e não teria o que cobrar. O aviso vermelho existe justamente para isso não acontecer em silêncio.</p>
+  </div>
+</section>
+
+<!-- ==================== 3. INÍCIO ==================== -->
+<section class="cap" id="cap-3">
+  <div class="cap-num">Capítulo 3<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Início — o painel da recepção</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">É a tela que abre quando o programa liga. Ela responde uma pergunta: <b>como está
+  o dia agora?</b> Serve para dar uma olhada rápida, e não para trabalhar — o trabalho é nas outras telas.</p>
+
+  <p><span class="caminho">Menu <b>GESTÃO › Início</b></span></p>
+
+  <h2>O que cada bloco mostra</h2>
+  <table class="botoes">
+    <thead><tr><th>Bloco</th><th>Para que serve</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Agendados</td><td>Quantas pessoas estão marcadas para o dia escolhido.</td></tr>
+      <tr><td class="bt">A atender</td><td>Quantas do dia ainda não entraram na sala. É o número que responde “quanto falta hoje”.</td></tr>
+      <tr><td class="bt">Em atendimento</td><td>Quantas estão dentro da sala agora.</td></tr>
+      <tr><td class="bt">Concluídos</td><td>Sessões já encerradas hoje.</td></tr>
+      <tr><td class="bt">Lista de espera</td><td>Quantas pessoas querem um horário que ainda não existe. Quando alguém desmarca, é aqui que você procura quem chamar.</td></tr>
+      <tr><td class="bt">Ocupação por profissional</td><td>Quanto da agenda de cada um está preenchido. Barra curta = tem espaço para encaixar.</td></tr>
+      <tr><td class="bt">Guias pendentes de quem vem hoje</td><td>Pacientes do dia que têm guia em aberto no faturamento. É a chance de resolver com a pessoa presente.</td></tr>
+      <tr><td class="bt">Aniversariantes da semana</td><td>Quem faz aniversário nos próximos dias, com o botão <b>Parabenizar</b> que abre o WhatsApp com a mensagem pronta.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Os botões do topo</h3>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">◀ e ▶</td><td>Vão um dia para trás e um dia para a frente.</td></tr>
+      <tr><td class="bt">Hoje</td><td>Volta para o dia de hoje.</td></tr>
+      <tr><td class="bt">Atualizar</td><td>Relê tudo agora. O painel também se relê sozinho a cada dois minutos.</td></tr>
+      <tr><td class="bt">WhatsApp / Parabenizar</td><td>Abrem o WhatsApp Web já com a conversa e a mensagem escrita. Você confere e envia.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nota">
+    <b>Por que não há “tempo médio de espera”</b>
+    <p>Esse número se conta da hora em que o paciente <b>chega ao balcão</b> até a hora em que ele é
+    chamado — e neste fluxo ninguém registra a chegada. O sistema prefere não mostrar o número a mostrar
+    um número inventado: “0 min” faria parecer que ninguém espera nesta clínica, o que não é uma coisa
+    que alguém tenha medido.</p>
+  </div>
+
+  <div class="nota">
+    <b>Um bloco pode falhar sozinho</b>
+    <p>Se uma parte do painel não conseguir ler os dados, ela mostra “não foi possível verificar” e o
+    resto continua funcionando. Um painel dizendo “nada pendente” por causa de uma falha seria pior do
+    que um painel que avisa.</p>
+  </div>
+</section>
+
+<!-- ==================== 4. AGENDA · DIA ==================== -->
+<section class="cap" id="cap-4">
+  <div class="cap-num">Capítulo 4<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Agenda · aba <span style="color:var(--accent)">Dia</span></h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A tela que fica aberta quase o tempo todo — e que serve, antes de tudo, para
+  <b>olhar</b>: uma linha por horário, na ordem da hora, com o estado de cada paciente escrito na
+  própria linha. <b>Ela se atualiza sozinha</b> conforme o profissional atende.</p>
+
+  <p><span class="caminho">Menu <b>GESTÃO › Agenda</b> › aba <b>Dia</b></span></p>
+
+  <figure data-captura="recepcao-03-agenda-dia">
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Gestão</div>
+          <div class="item"><i></i>Início</div>
+          <div class="item on"><i></i>Agenda</div>
+          <div class="item"><i></i>Profissionais e salas</div>
+          <div class="grupo">Paciente</div>
+          <div class="item"><i></i>Pacientes</div>
+          <div class="grupo">Atendimento</div>
+          <div class="item"><i></i>Lançar e marcar</div>
+        </div>
+        <div class="main">
+          <div class="top"><span class="busca">Ir para… (Ctrl+F)</span><span class="user"><span class="av">MS</span>Maria Silva ▾</span></div>
+          <div class="tela">
+            <div style="display:flex;gap:3mm;border-bottom:1px solid #E5E7EB;margin-bottom:2.4mm;">
+              <span style="padding:1mm 2mm;border-bottom:2px solid #123A9E;color:#123A9E;font-weight:700;">Dia</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Grade</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Semana do profissional</span>
+            </div>
+            <div class="h1">Agenda do dia</div>
+            <div class="barra-acoes">
+              <span class="btn sec">◀</span><span class="campo preenchido">08/09/2026</span><span class="btn sec">▶</span>
+              <span class="btn sec">Hoje</span><span class="btn sec">Atualizar</span>
+              <span style="flex:1"></span><span class="btn">Novo horário</span>
+            </div>
+            <table class="tab">
+              <thead><tr><th>Horário</th><th>Paciente</th><th>Profissional</th><th>Status</th><th style="text-align:right">Ação</th></tr></thead>
+              <tbody>
+                <tr><td>08:00</td><td><b>Carlos Menezes</b><br><span style="color:#6B7280">Acupuntura · Unimed</span></td><td>Dra. Ana Prado</td>
+                    <td><span class="pill ok">Concluído</span><br><span style="color:#6B7280">às 08:47 · 2 guias geradas</span></td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
+                <tr><td>09:00</td><td><b>Joana Ribeiro</b><br><span style="color:#6B7280">BSV · Particular</span></td><td>Dra. Ana Prado</td>
+                    <td><span class="pill info">Em atendimento</span><br><span style="color:#6B7280">desde 09:04</span></td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
+                <tr><td>09:30</td><td><b>Pedro Alves</b><br><span style="color:#6B7280">Acupuntura · Petrobras</span></td><td>Dr. Carlos Nunes</td>
+                    <td>Marcado</td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
+                <tr><td>10:00</td><td><b>Marta Souza</b> <span class="pill err">Termo</span><br><span style="color:#6B7280">BSV · Amil</span></td><td>Dra. Ana Prado</td>
+                    <td>Marcado</td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
+                <tr class="apagada"><td>10:30</td><td>Rita Campos</td><td>Dr. Carlos Nunes</td><td>Cancelado</td><td style="text-align:right"><span class="btn sec">⋯</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A agenda do dia.</b> A coluna <b>Status</b> é a que importa: ela conta o dia sozinha,
+    porque muda quando o profissional clica em Atender e em Finalizar. A linha do balcão tem só o
+    <b>“⋯”</b> — não há passo de fila para clicar.</figcaption>
+  </figure>
+
+  <h2>4.1 · A coluna Status conta o dia sozinha</h2>
+  <p>Você não precisa clicar em nada para a lista ficar certa. Quando o profissional clica em
+  <b>Atender</b>, a linha muda; quando ele clica em <b>Finalizar</b>, muda de novo.</p>
+
+  <table class="botoes">
+    <thead><tr><th>Status</th><th>Quer dizer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Marcado</td><td>O horário existe e ainda não começou. <b>É assim que toda linha nasce</b>, e assim ela fica até o profissional chamar o paciente.</td></tr>
+      <tr><td class="bt">Em atendimento</td><td>O profissional clicou em <b>Atender</b> — o paciente está com ele. Aparece desde que horas.</td></tr>
+      <tr><td class="bt">Concluído</td><td>O profissional clicou em <b>Finalizar</b>. <b>A guia do convênio já nasceu.</b></td></tr>
+      <tr><td class="bt">Cancelado · Faltou</td><td>A linha fica na lista, em cinza — para você saber que aquele horário vagou.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="dica">
+    <b>Como saber que a sala vagou</b>
+    <p>A linha vira <b>Concluído</b> com a hora ao lado. É o mesmo aviso que antes exigia alguém
+    perguntar — agora ele aparece sozinho, no instante em que o profissional termina.</p>
+  </div>
+
+  <h2>4.2 · O que o balcão faz nesta tela</h2>
+  <p>Tudo pelo menu <b>“⋯”</b> de cada linha:</p>
+  <table class="botoes">
+    <thead><tr><th>Item do menu</th><th>Quando usar</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Marcar falta</td><td>O paciente não veio e não avisou.</td></tr>
+      <tr><td class="bt">Cancelar o horário</td><td>Ele desmarcou, ou a clínica desmarcou. O vão volta a ficar livre na grade.</td></tr>
+      <tr><td class="bt">Fechar sessão (pacote, insumo, caixa)…</td><td>O dinheiro: descontar o pacote, registrar material e o pagamento do particular. Veja o <a class="remissao" href="#cap-7">capítulo 7</a>.</td></tr>
+      <tr><td class="bt">Conferir convênio e cota…</td><td><b>Use quando o paciente estiver no balcão.</b> O sistema confere carteirinha vencida, cota do convênio estourada, conta em atraso e guia pendente, e escreve o que achou. É a última chance de resolver com uma ligação — depois da sessão a mesma coisa vira glosa.</td></tr>
+      <tr><td class="bt">Abrir na grade…</td><td>Leva à janela do horário — <b>remarcar</b>, <b>reabrir</b> um cancelado, comprovante e confirmação por WhatsApp.</td></tr>
+      <tr><td class="bt">Colher o termo do procedimento…</td><td>Só aparece quando falta o termo assinado daquele procedimento (a linha mostra um selo vermelho <b>Termo</b>).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="atencao">
+    <b>Falta e cancelamento não são a mesma coisa</b>
+    <p><b>Faltou</b> = o paciente não avisou. Conta no histórico dele.<br>
+    <b>Cancelado</b> = o horário não vai acontecer, tenha ele avisado ou não.<br>
+    Nos dois casos, se já havia guia gerada, ela é <b>suspensa</b> automaticamente — a clínica não cobra
+    o convênio por uma sessão que não houve.</p>
+  </div>
+  <div class="dica">
+    <b>Marcou falta por engano?</b>
+    <p><b>“⋯” › Abrir na grade</b> › <b>Reabrir este horário</b>. Ele volta ao normal.</p>
+  </div>
+
+  <h2>4.3 · Não há passo de fila para clicar</h2>
+  <p>Em outros sistemas cada linha traz botões de <b>Chegou</b>, <b>Chamar</b> e <b>Entrou</b>: o
+  balcão marca cada etapa do paciente pela sala de espera. <b>Aqui não existem</b> — a clínica
+  escolheu o caminho curto, e a tela foi feita para ele.</p>
+
+  <div class="dica">
+    <b>Por que isso é bom</b>
+    <p>Passo que se pode esquecer é passo que um dia fica esquecido — e uma lista com metade das linhas
+    paradas em “chegou” deixa de valer. Sem esses botões, a coluna <b>Status</b> nunca fica atrasada:
+    ela só muda com os dois cliques do profissional, e ele os dá com o paciente na frente.</p>
+  </div>
+
+  <div class="nota">
+    <b>O que você perde, e é pouco</b>
+    <p>O sistema deixa de saber <b>quanto tempo cada paciente esperou</b> — não há a hora da chegada
+    para contar. Por isso o painel não mostra “tempo médio de espera”: ele prefere não dizer nada a
+    dizer “0 min”, que faria parecer que ninguém espera nesta clínica.</p>
+  </div>
+
+  <div class="dica">
+    <b>A conferência do convênio continua a um clique</b>
+    <p>Carteirinha vencida e cota estourada apareciam quando alguém clicava em <b>Chegou</b>. Agora
+    estão no <b>“⋯” › Conferir convênio e cota…</b> de cada linha — com o paciente na frente, é o
+    mesmo aviso na hora certa. <b>Vale o hábito:</b> conferir custa um clique; descobrir depois da
+    sessão custa a guia.</p>
+  </div>
+
+  <h2>4.4 · “Concluir” — a exceção, não a regra</h2>
+  <p>Quando o profissional finaliza pela tela dele, a sessão é concluída e a guia nasce sem o balcão
+  fazer nada. O botão <b>Concluir</b> existe para o caso contrário: <b>o atendimento aconteceu e
+  ninguém finalizou pelo consultório</b> — o profissional esqueceu, ou o computador dele estava fora
+  do ar.</p>
+  <ol class="passos">
+    <li>Confira com o profissional que a sessão realmente aconteceu.</li>
+    <li>Na linha, clique em <b>Concluir</b>.</li>
+    <li>Se o paciente estiver com a ficha <b>sem convênio</b>, o sistema pergunta qual é antes de gerar
+      a guia.</li>
+  </ol>
+  <div class="atencao">
+    <b>Concluir gera as guias do convênio</b>
+    <p>Por isso ele não é rotina: usado sobre uma sessão que não aconteceu, a clínica cobra o convênio
+    por nada. Se foi engano, o desfazer é o <b>estorno</b> — <b>Lançar e marcar › Lançamentos ›
+    Estornar…</b>, com motivo escrito.</p>
+  </div>
+
+<!-- ==================== 5. AGENDA · GRADE ==================== -->
+<section class="cap" id="cap-5">
+  <div class="cap-num">Capítulo 5<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Agenda · aba <span style="color:var(--accent)">Grade</span></h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A aba <b>Dia</b> responde “em que pé está cada paciente”. A <b>Grade</b> responde outra
+  pergunta: <b>quando cabe?</b> Ela desenha o dia em colunas — uma por profissional — e mostra os buracos.</p>
+
+  <p><span class="caminho">Menu <b>GESTÃO › Agenda</b> › aba <b>Grade</b></span></p>
+
+  <figure data-captura="recepcao-04-agenda-grade">
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Gestão</div>
+          <div class="item"><i></i>Início</div>
+          <div class="item on"><i></i>Agenda</div>
+          <div class="item"><i></i>Profissionais e salas</div>
+        </div>
+        <div class="main">
+          <div class="top"><span class="busca">Ir para… (Ctrl+F)</span><span class="user"><span class="av">MS</span>Maria Silva ▾</span></div>
+          <div class="tela">
+            <div style="display:flex;gap:3mm;border-bottom:1px solid #E5E7EB;margin-bottom:2.4mm;">
+              <span style="padding:1mm 2mm;color:#6B7280;">Dia</span>
+              <span style="padding:1mm 2mm;border-bottom:2px solid #123A9E;color:#123A9E;font-weight:700;">Grade</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Semana do profissional</span>
+            </div>
+            <div class="barra-acoes">
+              <span class="btn sec">◀</span><span class="campo preenchido">08/09/2026</span><span class="btn sec">▶</span><span class="btn sec">Hoje</span>
+              <span class="btn sec">Confirmar amanhã…</span><span class="btn sec">Imprimir folha</span>
+              <span class="btn sec">Fechar agenda…</span><span class="btn">Novo horário</span>
+            </div>
+            <table class="tab" style="table-layout:fixed">
+              <thead><tr><th style="width:12mm"></th><th>Dra. Ana Prado</th><th>Dr. Carlos Nunes</th><th>Sem profissional</th></tr></thead>
+              <tbody>
+                <tr><td style="color:#6B7280">08:00</td>
+                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Carlos Menezes</b><br><span style="color:#6B7280">Acupuntura · Concluído</span></td>
+                    <td style="color:#C7CDD8;text-align:center">+</td><td style="color:#C7CDD8;text-align:center">+</td></tr>
+                <tr><td style="color:#6B7280">08:30</td><td style="color:#C7CDD8;text-align:center">+</td>
+                    <td style="background:#F0FDFA;border-left:3px solid #0D9488"><b>Luís Braga</b><br><span style="color:#6B7280">BSV · Em atendimento</span></td><td style="color:#C7CDD8;text-align:center">+</td></tr>
+                <tr><td style="color:#6B7280">09:00</td>
+                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Joana Ribeiro</b><br><span style="color:#6B7280">Acupuntura</span></td>
+                    <td style="background:repeating-linear-gradient(45deg,#F1F5F9,#F1F5F9 2px,#E5E7EB 2px,#E5E7EB 4px);color:#6B7280;text-align:center">Almoço</td>
+                    <td style="color:#C7CDD8;text-align:center">+</td></tr>
+                <tr><td style="color:#6B7280">09:30</td><td style="color:#C7CDD8;text-align:center">+</td>
+                    <td style="background:#EEF3FC;border-left:3px solid #123A9E"><b>Pedro Alves</b><br><span style="color:#6B7280">Acupuntura</span></td><td style="color:#C7CDD8;text-align:center">+</td></tr>
+              </tbody>
+            </table>
+            <div style="margin-top:2mm;color:#6B7280;font-size:6.4pt;">
+              Legenda: ▮ Acupuntura &nbsp; ▮ BSV &nbsp; ▮ Consulta &nbsp; ▨ agenda fechada &nbsp; + horário livre (clique para marcar)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A grade.</b> Cada coluna é um profissional. O <b>+</b> é um horário livre — clique nele
+    e o formulário abre já com o dia, a hora e o profissional preenchidos.</figcaption>
+  </figure>
+
+  <h2>5.1 · Marcar um horário</h2>
+  <ol class="passos">
+    <li><b>Ache o buraco na grade</b> — a coluna do profissional certo, na hora certa — e <b>clique no “+”</b>.
+      Você também pode clicar em <b>Novo horário</b> e preencher tudo à mão.</li>
+    <li><b>Escolha o paciente.</b> Digite parte do nome ou o CPF. A lista aparece enquanto você digita.
+      Se ele ainda não tem ficha, cadastre primeiro em <b>Pacientes › Novo paciente</b>.</li>
+    <li><b>Confira dia, hora e duração.</b> A duração vem do padrão do profissional; você pode mudar.</li>
+    <li><b>Escolha quem vai atender.</b> Este campo é <b>obrigatório</b> — sem ele o horário não aparece na
+      agenda do profissional nem entra no repasse dele.</li>
+    <li><b>Escolha a modalidade</b> (acupuntura, BSV, consulta…) e, se for consulta, a <b>especialidade</b>.</li>
+    <li><b>Leia os avisos</b> que aparecem sobre o paciente (carteirinha vencida, cota do convênio no fim,
+      pacote acabando, conta em aberto). Eles não impedem de marcar — servem para você resolver com ele agora.</li>
+    <li><b>Salvar horário.</b></li>
+  </ol>
+
+  <div class="atencao">
+    <b>Quando ele recusa marcar</b>
+    <p>Duas situações fazem o sistema recusar, e as duas dizem o motivo na tela: o <b>horário já está
+    ocupado</b> (choque com outra sessão, com a sala ou com um bloqueio) e o profissional <b>não atende
+    naquele horário</b>. Nos dois casos existe a saída: marque a caixinha <b>“Marcar como encaixe”</b> —
+    o encaixe fura o bloqueio e o choque de propósito, porque o paciente está na sua frente.</p>
+  </div>
+
+  <h2>5.2 · Os botões do topo da grade</h2>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Novo horário</td><td>Abre o formulário de marcação em branco.</td></tr>
+      <tr><td class="bt">Confirmar amanhã…</td><td>Abre a rodada de confirmação: a lista de quem tem horário no dia seguinte, com um botão de WhatsApp por pessoa e a marcação de quem já confirmou. Se a clínica tiver e-mail configurado, o sistema também manda lembrete por e-mail sozinho.</td></tr>
+      <tr><td class="bt">Imprimir folha</td><td>Gera o papel do dia para circular pela clínica: nome, hora, profissional e sala. <b>Sem nada de saúde</b> — a folha anda pela sala de espera.</td></tr>
+      <tr><td class="bt">Fechar agenda…</td><td>Bloqueia um período: férias, feriado, folga, manutenção da sala. Veja abaixo.</td></tr>
+      <tr><td class="bt">Conciliar agenda…</td><td>Lista horários antigos que ficaram “no ar” (marcados e nunca resolvidos), com três respostas: <b>foi falta</b>, <b>aconteceu — lançar</b> ou <b>já foi lançada por fora</b>.</td></tr>
+      <tr><td class="bt">Ver a semana / Ver por sala / Ver todos os profissionais</td><td>Trocam o desenho da grade: sete colunas de dias, colunas por sala, ou todos os profissionais lado a lado.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5.3 · Fechar a agenda (férias, feriado, folga)</h2>
+  <ol class="passos">
+    <li>Clique em <b>Fechar agenda…</b></li>
+    <li>Escreva o <b>motivo</b> (“Feriado”, “Férias da Dra. Ana”). Ele aparece escrito na grade.</li>
+    <li>Escolha <b>de</b> quando <b>até</b> quando. Marque <b>Dia inteiro</b> ou informe as horas.</li>
+    <li>Deixe <b>Profissional em branco</b> para fechar a clínica inteira, ou escolha uma pessoa para fechar só a agenda dela. O mesmo vale para a sala.</li>
+    <li><b>Fechar a agenda.</b></li>
+  </ol>
+  <div class="atencao">
+    <b>Fechar não desmarca ninguém</b>
+    <p>Quem já estava marcado dentro do período <b>continua marcado</b>, e o sistema devolve a lista para
+    você remarcar com cada um. Sessão que some sem ninguém avisar o paciente é pior do que o choque de
+    horário. Para empurrar todas de uma vez, use <b>Empurrar sessões</b> na tela <b>Profissionais e salas</b>.</p>
+  </div>
+
+  <h2>5.4 · A janela do horário</h2>
+  <p>Clicando em cima de um paciente na grade abre a janela daquele horário. É onde ficam as ações que
+  não cabem na lista:</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Remarcar</td><td>Muda dia, hora, profissional, sala ou duração. Se a <b>data</b> mudar, o sistema apaga o registro de entrada na sala — ele era do dia antigo.</td></tr>
+      <tr><td class="bt">Confirmar pelo WhatsApp</td><td>Abre a conversa com a mensagem de confirmação pronta.</td></tr>
+      <tr><td class="bt">Comprovante</td><td>Imprime o papelzinho com o horário para o paciente levar.</td></tr>
+      <tr><td class="bt">Quem chamar?</td><td>Mostra quem da lista de espera serve para aquele horário que acabou de vagar.</td></tr>
+      <tr><td class="bt">Marcar falta / Cancelar horário</td><td>Os mesmos do menu “⋯” da aba Dia.</td></tr>
+      <tr><td class="bt">Reabrir este horário</td><td>Desfaz uma falta ou um cancelamento — o horário volta para a fila.</td></tr>
+      <tr><td class="bt">Cancelar o resto da série</td><td>Quando o horário faz parte de uma série (dez sessões marcadas de uma vez), cancela as que ainda estão por vir. Antes de confirmar, ele mostra <b>quantas</b> e <b>quais datas</b>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5.5 · Lista de espera</h2>
+  <p>É a lista de quem quer um horário que ainda não existe. Quando alguém desmarca, é aqui que você
+  procura quem chamar.</p>
+  <ol class="passos">
+    <li>No botão da lista de espera (ele mostra quantas pessoas estão nela), clique em <b>Adicionar à lista</b>.</li>
+    <li>Escolha o paciente, o <b>profissional desejado</b>, a <b>modalidade</b>, o <b>turno</b> e a partir de quando ele pode vir.</li>
+    <li>Marque <b>Prioritário</b> se ele deve entrar na frente.</li>
+    <li>Quando um horário vagar, abra a janela daquele horário e clique em <b>Quem chamar?</b> — o sistema mostra só quem serve para aquele dia, hora e profissional.</li>
+    <li>Ao conseguir marcar, clique em <b>Chamar</b> na lista; se a pessoa desistiu, <b>Sair da lista</b>.</li>
+  </ol>
+</section>
+
+<!-- ==================== 6. LANÇAR E MARCAR ==================== -->
+<section class="cap" id="cap-6">
+  <div class="cap-num">Capítulo 6<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Lançar e marcar</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Este é o item mais importante do balcão: é por aqui que o atendimento
+  <b>entra no sistema</b> — e é quando ele entra que as <b>guias do convênio nascem</b>.
+  O item tem cinco abas, e cada uma responde uma pergunta diferente.</p>
+
+  <p><span class="caminho">Menu <b>ATENDIMENTO › Lançar e marcar</b></span></p>
+
+  <table class="botoes">
+    <thead><tr><th>Aba</th><th>Quando usar</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Lançar</td><td><b>O paciente está aqui, agora.</b> Chegou sem hora marcada, ou a sessão acabou de acontecer e ninguém tinha lançado.</td></tr>
+      <tr><td class="bt">Marcar</td><td><b>Marcar dia e horário</b> para depois — é o mesmo formulário, só que com data e hora futuras.</td></tr>
+      <tr><td class="bt">Retornos a marcar</td><td>Pacientes que saíram do atendimento com <b>pedido de retorno do profissional</b> e ainda não têm horário novo.</td></tr>
+      <tr><td class="bt">Lançamentos</td><td><b>A conferência:</b> tudo o que foi lançado num período, com filtros. É onde se confere o dia antes de fechar o balcão.</td></tr>
+      <tr><td class="bt">Consultas de convênio</td><td>As consultas que <b>vencem</b> e precisam ser renovadas com o convênio.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6.1 · Aba <span style="color:var(--accent)">Lançar</span> — passo a passo</h2>
+
+  <figure data-captura="recepcao-05-lancar">
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Recepção</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Atendimento</div>
+          <div class="item on"><i></i>Lançar e marcar</div>
+          <div class="item"><i></i>Prontuário</div>
+        </div>
+        <div class="main">
+          <div class="top"><span class="busca">Ir para… (Ctrl+F)</span><span class="user"><span class="av">MS</span>Maria Silva ▾</span></div>
+          <div class="tela">
+            <div style="display:flex;gap:3mm;border-bottom:1px solid #E5E7EB;margin-bottom:2.4mm;">
+              <span style="padding:1mm 2mm;border-bottom:2px solid #123A9E;color:#123A9E;font-weight:700;">Lançar</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Marcar</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Retornos a marcar</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Lançamentos</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Consultas de convênio</span>
+            </div>
+            <div style="display:flex;gap:3mm;">
+              <div style="flex:1.35;">
+                <div class="rot">1 · Quem</div>
+                <div class="card" style="padding:2mm;">
+                  <b>Pedro Alves</b> &nbsp;<span class="pill neutro">Petrobras</span> <span class="pill neutro">carteirinha 9912-4</span>
+                  <div style="color:#6B7280;">CPF 123.456.789-00 · (21) 99999-0000 · 54 anos &nbsp;<span class="btn sec">Trocar</span></div>
+                </div>
+                <div style="background:#FFEDD5;border-left:3px solid #EA580C;border-radius:3px;padding:1.6mm 2.4mm;margin-bottom:2mm;">
+                  <b>Antes de lançar:</b> restam 2 sessões na autorização do convênio.
+                </div>
+                <div class="rot">2 · O que foi feito</div>
+                <div style="margin-bottom:2mm;">
+                  <div style="border:1.5px solid #123A9E;border-left:3px solid #123A9E;border-radius:3px;padding:1.4mm 2mm;margin-bottom:1mm;background:#EEF3FC;">
+                    <b>Acupuntura</b> <span style="float:right;color:#123A9E;font-weight:700;">2 guias · a 2ª libera 09/09</span></div>
+                  <div style="border:1px solid #E5E7EB;border-left:3px solid #0D9488;border-radius:3px;padding:1.4mm 2mm;margin-bottom:1mm;">
+                    BSV <span style="float:right;color:#6B7280;">1 guia · tudo hoje</span></div>
+                  <div style="border:1px solid #E5E7EB;border-left:3px solid #7C3AED;border-radius:3px;padding:1.4mm 2mm;">
+                    Consulta <span style="float:right;color:#6B7280;">1 guia · tudo hoje</span></div>
+                </div>
+                <div class="grade2">
+                  <div><div class="rot">Quem atende</div><div class="campo preenchido">Dr. Carlos Nunes</div></div>
+                  <div><div class="rot">Observações</div><div class="campo">Opcional</div></div>
+                </div>
+                <div style="margin-top:2.6mm;"><span class="btn" style="padding:2mm 4mm;font-size:8pt;">Lançar e gerar 2 guias</span>
+                  <span class="btn sec">Lançar outro</span></div>
+              </div>
+              <div style="flex:1;">
+                <div class="rot">3 · A guia</div>
+                <div class="card" style="padding:0;overflow:hidden;">
+                  <div style="background:#EEF3FC;color:#123A9E;font-weight:700;padding:1.4mm 2mm;font-size:6.6pt;">PRÉVIA — NADA FOI GRAVADO AINDA</div>
+                  <div style="padding:2mm;">
+                    <div class="grade2" style="gap:1.4mm;">
+                      <div><div class="rot">Convênio</div>Petrobras</div>
+                      <div><div class="rot">Carteirinha</div>9912-4</div>
+                      <div><div class="rot">Beneficiário</div>Pedro Alves</div>
+                      <div><div class="rot">Executante</div>Dr. Carlos Nunes</div>
+                    </div>
+                    <div class="rot" style="margin-top:2mm;">Códigos</div>
+                    <table class="tab"><tr><td>1º código</td><td style="text-align:right"><span class="pill ok">hoje</span></td></tr>
+                    <tr><td>2º código</td><td style="text-align:right"><span class="pill warn">libera 09/09</span></td></tr></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Lançar um atendimento.</b> À esquerda os três passos; à direita o desenho da guia que
+    vai nascer, com os campos que vão nela. O botão <b>diz quantas guias</b> vai gerar antes de você clicar.</figcaption>
+  </figure>
+
+  <ol class="passos">
+    <li><b>Escolha o paciente.</b> A tela abre com uma busca grande no meio. Digite parte do nome ou o CPF.
+      Se você não digitar nada, ela sugere <b>quem tem horário hoje</b>. Também dá para clicar em
+      <b>Todos os pacientes</b> para ver a lista inteira.</li>
+    <li><b>Leia os avisos.</b> Logo abaixo do nome aparecem, quando existem: carteirinha vencida, cota do
+      convênio no fim, consulta a renovar, termo por assinar, conta em aberto, pacote acabando.
+      Eles não impedem — servem para você resolver <b>agora</b>, com ele na frente.</li>
+    <li><b>Escolha o que foi feito</b> (a modalidade). Cada linha diz, do lado direito, <b>quantas guias
+      vai gerar e quando cada uma libera</b>. É aqui que o sistema anuncia a famosa segunda guia.</li>
+    <li><b>Confira quem atendeu.</b> Se ficar em branco, a sessão não entra no repasse do profissional
+      e não aparece na agenda dele — o sistema avisa isso ao lado do campo.</li>
+    <li><b>Olhe a coluna da direita.</b> Ela desenha a guia que vai nascer. <b>Campo faltando aparece com
+      fundo colorido</b> — é o buraco que faria a guia voltar glosada semanas depois.</li>
+    <li><b>Clique no botão azul grande.</b> Ele diz exatamente o que vai fazer: <i>“Lançar e gerar 2 guias”</i>.</li>
+    <li><b>Leia a confirmação.</b> Ela diz quantas guias nasceram e quando a segunda libera.
+      Para lançar o próximo paciente, clique em <b>Lançar outro</b>.</li>
+  </ol>
+
+  <div class="nota">
+    <b>Quando o paciente já tem horário hoje</b>
+    <p>Se a pessoa escolhida já tem um horário marcado para hoje, o sistema <b>reconhece</b> e o botão muda
+    para <i>“Lançar <b>no horário das 09h00</b> e gerar 2 guias”</i>. Isso evita o erro mais comum: criar
+    um encaixe do lado de um horário que já existia, ficando com <b>dois cartões</b> da mesma sessão.
+    Se você quiser mesmo criar um encaixe separado, existe uma caixinha para isso.</p>
+  </div>
+
+  <div class="atencao">
+    <b>Ele avisa quando você já lançou este paciente hoje</b>
+    <p>Antes de gravar, o sistema confere se aquela pessoa já tem atendimento lançado no dia e
+    <b>pergunta</b>, mostrando o número do atendimento, a modalidade e quem lançou. Ele <b>pergunta</b> e não
+    recusa, porque existe o caso legítimo — a sessão de manhã e a consulta da tarde.</p>
+  </div>
+
+  <h3>Os outros botões desta aba</h3>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Trocar</td><td>Troca o paciente escolhido, voltando para a busca.</td></tr>
+      <tr><td class="bt">Escolher convênio…</td><td>Aparece quando a ficha está sem convênio (“A definir”). Abre a janela para escolher o convênio e a carteirinha, e já atualiza a ficha.</td></tr>
+      <tr><td class="bt">Receber…</td><td>Aparece quando o paciente tem conta em aberto. Abre a cobrança para receber ali mesmo, no balcão.</td></tr>
+      <tr><td class="bt">Capa inicial (PDF)</td><td>Imprime a capa do atendimento.</td></tr>
+      <tr><td class="bt">Próximas vagas…</td><td>Mostra os próximos horários livres daquele profissional — útil quando o paciente pergunta “quando eu volto?”.</td></tr>
+      <tr><td class="bt">Ver a guia</td><td>Abre o desenho da guia em tamanho maior.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6.2 · Aba <span style="color:var(--accent)">Marcar</span></h2>
+  <p>É o <b>mesmo formulário</b>, com data e hora para o futuro. Tudo o que foi explicado acima vale igual.
+  As diferenças:</p>
+  <ul>
+    <li>Aparecem os campos <b>Data</b>, <b>Hora</b>, <b>Duração</b> e <b>Sala</b>.</li>
+    <li>O botão passa a dizer <b>“Marcar horário”</b> — ou <b>“Marcar e gerar N guias”</b>, se a clínica
+      tiver ligado a opção de a guia nascer já na marcação (isso é uma configuração da direção).</li>
+    <li>Se houver choque de horário, ele mostra o conflito e oferece a caixinha <b>“Marcar mesmo assim,
+      como encaixe”</b>.</li>
+  </ul>
+
+  <h2>6.3 · Aba <span style="color:var(--accent)">Retornos a marcar</span></h2>
+  <p>Quando o profissional escreve na sessão “voltar em 7 dias”, o paciente aparece aqui até alguém marcar
+  o retorno. A lista mostra a <b>data sugerida</b>, o <b>paciente</b> e <b>quem pediu</b>.</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Marcar horário</td><td>Leva para a aba <b>Marcar</b> com o paciente já escolhido.</td></tr>
+      <tr><td class="bt">WhatsApp</td><td>Abre a conversa com um convite pronto para o paciente marcar o retorno. A mensagem <b>não</b> diz o motivo clínico — só quem pediu e para quando.</td></tr>
+    </tbody>
+  </table>
+  <p class="suave">A linha sai da lista sozinha assim que o paciente ganha um horário novo. Linha
+  <b>vermelha</b> = a data sugerida já passou.</p>
+
+  <h2>6.4 · Aba <span style="color:var(--accent)">Lançamentos</span> — a conferência do dia</h2>
+  <p>Responde “o que foi lançado?”. Use no fim do expediente para conferir antes de fechar o balcão.</p>
+  <ol class="passos">
+    <li>Escolha o período em <b>De</b> e <b>Até</b> (o máximo é um ano).</li>
+    <li>Se quiser, filtre por <b>convênio</b>, <b>modalidade</b>, <b>quem lançou</b>, ou marque
+      <b>Só com guia por liberar</b> para ver apenas o que ainda tem segunda guia pendente.</li>
+    <li>A tabela mostra dia, paciente, modalidade, quem lançou, quantas guias e o número do atendimento.</li>
+    <li><b>Limpar filtros</b> devolve a lista inteira do período.</li>
+  </ol>
+
+  <h3>Estornar um atendimento lançado por engano</h3>
+  <ol class="passos">
+    <li>Ache a linha errada e clique em <b>Estornar…</b></li>
+    <li>Escreva <b>por que</b> está estornando — é obrigatório, e fica registrado.</li>
+    <li>Escolha o que desfazer junto: guias (sempre saem), <b>dinheiro do caixa</b>, <b>sessão do pacote</b>
+      e <b>material do estoque</b> — cada um com uma caixinha.</li>
+    <li><b>Estornar atendimento.</b></li>
+  </ol>
+  <div class="proibido">
+    <b>O que o estorno não faz</b>
+    <p>Ele <b>não apaga nada</b> — o atendimento fica marcado como estornado, e a trilha guarda quem fez e
+    por quê. E ele <b>recusa</b> quando o fato já saiu da clínica: guia já baixada no portal do convênio,
+    guia já enviada num lote TISS ou já justificada. Nesses casos, quem resolve é o faturamento.</p>
+  </div>
+
+  <h2>6.5 · Aba <span style="color:var(--accent)">Consultas de convênio</span></h2>
+  <p>Muitos convênios exigem uma <b>consulta válida</b> para autorizar as sessões, e essa consulta vence.
+  Esta aba lista quem precisa renovar.</p>
+  <ol class="passos">
+    <li>Filtre por <b>situação</b> (a vencer, vencida), <b>convênio</b> ou nome do <b>paciente</b>.</li>
+    <li>Ache o paciente e clique em <b>Renovar</b>.</li>
+    <li>Confirme os dados da consulta nova. Pronto — o aviso some da agenda e do balcão.</li>
+  </ol>
+  <div class="dica">
+    <b>O melhor momento para renovar é com o paciente na sua frente</b>
+    <p>Por isso o aviso “consulta a renovar” também aparece no cartão da agenda e no lançamento. Descobrir
+    a consulta vencida na hora de faturar significa ligar para quem já foi embora.</p>
+  </div>
+</section>
+
+<!-- ==================== 7. FECHAR A SESSÃO ==================== -->
+<section class="cap" id="cap-7">
+  <div class="cap-num">Capítulo 7<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Fechar a sessão — o dinheiro do balcão</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A <b>guia</b> nasce sozinha quando o profissional finaliza. O que sobra para o
+  balcão são as outras três coisas do mesmo atendimento: <b>descontar do pacote</b>, <b>dar baixa no
+  material usado</b> e <b>registrar como o paciente pagou</b>.</p>
+
+  <p><span class="caminho">Agenda do dia › <b>“⋯” › Fechar sessão (pacote, insumo, caixa)…</b></span></p>
+
+  <div class="nota">
+    <b>Quando isto é preciso</b>
+    <p>Só quando há alguma dessas três coisas a resolver — ou seja, quando o paciente tem
+    <b>pacote</b>, é <b>particular</b>, ou a sessão gastou <b>material</b>. Paciente de convênio, sem
+    pacote e sem material não tem nada a fechar: a guia já nasceu e o dia dele acabou ali.</p>
+  </div>
+
+  <figure data-captura="recepcao-06-fechar-sessao">
+    <div class="app" style="max-width:130mm;margin:0 auto;">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Fechar a sessão — Pedro Alves</span></div>
+      <div style="padding:4mm;background:#fff;">
+        <div style="font-size:9.4pt;font-weight:700;margin-bottom:.6mm;">Pedro Alves — Acupuntura</div>
+        <div style="color:#6B7280;margin-bottom:3mm;">08/09/2026 · Dr. Carlos Nunes · Petrobras</div>
+
+        <div class="card" style="margin-bottom:2mm;">
+          <div style="display:flex;align-items:center;gap:2mm;">
+            <span style="width:3mm;height:3mm;background:#123A9E;border-radius:1px;"></span>
+            <b>Debitar 1 sessão do pacote</b>
+          </div>
+          <div style="color:#6B7280;margin-left:5mm;">Pacote 10 sessões · usadas 6 · vence 30/11/2026</div>
+        </div>
+
+        <div class="card" style="margin-bottom:2mm;">
+          <div class="tit">Insumos consumidos</div>
+          <table class="tab"><tr><td>Agulha descartável 0,25</td><td style="width:16mm"><span class="campo preenchido">8</span></td></tr>
+          <tr><td>Álcool 70% (ml)</td><td><span class="campo preenchido">20</span></td></tr></table>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:2mm;margin-bottom:1.6mm;">
+            <span style="width:3mm;height:3mm;background:#123A9E;border-radius:1px;"></span>
+            <b>Registrar como esta sessão foi paga</b>
+          </div>
+          <div class="grade3">
+            <div><div class="rot">Valor</div><div class="campo preenchido">R$ 180,00</div></div>
+            <div><div class="rot">Forma de pagamento</div><div class="campo preenchido">Pix</div></div>
+            <div><div class="rot">Categoria</div><div class="campo preenchido">Sessões</div></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:2mm;margin-top:3mm;">
+          <span class="btn sec">Cancelar</span><span class="btn">Concluir sessão</span>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A janela do fechamento.</b> O sistema já vem com tudo <b>proposto</b>: o pacote que vence
+    primeiro, o material que a última sessão gastou e o valor que o paciente costuma pagar. Você confere e confirma.</figcaption>
+  </figure>
+
+  <h2>7.1 · Passo a passo</h2>
+  <ol class="passos">
+    <li><b>Pacote.</b> Se o paciente tem pacote em aberto, a caixinha já vem marcada e o sistema escolhe
+      o pacote que <b>vence primeiro</b>. Se por algum motivo aquela sessão não deve ser descontada,
+      desmarque.</li>
+    <li><b>Insumos.</b> O sistema sugere o que a última sessão do mesmo tipo consumiu. Ajuste as
+      quantidades ou apague o que não foi usado.</li>
+    <li><b>Dinheiro.</b> Se o paciente é <b>particular</b>, o sistema <b>sempre pergunta</b>. Duas
+      respostas possíveis: <b>pagou agora</b> (informe valor, forma e categoria) ou <b>fica a receber</b>
+      (informe o vencimento — vira uma conta em aberto no nome dele).</li>
+    <li><b>Concluir sessão.</b></li>
+  </ol>
+
+  <div class="nota">
+    <b>Quando esta janela nem aparece</b>
+    <p>Paciente de convênio, sem pacote e sem material a lançar não tem nada a decidir aqui — o sistema
+    conclui direto. Pedir confirmação de uma janela vazia é o que ensina as pessoas a fechar janela sem ler.</p>
+  </div>
+
+  <div class="atencao">
+    <b>Se algo falhar, a guia não se perde</b>
+    <p>Se o pacote, o estoque ou o caixa derem erro, a janela <b>continua aberta</b> dizendo o quê — e o
+    atendimento e a guia <b>continuam gravados</b>, porque nasceram antes, quando o profissional
+    finalizou. Desfazer a guia porque o estoque de uma agulha não bateu deixaria a clínica sem a guia de
+    uma sessão que o paciente recebeu.</p>
+  </div>
+
+  <h2>7.2 · Receber uma conta em aberto no balcão</h2>
+  <p>Quando o paciente deve, aparece um aviso amarelo com o botão <b>Receber…</b> — na tela de lançamento
+  e na ficha dele. É o melhor momento para cobrar: ele está na sua frente e custa uma frase.</p>
+  <ol class="passos">
+    <li>Clique em <b>Receber…</b></li>
+    <li>Marque as parcelas que ele está pagando agora.</li>
+    <li>Escolha a <b>forma de pagamento de cada linha</b> — não presuma que é a mesma da última vez, senão
+      o caixa não bate no fim do dia.</li>
+    <li><b>Receber.</b> Se ele não vai pagar agora, use <b>Cobrar pelo WhatsApp</b>: abre a conversa com um
+      lembrete pronto, sem nenhuma informação de saúde.</li>
+  </ol>
+</section>
+
+<!-- ==================== 8. PACIENTES ==================== -->
+<section class="cap" id="cap-8">
+  <div class="cap-num">Capítulo 8<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Pacientes</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O cadastro da clínica. A tela funciona em dois tempos: primeiro a <b>lista</b>, para
+  achar a pessoa; depois a <b>ficha</b> dela, com tudo o que a clínica sabe a respeito, separado em abas.</p>
+
+  <p><span class="caminho">Menu <b>PACIENTE › Pacientes</b> › aba <b>Cadastro</b></span></p>
+
+  <h2>8.1 · Achar alguém</h2>
+  <p>A tela <b>abre vazia, de propósito</b>: são milhares de fichas, e despejar o alfabeto inteiro a cada
+  abertura deixa o sistema lento sem responder pergunta nenhuma.</p>
+  <ul>
+    <li><b>Digite parte do nome ou o CPF.</b> A lista aparece enquanto você digita — não precisa apertar nada.</li>
+    <li>Acento não atrapalha: “jose” acha “José”.</li>
+    <li><b>Ver todos</b> mostra o cadastro inteiro, em ordem de nome. É lento; use só quando precisar mesmo.</li>
+    <li>A lista mostra <b>paciente, telefone, convênio, sessões, guias em aberto e última sessão</b>.</li>
+  </ul>
+
+  <div class="atencao">
+    <b>Antes de cadastrar, procure</b>
+    <p>Cadastrar de novo alguém que já tem ficha <b>parte o histórico em dois</b>: metade das sessões e das
+    guias fica em cada ficha. Por isso o sistema <b>recusa</b> cadastrar um CPF que já existe e diz
+    <b>de quem é a ficha</b> — quando isso aparecer, é só abrir a ficha que ele apontou.</p>
+  </div>
+
+  <h2>8.2 · Cadastrar um paciente novo</h2>
+  <ol class="passos">
+    <li>Clique em <b>Novo paciente</b>.</li>
+    <li>Preencha <b>Nome</b> (o único realmente obrigatório), <b>CPF</b>, <b>telefone</b> e <b>nascimento</b>.</li>
+    <li><b>Convênio</b> e <b>carteirinha</b>: escolha o convênio da lista e informe o número e a validade da
+      carteirinha. Se ele é particular, escolha o convênio “Particular”.</li>
+    <li><b>Endereço residencial</b>: importante para quem vai receber <b>receita</b> — a lei exige o endereço
+      na receita para a farmácia poder aviá-la.</li>
+    <li><b>Como conheceu a clínica</b> e <b>Quem indicou</b>: é a pergunta que a direção usa para saber de onde
+      vêm os pacientes. Vale perguntar sempre.</li>
+    <li><b>Tirar foto</b> (opcional): usa a webcam do balcão. A foto aparece na lista e na ficha.</li>
+    <li><b>Salvar paciente.</b></li>
+  </ol>
+
+  <h2>8.3 · A ficha do paciente, aba por aba</h2>
+  <table class="botoes">
+    <thead><tr><th>Aba</th><th>O que tem dentro</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Visão geral</td><td>Dados de contato, os <b>avisos</b> (“pode ser atendido hoje?”), os <b>próximos horários</b> e a evolução da dor em desenho.</td></tr>
+      <tr><td class="bt">Convênio</td><td>Carteirinha, validade e as <b>autorizações</b> (as senhas do convênio, com quantas sessões foram liberadas e quantas já foram usadas).</td></tr>
+      <tr><td class="bt">Prontuário</td><td>As sessões escritas pelo profissional. <b>Só quem tem acesso a prontuário vê esta aba</b> — recepção normalmente não vê.</td></tr>
+      <tr><td class="bt">Documentos</td><td>Tudo o que já foi impresso para aquele paciente, com <b>2ª via</b>. E o termo do procedimento, quando falta assinar.</td></tr>
+      <tr><td class="bt">Relacionamento</td><td>Faltas, cancelamentos, origem, contatos das campanhas — a leitura de “como é este paciente com a clínica”.</td></tr>
+      <tr><td class="bt">LGPD</td><td>Os consentimentos que ele assinou, e os direitos dele: <b>exportar os dados</b> e <b>anonimizar o cadastro</b>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Botões da ficha</h3>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Editar cadastro</td><td>Abre o formulário para corrigir dados.</td></tr>
+      <tr><td class="bt">WhatsApp</td><td>Abre a conversa com aquele telefone.</td></tr>
+      <tr><td class="bt">Abrir na agenda</td><td>Leva à agenda no dia do próximo horário dele.</td></tr>
+      <tr><td class="bt">Receber…</td><td>Só aparece com conta em aberto. Cobra ali mesmo.</td></tr>
+      <tr><td class="bt">Nova autorização</td><td>Registra a senha que o convênio liberou: número, validade e quantas sessões. É isso que faz o sistema avisar quando a cota está acabando.</td></tr>
+      <tr><td class="bt">Colher um termo… / Colher assinatura…</td><td>Colhe a assinatura do paciente num termo (consentimento, jejum). Veja o <a class="remissao" href="#cap-9">capítulo 9</a>.</td></tr>
+      <tr><td class="bt">Novo documento… / Relatório de evolução / Anamnese</td><td>Emitem folhas para o paciente levar (depende do seu acesso).</td></tr>
+      <tr><td class="bt">Exportar meus dados</td><td>Direito do paciente pela LGPD: gera um arquivo com tudo o que a clínica guarda sobre ele.</td></tr>
+      <tr><td class="bt">Anonimizar cadastro</td><td>Apaga nome, documento, telefone e foto, mantendo o histórico sem dono. <b>Não tem volta</b> e normalmente é a direção que faz.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="proibido">
+    <b>Excluir paciente quase nunca dá</b>
+    <p>Se a pessoa já tem qualquer registro clínico, o sistema <b>recusa</b> excluir e explica: a lei manda
+    guardar prontuário por <b>20 anos</b>. O caminho, quando o paciente pede para sair, é a
+    <b>anonimização</b> — o histórico fica, sem nome.</p>
+  </div>
+
+  <h2>8.4 · Os avisos do paciente (“pode ser atendido hoje?”)</h2>
+  <p>São os mesmos avisos que aparecem na agenda, no lançamento e no balcão. Eles <b>avisam</b>; quem decide
+  é a clínica.</p>
+  <table class="botoes">
+    <thead><tr><th>Aviso</th><th>O que significa e o que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt"><span class="pill err">Vermelho</span> Sem convênio definido</td><td>A ficha veio da importação sem convênio. <b>Impede lançar</b> — clique em “Escolher convênio…” e resolva na hora.</td></tr>
+      <tr><td class="bt"><span class="pill err">Vermelho</span> Carteirinha vencida</td><td>A guia vai ser recusada. Peça a carteirinha nova e atualize a ficha.</td></tr>
+      <tr><td class="bt"><span class="pill err">Vermelho</span> Termo por assinar</td><td>O procedimento marcado exige um termo assinado. Colha antes de o paciente entrar.</td></tr>
+      <tr><td class="bt"><span class="pill warn">Amarelo</span> Cota do convênio no fim</td><td>A autorização está acabando. A próxima sessão pode virar glosa — ligue para o convênio e registre a senha nova.</td></tr>
+      <tr><td class="bt"><span class="pill warn">Amarelo</span> Pacote acabando</td><td>Última ou penúltima sessão do pacote. É a hora de oferecer a renovação.</td></tr>
+      <tr><td class="bt"><span class="pill warn">Amarelo</span> Conta em aberto</td><td>Ele deve. Aparece só a partir de alguns dias de atraso, para não acusar quem pagou ontem.</td></tr>
+      <tr><td class="bt"><span class="pill warn">Amarelo</span> Sessão anterior sem pagamento</td><td>Um particular atendido e sem nenhuma linha de dinheiro. Resolva com ele.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 9. PRONTUÁRIO, RECEITUÁRIO E DOCUMENTOS ==================== -->
+<section class="cap" id="cap-9">
+  <div class="cap-num">Capítulo 9<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Prontuário, Receituário e Documentos</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Três telas que lidam com papel e com registro clínico. O que você alcança em cada
+  uma depende do seu acesso — e isso é decisão da direção, não defeito do sistema.</p>
+
+  <div class="nota">
+    <b>Por que a recepção normalmente não lê o prontuário</b>
+    <p>Telefone e convênio são <b>dado de contato</b>. Evolução, dor, alergia e diagnóstico são <b>dado de
+    saúde</b>, protegido pela LGPD — e não é preciso lê-los para marcar um horário. Se na sua clínica você
+    também digita a evolução ditada pelo profissional, a direção libera esse acesso <b>para você</b>, na
+    tela de Acessos, sem mudar o das colegas.</p>
+  </div>
+
+  <h2>9.1 · Prontuário</h2>
+  <p><span class="caminho">Menu <b>ATENDIMENTO › Prontuário</b></span></p>
+  <p>Escolha o paciente e a tela mostra a <b>evolução da dor (EVA)</b> em desenho e a lista de
+  <b>sessões</b>, da mais recente para a mais antiga. Há uma busca que procura dentro do texto
+  (queixa, conduta, evolução, orientações).</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Ver</td><td>Abre a sessão inteira <b>só para leitura</b>, com botão de imprimir.</td></tr>
+      <tr><td class="bt">Editar</td><td>Abre a sessão para corrigir. Exige acesso de escrita no prontuário.</td></tr>
+      <tr><td class="bt">Nova sessão</td><td>Escreve uma sessão nova para aquele paciente.</td></tr>
+      <tr><td class="bt">Cancelar…</td><td>Cancela um registro clínico. <b>Pede o motivo por escrito</b> e o registro <b>não é apagado</b> — ele fica marcado como cancelado, com quem cancelou e por quê.</td></tr>
+    </tbody>
+  </table>
+  <div class="proibido">
+    <b>Prontuário não se apaga</b>
+    <p>Não existe “excluir” em registro clínico neste sistema, e isso é por lei. Corrigir uma sessão
+    <b>guarda a versão anterior</b>; cancelar exige motivo. É o que permite a clínica provar, anos depois,
+    o que foi escrito e quando.</p>
+  </div>
+
+  <h2>9.2 · Prescrições / Receituário</h2>
+  <p><span class="caminho">Menu <b>ATENDIMENTO › Prescrições</b> › aba <b>Receituário</b></span></p>
+  <p>Lista os documentos clínicos já emitidos para um paciente (receita, atestado, comparecimento, pedido de
+  exame) e permite emitir outro. <b>Quem assina receita e atestado é o profissional</b> — a recepção
+  costuma usar esta tela para tirar <b>2ª via</b> e para <b>enviar</b> o documento ao paciente.</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Emitir documento</td><td>Abre a janela para escrever e imprimir uma folha nova.</td></tr>
+      <tr><td class="bt">2ª via</td><td>Reimprime <b>exatamente</b> a folha que o paciente levou — não é gerada de novo, é a mesma.</td></tr>
+      <tr><td class="bt">Assinar</td><td>Assinatura digital ICP-Brasil (com o certificado do profissional). Só quem prescreve.</td></tr>
+      <tr><td class="bt">Enviar</td><td>Manda o documento ao paciente.</td></tr>
+      <tr><td class="bt">Cancelar</td><td>Cancela o documento com motivo. A folha continua na lista, marcada como cancelada.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>9.3 · Documentos — a central</h2>
+  <p><span class="caminho">Menu <b>PACIENTE › Documentos</b></span></p>
+  <p>Todas as folhas que a clínica entrega, num lugar só, em duas abas: <b>Emitir</b> e <b>O que já saiu</b>.</p>
+  <ol class="passos">
+    <li>Na aba <b>Emitir</b>, escolha o <b>paciente</b> na coluna da esquerda.</li>
+    <li>Cada folha vira um cartão. O cartão diz <b>o que falta</b> quando não dá para emitir (“escolha o
+      paciente”, “precisa de um profissional que assine”) — em vez de deixar você descobrir errando.</li>
+    <li>Clique no cartão da folha desejada.</li>
+    <li>Na aba <b>O que já saiu</b>, escolha o período e ache a folha para tirar <b>2ª via</b>. Também há a
+      busca <b>Conferir pelo código</b>: digite o código impresso no rodapé do papel e o sistema mostra
+      qual documento é aquele.</li>
+  </ol>
+  <p class="suave">Os cartões que o seu acesso não alcança <b>não aparecem</b> — em vez de aparecerem
+  apagados, porque um cartão apagado escrito “Relatório de evolução — Fulano” já estaria contando algo
+  que você não deveria ver.</p>
+
+  <h2>9.4 · Colher a assinatura do paciente num termo</h2>
+  <p>Alguns procedimentos (o BSV, por exemplo) exigem termo assinado. O sistema tem três caminhos, e todos
+  chegam na mesma janela:</p>
+  <ul>
+    <li>Na <b>Agenda do dia</b>, no menu “⋯” da linha (aparece quando falta o termo);</li>
+    <li>Na <b>ficha do paciente</b>, aba Documentos, botão <b>Colher assinatura…</b>;</li>
+    <li>Na <b>Central de documentos</b>.</li>
+  </ul>
+  <ol class="passos">
+    <li>Confira o <b>documento</b> do paciente (RG ou CPF) e digite qual foi conferido — isso vira prova.</li>
+    <li>Leia com ele as <b>declarações</b> e marque <b>Sim</b> ou <b>Não</b> em cada uma. Responder “Não”
+      <b>não impede</b> nada: fica registrado, e o sistema acende um alerta vermelho para a equipe.</li>
+    <li>Se houver <b>alergia</b> a registrar, use o campo vermelho — escreva <b>só o agente</b>
+      (“dipirona”), nunca a reação. O paciente sai daqui com a pulseira de alergia.</li>
+    <li>O paciente assina: <b>no monitor de assinatura</b> (se a clínica tiver), <b>com o mouse</b> na tela,
+      ou <b>pelo próprio celular</b> — botão <b>Enviar para o celular…</b>, que abre o WhatsApp com um link.
+      O link vale por 24 horas.</li>
+    <li><b>Confirmar assinatura.</b> A folha fica na ficha dele, e o alerta de “termo pendente” some.</li>
+  </ol>
+</section>
+
+<!-- ==================== 10. PACOTES E PREÇOS ==================== -->
+<section class="cap" id="cap-10">
+  <div class="cap-num">Capítulo 10<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Pacotes e preços do particular</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Duas telas do dinheiro que ficam no balcão porque é aqui que se combina preço com o
+  paciente: o <b>pacote de sessões</b> que ele compra e a <b>tabela de preço</b> do particular.</p>
+
+  <h2>10.1 · Pacotes, planos e vouchers</h2>
+  <p><span class="caminho">Menu <b>PACIENTE › Pacotes</b></span></p>
+  <p>Pacote é uma <b>venda da clínica</b>: “dez sessões por tal valor”. Não confunda com a
+  <b>autorização do convênio</b> — as duas contam sessões e não têm nada a ver uma com a outra.
+  A cota do convênio evita glosa; o pacote evita atender de graça.</p>
+
+  <h3>Vender um pacote</h3>
+  <ol class="passos">
+    <li>Clique em <b>Vender pacote…</b></li>
+    <li>Escolha o <b>paciente</b> e o <b>pacote</b> do catálogo. Nome, sessões, valor e validade vêm
+      preenchidos — e ficam <b>copiados na venda</b>: mudar o preço de tabela amanhã não muda o que este
+      paciente comprou hoje.</li>
+    <li>Informe <b>como o paciente paga</b>:
+      <ul>
+        <li><b>À vista</b> — informe a forma (dinheiro, cartão, Pix).</li>
+        <li><b>Entrada + parcelas</b> — informe a entrada de hoje, quantas parcelas e a data do
+          <b>primeiro vencimento</b>. O sistema cria as contas a receber sozinho.</li>
+      </ul></li>
+    <li><b>Vender.</b> O dinheiro entra no caixa no mesmo instante.</li>
+  </ol>
+
+  <h3>Os outros botões</h3>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Catálogo…</td><td>Cadastra o que está à venda: nome, tipo, quantas sessões, valor e validade em dias. Dá para <b>editar</b> um pacote existente — prefira editar a excluir e recriar, senão as vendas antigas perdem a ligação com o pacote.</td></tr>
+      <tr><td class="bt">Orçamento…</td><td>Gera um orçamento impresso para o paciente levar, com as linhas que você quiser e a validade.</td></tr>
+      <tr><td class="bt">Usar sessão</td><td>Desconta uma sessão à mão (o normal é o desconto acontecer sozinho no fechamento da sessão).</td></tr>
+      <tr><td class="bt">Sessões…</td><td>Mostra as sessões já usadas do pacote, com o botão <b>Devolver ao saldo</b> para corrigir um desconto errado.</td></tr>
+      <tr><td class="bt">Cancelar</td><td>Cancela a venda. <b>Esse é do Financeiro</b> — desfaz dinheiro que outra pessoa registrou.</td></tr>
+      <tr><td class="bt">Só ativos</td><td>Esconde os pacotes vencidos e esgotados.</td></tr>
+    </tbody>
+  </table>
+  <div class="nota">
+    <b>A situação do pacote é calculada, não digitada</b>
+    <p>“Ativo”, “vencido”, “esgotado” são resultado da conta entre as sessões usadas e a validade. Não
+    existe um campo para você marcar — se existisse, ele viraria mentira à meia-noite do vencimento.</p>
+  </div>
+
+  <h2>10.2 · Preços do particular</h2>
+  <p><span class="caminho">Menu <b>PACIENTE › Preços do particular</b></span></p>
+  <p>É a tabela que faz o sistema <b>propor</b> o valor da sessão quando o paciente é particular — no
+  fechamento da sessão e na conferência do Financeiro.</p>
+  <ol class="passos">
+    <li>Clique em <b>Novo preço</b>.</li>
+    <li>Escolha a <b>modalidade</b> (o que foi feito) — obrigatório.</li>
+    <li>Escolha a <b>especialidade atendida</b> se o preço muda por especialidade; deixe em branco para
+      valer para todas.</li>
+    <li>Informe o <b>valor da sessão</b> e a <b>vigência</b> (de quando até quando ele vale).</li>
+    <li><b>Salvar preço.</b></li>
+  </ol>
+  <ul>
+    <li>O preço <b>mais específico ganha</b>: se existe um para “Consulta / Psiquiatria” e outro para
+      “Consulta”, vale o primeiro.</li>
+    <li>Reajuste é <b>linha nova com vigência nova</b>, nunca editar a antiga — assim a sessão de março
+      continua valendo o preço de março.</li>
+    <li>Sem preço cadastrado o sistema <b>deixa o campo vazio</b> para você digitar. Ele nunca inventa um
+      valor.</li>
+  </ul>
+</section>
+
+<!-- ==================== 11. RETORNO DE PACIENTES ==================== -->
+<section class="cap" id="cap-11">
+  <div class="cap-num">Capítulo 11<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Retorno de pacientes</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A lista de quem <b>parou de vir</b> — para o balcão telefonar e chamar de volta.</p>
+
+  <p><span class="caminho">Menu <b>PACIENTE › Retorno de pacientes</b></span></p>
+
+  <ol class="passos">
+    <li>Ajuste <b>Sem vir há … dias ou mais</b> (o padrão vem da configuração da clínica).</li>
+    <li>Se quiser, marque <b>Só com telefone</b> e <b>Esconder já chamados</b>.</li>
+    <li>Clique em <b>Gerar rodada do mês</b> para o sistema montar a lista de contatos do mês.</li>
+    <li>Em cada linha, <b>WhatsApp</b> abre a conversa com o convite pronto.</li>
+    <li>Quando a pessoa responder, clique em <b>Respondeu</b> — assim ela não é chamada de novo.</li>
+  </ol>
+
+  <div class="atencao">
+    <b>Quem não autorizou contato aparece na lista, mas sem o botão</b>
+    <p>Recall é comunicação da clínica, e a LGPD exige autorização. Quem não deu aparece <b>contado, com o
+    motivo escrito na linha</b> — some da lista seria some da cabeça, e a tarefa (colher a autorização no
+    balcão) deixaria de existir. Cobrança de dívida é diferente: essa não precisa de autorização de
+    marketing, porque é assunto do próprio atendimento.</p>
+  </div>
+</section>
+
+<!-- ==================== 12. PROFISSIONAIS E SALAS ==================== -->
+<section class="cap" id="cap-12">
+  <div class="cap-num">Capítulo 12<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Profissionais e salas</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O cadastro que destrava a agenda: <b>quem atende</b>, <b>quando</b> e <b>onde</b>.
+  Mexe-se pouco, mas errar aqui atrapalha o dia inteiro.</p>
+
+  <p><span class="caminho">Menu <b>GESTÃO › Profissionais e salas</b></span></p>
+
+  <h2>12.1 · Cadastrar um profissional</h2>
+  <ol class="passos">
+    <li><b>Novo profissional</b>.</li>
+    <li><b>Nome</b> e <b>nome curto</b> (o que cabe no cabeçalho da coluna da agenda).</li>
+    <li><b>Conselho e registro</b> (CRM, COREN…) e <b>CPF</b> — o CPF é conferido contra o certificado
+      digital na hora de assinar documento, então precisa estar certo.</li>
+    <li><b>Especialidade</b> e <b>duração padrão</b> da sessão dele em minutos.</li>
+    <li><b>Dias e horário de atendimento</b>: marque os dias da semana e informe <b>das</b> … <b>até</b>.
+      Isso é a jornada dele — a grade passa a pintar o que está fora do expediente e a recusar marcação ali
+      (o encaixe continua passando).</li>
+    <li><b>Cor na agenda</b> (opcional) e <b>ordem nas listas</b>.</li>
+    <li><b>Ativo</b>: deixe marcado para ele receber horários novos.</li>
+    <li><b>Salvar profissional.</b></li>
+  </ol>
+  <div class="nota">
+    <b>Desativar não some com a agenda dele</b>
+    <p>Ao desmarcar <b>Ativo</b>, ele para de receber horários novos — mas os já marcados continuam
+    aparecendo na grade, numa coluna marcada como “(inativo)”, para você poder remarcar cada um.</p>
+  </div>
+
+  <h2>12.2 · Salas</h2>
+  <p>Mesma ideia: <b>Nova sala</b>, nome, <b>capacidade</b> (quantos atendimentos ao mesmo tempo) e ordem.
+  A capacidade é o que faz o sistema avisar quando duas sessões disputam a mesma sala.</p>
+
+  <h2>12.3 · Agenda fechada</h2>
+  <p>A parte de baixo da tela lista os bloqueios já criados (férias, feriados, folgas).</p>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Fechar agenda…</td><td>Cria um bloqueio novo (o mesmo da agenda).</td></tr>
+      <tr><td class="bt">Empurrar sessões</td><td>Desloca em bloco as sessões que caíram dentro do período fechado. Ele mostra quantas antes de fazer.</td></tr>
+      <tr><td class="bt">Reabrir</td><td>Desfaz o bloqueio: os vãos voltam a ser oferecidos.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 13. ENFERMAGEM ==================== -->
+<section class="cap" id="cap-13">
+  <div class="cap-num">Capítulo 13<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Se você é da enfermagem</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Estes dois itens só aparecem para quem tem acesso de enfermagem. Se você é
+  recepcionista, pode pular este capítulo — eles não estarão no seu menu.</p>
+
+  <h2>13.1 · Sala de infusão</h2>
+  <p><span class="caminho">Menu <b>ATENDIMENTO › Sala de infusão</b></span></p>
+  <p>A fila da sala: as <b>folhas de infusão</b> que o médico prescreveu e assinou, esperando execução.
+  Cada linha é uma folha, com o paciente e quantos itens ainda faltam.</p>
+
+  <ol class="passos">
+    <li>Ache a folha do paciente na lista — ou use <b>Abrir pelo código</b> e digite o código impresso no
+      papel que está na sua mão.</li>
+    <li>Clique em <b>Abrir folha</b>.</li>
+    <li>Para cada item administrado, informe a <b>hora da administração</b> e clique em
+      <b>✓ Realizado</b>.</li>
+    <li>Item que <b>não</b> foi administrado: <b>○ Não realizado</b>. O sistema <b>exige a justificativa
+      por escrito</b> — é a “rodela” do papel.</li>
+    <li>Quando tudo estiver checado, <b>Encerrar execução</b>.</li>
+    <li>Se a clínica pedir a sua assinatura digital, clique em <b>Assinar execução</b> e escolha o seu
+      certificado.</li>
+  </ol>
+
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">✓ Realizado</td><td>Registra que aquele item foi administrado, na hora que você informou.</td></tr>
+      <tr><td class="bt">○ Não realizado</td><td>Registra que não foi, <b>com o motivo</b> — obrigatório.</td></tr>
+      <tr><td class="bt">Retificar</td><td>Corrige uma checagem já feita. <b>Não apaga</b>: cria uma linha nova apontando a anterior, com o motivo. A folha impressa mostra as duas.</td></tr>
+      <tr><td class="bt">Suspender</td><td>Tira um item da folha. É ato de <b>quem prescreve</b>, não de quem executa.</td></tr>
+      <tr><td class="bt">Anotar</td><td>Escreve uma observação na folha.</td></tr>
+      <tr><td class="bt">Imprimir folha / Imprimir registro</td><td>A folha é a prescrição; o registro é o espelho do que foi executado.</td></tr>
+      <tr><td class="bt">Mostrar encerradas</td><td>Traz de volta à lista as folhas já encerradas do dia.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="atencao">
+    <b>Três regras que o sistema não deixa passar</b>
+    <p><b>1.</b> A hora é a da <b>administração</b>, informada por você — não é o relógio do computador.
+    O sistema grava os dois lado a lado, e a diferença entre eles é justamente o que uma auditoria procura.<br>
+    <b>2.</b> <b>Hora futura é recusada.</b> Pré-checagem é o hábito que faz um item aparecer como feito
+    num paciente que já foi embora.<br>
+    <b>3.</b> Se o paciente for <b>alérgico</b> a algo que está na folha, o sistema avisa <b>na hora de
+    marcar como realizado</b> e pede confirmação escrita. Ele avisa — quem decide é você.</p>
+  </div>
+
+  <div class="dica">
+    <b>Reação alérgica na hora</b>
+    <p>Ao marcar um item como não realizado por reação, existe um campo para registrar a
+    <b>alergia</b>. Escreva <b>só o agente</b> (“dipirona”), nunca a reação (“pressão caiu”) — o agente é
+    o que vai alertar a equipe inteira na próxima prescrição. A reação você descreve na passagem de
+    enfermagem, marcando “Foi uma intercorrência”.</p>
+  </div>
+
+  <h2>13.2 · Enfermagem — a passagem</h2>
+  <p><span class="caminho">Menu <b>ATENDIMENTO › Enfermagem</b></span></p>
+  <p>A sala de infusão responde “o que executar agora”. Esta tela responde outra pergunta: <b>quem eu
+  atendi e o que eu escrevi</b>. Serve para todo paciente que passa pela enfermagem — curativo, triagem,
+  sinais vitais, observação —, tenha havido folha de infusão ou não.</p>
+
+  <ol class="passos">
+    <li>Escolha o paciente: pela <b>fila do dia</b> que a tela já mostra, ou buscando por nome/CPF.</li>
+    <li>Clique em <b>Atender</b>.</li>
+    <li>Na aba <b>A passagem de hoje</b>, informe a <b>hora do fato</b> e os <b>sinais vitais</b> que você
+      aferiu — preencha só o que mediu. A pressão vai num campo só, no formato <b>120/80</b>.</li>
+    <li>Escreva em <b>O que eu observei</b>.</li>
+    <li>Se houve intercorrência, marque <b>Foi uma intercorrência</b> — isso acende um alerta para o médico
+      pelas próximas 48 horas.</li>
+    <li>Se for uma <b>consulta de enfermagem</b> completa (o processo da COFEN), marque a caixinha
+      <b>Consulta de enfermagem</b> e clique em <b>Abrir a consulta de enfermagem…</b>. A janela tem as
+      cinco etapas em abas: <b>1 Histórico · 2 e 3 Diagnósticos · 4 Cuidados · 5 Avaliação</b>.</li>
+    <li><b>Registrar.</b></li>
+  </ol>
+
+  <table class="botoes">
+    <thead><tr><th>Aba / botão</th><th>Para que serve</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">A passagem de hoje</td><td>Onde você escreve. Pode registrar várias por dia — 14h20, 14h50, 15h10 —, cada uma um fato.</td></tr>
+      <tr><td class="bt">Passagens do paciente</td><td>O histórico do que a enfermagem já registrou daquela pessoa.</td></tr>
+      <tr><td class="bt">Prontuário do paciente</td><td>Leitura do que o médico escreveu — a conduta e as infusões.</td></tr>
+      <tr><td class="bt">Corrigir</td><td>Corrige um registro. Cria uma versão nova; a anterior fica marcada como substituída, e a <b>data do fato não muda</b>.</td></tr>
+      <tr><td class="bt">Feito / Não feito</td><td>No <b>plano de cuidados de hoje</b>: registra a execução de cada cuidado prescrito. “Não feito” pede o motivo.</td></tr>
+      <tr><td class="bt">Imprimir a passagem</td><td>Gera a folha com o que foi registrado, para o paciente ou para o prontuário em papel.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nota">
+    <b>Seu registro no conselho é obrigatório</b>
+    <p>O sistema copia o seu COREN em cada registro que você faz. Se o seu usuário não estiver ligado ao seu
+    cadastro de profissional, ele <b>recusa</b> e avisa — peça à direção para fazer essa ligação uma vez.</p>
+  </div>
+</section>
+
+<!-- ==================== 14. QUANDO ALGO DÁ ERRADO ==================== -->
+<section class="cap" id="cap-14">
+  <div class="cap-num">Capítulo 14<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Quando algo dá errado</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O sistema foi feito para <b>nunca mostrar falha como se fosse sucesso</b>. Quando
+  alguma coisa não deu certo, ele diz. Aqui está como ler o que ele diz.</p>
+
+  <table class="botoes">
+    <thead><tr><th>O que aparece na tela</th><th>O que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">“Seu acesso não permite…”</td>
+          <td>Aquela ação é de outro cargo. Fale com a direção — ela consegue liberar só aquela função para você.</td></tr>
+      <tr><td class="bt">“Não foi possível verificar”</td>
+          <td>A leitura falhou (internet, banco). <b>Não é “está tudo em dia”.</b> Clique em <b>Atualizar</b>; se insistir, avise a direção.</td></tr>
+      <tr><td class="bt">Um erro em inglês</td>
+          <td>É uma falha técnica. <b>Anote a hora e o que você estava fazendo</b> e avise a direção. O sistema guarda o detalhe num arquivo de registro (<i>erros-ano-mês.txt</i>, na pasta “logs” ao lado de onde o programa está instalado) — é isso que o suporte vai pedir.</td></tr>
+      <tr><td class="bt">O botão não faz nada</td>
+          <td>Provavelmente ele está <b>apagado</b>. Confira: o paciente foi escolhido? o campo obrigatório está preenchido? você tem a permissão? Passe o mouse por cima que aparece a explicação.</td></tr>
+      <tr><td class="bt">Cliquei em Salvar e não apareceu nada</td>
+          <td><b>Não clique de novo várias vezes.</b> Role a tela até o botão — a mensagem (verde ou vermelha) aparece perto dele. Se realmente não apareceu nada, use <b>Atualizar</b> e confira se gravou antes de repetir.</td></tr>
+      <tr><td class="bt">A tela parece estar com dados velhos</td>
+          <td>Clique em <b>Atualizar</b>. A agenda e a fila se atualizam sozinhas a cada minuto, mas só quando estão à vista.</td></tr>
+      <tr><td class="bt">A roda do mouse não rola a página</td>
+          <td>O ponteiro está sobre uma lista que rola por dentro. Mova o mouse para fora da lista e role de novo.</td></tr>
+      <tr><td class="bt">“O banco respondeu: …”</td>
+          <td>O banco de dados recusou a gravação, e a frase depois dos dois pontos diz o motivo. Copie a frase inteira ao avisar a direção.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="proibido">
+    <b>Uma coisa que nunca se faz</b>
+    <p>Se aparecer uma janela perguntando se você quer <b>informar outra conexão com o banco de dados</b>,
+    responda <b>Não</b> e chame a direção. Trocar aquilo por conta própria pode desconfigurar o sistema
+    para todo mundo.</p>
+  </div>
+</section>
+
+<!-- ==================== 15. PERGUNTAS FREQUENTES ==================== -->
+<section class="cap" id="cap-15">
+  <div class="cap-num">Capítulo 15<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Perguntas frequentes</h1>
+  <div class="cap-linha"></div>
+
+  <h3>Preciso clicar em alguma coisa quando o paciente chega?</h3>
+  <p><b>Não.</b> Marque o horário e pronto: quem clica em <b>Atender</b> é o profissional, e é esse
+  clique que registra que o paciente entrou. Não existem botões de <b>Chegou</b>, <b>Chamar</b> ou
+  <b>Entrou</b> nesta tela — a clínica escolheu o caminho curto, e a lista foi feita para ele.</p>
+
+  <h3>Então quem gera a guia do convênio?</h3>
+  <p>O profissional, quando clica em <b>Finalizar atendimento</b> na tela dele. A linha aqui vira
+  <b>Concluído</b> e a guia já está no faturamento.</p>
+
+  <h3>E se o profissional esquecer de finalizar?</h3>
+  <p>A linha fica em <b>Em atendimento</b> ou <b>Marcado</b>. Confirme com ele que a sessão aconteceu e
+  use <b>Concluir</b> na linha — é a única situação em que o balcão conclui.</p>
+
+  <h3>Marquei falta na pessoa errada. E agora?</h3>
+  <p>Agenda do dia › “⋯” › <b>Abrir na grade</b> › <b>Reabrir este horário</b>. Ele volta para a fila como
+  estava. As guias que tinham sido suspensas voltam junto.</p>
+
+  <h3>O paciente chegou sem hora marcada. Como faço?</h3>
+  <p>Use <b>Lançar e marcar › aba Lançar</b>. O sistema cria o encaixe e lança o atendimento no mesmo
+  clique — não é preciso marcar antes.</p>
+
+  <h3>Lancei o mesmo paciente duas vezes. Como desfaço?</h3>
+  <p><b>Lançar e marcar › aba Lançamentos</b>, ache a linha e clique em <b>Estornar…</b>. Escreva o motivo.
+  Se a guia já tiver sido baixada no convênio, o sistema recusa e você precisa falar com o faturamento.</p>
+
+  <h3>Por que o sistema não deixa lançar este paciente?</h3>
+  <p>Quase sempre é o convênio: a ficha está como <b>“A definir”</b> (veio da importação sem convênio).
+  Clique em <b>Escolher convênio…</b>, informe convênio e carteirinha, e siga.</p>
+
+  <h3>O que é a “segunda guia” que aparece o tempo todo?</h3>
+  <p>Vários convênios só liberam a segunda guia de um atendimento <b>24 horas depois</b>. O sistema já
+  sabe disso: ao lançar, ele diz “a 2ª libera dia tal”. A partir daquele dia ela vira <b>pendência</b> no
+  faturamento até alguém tirá-la no portal do convênio e dar baixa.</p>
+
+  <h3>Onde vejo se a guia de um paciente já foi resolvida?</h3>
+  <p>No <b>Início</b> (bloco “Guias pendentes de quem vem hoje”), na ficha dele (coluna “guias em aberto”)
+  e na aba <b>Lançamentos</b>, marcando <b>Só com guia por liberar</b>.</p>
+
+  <h3>Como eu sei quantas sessões o convênio ainda autoriza?</h3>
+  <p>Na ficha do paciente, aba <b>Convênio</b>: cada autorização mostra quantas foram liberadas e quantas
+  já foram usadas. Quando está acabando, o sistema avisa sozinho na agenda e no lançamento.</p>
+
+  <h3>O paciente quer o comprovante do horário.</h3>
+  <p>Grade › clique no horário dele › <b>Comprovante</b>.</p>
+
+  <h3>Como imprimo a lista do dia para circular na clínica?</h3>
+  <p>Grade › <b>Imprimir folha</b>. Ela sai <b>sem nada de saúde</b> — só nome, hora, profissional e sala —
+  justamente porque circula pela sala de espera.</p>
+
+  <h3>Dá para mandar mensagem para vários pacientes de uma vez?</h3>
+  <p>Não, e é de propósito: o número é o WhatsApp da clínica, e o envio é <b>um clique por pessoa</b>, com a
+  mensagem já escrita. Você confere antes de enviar.</p>
+
+  <h3>Um número apareceu como “—”. Está quebrado?</h3>
+  <p>Não. O traço quer dizer <b>“não medido”</b>, que é diferente de zero — e o sistema nunca troca um
+  pelo outro. Um profissional que não atendeu ninguém no período não tem “queda média da dor”, por
+  exemplo: mostrar 0% ali diria que o tratamento dele não funcionou.</p>
+
+  <h3>Posso deixar o sistema aberto e sair para o almoço?</h3>
+  <p>Pode — mas se outra pessoa for usar o computador, faça <b>Trocar usuário</b>. Tudo o que for feito
+  fica no nome de quem está logado.</p>
+</section>
+
+<!-- ==================== 16. GLOSSÁRIO ==================== -->
+<section class="cap" id="cap-16">
+  <div class="cap-num">Capítulo 16<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Glossário</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">As palavras que aparecem nas telas, explicadas em português do dia a dia.</p>
+
+  <table class="glossario">
+    <tbody>
+      <tr><td>Atendimento</td><td>O registro de que uma sessão aconteceu. É ele que gera as guias.</td></tr>
+      <tr><td>Guia</td><td>O documento que a clínica apresenta ao convênio para receber pela sessão.</td></tr>
+      <tr><td>Código</td><td>Cada item que vai numa guia. Um mesmo atendimento pode gerar dois códigos — o 1º hoje e o 2º só depois de 24 horas.</td></tr>
+      <tr><td>Dar baixa</td><td>Registrar que a guia foi <b>efetivada no site do convênio</b> e anotar o número que o convênio devolveu. Não tem a ver com dinheiro entrando.</td></tr>
+      <tr><td>Pendência</td><td>Guia que já podia ter sido tirada e ainda não foi. É o coração do sistema.</td></tr>
+      <tr><td>Glosa</td><td>Quando o convênio recusa pagar uma guia. Existe prazo para recorrer, e o sistema vigia esse prazo.</td></tr>
+      <tr><td>NC (não conformidade)</td><td>A decisão registrada de <b>não faturar</b> uma guia, com justificativa escrita.</td></tr>
+      <tr><td>TISS</td><td>O padrão da ANS para mandar as guias ao convênio em arquivo. O “lote TISS” é o pacote de guias enviado de uma vez.</td></tr>
+      <tr><td>Carteirinha</td><td>O número do paciente no convênio, com validade. Vencida, a guia é recusada.</td></tr>
+      <tr><td>Autorização / cota</td><td>A senha que o convênio dá liberando um número de sessões. Estourar a cota vira glosa.</td></tr>
+      <tr><td>Pacote</td><td>Venda da clínica: N sessões por um valor. Não tem relação com a cota do convênio.</td></tr>
+      <tr><td>Modalidade</td><td>O que foi feito: acupuntura, eletroacupuntura, BSV, consulta.</td></tr>
+      <tr><td>BSV</td><td>Bloqueio Simpático Venoso — o procedimento que exige jejum e termo assinado.</td></tr>
+      <tr><td>Encaixe</td><td>Horário criado por cima de um horário ocupado ou de um bloqueio, porque o paciente está no balcão.</td></tr>
+      <tr><td>Evolução</td><td>O texto que o profissional escreve sobre a sessão. É registro clínico e não se apaga.</td></tr>
+      <tr><td>EVA</td><td>A escala de dor de 0 a 10. O sistema desenha a curva dela ao longo do tratamento.</td></tr>
+      <tr><td>Prontuário</td><td>O conjunto de tudo o que é clínico daquele paciente. A lei manda guardar por 20 anos.</td></tr>
+      <tr><td>Termo</td><td>O papel que o paciente lê e assina antes de um procedimento (consentimento, jejum).</td></tr>
+      <tr><td>Anamnese</td><td>A primeira conversa clínica: histórico, hábitos, o que a pessoa já teve.</td></tr>
+      <tr><td>Repasse</td><td>O quanto a clínica paga ao profissional pelo que ele atendeu.</td></tr>
+      <tr><td>Estorno</td><td>Desfazer um lançamento feito por engano, com motivo escrito. Não apaga: marca.</td></tr>
+      <tr><td>Conciliação</td><td>Conferir duas listas que deviam bater — por exemplo, guias baixadas × dinheiro recebido.</td></tr>
+      <tr><td>LGPD</td><td>A lei de proteção de dados. Por causa dela o sistema separa dado de contato de dado de saúde, registra quem abriu cada prontuário e permite exportar ou anonimizar a pedido do paciente.</td></tr>
+    </tbody>
+  </table>
+
+  <hr>
+  <p class="suave" style="font-size:9.4pt;">
+    <b>Este manual descreve o aplicativo Recepção da Clínica SemDor.</b> Os nomes de botões, colunas e
+    campos foram tirados do próprio sistema. Se você encontrar uma tela diferente do que está aqui, é
+    porque o seu acesso alcança mais (ou menos) itens de menu — ou porque o sistema foi atualizado depois
+    deste manual. Em caso de dúvida, fale com a direção da clínica.
+  </p>
+</section>
+
+</body>
+</html>

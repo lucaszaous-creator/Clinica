@@ -1,0 +1,322 @@
+/* =====================================================================
+   MANUAIS DA CLÍNICA SEMDOR — folha de estilo comum aos cinco manuais.
+
+   As cores são as MESMAS do sistema (src/Clinica.Desktop.Shell/Styles/Tokens.xaml):
+   é isso que faz a ilustração de uma tela no manual ter a cara da tela de verdade.
+   Alterar um valor aqui sem alterar o token lá torna o manual mentiroso.
+
+   Impressão: A4, com quebra de página por capítulo. Números de página e rodapé
+   são desenhados pelo gerador (tools/gerar-manuais.js), não por CSS — o Chromium
+   não implementa as caixas de margem do @page.
+   ===================================================================== */
+
+:root{
+  /* Superfícies e neutros */
+  --bg:#F8FAFC; --surface:#FFFFFF; --surface-2:#F1F5F9; --raia:#F1F5F9;
+  --ink:#111827; --ink-2:#374151; --ink-soft:#6B7280;
+  --line:#E5E7EB; --line-2:#D1D5DB;
+  /* Marca SemDor */
+  --accent:#123A9E; --accent-strong:#0A2E86; --accent-tint:#EEF3FC; --accent-tint-2:#D8E3F7;
+  --navy:#07329A; --mid:#5E87D9; --light:#B0D3F3;
+  /* Estados */
+  --ok:#16A34A; --ok-strong:#15803D; --ok-tint:#DCFCE7; --ok-tint-2:#F0FDF4;
+  --warn:#EA580C; --warn-tint:#FFEDD5;
+  --err:#DC2626; --err-strong:#B91C1C; --err-tint:#FEE2E2;
+  --info:#0EA5E9; --info-tint:#E0F2FE;
+  --violeta:#7C3AED; --teal:#0D9488; --rosa:#DB2777;
+  --ui:"Liberation Sans","DejaVu Sans",Arial,sans-serif;
+}
+
+@page{ size:A4; margin:16mm 13mm 18mm; }
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family:var(--ui); color:var(--ink); background:#FFFFFF;
+  font-size:10.6pt; line-height:1.55;
+  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+}
+
+/* ============================ CAPA ============================ */
+.capa{
+  page-break-after:always; break-after:page;
+  /* Altura da área imprimível de um A4 com as margens do @page (297 - 16 - 18).
+     Margem negativa para sangrar até a borda do papel NÃO funciona no Chromium:
+     o que passa da área de conteúdo é recortado. Por isso a capa é um cartão
+     que preenche a área, com canto arredondado — e não uma sangria fingida. */
+  height:252mm; display:flex; flex-direction:column; justify-content:space-between;
+  background:linear-gradient(160deg,#0A2E86 0%,#071F5C 62%,#04123A 100%);
+  color:#fff; margin:0; padding:24mm 18mm 14mm; border-radius:3mm;
+}
+.capa .marca{ font-size:12pt; font-weight:700; letter-spacing:.22em; text-transform:uppercase; color:#B0D3F3; }
+.capa h1{ font-size:34pt; line-height:1.06; margin:10mm 0 4mm; letter-spacing:-.02em; }
+.capa .sub{ font-size:14pt; color:#D8E3F7; max-width:130mm; line-height:1.45; }
+.capa .paraquem{ margin-top:12mm; padding:6mm 7mm; border:1px solid rgba(176,211,243,.36); border-radius:5mm; background:rgba(255,255,255,.06); }
+.capa .paraquem>b{ display:block; font-size:9pt; letter-spacing:.18em; text-transform:uppercase; color:#B0D3F3; margin-bottom:2mm; }
+.capa .paraquem p{ margin:0; font-size:12pt; color:#EAF0FA; }
+.capa .rodape{ font-size:9.5pt; color:#93A9CF; border-top:1px solid rgba(176,211,243,.28); padding-top:5mm; }
+
+/* ============================ ESTRUTURA ============================ */
+.cap{ page-break-before:always; break-before:page; }
+.cap:first-of-type{ page-break-before:auto; break-before:auto; }
+
+h1.cap-titulo{
+  font-size:21pt; letter-spacing:-.02em; margin:0 0 1mm; color:var(--ink);
+}
+.cap-num{
+  display:inline-block; font-size:9pt; font-weight:700; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--accent); margin-bottom:2mm;
+}
+.cap-linha{ height:3px; width:26mm; background:var(--accent); border-radius:2px; margin:3mm 0 5mm; }
+.cap-intro{ font-size:11.5pt; color:var(--ink-2); margin:0 0 6mm; max-width:160mm; }
+
+h2{ font-size:14pt; margin:9mm 0 2.5mm; letter-spacing:-.01em; break-after:avoid; }
+h2.tela{ padding-left:0; border-left:none; }
+h3{ font-size:11.5pt; margin:6mm 0 2mm; color:var(--ink); break-after:avoid; }
+h4{ font-size:10.5pt; margin:4mm 0 1.5mm; color:var(--ink-2); break-after:avoid; }
+p{ margin:0 0 3mm; }
+ul,ol{ margin:0 0 3mm; padding-left:6mm; }
+li{ margin-bottom:1.4mm; }
+b,strong{ font-weight:700; }
+a{ color:var(--accent); text-decoration:none; }
+small{ font-size:9pt; color:var(--ink-soft); }
+.suave{ color:var(--ink-soft); }
+
+/* ============================ SUMÁRIO ============================ */
+.sumario{ page-break-after:always; break-after:page; }
+.sumario ol{ list-style:none; padding:0; margin:0; counter-reset:s; }
+.sumario li{
+  counter-increment:s; display:flex; align-items:baseline; gap:3mm;
+  padding:1.7mm 0; border-bottom:1px dotted var(--line-2); font-size:10.4pt;
+}
+.sumario li::before{
+  content:counter(s); flex:0 0 7.4mm; height:7.4mm; line-height:7.4mm; text-align:center;
+  background:var(--accent-tint); color:var(--accent); border-radius:50%;
+  font-size:8.6pt; font-weight:700;
+}
+.sumario li span{ color:var(--ink-soft); font-size:9pt; }
+.sumario li em{ font-style:normal; flex:1; font-weight:600; }
+
+/* ============================ BLOCOS ============================ */
+.passos{ counter-reset:p; list-style:none; padding:0; margin:0 0 4mm; }
+.passos>li{
+  counter-increment:p; position:relative; padding:0 0 3.5mm 11mm; margin:0;
+  break-inside:avoid;
+}
+.passos>li::before{
+  content:counter(p); position:absolute; left:0; top:-.3mm;
+  width:7mm; height:7mm; line-height:7mm; text-align:center;
+  background:var(--accent); color:#fff; border-radius:50%;
+  font-size:9.5pt; font-weight:700;
+}
+/* ⚠️ Nada de `display:block` no primeiro <b> do passo: `:first-child` conta só
+   ELEMENTOS, então "Clique em <b>Mapa corporal</b>." também casaria — e o passo
+   sairia quebrado em três linhas, com o ponto final sozinho. O destaque do começo
+   do passo é o negrito; a quebra vem do texto. */
+
+.nota,.atencao,.dica,.proibido{
+  border-radius:4px; padding:3.5mm 4.5mm; margin:4mm 0; break-inside:avoid;
+  border-left:4px solid; font-size:10.2pt;
+}
+.nota{ background:var(--accent-tint); border-color:var(--accent); }
+.atencao{ background:var(--warn-tint); border-color:var(--warn); }
+.dica{ background:var(--ok-tint); border-color:var(--ok); }
+.proibido{ background:var(--err-tint); border-color:var(--err); }
+.nota>b:first-child,.atencao>b:first-child,.dica>b:first-child,.proibido>b:first-child{
+  display:block; margin-bottom:1.2mm; font-size:9pt; letter-spacing:.1em; text-transform:uppercase;
+}
+.nota>b:first-child{ color:var(--accent); }
+.atencao>b:first-child{ color:#9A3412; }
+.dica>b:first-child{ color:var(--ok-strong); }
+.proibido>b:first-child{ color:var(--err-strong); }
+.nota p:last-child,.atencao p:last-child,.dica p:last-child,.proibido p:last-child{ margin-bottom:0; }
+
+/* ============================ TABELAS ============================ */
+table{ width:100%; border-collapse:collapse; margin:0 0 4mm; font-size:10pt; break-inside:auto; }
+thead{ display:table-header-group; }
+th{
+  text-align:left; background:var(--surface-2); color:var(--ink-2);
+  font-size:8.6pt; letter-spacing:.08em; text-transform:uppercase; font-weight:700;
+  padding:2.2mm 3mm; border-bottom:1px solid var(--line-2);
+}
+td{ padding:2.4mm 3mm; border-bottom:1px solid var(--line); vertical-align:top; }
+tr{ break-inside:avoid; }
+td.bt{ white-space:nowrap; font-weight:700; color:var(--ink); }
+table.botoes td:first-child{ width:44mm; }
+table.glossario td:first-child{ width:42mm; font-weight:700; }
+
+/* ============================ FIGURA / TELA ============================ */
+figure{ margin:5mm 0; break-inside:avoid; }
+figcaption{
+  font-size:9.2pt; color:var(--ink-soft); margin-top:2mm; padding-left:1mm;
+  border-left:2px solid var(--line-2);
+}
+figcaption b{ color:var(--ink-2); }
+
+/* --- a janela do sistema, reproduzida --- */
+.app{
+  border:1px solid var(--line-2); border-radius:6px; overflow:hidden;
+  background:var(--bg); box-shadow:0 1px 2px rgba(17,24,39,.05);
+  font-size:7.4pt; line-height:1.35; color:var(--ink);
+}
+.app .barra-janela{
+  background:#E9EDF3; border-bottom:1px solid var(--line-2);
+  padding:1.6mm 3mm; display:flex; align-items:center; gap:2mm;
+  font-size:7pt; color:var(--ink-soft);
+}
+.app .barra-janela i{ width:2.4mm; height:2.4mm; border-radius:50%; background:#CBD5E1; display:inline-block; }
+.app .corpo{ display:flex; min-height:52mm; }
+
+.app .side{ width:40mm; background:#fff; border-right:1px solid var(--line); padding:2mm 0; flex:0 0 40mm; }
+.app .side .grupo{ font-size:6.2pt; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); padding:2mm 3mm .8mm; font-weight:700; }
+.app .side .item{ padding:1.5mm 3mm; color:var(--ink-2); display:flex; align-items:center; gap:1.8mm; }
+.app .side .item i{ width:2.6mm; height:2.6mm; background:var(--line-2); border-radius:1.2px; flex:0 0 auto; opacity:.9; }
+.app .side .item.on{ background:var(--accent-tint); color:var(--accent); font-weight:700; box-shadow:inset 2px 0 0 var(--accent); }
+.app .side .item.on i{ background:var(--accent); opacity:1; }
+
+.app .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+.app .top{
+  background:#fff; border-bottom:1px solid var(--line); padding:1.8mm 3mm;
+  display:flex; align-items:center; justify-content:space-between; gap:3mm;
+}
+.app .top .busca{ border:1px solid var(--line-2); border-radius:3px; padding:1mm 2.5mm; color:var(--ink-soft); width:44mm; background:var(--surface-2); }
+.app .top .user{ display:flex; align-items:center; gap:1.6mm; color:var(--ink-2); font-weight:600; }
+.app .top .user .av{ width:4.4mm; height:4.4mm; border-radius:50%; background:var(--accent-tint-2); color:var(--accent); text-align:center; line-height:4.4mm; font-size:6.2pt; font-weight:700; }
+
+.app .tela{ padding:3mm; flex:1; }
+.app .h1{ font-size:11pt; font-weight:700; letter-spacing:-.01em; margin-bottom:.6mm; }
+.app .sub{ color:var(--ink-soft); font-size:7pt; margin-bottom:2.4mm; }
+
+/* peças da tela */
+.kpis{ display:flex; gap:2mm; margin-bottom:2.4mm; flex-wrap:wrap; }
+.kpi{ background:#fff; border:1px solid var(--line); border-radius:4px; padding:2mm 2.4mm; min-width:24mm; flex:1; }
+.kpi .rot{ font-size:6.2pt; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; }
+.kpi .val{ font-size:13pt; font-weight:700; letter-spacing:-.02em; margin-top:.4mm; }
+.kpi .dt{ font-size:6pt; color:var(--ok-strong); }
+.kpi .dt.baixa{ color:var(--err); }
+
+.card{ background:#fff; border:1px solid var(--line); border-radius:4px; padding:2.4mm; margin-bottom:2.4mm; }
+.card .tit{ font-weight:700; font-size:8pt; margin-bottom:1.6mm; }
+
+.tab{ width:100%; border-collapse:collapse; font-size:7pt; }
+.tab th{ background:var(--surface-2); font-size:6pt; padding:1.2mm 1.6mm; letter-spacing:.06em; }
+.tab td{ padding:1.4mm 1.6mm; border-bottom:1px solid var(--line); }
+.tab tr.apagada td{ color:#9CA3AF; }
+
+.btn{ display:inline-block; background:var(--accent); color:#fff; border-radius:3px; padding:1.1mm 2.4mm; font-size:6.8pt; font-weight:700; }
+.btn.sec{ background:#fff; color:var(--ink-2); border:1px solid var(--line-2); }
+.btn.off{ background:var(--surface-2); color:#B6BDC9; border:1px solid var(--line); }
+.btn.perigo{ background:var(--err); color:#fff; }
+.btn.ok{ background:var(--ok); color:#fff; }
+.barra-acoes{ display:flex; gap:1.6mm; align-items:center; flex-wrap:wrap; margin-bottom:2.4mm; }
+
+.pill{ display:inline-block; border-radius:99px; padding:.6mm 2.2mm; font-size:6.2pt; font-weight:700; }
+.pill.ok{ background:var(--ok-tint); color:var(--ok-strong); }
+.pill.warn{ background:var(--warn-tint); color:#9A3412; }
+.pill.err{ background:var(--err-tint); color:var(--err-strong); }
+.pill.info{ background:var(--info-tint); color:#075985; }
+.pill.neutro{ background:var(--surface-2); color:var(--ink-soft); }
+
+.campo{ border:1px solid var(--line-2); border-radius:3px; background:#fff; padding:1.4mm 2mm; color:var(--ink-soft); font-size:7pt; }
+.campo.preenchido{ color:var(--ink); }
+.rot{ font-size:6.2pt; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-bottom:.6mm; font-weight:700; }
+.grade2{ display:grid; grid-template-columns:1fr 1fr; gap:2mm; }
+.grade3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:2mm; }
+.grade4{ display:grid; grid-template-columns:repeat(4,1fr); gap:2mm; }
+
+.raia{ background:var(--raia); border-radius:4px; padding:2mm; }
+.linha-tempo{ border-left:2px solid var(--accent-tint-2); padding-left:3mm; }
+
+/* números de chamada sobre a figura */
+.marc{
+  display:inline-block; width:4.6mm; height:4.6mm; line-height:4.6mm; text-align:center;
+  background:var(--err); color:#fff; border-radius:50%; font-size:6.6pt; font-weight:700;
+  vertical-align:middle;
+}
+ol.legenda{ list-style:none; padding:0; margin:2mm 0 0; counter-reset:l; font-size:10pt; }
+ol.legenda li{ counter-increment:l; position:relative; padding-left:8mm; margin-bottom:1.6mm; break-inside:avoid; }
+ol.legenda li::before{
+  content:counter(l); position:absolute; left:0; top:.2mm;
+  width:5.4mm; height:5.4mm; line-height:5.4mm; text-align:center;
+  background:var(--err); color:#fff; border-radius:50%; font-size:8pt; font-weight:700;
+}
+
+/* fluxo do módulo */
+.fluxo{ display:flex; align-items:stretch; gap:0; margin:5mm 0; break-inside:avoid; flex-wrap:wrap; }
+.fluxo .et{
+  flex:1; min-width:32mm; background:var(--surface-2); border:1px solid var(--line);
+  border-radius:4px; padding:3mm; margin-right:6mm; position:relative;
+}
+.fluxo .et:last-child{ margin-right:0; }
+.fluxo .et::after{
+  content:"›"; position:absolute; right:-4.6mm; top:50%; transform:translateY(-50%);
+  font-size:16pt; color:var(--line-2); font-weight:700;
+}
+.fluxo .et:last-child::after{ content:""; }
+.fluxo .et>b{ display:block; font-size:8.4pt; color:var(--accent); margin-bottom:1mm; }
+/* ⚠️ `>` obrigatório: sem ele, um negrito no meio da frase da etapa também vira bloco,
+   e o texto sai quebrado em três linhas com o ponto final sozinho. */
+.fluxo .et span{ font-size:9pt; color:var(--ink-2); }
+
+/* "onde fica" */
+.caminho{
+  display:inline-block; background:var(--surface-2); border:1px solid var(--line);
+  border-radius:3px; padding:.8mm 2.4mm; font-size:9.4pt; color:var(--ink-2); font-weight:600;
+}
+.caminho b{ color:var(--accent); }
+
+.chip{ display:inline-block; background:var(--accent-tint); color:var(--accent); border-radius:99px; padding:.6mm 2.6mm; font-size:8.6pt; font-weight:700; margin:0 1mm 1mm 0; }
+
+.duas{ column-count:2; column-gap:8mm; }
+.duas p,.duas li{ break-inside:avoid; }
+
+hr{ border:none; border-top:1px solid var(--line); margin:6mm 0; }
+
+/* Bloco do meio da capa: os assuntos do manual, para a capa não ficar com um vão
+   morto entre o título e o rodapé. */
+.capa-temas{ margin:0 0 6mm; }
+.capa-temas>b{ display:block; font-size:8.6pt; letter-spacing:.2em; text-transform:uppercase;
+  color:#93A9CF; margin-bottom:3mm; }
+.capa-temas>div{ display:flex; flex-wrap:wrap; gap:2.5mm; }
+.capa-temas span{ display:inline-block; border:1px solid rgba(176,211,243,.34);
+  border-radius:99px; padding:1.6mm 4mm; font-size:10.5pt; color:#D8E3F7; background:rgba(255,255,255,.05); }
+
+/* =====================================================================
+   PDF INTERATIVO
+   O sumário, os capítulos e as remissões são LINKS de verdade dentro do
+   PDF (o Chromium transforma href="#id" em anotação /Link). Os marcadores
+   laterais do leitor vêm do `outline:true` do gerador, montados a partir
+   dos <h1>/<h2>.
+   ===================================================================== */
+.sumario li a{
+  display:flex; flex:1; align-items:baseline; gap:3mm;
+  color:inherit; text-decoration:none;
+}
+.sumario li a em{ font-style:normal; flex:1; font-weight:600; color:var(--accent-strong); }
+
+a.voltar{
+  float:right; font-size:8pt; font-weight:600; letter-spacing:.04em;
+  color:var(--ink-soft); text-transform:none; border:1px solid var(--line);
+  border-radius:99px; padding:.4mm 2.6mm; background:var(--surface-2);
+}
+a.voltar::before{ content:"↑ "; }
+
+/* remissão a outro capítulo dentro do texto */
+a.remissao{ color:var(--accent); font-weight:600; text-decoration:none;
+  border-bottom:1px solid var(--accent-tint-2); }
+
+/* =====================================================================
+   CAPTURA DE TELA REAL × ILUSTRAÇÃO
+   O gerador troca o desenho pela imagem quando existe
+   docs/manuais/capturas/<nome>.png. Enquanto não existe, o desenho fica
+   com o selo — para ninguém confundir uma reprodução com a tela real.
+   ===================================================================== */
+figure img.captura{
+  display:block; width:100%; height:auto;
+  border:1px solid var(--line-2); border-radius:4px;
+}
+.selo-ilustracao{
+  display:inline-block; margin-bottom:2mm; padding:1mm 3mm; border-radius:99px;
+  background:var(--warn-tint); color:#9A3412; border:1px solid #FDBA74;
+  font-size:8.4pt; font-weight:700; letter-spacing:.04em;
+}

@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Manual do Financeiro — Clínica SemDor</title>
+<link rel="stylesheet" href="_estilo.css">
+</head>
+<body>
+
+<section class="capa">
+  <div>
+    <div class="marca">Clínica SemDor · Manual de uso</div>
+    <h1>Financeiro</h1>
+    <p class="sub">O manual do dinheiro da clínica: caixa do dia, contas a pagar e a receber,
+       cobrança, cartão, impostos, estoque e repasse aos profissionais.</p>
+    <div class="paraquem">
+      <b>Para quem é este manual</b>
+      <p>Quem cuida do financeiro da clínica.<br>
+         Não é preciso ser contador — o sistema faz as contas; você confere e confirma.</p>
+    </div>
+  </div>
+  <div class="capa-temas">
+    <b>Neste manual</b>
+    <div><span>Caixa e fechamento</span><span>Contas e cobrança</span><span>Conciliação e cartão</span><span>Taxas e impostos</span><span>Estoque e repasses</span></div>
+  </div>
+  <div class="rodape">
+    Programa: <b>Clínica SemDor — Financeiro</b> (ícone azul com o nome “Financeiro” na área de trabalho).<br>
+    Explica cada tela, cada botão e a rotina do dia, da semana e do mês.
+  </div>
+</section>
+
+<section class="sumario" id="sumario">
+  <div class="cap-num">Sumário</div>
+  <h1 class="cap-titulo">O que você vai encontrar aqui</h1>
+  <div class="cap-linha"></div>
+  <ol>
+    <li><a href="#cap-1"><em>Antes de começar</em><span>abrir, entrar e entender a tela</span></a></li>
+    <li><a href="#cap-2"><em>A rotina: dia, semana e mês</em><span>o que fazer, e quando</span></a></li>
+    <li><a href="#cap-3"><em>Caixa</em><span>lançar entradas e saídas do dia</span></a></li>
+    <li><a href="#cap-4"><em>Fechamento de caixa</em><span>conferir a gaveta e justificar diferença</span></a></li>
+    <li><a href="#cap-5"><em>Fluxo de caixa</em><span>o mês a mês, realizado e previsto</span></a></li>
+    <li><a href="#cap-6"><em>Contas a pagar e a receber</em><span>vencimentos, contas fixas e baixa</span></a></li>
+    <li><a href="#cap-7"><em>Quem me deve</em><span>a cobrança dos pacientes</span></a></li>
+    <li><a href="#cap-8"><em>Plano de contas</em><span>as categorias que organizam tudo</span></a></li>
+    <li><a href="#cap-9"><em>Conciliação</em><span>guia baixada × dinheiro recebido</span></a></li>
+    <li><a href="#cap-10"><em>Recebíveis de cartão</em><span>o que a maquininha ainda vai depositar</span></a></li>
+    <li><a href="#cap-11"><em>Extrato do banco</em><span>conferir o OFX com o sistema</span></a></li>
+    <li><a href="#cap-12"><em>Taxas e impostos</em><span>maquininha, tributos e simulação</span></a></li>
+    <li><a href="#cap-13"><em>Estoque</em><span>itens, movimentos e custo por sessão</span></a></li>
+    <li><a href="#cap-14"><em>Repasses</em><span>quanto pagar a cada profissional</span></a></li>
+    <li><a href="#cap-15"><em>Resultado do mês e Produção</em><span>a leitura do período</span></a></li>
+    <li><a href="#cap-16"><em>Quando algo dá errado · FAQ · Glossário</em></a></li>
+  </ol>
+</section>
+
+<!-- ==================== 1 ==================== -->
+<section class="cap" id="cap-1">
+  <div class="cap-num">Capítulo 1<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Antes de começar</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Abrir, entrar e reconhecer as partes da tela. Depois disto, todas as telas do
+  sistema ficam parecidas.</p>
+
+  <div class="nota">
+    <b>Como ler este manual</b>
+    <p>As figuras <b>ainda não são fotos do sistema</b> — são reproduções feitas a partir do próprio
+    código, e cada uma sai marcada com um selo laranja avisando disso. Elas são fiéis no que importa:
+    os nomes dos botões, das colunas e dos campos são <b>exatamente</b> os que você vai ver no
+    computador, e as cores também. Assim que as capturas reais forem tiradas, elas entram no lugar
+    e o selo some.</p>
+  </div>
+
+  <h2>1.1 · Abrir e entrar</h2>
+  <p>Dê dois cliques no ícone <b>Financeiro</b>. O sistema pede <b>usuário</b> e <b>senha</b>: tudo o que
+  mexe em dinheiro fica registrado no nome de quem entrou. Para trocar de pessoa no mesmo computador, use
+  <b>Trocar usuário</b> (no seu nome, canto superior direito).</p>
+
+  <h2>1.2 · A tela por dentro</h2>
+  <figure data-captura="financeiro-01-caixa">
+    <div class="app">
+      <div class="barra-janela"><i></i><i></i><i></i><span style="margin-left:2mm">Clínica SemDor — Financeiro</span></div>
+      <div class="corpo">
+        <div class="side">
+          <div class="grupo">Financeiro</div>
+          <div class="item on"><i></i>Caixa</div>
+          <div class="item"><i></i>Contas</div>
+          <div class="item"><i></i>Recebimentos</div>
+          <div class="item"><i></i>Pacotes</div>
+          <div class="item"><i></i>Estoque</div>
+          <div class="item"><i></i>Repasses</div>
+          <div class="grupo">Gestão</div>
+          <div class="item"><i></i>Ajuda e suporte</div>
+        </div>
+        <div class="main">
+          <div class="top"><span class="busca">Ir para… (Ctrl+F)</span><span class="user"><span class="av">RC</span>Rita Costa ▾</span></div>
+          <div class="tela">
+            <div style="display:flex;gap:3mm;border-bottom:1px solid #E5E7EB;margin-bottom:2.4mm;">
+              <span style="padding:1mm 2mm;border-bottom:2px solid #123A9E;color:#123A9E;font-weight:700;">Caixa</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Fechamento</span>
+              <span style="padding:1mm 2mm;color:#6B7280;">Fluxo</span>
+            </div>
+            <div class="h1">Caixa</div>
+            <div class="sub">Entradas, saídas e saldo do mês.</div>
+            <div class="kpis">
+              <div class="kpi"><div class="rot">Entradas</div><div class="val">R$ 3.240</div></div>
+              <div class="kpi"><div class="rot">Saídas</div><div class="val">R$ 480</div></div>
+              <div class="kpi"><div class="rot">Saldo do dia</div><div class="val">R$ 2.760</div></div>
+              <div class="kpi"><div class="rot">Em espécie</div><div class="val">R$ 620</div></div>
+            </div>
+            <div class="barra-acoes">
+              <span class="btn sec">◀</span><span class="campo preenchido">08/09/2026</span><span class="btn sec">▶</span>
+              <span class="btn sec">Atualizar</span><span class="btn sec">Exportar CSV</span>
+              <span style="flex:1"></span><span class="btn sec">Cobrar por Pix</span><span class="btn">Novo lançamento</span>
+            </div>
+            <table class="tab">
+              <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Forma</th><th style="text-align:right">Valor</th><th>Situação</th></tr></thead>
+              <tbody>
+                <tr><td>08/09</td><td>Sessão — Pedro Alves</td><td>Sessões</td><td>Pix</td><td style="text-align:right">R$ 180,00</td><td><span class="pill ok">Recebido</span></td></tr>
+                <tr><td>08/09</td><td>Pacote 10 sessões — Marta S.</td><td>Pacotes</td><td>Cartão 3×</td><td style="text-align:right">R$ 1.500,00</td><td><span class="pill ok">Recebido</span></td></tr>
+                <tr><td>08/09</td><td>Material de limpeza</td><td>Manutenção</td><td>Dinheiro</td><td style="text-align:right">− R$ 120,00</td><td><span class="pill ok">Pago</span></td></tr>
+                <tr><td>08/09</td><td>Sessão — Joana R.</td><td>Sessões</td><td>—</td><td style="text-align:right">R$ 200,00</td><td><span class="pill warn">Previsto</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>A tela do Caixa.</b> Em cima os totais do dia; embaixo a lista de tudo o que entrou e
+    saiu. As telas do Financeiro seguem sempre este desenho.</figcaption>
+  </figure>
+
+  <h2>1.3 · Cinco coisas que valem em todas as telas</h2>
+  <table class="botoes">
+    <thead><tr><th>Você vê</th><th>Quer dizer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Botão apagado</td><td>Falta preencher algo, ou falta permissão. Não está quebrado.</td></tr>
+      <tr><td class="bt">Traço “—”</td><td><b>Não medido</b>, diferente de zero. Um mês sem faturamento não tem margem. Nas planilhas exportadas o traço sai igual — para o Excel não calcular média sobre um número que não existe.</td></tr>
+      <tr><td class="bt">Faixa vermelha</td><td>Erro ou recusa, com o motivo escrito ao lado do botão.</td></tr>
+      <tr><td class="bt">“Previsto” × “Realizado”</td><td><b>Previsto</b> é dinheiro que ainda vai se mover; <b>realizado</b> é dinheiro que já se moveu. O sistema <b>nunca soma os dois num número só</b>.</td></tr>
+      <tr><td class="bt">Exportar / Exportar CSV</td><td>Gera planilha pronta para o Excel em português — abre com as colunas separadas e os acentos certos.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 2 ==================== -->
+<section class="cap" id="cap-2">
+  <div class="cap-num">Capítulo 2<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">A rotina: dia, semana e mês</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O sistema não faz nada sozinho no financeiro — e isso é de propósito. Estas são as
+  rotinas que fazem os números baterem.</p>
+
+  <h3>Todo dia</h3>
+  <ol class="passos">
+    <li><b>Caixa</b> — confira o que o balcão lançou e lance o que faltou (uma despesa paga em dinheiro, um recebimento fora da sessão).</li>
+    <li><b>Fechamento de caixa</b> — conte a gaveta e confira contra o sistema. Diferença exige justificativa escrita.</li>
+  </ol>
+  <h3>Toda semana</h3>
+  <ol class="passos">
+    <li><b>Contas › A pagar/receber</b> — veja o que vence nos próximos dias e dê baixa no que foi pago.</li>
+    <li><b>Recebimentos › Recebíveis de cartão</b> — marque os depósitos que caíram.</li>
+    <li><b>Quem me deve</b> — cobre quem está atrasado.</li>
+  </ol>
+  <h3>Todo mês</h3>
+  <ol class="passos">
+    <li><b>Contas › Gerar fixas</b> — cria as contas do mês a partir das contas fixas cadastradas.</li>
+    <li><b>Conciliação</b> — para cada guia baixada no convênio, registre o valor recebido.</li>
+    <li><b>Extrato do banco</b> — importe o OFX e confira contra o sistema.</li>
+    <li><b>Taxas e impostos › Apuração do mês</b> — apure os tributos.</li>
+    <li><b>Repasses › Apurar</b> — apure o quanto pagar a cada profissional.</li>
+    <li><b>Resultado do mês</b> — a leitura final do período.</li>
+  </ol>
+
+  <div class="nota">
+    <b>Por que nada é automático</b>
+    <p>O sistema sabe que uma conta <b>vence</b>; ele não sabe que ela <b>foi paga</b>. Por isso tudo nasce
+    como <b>Previsto</b> e só vira realizado quando alguém confirma. Marcar sozinho criaria um caixa que
+    não bate com o extrato — e ninguém descobriria antes do fim do mês.</p>
+  </div>
+</section>
+
+<!-- ==================== 3 ==================== -->
+<section class="cap" id="cap-3">
+  <div class="cap-num">Capítulo 3<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Caixa</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O que entrou e o que saiu, dia a dia. A maior parte das entradas chega sozinha —
+  vindas do fechamento da sessão no balcão e da venda de pacotes. Aqui você confere e completa.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Caixa</b> › aba <b>Caixa</b></span></p>
+
+  <h2>3.1 · Lançar</h2>
+  <ol class="passos">
+    <li>Clique em <b>Novo lançamento</b>.</li>
+    <li><b>Tipo</b>: entrada ou saída.</li>
+    <li><b>Data</b>, <b>descrição</b> e <b>valor</b>.</li>
+    <li><b>Situação</b>: <b>Realizado</b> (o dinheiro já se moveu) ou <b>Previsto</b> (ainda vai se mover).</li>
+    <li><b>Categoria</b> — vem do Plano de contas. É ela que organiza os relatórios.</li>
+    <li><b>Forma de pagamento</b>. Se for cartão, informe <b>adquirente</b>, <b>bandeira</b> e
+      <b>parcelas</b>: é com isso que o sistema calcula a taxa e a data em que o dinheiro cai.</li>
+    <li><b>De quem é</b> (opcional) — o paciente. Preencha sempre que a entrada for de um paciente.</li>
+    <li><b>Está pagando qual sessão?</b> — quando a entrada é de uma sessão específica. Isso tira a sessão
+      da lista de “particulares sem receita” na Conciliação.</li>
+    <li><b>Salvar lançamento.</b></li>
+  </ol>
+
+  <div class="atencao">
+    <b>Sempre que possível, diga de quem é e de que sessão é</b>
+    <p>Sem o paciente, a receita fica <b>órfã</b>: ela não liga à sessão e a sessão continua cobrando
+    pagamento na Conciliação, mesmo com o dinheiro na gaveta. É a pendência que nunca some — e pendência
+    que nunca some ensina todo mundo a ignorar a lista.</p>
+  </div>
+
+  <h3>Botões da tela</h3>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Realizar</td><td>Transforma um lançamento <b>previsto</b> em realizado. Use quando o dinheiro entrou.</td></tr>
+      <tr><td class="bt">Recibo</td><td>Emite o recibo daquele pagamento, numerado. É aqui que o recibo nasce — de outro lugar sairiam dois recibos do mesmo pagamento.</td></tr>
+      <tr><td class="bt">Cancelar</td><td>Cancela o lançamento com motivo. Ele fica marcado, não some.</td></tr>
+      <tr><td class="bt">Cobrar por Pix</td><td>Gera o código “Pix copia e cola” com o valor, para mandar ao paciente.</td></tr>
+      <tr><td class="bt">Exportar CSV</td><td>Planilha do período para o Excel.</td></tr>
+      <tr><td class="bt">◀ ▶</td><td>Navegam entre os dias.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 4 ==================== -->
+<section class="cap" id="cap-4">
+  <div class="cap-num">Capítulo 4<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Fechamento de caixa</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A conferência da gaveta no fim do dia: contar o dinheiro e comparar com o que o
+  sistema diz.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Caixa</b> › aba <b>Fechamento</b></span></p>
+
+  <ol class="passos">
+    <li>Escolha o <b>dia</b>.</li>
+    <li>O sistema mostra <b>quanto deveria ter em espécie</b> (entradas em dinheiro menos saídas em dinheiro).</li>
+    <li>Conte a gaveta e digite em <b>Contado na gaveta</b>.</li>
+    <li>Se houver diferença, escreva em <b>O que aconteceu?</b> — <b>é obrigatório</b>.</li>
+    <li><b>Conferir caixa.</b></li>
+  </ol>
+
+  <div class="atencao">
+    <b>Só espécie entra na conferência</b>
+    <p>Cartão e Pix caem na conta dias depois. Incluí-los faria a conferência <b>nunca bater</b> — e isso
+    treina qualquer equipe a clicar “OK” sem olhar.</p>
+  </div>
+
+  <div class="nota">
+    <b>Sobra também exige justificativa</b>
+    <p>Dinheiro a mais costuma ser venda não lançada. Por isso a justificativa vale para os dois lados —
+    é a única regra desta tela que impede, em vez de avisar.</p>
+  </div>
+
+  <h3>Os outros blocos</h3>
+  <ul>
+    <li><b>Dias não conferidos</b> — a lista do que ficou para trás.</li>
+    <li><b>Conferências dos últimos 60 dias</b> — o histórico, com a justificativa de cada divergência.</li>
+    <li><b>Reabrir</b> — desfaz uma conferência. O fechamento anterior <b>fica registrado</b> com o motivo,
+      e o dia volta a pendente.</li>
+  </ul>
+  <div class="dica">
+    <b>Os valores ficam congelados no fechamento</b>
+    <p>O que o sistema dizia naquele dia fica <b>copiado</b> na conferência. Um lançamento digitado amanhã
+    com a data de ontem não reescreve a conferência de ontem — nem apaga a justificativa que você escreveu.</p>
+  </div>
+</section>
+
+<!-- ==================== 5 ==================== -->
+<section class="cap" id="cap-5">
+  <div class="cap-num">Capítulo 5<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Fluxo de caixa</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O mês a mês: quanto entrou, quanto saiu e o que sobrou — com a opção de incluir o
+  que ainda vai acontecer.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Caixa</b> › aba <b>Fluxo</b></span></p>
+
+  <ul>
+    <li><b>Meses</b> — quantos meses olhar para trás.</li>
+    <li><b>Incluir previsto</b> — soma o que ainda vai vencer. Sem a marca, você vê só o que já aconteceu.</li>
+    <li><b>De onde veio</b> e <b>Para onde foi</b> — a divisão por categoria. Lançamento sem categoria
+      aparece como <b>“Sem categoria”</b>, e não some.</li>
+    <li><b>Acumulado</b> — é a <b>variação no período</b>, não o saldo da conta bancária: a clínica nunca
+      cadastrou saldo inicial, e chamar aquilo de saldo daria um número que não bate com o extrato.</li>
+    <li><b>Exportar</b> — planilha para o Excel.</li>
+  </ul>
+
+  <div class="nota">
+    <b>Cada lançamento entra no mês pela data certa</b>
+    <p>Realizado entra pelo <b>pagamento</b>; previsto entra pelo <b>vencimento</b>. É por isso que um
+    lançamento pode “mudar de mês” ao ser realizado — ele passou a contar pela data em que o dinheiro
+    de fato se moveu.</p>
+  </div>
+</section>
+
+<!-- ==================== 6 ==================== -->
+<section class="cap" id="cap-6">
+  <div class="cap-num">Capítulo 6<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Contas a pagar e a receber</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Tudo o que a clínica <b>precisa</b> pagar ou receber, com data de vencimento.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Contas</b> › aba <b>A pagar/receber</b></span></p>
+
+  <h2>6.1 · Registrar uma conta</h2>
+  <ol class="passos">
+    <li><b>Nova conta</b>.</li>
+    <li><b>Descrição</b>, <b>valor</b> e <b>vencimento</b>.</li>
+    <li><b>Categoria</b> e, se for de um paciente, <b>De quem é</b>.</li>
+    <li><b>Registrar conta.</b> Ela nasce <b>prevista</b>.</li>
+  </ol>
+
+  <h2>6.2 · Dar baixa</h2>
+  <p>Quando a conta foi paga (ou recebida), selecione a linha e clique em <b>Baixar</b>. Ela vira
+  realizada e passa a contar no caixa pela data do pagamento.</p>
+  <p><b>Adiar 7d</b> empurra o vencimento em uma semana — útil para o que foi renegociado.</p>
+
+  <h2>6.3 · Contas fixas</h2>
+  <p>Aluguel, luz, internet, contador: coisas que se repetem todo mês.</p>
+  <ol class="passos">
+    <li><b>Contas fixas…</b> › <b>Nova conta fixa</b>.</li>
+    <li><b>Descrição</b>, <b>valor</b>, com que frequência <b>repete</b>, o <b>1º vencimento</b> e até
+      quando (opcional).</li>
+    <li><b>Salvar conta fixa.</b></li>
+    <li>Uma vez por mês, na tela de Contas, clique em <b>Gerar fixas</b> — o sistema cria as contas do mês.</li>
+  </ol>
+
+  <div class="atencao">
+    <b>A conta fixa é um molde, não uma conta</b>
+    <p>Ela não entra em total nenhum. Quem entra é a conta que ela <b>gera</b>, e essa passa a ter vida
+    própria: corrigir o valor de março <b>não</b> reescreve janeiro, que já foi pago e conciliado. Clicar
+    em “Gerar fixas” duas vezes no mesmo mês <b>não duplica</b> nada.</p>
+  </div>
+  <div class="nota">
+    <b>Nada nasce pago</b>
+    <p>Tudo o que a geração cria vem como <b>Previsto</b>. O sistema sabe que a conta vence; ele não sabe
+    que ela foi quitada.</p>
+  </div>
+</section>
+
+<!-- ==================== 7 ==================== -->
+<section class="cap" id="cap-7">
+  <div class="cap-num">Capítulo 7<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Quem me deve</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">As contas de <b>paciente</b> vencidas — a lista de cobrança.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Contas</b> › aba <b>Quem me deve</b></span></p>
+
+  <ul>
+    <li>A lista vem ordenada do <b>mais antigo</b> para o mais recente — a chance de receber cai com o
+      tempo, e o caso de seis meses precisa de decisão, não de mais um lembrete.</li>
+    <li><b>Idade da dívida</b> mostra as faixas (até 30, 30–60, 60–90, 90+ dias). <b>Todas aparecem, mesmo
+      vazias</b>: um aging sem a faixa de 90+ se lê como “não há dívida velha”.</li>
+    <li><b>Só críticos (mais de 90 dias)</b> estreita a lista.</li>
+    <li><b>WhatsApp</b> abre a conversa com um lembrete pronto — <b>sem nenhuma informação de saúde</b>,
+      porque o telefone pode não ser só do paciente.</li>
+    <li><b>Recebi</b> registra o pagamento.</li>
+    <li><b>Exportar</b> gera a planilha.</li>
+  </ul>
+
+  <div class="nota">
+    <b>Só entra dívida de paciente</b>
+    <p>Conta a receber sem paciente é reembolso de convênio ou venda de produto — cobrar quem não deve
+    custa mais que a sessão em aberto.</p>
+  </div>
+  <div class="dica">
+    <b>O balcão também cobra</b>
+    <p>Quando o paciente aparece na recepção, o sistema mostra o aviso da dívida com um botão de
+    <b>Receber</b> ali mesmo. É o momento em que cobrar custa uma frase; depois custa telefonema.</p>
+  </div>
+</section>
+
+<!-- ==================== 8 ==================== -->
+<section class="cap" id="cap-8">
+  <div class="cap-num">Capítulo 8<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Plano de contas</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">As <b>categorias</b> que organizam entradas e saídas. É o que faz o fluxo de caixa e
+  o resultado do mês responderem “de onde veio” e “para onde foi”.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Contas</b> › aba <b>Plano de contas</b></span></p>
+
+  <ol class="passos">
+    <li><b>Nova categoria</b>.</li>
+    <li><b>Código</b> (a numeração que a clínica usa), <b>Nome</b> e <b>Tipo</b> (entrada ou saída).</li>
+    <li><b>Criar categoria.</b></li>
+  </ol>
+  <p><b>Ativar / desativar</b> tira uma categoria de circulação sem apagá-la — o que já foi lançado nela
+  continua onde está.</p>
+  <div class="dica">
+    <b>Poucas categorias, bem escolhidas</b>
+    <p>Trinta categorias viram trinta linhas de 3% cada, e o relatório para de dizer alguma coisa. Comece
+    com as que a clínica de fato acompanha e vá abrindo conforme a necessidade aparecer.</p>
+  </div>
+</section>
+
+<!-- ==================== 9 ==================== -->
+<section class="cap" id="cap-9">
+  <div class="cap-num">Capítulo 9<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Conciliação</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">A ponte entre o faturamento e o dinheiro: <b>guia baixada no convênio × receita
+  registrada aqui</b>. É o que impede a clínica de faturar e nunca perceber que o dinheiro não entrou.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Recebimentos</b> › aba <b>Conciliação</b></span></p>
+
+  <h2>9.1 · As três abas</h2>
+  <table class="botoes">
+    <thead><tr><th>Aba</th><th>O que lista</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">A lançar</td><td>Guias que foram baixadas no convênio e <b>ainda não têm receita</b> registrada aqui.</td></tr>
+      <tr><td class="bt">Glosadas</td><td>Guias que o convênio recusou. Aparecem <b>marcadas</b>, e não sumidas — a clínica pode recuperar no recurso.</td></tr>
+      <tr><td class="bt">Particulares</td><td>Sessões de paciente particular que aconteceram e <b>não têm nenhuma linha de dinheiro</b>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>9.2 · Lançar a receita de uma guia</h2>
+  <ol class="passos">
+    <li>Escolha o mês (◀ ▶) e, se quiser, filtre por <b>convênio</b>, <b>paciente</b> ou <b>nº da guia</b>.</li>
+    <li>Na linha da guia, confira o <b>valor recebido</b>. Se a clínica cadastrou a tabela de preço daquele
+      convênio, ele já vem <b>proposto</b>, com a <b>procedência</b> escrita ao lado.</li>
+    <li>Ajuste o valor se a operadora pagou diferente (glosa parcial, por exemplo).</li>
+    <li>Marque <b>Reter?</b> se aquele convênio retém imposto na fonte.</li>
+    <li>Clique em <b>Lançar</b>.</li>
+  </ol>
+
+  <div class="nota">
+    <b>A guia sai da lista sozinha</b>
+    <p>Ela some porque passou a <b>ter receita</b>, e não porque alguém a marcou como resolvida. Se a
+    receita for cancelada depois, a guia <b>volta</b> para a lista — sem ninguém precisar lembrar.</p>
+  </div>
+
+  <div class="atencao">
+    <b>Guia glosada aparece marcada, e dá para lançar mesmo assim</b>
+    <p>O sistema pede confirmação: a clínica pode ter certeza de que recupera no recurso. Ele só precisava
+    que você <b>soubesse</b> que aquela guia foi recusada.</p>
+  </div>
+
+  <h3>Particulares</h3>
+  <p>A sessão sai desta lista quando passa a <b>ter lançamento</b> — recebido <b>ou</b> a receber. Se o
+  preço do particular estiver cadastrado, o valor vem proposto. <b>Derrubar receita</b> cancela um
+  lançamento feito por engano — e a linha volta para a lista.</p>
+</section>
+
+<!-- ==================== 10 ==================== -->
+<section class="cap" id="cap-10">
+  <div class="cap-num">Capítulo 10<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Recebíveis de cartão</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">O que a maquininha ainda vai depositar. A conferência é <b>por depósito</b>, não por
+  venda — a adquirente deposita o lote do dia, e conferir venda a venda contra um extrato de um valor só
+  nunca fecharia.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Recebimentos</b> › aba <b>Recebíveis de cartão</b></span></p>
+
+  <ul>
+    <li><b>Previstos</b> — o que ainda vai cair, pela data que a taxa cadastrada indica.</li>
+    <li><b>Já caíram</b> — o que foi confirmado.</li>
+    <li><b>Horizonte</b> — quantos dias para a frente olhar.</li>
+    <li><b>Caiu</b> — confirma o depósito. <b>Informe a data em que o dinheiro caiu</b>, não a de hoje:
+      conferir na segunda um depósito que caiu na sexta viraria três dias de atraso que não houve.</li>
+    <li><b>Desfazer</b> — desfaz uma confirmação errada.</li>
+  </ul>
+
+  <div class="nota">
+    <b>A previsão não é apagada quando o depósito atrasa</b>
+    <p>A data prevista e a data em que caiu ficam <b>separadas</b>. Sobrescrever uma pela outra apagaria a
+    prova do atraso — que é justamente o argumento numa renegociação com a adquirente.</p>
+  </div>
+</section>
+
+<!-- ==================== 11 ==================== -->
+<section class="cap" id="cap-11">
+  <div class="cap-num">Capítulo 11<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Extrato do banco</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Importa o extrato do banco (arquivo <b>.ofx</b>, que todo banco exporta) e cruza com
+  o que está lançado no sistema.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Recebimentos</b> › aba <b>Extrato do banco</b></span></p>
+
+  <ol class="passos">
+    <li>Baixe o extrato em <b>.ofx</b> no site do banco.</li>
+    <li>Clique em <b>Abrir extrato (.ofx)…</b> e escolha o arquivo.</li>
+    <li>O sistema <b>propõe</b> os pares: cada linha do banco com o lançamento correspondente. A folga de
+      datas é de três dias — folga grande casaria o aluguel de julho com o de agosto.</li>
+    <li>Confira e clique em <b>Conferir</b> em cada par certo. <b>Desfazer</b> desfaz.</li>
+    <li><b>Recruzar</b> refaz a proposta depois de você lançar o que faltava.</li>
+  </ol>
+
+  <table class="botoes">
+    <thead><tr><th>O que aparece</th><th>O que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Só no banco</td><td>O dinheiro se moveu e não há lançamento aqui. <b>Lance</b> no Caixa.</td></tr>
+      <tr><td class="bt">Só no sistema</td><td>Está lançado aqui e não apareceu no banco. Confira se foi mesmo pago, ou se a data está errada.</td></tr>
+      <tr><td class="bt">Vários candidatos</td><td>Dois lançamentos do mesmo valor em datas próximas. Escolha o certo — o sistema propõe, você decide.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 12 ==================== -->
+<section class="cap" id="cap-12">
+  <div class="cap-num">Capítulo 12<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Taxas e impostos</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Quatro abas: a taxa da <b>maquininha</b>, o <b>regime tributário</b>, um
+  <b>simulador</b> e a <b>apuração do mês</b>.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Recebimentos</b> › aba <b>Taxas e impostos</b></span></p>
+
+  <h2>12.1 · Maquininha</h2>
+  <ol class="passos">
+    <li><b>Nova taxa</b>.</li>
+    <li><b>Adquirente</b> (Cielo, Stone…), <b>bandeira</b> (opcional), <b>modalidade</b> (débito, crédito),
+      <b>parcelas de … até …</b>.</li>
+    <li><b>Percentual</b> e <b>cai em (dias)</b> — é isso que gera a previsão de recebimento.</li>
+    <li><b>Vigente de</b> — a data a partir da qual a taxa vale.</li>
+    <li><b>Salvar taxa.</b></li>
+  </ol>
+  <ul>
+    <li>A regra <b>mais específica ganha</b>: a taxa da bandeira vence a do adquirente genérico.</li>
+    <li>Reajuste é <b>linha nova com vigência nova</b> — o recebimento de março continua valendo o
+      percentual de março.</li>
+    <li><b>Sem taxa cadastrada o sistema não inventa desconto</b>: o lançamento fica só com o valor bruto.</li>
+  </ul>
+
+  <h2>12.2 · Regime tributário</h2>
+  <ol class="passos">
+    <li><b>Novo tributo</b>.</li>
+    <li><b>Sigla</b> (ISS, PIS, COFINS, IRPJ, CSLL), <b>alíquota (%)</b> e <b>base de cálculo (%)</b>.</li>
+    <li><b>Convênio que retém na fonte</b> (opcional) — preencha quando aquele convênio já desconta o
+      imposto antes de depositar.</li>
+    <li><b>Vigente de … até …</b> e <b>Salvar tributo.</b></li>
+  </ol>
+  <div class="atencao">
+    <b>A base de cálculo não é enfeite</b>
+    <p>Nem todo tributo incide sobre a receita inteira. No Lucro Presumido, o IRPJ de <b>15%</b> incide
+    sobre <b>32%</b> da receita — a alíquota efetiva é <b>4,8%</b>. Digitar 15% com base 100% triplicaria
+    o imposto.</p>
+  </div>
+  <div class="nota">
+    <b>Retenção substitui, não soma</b>
+    <p>Quando o convênio retém na fonte, aquela retenção <b>substitui</b> os tributos gerais naquele
+    recebimento. Somar os dois conta o mesmo imposto duas vezes — é o erro clássico da planilha de convênio.</p>
+  </div>
+  <p class="suave">A <b>alíquota única</b> é o modo antigo, e só vale enquanto não houver tributo vigente
+  cadastrado. Assim que houver, o campo <b>some</b> da tela — campo que não faz nada é pior que campo nenhum.</p>
+
+  <h2>12.3 · Simulador e Apuração do mês</h2>
+  <p>O <b>Simulador</b> responde “quanto sobra e quando cai” de um recebimento hipotético: informe valor,
+  forma, adquirente, bandeira e parcelas, e ele mostra o líquido e a data.</p>
+  <p>A <b>Apuração do mês</b> calcula quanto de cada tributo saiu, com a lista detalhada.
+  Cada tributo é arredondado <b>separadamente</b>, para o total bater com a soma do detalhe — e é o
+  detalhe que vai ao contador. Se a apuração de agora divergir do que foi gravado na época, o sistema
+  <b>mostra a divergência</b> em vez de escondê-la: quer dizer que uma alíquota mudou depois de o dinheiro
+  entrar, e quem decide qual número vai para a guia é a clínica.</p>
+</section>
+
+<!-- ==================== 13 ==================== -->
+<section class="cap" id="cap-13">
+  <div class="cap-num">Capítulo 13<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Estoque</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Agulhas, materiais e medicamentos. O saldo é sempre a <b>soma dos movimentos</b> —
+  não existe um campo “quantidade” para alguém digitar, porque total guardado é como o estoque para de bater.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Estoque</b></span></p>
+
+  <h2>13.1 · Cadastrar um item</h2>
+  <ol class="passos">
+    <li><b>Novo item</b>.</li>
+    <li><b>Nome</b>, <b>unidade</b> (un, ml, cx) e <b>estoque mínimo</b> — abaixo dele o item entra na
+      lista de compras.</li>
+    <li><b>Salvar item.</b></li>
+  </ol>
+
+  <h2>13.2 · Movimentar</h2>
+  <ol class="passos">
+    <li>Selecione o item e clique em <b>Movimentar…</b></li>
+    <li><b>Tipo</b>: entrada (compra), saída, perda ou acerto.</li>
+    <li><b>Quantidade</b>, <b>data</b> e, na entrada, <b>custo unitário</b>, <b>validade</b> e <b>lote</b>.</li>
+    <li><b>Registrar.</b></li>
+  </ol>
+  <table class="botoes">
+    <thead><tr><th>Tipo de movimento</th><th>Quando usar</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Entrada</td><td>Compra. É aqui que entram <b>validade e lote</b> — a validade fica no lote, não no item, senão o lote que vence primeiro some.</td></tr>
+      <tr><td class="bt">Saída</td><td>Consumo fora da sessão. O consumo <b>da sessão</b> baixa sozinho no fechamento, no balcão.</td></tr>
+      <tr><td class="bt">Perda</td><td>Quebrou, venceu, extraviou. <b>Exige motivo escrito</b> — é uma afirmação sobre o que aconteceu.</td></tr>
+      <tr><td class="bt">Acerto de inventário</td><td>Quando a contagem não bate. Informe a <b>quantidade CONTADA</b> (“tenho 37”), e não a diferença. Serve para os dois lados: achou a mais ou a menos.</td></tr>
+    </tbody>
+  </table>
+  <div class="nota">
+    <b>Perda e acerto não são a mesma coisa</b>
+    <p>Perda <b>afirma</b> que alguém quebrou, venceu ou extraviou. Quando a contagem acha <b>a mais</b>,
+    ou quando a diferença vem de digitação antiga, chamar de perda mente sobre o que aconteceu — e é essa
+    mentira que faz o custo médio do insumo parar de valer.</p>
+  </div>
+
+  <h2>13.3 · Os outros botões</h2>
+  <table class="botoes">
+    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Extrato</td><td>Todos os movimentos daquele item, com o <b>saldo após cada um</b>, o motivo da perda e quem fez. É a tela para usar quando o saldo não bate.</td></tr>
+      <tr><td class="bt">Inventário…</td><td>A contagem: informe o que contou e o sistema gera o acerto.</td></tr>
+      <tr><td class="bt">Validades e mínimos…</td><td>O que está para vencer e o que está abaixo do mínimo.</td></tr>
+      <tr><td class="bt">Lista de compras</td><td>O que precisa ser comprado.</td></tr>
+      <tr><td class="bt">Custo por sessão</td><td>Aba que mostra quanto custa, em material, uma sessão média no período. <b>Só entra saída ligada a atendimento</b> — a baixa digitada à mão não é de sessão nenhuma, e rateá-la daria a cada uma um custo que ela não teve.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 14 ==================== -->
+<section class="cap" id="cap-14">
+  <div class="cap-num">Capítulo 14<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Repasses</h1>
+  <div class="cap-linha"></div>
+  <p class="cap-intro">Quanto a clínica paga a cada profissional pelo que ele atendeu.</p>
+
+  <p><span class="caminho">Menu <b>FINANCEIRO › Repasses</b></span></p>
+
+  <h2>14.1 · Cadastrar a regra</h2>
+  <ol class="passos">
+    <li><b>Regras e apurações…</b> › nova regra.</li>
+    <li><b>Profissional</b> e <b>base do cálculo</b>: <b>percentual da receita</b> ou <b>valor por
+      atendimento</b>.</li>
+    <li>Informe o percentual (ou o valor) e a <b>vigência</b>.</li>
+    <li><b>Salvar regra.</b></li>
+  </ol>
+  <div class="nota">
+    <b>O percentual incide sobre a receita que ENTROU</b>
+    <p>Não sobre o que foi faturado. E o repasse conta só o que foi <b>realizado</b> — sessão marcada para
+    a semana que vem, ou dinheiro que o paciente ainda não trouxe, não entra.</p>
+  </div>
+
+  <h2>14.2 · Apurar</h2>
+  <ol class="passos">
+    <li>Escolha o período (◀ ▶).</li>
+    <li>Confira a lista <b>A repassar no período</b>, profissional por profissional.</li>
+    <li>Clique em <b>Apurar</b>. Isso <b>trava o período</b> e gera a saída no caixa.</li>
+  </ol>
+  <div class="atencao">
+    <b>Apurar duas vezes é dinheiro que não volta</b>
+    <p>Por isso a apuração trava o período. Se precisar refazer, <b>cancele a apuração</b> — e o
+    cancelamento desfaz junto a saída no caixa.</p>
+  </div>
+  <div class="nota">
+    <b>Mudar o percentual hoje não reescreve o mês já pago</b>
+    <p>A regra tem vigência, como a taxa e o preço. O que vale no mês de março é o percentual de março.</p>
+  </div>
+</section>
+
+<!-- ==================== 15 ==================== -->
+<section class="cap" id="cap-15">
+  <div class="cap-num">Capítulo 15<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Resultado do mês e Produção</h1>
+  <div class="cap-linha"></div>
+
+  <h2>15.1 · Resultado do mês</h2>
+  <p>A leitura final do período, em linhas que se leem de cima para baixo:</p>
+  <table class="botoes">
+    <thead><tr><th>Linha</th><th>O que é</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Receita bruta</td><td>Tudo o que entrou.</td></tr>
+      <tr><td class="bt">(−) Deduções</td><td><b>Taxa de maquininha e imposto.</b> São deduções, não despesas: saem da receita antes de ela existir. Listá-las junto do aluguel faria a clínica achar que pode cortá-las.</td></tr>
+      <tr><td class="bt">(=) Receita líquida</td><td>O que sobrou da receita.</td></tr>
+      <tr><td class="bt">(−) Despesas</td><td>Aluguel, salários, material, repasse — o que a clínica gasta.</td></tr>
+      <tr><td class="bt">(=) Resultado</td><td>O que sobrou no mês.</td></tr>
+      <tr><td class="bt">Margem</td><td>O resultado sobre a receita. <b>Sem receita ela é “—”</b>, e não 0% — um mês sem faturamento não é um mês que faturou e não sobrou nada.</td></tr>
+    </tbody>
+  </table>
+  <div class="atencao">
+    <b>Isto é regime de CAIXA, e a tela diz isso</b>
+    <p>Conta o dinheiro que <b>se moveu</b> no mês. Competência exigiria provisão e rateio que a clínica não
+    mantém — e número aproximado apresentado como contábil é pior que número honesto apresentado como caixa.</p>
+  </div>
+  <p>A aba <b>Teto de gasto</b> permite definir um limite por categoria (<b>Definir teto</b>). O sistema
+  mostra quanto já foi gasto e quanto está <b>comprometido</b> — contas previstas que ainda vão vencer.
+  Não é dinheiro que saiu, mas é dinheiro já decidido, e o teto costuma estourar no que foi contratado.</p>
+
+  <h2>15.2 · Produção</h2>
+  <p>Quantas sessões e quanto de receita por período, em <b>6</b> ou <b>12 meses</b>. É a leitura de volume,
+  para acompanhar o crescimento.</p>
+</section>
+
+<!-- ==================== 16 ==================== -->
+<section class="cap" id="cap-16">
+  <div class="cap-num">Capítulo 16<a class="voltar" href="#sumario">sumário</a></div>
+  <h1 class="cap-titulo">Quando algo dá errado · FAQ · Glossário</h1>
+  <div class="cap-linha"></div>
+
+  <h2>16.1 · Quando algo dá errado</h2>
+  <table class="botoes">
+    <thead><tr><th>O que aparece</th><th>O que fazer</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">“Seu acesso não permite…”</td><td>Aquela ação é de outro cargo. Fale com a direção.</td></tr>
+      <tr><td class="bt">“Não foi possível verificar”</td><td>A leitura falhou. <b>Não é “nada pendente”.</b> Use <b>Atualizar</b>.</td></tr>
+      <tr><td class="bt">O caixa não bate</td><td>Abra o <b>Extrato</b> do item (estoque) ou o <b>Fluxo</b> do período. Confira também se algum lançamento ficou como <b>Previsto</b> quando já foi pago.</td></tr>
+      <tr><td class="bt">Uma guia não sai da Conciliação</td><td>Ela só sai por passar a ter receita. Confira se a receita foi cancelada — nesse caso ela volta sozinha.</td></tr>
+      <tr><td class="bt">Um número apareceu como “—”</td><td><b>Não medido</b>, diferente de zero.</td></tr>
+      <tr><td class="bt">Um erro em inglês</td><td>Falha técnica: anote a hora e o que estava fazendo, e avise a direção. O detalhe fica em <i>erros-ano-mês.txt</i>, na pasta “logs” ao lado do programa.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>16.2 · Perguntas frequentes</h2>
+  <h3>Lancei uma entrada com o valor errado.</h3>
+  <p>Cancele o lançamento (com motivo) e lance de novo. O cancelado fica marcado na lista — não some.</p>
+
+  <h3>O paciente pagou parte hoje e parte depois.</h3>
+  <p>Lance a parte de hoje como <b>realizada</b> e a outra como <b>conta a receber</b>, com o vencimento.
+  Ela vai aparecer em <b>Quem me deve</b> quando vencer.</p>
+
+  <h3>Recebi de um paciente e não sei de que sessão é.</h3>
+  <p>Lance mesmo assim, mas informe <b>de quem é</b>. Depois, se descobrir a sessão, edite o lançamento e
+  preencha <b>“está pagando qual sessão?”</b> — é isso que tira a sessão da lista de particulares.</p>
+
+  <h3>A taxa da maquininha mudou. Edito a que existe?</h3>
+  <p>Não: crie uma <b>linha nova</b> com a vigência a partir de hoje. Editando a antiga você mudaria o
+  cálculo de recebimentos que já aconteceram.</p>
+
+  <h3>Cliquei em Apurar repasse e estava errado.</h3>
+  <p>Cancele a apuração — ela desfaz junto a saída no caixa. Depois corrija a regra e apure de novo.</p>
+
+  <h3>Gerei as contas fixas duas vezes no mesmo mês.</h3>
+  <p>Não duplica. O sistema reconhece que aquela conta daquele mês já foi gerada.</p>
+
+  <h3>Como mando os números para o contador?</h3>
+  <p><b>Exportar</b> ou <b>Exportar CSV</b> nas telas de Caixa, Fluxo, Resultado e Apuração — o arquivo
+  abre direto no Excel, em português.</p>
+
+  <h2>16.3 · Glossário</h2>
+  <table class="glossario">
+    <tbody>
+      <tr><td>Previsto</td><td>Dinheiro que ainda vai se mover (vencimento futuro).</td></tr>
+      <tr><td>Realizado</td><td>Dinheiro que já se moveu.</td></tr>
+      <tr><td>Dedução</td><td>Taxa de maquininha e imposto: sai da receita antes de ela existir.</td></tr>
+      <tr><td>Despesa</td><td>O que a clínica gasta: aluguel, salário, material, repasse.</td></tr>
+      <tr><td>Categoria</td><td>A etiqueta que organiza cada lançamento. Vem do Plano de contas.</td></tr>
+      <tr><td>Conta fixa</td><td>Um molde do que se repete todo mês. Não é lançamento: ela <b>gera</b> as contas.</td></tr>
+      <tr><td>Conciliação</td><td>Conferir duas listas que deviam bater.</td></tr>
+      <tr><td>Guia</td><td>O documento com que a clínica cobra o convênio.</td></tr>
+      <tr><td>Baixa (da guia)</td><td>Registrar que a guia foi efetivada no site do convênio. Não é dinheiro entrando.</td></tr>
+      <tr><td>Glosa</td><td>Quando o convênio recusa pagar uma guia.</td></tr>
+      <tr><td>Retenção na fonte</td><td>Quando o convênio desconta o imposto antes de depositar.</td></tr>
+      <tr><td>Adquirente</td><td>A empresa da maquininha (Cielo, Stone, Rede…).</td></tr>
+      <tr><td>Recebível</td><td>O depósito que a adquirente ainda vai fazer.</td></tr>
+      <tr><td>OFX</td><td>O formato de arquivo do extrato bancário que todo banco exporta.</td></tr>
+      <tr><td>Repasse</td><td>O quanto a clínica paga ao profissional pelo que ele atendeu.</td></tr>
+      <tr><td>Aging</td><td>A “idade” da dívida: há quanto tempo cada valor está vencido.</td></tr>
+      <tr><td>Pacote</td><td>Venda de N sessões por um valor. Não tem relação com a cota do convênio.</td></tr>
+      <tr><td>Custo por sessão</td><td>Quanto de material uma sessão média consumiu no período.</td></tr>
+    </tbody>
+  </table>
+
+  <hr>
+  <p class="suave" style="font-size:9.4pt;">
+    <b>Este manual descreve o aplicativo Financeiro da Clínica SemDor.</b> Os nomes de botões, colunas e
+    campos foram tirados do próprio sistema. Se a sua tela tiver mais (ou menos) itens de menu, é o seu
+    acesso — quem concede é a direção, na tela de Acessos.
+  </p>
+</section>
+
+</body>
+</html>

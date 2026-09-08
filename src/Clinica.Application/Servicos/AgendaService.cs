@@ -613,6 +613,16 @@ public sealed class AgendaService
     /// Check-in no balcão: o paciente chegou. É daqui que sai o tempo de espera — sem
     /// carimbo de chegada a fila não tem como dizer há quanto tempo alguém aguarda.
     ///
+    /// ⛔ SEM PORTA EM PRODUÇÃO desde set/2026, e é decisão da clínica, não esquecimento.
+    /// Ela dispensou a fila em etapas — *"a secretaria marca e o médico/enfermeiro
+    /// atende"* —, e os botões de Chegou · Chamar · Entrou · Voltar saíram das duas
+    /// listas do dia. Este método, o <see cref="ChamarAsync"/>, o
+    /// <see cref="DesfazerChamadaAsync"/> e o <see cref="VoltarEtapaAsync"/> FICAM,
+    /// testados: a fila volta a ter tela no dia em que uma clínica a quiser, e apagar o
+    /// motor obrigaria a reescrevê-lo. Quem varrer "método sem chamador" leia isto antes
+    /// de removê-los — e, se for construir a porta de volta, leia também o
+    /// <see cref="IniciarAtendimentoAsync"/>, que deixou de inventar a chegada.
+    ///
     /// ⚠️ Os cinco movimentos da fila recebem o OPERADOR e gravam trilha (parcela 69):
     /// a parcela 61 criou a permissão do ato e o ato continuava sem autoria — mover a
     /// fila escreve carimbo de hora que alimenta espera, repasse e o fechamento da
@@ -708,7 +718,25 @@ public sealed class AgendaService
         return ag;
     }
 
-    /// <summary>O paciente ENTROU na sala: começo da sessão.</summary>
+    /// <summary>
+    /// O paciente ENTROU na sala: começo da sessão. Desde set/2026 é o ÚNICO carimbo de
+    /// fila que as telas produzem — é o que o "Atender" do profissional grava.
+    ///
+    /// ⚠️ ELE NÃO INVENTA MAIS A CHEGADA NEM A CHAMADA, e a mudança é o preço de a clínica
+    /// ter dispensado o check-in no balcão. Até aqui a entrada direta carimbava
+    /// <c>ChegadaEm</c> e <c>ChamadoEm</c> no mesmo instante, com o argumento (então
+    /// correto) de que o kanban precisava distinguir quem esperou; entrar direto era a
+    /// EXCEÇÃO. Sem os botões de fila, ela virou a regra — e a ficção passaria a produzir
+    /// um NÚMERO FALSO: chegada igual à entrada dá <c>EsperaMinutos = 0</c> para todo
+    /// paciente, e o painel anunciaria "espera média 0 min", isto é, que ninguém espera
+    /// nesta clínica. Medida inventada apresentada como exata é a garantia aparente que
+    /// este projeto recusa desde a parcela 3; sem chegada, <c>EsperaMinutos</c> devolve
+    /// NULO e a tela escreve "—", que é a verdade: não foi medido.
+    ///
+    /// A etapa continua certa porque <c>Agendamento.Etapa</c> olha
+    /// <c>InicioAtendimentoEm</c> PRIMEIRO — entrar sem chegada registrada dá
+    /// <c>EmAtendimento</c>, como sempre deu.
+    /// </summary>
     public async Task<Agendamento> IniciarAtendimentoAsync(
         int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
@@ -719,13 +747,7 @@ public sealed class AgendaService
                 "Este horário não está mais em aberto.");
 
         var agora = quando ?? DateTime.Now;
-        // Entrar direto (paciente que chegou e já foi levado) não pode deixar a espera
-        // nula: sem chegada, o kanban não saberia distinguir quem esperou de quem não
-        // esperou. Pelo mesmo motivo a chamada é carimbada junto — o paciente entrou,
-        // logo foi chamado, e uma linha do tempo com entrada sem chamada não existe.
         var mudou = ag.InicioAtendimentoEm is null;
-        ag.ChegadaEm ??= agora;
-        ag.ChamadoEm ??= agora;
         ag.InicioAtendimentoEm ??= agora;
         if (mudou) await AuditarFilaAsync(ag, operador, "FilaEntrada",
             $"Entrou na sala às {ag.InicioAtendimentoEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);

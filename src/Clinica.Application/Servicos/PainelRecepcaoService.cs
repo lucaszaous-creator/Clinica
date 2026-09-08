@@ -48,7 +48,7 @@ public sealed class PainelRecepcaoService
             Faltas: doDia.Count(a => a.Status == StatusAgendamento.Faltou),
             Cancelados: doDia.Count(a => a.Status == StatusAgendamento.Cancelado),
             Encaixes: doDia.Count(a => a.Encaixe && a.OcupaAgenda),
-            EsperaMediaMinutos: esperaMedia ?? 0,
+            EsperaMediaMinutos: esperaMedia,
             NaListaDeEspera: espera.Count,
             Ocupacao: ocupacao);
     }

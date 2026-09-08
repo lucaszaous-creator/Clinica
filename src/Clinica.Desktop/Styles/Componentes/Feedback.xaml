@@ -173,4 +173,51 @@
         <Setter Property="Margin" Value="24,0,24,24" />
     </Style>
 
+
+    <!-- ===================================================================
+         CRONÔMETRO DO ATENDIMENTO (set/2026) — o visor que corre enquanto o
+         profissional está com o paciente.
+
+         ⛔ NENHUMA TELA DAQUI O USA. Ele está no faturamento pela regra 4 do design
+         system — componente do shell é portado no MESMO commit, porque os dois
+         dicionários não se referenciam (o débito permanente da Fase 4) e a cópia
+         que fica para trás é onde a capacidade some. O faturamento não tem tela de
+         atendimento em curso; se um dia tiver, o visor já está aqui e não vai
+         nascer com outra cara. Pedido da direção, aprovado em mockup
+         (docs/mockups/temporizador-cronometro-digital.html, o "visor neutro").
+         ===================================================================
+
+         O FUNDO ESCURO NÃO É COR NOVA: `Brush.Visor.Fundo`/`Texto` já existem nos
+         tokens desde a captura do retrato do paciente. A referência que a clínica
+         mandou é um painel de LED de academia (azul-neon sobre preto); o que se
+         traduz dela é o CONCEITO — visor escuro, dígitos grandes, h:mm:ss —, não a
+         paleta: aquele painel é um objeto de um metro visto de longe, e este são
+         poucos centímetros a sessenta do olho.
+
+         ⚠️ MONOESPAÇADA de propósito. Num visor que muda a cada segundo, fonte de
+         largura variável faz os dígitos DANÇAREM e o texto ao lado pular — o
+         movimento que se nota deixa de ser o tempo passando e passa a ser o
+         leiaute se mexendo. Consolas está em todo Windows desde o Vista; a Segoe
+         UI da casa entra como caminho de baixo.
+
+         ⚠️ Quem decide o TEXTO é `CronometroDaSessao` (Application), não este
+         estilo: o formato é o que a clínica lê o dia inteiro, e ele precisa morar
+         onde o `dotnet test` alcança. Aqui só se decide como ele se desenha. -->
+    <Style x:Key="Visor.Cronometro" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Visor.Fundo}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Pequeno}" />
+        <Setter Property="Padding" Value="9,3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Visor.Cronometro.Digitos" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Visor.Texto}" />
+        <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <!-- O visor tem largura conhecida (oito caracteres) e não cresce com o dado:
+             não é o caso da checagem 24, e reticências aqui esconderiam os segundos. -->
+        <Setter Property="TextTrimming" Value="None" />
+    </Style>
+
 </ResourceDictionary>
