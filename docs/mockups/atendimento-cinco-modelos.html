@@ -1,0 +1,860 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cinco modelos para a tela de atendimento</title>
+<style>
+/* ============================================================================
+   TOKENS — espelho de tokens/colors.css (fonte da verdade: Styles/Tokens.xaml).
+   Nenhuma cor, raio ou espaçamento novo foi inventado nestes desenhos: tudo o que
+   aparece aqui já existe no design system e já é lido pelo WPF.
+   ============================================================================ */
+:root{
+  --azul-50:#EEF3FC;--azul-100:#D8E3F7;--azul-500:#3F62C9;--azul-600:#123A9E;--azul-700:#0A2E86;--azul-900:#071F5C;
+  --marca-claro:#B0D3F3;--marca-medio:#5E87D9;
+  --cinza-50:#F8FAFC;--cinza-100:#F1F5F9;--cinza-200:#E5E7EB;--cinza-300:#D1D5DB;
+  --cinza-500:#6B7280;--cinza-700:#374151;--cinza-900:#111827;
+  --verde-50:#F0FDF4;--verde-100:#DCFCE7;--verde-600:#16A34A;--verde-700:#15803D;
+  --laranja-100:#FFEDD5;--laranja-600:#EA580C;--laranja-700:#C2410C;
+  --vermelho-100:#FEE2E2;--vermelho-600:#DC2626;--vermelho-700:#B91C1C;
+  --ciano-100:#E0F2FE;--ciano-500:#0EA5E9;--ciano-700:#0369A1;
+  --violeta-50:#F5F3FF;--violeta-600:#7C3AED;--teal-50:#F0FDFA;--teal-600:#0D9488;--rosa-600:#DB2777;
+  --semaforo-vermelho:#C62828;--semaforo-amarelo:#F9A825;--semaforo-verde:#2E7D32;
+  /* semânticos */
+  --acento:var(--azul-600);--acento-suave:var(--azul-50);--acento-tint:var(--azul-100);--foco:var(--azul-500);
+  --fundo:var(--cinza-50);--sup:#FFFFFF;--sup-hover:var(--cinza-100);--raia:var(--cinza-100);
+  --borda:var(--cinza-200);--borda-hover:var(--cinza-300);
+  --tinta:var(--cinza-900);--corpo:var(--cinza-700);--mudo:var(--cinza-500);
+  --visor-bg:var(--cinza-900);--visor-tx:var(--cinza-300);
+  /* layout */
+  --r-peq:4px;--r-med:8px;--r-gra:12px;
+  --fonte:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E7EBF1;color:var(--tinta);font-family:var(--fonte);font-size:15px;line-height:1.5;
+     -webkit-font-smoothing:antialiased}
+
+/* ============ a página do documento (fora do app) ============ */
+.pag{max-width:1400px;margin:0 auto;padding:34px 20px 90px}
+.capa{max-width:92ch}
+h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.4px}
+.sub{color:var(--corpo);margin:0 0 6px;font-size:16px}
+.assin{color:var(--mudo);font-size:13px;margin:14px 0 0}
+.regra{height:1px;background:#D2D8E2;margin:26px 0 0;border:0}
+
+h2{font-size:21px;margin:0 0 6px;letter-spacing:-.2px;display:flex;align-items:center;gap:11px}
+h2 .n{flex:none;width:29px;height:29px;line-height:29px;text-align:center;background:var(--acento);
+      color:#fff;border-radius:999px;font-size:14px;font-weight:600}
+.desenho{margin-top:46px}
+.selo{display:inline-block;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:600;letter-spacing:.02em}
+.selo.rec{background:var(--verde-100);color:var(--verde-700)}
+.selo.alt{background:var(--cinza-100);color:var(--cinza-700)}
+.selo.rev{background:var(--laranja-100);color:var(--laranja-700)}
+.porque{color:var(--corpo);margin:8px 0 16px;max-width:96ch;font-size:14.5px}
+.porque b{color:var(--tinta);font-weight:600}
+.custo{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:22px;margin:0 0 16px;font-size:13px;color:var(--mudo);max-width:104ch}
+.custo b{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600;margin-bottom:1px}
+.custo span{color:var(--corpo)}
+
+/* ============ a janela do app ============ */
+.janela{border:1px solid #C7CEDA;border-radius:10px;overflow:hidden;background:var(--sup);
+        box-shadow:0 1px 2px rgba(17,24,39,.05),0 14px 38px rgba(17,24,39,.10)}
+.tbar{display:flex;align-items:center;gap:7px;padding:9px 14px;background:#F3F5F9;border-bottom:1px solid var(--borda)}
+.tbar i{width:10px;height:10px;border-radius:999px;background:#CBD2DE;display:block}
+.tbar .tit{margin-left:10px;font-size:12px;color:var(--mudo)}
+.app{display:flex;height:730px;background:var(--fundo);font-size:14px;color:var(--tinta)}
+
+/* shell recolhido (Ctrl+B) — 56 px, o mesmo da suíte */
+.shell{width:56px;flex:none;background:var(--sup);border-right:1px solid var(--borda);
+       padding:10px 0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.shell .ic{width:36px;height:36px;border-radius:var(--r-med);display:flex;align-items:center;justify-content:center;color:#8B94A5}
+.shell .ic.on{background:var(--acento-suave);color:var(--acento)}
+.shell .logo{width:30px;height:30px;border-radius:var(--r-med);background:var(--acento);color:#fff;
+             display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-bottom:8px}
+svg.i{display:block}
+
+.ws{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* ============ crachá ============ */
+.cracha{background:var(--sup);border-bottom:1px solid var(--borda);padding:11px 20px;display:flex;align-items:center;gap:14px}
+.volta{width:30px;height:30px;border-radius:var(--r-med);border:1px solid var(--borda);background:var(--sup);
+       color:var(--mudo);flex:none;display:flex;align-items:center;justify-content:center}
+.av{width:44px;height:44px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;
+    font-weight:600;font-size:15px;background:var(--violeta-50);color:var(--violeta-600);letter-spacing:.02em}
+.ident{flex:1;min-width:0}
+.nomep{font-size:17px;font-weight:600;letter-spacing:-.1px}
+.meta{font-size:12.5px;color:var(--mudo);margin-top:2px}
+.num{font-variant-numeric:tabular-nums}
+.l2{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:5px}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600}
+.tag.alergia{background:var(--vermelho-100);color:var(--vermelho-700)}
+.tag.prob{background:var(--cinza-100);color:var(--cinza-700)}
+.tag.mod{background:var(--violeta-50);color:var(--violeta-600)}
+.dir{margin-left:auto;flex:none;display:flex;align-items:center;gap:14px}
+.visor{display:inline-flex;align-items:center;gap:9px;background:var(--visor-bg);border-radius:var(--r-med);
+       padding:6px 13px;color:#fff}
+.visor .pt{width:7px;height:7px;border-radius:999px;background:#4ADE80;flex:none;box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+.visor .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#9AA3B2;font-weight:600;line-height:1.25}
+.visor .t{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:.5px;font-variant-numeric:tabular-nums;line-height:1.15}
+.lk{color:var(--acento);font-size:13px;white-space:nowrap}
+
+/* ============ corpo: rail + conteúdo ============ */
+.corpo{flex:1;min-height:0;display:flex}
+.rail{width:208px;flex:none;background:var(--sup);border-right:1px solid var(--borda);padding:12px 10px;
+      display:flex;flex-direction:column;gap:2px;font-size:13.5px}
+.rail .gr{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--mudo);font-weight:600;
+          padding:12px 10px 5px}
+.rail .gr:first-child{padding-top:2px}
+.rail a{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:var(--r-med);color:var(--corpo);
+        text-decoration:none;line-height:1.3}
+.rail a.on{background:var(--acento-suave);color:var(--acento);font-weight:600}
+.rail a .g{flex:none;color:#98A1B2}
+.rail a.on .g{color:var(--acento)}
+
+.conteudo{flex:1;min-width:0;padding:16px 20px 16px;display:flex;flex-direction:column;min-height:0}
+
+/* avisos: UMA superfície, uma linha por aviso, cor no traço de 3 px */
+.avisos{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-med);padding:10px 14px;margin-bottom:12px}
+.lin{display:flex;align-items:center;gap:12px;padding:4px 0}
+.lin .tr{width:3px;align-self:stretch;border-radius:2px;flex:none;min-height:20px}
+.lin .tr.g{background:var(--semaforo-vermelho)}
+.lin .tr.a{background:var(--semaforo-amarelo)}
+.lin p{margin:0;font-size:13.5px;color:var(--corpo)}
+.lin.grave p{font-weight:600;color:var(--tinta)}
+.lin .bt{margin-left:auto}
+
+/* abas */
+.abas{display:flex;gap:24px;border-bottom:1px solid var(--borda);font-size:14px;color:var(--mudo);flex:none}
+.abas span{padding:0 0 9px;white-space:nowrap}
+.abas span.on{color:var(--acento);font-weight:600;box-shadow:inset 0 -2px 0 var(--acento)}
+
+/* cartão */
+.card{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-gra);margin-top:12px;
+      padding:16px;flex:1;min-height:0;display:flex;flex-direction:column}
+
+/* tira de campos */
+.tira{display:flex;align-items:flex-end;gap:18px;flex-wrap:nowrap}
+.cmp{flex:none}
+.rot{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600;margin-bottom:5px}
+.cx{border:1px solid var(--borda);border-radius:var(--r-peq);background:var(--sup);height:36px;
+    padding:0 11px;display:flex;align-items:center;gap:8px;font-size:14px;color:var(--tinta);min-width:60px;
+    font-variant-numeric:tabular-nums}
+.cx.w{min-width:132px;justify-content:space-between}
+.cx .ch{color:var(--mudo);flex:none}
+.eva{display:flex;align-items:center;gap:9px}
+.eva .seta{color:var(--mudo);font-size:15px}
+.eva .delta{font-size:12.5px;font-weight:600;color:var(--verde-700);background:var(--verde-100);
+            padding:2px 8px;border-radius:999px}
+.fio{width:1px;align-self:stretch;background:var(--borda);margin:0 4px 0 auto;min-height:36px}
+.ferr{display:flex;gap:8px;flex:none}
+.bt{border:1px solid var(--borda);background:var(--sup);border-radius:var(--r-med);height:36px;padding:0 13px;
+    display:inline-flex;align-items:center;gap:7px;font-size:13.5px;color:var(--corpo);white-space:nowrap}
+.bt.pri{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+.bt.peq{height:30px;padding:0 11px;font-size:13px}
+
+/* linha de contexto */
+.ctx{margin-top:13px;font-size:13px;color:var(--mudo);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.ctx b{color:var(--corpo);font-weight:600}
+.ctx .pt{color:var(--cinza-300)}
+
+/* a folha de escrita */
+.folha{margin-top:13px;flex:1;min-height:0;display:flex;flex-direction:column}
+.folha .cab{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+.folha .cab .t{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.folha .cab .g{font-size:12px;color:var(--mudo)}
+.area{flex:1;min-height:0;border:1px solid var(--foco);border-radius:var(--r-peq);padding:13px 15px;
+      background:var(--sup);box-shadow:0 0 0 3px var(--acento-suave);overflow:hidden;
+      font-size:14.5px;line-height:1.65;color:var(--tinta)}
+.area p{margin:0 0 11px}
+.area p:last-child{margin-bottom:0}
+.caret{display:inline-block;width:1.5px;height:16px;background:var(--acento);vertical-align:-3px;margin-left:1px}
+
+/* pé da folha: o detalhe */
+.detalhe{margin-top:12px;border-top:1px solid var(--borda);padding-top:11px;display:flex;align-items:center;gap:12px}
+.detalhe .a{color:var(--acento);font-size:13.5px;font-weight:600}
+.detalhe .campos{font-size:12.5px;color:var(--mudo)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;
+      background:var(--acento-suave);color:var(--acento);margin-left:auto;flex:none}
+
+/* rodapé */
+.rodape{display:flex;align-items:center;gap:12px;padding-top:14px;flex:none}
+.dica{font-size:12.5px;color:var(--mudo)}
+.acoes{margin-left:auto;display:flex;gap:8px}
+
+/* ============ 2 · o dossiê ============ */
+.dossie{background:var(--sup);border-bottom:1px solid var(--borda);padding:14px 20px 15px}
+.dossie .topo{display:flex;align-items:center;gap:14px}
+.dossie .av{width:52px;height:52px;font-size:17px}
+.dossie .nomep{font-size:19px}
+.fichas{display:flex;gap:10px;margin-top:13px;align-items:stretch}
+.ficha{border:1px solid var(--borda);border-radius:var(--r-med);padding:8px 12px;background:var(--sup);flex:0 0 auto}
+.ficha .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.ficha .v{font-size:13.5px;color:var(--tinta);margin-top:3px;white-space:nowrap}
+.ficha.risco{background:#FEF4F4;border-color:#F3C9C9}
+.ficha.risco .k{color:var(--vermelho-700)}
+.ficha.risco .v{color:var(--vermelho-700);font-weight:600}
+.vitais{display:flex;gap:8px;margin-left:auto;flex:none}
+.vt{border:1px solid var(--borda);border-radius:var(--r-med);padding:6px 12px;text-align:center;background:var(--sup);min-width:76px}
+.vt .k{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.vt .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px;letter-spacing:-.2px}
+.vt .u{font-size:11px;color:var(--mudo);font-weight:400}
+.proc{font-size:11.5px;color:var(--mudo);margin-top:7px;text-align:right}
+
+/* ============ 3 · blocos guiados ============ */
+.indice{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.chip{border:1px solid var(--borda);background:var(--sup);border-radius:999px;padding:4px 12px;font-size:12.5px;
+      color:var(--mudo);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.chip.feito{border-color:var(--acento-tint);background:var(--acento-suave);color:var(--acento);font-weight:600}
+.chip .b{width:6px;height:6px;border-radius:999px;background:var(--cinza-300);flex:none}
+.chip.feito .b{background:var(--acento)}
+.blocos{margin-top:12px;flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.bloco{border:1px solid var(--borda);border-radius:var(--r-med);padding:10px 14px;background:var(--sup)}
+.bloco.viva{border-color:var(--foco);box-shadow:0 0 0 3px var(--acento-suave)}
+.bloco.cresce{flex:1;min-height:0}
+.bloco .bk{display:flex;align-items:baseline;gap:9px;margin-bottom:6px}
+.bloco .letra{width:19px;height:19px;border-radius:var(--r-peq);background:var(--acento-suave);color:var(--acento);
+              font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.bloco .bt2{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.bloco .aj{font-size:12px;color:var(--mudo);margin-left:auto}
+.bloco .tx{font-size:14px;line-height:1.55;color:var(--tinta)}
+.bloco .vazio{font-size:13.5px;color:var(--cinza-300)}
+.dupla{display:flex;gap:12px}
+.dupla>*{flex:1;min-width:0}
+
+/* ============ 4 · modo consulta ============ */
+.foco{flex:1;display:flex;flex-direction:column;background:var(--fundo)}
+.barrafoco{background:var(--visor-bg);color:#fff;padding:10px 20px;display:flex;align-items:center;gap:16px}
+.barrafoco .nm{font-size:15.5px;font-weight:600}
+.barrafoco .mt{font-size:12.5px;color:#9AA3B2}
+.barrafoco .tg{background:rgba(255,255,255,.10);border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:600;color:#DDE3EC}
+.barrafoco .tg.al{background:rgba(220,38,38,.22);color:#FFC9C9}
+.barrafoco .rel{margin-left:auto;display:flex;align-items:center;gap:11px;flex:none}
+.barrafoco .rel .t{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:.6px;font-variant-numeric:tabular-nums}
+.barrafoco .sair{border:1px solid rgba(255,255,255,.22);border-radius:var(--r-med);height:34px;padding:0 13px;
+                 display:inline-flex;align-items:center;font-size:13px;color:#DDE3EC}
+.papel{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;padding:20px 24px 0;overflow:hidden}
+.papelcx{width:100%;max-width:900px;flex:1;min-height:0;display:flex;flex-direction:column}
+.papelcab{display:flex;align-items:center;gap:16px;margin-bottom:11px}
+.papelcab .dt{font-size:13px;color:var(--mudo);font-variant-numeric:tabular-nums}
+.papelcx .area{font-size:15.5px;line-height:1.7;padding:18px 22px;border-radius:var(--r-med);box-shadow:0 0 0 3px var(--acento-suave)}
+.barrabaixo{background:var(--sup);border-top:1px solid var(--borda);padding:11px 20px;display:flex;align-items:center;gap:9px}
+
+/* ============ 5 · contexto ao lado ============ */
+.split{display:flex;gap:14px;flex:1;min-height:0}
+.split .tira{flex-wrap:wrap;row-gap:12px}
+.split .fio{display:none}
+.split .ferr{margin-left:auto}
+.split .detalhe .campos{display:none}
+.split .esq{flex:1;min-width:0;display:flex;flex-direction:column}
+.painel{width:400px;flex:none;background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-gra);
+        display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.painel .ph{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--borda)}
+.painel .ph .t{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.painel .ph .x{margin-left:auto;color:var(--mudo);font-size:15px;line-height:1}
+.seg{display:flex;gap:0;padding:10px 14px 0}
+.seg span{font-size:12.5px;color:var(--mudo);padding:5px 11px;border-radius:var(--r-med);white-space:nowrap}
+.seg span.on{background:var(--acento-suave);color:var(--acento);font-weight:600}
+.pcorpo{padding:12px 14px 14px;overflow:hidden;flex:1;min-height:0}
+.sessao{padding:11px 0;border-bottom:1px solid var(--borda)}
+.sessao:first-child{padding-top:2px}
+.sessao .dt{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.sessao .ev{font-size:12.5px;color:var(--mudo);margin-top:1px}
+.sessao .rt{font-size:13px;font-weight:600;color:var(--acento);margin-top:6px}
+.sessao .cp{display:flex;gap:11px;margin-top:5px;font-size:13px;line-height:1.5}
+.sessao .cp .k{flex:none;width:74px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mudo);
+               font-weight:600;padding-top:2px}
+.sessao .cp .v{color:var(--corpo);min-width:0}
+</style>
+
+<div class="pag">
+<div class="capa">
+  <h1>Cinco modelos para a tela de atendimento</h1>
+  <p class="sub">Cinco caminhos para a mesma tela — do refinamento do que já está no ar até a troca do desenho.
+     Todos usam <b>só</b> tokens, componentes e campos que o sistema já tem: nenhuma cor nova, nenhum campo
+     inventado, nada que o prontuário não guarde hoje.</p>
+  <p class="assin">Desenhados a 1366 px de largura — a tela do balcão — para provar que cabem na menor máquina da
+     clínica. A barra da esquerda aparece recolhida (Ctrl+B), como na foto que a direção mandou.
+     Paciente e dados são fictícios.</p>
+  <hr class="regra">
+</div>
+
+<!-- ============================== 1 ============================== -->
+<div class="desenho">
+<h2><span class="n">1</span> A folha, bem-feita <span class="selo rec">recomendado</span></h2>
+<p class="porque">A mesma estrutura que a direção aprovou — a folha única, as três abas, o rodapé —, executada com
+   o acabamento que falta hoje: <b>hierarquia tipográfica</b> (o nome do paciente deixa de ter o mesmo peso da
+   legenda ao lado), <b>rótulos em versalete</b> sobre cada campo, o par da <b>EVA com a variação calculada</b>,
+   a <b>linha de contexto viva</b> — a última sessão e o que a enfermagem aferiu hoje, com quem aferiu — e a barra
+   de ferramentas separada dos campos por um fio. O botão <b>“Emitir documento” aparecia duas vezes</b> na foto:
+   aqui ele aparece uma. Nada muda de lugar: quem usa a tela hoje não reaprende nada.</p>
+<div class="custo">
+  <div><b>o que muda</b><span>só XAML — nenhum serviço, nenhuma migration</span></div>
+  <div><b>risco</b><span>baixo</span></div>
+  <div><b>ganho</b><span>a tela deixa de parecer um formulário e passa a parecer um prontuário</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+  <div class="shell">
+    <div class="logo">SD</div>
+    <div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4 M 8 15 h 5"/></svg></div>
+    <div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></div>
+    <div class="ic on"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></div>
+    <div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></div>
+    <div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 19 h 16 M 4 5 h 4 v 14 M 12 9 h 4 v 10 M 20 13 h -4"/></svg></div>
+    <div class="ic" style="margin-top:auto"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 9.5 9.5 a 2.5 2.5 0 1 1 3.5 2.3 c -.7 .4 -1 .9 -1 1.7 M 12 17 h .01"/></svg></div>
+  </div>
+
+  <div class="ws">
+
+    <div class="cracha">
+      <div class="volta"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 12 a 8 8 0 1 0 3 -6.2 M 4 4 v 5 h 5"/></svg></div>
+      <div class="av">MS</div>
+      <div class="ident">
+        <div class="nomep">Maria da Silva</div>
+        <div class="meta num">38 anos &nbsp;·&nbsp; feminino &nbsp;·&nbsp; Unimed Costa do Sol (Padrão) &nbsp;·&nbsp; paciente desde 05/08/2026 &nbsp;·&nbsp; 5 sessões</div>
+        <div class="l2">
+          <span class="tag alergia">Alergias: dipirona · AAS</span>
+          <span class="tag prob">Lombalgia crônica · Hipertensão</span>
+          <span class="tag mod">Acupuntura + eletro · 09h00</span>
+        </div>
+      </div>
+      <div class="dir">
+        <div class="visor"><span class="pt"></span><div><div class="k">em atendimento</div><div class="t">00:12:35</div></div></div>
+        <span class="lk">Trocar paciente</span>
+      </div>
+    </div>
+
+    <div class="corpo">
+      <div class="rail">
+        <div class="gr">Sessão</div>
+        <a class="on"><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 H 17 A 2 2 0 0 1 19 6 V 19 A 2 2 0 0 1 17 21 H 7 A 2 2 0 0 1 5 19 V 6 A 2 2 0 0 1 7 4 Z M 9 4 V 2 h 6 v 2 M 9 11 h 6 M 9 15 h 4"/></svg></span>Atendimento</a>
+        <a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></span>Atendimento de enfermagem</a>
+        <div class="gr">Paciente</div>
+        <a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></span>Paciente</a>
+        <a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 6 h 13 M 8 12 h 13 M 8 18 h 13 M 3 6 h .01 M 3 12 h .01 M 3 18 h .01"/></svg></span>Histórico</a>
+        <a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 7 a 2 2 0 0 1 2 -2 h 4 l 2 2 h 8 a 2 2 0 0 1 2 2 v 9 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 z"/></svg></span>Exames e anexos</a>
+        <a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></span>Prescrições e documentos</a>
+        <a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 20 V 10 M 10 20 V 4 M 16 20 v -8 M 22 20 H 2"/></svg></span>Acompanhamento</a>
+      </div>
+
+      <div class="conteudo">
+        <div class="avisos">
+          <div class="lin grave"><span class="tr g"></span>
+            <p>O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui.</p>
+            <span class="bt peq">Colher assinatura…</span></div>
+          <div class="lin"><span class="tr a"></span>
+            <p>Sem consentimento LGPD de tratamento de dados — colha no balcão.</p></div>
+        </div>
+
+        <div class="abas"><span class="on">A sessão de hoje</span><span>Sessões anteriores</span><span>Enfermagem e infusões</span></div>
+
+        <div class="card">
+          <div class="tira">
+            <div class="cmp"><span class="rot">Data da sessão</span>
+              <div class="cx w"><span class="num">08/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="cmp"><span class="rot">EVA — antes e depois</span>
+              <div class="eva"><div class="cx">7</div><span class="seta">→</span><div class="cx">4</div><span class="delta">−3</span></div></div>
+            <div class="cmp"><span class="rot">Retorno sugerido</span>
+              <div class="cx w"><span class="num">15/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="fio"></div>
+            <div class="ferr">
+              <span class="bt">Colher termo…</span>
+              <span class="bt">Mapa corporal</span>
+              <span class="bt">Emitir documento</span>
+              <span class="bt">Modelos…</span>
+            </div>
+          </div>
+
+          <div class="ctx">
+            <span><b>Última sessão</b> 01/09 · EVA 7 → 4 · retorno em 7 dias</span>
+            <span class="pt">·</span>
+            <span><b>Hoje na enfermagem</b> PA 120×80 · FC 72 · Tax 36,4 °C — Joana Ribeiro (COREN-SP 999999), às 09h12</span>
+          </div>
+
+          <div class="folha">
+            <div class="cab"><span class="t">A sessão de hoje</span><span class="g">Última gravação às 09h41</span></div>
+            <div class="area">
+              <p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor
+                 passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação
+                 para o membro inferior.</p>
+              <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco
+                 preservada.</p>
+              <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa
+                 deslizante em região lombar. Sem intercorrências durante a sessão.</p>
+              <p>Orientada a manter os alongamentos em casa, 2×/dia, e a retornar em 7 dias.<span class="caret"></span></p>
+            </div>
+          </div>
+
+          <div class="detalhe">
+            <span class="a">Detalhar em campos separados…</span>
+            <span class="campos">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+            <span class="pill">3 campos preenchidos</span>
+          </div>
+        </div>
+
+        <div class="rodape">
+          <span class="dica">Finalizar grava a sessão, encerra o horário e gera a guia.</span>
+          <div class="acoes">
+            <span class="bt">Imprimir a sessão</span>
+            <span class="bt">Salvar</span>
+            <span class="bt pri">Finalizar atendimento</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============================== 2 ============================== -->
+<div class="desenho">
+<h2><span class="n">2</span> O dossiê clínico <span class="selo alt">alternativa</span></h2>
+<p class="porque">O peso vai para a <b>identidade e a segurança</b>. O crachá vira um cabeçalho de verdade: alergias em destaque vermelho, problemas ativos, as últimas hipóteses — e, à direita, <b>os sinais vitais que a enfermagem aferiu hoje</b>, com a hora e o COREN de quem aferiu. Tudo isso o sistema já grava; hoje ele cabe numa linha de texto miúdo ou não aparece. Em troca, a linha de contexto some da folha (o cabeçalho já a diz) e a área de escrita perde ~120 px de altura.</p>
+<div class="custo">
+  <div><b>o que muda</b><span>só XAML — os dados já vêm carregados no cabeçalho</span></div>
+  <div><b>risco</b><span>baixo</span></div>
+  <div><b>ganho</b><span>quem prescreve vê alergia, problema e sinal vital sem clicar em nada</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="shell"><div class="logo">SD</div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4 M 8 15 h 5"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></div>
+<div class="ic on"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 19 h 16 M 4 5 h 4 v 14 M 12 9 h 4 v 10 M 20 13 h -4"/></svg></div>
+<div class="ic" style="margin-top:auto"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 9.5 9.5 a 2.5 2.5 0 1 1 3.5 2.3 c -.7 .4 -1 .9 -1 1.7 M 12 17 h .01"/></svg></div></div>
+  <div class="ws">
+    <div class="dossie">
+      <div class="topo">
+        <div class="volta"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 12 a 8 8 0 1 0 3 -6.2 M 4 4 v 5 h 5"/></svg></div>
+        <div class="av">MS</div>
+        <div class="ident">
+          <div class="nomep">Maria da Silva</div>
+          <div class="meta num">38 anos &nbsp;·&nbsp; feminino &nbsp;·&nbsp; Unimed Costa do Sol (Padrão) &nbsp;·&nbsp; carteirinha 9847 7221 0004 &nbsp;·&nbsp; paciente desde 05/08/2026 &nbsp;·&nbsp; 5 sessões</div>
+        </div>
+        <div class="dir"><div class="visor"><span class="pt"></span><div><div class="k">em atendimento</div><div class="t">00:12:35</div></div></div><span class="lk">Trocar paciente</span></div>
+      </div>
+      <div class="fichas">
+        <div class="ficha risco"><div class="k">Alergias</div><div class="v">dipirona · AAS</div></div>
+        <div class="ficha"><div class="k">Problemas ativos</div><div class="v">Lombalgia crônica · Hipertensão</div></div>
+        <div class="ficha"><div class="k">Últimas hipóteses</div><div class="v">Lombalgia mecânica (M54.5)</div></div>
+        <div class="ficha"><div class="k">Hoje</div><div class="v">Acupuntura + eletro</div></div>
+        <div class="vitais">
+          <div class="vt"><div class="k">PA</div><div class="v">120<span class="u">×</span>80</div></div>
+          <div class="vt"><div class="k">FC</div><div class="v">72 <span class="u">bpm</span></div></div>
+          <div class="vt"><div class="k">Tax</div><div class="v">36,4 <span class="u">°C</span></div></div>
+          <div class="vt"><div class="k">SpO₂</div><div class="v">97 <span class="u">%</span></div></div>
+        </div>
+      </div>
+      <div class="proc">Aferidos por Joana Ribeiro (COREN-SP 999999), às 09h12 — na passagem de enfermagem de hoje</div>
+    </div>
+
+    <div class="corpo">
+      <div class="rail">
+<div class="gr">Sessão</div>
+<a class="on"><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 H 17 A 2 2 0 0 1 19 6 V 19 A 2 2 0 0 1 17 21 H 7 A 2 2 0 0 1 5 19 V 6 A 2 2 0 0 1 7 4 Z M 9 4 V 2 h 6 v 2 M 9 11 h 6 M 9 15 h 4"/></svg></span>Atendimento</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></span>Atendimento de enfermagem</a>
+<div class="gr">Paciente</div>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></span>Paciente</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 6 h 13 M 8 12 h 13 M 8 18 h 13 M 3 6 h .01 M 3 12 h .01 M 3 18 h .01"/></svg></span>Histórico</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 7 a 2 2 0 0 1 2 -2 h 4 l 2 2 h 8 a 2 2 0 0 1 2 2 v 9 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 z"/></svg></span>Exames e anexos</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></span>Prescrições e documentos</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 20 V 10 M 10 20 V 4 M 16 20 v -8 M 22 20 H 2"/></svg></span>Acompanhamento</a>
+</div>
+      <div class="conteudo">
+        <div class="avisos">
+          <div class="lin grave"><span class="tr g"></span>
+            <p>O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui.</p>
+            <span class="bt peq">Colher assinatura…</span></div>
+          <div class="lin"><span class="tr a"></span>
+            <p>Sem consentimento LGPD de tratamento de dados — colha no balcão.</p></div>
+        </div>
+        <div class="abas"><span class="on">A sessão de hoje</span><span>Sessões anteriores</span><span>Enfermagem e infusões</span></div>
+        <div class="card">
+          <div class="tira">
+            <div class="cmp"><span class="rot">Data da sessão</span>
+              <div class="cx w"><span class="num">08/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="cmp"><span class="rot">EVA — antes e depois</span>
+              <div class="eva"><div class="cx">7</div><span class="seta">→</span><div class="cx">4</div><span class="delta">−3</span></div></div>
+            <div class="cmp"><span class="rot">Retorno sugerido</span>
+              <div class="cx w"><span class="num">15/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="fio"></div>
+            <div class="ferr"><span class="bt">Colher termo…</span>
+<span class="bt">Mapa corporal</span>
+<span class="bt">Emitir documento</span>
+<span class="bt">Modelos…</span></div>
+          </div>
+          <div class="folha">
+            <div class="cab"><span class="t">A sessão de hoje</span><span class="g">Última gravação às 09h41</span></div>
+            <div class="area"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor
+                 passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação
+                 para o membro inferior.</p>
+              <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco
+                 preservada.</p>
+              <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa
+                 deslizante em região lombar. Sem intercorrências.<span class="caret"></span></p></div>
+          </div>
+          <div class="detalhe">
+            <span class="a">Detalhar em campos separados…</span>
+            <span class="campos">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+            <span class="pill">3 campos preenchidos</span>
+          </div>
+        </div>
+        <div class="rodape">
+          <span class="dica">Finalizar grava a sessão, encerra o horário e gera a guia.</span>
+          <div class="acoes">
+            <span class="bt">Imprimir a sessão</span>
+            <span class="bt">Salvar</span>
+            <span class="bt pri">Finalizar atendimento</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- ============================== 3 ============================== -->
+<div class="desenho">
+<h2><span class="n">3</span> A folha guiada — S · O · A · P <span class="selo rev">reabre uma decisão</span></h2>
+<p class="porque">Os doze campos que hoje moram atrás da janela do “Detalhar…” voltam para a folha, como <b>blocos com nome</b>, na ordem em que a consulta acontece: o que a pessoa diz, o que se acha nela, o que isso é, o que se vai fazer. Em cima, um <b>índice</b> que marca o que já foi escrito. O texto livre continua sendo o primeiro e o maior bloco — ninguém é obrigado a preencher nada. ⚠️ Isto <b>reabre a decisão de set/2026</b> (“pode diminuir a quantidade de campos… é melhor segundo eles”): só faz sentido se a direção quiser o registro estruturado de volta.</p>
+<div class="custo">
+  <div><b>o que muda</b><span>só XAML — os campos e as colunas já existem</span></div>
+  <div><b>risco</b><span>médio — muda o desenho aprovado</span></div>
+  <div><b>ganho</b><span>prontuário completo sem abrir janela; melhor para relatório e auditoria</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="shell"><div class="logo">SD</div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4 M 8 15 h 5"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></div>
+<div class="ic on"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 19 h 16 M 4 5 h 4 v 14 M 12 9 h 4 v 10 M 20 13 h -4"/></svg></div>
+<div class="ic" style="margin-top:auto"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 9.5 9.5 a 2.5 2.5 0 1 1 3.5 2.3 c -.7 .4 -1 .9 -1 1.7 M 12 17 h .01"/></svg></div></div>
+  <div class="ws">
+    <div class="cracha">
+      <div class="volta"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 12 a 8 8 0 1 0 3 -6.2 M 4 4 v 5 h 5"/></svg></div>
+      <div class="av">MS</div>
+      <div class="ident">
+        <div class="nomep">Maria da Silva</div>
+        <div class="meta num">38 anos &nbsp;·&nbsp; feminino &nbsp;·&nbsp; Unimed Costa do Sol (Padrão) &nbsp;·&nbsp; paciente desde 05/08/2026 &nbsp;·&nbsp; 5 sessões</div>
+        <div class="l2">
+          <span class="tag alergia">Alergias: dipirona · AAS</span>
+          <span class="tag prob">Lombalgia crônica · Hipertensão</span>
+          <span class="tag mod">Acupuntura + eletro · 09h00</span>
+        </div>
+      </div>
+      <div class="dir"><div class="visor"><span class="pt"></span><div><div class="k">em atendimento</div><div class="t">00:12:35</div></div></div><span class="lk">Trocar paciente</span></div>
+    </div>
+    <div class="corpo">
+      <div class="rail">
+<div class="gr">Sessão</div>
+<a class="on"><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 H 17 A 2 2 0 0 1 19 6 V 19 A 2 2 0 0 1 17 21 H 7 A 2 2 0 0 1 5 19 V 6 A 2 2 0 0 1 7 4 Z M 9 4 V 2 h 6 v 2 M 9 11 h 6 M 9 15 h 4"/></svg></span>Atendimento</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></span>Atendimento de enfermagem</a>
+<div class="gr">Paciente</div>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></span>Paciente</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 6 h 13 M 8 12 h 13 M 8 18 h 13 M 3 6 h .01 M 3 12 h .01 M 3 18 h .01"/></svg></span>Histórico</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 7 a 2 2 0 0 1 2 -2 h 4 l 2 2 h 8 a 2 2 0 0 1 2 2 v 9 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 z"/></svg></span>Exames e anexos</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></span>Prescrições e documentos</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 20 V 10 M 10 20 V 4 M 16 20 v -8 M 22 20 H 2"/></svg></span>Acompanhamento</a>
+</div>
+      <div class="conteudo">
+        <div class="avisos">
+          <div class="lin grave"><span class="tr g"></span>
+            <p>O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui.</p>
+            <span class="bt peq">Colher assinatura…</span></div>
+          
+        </div>
+        <div class="abas"><span class="on">A sessão de hoje</span><span>Sessões anteriores</span><span>Enfermagem e infusões</span></div>
+        <div class="card">
+          <div class="tira">
+            <div class="cmp"><span class="rot">Data da sessão</span>
+              <div class="cx w"><span class="num">08/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="cmp"><span class="rot">EVA — antes e depois</span>
+              <div class="eva"><div class="cx">7</div><span class="seta">→</span><div class="cx">4</div><span class="delta">−3</span></div></div>
+            <div class="cmp"><span class="rot">Retorno sugerido</span>
+              <div class="cx w"><span class="num">15/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="fio"></div>
+            <div class="ferr"><span class="bt">Mapa corporal</span>
+<span class="bt">Emitir documento</span>
+<span class="bt">Modelos…</span></div>
+          </div>
+          <div class="indice">
+            <span class="chip feito"><span class="b"></span>Sessão</span>
+            <span class="chip feito"><span class="b"></span>Queixa</span>
+            <span class="chip feito"><span class="b"></span>Exame</span>
+            <span class="chip feito"><span class="b"></span>Hipótese</span>
+            <span class="chip"><span class="b"></span>Conduta</span>
+            <span class="chip"><span class="b"></span>Encaminhamento</span>
+          </div>
+          <div class="blocos">
+            <div class="bloco viva cresce">
+              <div class="bk"><span class="letra">S</span><span class="bt2">A sessão de hoje — texto livre</span><span class="aj">o que você escreveria de qualquer jeito</span></div>
+              <div class="tx">Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor passou a
+                incomodar apenas no fim do dia e não a acordou mais durante a noite.<span class="caret"></span></div>
+            </div>
+            <div class="dupla">
+              <div class="bloco">
+                <div class="bk"><span class="letra">S</span><span class="bt2">Queixa e história</span></div>
+                <div class="tx">Lombalgia há 4 meses, sem trauma. Piora ao fim do dia.</div>
+              </div>
+              <div class="bloco">
+                <div class="bk"><span class="letra">O</span><span class="bt2">Exame físico</span></div>
+                <div class="tx">Contratura em quadrado lombar D. Lasègue negativo.</div>
+              </div>
+            </div>
+            <div class="dupla">
+              <div class="bloco">
+                <div class="bk"><span class="letra">A</span><span class="bt2">Hipótese diagnóstica</span><span class="aj">CID M54.5</span></div>
+                <div class="tx">Lombalgia mecânica, sem sinais de alarme.</div>
+              </div>
+              <div class="bloco">
+                <div class="bk"><span class="letra">P</span><span class="bt2">Conduta e plano</span></div>
+                <div class="vazio">Agulhamento, orientações, retorno…</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rodape">
+          <span class="dica">Finalizar grava a sessão, encerra o horário e gera a guia.</span>
+          <div class="acoes">
+            <span class="bt">Imprimir a sessão</span>
+            <span class="bt">Salvar</span>
+            <span class="bt pri">Finalizar atendimento</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<!-- ============================== 4 ============================== -->
+<div class="desenho">
+<h2><span class="n">4</span> Modo consulta <span class="selo alt">alternativa</span></h2>
+<p class="porque">Um <b>modo</b>, não uma tela nova: com o paciente na frente, o rail e as abas recolhem e sobra a folha, numa coluna de largura de leitura (o olho perde a linha depois de ~90 caracteres). A barra escura no alto é a mesma do <b>cronômetro</b> que a direção já aprovou — nome, alergia e o tempo correndo grande, legível de longe. Os comandos descem para uma tira fixa embaixo. Sai-se com um clique. ⚠️ O contexto some enquanto o modo está ligado: é a troca, e ela é escolha de quem escreve, não do sistema.</p>
+<div class="custo">
+  <div><b>o que muda</b><span>só XAML — um botão que alterna a visibilidade do rail e das abas</span></div>
+  <div><b>risco</b><span>baixo</span></div>
+  <div><b>ganho</b><span>a escrita ganha a tela inteira; o tempo de consulta fica à vista</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="shell"><div class="logo">SD</div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4 M 8 15 h 5"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></div>
+<div class="ic on"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 19 h 16 M 4 5 h 4 v 14 M 12 9 h 4 v 10 M 20 13 h -4"/></svg></div>
+<div class="ic" style="margin-top:auto"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 9.5 9.5 a 2.5 2.5 0 1 1 3.5 2.3 c -.7 .4 -1 .9 -1 1.7 M 12 17 h .01"/></svg></div></div>
+  <div class="foco">
+    <div class="barrafoco">
+      <div class="volta" style="border-color:rgba(255,255,255,.22);color:#DDE3EC;background:transparent"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 12 a 8 8 0 1 0 3 -6.2 M 4 4 v 5 h 5"/></svg></div>
+      <div>
+        <div class="nm">Maria da Silva</div>
+        <div class="mt num">38 anos · feminino · Unimed Costa do Sol (Padrão) · 6ª sessão</div>
+      </div>
+      <span class="tg al">Alergias: dipirona · AAS</span>
+      <span class="tg">Acupuntura + eletro · 09h00</span>
+      <div class="rel">
+        <div style="text-align:right"><div class="k" style="font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#9AA3B2;font-weight:600">em atendimento</div><div class="t">00:12:35</div></div>
+        <span class="sair">Sair do modo consulta</span>
+      </div>
+    </div>
+
+    <div class="papel">
+      <div class="papelcx">
+        <div class="papelcab">
+          <span class="dt">Sessão de 08/09/2026</span>
+          <div class="eva" style="gap:7px"><span class="rot" style="margin:0 4px 0 0">EVA</span><div class="cx" style="height:30px">7</div><span class="seta">→</span><div class="cx" style="height:30px">4</div><span class="delta">−3</span></div>
+          <span class="dt" style="margin-left:auto">Última gravação às 09h41</span>
+        </div>
+        <div class="area"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor
+                 passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação
+                 para o membro inferior.</p>
+              <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco
+                 preservada.</p>
+              <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa
+                 deslizante em região lombar. Sem intercorrências durante a sessão.</p>
+              <p>Orientada a manter os alongamentos em casa, 2×/dia, e a evitar permanecer sentada por mais de uma hora seguida no trabalho.</p>
+              <p>Mantida a medicação de uso contínuo, sem ajuste nesta consulta. Não há sinais de alarme que justifiquem imagem neste momento.</p>
+              <p>Retorno em 7 dias para reavaliação da EVA e decisão sobre a alta do protocolo.<span class="caret"></span></p></div>
+      </div>
+    </div>
+
+    <div class="barrabaixo">
+      <span class="bt">Detalhar em campos separados…</span>
+      <span class="bt">Mapa corporal</span>
+      <span class="bt">Modelos…</span>
+      <span class="bt">Emitir documento</span>
+      <div class="acoes" style="margin-left:auto">
+        <span class="bt">Imprimir a sessão</span>
+        <span class="bt">Salvar</span>
+        <span class="bt pri">Finalizar atendimento</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- ============================== 5 ============================== -->
+<div class="desenho">
+<h2><span class="n">5</span> O contexto ao lado — quando você pede <span class="selo rev">reabre uma decisão</span></h2>
+<p class="porque">Reler <b>enquanto</b> se escreve, sem trocar de aba. O painel da direita <b>nasce fechado</b> e abre num clique: 400 px, com o conteúdo inteiro e a coluna de rótulos alinhada — nunca as seis frases cortadas que a faixa antiga mostrava. ⚠️ Isto <b>reabre a decisão de set/2026</b> (“essas tabelas laterais não me agradam”). A diferença é que a faixa reprovada era permanente e truncava; esta é opt-in e mostra o registro por inteiro — mas é a direção que decide se quer o assunto de volta.</p>
+<div class="custo">
+  <div><b>o que muda</b><span>XAML + um botão de abrir/fechar; a leitura já existe na aba</span></div>
+  <div><b>risco</b><span>médio — reabre desenho reprovado</span></div>
+  <div><b>ganho</b><span>não se perde o fio da última sessão ao escrever a de hoje</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="shell"><div class="logo">SD</div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4 M 8 15 h 5"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></div>
+<div class="ic on"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></div>
+<div class="ic"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 19 h 16 M 4 5 h 4 v 14 M 12 9 h 4 v 10 M 20 13 h -4"/></svg></div>
+<div class="ic" style="margin-top:auto"><svg class="i" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 12 A 9 9 0 1 0 21 12 A 9 9 0 1 0 3 12 Z M 9.5 9.5 a 2.5 2.5 0 1 1 3.5 2.3 c -.7 .4 -1 .9 -1 1.7 M 12 17 h .01"/></svg></div></div>
+  <div class="ws">
+    <div class="cracha">
+      <div class="volta"><svg class="i" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 12 a 8 8 0 1 0 3 -6.2 M 4 4 v 5 h 5"/></svg></div>
+      <div class="av">MS</div>
+      <div class="ident">
+        <div class="nomep">Maria da Silva</div>
+        <div class="meta num">38 anos &nbsp;·&nbsp; feminino &nbsp;·&nbsp; Unimed Costa do Sol (Padrão) &nbsp;·&nbsp; paciente desde 05/08/2026 &nbsp;·&nbsp; 5 sessões</div>
+        <div class="l2">
+          <span class="tag alergia">Alergias: dipirona · AAS</span>
+          <span class="tag prob">Lombalgia crônica · Hipertensão</span>
+          <span class="tag mod">Acupuntura + eletro · 09h00</span>
+        </div>
+      </div>
+      <div class="dir"><div class="visor"><span class="pt"></span><div><div class="k">em atendimento</div><div class="t">00:12:35</div></div></div><span class="lk">Trocar paciente</span></div>
+    </div>
+    <div class="corpo">
+      <div class="rail">
+<div class="gr">Sessão</div>
+<a class="on"><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 H 17 A 2 2 0 0 1 19 6 V 19 A 2 2 0 0 1 17 21 H 7 A 2 2 0 0 1 5 19 V 6 A 2 2 0 0 1 7 4 Z M 9 4 V 2 h 6 v 2 M 9 11 h 6 M 9 15 h 4"/></svg></span>Atendimento</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></span>Atendimento de enfermagem</a>
+<div class="gr">Paciente</div>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 8 A 4 4 0 1 0 16 8 A 4 4 0 1 0 8 8 Z M 4 21 a 8 8 0 0 1 16 0"/></svg></span>Paciente</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 8 6 h 13 M 8 12 h 13 M 8 18 h 13 M 3 6 h .01 M 3 12 h .01 M 3 18 h .01"/></svg></span>Histórico</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 7 a 2 2 0 0 1 2 -2 h 4 l 2 2 h 8 a 2 2 0 0 1 2 2 v 9 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 z"/></svg></span>Exames e anexos</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 h 5 a 3.5 3.5 0 0 1 0 7 H 7 V 4 Z M 7 11 v 9 M 12 11 l 7 9 M 19 11 l -7 9"/></svg></span>Prescrições e documentos</a>
+<a><span class="g"><svg class="i" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 20 V 10 M 10 20 V 4 M 16 20 v -8 M 22 20 H 2"/></svg></span>Acompanhamento</a>
+</div>
+      <div class="conteudo">
+        <div class="avisos">
+          <div class="lin grave"><span class="tr g"></span>
+            <p>O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui.</p>
+            <span class="bt peq">Colher assinatura…</span></div>
+          <div class="lin"><span class="tr a"></span>
+            <p>Sem consentimento LGPD de tratamento de dados — colha no balcão.</p></div>
+        </div>
+        <div class="abas"><span class="on">A sessão de hoje</span><span>Sessões anteriores</span><span>Enfermagem e infusões</span></div>
+        <div class="split">
+          <div class="esq">
+            <div class="card">
+              <div class="tira">
+            <div class="cmp"><span class="rot">Data da sessão</span>
+              <div class="cx w"><span class="num">08/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="cmp"><span class="rot">EVA — antes e depois</span>
+              <div class="eva"><div class="cx">7</div><span class="seta">→</span><div class="cx">4</div><span class="delta">−3</span></div></div>
+            <div class="cmp"><span class="rot">Retorno sugerido</span>
+              <div class="cx w"><span class="num">15/09/2026</span><span class="ch"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 5 5 H 19 A 2 2 0 0 1 21 7 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 7 A 2 2 0 0 1 5 5 Z M 3 10 h 18 M 8 3 v 4 M 16 3 v 4"/></svg></span></div></div>
+            <div class="fio"></div>
+            <div class="ferr"><span class="bt">Mapa corporal</span>
+<span class="bt">Modelos…</span></div>
+          </div>
+              <div class="folha">
+                <div class="cab"><span class="t">A sessão de hoje</span><span class="g">Última gravação às 09h41</span></div>
+                <div class="area"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor
+                 passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação
+                 para o membro inferior.</p>
+              <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco
+                 preservada.</p>
+              <p>Agulhamento em B23, B25, B40 e VG3, com eletroestimulação a 4 Hz por 20 min.<span class="caret"></span></p></div>
+              </div>
+              <div class="detalhe">
+            <span class="a">Detalhar em campos separados…</span>
+            <span class="campos">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+            <span class="pill">3 campos preenchidos</span>
+          </div>
+            </div>
+          </div>
+          <div class="painel">
+            <div class="ph"><span class="t">Contexto</span><span class="x">✕</span></div>
+            <div class="seg"><span class="on">Última sessão</span><span>Enfermagem hoje</span><span>Exames</span></div>
+            <div class="pcorpo">
+              <div class="sessao">
+                <div class="dt">01/09/2026 — 5ª sessão</div>
+                <div class="ev">EVA 7 → 4 · Acupuntura + eletro · Dra. Helena Prado</div>
+                <div class="rt">Retorno sugerido em 7 dias</div>
+                <div class="cp"><span class="k">Queixa</span><span class="v">Lombalgia há 4 meses, sem trauma. Piora ao fim do dia e ao permanecer sentada.</span></div>
+                <div class="cp"><span class="k">Exame</span><span class="v">Contratura em quadrado lombar à direita. Lasègue negativo bilateral.</span></div>
+                <div class="cp"><span class="k">Conduta</span><span class="v">Agulhamento B23, B25, B40, VG3 com eletroestimulação 4 Hz por 20 min.</span></div>
+              </div>
+              <div class="sessao">
+                <div class="dt">25/08/2026 — 4ª sessão</div>
+                <div class="ev">EVA 8 → 6 · Acupuntura + eletro · Dra. Helena Prado</div>
+                <div class="cp"><span class="k">Conduta</span><span class="v">Agulhamento lombar. Orientada quanto à postura no trabalho.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rodape">
+          <span class="dica">Finalizar grava a sessão, encerra o horário e gera a guia.</span>
+          <div class="acoes">
+            <span class="bt">Imprimir a sessão</span>
+            <span class="bt">Salvar</span>
+            <span class="bt pri">Finalizar atendimento</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+
+<div class="desenho" style="margin-top:52px">
+<hr class="regra" style="margin-bottom:26px">
+<h2 style="font-size:19px"><span class="n" style="background:var(--cinza-700)">·</span> O que os cinco têm em comum</h2>
+<p class="porque">Nenhum deles inventa cor, campo ou promessa. Todos usam os <b>tokens do design system</b>
+   (<code>Styles/Tokens.xaml</code>, espelhado em <code>tokens/*.css</code>), os campos que a
+   <code>Evolucao</code> já guarda, e os avisos que o <code>ElegibilidadeService</code> já produz. Todos cabem em
+   <b>1366 px</b>, a tela do balcão. E os cinco corrigem três coisas que a foto do dia mostra:
+   o botão <b>“Emitir documento” duplicado</b> (a folha declara um e a tela injeta outro),
+   a <b>idade impossível</b> — “1851 anos” na foto: a data de nascimento na base está errada, e o cabeçalho a imprime sem conferir se ela é plausível —,
+   e a <b>ausência de hierarquia</b>: hoje o nome do paciente tem quase o mesmo peso visual da legenda ao lado.</p>
+<div class="custo">
+  <div><b>o que NÃO muda em nenhum</b><span>o que o prontuário guarda, a guarda de 20 anos, as permissões, o circuito da guia</span></div>
+</div>
+</div>
+</div>
