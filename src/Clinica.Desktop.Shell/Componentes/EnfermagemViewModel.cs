@@ -180,6 +180,9 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     /// <summary>Termo pendente do dia: o rótulo do botão, e o que o torna existente.</summary>
     [ObservableProperty] private string? _termoPendente;
     private int? _modeloTermoPendente;
+
+    /// <summary>A sessão do termo pendente, quando o dia tem uma só (set/2026).</summary>
+    private int? _agendamentoTermoPendente;
     private int? _documentoTermoPendente;
 
     /// <summary>A folha de infusão do paciente HOJE — a ponte que faltava entre as duas telas.</summary>
@@ -592,9 +595,10 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
             SessaoUsuario.Atual.Exigir(
                 Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
 
-            ColetaDeTermo.Abrir(
+            await ColetaDeTermo.AbrirAsync(
                 _escopos, _pacienteId, Paciente,
-                _modeloTermoPendente, _documentoTermoPendente);
+                _modeloTermoPendente, _documentoTermoPendente,
+                agendamentoId: _agendamentoTermoPendente);
         }
         catch (Exception ex)
         {
@@ -856,6 +860,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                 TermoPendente = $"Colher: {pendente.NomeDoTermo}";
                 _modeloTermoPendente = pendente.ModeloId;
                 _documentoTermoPendente = pendente.DocumentoId;
+                _agendamentoTermoPendente = pendente.AgendamentoId;
                 partes.Add($"termo pendente: {pendente.NomeDoTermo}");
             }
             else
@@ -863,6 +868,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                 TermoPendente = null;
                 _modeloTermoPendente = null;
                 _documentoTermoPendente = null;
+                _agendamentoTermoPendente = null;
             }
 
             // A folha de hoje — a ponte entre a carteira e a sala.

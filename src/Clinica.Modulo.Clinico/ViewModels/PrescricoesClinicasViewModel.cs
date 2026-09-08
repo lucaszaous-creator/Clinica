@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
@@ -74,6 +75,14 @@ public sealed class LinhaDocumentoClinico
     /// </summary>
     public bool PodeEnviar => Assinado && !Cancelado;
 
+
+    /// <summary>
+    /// A SESSÃO a que este documento pertence (set/2026) — "Sessão de 08/09/2026, 09h00 ·
+    /// Acupuntura + eletro". Vazio no documento avulso, e a linha SOME em vez de mostrar
+    /// um traço.
+    /// </summary>
+    public string? Sessao { get; init; }
+
     public static LinhaDocumentoClinico De(DocumentoClinico d) => new()
     {
         DocumentoId = d.Id,
@@ -83,6 +92,7 @@ public sealed class LinhaDocumentoClinico
         TipoClinico = d.Tipo,
         AcessoParaMexer = CentralDocumentosService.AcessoParaEmitir(d.Tipo),
         Data = d.Data.ToString("dd/MM/yyyy"),
+        Sessao = ProcedenciaDaSessao.Descrever(d.Agendamento),
         Profissional = d.Profissional?.Rotulo ?? "—",
         Codigo = d.CodigoVerificacao,
         Cancelado = d.Cancelado,

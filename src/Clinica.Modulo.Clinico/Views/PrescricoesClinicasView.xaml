@@ -168,6 +168,16 @@
                                                 <Run Text=" · conferência " />
                                                 <Run Text="{Binding Codigo, Mode=OneWay}" />
                                             </TextBlock>
+
+                                            <!-- A SESSÃO a que o documento pertence
+                                                 (set/2026). SOME no avulso. -->
+                                            <TextBlock Margin="0,3,0,0" TextWrapping="Wrap"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Acento}"
+                                                       Text="{Binding Sessao}"
+                                                       Visibility="{Binding Sessao,
+                                                                    Converter={StaticResource TextoParaVisibilidade},
+                                                                    FallbackValue=Collapsed}" />
                                             <!-- Cancelado aparece MARCADO, nunca sumindo: a via
                                                  impressa não desaparece por ser apagada daqui. -->
                                             <Border Style="{StaticResource Badge.Erro}"

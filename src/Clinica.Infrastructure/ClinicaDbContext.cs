@@ -999,6 +999,11 @@ public class ClinicaDbContext : DbContext
             e.HasOne(x => x.Evolucao).WithMany()
                 .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
 
+            // A SESSÃO a que o documento se refere (set/2026). SetNull pela razão dos
+            // vizinhos: apagar o horário não pode apagar o termo que o paciente assinou.
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+
             // SetNull, e não Cascade: apagar o arquivo não pode apagar o documento — o
             // fato de ele ter sido emitido e assinado continua valendo mesmo que os bytes
             // se percam, e a tela precisa poder dizer isso em vez de o registro sumir.

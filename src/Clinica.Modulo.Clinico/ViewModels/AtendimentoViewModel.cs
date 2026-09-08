@@ -183,10 +183,15 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             // Modelo NULO quando não há pendência: a janela pergunta qual termo é. É a
             // porta que a cliente pediu — o paciente veio tirar dúvidas, e a assinatura se
             // colhe ali, sem esperar o dia do procedimento.
-            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.Abrir(
+            // A SESSÃO vai junto (set/2026): aqui o horário está ABERTO na tela, então
+            // não há o que perguntar — o termo nasce ligado a ele. O caminho de baixo é a
+            // situação do dia, para o caso de a tela ter sido aberta sem horário (a
+            // dívida de prontuário e a Minha semana abrem sessões de outros dias).
+            var concluiu = await Clinica.Desktop.Shell.Componentes.ColetaDeTermo.AbrirAsync(
                 _escopos, PacienteId, Paciente,
                 TermoPendente?.ModeloId, TermoPendente?.DocumentoId,
-                TermoPendente?.ProfissionalId);
+                TermoPendente?.ProfissionalId,
+                AgendamentoDaSessao ?? TermoPendente?.AgendamentoId);
 
             // Recarrega mesmo sem concluir: abrir a janela já EMITE o termo numerado, e a
             // tela precisa refletir isso.

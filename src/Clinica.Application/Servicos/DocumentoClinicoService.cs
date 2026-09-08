@@ -113,6 +113,10 @@ public sealed class DocumentoClinicoService
             PacienteId = dados.PacienteId,
             ProfissionalId = dados.ProfissionalId,
             EvolucaoId = dados.EvolucaoId,
+            // A SESSÃO a que o documento se refere (set/2026). Está aqui porque a emissão
+            // COPIA campo a campo: o que ficar de fora desta lista é descartado em
+            // silêncio, e o termo nasceria sem a procedência que a tela acabou de pedir.
+            AgendamentoId = dados.AgendamentoId,
             ModeloOrigemId = dados.ModeloOrigemId,
             Data = data,
             Titulo = Limpar(dados.Titulo),
@@ -572,8 +576,14 @@ public sealed class DocumentoClinicoService
     /// pré-marcar "Sim" seria fabricar a resposta mais conveniente para a clínica — o
     /// oposto do que o termo existe para provar.
     /// </summary>
+    /// <param name="agendamentoId">
+    /// A SESSÃO a que este termo se refere (set/2026) — o horário, não a evolução. Nulo é
+    /// o termo AVULSO, que continua sendo caso legítimo: o paciente assinou sem ter
+    /// procedimento marcado, ou a porta que colheu não sabia dizer qual sessão era.
+    /// </param>
     public async Task<DocumentoClinico> EmitirTermoProcedimentoAsync(
         int pacienteId, int modeloId, int? profissionalId = null,
+        int? agendamentoId = null,
         string? operador = null, CancellationToken ct = default)
     {
         var modelo = await _repo.ObterModeloDocumentoAsync(modeloId, ct)
@@ -588,6 +598,7 @@ public sealed class DocumentoClinicoService
             Tipo = TipoDocumentoClinico.TermoProcedimento,
             PacienteId = pacienteId,
             ProfissionalId = profissionalId,
+            AgendamentoId = agendamentoId,
             ModeloOrigemId = modelo.Id,
             Data = DateOnly.FromDateTime(DateTime.Today),
             Titulo = modelo.Titulo,

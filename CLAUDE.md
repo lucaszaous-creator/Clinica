@@ -2047,6 +2047,39 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **Validado ao vivo contra o Cloudflare R2** (ago/2026): gravação, ACL de leitura pública,
   exclusão e abertura do PDF pela URL. E a assinatura **também foi provada na clínica com
   e-CPF real pelo SafeID** (ago/2026) — ver a lição da prova de campo mais abaixo.
+- **O TERMO LIGADO À SESSÃO — e por que o elo é o HORÁRIO, não a evolução** (set/2026; o
+  mapa está em `docs/termo-assinado-pelo-paciente.md` §9). A direção pediu que o termo
+  ficasse "linkado à sessão que o paciente tem para realizar", com um pop-out na recepção
+  para escolher qual. `DocumentoClinico` já tinha `EvolucaoId` e ele **não serve**: o termo
+  é colhido nos DOIS momentos e só um tem evolução — na recepção, que é o caso do pedido, o
+  médico ainda não escreveu nada. O `Agendamento` existe desde que a recepcionista marcou; e
+  amarrar nele faz o documento aparecer NA sessão sozinho quando ela for escrita, porque
+  `Evolucao.AgendamentoId` aponta para a mesma linha.
+  ⚠️ **A coluna é PROCEDÊNCIA, não regra de COBERTURA.** Quem responde "já assinou o termo do
+  BSV?" continua sendo a exigência + validade, por paciente/modelo/dia. Amarrar a cobertura
+  ao horário faria um termo assinado de manhã deixar de valer à tarde — mudança de
+  comportamento numa clínica em produção, e decisão da direção, não efeito colateral de uma
+  coluna nova. É a asserção que carrega `TermoLigadoAoHorarioTests`. **Ao acrescentar um
+  vínculo a um dado que já tem uma regra de validade, diga qual das duas coisas você está
+  mexendo — e prenda a outra num teste.**
+  ⚠️ **Pergunta que tem uma resposta possível não é pergunta.** O pop-out só abre quando há
+  DÚVIDA: com um horário hoje e nenhum outro à frente, a porta amarra sozinha — e a janela
+  **DIZ** a que amarrou. Amarrar em silêncio seria uma decisão que ninguém viu ser tomada;
+  perguntar o óbvio é o clique a mais que ensina a confirmar sem ler (o incidente dos três
+  encaixes em 71 segundos).
+  ⚠️ **A lista oferece de HOJE PARA A FRENTE**, e não só hoje: a coleta antecipada é a razão
+  de a porta avulsa existir. E "Nenhuma — termo avulso" é opção de primeira classe, senão a
+  janela obrigaria a inventar procedência para poder fechar.
+  ⚠️ **O termo NÃO virou "anexo", e o pedido dizia que sim.** `AnexoProntuario` exige
+  `EvolucaoId` e `ResultadoExame` AFIRMA ser resultado de exame; o termo é
+  `DocumentoClinico` — numerado, com código de conferência, imutável —, e é isso que garante
+  a segunda via idêntica e o valor jurídico. O que o pedido quer é o EFEITO (ver o termo
+  junto da sessão), e ele se entrega fazendo as listas de documento **mostrarem a sessão**.
+  **Quando o pedido nomeia uma TABELA, confira se o que ele quer não é o efeito.**
+  ⚠️ E o de sempre: a emissão COPIA campo a campo, então o vínculo entrou na lista do
+  `EmitirAsync` — fora dela ele seria descartado em silêncio, com a criação funcionando
+  (lugar 3). O teste foi verificado removendo a linha: dois reprovam.
+
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

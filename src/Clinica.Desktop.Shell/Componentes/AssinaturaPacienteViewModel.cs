@@ -70,6 +70,17 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     /// <summary>O link pelo WhatsApp (parcela 81). Opcional; sem ele o botão não existe.</summary>
     private readonly ColetaRemotaTermoService? _coletaRemota;
 
+    /// <summary>
+    /// A SESSÃO a que este termo se refere (set/2026). Vem decidida pela porta: no
+    /// consultório é o horário aberto na tela, no balcão é o cartão da fila, e na ficha é
+    /// o que a janela de escolha respondeu. Nulo = termo avulso, sem sessão.
+    ///
+    /// ⚠️ Só vale na EMISSÃO: reabrir um termo já emitido devolve o documento como ele
+    /// está, e regravar a procedência aqui reescreveria um registro clínico por causa de
+    /// uma tela ter sido aberta de outro lugar.
+    /// </summary>
+    private readonly int? _agendamentoId;
+
     public AssinaturaPacienteViewModel(
         DocumentoClinicoService documentos,
         AssinaturaDoPacienteService assinaturas,
@@ -82,7 +93,8 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         AcessoProntuarioService? acessos = null,
         ParametrosService? parametros = null,
         ProblemaPacienteService? problemas = null,
-        ColetaRemotaTermoService? coletaRemota = null)
+        ColetaRemotaTermoService? coletaRemota = null,
+        int? agendamentoId = null)
     {
         _documentos = documentos;
         _assinaturas = assinaturas;
@@ -94,12 +106,26 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         _pacienteId = pacienteId;
         _modeloId = modeloId;
         _profissionalId = profissionalId;
+        _agendamentoId = agendamentoId;
         DocumentoExistenteId = documentoExistenteId;
         PacienteNome = pacienteNome;
     }
 
     /// <summary>Termo já emitido que só falta assinar. Nulo = emitir agora.</summary>
     public int? DocumentoExistenteId { get; }
+
+    /// <summary>
+    /// A sessão a que este termo vai ficar ligado, por extenso — "Hoje, 09h00 ·
+    /// Acupuntura + eletro" (set/2026).
+    ///
+    /// Existe porque amarrar em SILÊNCIO é o que este projeto recusa: quando a porta
+    /// resolve a sessão sozinha (um horário hoje e nenhum outro), a janela precisa DIZER a
+    /// que amarrou — senão a procedência é uma decisão que ninguém viu ser tomada.
+    ///
+    /// Vazio quando não há sessão (termo avulso) ou quando quem chamou já sabia qual era e
+    /// não há o que anunciar. A linha SOME nesse caso.
+    /// </summary>
+    public string? SessaoDoTermo { get; init; }
 
     public string PacienteNome { get; }
 
@@ -535,7 +561,7 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
                 ? await _documentos.ObterAsync(existente)
                 : _modeloId is int modelo
                     ? await _documentos.EmitirTermoProcedimentoAsync(
-                        _pacienteId, modelo, _profissionalId, Testemunha)
+                        _pacienteId, modelo, _profissionalId, _agendamentoId, Testemunha)
                     // Sem modelo é o termo LGPD, montado das quatro finalidades.
                     : await _documentos.EmitirTermoConsentimentoAsync(
                         _pacienteId, _profissionalId, Testemunha);

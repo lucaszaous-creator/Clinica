@@ -331,6 +331,39 @@ public class DocumentoClinico
     public Evolucao? Evolucao { get; set; }
 
     /// <summary>
+    /// A SESSÃO a que este documento se refere — o HORÁRIO, não a evolução (set/2026).
+    ///
+    /// O pedido da direção foi "o termo fica linkado à sessão que o paciente tem para
+    /// realizar". O elo tinha de ser o horário, e não a <see cref="Evolucao"/>, porque o
+    /// termo é colhido nos DOIS momentos e só um deles tem evolução: no consultório ela
+    /// está sendo escrita, mas na recepção — que é o caso que motivou o pedido — o médico
+    /// ainda não escreveu nada. O <see cref="Agendamento"/> existe desde que a
+    /// recepcionista marcou.
+    ///
+    /// E amarrar ao horário faz o documento aparecer NA sessão sozinho quando ela for
+    /// escrita: <c>Evolucao.AgendamentoId</c> aponta para a mesma linha, então os dois se
+    /// encontram sem uma linha de sincronização.
+    ///
+    /// ⚠️ É PROCEDÊNCIA, não regra de cobertura. Saber a que sessão o termo se refere não
+    /// muda quem ele cobre: quem responde "este paciente já assinou o termo do BSV?"
+    /// continua sendo o <c>TermoProcedimentoService</c>, pela exigência e pela validade que
+    /// a clínica escolheu. Trocar a cobertura para "por sessão" faria um termo assinado de
+    /// manhã deixar de valer à tarde — decisão da direção, não efeito colateral desta
+    /// coluna.
+    ///
+    /// ⚠️ Nulo é o caso legítimo e continua sendo a maioria: o termo avulso (colhido semanas
+    /// antes, na consulta em que o paciente veio tirar dúvidas), a receita emitida fora de
+    /// sessão, e toda linha gravada antes desta versão. Nulo quer dizer "não se refere a um
+    /// horário", nunca "o horário se perdeu".
+    ///
+    /// <c>SetNull</c>: apagar um horário não pode apagar o documento que o paciente
+    /// assinou — o registro clínico não se apaga (Lei 13.787/2018), e é a mesma razão do
+    /// modelo de origem e do traço logo acima.
+    /// </summary>
+    public int? AgendamentoId { get; set; }
+    public Agendamento? Agendamento { get; set; }
+
+    /// <summary>
     /// De qual <see cref="ModeloDocumento"/> este documento foi COPIADO (parcela 66).
     ///
     /// É PROCEDÊNCIA, nunca referência viva: o conteúdo continua gravado nas colunas deste

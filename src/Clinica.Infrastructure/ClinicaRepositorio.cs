@@ -331,6 +331,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoPeriodoAsync(
+        int pacienteId, DateOnly de, DateOnly ate, CancellationToken ct = default)
+    {
+        var inicio = de.ToDateTime(TimeOnly.MinValue);
+        var fim = ate.ToDateTime(TimeOnly.MaxValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Where(a => a.PacienteId == pacienteId
+                        && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+    }
+
     // Sem Include de propósito: quem consome (a busca de vagas) só lê hora, duração e
     // status — dois meses de agenda com paciente e profissional junto seria carga à toa.
     public async Task<IReadOnlyList<Agendamento>> AgendamentosDoProfissionalNoPeriodoAsync(
@@ -1589,8 +1603,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
+        // O Agendamento entra junto (set/2026) para as listas dizerem DE QUAL SESSÃO o
+        // documento é. É um JOIN com uma linha pequena por documento — sem blob, sem
+        // navegação encadeada —, e sem ele a navegação chegaria NULA em produção e a
+        // procedência sumiria em silêncio, com o teste passando pelo fixup do EF (a lição
+        // da parcela 68).
         => await _db.DocumentosClinicos.AsNoTracking()
             .Include(d => d.Profissional)
+            .Include(d => d.Agendamento)
             .Where(d => d.PacienteId == pacienteId)
             .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
             .ToListAsync(ct);

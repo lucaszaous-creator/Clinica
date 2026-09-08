@@ -133,6 +133,22 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoDiaAsync(
         int pacienteId, DateOnly dia, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os horários de UM paciente num PERÍODO (set/2026) — a lista de sessões a que um
+    /// termo colhido agora pode se referir.
+    ///
+    /// Existe separado do dia porque o termo é assinado ANTES: o paciente aparece para
+    /// tirar dúvidas e a clínica aproveita, e a sessão a que aquele papel se refere é a da
+    /// semana que vem. Perguntar só sobre hoje deixaria de fora justamente o caso que a
+    /// coleta antecipada existe para atender.
+    ///
+    /// Traz o <c>Profissional</c> junto: quem escolhe a sessão na janela precisa do nome
+    /// para distinguir dois horários na mesma hora — e são poucas linhas, ao contrário da
+    /// busca de vagas logo abaixo, que varre dois meses da agenda inteira.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoPeriodoAsync(
+        int pacienteId, DateOnly de, DateOnly ate, CancellationToken ct = default);
+
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
 

@@ -1351,7 +1351,7 @@ public sealed partial class FilaViewModel : ObservableObject
                 return;
             }
 
-            ColetaDeTermo.Abrir(
+            await ColetaDeTermo.AbrirAsync(
                 _escopos, c.PacienteId, c.Paciente,
                 pendente.ModeloId, pendente.DocumentoId,
                 // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o

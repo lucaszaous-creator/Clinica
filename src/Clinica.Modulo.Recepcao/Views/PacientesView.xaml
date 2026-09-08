@@ -837,6 +837,19 @@
                                                     <Run Text=" · conferência " />
                                                     <Run Text="{Binding Codigo, Mode=OneWay}" />
                                                 </TextBlock>
+
+                                                <!-- A SESSÃO a que o documento pertence
+                                                     (set/2026). SOME no avulso: linha em
+                                                     branco com um traço seria pior que a
+                                                     ausência dela. -->
+                                                <TextBlock Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Acento}"
+                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                           Text="{Binding Sessao}"
+                                                           Visibility="{Binding Sessao,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="2" Orientation="Horizontal"
