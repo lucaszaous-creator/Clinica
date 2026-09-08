@@ -1,0 +1,439 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Temporizador com ponteiro — três mostradores</title>
+<style>
+  :root{
+    --azul:#123A9E; --azul-suave:#EAF0FB;
+    --pg:#EDEFF4; --sup:#FFFFFF; --sup2:#F6F7FB;
+    --tinta:#101728; --corpo:#3A4258; --mudo:#6B7280;
+    --fio:#DCE0E9; --fio2:#C3C9D6;
+    --verde:#16A34A; --verde-f:#15803D; --verde-s:#DCFCE7; --verde-t:#F0FDF4;
+    --amb:#B45309; --amb-f:#FFFBEB;
+    --som:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--pg);color:var(--tinta);
+       font:15px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .pag{max-width:1240px;margin:0 auto;padding:30px 24px 80px}
+  h1{font-size:27px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--mudo);margin:0 0 6px;max-width:80ch}
+  h2{font-size:19px;margin:40px 0 4px;letter-spacing:-.2px}
+  .porque{color:var(--corpo);margin:5px 0 14px;max-width:84ch;font-size:14px}
+  .selo{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11.5px;font-weight:600;
+        background:var(--verde-s);color:var(--verde-f);vertical-align:middle;margin-left:6px}
+
+  /* ====== a barra de controle do protótipo ====== */
+  .ctrl{position:sticky;top:0;z-index:9;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+        background:var(--sup);border:1px solid var(--fio);border-radius:11px;padding:11px 15px;
+        margin:14px 0 6px;box-shadow:var(--som)}
+  .ctrl b{font-size:12.5px;color:var(--mudo);font-weight:600;letter-spacing:.3px;text-transform:uppercase}
+  .seg{display:inline-flex;background:var(--sup2);border:1px solid var(--fio);border-radius:999px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;border-radius:999px;padding:5px 13px;font-size:13px;
+              font-weight:500;color:var(--corpo);cursor:pointer;font-family:inherit}
+  .seg button.on{background:var(--azul);color:#fff;font-weight:600}
+  .bt{border:1px solid var(--fio2);background:var(--sup);border-radius:8px;padding:5px 12px;
+      font-size:13px;color:var(--corpo);cursor:pointer;font-family:inherit}
+  .bt.on{background:var(--verde-s);border-color:var(--verde);color:var(--verde-f);font-weight:600}
+  .lido{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mudo);font-size:13px}
+
+  /* ====== a vitrine dos três mostradores ====== */
+  .vitrine{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px}
+  @media(max-width:900px){.vitrine{grid-template-columns:1fr}}
+  .card{background:var(--sup);border:1px solid var(--fio);border-radius:11px;padding:20px 18px;
+        box-shadow:var(--som);text-align:center}
+  .card .rot{font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--mudo);font-weight:600}
+  .card h3{font-size:16px;margin:5px 0 12px;letter-spacing:-.1px}
+  .card p{font-size:13px;color:var(--corpo);margin:12px 0 0;text-align:left;line-height:1.55}
+  .grande{width:132px;height:132px;margin:0 auto}
+  .real{margin-top:14px;padding-top:13px;border-top:1px dashed var(--fio)}
+  .real .rot{margin-bottom:7px}
+
+  /* a pílula do crachá, tamanho real */
+  .estado{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+          color:var(--verde-f);background:var(--verde-s);border-radius:999px;padding:3px 13px 3px 5px;white-space:nowrap}
+  .estado svg{width:30px;height:30px;flex:none}
+  .num{font-variant-numeric:tabular-nums}
+
+  /* ====== a tela ====== */
+  .janela{border:1px solid var(--fio2);border-radius:11px;overflow:hidden;box-shadow:var(--som);
+          background:var(--sup);margin-top:14px}
+  .chrome{display:flex;align-items:center;gap:7px;padding:8px 13px;background:var(--sup2);border-bottom:1px solid var(--fio)}
+  .chrome i{width:10px;height:10px;border-radius:999px;background:var(--fio2);display:block}
+  .chrome .tit{margin-left:8px;font-size:12px;color:var(--mudo)}
+  .app{display:flex;min-height:440px}
+  .side{width:178px;flex:none;background:var(--sup);border-right:1px solid var(--fio);padding:10px 8px;font-size:13px}
+  .side .gr{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--mudo);padding:9px 9px 4px;font-weight:600}
+  .side a{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:7px;color:var(--corpo);text-decoration:none}
+  .side a.on{background:var(--azul-suave);color:var(--azul);font-weight:600}
+  .side a .g{width:15px;text-align:center;opacity:.75;font-size:13px}
+  .miolo{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--sup2)}
+  .cracha{background:var(--sup);border-bottom:1px solid var(--fio);padding:9px 18px;display:flex;align-items:center;gap:12px}
+  .volta{width:26px;height:26px;border-radius:7px;border:1px solid var(--fio);background:var(--sup);
+         color:var(--mudo);flex:none;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .av{width:40px;height:40px;border-radius:999px;background:var(--azul);color:#fff;flex:none;
+      display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
+  .ident{flex:1;min-width:0}
+  .l1{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+  .nomep{font-size:16.5px;font-weight:600}
+  .meta{font-size:12.5px;color:var(--mudo)}
+  .l2{display:flex;gap:11px;flex-wrap:wrap;margin-top:3px;font-size:12.5px;color:var(--corpo);align-items:center}
+  .l2 .k{color:var(--mudo)}
+  .bd{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#FBECEC;color:#B91C1C}
+  .sit{margin-left:auto;text-align:right;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .lk{color:var(--azul);font-size:12.5px}
+  .corpo{display:flex;flex:1;min-height:0}
+  .rail{width:190px;flex:none;background:var(--sup);border-right:1px solid var(--fio);padding:9px 7px;
+        display:flex;flex-direction:column;gap:1px;font-size:13px}
+  .rail div{padding:7px 10px;border-radius:7px;color:var(--corpo)}
+  .rail div.on{background:var(--azul-suave);color:var(--azul);font-weight:600}
+  .princ{flex:1;min-width:0;padding:12px 16px 14px;display:flex;flex-direction:column}
+  .abas{display:flex;gap:20px;border-bottom:1px solid var(--fio);font-size:13.5px;color:var(--mudo)}
+  .abas span{padding:0 0 8px}
+  .abas span.on{color:var(--azul);font-weight:600;box-shadow:inset 0 -2px 0 var(--azul)}
+  .cx{border:1px solid var(--fio2);border-radius:6px;padding:3px 8px;font-size:13px;display:inline-block;min-width:42px;background:var(--sup)}
+  .cx.w{min-width:98px}
+  .cardf{background:var(--sup);border:1px solid var(--fio);border-radius:8px;margin-top:10px;padding:11px 13px;
+         display:flex;flex-direction:column;flex:1}
+  .tira{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px}
+  .t .k{display:block;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--mudo);font-weight:600}
+  .sep{width:1px;height:26px;background:var(--fio)}
+  .ferr{margin-left:auto;display:flex;gap:6px}
+  .btn{border:1px solid var(--fio2);background:var(--sup);border-radius:7px;padding:4px 11px;font-size:12.5px;color:var(--corpo);display:inline-block}
+  .btn.pri{background:var(--azul);border-color:var(--azul);color:#fff;font-weight:600}
+  .ctx{font-size:12.5px;color:var(--mudo);margin-bottom:8px;line-height:1.5}
+  .ctx b{color:var(--corpo)}
+  .folha{flex:1;border:1px solid var(--fio2);border-radius:6px;padding:10px 12px;min-height:120px;
+         font-size:13.5px;line-height:1.62;color:var(--tinta);background:#fff;white-space:pre-wrap}
+  .pe{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:12.5px;color:var(--mudo);flex-wrap:wrap}
+  .pe .acs{margin-left:auto;display:flex;gap:7px}
+
+  .nota{background:var(--verde-t);border-left:3px solid var(--verde);padding:11px 15px;border-radius:0 8px 8px 0;
+        margin:16px 0 0;font-size:13.5px;max-width:92ch}
+  .aten{background:var(--amb-f);border-left:3px solid var(--amb);padding:11px 15px;border-radius:0 8px 8px 0;
+        margin:14px 0 0;font-size:13.5px;max-width:92ch}
+  .nota .r,.aten .r{display:block;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;font-weight:700;margin-bottom:3px}
+  .nota .r{color:var(--verde-f)} .aten .r{color:var(--amb)}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px;max-width:1000px}
+  th{text-align:left;font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--mudo);
+     border-bottom:1px solid var(--fio);padding:0 10px 7px 0;font-weight:600}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--sup2);vertical-align:top}
+  td:first-child{white-space:nowrap;font-weight:600}
+  .rod{margin-top:44px;padding-top:16px;border-top:1px solid var(--fio);color:var(--mudo);font-size:12.5px}
+</style>
+<div class="pag">
+
+<h1>Temporizador com ponteiro — três mostradores</h1>
+<p class="sub">Um relógio de verdade, correndo, no canto da tela de atendimento. Ele conta do clique
+de <b>Atender</b>, é só do profissional, e nenhum deles aparece em algo que o paciente veja.
+<b>Os ponteiros abaixo estão andando</b> — use os controles para ver o tempo passar.</p>
+
+<div class="ctrl">
+  <b>Ponteiros</b>
+  <div class="seg" id="modo">
+    <button data-modo="seg" class="on">Minutos + segundos</button>
+    <button data-modo="min">Só minutos</button>
+  </div>
+  <b>Tempo</b>
+  <button class="bt" data-vel="1">normal</button>
+  <button class="bt on" data-vel="60">acelerar ×60</button>
+  <button class="bt" data-vel="600">×600</button>
+  <button class="bt" id="zerar">recomeçar</button>
+  <span class="lido">consulta em curso há <b id="lido" class="num">12:00</b></span>
+</div>
+
+<div class="vitrine">
+  <div class="card">
+    <div class="rot">Modelo A</div>
+    <h3>Mostrador clássico</h3>
+    <svg class="grande" viewBox="0 0 100 100" data-relogio="A" aria-label="Relógio clássico"></svg>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="estado"><svg viewBox="0 0 100 100" data-relogio="A"></svg>Atendendo <span class="num" data-txt>12 min</span></span>
+    </div>
+    <p>O relógio de parede: aro fino, marcas nas quatro horas, ponteiro grosso para os minutos e um
+    fino para os segundos. <b>Uma volta inteira = 1 hora</b>, então a posição do ponteiro já diz
+    quanto tempo passou sem ninguém ler número nenhum.</p>
+  </div>
+
+  <div class="card">
+    <div class="rot">Modelo B</div>
+    <h3>Ponteiro com trilha</h3>
+    <svg class="grande" viewBox="0 0 100 100" data-relogio="B" aria-label="Relógio com trilha"></svg>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="estado"><svg viewBox="0 0 100 100" data-relogio="B"></svg>Atendendo <span class="num" data-txt>12 min</span></span>
+    </div>
+    <p>O mesmo ponteiro, e o caminho já percorrido fica <b>pintado atrás dele</b>. Lê-se "quanto já
+    passou" pelo tamanho da fatia, de longe, sem contar marca nenhuma — é o mais fácil de entender
+    num relance rápido.</p>
+  </div>
+
+  <div class="card">
+    <div class="rot">Modelo C</div>
+    <h3>Cronômetro</h3>
+    <svg class="grande" viewBox="0 0 100 100" data-relogio="C" aria-label="Cronômetro"></svg>
+    <div class="real">
+      <div class="rot">no tamanho da tela</div>
+      <span class="estado"><svg viewBox="0 0 100 100" data-relogio="C"></svg>Atendendo <span class="num" data-txt>12 min</span></span>
+    </div>
+    <p>A silhueta de cronômetro de bolso — botão e orelhas no topo — é o que o identifica mesmo
+    pequeno. <b>O ponteiro grande é o dos segundos</b>: dá uma volta por minuto, e é o que mais se vê
+    andando. Os minutos ficam no arco claro da borda e no texto ao lado. É o mais "correndo" dos três.</p>
+  </div>
+</div>
+
+<h2>Na tela, no tamanho real <span class="selo">o relógio fica aqui nos três</span></h2>
+<p class="porque">O mostrador pede um canto — e o canto onde o profissional já olha para saber o
+estado da sessão é este. Troque o modelo pelos botões abaixo para ver a mesma tela com cada um.</p>
+
+<div class="ctrl" style="position:static;margin-top:0">
+  <b>Modelo na tela</b>
+  <div class="seg" id="qual">
+    <button data-qual="A" class="on">A · clássico</button>
+    <button data-qual="B">B · trilha</button>
+    <button data-qual="C">C · cronômetro</button>
+  </div>
+</div>
+
+<div class="janela">
+  <div class="chrome"><i></i><i></i><i></i><span class="tit">Consultório — Dra. Ana Beatriz Rocha</span></div>
+  <div class="app">
+    <div class="side">
+      <div class="gr">Atendimento</div>
+      <a class="on"><span class="g">🗓</span>Minha agenda</a>
+      <a><span class="g">🩺</span>Enfermagem</a>
+      <a><span class="g">℞</span>Prescrições</a>
+      <div class="gr">Paciente</div>
+      <a><span class="g">👤</span>Pacientes</a>
+      <a><span class="g">📁</span>Prontuário</a>
+    </div>
+    <div class="miolo">
+      <div class="cracha">
+        <div class="volta">‹</div>
+        <div class="av">MS</div>
+        <div class="ident">
+          <div class="l1"><span class="nomep">Maria da Silva</span><span class="meta">61 anos · Unimed Costa do Sol · em tratamento desde mar/2025 · 18 sessões</span></div>
+          <div class="l2"><span class="bd">ALERGIA · dipirona</span><span><span class="k">Em acompanhamento:</span> lombalgia crônica · HAS</span></div>
+        </div>
+        <div class="sit">
+          <span class="estado"><svg viewBox="0 0 100 100" data-relogio="A" id="relogio-tela"></svg>Atendendo <span class="num" data-txt>12 min</span></span>
+          <span class="lk">Trocar paciente</span>
+        </div>
+      </div>
+      <div class="corpo">
+        <div class="rail">
+          <div class="on">Atendimento</div><div>Atendimento de enfermagem</div><div>Paciente</div>
+          <div>Histórico</div><div>Exames e anexos</div><div>Prescrições e documentos</div><div>Acompanhamento</div>
+        </div>
+        <div class="princ">
+          <div class="abas"><span class="on">A sessão de hoje</span><span>Sessões anteriores</span><span>Enfermagem e infusões</span></div>
+          <div class="cardf">
+            <div class="tira">
+              <div class="t"><span class="k">Data da sessão</span><span class="cx w">05/09/2026</span></div>
+              <span class="sep"></span>
+              <div class="t"><span class="k">EVA antes</span><span class="cx">7</span></div>
+              <div class="t"><span class="k">EVA depois</span><span class="cx">—</span></div>
+              <div class="ferr"><span class="btn">Mapa corporal</span><span class="btn">Emitir documento</span></div>
+            </div>
+            <div class="ctx"><b>Última sessão 28/08</b> · EVA 8 → 3 · retorno sugerido para hoje &nbsp;·&nbsp; <b>Enfermagem hoje 13:55</b> · PA 120/80 · FC 72 · SpO₂ 98%</div>
+            <div class="folha">Refere melhora da lombalgia desde a última sessão (EVA 8 → 3), com recorrência leve após esforço no fim de semana.
+
+Exame: contratura paravertebral L4-L5 à direita, Lasègue negativo bilateral.
+
+Conduta: acupuntura — BL23, BL25, GB30 bilateral, com eletro 2 Hz por 20 min.</div>
+            <div class="pe"><span>Última gravação às 14h37</span>
+              <span class="acs"><span class="btn">Imprimir</span><span class="btn">Salvar</span><span class="btn pri">Finalizar</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>A escolha que vem junto: o ponteiro de segundos</h2>
+<p class="porque">Experimente o botão <b>Só minutos</b> lá em cima. É a mesma decisão de antes, agora
+com ponteiro em vez de número.</p>
+<table>
+  <thead><tr><th style="width:190px">Ponteiros</th><th>Como fica</th></tr></thead>
+  <tbody>
+    <tr><td>Minutos + segundos</td>
+        <td>Um ponteiro fino dá a volta a cada minuto. <b>É o que se lê como "está correndo"</b> — e é
+        também movimento constante no canto do olho de quem está tentando ouvir o paciente. Se a
+        clínica quer o relógio correndo mesmo, é esta.</td></tr>
+    <tr><td>Só minutos</td>
+        <td>O ponteiro anda, só que devagar — um passo por minuto, como o ponteiro das horas de um
+        relógio de parede. Continua sendo um relógio de ponteiro e <b>não puxa o olho</b>. É a
+        opção discreta. <b>No modelo C</b> quem anda passa a ser só o arco da borda: o ponteiro dele
+        é o dos segundos, e sem ele o cronômetro fica parado — o que é honesto, mas é outra coisa.</td></tr>
+  </tbody>
+</table>
+
+<h2>O que o relógio faz em cada situação</h2>
+<table>
+  <thead><tr><th style="width:280px">Situação</th><th>O que aparece</th></tr></thead>
+  <tbody>
+    <tr><td>Clicou em <b>Atender</b></td><td>Os ponteiros partem do zero (12 horas) e começam a andar.</td></tr>
+    <tr><td>Saiu da tela e voltou</td><td><b>Os ponteiros estão onde deveriam.</b> A posição vem do carimbo gravado no banco, não de quando a tela abriu.</td></tr>
+    <tr><td>Fechou o programa e reabriu</td><td>Idem. É o mesmo carimbo que o balcão lê.</td></tr>
+    <tr><td>Passou de uma hora</td><td>O ponteiro de minutos dá a segunda volta, e o texto ao lado passa a dizer <b>1h04</b>.</td></tr>
+    <tr><td>Clicou em <b>Finalizar</b></td><td>O relógio <b>para</b> e sai da tela; a pílula vira o fato: "Encerrado às 15h02 · durou 24 min".</td></tr>
+    <tr><td>Abriu o prontuário pela carteira,<br>ou uma sessão de outro dia</td><td><b>Não aparece relógio nenhum.</b> Não há consulta em curso, e um mostrador parado em zero convidaria a "iniciar" um atendimento que não existe na agenda de ninguém.</td></tr>
+    <tr><td>Horário cancelado ou falta</td><td>Nada. A pílula diz o que houve, sem relógio.</td></tr>
+  </tbody>
+</table>
+
+<div class="nota">
+  <span class="r">O paciente não vê, e o relógio não custa nada</span>
+  A segunda tela — o monitor onde ele assina os termos — mostra só o termo e não conhece esta tela.
+  O tempo também não sai em papel nenhum. E o desenho é feito na hora, no próprio programa: o que
+  gira é um traço na tela, não uma ida ao banco. <b>A leitura do prontuário continua no ritmo de
+  hoje</b>; quem passa a bater de segundo em segundo é só o ponteiro.
+</div>
+
+<div class="aten">
+  <span class="r">O que eu não vou fazer sem você pedir</span>
+  Nada de <b>alarme</b> ao passar de X minutos, nada de mostrador que fica vermelho, nada de barulho,
+  e nada de guardar o tempo para ranking ou relatório de produtividade. O pedido foi <i>o
+  profissional saber</i> — um relógio que passa a cobrar é outra coisa, e muda como as pessoas
+  atendem.
+</div>
+
+<p class="rod">Mockup para aprovação — nenhuma linha de tela foi escrita. Falta decidir <b>qual
+mostrador</b> (A, B ou C) e <b>se o ponteiro de segundos entra</b>. Feito o desenho em WPF, ele vale
+para os dois lados: Consultório e tela da Enfermagem.</p>
+
+</div>
+
+<script>
+(function(){
+  const T0 = 12 * 60;              // a consulta abre com 12 min, para não começar do zero
+  let base = T0, marca = performance.now(), vel = 60, comSeg = true;
+
+  const decorridos = () => base + (performance.now() - marca) / 1000 * vel;
+
+  // ---- o desenho de cada mostrador -----------------------------------------
+  // Ponteiro apontando para CIMA e rotacionado: 0° = 12 horas, como num relógio.
+  const ns = 'http://www.w3.org/2000/svg';
+  function el(t, a){ const e = document.createElementNS(ns, t);
+    for (const k in a) e.setAttribute(k, a[k]); return e; }
+
+  function montar(svg, tipo){
+    svg.textContent = '';
+    const g = el('g', {});
+    svg.appendChild(g);
+
+    if (tipo === 'C'){
+      // Cronômetro de bolso: a SILHUETA é o que o identifica — o botão e as duas orelhas
+      // no topo. Um ponteiro grande só, o dos SEGUNDOS, que é o que se vê correndo; os
+      // minutos ficam no texto ao lado. (A primeira versão tinha um sub-mostrador que o
+      // ponteiro atravessava: em 26 px aquilo era sujeira, não informação.)
+      g.appendChild(el('rect', {x:44, y:2, width:12, height:7, rx:2.4, fill:'#15803D'}));
+      g.appendChild(el('line', {x1:32, y1:12, x2:39, y2:8, stroke:'#15803D',
+        'stroke-width':4.5, 'stroke-linecap':'round'}));
+      g.appendChild(el('line', {x1:68, y1:12, x2:61, y2:8, stroke:'#15803D',
+        'stroke-width':4.5, 'stroke-linecap':'round'}));
+      g.appendChild(el('circle', {cx:50, cy:55, r:40, fill:'#fff', stroke:'#15803D', 'stroke-width':5}));
+      // O arco dos MINUTOS na borda: diz "quanto já passou" sem competir com o ponteiro.
+      svg.__arco = el('circle', {cx:50, cy:55, r:33, fill:'none', stroke:'#BBF7D0',
+        'stroke-width':6, 'stroke-linecap':'round',
+        transform:'rotate(-90 50 55)', 'stroke-dasharray':'0 999'});
+      g.appendChild(svg.__arco);
+      for (let i=0;i<4;i++){
+        g.appendChild(el('line', {x1:50, y1:19, x2:50, y2:25, stroke:'#15803D',
+          'stroke-width':4, 'stroke-linecap':'round', transform:`rotate(${i*90} 50 55)`}));
+      }
+      svg.__min = el('line', {x1:50, y1:55, x2:50, y2:55, stroke:'none'});
+      svg.__seg = el('line', {x1:50, y1:60, x2:50, y2:23, stroke:'#15803D',
+        'stroke-width':4.6, 'stroke-linecap':'round'});
+      g.appendChild(svg.__seg);
+      g.appendChild(el('circle', {cx:50, cy:55, r:4, fill:'#15803D'}));
+      svg.__pivoMin = [50,55];
+      svg.__pivoSeg = [50,55];
+      return;
+    }
+
+    // A e B: aro fino, quatro marcas, ponteiro de minutos + de segundos.
+    if (tipo === 'B'){
+      // A trilha do que já passou, pintada atrás do ponteiro.
+      svg.__trilha = el('path', {fill:'#BBF7D0', stroke:'none'});
+      g.appendChild(svg.__trilha);
+    }
+    g.appendChild(el('circle', {cx:50, cy:50, r:44, fill:'none', stroke:'#15803D', 'stroke-width':5}));
+    for (let i=0;i<4;i++){
+      g.appendChild(el('line', {x1:50, y1:13, x2:50, y2:21, stroke:'#15803D',
+        'stroke-width':4.5, 'stroke-linecap':'round', transform:`rotate(${i*90} 50 50)`}));
+    }
+    svg.__min = el('line', {x1:50, y1:53, x2:50, y2:27, stroke:'#15803D',
+      'stroke-width':6, 'stroke-linecap':'round'});
+    svg.__seg = el('line', {x1:50, y1:56, x2:50, y2:19, stroke:'#16A34A',
+      'stroke-width':2.6, 'stroke-linecap':'round'});
+    g.appendChild(svg.__min); g.appendChild(svg.__seg);
+    g.appendChild(el('circle', {cx:50, cy:50, r:4.4, fill:'#15803D'}));
+    svg.__pivoMin = [50,50];
+  }
+
+  function fatia(ang){
+    if (ang <= 0) return '';
+    const r = 41.5, rad = (ang - 90) * Math.PI / 180;
+    const x = 50 + r*Math.cos(rad), y = 50 + r*Math.sin(rad);
+    const grande = ang > 180 ? 1 : 0;
+    return `M50 50 L50 ${50-r} A${r} ${r} 0 ${grande} 1 ${x.toFixed(2)} ${y.toFixed(2)} Z`;
+  }
+
+  const relogios = [...document.querySelectorAll('svg[data-relogio]')];
+  relogios.forEach(s => montar(s, s.dataset.relogio));
+
+  function texto(s){
+    const m = Math.floor(s / 60);
+    return m < 60 ? `${m} min` : `${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}`;
+  }
+
+  function pintar(){
+    const s = decorridos();
+    const angMin = (s / 60) * 6;          // uma volta a cada 60 minutos
+    const angSeg = (s % 60) * 6;          // uma volta a cada 60 segundos
+
+    for (const svg of relogios){
+      const [px, py] = svg.__pivoMin;
+      const [sx, sy] = svg.__pivoSeg || [50, 50];
+      svg.__min.setAttribute('transform', `rotate(${angMin} ${px} ${py})`);
+      svg.__seg.setAttribute('transform', `rotate(${angSeg} ${sx} ${sy})`);
+      svg.__seg.style.display = comSeg ? '' : 'none';
+      if (svg.__trilha) svg.__trilha.setAttribute('d', fatia(Math.min(angMin, 359.9)));
+      if (svg.__arco){
+        // O arco dos minutos do cronômetro: a volta inteira é 1 hora.
+        const volta = 2 * Math.PI * 33, corrido = volta * Math.min(angMin, 359.9) / 360;
+        svg.__arco.setAttribute('stroke-dasharray', `${corrido.toFixed(1)} 999`);
+        // Sem o ponteiro de segundos, o arco é a única coisa que anda: engrossa para
+        // continuar legível sozinho.
+        svg.__arco.setAttribute('stroke-width', comSeg ? 6 : 8);
+      }
+    }
+    document.querySelectorAll('[data-txt]').forEach(e => e.textContent = texto(s));
+    const m = Math.floor(s/60), r = Math.floor(s%60);
+    document.getElementById('lido').textContent =
+      `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;
+    requestAnimationFrame(pintar);
+  }
+  requestAnimationFrame(pintar);
+
+  // ---- controles -----------------------------------------------------------
+  document.getElementById('modo').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    comSeg = b.dataset.modo === 'seg';
+    [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+  };
+  document.querySelectorAll('.bt[data-vel]').forEach(b => b.onclick = () => {
+    base = decorridos(); marca = performance.now(); vel = +b.dataset.vel;
+    document.querySelectorAll('.bt[data-vel]').forEach(x => x.classList.toggle('on', x === b));
+  });
+  document.getElementById('zerar').onclick = () => { base = T0; marca = performance.now(); };
+  document.getElementById('qual').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+    const svg = document.getElementById('relogio-tela');
+    svg.dataset.relogio = b.dataset.qual;
+    montar(svg, b.dataset.qual);
+  };
+})();
+</script>
