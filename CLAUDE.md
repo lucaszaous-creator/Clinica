@@ -8478,6 +8478,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   comentário justifica, releia a justificativa antes: ela é a primeira coisa a
   apodrecer.**
 
+- **A CONFERÊNCIA DE CHOQUE EXISTE PARA IMPEDIR QUE SE CRIE UMA SOBREPOSIÇÃO — reconferi-la
+  numa edição que não move o horário vira corredor sem saída** (set/2026 — a clínica trocou
+  a especialidade de um horário e levou *"Dr. … já atende SUELLI às 14:01. Escolha outro
+  horário ou marque como encaixe"*, com o médico ainda não tendo atendido ninguém).
+  ⚠️ **A mensagem estava certa sobre o BANCO e errada sobre o ATO.** O choque era real: o
+  horário importado ficou parado às 14h00 e a sessão foi lançada ao lado como ENCAIXE às
+  14h01 — mesmo paciente, mesmo profissional, o cenário da parcela 93. O que a secretária
+  fez não cria sobreposição nenhuma: o formulário devolve a MESMA hora, o MESMO
+  profissional, a MESMA sala e a MESMA duração, e só a especialidade muda. `RemarcarAsync`
+  chamava `GarantirSemChoqueAsync` **incondicionalmente**, então ela atravessava a porta,
+  escolhia a especialidade certa e levava no Salvar uma recusa **que não tem como cumprir**
+  — a única forma de obedecer seria cancelar a sessão que aconteceu. É a lição da parcela 69
+  ("a porta que ficou de fora vira um corredor sem saída") vinda pelo outro lado: aqui as
+  duas barreiras concordam, e quem está errado é a REGRA ser reavaliada num ato que não a
+  disputa.
+  ⚠️ **E o botão Editar não CRIOU o defeito: ele o EXPÔS.** O caminho é o mesmo `Remarcar`
+  de sempre; o que mudou foi passar a ser usado para o que ele agora se propõe — corrigir o
+  que a sessão É, sem mexer em quando ela é. **Ao abrir uma porta nova para um serviço que
+  já existe, releia as guardas dele perguntando quais foram escritas para o uso ANTIGO.**
+  A correção é a condição, não o afrouxamento: só reconfere quando **disputa recurso** —
+  data/hora, duração, profissional, sala ou o sinalizador de encaixe mudaram. E **reabrir
+  cancelado/falta/substituído confere sempre**, porque ali o horário tinha SOLTADO o
+  recurso e o vão pode ter sido dado a outra pessoa — é a metade que não podia cair junto,
+  e tem teste próprio. O que reproduz o caso da clínica
+  (`Corrigir_a_especialidade_nao_esbarra_no_encaixe_que_ja_existia`) foi verificado
+  REPROVANDO no código anterior, não presumido.
+
 - **CORRIGIR O QUE A SESSÃO É, SEM SAIR DA AGENDA DO DIA** (set/2026 — a cliente, com o
   print da lista: *"temos muitos atendimentos que foram importados que vieram como
   consulta e não as nossas especialidades cadastradas… um botão de editar na agenda para

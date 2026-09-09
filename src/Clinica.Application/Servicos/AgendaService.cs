@@ -221,9 +221,37 @@ public sealed class AgendaService
         if (novaDuracao is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
 
-        await GarantirSemChoqueAsync(
-            dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId,
-            ignorarAgendamentoId: ag.Id, novoEncaixe, ct);
+        // ⚠️ O CHOQUE só se reconfere quando a edição DISPUTA recurso (set/2026 — a clínica
+        // corrigiu a especialidade de um horário e levou *"Dr. … já atende SUELLI às 14:01.
+        // Escolha outro horário ou marque como encaixe"*, com o médico ainda não tendo
+        // atendido ninguém).
+        //
+        // A conferência existe para impedir que se CRIE uma sobreposição. O botão Editar da
+        // agenda do dia abre este mesmo caminho para corrigir o que a sessão É — modalidade,
+        // especialidade, observação — sem mover o horário um minuto: o formulário devolve a
+        // mesma hora, o mesmo profissional, a mesma sala e a mesma duração. Reconferir ali
+        // não impede sobreposição nenhuma; ela JÁ existia, e é exatamente o cenário da
+        // parcela 93 — o horário importado que ficou parado ao lado do ENCAIXE da sessão
+        // lançada (mesmo paciente, mesmo profissional, um minuto depois). O desfecho era o
+        // corredor sem saída da parcela 69: a secretária atravessa a porta, escolhe a
+        // especialidade certa e leva no Salvar uma recusa que ela não tem como cumprir — o
+        // encaixe é a sessão que aconteceu, e a única saída seria cancelá-la.
+        //
+        // Reabrir cancelado/falta/substituído CONFERE, e é a metade que não pode cair: o
+        // horário tinha SOLTADO o recurso, e o vão dele pode ter sido dado a outra pessoa
+        // enquanto isso.
+        var disputaRecurso =
+            dataHora != ag.DataHora
+            || novaDuracao != ag.DuracaoMinutos
+            || novoProfissional != ag.ProfissionalId
+            || novaSala != ag.SalaId
+            || novoEncaixe != ag.Encaixe
+            || statusAnterior != StatusAgendamento.Agendado;
+
+        if (disputaRecurso)
+            await GarantirSemChoqueAsync(
+                dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId,
+                ignorarAgendamentoId: ag.Id, novoEncaixe, ct);
 
         ag.ProfissionalId = novoProfissional;
         ag.SalaId = novaSala;

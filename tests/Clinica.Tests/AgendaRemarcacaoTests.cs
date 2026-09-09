@@ -198,6 +198,106 @@ public class AgendaRemarcacaoTests : IDisposable
         ag.EspecialidadeConsultaCodigo.Should().Be(nameof(Especialidade.Psiquiatria));
     }
 
+    /// <summary>
+    /// CORRIGIR o que a sessão É não pode esbarrar num choque que já existia (set/2026 — a
+    /// clínica trocou a especialidade de um horário e levou *"Dr. … já atende SUELLI às
+    /// 14:01. Escolha outro horário ou marque como encaixe"*, sem o médico ter atendido
+    /// ninguém).
+    ///
+    /// O cenário é o da parcela 93, e é o normal desta clínica: o horário importado ficou
+    /// parado às 14h00 e a sessão foi lançada ao lado, como ENCAIXE às 14h01 — mesmo
+    /// paciente, mesmo profissional. Editar a especialidade do primeiro devolve a MESMA
+    /// hora, o MESMO profissional e a MESMA duração: não há sobreposição sendo criada, e a
+    /// recusa era um corredor sem saída — a única forma de cumpri-la seria cancelar a
+    /// sessão que aconteceu.
+    /// </summary>
+    [Fact]
+    public async Task Corrigir_a_especialidade_nao_esbarra_no_encaixe_que_ja_existia()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var quando = new DateTime(2026, 7, 20, 14, 0, 0);
+
+        var importado = await _agenda.AgendarAsync(
+            pacienteId, quando, ModalidadeAtendimento.Consulta, "Importado do Smart Clinic · Consulta",
+            especialidadeConsulta: Especialidade.Psiquiatria, profissionalId: _profPadrao);
+
+        // A sessão de verdade, lançada pelo balcão um minuto depois: encaixe, mesmo
+        // profissional, mesmo paciente. É ela que a conferência de choque enxergava.
+        await _agenda.AgendarAsync(
+            pacienteId, quando.AddMinutes(1), ModalidadeAtendimento.Consulta, null,
+            especialidadeConsulta: Especialidade.Psiquiatria, profissionalId: _profPadrao, encaixe: true);
+
+        // O mesmo caminho do botão Editar da agenda do dia: hora igual, recursos iguais,
+        // só a especialidade muda.
+        var corrigir = async () => await _agenda.RemarcarAsync(
+            importado.Id, quando, importado.Observacoes,
+            modalidadeCodigo: nameof(ModalidadeAtendimento.Consulta),
+            especialidadeConsultaCodigo: nameof(Especialidade.Geriatria),
+            profissionalId: _profPadrao, salaId: null, duracaoMinutos: null,
+            manterRecursos: false, encaixe: false);
+
+        await corrigir.Should().NotThrowAsync(
+            "a sobreposição já existia, e a edição não move o horário nem troca o recurso");
+
+        var depois = await _agenda.ObterAsync(importado.Id);
+        depois!.EspecialidadeConsultaCodigo.Should().Be(nameof(Especialidade.Geriatria));
+        depois.EspecialidadeConsulta.Should().Be(Especialidade.Geriatria);
+    }
+
+    /// <summary>
+    /// A outra metade: MOVER o horário para cima de outro continua recusando. A conferência
+    /// existe para impedir que se crie a sobreposição, e é isso que não pode cair junto.
+    /// </summary>
+    [Fact]
+    public async Task Mover_o_horario_para_cima_de_outro_continua_recusando()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var outro = await CriarPacienteAsync();
+
+        var meu = await _agenda.AgendarAsync(
+            pacienteId, new DateTime(2026, 7, 20, 14, 0, 0), ModalidadeAtendimento.AcupunturaSimples,
+            null, profissionalId: _profPadrao);
+        await _agenda.AgendarAsync(
+            outro, new DateTime(2026, 7, 20, 16, 0, 0), ModalidadeAtendimento.AcupunturaSimples,
+            null, profissionalId: _profPadrao);
+
+        var mover = async () => await _agenda.RemarcarAsync(
+            meu.Id, new DateTime(2026, 7, 20, 16, 0, 0), null,
+            profissionalId: _profPadrao, salaId: null, duracaoMinutos: null,
+            manterRecursos: false, encaixe: false);
+
+        await mover.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>
+    /// E REABRIR um cancelado confere de novo: o horário tinha soltado o recurso, e o vão
+    /// dele pode ter sido dado a outra pessoa nesse meio-tempo.
+    /// </summary>
+    [Fact]
+    public async Task Reabrir_um_cancelado_ainda_confere_o_choque()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var outro = await CriarPacienteAsync();
+        var quando = new DateTime(2026, 7, 20, 14, 0, 0);
+
+        var meu = await _agenda.AgendarAsync(
+            pacienteId, quando, ModalidadeAtendimento.AcupunturaSimples, null,
+            profissionalId: _profPadrao);
+        await _agenda.CancelarAsync(meu.Id, "teste");
+
+        // O vão vagou e foi dado a outra pessoa.
+        await _agenda.AgendarAsync(
+            outro, quando, ModalidadeAtendimento.AcupunturaSimples, null,
+            profissionalId: _profPadrao);
+
+        var reabrir = async () => await _agenda.RemarcarAsync(
+            meu.Id, quando, null,
+            profissionalId: _profPadrao, salaId: null, duracaoMinutos: null,
+            manterRecursos: false, encaixe: false);
+
+        await reabrir.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     public void Dispose()
     {
         _db.Dispose();
