@@ -954,9 +954,12 @@ public sealed partial class AgendaViewModel : ObservableObject
                 DataHora = a.DataHora,
                 Fim = a.FimPrevisto,
                 // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
-                    // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
-                    Modalidade = CatalogoModalidades.Nome(
-                        a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+                // "AcupunturaComEletro" no cartão que o médico lê (parcela 41). A
+                // especialidade vem junto na consulta, pela MESMA função da lista do dia:
+                // duas frases para o mesmo horário nas duas abas da Agenda se leem como
+                // dois horários.
+                Modalidade = CatalogoModalidades.NomeComEspecialidade(
+                    a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo),
                 ModalidadeFamilia = a.ModalidadePrevista,
                 Sala = a.Sala?.Nome ?? "—",
                 Profissional = a.Profissional?.Rotulo ?? "sem profissional",
@@ -1771,7 +1774,12 @@ public sealed partial class AgendaViewModel : ObservableObject
         SugestaoPara = null;
         SugestaoProfissionalId = null;
 
-        _snackbar.Sucesso("Agenda atualizada.");
+        // O que aconteceu com as GUIAS ao salvar (a regeração por modalidade nova) vem
+        // escrito do serviço. A porta irmã — o "Editar" da lista do dia — diz o mesmo:
+        // capacidade que existe numa porta só é o defeito recorrente do projeto.
+        _snackbar.Sucesso(vm.AvisosDoSalvamento.Count == 0
+            ? "Agenda atualizada."
+            : $"Agenda atualizada — {string.Join(" ", vm.AvisosDoSalvamento)}");
         await CarregarAsync();
     }
 

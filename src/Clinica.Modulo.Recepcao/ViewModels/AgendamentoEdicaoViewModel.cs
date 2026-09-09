@@ -90,10 +90,61 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// </summary>
     public int? SalaPreferidaId { get; set; }
 
+    /// <summary>
+    /// O título quando o formulário abre num horário que JÁ EXISTE — quem decide é a
+    /// PORTA.
+    ///
+    /// Pela grade a pessoa clicou em "Remarcar" e é isso que ela quer; pela lista do dia
+    /// ela clicou em "Editar" para corrigir o que a sessão É (a modalidade importada como
+    /// "Consulta"), e chamar aquilo de remarcação diria que o horário vai mudar de lugar.
+    /// Rótulo fixo mente numa das duas portas — a lição de <c>RotulosDeAbrir</c>.
+    ///
+    /// É lido DEPOIS do <c>await</c> da carga, como os "Preferido" acima: por isso é
+    /// propriedade settável de fora e não parâmetro do construtor.
+    /// </summary>
+    public string? TituloDaEdicao { get; set; }
+
     /// <summary>A janela fecha quando isto dispara — o comando de salvar segue assíncrono.</summary>
     public event Action? Concluido;
 
+    private readonly List<string> _avisosDoSalvamento = [];
+
+    /// <summary>
+    /// O que ACONTECEU com as guias ao salvar — lido por quem abriu a janela, depois de
+    /// ela fechar.
+    ///
+    /// Trocar a modalidade de um horário que já tem guia REGERA as guias, e
+    /// <c>AjustarAoRemarcarAsync</c> devolve isso escrito. O <c>RemarcarAsync</c> aceitava
+    /// o canal e ninguém o passava: a janela fechava, a lista recarregava, e o único fato
+    /// que interessa ao faturamento — as guias acompanharam — morria entre as camadas (a
+    /// lição da parcela 62). O que RECUSA continua sendo exceção, e essa fica na tela.
+    /// </summary>
+    public IReadOnlyList<string> AvisosDoSalvamento => _avisosDoSalvamento;
+
     public bool TemConflito => Conflitos.Count > 0;
+
+    /// <summary>
+    /// EDITANDO um horário que ficou sem dono — a metade que faz o "para refletir no
+    /// médico" acontecer.
+    ///
+    /// "Meu dia" e "Minha semana" filtram por <c>ProfissionalId</c>, e o repasse lê quem
+    /// atendeu do AGENDAMENTO: horário sem profissional não aparece para ninguém. Marcar
+    /// RECUSA sem dono desde a parcela 95; editar não pode recusar — os importados e os
+    /// encaixes antigos podem ter nascido assim, e travar a correção da modalidade por
+    /// causa disso seria trocar um buraco por um balcão parado. Então aqui é AVISO, e ele
+    /// só existe na EDIÇÃO: na criação quem fala é a recusa do Salvar, e duas frases para
+    /// a mesma coisa fariam procurar a diferença que não existe.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Só depois de o horário ter sido LIDO (<c>_horarioCarregado</c>): o formulário abre
+    /// e busca, e sem essa guarda o aviso laranja pisca em toda edição durante a ida ao
+    /// banco — inclusive nos horários que TÊM dono, que é dizer o contrário da verdade
+    /// enquanto ninguém sabe qual ela é.
+    /// </remarks>
+    public bool AvisarHorarioSemProfissional
+        => _agendamentoId is not null && _horarioCarregado && Profissional is null;
+
+    private bool _horarioCarregado;
 
     public bool ModalidadeConsulta
         => (ModalidadeSelecionada?.Base ?? ModalidadeAtendimento.AcupunturaComEletro)
@@ -246,7 +297,11 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     }
     partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
     partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();
-    partial void OnProfissionalChanged(Profissional? value) => _ = ConferirConflitosAsync();
+    partial void OnProfissionalChanged(Profissional? value)
+    {
+        OnPropertyChanged(nameof(AvisarHorarioSemProfissional));
+        _ = ConferirConflitosAsync();
+    }
     partial void OnSalaChanged(Sala? value) => _ = ConferirConflitosAsync();
 
     private async Task CarregarAsync()
@@ -296,7 +351,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         var ag = await agenda.ObterAsync(id);
         if (ag is null) return;
 
-        Titulo = "Remarcar horário";
+        Titulo = TituloDaEdicao ?? "Remarcar horário";
         Data = ag.DataHora.Date;
         Hora = ag.DataHora.ToString("HH:mm");
         ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == ag.ModalidadeCodigo)
@@ -316,6 +371,9 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             // Remarcar move o horário; não troca de pessoa.
             Seletor.Travado = true;
         }
+
+        _horarioCarregado = true;
+        OnPropertyChanged(nameof(AvisarHorarioSemProfissional));
 
         await ConferirConflitosAsync();
     }
@@ -377,6 +435,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
 
         Mensagem = string.Empty;
         MensagemEhErro = false;
+        _avisosDoSalvamento.Clear();
 
         var paciente = Seletor.Selecionado;
         if (paciente is null)
@@ -467,7 +526,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     operador: SessaoUsuario.Atual.Operador,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(),
-                    manterRecursos: false, encaixe: Encaixe);
+                    manterRecursos: false, encaixe: Encaixe,
+                    avisosGuia: _avisosDoSalvamento);
             }
             else if (PedidoListaEsperaId is { } pedidoId)
             {

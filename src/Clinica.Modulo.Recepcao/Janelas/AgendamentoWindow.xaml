@@ -79,6 +79,17 @@
                 <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
                           DisplayMemberPath="Rotulo" />
+                <!-- EDITANDO um horário sem dono: quem edita para "refletir no médico"
+                     precisa saber que ele não aparece na agenda de ninguém. Marcar recusa
+                     (é a regra da parcela 95); editar não, porque os importados podem ter
+                     nascido sem — então aqui é AVISO, e ele é LINHA de texto, não uma
+                     quarta faixa por cima das três de baixo. -->
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           Foreground="{StaticResource Brush.Aviso}"
+                           Visibility="{Binding AvisarHorarioSemProfissional,
+                                        Converter={StaticResource BoolParaVisibilidade}}"
+                           Text="Sem profissional este horário não aparece na agenda de quem atende nem entra no repasse." />
             </StackPanel>
 
             <StackPanel Grid.Column="2">
