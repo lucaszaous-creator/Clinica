@@ -1,0 +1,184 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>O termo ligado à sessão</title>
+<style>
+:root{
+  --azul-50:#EEF3FC;--azul-100:#D8E3F7;--azul-500:#3F62C9;--azul-600:#123A9E;
+  --cinza-50:#F8FAFC;--cinza-100:#F1F5F9;--cinza-200:#E5E7EB;--cinza-300:#D1D5DB;
+  --cinza-500:#6B7280;--cinza-700:#374151;--cinza-900:#111827;
+  --verde-100:#DCFCE7;--verde-600:#16A34A;--verde-700:#15803D;
+  --vermelho-100:#FEE2E2;--vermelho-700:#B91C1C;--violeta-50:#F5F3FF;--violeta-600:#7C3AED;
+  --teal-600:#0D9488;
+  --acento:var(--azul-600);--acento-suave:var(--azul-50);--foco:var(--azul-500);
+  --fundo:var(--cinza-50);--sup:#FFFFFF;--borda:var(--cinza-200);
+  --tinta:var(--cinza-900);--corpo:var(--cinza-700);--mudo:var(--cinza-500);
+  --r-peq:4px;--r-med:8px;--r-gra:12px;
+  --fonte:"Segoe UI",Inter,system-ui,-apple-system,Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E7EBF1;color:var(--tinta);font-family:var(--fonte);font-size:15px;line-height:1.5;
+     -webkit-font-smoothing:antialiased}
+.pag{max-width:1400px;margin:0 auto;padding:34px 20px 90px}
+h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.4px}
+.sub{color:var(--corpo);margin:0 0 6px;font-size:16px;max-width:96ch}
+.sub b{color:var(--tinta)}
+h2{font-size:21px;margin:0 0 6px;display:flex;align-items:center;gap:11px}
+h2 .n{flex:none;width:29px;height:29px;line-height:29px;text-align:center;background:var(--acento);
+      color:#fff;border-radius:999px;font-size:14px;font-weight:600}
+.desenho{margin-top:46px}
+.porque{color:var(--corpo);margin:8px 0 16px;max-width:98ch;font-size:14.5px}
+.porque b{color:var(--tinta);font-weight:600}
+.regra{height:1px;background:#D2D8E2;margin:26px 0 0;border:0}
+.janela{border:1px solid #C7CEDA;border-radius:10px;overflow:hidden;background:var(--sup);
+        box-shadow:0 1px 2px rgba(17,24,39,.05),0 14px 38px rgba(17,24,39,.10)}
+.tbar{display:flex;align-items:center;gap:7px;padding:9px 14px;background:#F3F5F9;border-bottom:1px solid var(--borda)}
+.tbar i{width:10px;height:10px;border-radius:999px;background:#CBD2DE;display:block}
+.tbar .tit{margin-left:10px;font-size:12px;color:var(--mudo)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ===== a janela modal ===== */
+.modal{width:100%;background:var(--fundo);padding:24px;font-size:14px}
+.mt{font-size:19px;font-weight:600;letter-spacing:-.2px;margin:0}
+.ms{font-size:13px;color:var(--mudo);margin:6px 0 0}
+.ms b{color:var(--corpo)}
+.card{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-gra);margin-top:14px;padding:8px}
+.op{padding:9px 12px;border-radius:var(--r-med);display:block}
+.op.on{background:var(--acento-suave)}
+.op .r{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.op.on .r{color:var(--acento)}
+.op .d{font-size:12.5px;color:var(--mudo);margin-top:1px}
+.op.avulso{border-top:1px solid var(--borda);border-radius:0;margin-top:6px;padding-top:12px}
+.bts{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.bt{border:1px solid var(--borda);background:var(--sup);border-radius:var(--r-med);height:36px;padding:0 15px;
+    display:inline-flex;align-items:center;font-size:13.5px;color:var(--corpo);white-space:nowrap}
+.bt.pri{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+
+/* ===== a janela de assinatura ===== */
+.assin{width:100%;background:var(--fundo);padding:24px;font-size:14px}
+.lig{font-size:13px;color:var(--mudo);margin-top:5px}
+.lig b{color:var(--acento);font-weight:600}
+.traco{background:var(--sup);border:1px dashed var(--cinza-300);border-radius:var(--r-med);height:120px;
+       margin-top:14px;display:flex;align-items:center;justify-content:center;color:var(--cinza-300);font-size:13px}
+.decl{background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-gra);padding:12px 14px;margin-top:14px}
+.decl .l{display:flex;align-items:center;gap:12px;padding:6px 0}
+.decl .l+.l{border-top:1px solid var(--cinza-100)}
+.decl .q{flex:1;font-size:13.5px}
+.sn{display:flex;gap:6px}
+.sn span{border:1px solid var(--borda);border-radius:999px;padding:2px 12px;font-size:12.5px;color:var(--mudo)}
+.sn span.on{background:var(--verde-100);border-color:#BBEBCB;color:var(--verde-700);font-weight:600}
+
+/* ===== a lista de documentos ===== */
+.lista{width:100%;background:var(--sup);padding:18px 20px;font-size:14px}
+.lt{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600;margin-bottom:6px}
+.doc{display:grid;grid-template-columns:96px 1fr auto;gap:14px;padding:11px 0;border-bottom:1px solid var(--borda);
+     align-items:center}
+.doc:last-child{border-bottom:0}
+.doc .dt{font-weight:600;font-variant-numeric:tabular-nums}
+.doc .n1{font-weight:600}
+.doc .n1 span{font-weight:400;color:var(--mudo);margin-left:8px}
+.doc .n2{font-size:12.5px;color:var(--mudo);margin-top:2px}
+.doc .n3{font-size:12.5px;color:var(--acento);margin-top:2px;font-weight:500}
+.doc .acoes{display:flex;gap:6px}
+.bt.peq{height:28px;padding:0 11px;font-size:12.5px}
+.selo{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;
+      background:var(--verde-100);color:var(--verde-700)}
+</style>
+
+<div class="pag">
+<h1>O termo ligado à sessão</h1>
+<p class="sub">O que o sistema passou a guardar: <b>de qual sessão é cada termo</b>. O elo é o
+   <b>horário</b> — não a evolução —, porque é ele que existe nos dois momentos: no consultório, com a sessão
+   aberta na tela; e na recepção, quando o médico ainda não escreveu nada.</p>
+<p class="sub">Onde não há dúvida, ninguém pergunta nada. Onde há, a janela abaixo aparece.</p>
+<hr class="regra">
+
+<div class="desenho">
+<h2><span class="n">1</span> Na recepção, quando há mais de uma sessão</h2>
+<p class="porque">A janela só abre <b>quando há dúvida</b>: com um horário hoje e nenhum outro à frente, o
+   termo é amarrado sozinho. Com dois horários, ou com sessões marcadas para os próximos dias, ela pergunta —
+   e já vem com a <b>sessão de hoje marcada</b>, para o caso comum ser um clique. “Nenhuma — termo avulso” é
+   opção de primeira classe: é o paciente que assina semanas antes, na consulta em que veio tirar dúvidas.</p>
+<div class="janela" style="width:648px">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">A qual sessão?</span></div>
+<div class="modal">
+  <p class="mt">A qual sessão este termo pertence?</p>
+  <p class="ms"><b>Maria da Silva</b> — Termo do BSV. O termo fica guardado com a sessão escolhida e aparece
+     nos documentos do paciente.</p>
+  <div class="card">
+    <div class="op on"><div class="r">Hoje, 09h00</div><div class="d">BSV + acupuntura  ·  Dra. Helena Prado</div></div>
+    <div class="op"><div class="r">seg, 15/09, 14h30</div><div class="d">BSV + acupuntura  ·  Dra. Helena Prado</div></div>
+    <div class="op"><div class="r">qui, 18/09, 09h00</div><div class="d">Acupuntura + eletroestimulação</div></div>
+    <div class="op avulso"><div class="r">Nenhuma — termo avulso</div>
+      <div class="d">O paciente assina agora e o termo não fica ligado a uma sessão.</div></div>
+  </div>
+  <div class="bts"><span class="bt">Cancelar</span><span class="bt pri">Colher assinatura…</span></div>
+</div>
+</div>
+</div>
+
+<div class="desenho">
+<h2><span class="n">2</span> A coleta DIZ a que sessão amarrou</h2>
+<p class="porque">Quando o sistema resolve sozinho — um horário hoje e nenhum outro —, ele não faz isso em
+   silêncio: a janela da assinatura escreve a sessão por extenso. <b>Amarrar sem dizer seria uma decisão que
+   ninguém viu ser tomada</b>, e é a procedência de um documento que o paciente assina e a clínica guarda por
+   20 anos.</p>
+<div class="janela" style="width:808px">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Assinatura do paciente</span></div>
+<div class="assin">
+  <p class="mt">Consentimento para Bloqueio Simpático Venoso</p>
+  <p class="ms"><b>Maria da Silva</b> · Termo nº 2026/0148</p>
+  <p class="lig">Ligado à sessão: <b>Hoje, 09h00  ·  BSV + acupuntura</b></p>
+  <div class="decl">
+    <div class="l"><span class="q">Estou em jejum de 8 horas</span>
+      <span class="sn"><span class="on">Sim</span><span>Não</span></span></div>
+    <div class="l"><span class="q">Informei todos os medicamentos que uso</span>
+      <span class="sn"><span class="on">Sim</span><span>Não</span></span></div>
+    <div class="l"><span class="q">Fui informado(a) dos riscos do procedimento</span>
+      <span class="sn"><span class="on">Sim</span><span>Não</span></span></div>
+  </div>
+  <div class="traco">assine aqui — no monitor sensível ao toque, ou com o mouse</div>
+  <div class="bts"><span class="bt">Paciente recusou…</span><span class="bt">Cancelar</span>
+    <span class="bt pri">Confirmar assinatura</span></div>
+</div>
+</div>
+</div>
+
+<div class="desenho">
+<h2><span class="n">3</span> Depois: a sessão aparece no documento</h2>
+<p class="porque">Na ficha do paciente e nas Prescrições e documentos do Consultório, cada papel passa a dizer
+   <b>de qual sessão ele é</b>. A linha SOME no documento avulso — traço em branco seria pior que a ausência
+   dela. ⚠️ E o termo continua sendo um <b>documento clínico</b>, numerado e com código de conferência: é isso
+   que garante a segunda via idêntica e o valor jurídico. Ele não virou “anexo”; ele passou a <b>aparecer com
+   a sessão</b>, que é o que você pediu.</p>
+<div class="janela" style="width:948px">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Ficha do paciente — Documentos</span></div>
+<div class="lista">
+  <div class="lt">Documentos emitidos</div>
+  <div class="doc">
+    <div class="dt">08/09/2026</div>
+    <div><div class="n1">Termo de procedimento <span>2026/0148</span></div>
+      <div class="n2">Dra. Helena Prado (CRM-SP 123456) · conferência 7QF4-2M</div>
+      <div class="n3">Sessão de 08/09/2026, 09h00  ·  BSV + acupuntura</div></div>
+    <div class="acoes"><span class="selo">Assinado</span><span class="bt peq">Imprimir</span></div>
+  </div>
+  <div class="doc">
+    <div class="dt">01/09/2026</div>
+    <div><div class="n1">Receituário <span>2026/0131</span></div>
+      <div class="n2">Dra. Helena Prado (CRM-SP 123456) · conferência 9KD1-8T</div>
+      <div class="n3">Sessão de 01/09/2026, 09h00  ·  Acupuntura + eletroestimulação</div></div>
+    <div class="acoes"><span class="bt peq">Imprimir</span></div>
+  </div>
+  <div class="doc">
+    <div class="dt">20/08/2026</div>
+    <div><div class="n1">Termo de procedimento <span>2026/0102</span></div>
+      <div class="n2">Dra. Helena Prado (CRM-SP 123456) · conferência 3BX7-1C</div></div>
+    <div class="acoes"><span class="selo">Assinado</span><span class="bt peq">Imprimir</span></div>
+  </div>
+</div>
+</div>
+<p class="porque" style="margin-top:14px">A terceira linha é um termo <b>avulso</b> — assinado antes de haver
+   sessão marcada — e por isso não tem a linha azul. É o mesmo desenho respondendo “este papel não pertence a
+   sessão nenhuma”, sem inventar uma.</p>
+</div>
+</div>

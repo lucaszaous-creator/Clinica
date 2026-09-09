@@ -251,8 +251,17 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
         if (p is not null)
         {
+            // ⚠️ A IDADE VEM DA REGRA, NÃO DO CRACHÁ — e ela escreve o TERCEIRO ESTADO.
+            // Duas razões, e as duas apareceram na releitura desta parcela:
+            // (a) lendo `cabecalho?.Idade`, uma data implausível some em SILÊNCIO (a linha
+            //     sai só com "01/01/1851"), enquanto o crachá logo acima, na MESMA tela,
+            //     escreve "idade a conferir" e as duas fichas escrevem "(data a conferir)".
+            //     Ausente e errado são coisas diferentes, e a segunda pede conserto de
+            //     alguém — é a regra da própria `IdadeDoPaciente`;
+            // (b) o crachá pode não ter respondido (`cabecalho` nulo), e aí a idade sumiria
+            //     por uma falha de OUTRA leitura, sem nada dizer.
             Nascimento = p.DataNascimento is { } nasc
-                ? $"{nasc:dd/MM/yyyy}" + (cabecalho?.Idade is { } i ? $" · {i} anos" : string.Empty)
+                ? $"{nasc:dd/MM/yyyy} · {IdadeDoPaciente.Texto(nasc, DateOnly.FromDateTime(DateTime.Today))}"
                 : "não informado";
 
             // ⚠️ `Cpf.Formatar` fora dos 11 dígitos devolve SÓ OS DÍGITOS, e o campo se
@@ -457,13 +466,4 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         }
     }
 
-    /// <summary>Abre a tela de medidas do mesmo paciente, sem perder o foco do posto.</summary>
-
-    private static int Idade(DateOnly nascimento)
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var idade = hoje.Year - nascimento.Year;
-        if (nascimento > hoje.AddYears(-idade)) idade--;
-        return idade;
-    }
 }

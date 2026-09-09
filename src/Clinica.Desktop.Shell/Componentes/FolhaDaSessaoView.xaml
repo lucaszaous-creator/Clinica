@@ -84,12 +84,23 @@
                 <ContentPresenter VerticalAlignment="Bottom"
                                   Content="{Binding Ferramentas,
                                             RelativeSource={RelativeSource AncestorType=comp:FolhaDaSessaoView}}" />
-        <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
+                    <!-- ⚠️ "Emitir documento" NÃO mora aqui, e isso é correção (set/2026, a
+                         foto que a direção mandou). Ele estava nos DOIS lugares: neste
+                         corpo COMPARTILHADO e no slot `Ferramentas` do Consultório — dois
+                         botões idênticos lado a lado na tela de quem atende.
+                         E o daqui era pior que um duplicado: `EmitirDocumentoCommand` e
+                         `PodeEmitirDocumento` só existem em `AtendimentoViewModel`, não na
+                         base. Na OUTRA porta (a janela "Nova sessão" do Prontuário, que usa
+                         `EscreverSessaoViewModel`) os dois bindings não resolviam — comando
+                         nulo e `IsEnabled` caindo no padrão `true` —, então ali ele era um
+                         BOTÃO ACESO QUE NÃO FAZIA NADA: o defeito da parcela 41, que o
+                         cliente pegou em produção, sobrevivendo dentro do componente que a
+                         extração criou. O comentário do slot logo acima já dizia, por
+                         escrito, que emitir documento é do Consultório; era o código que o
+                         contradizia. -->
+                    <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
                             Command="{Binding AbrirMapaCommand}" MinWidth="120" Margin="8,0,0,0"
                             IsEnabled="{Binding TemPaciente}" />
-                    <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0" MinWidth="140"
-                            IsEnabled="{Binding PodeEmitirDocumento}" />
                     <!-- Os roteiros — e, desde set/2026, "repetir a última sessão"
                          como a primeira opção lá dentro. -->
                     <Button Content="Modelos…" Style="{StaticResource BotaoSecundario}"

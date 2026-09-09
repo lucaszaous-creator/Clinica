@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
@@ -274,23 +275,85 @@ public sealed class TermoProcedimentoService
             .ToList();
 
     /// <summary>
+    /// As sessões a que um termo colhido AGORA pode se referir (set/2026).
+    ///
+    /// É a lista da janela de escolha do balcão: "a qual sessão este termo pertence?".
+    /// Vai de hoje para a frente, e não só hoje, porque a coleta antecipada é justamente
+    /// o caso que a clínica pediu — o paciente aparece para tirar dúvidas e assina ali o
+    /// consentimento do procedimento da semana que vem. Perguntar só sobre hoje deixaria
+    /// de fora a razão de a porta avulsa existir.
+    ///
+    /// ⚠️ Cancelado e falta ficam de fora (<c>OcupaAgenda</c>): não há procedimento a
+    /// consentir num horário que não vai acontecer, e oferecê-lo faria a procedência
+    /// apontar para uma sessão desdita.
+    ///
+    /// Lista vazia é resposta legítima e comum: o paciente que passou no balcão sem nada
+    /// marcado assina um termo AVULSO, sem sessão — e é por isso que quem chama não pode
+    /// tratar o vazio como erro.
+    /// </summary>
+    /// <param name="dias">Quantos dias para a frente olhar. 60 cobre o horizonte em que a
+    /// clínica marca procedimento; alargar isso não melhora a escolha, só alonga a lista.</param>
+    public async Task<IReadOnlyList<SessaoParaTermo>> SessoesParaTermoAsync(
+        int pacienteId, DateOnly de, int dias = 60, CancellationToken ct = default)
+    {
+        var agendamentos = await _repo.AgendamentosDoPacienteNoPeriodoAsync(
+            pacienteId, de, de.AddDays(dias), ct);
+
+        return agendamentos
+            .Where(a => a.OcupaAgenda)
+            .Select(a => new SessaoParaTermo(
+                a.Id,
+                a.DataHora,
+                CatalogoModalidades.Nome(a.ModalidadeCodigo, a.ModalidadePrevista),
+                a.Profissional?.Nome,
+                DateOnly.FromDateTime(a.DataHora) == de))
+            .ToList();
+    }
+
+    /// <summary>
     /// As modalidades do dia que podem pedir termo.
     ///
     /// Cancelado e falta ficam de fora: não há procedimento para consentir. O agendamento
     /// que ainda não chegou ENTRA — é justamente o caso que o balcão precisa resolver
     /// antes, e não depois.
     /// </summary>
-    private static IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId)>
+    /// <param name="agendamentos">Os horários do paciente no dia.</param>
+    /// <remarks>
+    /// ⚠️ O agrupamento continua sendo por MODALIDADE, e não por horário, porque é ele que
+    /// decide a COBERTURA — "este paciente já assinou o termo do BSV hoje?". Amarrar a
+    /// cobertura ao horário faria um termo assinado de manhã deixar de valer à tarde, o que
+    /// é decisão da direção e não efeito colateral de uma coluna nova (set/2026).
+    ///
+    /// O que passou a viajar junto é o <c>AgendamentoId</c> — e só quando a modalidade tem
+    /// UM horário no dia. Com dois, ele vem nulo de propósito: escolher o primeiro seria
+    /// gravar procedência inventada, e quem sabe desempatar é quem está com o paciente na
+    /// frente (a janela de escolha).
+    /// </remarks>
+    private static IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId, int? AgendamentoId)>
         ModalidadesQuePedemTermo(IEnumerable<Agendamento> agendamentos)
         => agendamentos
             .Where(a => a.OcupaAgenda)
-            .Select(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo), a.ProfissionalId))
-            .Distinct()
+            // ⚠️ O agrupamento é por MODALIDADE, e o profissional NÃO entra na chave.
+            //
+            // Ele entrava, e isso abria um buraco na regra do horário: duas sessões de BSV
+            // no mesmo dia com médicos diferentes viravam dois grupos de UM, e cada um
+            // trazia o próprio `AgendamentoId` — o `Resolver` pegava o primeiro e gravava
+            // procedência ESCOLHIDA POR ACIDENTE, que é exatamente o que a coluna nova
+            // existe para não fazer. O teste não pegava porque os dois horários dele não
+            // tinham profissional, e aí caíam no mesmo grupo.
+            //
+            // O profissional continua saindo daqui (o primeiro do grupo), como sempre saiu:
+            // com dois médicos no mesmo procedimento o `Resolver` já escolhia um, e isso
+            // não mudou.
+            .GroupBy(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo)))
+            .Select(g => (g.Key.ModalidadePrevista, g.Key.Codigo,
+                          ProfissionalId: g.First().ProfissionalId,
+                          AgendamentoId: g.Count() == 1 ? g.First().Id : (int?)null))
             .ToList();
 
     private static IReadOnlyList<SituacaoTermo> Resolver(
         IReadOnlyList<ExigenciaTermoProcedimento> exigencias,
-        IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId)> modalidades,
+        IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId, int? AgendamentoId)> modalidades,
         IReadOnlyList<DocumentoClinico> termosDoPaciente,
         DateOnly dia)
     {
@@ -364,7 +427,8 @@ public sealed class TermoProcedimentoService
                 recusado is not null,
                 recusado?.MotivoRecusaPaciente,
                 DeclaracoesNegadas(assinado),
-                profissionalId));
+                profissionalId,
+                modalidades[indice].AgendamentoId));
         }
 
         return situacoes;
@@ -401,6 +465,11 @@ public sealed class TermoProcedimentoService
 /// O que o paciente respondeu NÃO. Assinado com declaração negada é o caso mais grave da
 /// tela: o termo está cumprido e o procedimento pode não estar seguro.
 /// </param>
+/// <param name="AgendamentoId">
+/// A SESSÃO a que o termo se refere, quando a modalidade tem UM horário no dia (set/2026).
+/// Nulo com dois horários: escolher o primeiro seria inventar a procedência, e quem
+/// desempata é quem está com o paciente na frente.
+/// </param>
 public sealed record SituacaoTermo(
     int ExigenciaId,
     ModalidadeAtendimento Modalidade,
@@ -411,11 +480,57 @@ public sealed record SituacaoTermo(
     bool Recusado,
     string? MotivoRecusa,
     IReadOnlyList<string> DeclaracoesNegadas,
-    int? ProfissionalId = null)
+    int? ProfissionalId = null,
+    int? AgendamentoId = null)
 {
+
     /// <summary>Falta assinar: nem assinado, nem recusado.</summary>
     public bool Pendente => !Assinado && !Recusado;
 
     /// <summary>Assinado, mas com alguma declaração respondida "não".</summary>
     public bool TemDeclaracaoNegada => Assinado && DeclaracoesNegadas.Count > 0;
+}
+
+
+/// <summary>
+/// Uma sessão que pode receber a procedência de um termo (set/2026).
+///
+/// O rótulo da modalidade vem resolvido do <c>CatalogoModalidades</c> — a variante que a
+/// clínica cadastrou, e não o nome da família —, porque é o que a pessoa lê na agenda: um
+/// paciente com duas sessões no mesmo dia se distingue por "BSV" contra "Acupuntura", não
+/// por dois horários iguais.
+/// </summary>
+/// <param name="Hoje">
+/// Serve à janela para separar "a sessão de hoje" das próximas — a primeira é o caso
+/// esperado, e as outras existem para a coleta antecipada.
+/// </param>
+public sealed record SessaoParaTermo(
+    int AgendamentoId,
+    DateTime Quando,
+    string Modalidade,
+    string? Profissional,
+    bool Hoje)
+{
+    /// <summary>
+    /// "Hoje, 09h00" · "seg, 15/09, 14h30".
+    ///
+    /// Em cultura pt-BR FIXA, e não na da máquina: é rótulo de escolha clínica, e dois
+    /// postos não podem oferecer "Mon" e "seg" para o mesmo horário — a mesma razão da
+    /// mensagem de confirmação que sai da clínica.
+    /// </summary>
+    public string Rotulo => Hoje
+        ? $"Hoje, {Quando:HH'h'mm}"
+        : string.Create(Cultura, $"{Quando:ddd, dd/MM}, {Quando:HH'h'mm}");
+
+    /// <summary>
+    /// "Acupuntura + eletro · Dra. Helena Prado" — e só a modalidade quando o horário
+    /// ainda não tem dono. Frase montada por concatenação não sabe PULAR o que não
+    /// existe, e sairia com um "·" solto no fim (a lição do crachá do paciente).
+    /// </summary>
+    public string Detalhe => string.IsNullOrWhiteSpace(Profissional)
+        ? Modalidade
+        : $"{Modalidade}  ·  {Profissional}";
+
+    private static readonly System.Globalization.CultureInfo Cultura
+        = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
 }

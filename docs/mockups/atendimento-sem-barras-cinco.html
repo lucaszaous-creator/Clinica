@@ -1,0 +1,607 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cinco modelos sem barra lateral</title>
+<style>
+/* ============================================================================
+   TOKENS — espelho de tokens/colors.css (fonte da verdade: Styles/Tokens.xaml).
+   Nenhuma cor, raio ou medida nova: tudo o que aparece aqui já existe no DS.
+   ============================================================================ */
+:root{
+  --azul-50:#EEF3FC;--azul-100:#D8E3F7;--azul-500:#3F62C9;--azul-600:#123A9E;--azul-700:#0A2E86;
+  --cinza-50:#F8FAFC;--cinza-100:#F1F5F9;--cinza-200:#E5E7EB;--cinza-300:#D1D5DB;
+  --cinza-500:#6B7280;--cinza-700:#374151;--cinza-900:#111827;
+  --verde-50:#F0FDF4;--verde-100:#DCFCE7;--verde-600:#16A34A;--verde-700:#15803D;
+  --laranja-100:#FFEDD5;--laranja-600:#EA580C;--laranja-700:#C2410C;
+  --vermelho-100:#FEE2E2;--vermelho-600:#DC2626;--vermelho-700:#B91C1C;
+  --ciano-100:#E0F2FE;--ciano-500:#0EA5E9;--ciano-700:#0369A1;
+  --violeta-50:#F5F3FF;--violeta-600:#7C3AED;--teal-600:#0D9488;
+  --semaforo-vermelho:#C62828;--semaforo-amarelo:#F9A825;
+  --acento:var(--azul-600);--acento-suave:var(--azul-50);--acento-tint:var(--azul-100);--foco:var(--azul-500);
+  --fundo:var(--cinza-50);--sup:#FFFFFF;--borda:var(--cinza-200);--borda-hover:var(--cinza-300);
+  --tinta:var(--cinza-900);--corpo:var(--cinza-700);--mudo:var(--cinza-500);
+  --visor-bg:var(--cinza-900);--visor-tx:var(--cinza-300);
+  --r-peq:4px;--r-med:8px;--r-gra:12px;
+  --fonte:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#E7EBF1;color:var(--tinta);font-family:var(--fonte);font-size:15px;line-height:1.5;
+     -webkit-font-smoothing:antialiased}
+
+/* ============ a página do documento ============ */
+.pag{max-width:1400px;margin:0 auto;padding:34px 20px 90px}
+.capa{max-width:94ch}
+h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.4px}
+.sub{color:var(--corpo);margin:0 0 6px;font-size:16px}
+.sub b{color:var(--tinta)}
+.assin{color:var(--mudo);font-size:13px;margin:14px 0 0}
+.regra{height:1px;background:#D2D8E2;margin:26px 0 0;border:0}
+h2{font-size:21px;margin:0 0 6px;letter-spacing:-.2px;display:flex;align-items:center;gap:11px}
+h2 .n{flex:none;width:29px;height:29px;line-height:29px;text-align:center;background:var(--acento);
+      color:#fff;border-radius:999px;font-size:14px;font-weight:600}
+.desenho{margin-top:46px}
+.selo{display:inline-block;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:600}
+.selo.rec{background:var(--verde-100);color:var(--verde-700)}
+.selo.alt{background:var(--cinza-100);color:var(--cinza-700)}
+.porque{color:var(--corpo);margin:8px 0 16px;max-width:98ch;font-size:14.5px}
+.porque b{color:var(--tinta);font-weight:600}
+.custo{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:22px;margin:0 0 16px;font-size:13px;
+       color:var(--mudo);max-width:104ch}
+.custo b{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);
+         font-weight:600;margin-bottom:1px}
+.custo span{color:var(--corpo)}
+
+/* ============ a janela do app ============ */
+.janela{border:1px solid #C7CEDA;border-radius:10px;overflow:hidden;background:var(--sup);
+        box-shadow:0 1px 2px rgba(17,24,39,.05),0 14px 38px rgba(17,24,39,.10)}
+.tbar{display:flex;align-items:center;gap:7px;padding:9px 14px;background:#F3F5F9;border-bottom:1px solid var(--borda)}
+.tbar i{width:10px;height:10px;border-radius:999px;background:#CBD2DE;display:block}
+.tbar .tit{margin-left:10px;font-size:12px;color:var(--mudo)}
+.app{height:730px;background:var(--fundo);font-size:14px;color:var(--tinta);display:flex;flex-direction:column}
+svg.i{display:block}
+.num{font-variant-numeric:tabular-nums}
+
+/* ============ cabeçalho ESCURO (a barra do cronômetro, já aprovada) ============ */
+.topo{background:var(--visor-bg);color:#fff;padding:0 20px;height:64px;display:flex;align-items:center;gap:14px;flex:none}
+.voltar{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 9px;border-radius:var(--r-med);
+        border:1px solid rgba(255,255,255,.16);color:#DDE3EC;font-size:13px;flex:none}
+.av{border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;
+    width:36px;height:36px;font-size:13px}
+.topo .av{background:rgba(255,255,255,.10);color:#fff}
+.topo .id{min-width:0}
+.topo .nm{font-size:16px;font-weight:600;letter-spacing:-.1px;line-height:1.25}
+.topo .mt{font-size:12.5px;color:#9AA3B2;line-height:1.3}
+.tg{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:11.5px;
+    font-weight:600;background:rgba(255,255,255,.10);color:#DDE3EC;flex:none}
+.tg.al{background:rgba(220,38,38,.24);color:#FFC9C9}
+.dir{margin-left:auto;display:flex;align-items:center;gap:14px;flex:none}
+.rel{text-align:right}
+.rel .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#9AA3B2;font-weight:600;line-height:1.2}
+.rel .t{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:.5px;line-height:1.15;
+        font-variant-numeric:tabular-nums}
+.ico-b{width:34px;height:34px;border-radius:var(--r-med);border:1px solid rgba(255,255,255,.16);color:#DDE3EC;
+       display:flex;align-items:center;justify-content:center;flex:none}
+
+/* ============ cabeçalho CLARO (o desenho 3) ============ */
+.topoc{background:var(--sup);border-bottom:1px solid var(--borda);padding:0 20px;height:70px;display:flex;
+       align-items:center;gap:14px;flex:none}
+.topoc .voltar{border-color:var(--borda);color:var(--corpo)}
+.topoc .av{width:40px;height:40px;font-size:14px;background:var(--violeta-50);color:var(--violeta-600)}
+.topoc .nm{font-size:17px;color:var(--tinta)}
+.topoc .mt{color:var(--mudo)}
+.topoc .tg{background:var(--cinza-100);color:var(--cinza-700)}
+.topoc .tg.al{background:var(--vermelho-100);color:var(--vermelho-700)}
+.pilha{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 14px;border-radius:var(--r-med);
+       background:var(--verde-50);border:1px solid #BBEBCB;color:var(--verde-700)}
+.pilha .pt{width:7px;height:7px;border-radius:999px;background:var(--verde-600);flex:none}
+.pilha .k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;line-height:1.2;opacity:.85}
+.pilha .t{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}
+
+/* ============ a linha de pendência (horizontal, nunca lateral) ============ */
+.pend{display:flex;align-items:center;gap:12px;padding:9px 20px;flex:none;
+      background:#FDF3F3;border-bottom:1px solid #F3D4D4}
+.pend .tr{width:3px;align-self:stretch;border-radius:2px;background:var(--semaforo-vermelho);flex:none}
+.pend p{margin:0;font-size:13.5px;color:var(--vermelho-700);font-weight:600}
+.pend .obs{font-weight:400;color:var(--corpo)}
+.pend .bt{margin-left:auto}
+
+/* ============ régua de seções (as antigas linhas do rail) ============ */
+.regua{display:flex;align-items:center;gap:26px;padding:0 20px;height:46px;background:var(--sup);
+       border-bottom:1px solid var(--borda);font-size:13.5px;color:var(--mudo);flex:none}
+.regua span{white-space:nowrap;line-height:46px}
+.regua span.on{color:var(--acento);font-weight:600;box-shadow:inset 0 -2px 0 var(--acento)}
+.regua .fim{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ============ a mesa e a folha ============ */
+.mesa{flex:1;min-height:0;display:flex;justify-content:center;padding:20px 24px 0;overflow:hidden;
+      background:var(--cinza-100)}
+.papel{width:100%;max-width:920px;background:var(--sup);border:1px solid var(--borda);border-radius:var(--r-gra);
+       padding:22px 30px 18px;display:flex;flex-direction:column;min-height:0}
+.papel.foco{border-color:var(--foco);box-shadow:0 0 0 3px var(--acento-suave)}
+.timbre{display:flex;align-items:baseline;gap:12px}
+.timbre .t{font-size:15.5px;font-weight:600;letter-spacing:-.1px}
+.timbre .g{margin-left:auto;font-size:12.5px;color:var(--mudo)}
+.linha2{display:flex;align-items:center;gap:16px;margin-top:9px;font-size:13px;color:var(--corpo);flex-wrap:wrap}
+.linha2 .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.mini{border:1px solid var(--borda);border-radius:var(--r-peq);height:28px;min-width:38px;padding:0 9px;
+      display:inline-flex;align-items:center;justify-content:center;background:var(--sup);font-size:13.5px;
+      font-variant-numeric:tabular-nums}
+.mini.w{min-width:104px}
+.delta{font-size:12px;font-weight:600;color:var(--verde-700);background:var(--verde-100);padding:2px 8px;border-radius:999px}
+.hr{height:1px;background:var(--borda);margin:15px 0 16px;flex:none}
+.escrita{flex:1;min-height:0;overflow:hidden;font-size:15.5px;line-height:1.75;color:var(--tinta)}
+.escrita p{margin:0 0 13px}
+.escrita p:last-child{margin-bottom:0}
+.caret{display:inline-block;width:1.5px;height:17px;background:var(--acento);vertical-align:-3px;margin-left:1px}
+.pe{display:flex;align-items:center;gap:10px;padding-top:13px;margin-top:13px;border-top:1px solid var(--borda);flex:none}
+.pe .a{color:var(--acento);font-size:13px;font-weight:600}
+.pe .g{font-size:12.5px;color:var(--mudo)}
+.pill{margin-left:auto;display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;
+      background:var(--acento-suave);color:var(--acento)}
+
+/* ============ a barra de ações (embaixo, nunca do lado) ============ */
+.acoes{display:flex;align-items:center;gap:9px;padding:11px 20px;background:var(--sup);
+       border-top:1px solid var(--borda);flex:none}
+.bt{border:1px solid var(--borda);background:var(--sup);border-radius:var(--r-med);height:36px;padding:0 13px;
+    display:inline-flex;align-items:center;gap:7px;font-size:13.5px;color:var(--corpo);white-space:nowrap}
+.bt.pri{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+.bt.peq{height:30px;padding:0 11px;font-size:13px}
+.bt.esc{background:transparent;border-color:rgba(255,255,255,.16);color:#DDE3EC}
+.grupo{display:flex;gap:9px}
+.fim{margin-left:auto;display:flex;gap:9px}
+.sep{width:1px;height:24px;background:var(--borda);margin:0 3px}
+
+/* ============ 4 · blocos dentro da folha ============ */
+.bloco{display:flex;gap:18px;padding:11px 0;border-bottom:1px solid var(--cinza-100)}
+.bloco:last-of-type{border-bottom:0}
+.bloco .k{flex:none;width:112px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);
+          font-weight:600;padding-top:3px}
+.bloco .v{min-width:0;font-size:14.5px;line-height:1.65;color:var(--tinta)}
+.bloco .v .cid{color:var(--mudo);font-size:13px}
+.mais{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:13px}
+.mais .rot{font-size:12.5px;color:var(--mudo);margin-right:2px}
+.chip{border:1px dashed var(--borda-hover);background:var(--sup);border-radius:999px;padding:3px 11px;
+      font-size:12.5px;color:var(--mudo)}
+
+/* ============ 5 · o contexto embaixo ============ */
+.faixa{display:flex;align-items:stretch;gap:0;background:var(--sup);border-top:1px solid var(--borda);flex:none}
+.fx{flex:1;min-width:0;padding:11px 18px;border-right:1px solid var(--borda);display:flex;gap:11px;align-items:flex-start}
+.fx:last-child{border-right:0}
+.fx .g{flex:none;width:26px;height:26px;border-radius:var(--r-med);background:var(--cinza-100);color:var(--mudo);
+       display:flex;align-items:center;justify-content:center;margin-top:1px}
+.fx .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mudo);font-weight:600}
+.fx .v{font-size:13px;color:var(--corpo);margin-top:2px;line-height:1.45}
+.fx .v b{color:var(--tinta);font-weight:600}
+.fx.risco .g{background:var(--vermelho-100);color:var(--vermelho-700)}
+.fx.risco .k{color:var(--vermelho-700)}
+.fx .bt{margin-top:5px}
+</style>
+
+<div class="pag">
+<div class="capa">
+  <h1>Cinco modelos sem barra lateral</h1>
+  <p class="sub">Todos saem do modelo 4 e nenhum tem barra vertical — <b>nem o rail das sete seções, nem a tira de
+     ícones do shell</b>. O que era coluna virou régua horizontal, linha de pendência ou faixa de rodapé.</p>
+  <p class="sub">E o 4 deixa de ser um <b>modo</b>: ele vira <b>a tela</b>. Não há mais “sair do modo consulta” —
+     há “← Meu dia”, que é para onde a pessoa de fato volta. Enquanto o paciente está aberto, o app é isto.</p>
+  <p class="assin">Desenhados a 1366 px — a tela do balcão. As sete seções continuam existindo e continuam
+     alcançáveis: o que mudou foi ONDE elas moram. Paciente e dados são fictícios.</p>
+  <hr class="regra">
+</div>
+
+<!-- ============================== 1 ============================== -->
+<div class="desenho">
+<h2><span class="n">1</span> A folha limpa <span class="selo alt">o mais próximo do 4</span></h2>
+<p class="porque">O modelo 4 com o acabamento que falta. A folha deixa de ser uma <b>caixa de texto</b> e passa a ser uma <b>folha</b>: fundo branco sobre a mesa cinza, timbre no alto — data, EVA com a variação, retorno e modalidade —, um fio, e o texto com entrelinha de leitura. O anel azul cerca a <b>folha inteira</b>, e não um retângulo dentro dela: a página é o campo. Em cima, a pendência do termo virou uma <b>linha horizontal</b> com o botão dentro dela.</p>
+<div class="custo">
+  <div><b>onde ficam as 7 seções</b><span>num menu “Prontuário ▾” no cabeçalho — máximo de folha, um clique a mais</span></div>
+  <div><b>o que muda</b><span>só XAML</span></div>
+  <div><b>ganho</b><span>a tela mais limpa das cinco; a escrita ocupa tudo o que sobra</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="topo">
+      <span class="voltar"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M 15 6 l -6 6 6 6"/></svg> Meu dia</span>
+      <div class="av">MS</div>
+      <div class="id">
+        <div class="nm">Maria da Silva</div>
+        <div class="mt num">38 anos · feminino · Unimed Costa do Sol (Padrão) · 6ª sessão</div>
+      </div>
+      <span class="tg al">Alergias: dipirona · AAS</span>
+      <span class="tg">Acupuntura + eletro · 09h00</span>
+      <div class="dir"><span class="bt esc">Prontuário <svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 6 9 l 6 6 6 -6"/></svg></span>
+        <div class="rel"><div class="k">em atendimento</div><div class="t">00:12:35</div></div>
+      </div>
+    </div>
+<div class="pend">
+      <span class="tr"></span>
+      <p>Termo do procedimento não assinado <span class="obs">— o paciente está aqui; depois custa telefonema.</span></p>
+      <span class="bt peq">Colher assinatura…</span>
+    </div>
+<div class="mesa"><div class="papel foco">
+        <div class="timbre">
+          <span class="t">Sessão de 08/09/2026</span>
+          <span class="g">Última gravação às 09h41</span>
+        </div>
+        <div class="linha2">
+          <span class="k">EVA</span>
+          <span class="mini">7</span><span style="color:var(--mudo)">→</span><span class="mini">4</span>
+          <span class="delta">−3</span>
+          <span class="k" style="margin-left:8px">Retorno sugerido</span>
+          <span class="mini w">15/09/2026</span>
+          <span class="k" style="margin-left:8px">Modalidade</span>
+          <span style="color:var(--tinta)">Acupuntura + eletroestimulação</span>
+        </div>
+        <div class="hr"></div>
+        <div class="escrita"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação para o membro inferior.</p>
+          <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco preservada.</p>
+          <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa deslizante em região lombar. Sem intercorrências durante a sessão.</p>
+          <p>Orientada a manter os alongamentos em casa, 2×/dia, e a evitar permanecer sentada por mais de uma hora seguida no trabalho.</p>
+          <p>Retorno em 7 dias para reavaliação da EVA e decisão sobre a alta do protocolo.<span class="caret"></span></p></div>
+        <div class="pe">
+          <span class="a">Detalhar em campos separados…</span>
+          <span class="g">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+          <span class="pill">3 campos preenchidos</span>
+        </div>
+      </div></div>
+<div class="acoes">
+        <span class="bt">Mapa corporal</span>
+        <span class="bt">Modelos…</span>
+        <span class="bt">Emitir documento</span>
+        <span class="bt">Colher termo…</span>
+        <div class="fim">
+          <span class="bt">Imprimir a sessão</span>
+          <span class="bt">Salvar</span>
+          <span class="bt pri">Finalizar atendimento</span>
+        </div>
+      </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- ============================== 2 ============================== -->
+<div class="desenho">
+<h2><span class="n">2</span> A régua de seções <span class="selo rec">recomendado</span></h2>
+<p class="porque">A resposta direta ao pedido: <b>o rail vira uma régua horizontal</b>. As sete seções continuam com o nome que já têm — nada é renomeado, nada muda de ordem —, só deixam de ocupar 208 px de largura para ocupar 46 px de altura. A folha ganha a largura inteira e o olho volta ao alto da tela para trocar de assunto, que é o mesmo gesto das abas que a suíte já usa em toda parte.</p>
+<div class="custo">
+  <div><b>onde ficam as 7 seções</b><span>numa régua horizontal, à vista, um clique — como estão hoje</span></div>
+  <div><b>o que muda</b><span>só XAML (e a régua se monta da MESMA lista do C#, como o rail hoje)</span></div>
+  <div><b>ganho</b><span>sem coluna nenhuma e sem esconder nada: as sete seções continuam visíveis</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="topo">
+      <span class="voltar"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M 15 6 l -6 6 6 6"/></svg> Meu dia</span>
+      <div class="av">MS</div>
+      <div class="id">
+        <div class="nm">Maria da Silva</div>
+        <div class="mt num">38 anos · feminino · Unimed Costa do Sol (Padrão) · 6ª sessão</div>
+      </div>
+      <span class="tg al">Alergias: dipirona · AAS</span>
+      <span class="tg">Acupuntura + eletro · 09h00</span>
+      <div class="dir">
+        <div class="rel"><div class="k">em atendimento</div><div class="t">00:12:35</div></div>
+      </div>
+    </div>
+<div class="regua"><span class="on">Atendimento</span>
+<span>Atendimento de enfermagem</span>
+<span>Paciente</span>
+<span>Histórico</span>
+<span>Exames e anexos</span>
+<span>Prescrições e documentos</span>
+<span>Acompanhamento</span></div>
+<div class="pend">
+      <span class="tr"></span>
+      <p>Termo do procedimento não assinado <span class="obs">— o paciente está aqui; depois custa telefonema.</span></p>
+      <span class="bt peq">Colher assinatura…</span>
+    </div>
+<div class="mesa"><div class="papel foco">
+        <div class="timbre">
+          <span class="t">Sessão de 08/09/2026</span>
+          <span class="g">Última gravação às 09h41</span>
+        </div>
+        <div class="linha2">
+          <span class="k">EVA</span>
+          <span class="mini">7</span><span style="color:var(--mudo)">→</span><span class="mini">4</span>
+          <span class="delta">−3</span>
+          <span class="k" style="margin-left:8px">Retorno sugerido</span>
+          <span class="mini w">15/09/2026</span>
+          <span class="k" style="margin-left:8px">Modalidade</span>
+          <span style="color:var(--tinta)">Acupuntura + eletroestimulação</span>
+        </div>
+        <div class="hr"></div>
+        <div class="escrita"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação para o membro inferior.</p>
+          <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco preservada.</p>
+          <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa deslizante em região lombar. Sem intercorrências durante a sessão.</p>
+          <p>Orientada a manter os alongamentos em casa, 2×/dia, e a evitar permanecer sentada por mais de uma hora seguida no trabalho.<span class="caret"></span></p></div>
+        <div class="pe">
+          <span class="a">Detalhar em campos separados…</span>
+          <span class="g">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+          <span class="pill">3 campos preenchidos</span>
+        </div>
+      </div></div>
+<div class="acoes">
+        <span class="bt">Mapa corporal</span>
+        <span class="bt">Modelos…</span>
+        <span class="bt">Emitir documento</span>
+        <span class="bt">Colher termo…</span>
+        <div class="fim">
+          <span class="bt">Imprimir a sessão</span>
+          <span class="bt">Salvar</span>
+          <span class="bt pri">Finalizar atendimento</span>
+        </div>
+      </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- ============================== 3 ============================== -->
+<div class="desenho">
+<h2><span class="n">3</span> O cabeçalho claro <span class="selo alt">alternativa</span></h2>
+<p class="porque">A mesma régua, sem a faixa escura. O cronômetro vira uma <b>pílula verde</b> — o mesmo verde que a lista do dia usa para “em atendimento” —, e a pendência do termo sai da faixa própria e vira um <b>botão vermelho no fim da régua</b>: uma banda a menos entre o nome do paciente e a folha. É o desenho mais leve; em compensação perde o contraste da barra escura, que é o que faz o cronômetro ser lido do outro lado da sala.</p>
+<div class="custo">
+  <div><b>onde ficam as 7 seções</b><span>na mesma régua horizontal do modelo 2</span></div>
+  <div><b>o que muda</b><span>só XAML</span></div>
+  <div><b>ganho</b><span>três bandas viram duas; o app fica mais claro e mais alto para escrever</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="topoc">
+      <span class="voltar"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M 15 6 l -6 6 6 6"/></svg> Meu dia</span>
+      <div class="av">MS</div>
+      <div class="id">
+        <div class="nm">Maria da Silva</div>
+        <div class="mt num">38 anos · feminino · Unimed Costa do Sol (Padrão) · 6ª sessão</div>
+      </div>
+      <span class="tg al">Alergias: dipirona · AAS</span>
+      <span class="tg">Acupuntura + eletro · 09h00</span>
+      <div class="dir">
+        <div class="pilha"><span class="pt"></span><div><div class="k">em atendimento</div><div class="t">00:12:35</div></div></div>
+      </div>
+    </div>
+<div class="regua"><span class="on">Atendimento</span>
+<span>Atendimento de enfermagem</span>
+<span>Paciente</span>
+<span>Histórico</span>
+<span>Exames e anexos</span>
+<span>Prescrições e documentos</span>
+<span>Acompanhamento</span><div class="fim"><span class="bt peq" style="border-color:#F0C9C9;background:#FDF3F3;color:var(--vermelho-700);font-weight:600"><svg class="i" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 4 L 21 19 H 3 Z M 12 10 v 4 M 12 17 h .01"/></svg> Termo não assinado · colher</span></div></div>
+<div class="mesa"><div class="papel foco">
+        <div class="timbre">
+          <span class="t">Sessão de 08/09/2026</span>
+          <span class="g">Última gravação às 09h41</span>
+        </div>
+        <div class="linha2">
+          <span class="k">EVA</span>
+          <span class="mini">7</span><span style="color:var(--mudo)">→</span><span class="mini">4</span>
+          <span class="delta">−3</span>
+          <span class="k" style="margin-left:8px">Retorno sugerido</span>
+          <span class="mini w">15/09/2026</span>
+          <span class="k" style="margin-left:8px">Modalidade</span>
+          <span style="color:var(--tinta)">Acupuntura + eletroestimulação</span>
+        </div>
+        <div class="hr"></div>
+        <div class="escrita"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação para o membro inferior.</p>
+          <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco preservada.</p>
+          <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa deslizante em região lombar. Sem intercorrências durante a sessão.</p>
+          <p>Orientada a manter os alongamentos em casa, 2×/dia, e a evitar permanecer sentada por mais de uma hora seguida no trabalho.</p>
+          <p>Retorno em 7 dias para reavaliação da EVA e decisão sobre a alta do protocolo.<span class="caret"></span></p></div>
+        <div class="pe">
+          <span class="a">Detalhar em campos separados…</span>
+          <span class="g">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+          <span class="pill">3 campos preenchidos</span>
+        </div>
+      </div></div>
+<div class="acoes">
+        <span class="bt">Mapa corporal</span>
+        <span class="bt">Modelos…</span>
+        <span class="bt">Emitir documento</span>
+        <span class="bt">Colher termo…</span>
+        <div class="fim">
+          <span class="bt">Imprimir a sessão</span>
+          <span class="bt">Salvar</span>
+          <span class="bt pri">Finalizar atendimento</span>
+        </div>
+      </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- ============================== 4 ============================== -->
+<div class="desenho">
+<h2><span class="n">4</span> A folha com blocos <span class="selo alt">alternativa</span></h2>
+<p class="porque">A folha vira um <b>documento de prontuário</b>: o texto livre em cima e, embaixo, os campos que a sessão já guarda como <b>parágrafos rotulados</b> — rótulo em versalete à esquerda, texto à direita. Sem caixinhas, sem formulário: quem lê vê um registro; quem escreve acrescenta o campo que quiser pela linha de chips ao pé. O que não foi preenchido <b>não ocupa espaço</b> — é a diferença entre um prontuário e uma ficha em branco.</p>
+<div class="custo">
+  <div><b>onde ficam as 7 seções</b><span>na régua horizontal do modelo 2</span></div>
+  <div><b>o que muda</b><span>só XAML — os doze campos e as colunas já existem</span></div>
+  <div><b>ganho</b><span>registro estruturado com cara de documento, e nada obrigatório</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="topo">
+      <span class="voltar"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M 15 6 l -6 6 6 6"/></svg> Meu dia</span>
+      <div class="av">MS</div>
+      <div class="id">
+        <div class="nm">Maria da Silva</div>
+        <div class="mt num">38 anos · feminino · Unimed Costa do Sol (Padrão) · 6ª sessão</div>
+      </div>
+      <span class="tg al">Alergias: dipirona · AAS</span>
+      <span class="tg">Acupuntura + eletro · 09h00</span>
+      <div class="dir">
+        <div class="rel"><div class="k">em atendimento</div><div class="t">00:12:35</div></div>
+      </div>
+    </div>
+<div class="regua"><span class="on">Atendimento</span>
+<span>Atendimento de enfermagem</span>
+<span>Paciente</span>
+<span>Histórico</span>
+<span>Exames e anexos</span>
+<span>Prescrições e documentos</span>
+<span>Acompanhamento</span></div>
+<div class="pend">
+      <span class="tr"></span>
+      <p>Termo do procedimento não assinado <span class="obs">— o paciente está aqui; depois custa telefonema.</span></p>
+      <span class="bt peq">Colher assinatura…</span>
+    </div>
+<div class="mesa"><div class="papel foco">
+        <div class="timbre">
+          <span class="t">Sessão de 08/09/2026</span>
+          <span class="g">Última gravação às 09h41</span>
+        </div>
+        <div class="linha2">
+          <span class="k">EVA</span>
+          <span class="mini">7</span><span style="color:var(--mudo)">→</span><span class="mini">4</span>
+          <span class="delta">−3</span>
+          <span class="k" style="margin-left:8px">Retorno sugerido</span>
+          <span class="mini w">15/09/2026</span>
+          <span class="k" style="margin-left:8px">Modalidade</span>
+          <span style="color:var(--tinta)">Acupuntura + eletroestimulação</span>
+        </div>
+        <div class="hr"></div>
+        <div class="escrita" style="flex:none"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação para o membro inferior.</p>
+          <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa deslizante em região lombar. Sem intercorrências durante a sessão.<span class="caret"></span></p></div>
+        <div style="flex:1;min-height:0;overflow:hidden;margin-top:4px">
+          <div class="bloco"><span class="k">Queixa</span><span class="v">Lombalgia há 4 meses, sem trauma. Piora ao fim do dia e ao permanecer sentada.</span></div>
+          <div class="bloco"><span class="k">Exame físico</span><span class="v">Contratura em quadrado lombar à direita. Lasègue negativo bilateral.</span></div>
+          <div class="bloco"><span class="k">Hipótese</span><span class="v">Lombalgia mecânica, sem sinais de alarme. <span class="cid">CID M54.5</span></span></div>
+          <div class="mais"><span class="rot">Acrescentar:</span>
+            <span class="chip">+ Conduta</span><span class="chip">+ Plano</span>
+            <span class="chip">+ Encaminhamento</span><span class="chip">+ Campo da clínica</span></div>
+        </div>
+      </div></div>
+<div class="acoes">
+        <span class="bt">Mapa corporal</span>
+        <span class="bt">Modelos…</span>
+        <span class="bt">Emitir documento</span>
+        <div class="fim">
+          <span class="bt">Imprimir a sessão</span>
+          <span class="bt">Salvar</span>
+          <span class="bt pri">Finalizar atendimento</span>
+        </div>
+      </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- ============================== 5 ============================== -->
+<div class="desenho">
+<h2><span class="n">5</span> O contexto embaixo <span class="selo alt">alternativa</span></h2>
+<p class="porque">A releitura que morava numa faixa lateral desce para uma <b>faixa de rodapé</b>, em três colunas: a última sessão, o que a enfermagem aferiu hoje — com a hora e o COREN de quem aferiu — e o que está pendente. Horizontal, ela não tira <b>um pixel</b> da largura de leitura, e fica no caminho do olho na hora de decidir a conduta. Em troca, ela custa ~76 px de altura da folha e mostra só o resumo: o registro inteiro continua sendo a seção Histórico.</p>
+<div class="custo">
+  <div><b>onde ficam as 7 seções</b><span>na régua horizontal do modelo 2</span></div>
+  <div><b>o que muda</b><span>só XAML — os três resumos já são calculados hoje</span></div>
+  <div><b>ganho</b><span>reler sem trocar de tela e sem coluna nenhuma</span></div>
+</div>
+
+<div class="janela">
+<div class="tbar"><i></i><i></i><i></i><span class="tit">Consultório — Clínica SemDor</span></div>
+<div class="app">
+
+<div class="topo">
+      <span class="voltar"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M 15 6 l -6 6 6 6"/></svg> Meu dia</span>
+      <div class="av">MS</div>
+      <div class="id">
+        <div class="nm">Maria da Silva</div>
+        <div class="mt num">38 anos · feminino · Unimed Costa do Sol (Padrão) · 6ª sessão</div>
+      </div>
+      <span class="tg al">Alergias: dipirona · AAS</span>
+      <span class="tg">Acupuntura + eletro · 09h00</span>
+      <div class="dir">
+        <div class="rel"><div class="k">em atendimento</div><div class="t">00:12:35</div></div>
+      </div>
+    </div>
+<div class="regua"><span class="on">Atendimento</span>
+<span>Atendimento de enfermagem</span>
+<span>Paciente</span>
+<span>Histórico</span>
+<span>Exames e anexos</span>
+<span>Prescrições e documentos</span>
+<span>Acompanhamento</span></div>
+<div class="mesa"><div class="papel foco">
+        <div class="timbre">
+          <span class="t">Sessão de 08/09/2026</span>
+          <span class="g">Última gravação às 09h41</span>
+        </div>
+        <div class="linha2">
+          <span class="k">EVA</span>
+          <span class="mini">7</span><span style="color:var(--mudo)">→</span><span class="mini">4</span>
+          <span class="delta">−3</span>
+          <span class="k" style="margin-left:8px">Retorno sugerido</span>
+          <span class="mini w">15/09/2026</span>
+          <span class="k" style="margin-left:8px">Modalidade</span>
+          <span style="color:var(--tinta)">Acupuntura + eletroestimulação</span>
+        </div>
+        <div class="hr"></div>
+        <div class="escrita"><p>Retorna para a 6ª sessão do protocolo de lombalgia. Refere melhora desde a última sessão — a dor passou a incomodar apenas no fim do dia e não a acordou mais durante a noite. Nega irradiação para o membro inferior.</p>
+          <p>Ao exame: contratura em quadrado lombar à direita, Lasègue negativo bilateral, flexão de tronco preservada.</p>
+          <p>Agulhamento em B23, B25, B40 e VG3, bilateral, com eletroestimulação a 4 Hz por 20 min. Ventosa deslizante em região lombar. Sem intercorrências durante a sessão.<span class="caret"></span></p></div>
+        <div class="pe">
+          <span class="a">Detalhar em campos separados…</span>
+          <span class="g">queixa · exame · hipótese · conduta · plano · encaminhamento</span>
+          <span class="pill">3 campos preenchidos</span>
+        </div>
+      </div></div>
+<div class="faixa">
+        <div class="fx"><span class="g"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 7 4 H 17 A 2 2 0 0 1 19 6 V 19 A 2 2 0 0 1 17 21 H 7 A 2 2 0 0 1 5 19 V 6 A 2 2 0 0 1 7 4 Z M 9 4 V 2 h 6 v 2 M 9 11 h 6 M 9 15 h 4"/></svg></span><div>
+          <div class="k">Última sessão · 01/09</div>
+          <div class="v"><b>EVA 7 → 4</b> · retorno sugerido em 7 dias · agulhamento B23, B25, B40, VG3</div></div></div>
+        <div class="fx"><span class="g"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 20 s -7 -4.5 -7 -10 a 4 4 0 0 1 7 -2.5 A 4 4 0 0 1 19 10 c 0 5.5 -7 10 -7 10 Z M 5 12 h 4 l 1.5 -3 2 6 1.5 -3 h 5"/></svg></span><div>
+          <div class="k">Enfermagem hoje</div>
+          <div class="v"><b>PA 120×80 · FC 72 · Tax 36,4 °C · SpO₂ 97%</b> — Joana Ribeiro (COREN-SP 999999), às 09h12</div></div></div>
+        <div class="fx risco"><span class="g"><svg class="i" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 4 L 21 19 H 3 Z M 12 10 v 4 M 12 17 h .01"/></svg></span><div>
+          <div class="k">Pendente</div>
+          <div class="v">Termo do procedimento não assinado</div>
+          <span class="bt peq">Colher assinatura…</span></div></div>
+      </div>
+<div class="acoes">
+        <span class="bt">Mapa corporal</span>
+        <span class="bt">Modelos…</span>
+        <span class="bt">Emitir documento</span>
+        <span class="bt">Colher termo…</span>
+        <div class="fim">
+          <span class="bt">Imprimir a sessão</span>
+          <span class="bt">Salvar</span>
+          <span class="bt pri">Finalizar atendimento</span>
+        </div>
+      </div>
+
+</div>
+</div>
+</div>
+
+
+<div class="desenho" style="margin-top:52px">
+<hr class="regra" style="margin-bottom:26px">
+<h2 style="font-size:19px"><span class="n" style="background:var(--cinza-700)">·</span> O que os cinco resolvem do modelo 4</h2>
+<p class="porque"><b>Some toda barra vertical</b> — inclusive a tira de ícones do shell, que o 4 ainda tinha.
+   <b>Deixa de ser um modo</b>: “sair do modo consulta” virou “← Meu dia”, que é para onde a pessoa volta de
+   verdade. <b>A folha vira folha</b>: papel branco sobre mesa cinza, timbre com data, EVA e retorno, e o anel de
+   foco em volta da página inteira em vez de um retângulo vazio de mil pixels. <b>A pendência do termo volta</b> —
+   o 4 não a mostrava, e ela é a única coisa da tela que impede a guia de nascer certa. E os campos da sessão
+   deixam de morar só atrás de uma janela.</p>
+<div class="custo">
+  <div><b>o que NÃO muda em nenhum</b><span>o que o prontuário guarda, a guarda de 20 anos, as permissões, o circuito da guia</span></div>
+  <div><b>combinam</b><span>a régua do 2 entra em qualquer um; a faixa do 5 e os blocos do 4 também</span></div>
+</div>
+</div>
+</div>

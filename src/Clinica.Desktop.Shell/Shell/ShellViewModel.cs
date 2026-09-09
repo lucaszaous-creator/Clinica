@@ -75,6 +75,40 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private bool _menuRecolhido;
 
+    /// <summary>
+    /// Modo IMERSIVO: a sidebar e a barra de cima somem, e o app inteiro é a tela aberta
+    /// (set/2026, o mockup <c>docs/mockups/atendimento-sem-barras-cinco.html</c>, modelo 3,
+    /// aprovado pela direção — "some toda barra vertical, inclusive a tira de ícones do
+    /// shell"). Hoje só a tela do paciente o pede, por <c>ItemMenuModulo.Imersivo</c>.
+    ///
+    /// ⚠️ <b>Quem some é a <c>Visibility</c>, nunca a <c>Width</c>.</b> A sidebar já anima
+    /// a largura no Ctrl+B, e animação VENCE valor local e de estilo: um terceiro estado
+    /// escrito na mesma propriedade brigaria com o Storyboard, e o desfecho só apareceria
+    /// na tela montada. <c>Visibility</c> é ortogonal à animação, e a coluna
+    /// <c>Width="Auto"</c> da raiz encolhe para zero sozinha quando o filho está
+    /// <c>Collapsed</c>.
+    ///
+    /// ⚠️ <b>Quem desliga é a NAVEGAÇÃO</b> (<see cref="Navegar(ItemMenuModulo?, int)"/>),
+    /// que relê a marca a cada destino: sair da tela do paciente devolve as barras sem
+    /// ninguém precisar lembrar. Ctrl+B e Ctrl+F também as devolvem — sem isso os dois
+    /// atalhos ficariam mudos justamente na tela em que a pessoa passa o dia.
+    /// </summary>
+    [ObservableProperty]
+    private bool _imersivo;
+
+    /// <summary>
+    /// Entrar no modo imersivo FECHA o que estava sobreposto — o pop-up do sino e a
+    /// paleta da pesquisa. Os dois são ancorados em botões da barra de cima, que acaba
+    /// de sumir: ficariam flutuando sobre a tela do paciente sem âncora e sem o botão
+    /// que os fecha. Sair do modo não reabre nada — ninguém pediu de novo.
+    /// </summary>
+    partial void OnImersivoChanged(bool value)
+    {
+        if (!value) return;
+        AvisosAbertos = false;
+        PesquisaAberta = false;
+    }
+
     // ===== Pesquisa global =====
 
     [ObservableProperty]
@@ -269,6 +303,16 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         if (item is null) return;
 
+        // O modo imersivo é do DESTINO, e por isso é relido a cada navegação: ir para
+        // qualquer item comum devolve a sidebar e a barra de cima sozinho. Guardá-lo como
+        // estado de quem entrou obrigaria toda saída a lembrar de desligá-lo — e a que
+        // esquecesse deixaria o app sem menu, sem sintoma nenhum.
+        //
+        // ⚠️ Fica ANTES do atalho de "mesmo item, só troca de aba": quem devolveu as
+        // barras com Ctrl+B e clicou de novo no mesmo destino está pedindo aquela tela de
+        // volta, e sair pelo atalho deixaria o modo pela metade.
+        Imersivo = item.Imersivo;
+
         // Clicar de novo no item já aberto só troca de aba — remontar a tela do zero
         // jogaria fora o que a pessoa tivesse digitado nas outras abas.
         if (ReferenceEquals(_itemAtual, item) && TelaAtual is TelaComAbas jaAberta)
@@ -367,9 +411,25 @@ public sealed partial class ShellViewModel : ObservableObject
 
     // ===== Sidebar =====
 
-    /// <summary>Ctrl+B: recolhe a sidebar para 56px (só ícones) ou a expande de volta.</summary>
+    /// <summary>
+    /// Ctrl+B: recolhe a sidebar para 56px (só ícones) ou a expande de volta.
+    ///
+    /// ⚠️ No modo IMERSIVO ele faz outra coisa — DEVOLVE as barras —, e não é
+    /// preciosismo: ali a sidebar está <c>Collapsed</c>, então alternar os 240↔56px não
+    /// mudaria nada na tela e o atalho ficaria mudo (o botão que não faz nada da parcela
+    /// 41, vestido de teclado). O segundo Ctrl+B, com as barras de volta, alterna como
+    /// sempre.
+    /// </summary>
     [RelayCommand]
-    private void AlternarMenu() => MenuRecolhido = !MenuRecolhido;
+    private void AlternarMenu()
+    {
+        if (Imersivo)
+        {
+            Imersivo = false;
+            return;
+        }
+        MenuRecolhido = !MenuRecolhido;
+    }
 
     /// <summary>
     /// Esc: fecha o que estiver sobreposto à tela — o pop-up do sino e a paleta da

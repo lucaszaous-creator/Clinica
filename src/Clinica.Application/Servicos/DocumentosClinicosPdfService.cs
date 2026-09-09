@@ -501,8 +501,13 @@ public sealed class DocumentosClinicosPdfService
                 r.RelativeItem().Text(t =>
                 {
                     t.Span("Nascimento  ").FontSize(8.5f).FontColor(TextoSecundario);
+                    // ⚠️ A idade só é IMPRESSA quando é plausível (`IdadeDoPaciente`, no
+                    // Domínio). Este é o papel que SAI da clínica — e "1851 anos" num
+                    // documento clínico não é uma tela feia, é um documento errado na mão
+                    // do paciente e do convênio. A data continua saindo, porque é ela que
+                    // o balcão confere e conserta.
                     t.Span(paciente?.DataNascimento is { } n
-                        ? $"{n:dd/MM/yyyy} ({Idade(n)} anos)"
+                        ? $"{n:dd/MM/yyyy} ({IdadeDoPaciente.Texto(n, DateOnly.FromDateTime(DateTime.Today))})"
                         : "—").FontSize(9.5f);
                 });
                 r.RelativeItem(2).Text(t =>
@@ -1045,14 +1050,6 @@ public sealed class DocumentosClinicosPdfService
             c.Spacing(5);
             foreach (var p in paragrafos) c.Item().Text(p).FontSize(10f).LineHeight(1.25f);
         });
-    }
-
-    private static int Idade(DateOnly nascimento)
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var idade = hoje.Year - nascimento.Year;
-        if (nascimento > hoje.AddYears(-idade)) idade--;
-        return idade;
     }
 
     private static string? PrimeiroPreenchido(params string?[] valores)

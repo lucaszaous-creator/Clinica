@@ -26,6 +26,20 @@
                     <Run Text=" · Termo nº " />
                     <Run Text="{Binding Numero, Mode=OneWay}" />
                 </TextBlock>
+
+                <!-- A SESSÃO a que este termo vai ficar ligado (set/2026).
+                     Ela aparece porque a porta às vezes RESOLVE sozinha — um horário hoje
+                     e nenhum outro à frente —, e amarrar em silêncio seria uma decisão que
+                     ninguém viu ser tomada. Some quando não há sessão (termo avulso) ou
+                     quando quem chamou já sabia qual era. -->
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           Visibility="{Binding SessaoDoTermo,
+                                        Converter={StaticResource TextoParaVisibilidade},
+                                        FallbackValue=Collapsed}">
+                    <Run Text="Ligado à sessão: " />
+                    <Run Text="{Binding SessaoDoTermo, Mode=OneWay}" FontWeight="SemiBold" />
+                </TextBlock>
             </StackPanel>
 
             <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">

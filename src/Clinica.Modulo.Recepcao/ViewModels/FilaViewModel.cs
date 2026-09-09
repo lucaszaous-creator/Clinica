@@ -1351,14 +1351,18 @@ public sealed partial class FilaViewModel : ObservableObject
                 return;
             }
 
-            ColetaDeTermo.Abrir(
+            await ColetaDeTermo.AbrirAsync(
                 _escopos, c.PacienteId, c.Paciente,
                 pendente.ModeloId, pendente.DocumentoId,
                 // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o
                 // paciente assina — e que fica 20 anos no prontuário — sai com
                 // "Profissional responsável" no lugar do nome e do CRM de quem faz o
                 // procedimento.
-                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId);
+                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId,
+                // E a SESSÃO: aqui o cartão É o horário, então não há o que perguntar.
+                // Sem isto a coleta cairia no caminho de quem NÃO sabe e abriria a janela
+                // de escolha por cima de uma resposta que a tela já tem na mão.
+                c.AgendamentoId);
 
             // Recarrega SEMPRE, e não só no concluiu: abrir a janela já emite o termo
             // numerado, e o selo do cartão precisa refletir isso.

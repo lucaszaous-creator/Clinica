@@ -31,13 +31,19 @@ public static class ColetaDeTermo
     /// janela já EMITE o termo numerado, então mesmo o "fechei sem assinar" mudou o que a
     /// tela de trás mostra.
     /// </returns>
-    public static bool Abrir(
+    /// <param name="agendamentoId">
+    /// A SESSÃO a que o termo se refere (set/2026). Quem sabe, passa: no consultório é o
+    /// horário aberto na tela, no balcão é o cartão da fila. Quem não sabe deixa nulo — e
+    /// aí esta porta RESOLVE, perguntando só quando há dúvida.
+    /// </param>
+    public static async Task<bool> AbrirAsync(
         IServiceScopeFactory escopos,
         int pacienteId,
         string pacienteNome,
         int? modeloId = null,
         int? documentoId = null,
-        int? profissionalId = null)
+        int? profissionalId = null,
+        int? agendamentoId = null)
     {
         ArgumentNullException.ThrowIfNull(escopos);
 
@@ -56,6 +62,11 @@ public static class ColetaDeTermo
             modeloId = modelo.Id;
         }
 
+        var (sessaoId, sessaoRotulo, desistiu) = await ResolverSessaoAsync(
+            servicos, pacienteId, pacienteNome, modeloId.Value, documentoId, agendamentoId);
+
+        if (desistiu) return false;
+
         var vm = new AssinaturaPacienteViewModel(
             servicos.GetRequiredService<DocumentoClinicoService>(),
             servicos.GetRequiredService<AssinaturaDoPacienteService>(),
@@ -68,11 +79,108 @@ public static class ColetaDeTermo
             servicos.GetRequiredService<AcessoProntuarioService>(),
             servicos.GetRequiredService<ParametrosService>(),
             servicos.GetRequiredService<ProblemaPacienteService>(),
-            servicos.GetRequiredService<ColetaRemotaTermoService>());
+            servicos.GetRequiredService<ColetaRemotaTermoService>(),
+            sessaoId)
+        {
+            SessaoDoTermo = sessaoRotulo
+        };
 
         new AssinaturaPacienteWindow(vm) { Owner = Dono() }.ShowDialog();
 
         return vm.Concluido;
+    }
+
+    /// <summary>
+    /// A qual SESSÃO este termo pertence — resolvido aqui, no ponto único, e não em cada
+    /// porta (set/2026).
+    ///
+    /// A regra tem três degraus, e o do meio é o que a direção pediu:
+    /// <list type="number">
+    /// <item>quem CHAMOU já sabe (consultório, fila) — nada é perguntado;</item>
+    /// <item>UMA sessão hoje e nenhuma outra à frente — amarra sozinho, e a janela DIZ a
+    /// que amarrou. Perguntar aqui seria pedir à pessoa uma informação que o sistema
+    /// tem;</item>
+    /// <item>duas sessões, ou sessões à frente — abre a janela de escolha, que é
+    /// literalmente o pedido do balcão.</item>
+    /// </list>
+    ///
+    /// ⚠️ Documento JÁ EMITIDO não pergunta nada: a procedência foi gravada na emissão, e
+    /// regravá-la porque a tela foi reaberta de outro lugar reescreveria um registro
+    /// clínico por causa de um caminho de navegação.
+    ///
+    /// ⚠️ Falha de leitura NÃO impede colher. O termo assinado vale mais que a procedência
+    /// dele: sem a agenda, ele nasce avulso e a assinatura acontece — travar a coleta
+    /// porque uma consulta ao banco não respondeu produziria o desfecho pior, o
+    /// procedimento sem termo nenhum.
+    /// </summary>
+    private static async Task<(int? Sessao, string? Rotulo, bool Desistiu)> ResolverSessaoAsync(
+        IServiceProvider servicos,
+        int pacienteId,
+        string pacienteNome,
+        int modeloId,
+        int? documentoId,
+        int? agendamentoId)
+    {
+        if (documentoId is not null) return (null, null, false);
+        if (agendamentoId is { } jaSabe) return (jaSabe, null, false);
+
+        var termos = servicos.GetRequiredService<TermoProcedimentoService>();
+
+        IReadOnlyList<SessaoParaTermo> sessoes;
+        try
+        {
+            sessoes = await termos.SessoesParaTermoAsync(
+                pacienteId, DateOnly.FromDateTime(DateTime.Today));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Coleta de termo — a agenda do paciente não pôde ser lida", ex);
+            return (null, null, false);
+        }
+
+        if (sessoes.Count == 0) return (null, null, false);
+
+        if (sessoes.Count == 1 && sessoes[0].Hoje)
+            return (sessoes[0].AgendamentoId, Descrever(sessoes[0]), false);
+
+        // As sessões vão PRONTAS para a janela: quem já as leu foi esta função, e é a
+        // leitura dela que decidiu que a janela precisava existir. Ler de novo lá dentro
+        // pagaria duas idas ao banco por um clique — e as duas listas poderiam discordar
+        // se a outra máquina mexesse na agenda entre elas.
+        var escolha = new EscolherSessaoDoTermoViewModel(
+            sessoes, pacienteNome, await NomeDoModeloAsync(termos, modeloId));
+
+        var janela = new EscolherSessaoDoTermoWindow(escolha) { Owner = Dono() };
+        if (janela.ShowDialog() != true) return (null, null, true);
+
+        var escolhida = escolha.Escolhida;
+        var rotulo = escolhida is { } id
+            ? sessoes.FirstOrDefault(s => s.AgendamentoId == id) is { } achada
+                ? Descrever(achada)
+                : null
+            : null;
+
+        return (escolhida, rotulo, false);
+    }
+
+    private static string Descrever(SessaoParaTermo sessao)
+        => $"{sessao.Rotulo}  ·  {sessao.Detalhe}";
+
+    private static async Task<string> NomeDoModeloAsync(
+        TermoProcedimentoService termos, int modeloId)
+    {
+        try
+        {
+            var modelos = await termos.ModelosDisponiveisAsync();
+            return modelos.FirstOrDefault(m => m.Id == modeloId)?.Nome ?? "Termo";
+        }
+        catch
+        {
+            // O nome do termo é enfeite do cabeçalho da janela; falhar aqui não pode
+            // impedir a escolha da sessão.
+            return "Termo";
+        }
     }
 
     /// <summary>

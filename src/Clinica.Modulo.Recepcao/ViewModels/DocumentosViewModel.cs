@@ -582,7 +582,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         // Perguntar "qual termo?" para o LGPD ofereceria uma lista onde ele não está.
         var concluiu = folha.TipoClinico == TipoDocumentoClinico.Consentimento
             ? ColetaDeTermo.AbrirConsentimentoLgpd(_escopos, paciente.Id, paciente.Nome)
-            : ColetaDeTermo.Abrir(_escopos, paciente.Id, paciente.Nome);
+            : await ColetaDeTermo.AbrirAsync(_escopos, paciente.Id, paciente.Nome);
 
         // Recarrega de qualquer jeito: abrir a janela já emite o termo numerado.
         await CarregarAsync();

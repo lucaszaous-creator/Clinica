@@ -123,13 +123,11 @@ public partial class FichaPacienteViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
+            // ⚠️ A MESMA regra do balcão e do consultório (`IdadeDoPaciente`, no Domínio):
+            // a cópia que fica para trás é onde a idade impossível sobrevive, e este app
+            // não referencia o shell — só o Domínio, que é justamente onde a regra mora.
             if (Paciente.DataNascimento is { } nasc)
-            {
-                var idade = hoje.Year - nasc.Year;
-                if (new DateOnly(hoje.Year, nasc.Month, Math.Min(nasc.Day, DateTime.DaysInMonth(hoje.Year, nasc.Month))) > hoje)
-                    idade--;
-                NascimentoTexto = $"{nasc:dd/MM/yyyy} ({idade} anos)";
-            }
+                NascimentoTexto = $"{nasc:dd/MM/yyyy} ({IdadeDoPaciente.Texto(nasc, hoje)})";
             else
             {
                 NascimentoTexto = "—";

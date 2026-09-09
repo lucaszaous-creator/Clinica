@@ -387,9 +387,10 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(
                 Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
 
-            ColetaDeTermo.Abrir(
+            await ColetaDeTermo.AbrirAsync(
                 _escopos, PacienteId, Paciente,
-                _modeloTermoPendente, _documentoTermoPendente);
+                _modeloTermoPendente, _documentoTermoPendente,
+                agendamentoId: _foco.AgendamentoId);
         }
         catch (Exception ex)
         {

@@ -1523,6 +1523,9 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("ArquivoAssinadoId")
                         .HasColumnType("integer");
 
@@ -1697,6 +1700,8 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
 
                     b.HasIndex("ArquivoAssinadoId");
 
@@ -4442,6 +4447,43 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Usuarios");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ValorCampoPersonalizado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CampoId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EvolucaoId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Rotulo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampoId");
+
+                    b.HasIndex("EvolucaoId");
+
+                    b.ToTable("ValoresCampoPersonalizado");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.VersaoAnamnese", b =>
                 {
                     b.Property<int>("Id")
@@ -4496,43 +4538,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("AnamnesePacienteId");
 
                     b.ToTable("VersoesAnamnese");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.ValorCampoPersonalizado", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("CampoId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("EvolucaoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Rotulo")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Tipo")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("Valor")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CampoId");
-
-                    b.HasIndex("EvolucaoId");
-
-                    b.ToTable("ValoresCampoPersonalizado");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.VersaoEvolucao", b =>
@@ -4986,6 +4991,11 @@ namespace Clinica.Infrastructure.Migrations
 
             modelBuilder.Entity("Clinica.Domain.Entities.DocumentoClinico", b =>
                 {
+                    b.HasOne("Clinica.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Clinica.Domain.Entities.ArquivoAssinado", "ArquivoAssinado")
                         .WithMany()
                         .HasForeignKey("ArquivoAssinadoId")
@@ -5016,6 +5026,8 @@ namespace Clinica.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TracoAssinaturaId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agendamento");
 
                     b.Navigation("ArquivoAssinado");
 
@@ -5531,17 +5543,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Profissional");
                 });
 
-            modelBuilder.Entity("Clinica.Domain.Entities.VersaoAnamnese", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.AnamnesePaciente", "Anamnese")
-                        .WithMany("Versoes")
-                        .HasForeignKey("AnamnesePacienteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Anamnese");
-                });
-
             modelBuilder.Entity("Clinica.Domain.Entities.ValorCampoPersonalizado", b =>
                 {
                     b.HasOne("Clinica.Domain.Entities.CampoPersonalizadoProntuario", "Campo")
@@ -5559,6 +5560,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Campo");
 
                     b.Navigation("Evolucao");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.VersaoAnamnese", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.AnamnesePaciente", "Anamnese")
+                        .WithMany("Versoes")
+                        .HasForeignKey("AnamnesePacienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Anamnese");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.VersaoEvolucao", b =>

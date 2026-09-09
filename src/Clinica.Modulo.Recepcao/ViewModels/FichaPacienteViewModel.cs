@@ -145,6 +145,12 @@ public sealed class LinhaTermo
     public required int? ProfissionalId { get; init; }
 
     /// <summary>
+    /// A sessão a que o termo se refere, quando o dia tem UMA da mesma modalidade
+    /// (set/2026). Nulo faz a coleta perguntar — que é o pedido do balcão.
+    /// </summary>
+    public required int? AgendamentoId { get; init; }
+
+    /// <summary>
     /// O que a linha diz de relance. As três respostas são diferentes de propósito:
     /// "falta assinar" é tarefa, "recusou" é decisão tomada, e "assinado com declaração
     /// negada" é o caso GRAVE — o papel está completo e o procedimento pode não estar
@@ -189,7 +195,8 @@ public sealed class LinhaTermo
         Recusado = s.Recusado,
         MotivoRecusa = s.MotivoRecusa,
         DeclaracoesNegadas = s.DeclaracoesNegadas,
-        ProfissionalId = s.ProfissionalId
+        ProfissionalId = s.ProfissionalId,
+        AgendamentoId = s.AgendamentoId
     };
 }
 
@@ -208,6 +215,14 @@ public sealed class LinhaDocumento
     public required bool Cancelado { get; init; }
     public required bool Assinado { get; init; }
     public required string Situacao { get; init; }
+
+
+    /// <summary>
+    /// A SESSÃO a que este documento pertence (set/2026) — "Sessão de 08/09/2026, 09h00 ·
+    /// Acupuntura + eletro". Vazio no documento avulso, e a linha SOME em vez de mostrar
+    /// um traço.
+    /// </summary>
+    public string? Sessao { get; init; }
 
     /// <summary>Nome sugerido ao salvar o PDF.</summary>
     public string NomeArquivo => $"{Tipo}-{Numero.Replace('/', '-')}.pdf";
@@ -280,6 +295,7 @@ public sealed class LinhaDocumento
         Assinado = d.AssinadoEletronicamente,
         AcessoParaVer = CentralDocumentosService.AcessoParaVer(d.Tipo),
         AcessoParaMexer = CentralDocumentosService.AcessoParaEmitir(d.Tipo),
+        Sessao = ProcedenciaDaSessao.Descrever(d.Agendamento),
         Situacao = d.Cancelado
             ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
             : d.AssinadoEletronicamente
@@ -827,7 +843,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         Nome = p.Nome;
         Documento = string.IsNullOrWhiteSpace(p.Documento) ? "—" : Cpf.Formatar(p.Documento);
         Telefone = string.IsNullOrWhiteSpace(p.Telefone) ? "—" : p.Telefone!;
-        Nascimento = p.DataNascimento is { } n ? $"{n:dd/MM/yyyy} ({Idade(n)} anos)" : "—";
+        // ⚠️ Esta é a porta onde a data errada se CONSERTA, então é aqui que ela mais
+        // precisa aparecer: "01/01/1851 (data a conferir)" em vez de "(175 anos)".
+        // A regra é UMA (`IdadeDoPaciente`, no Domínio) — eram três cópias da conta, e as
+        // três imprimiam a idade impossível que a direção fotografou.
+        Nascimento = p.DataNascimento is { } n
+            ? $"{n:dd/MM/yyyy} ({IdadeDoPaciente.Texto(n, DateOnly.FromDateTime(DateTime.Today))})"
+            : "—";
         _convenioCodigo = p.ConvenioCodigo ?? p.Convenio.ToString();
         Convenio = CatalogoConvenios.Nome(_convenioCodigo);
         Carteirinha = string.IsNullOrWhiteSpace(p.Carteirinha)
@@ -856,14 +878,6 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         UltimaSessao = p.Atendimentos.Count == 0
             ? "—"
             : p.Atendimentos.Max(a => a.Data).ToString("dd/MM/yyyy");
-    }
-
-    private static int Idade(DateOnly nascimento)
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var idade = hoje.Year - nascimento.Year;
-        if (nascimento > hoje.AddYears(-idade)) idade--;
-        return idade;
     }
 
     private async Task CarregarProntuarioAsync(IServiceScope scope, int pacienteId, int geracao)
@@ -1699,7 +1713,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             linha.ModeloId, linha.DocumentoId,
             // O profissional do horário de hoje, quando a linha o conhece: sem ele o termo
             // nasce órfão e a via impressa sai sem o nome e o CRM de quem faz o procedimento.
-            linha.ProfissionalId);
+            linha.ProfissionalId,
+            // E a SESSÃO (set/2026), quando o dia tem uma só da modalidade. Nula, a coleta
+            // pergunta — é a janela de escolha do balcão.
+            linha.AgendamentoId);
     }
 
     /// <summary>
@@ -1710,13 +1727,14 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// há por que esperar o dia — e o dia é justamente quando ninguém tem tempo de ler.
     /// </summary>
     [RelayCommand]
-    private async Task ColherTermoAvulsoAsync() => await AbrirColetaAsync(null, null, null);
+    private async Task ColherTermoAvulsoAsync() => await AbrirColetaAsync(null, null, null, null);
 
     /// <summary>
     /// O caminho ÚNICO da ficha para a coleta — as duas portas daqui e as outras três da
-    /// suíte passam pelo mesmo <c>ColetaDeTermo.Abrir</c>.
+    /// suíte passam pelo mesmo <c>ColetaDeTermo.AbrirAsync</c>.
     /// </summary>
-    private async Task AbrirColetaAsync(int? modeloId, int? documentoId, int? profissionalId)
+    private async Task AbrirColetaAsync(
+        int? modeloId, int? documentoId, int? profissionalId, int? agendamentoId)
     {
         // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
         if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
@@ -1736,8 +1754,9 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         try
         {
-            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.Abrir(
-                _escopos, PacienteId, Nome, modeloId, documentoId, profissionalId);
+            var concluiu = await Clinica.Desktop.Shell.Componentes.ColetaDeTermo.AbrirAsync(
+                _escopos, PacienteId, Nome, modeloId, documentoId, profissionalId,
+                agendamentoId);
 
             // Recarrega mesmo quando a janela foi fechada sem concluir: o termo pode ter
             // sido EMITIDO na abertura e só a assinatura ter faltado, e a seção precisa

@@ -1141,7 +1141,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         var partes = new List<string>(3);
         if (!string.IsNullOrWhiteSpace(p.Documento)) partes.Add(FormatarDocumento(p.Documento!));
         if (!string.IsNullOrWhiteSpace(p.Telefone)) partes.Add(Telefone.Formatar(p.Telefone));
-        if (p.DataNascimento is { } nascimento) partes.Add($"{IdadeEm(nascimento)} anos");
+        // ⚠️ A idade só entra quando é PLAUSÍVEL (`IdadeDoPaciente`, no Domínio): a
+        // importação do Smart Clinic trouxe datas que dariam "1851 anos" na linha que a
+        // recepcionista lê para reconhecer o paciente. Aqui a linha só PULA — quem cobra o
+        // conserto é a ficha, que é onde ele se faz.
+        if (IdadeDoPaciente.Anos(p.DataNascimento, DateOnly.FromDateTime(DateTime.Today)) is { } anos)
+            partes.Add(anos == 1 ? "1 ano" : $"{anos} anos");
         return partes.Count == 0 ? null : string.Join(" · ", partes);
     }
 
@@ -1163,14 +1168,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// Anos completos hoje. O `-1` não é detalhe: sem ele quem faz aniversário em
     /// dezembro aparece com um ano a mais durante onze meses.
     /// </summary>
-    private static int IdadeEm(DateOnly nascimento)
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var anos = hoje.Year - nascimento.Year;
-        if (nascimento > hoje.AddYears(-anos)) anos--;
-        return anos;
-    }
-
     // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro)
     // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
     private void AoTrocarPaciente(Paciente? value)

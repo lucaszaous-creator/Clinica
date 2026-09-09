@@ -321,12 +321,52 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         _ = CarregarCabecalhoAsync();
     }
 
-    /// <summary>Volta para a lista de onde se veio. Sem sair, não há como trocar de pessoa.</summary>
+    /// <summary>
+    /// Volta para a lista de onde se veio. Sem sair, não há como trocar de pessoa.
+    ///
+    /// ⚠️ <b>Esta é a PORTA DE SAÍDA de uma tela imersiva</b> (set/2026): com a sidebar e
+    /// a barra de cima recolhidas, ela e o "Trocar paciente" são o caminho de volta. Por
+    /// isso o destino é CONFERIDO antes: <c>NavegacaoSuite.Ir</c> devolve false em
+    /// silêncio quando a chave não está na lista de itens — e "Meu dia" exige
+    /// <c>VerAgenda</c>, que a direção pode ter tirado de alguém em Acessos sem tirar o
+    /// <c>VerProntuario</c> que abriu este prontuário. Sem a conferência, essa pessoa
+    /// clicaria no único botão de saída e não aconteceria nada.
+    ///
+    /// O caminho de baixo é "Pacientes", que exige o MESMO bit desta tela — logo, quem
+    /// chegou aqui sempre o alcança.
+    /// </summary>
     [RelayCommand]
-    private void Voltar()
-        => NavegacaoSuite.Ir(_foco.AgendamentoId is null
-            ? ModuloClinico.ChavePacientesDaClinica
-            : ModuloClinico.ChaveMeuDia);
+    private void Voltar() => NavegacaoSuite.Ir(ChaveDeVolta(_foco.AgendamentoId));
+
+    /// <summary>Para onde o botão de voltar leva DE VERDADE — ver <see cref="Voltar"/>.</summary>
+    private static string ChaveDeVolta(int? agendamentoId)
+        => agendamentoId is not null && NavegacaoSuite.Existe(ModuloClinico.ChaveMeuDia)
+            ? ModuloClinico.ChaveMeuDia
+            : ModuloClinico.ChavePacientesDaClinica;
+
+    /// <summary>
+    /// O RÓTULO do botão de voltar — "Meu dia" ou "Pacientes" (set/2026, modelo 3).
+    ///
+    /// ⚠️ Ele sai da MESMA função que o <see cref="VoltarCommand"/> usa para escolher o
+    /// destino — e não de uma segunda leitura do horário. Rótulo fixo ("← Meu dia", como
+    /// no mockup) mentiria em metade dos cliques: quem abriu o prontuário pela carteira
+    /// não tem horário nenhum e volta para "Pacientes"; e quem não alcança "Meu dia" cai
+    /// no caminho de baixo. Botão que anuncia um destino e leva a outro é a mesma família
+    /// do botão que não faz nada (parcela 41) — só que pior, porque ele FUNCIONA.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Sem <c>OnPropertyChanged</c>, e isso é medido: a tela é REMONTADA a cada
+    /// navegação — <c>ModuloClinico.CriarTela</c> faz <c>new PacienteWorkspaceViewModel</c>
+    /// nas oito chaves que caem aqui —, então o foco não muda dentro de uma instância viva
+    /// (trocar de paciente passa pela carteira, que é outra navegação). O único
+    /// <c>_foco.Definir</c> desta tela, no Concluir, mantém o mesmo <c>AgendamentoId</c>.
+    /// Uma notificação aqui seria linha morta com justificativa falsa, que é pior do que
+    /// linha morta.
+    /// </remarks>
+    public string RotuloVoltar
+        => ChaveDeVolta(_foco.AgendamentoId) == ModuloClinico.ChaveMeuDia
+            ? "Meu dia"
+            : "Pacientes";
 
     /// <summary>Abre a carteira para escolher outra pessoa.</summary>
     [RelayCommand]

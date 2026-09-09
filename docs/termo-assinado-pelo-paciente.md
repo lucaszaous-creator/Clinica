@@ -608,3 +608,105 @@ apaga); se a clínica quiser tirá-lo da vista, cancela com motivo.
 
 **A regra geral, para o próximo portão:** *ao alargar a condição que um dado satisfaz,
 pergunte o que na BASE passa a satisfazê-la — e se o que passa é a mesma coisa.*
+
+---
+
+## 9. O TERMO LIGADO À SESSÃO (set/2026)
+
+Pedido da direção, nas palavras dela: *"se o paciente está no consultório e o termo ainda
+não foi colhido, ele fica linkado àquela sessão; se está na recepção, abre um pop out para
+selecionar a qual sessão linkar, e depois conseguimos ver nos documentos/anexos daquele
+paciente"*.
+
+### 9.1 O elo é o HORÁRIO, não a evolução
+
+`DocumentoClinico` já tinha `EvolucaoId` — "sessão de origem, quando o documento nasceu de
+uma evolução" — e ele **não serve aqui**. O termo é colhido nos dois momentos, e só um
+deles tem evolução: no consultório ela está sendo escrita; na recepção, que é o caso que
+motivou o pedido, o médico ainda não escreveu nada. O `Agendamento` existe desde que a
+recepcionista marcou.
+
+E amarrar ao horário faz o documento aparecer **na sessão sozinho** quando ela for escrita:
+`Evolucao.AgendamentoId` aponta para a mesma linha, e os dois se encontram sem uma linha de
+sincronização — a mesma mecânica de sempre nesta suíte, em que quem liga dois módulos é uma
+chave estrangeira e não uma mensagem.
+
+Coluna: `DocumentoClinico.AgendamentoId`, **aditiva e anulável**, `SetNull`. Nulo continua
+sendo o caso mais comum e legítimo — o termo avulso, a receita fora de sessão, e toda linha
+gravada antes desta versão.
+
+### 9.2 O que NÃO mudou: a cobertura
+
+⚠️ **A coluna é PROCEDÊNCIA, não regra de cobertura.** Quem responde "este paciente já
+assinou o termo do BSV?" continua sendo o `TermoProcedimentoService`, pela exigência e pela
+validade que a clínica escolheu — por paciente, modelo e dia, exatamente como antes.
+
+Amarrar a cobertura ao horário faria um termo assinado de manhã **deixar de valer** na
+sessão da tarde. Isso é mudança de comportamento numa clínica em produção, e é decisão da
+direção — não efeito colateral de uma coluna nova. `TermoLigadoAoHorarioTests.
+Um_termo_assinado_continua_cobrindo_as_duas_sessoes_do_dia` é o que prende isso.
+
+Se a direção quiser a cobertura por sessão, é uma parcela própria: muda o agrupamento de
+`ModalidadesQuePedemTermo`, e o efeito é a clínica passar a colher dois termos num dia em
+que hoje colhe um.
+
+### 9.3 Perguntar só quando há dúvida
+
+`ColetaDeTermo.AbrirAsync` resolve a sessão em três degraus:
+
+1. **Quem chamou já sabe** — o consultório passa o horário aberto na tela, a fila passa o
+   cartão. Nada é perguntado.
+2. **Um horário hoje e nenhum outro à frente** — amarra sozinho, e a janela da assinatura
+   **DIZ** a que amarrou ("Ligado à sessão: Hoje, 09h00 · BSV + acupuntura"). Perguntar
+   aqui seria pedir à pessoa uma informação que o sistema tem; amarrar em silêncio seria
+   uma decisão que ninguém viu ser tomada.
+3. **Dois horários, ou sessões à frente** — abre `EscolherSessaoDoTermoWindow`, que é
+   literalmente o pedido do balcão. A sessão de hoje já vem marcada quando é uma só.
+
+⚠️ A lista vai de **hoje para a frente** (60 dias), e não só hoje: a coleta antecipada é a
+razão de a porta avulsa existir — o paciente aparece para tirar dúvidas e assina o
+consentimento do procedimento da semana que vem.
+
+⚠️ **"Nenhuma — termo avulso" é opção de primeira classe.** Sem ela a janela obrigaria a
+inventar uma procedência para poder fechar.
+
+⚠️ **Documento já EMITIDO não pergunta nada**: a procedência foi gravada na emissão, e
+regravá-la porque a tela foi reaberta de outro lugar reescreveria um registro clínico por
+causa de um caminho de navegação.
+
+⚠️ **Falha de leitura da agenda NÃO impede colher.** O termo assinado vale mais que a
+procedência dele: sem a agenda, ele nasce avulso e a assinatura acontece. Travar a coleta
+porque uma consulta não respondeu produziria o desfecho pior — o procedimento sem termo
+nenhum.
+
+### 9.4 O termo NÃO virou anexo, e isso é decisão
+
+O pedido dizia "o termo fica salvo como exame/anexo daquela sessão". **O efeito é esse; a
+tabela não.**
+
+`AnexoProntuario` exige `EvolucaoId` e é arquivo de uma sessão; `ResultadoExame` AFIRMA que
+aquilo é um resultado de exame. Um termo assinado é um `DocumentoClinico`: numerado por ano,
+com código de conferência, imutável, cancelável só com motivo — e é isso que garante a
+segunda via idêntica e o valor jurídico da via que o paciente levou. Gravá-lo como anexo
+perderia a numeração, o selo e a conferência.
+
+O que o pedido quer é **ver o termo junto da sessão**, e é isso que foi entregue: as listas
+de documento — a ficha da Recepção e as Prescrições e documentos do Consultório — passaram a
+escrever a sessão em cada linha (`ProcedenciaDaSessao.Descrever`, na Application, com teste).
+A linha SOME no documento avulso: traço em branco seria pior que a ausência dela.
+
+### 9.5 Onde isto encosta
+
+| lugar | o que mudou |
+|---|---|
+| `DocumentoClinico` | coluna `AgendamentoId` (aditiva, `SetNull`) |
+| `DocumentoClinicoService.EmitirAsync` | a cópia campo a campo passou a levar o vínculo — sem isso ele seria descartado em silêncio |
+| `EmitirTermoProcedimentoAsync` | recebe `agendamentoId` |
+| `SituacaoTermo` | carrega `AgendamentoId` quando a modalidade tem UM horário no dia; nulo com dois |
+| `TermoProcedimentoService.SessoesParaTermoAsync` | a lista da janela de escolha |
+| `ColetaDeTermo.AbrirAsync` | resolve a sessão nos três degraus acima (era `Abrir`, síncrono) |
+| as cinco portas | consultório, enfermagem do consultório, fila, ficha e central passam o que sabem |
+| `ProcedenciaDaSessao` | a frase que as listas de documento mostram |
+| `DocumentosDoPacienteAsync` | `Include(d => d.Agendamento)` — sem ele a navegação chega nula em produção |
+
+Desenhos: `docs/mockups/termo-ligado-a-sessao.html`.

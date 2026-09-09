@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 
@@ -28,11 +29,12 @@ public sealed class IdadeConverter : IValueConverter
     {
         if (value is not DateOnly nascimento) return string.Empty;
 
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        var idade = hoje.Year - nascimento.Year;
-        // Ainda não fez aniversário este ano.
-        if (nascimento.AddYears(idade) > hoje) idade--;
-        return idade < 0 ? string.Empty : $"{idade} anos";
+        // Vazio quando a data não descreve uma pessoa viva: numa CÉLULA de lista não há
+        // onde escrever o terceiro estado, e "1851 anos" ali é pior que a célula vazia.
+        // Quem cobra o conserto é a ficha, que é onde ele se faz.
+        return IdadeDoPaciente.Anos(nascimento, DateOnly.FromDateTime(DateTime.Today)) is { } idade
+            ? (idade == 1 ? "1 ano" : $"{idade} anos")
+            : string.Empty;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
