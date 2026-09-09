@@ -187,7 +187,11 @@
             </StackPanel>
         </Border>
 
-        <CheckBox Content="Marcar como encaixe (atender por cima do horário ocupado)"
+        <!-- O verbo é REGISTRAR, não "marcar mesmo assim": desde set/2026 a caixinha não
+             fura recusa nenhuma (não há), ela descreve o FATO — e é ele que dispensa o
+             profissional na marcação (parcela 95). O mesmo texto do Novo atendimento: são
+             duas portas do mesmo ato, e a que ficasse para trás diria que a outra impede. -->
+        <CheckBox Content="Registrar como encaixe (atender por cima de um horário que já tem paciente)"
                   IsChecked="{Binding Encaixe}" Margin="0,12,0,0" />
 
         <!-- Feedback inline: é formulário, a mensagem fica na tela enquanto o usuário corrige. -->

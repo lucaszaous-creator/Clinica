@@ -252,10 +252,12 @@
                                     Value="{StaticResource Brush.Modalidade.Consulta.Suave}" />
                         </DataTrigger>
                         <!--
-                          Encaixe: marcado por cima de um horário ocupado, com o choque
-                          aceito. Ele muda a COR do traço, não o cartão inteiro — o cartão
-                          inteiro em laranja faria a agenda de um dia de encaixes parecer
-                          uma tela de erro.
+                          Encaixe: o horário que a clínica assumiu por cima de outro. Ele
+                          muda a COR do traço, não o cartão inteiro — o cartão inteiro em
+                          laranja faria a agenda de um dia de encaixes parecer uma tela de
+                          erro. ⚠️ Desde set/2026 marcar por cima NÃO exige mais o encaixe
+                          (nada recusa): o selo virou a exceção que alguém declarou, e não
+                          mais o carimbo de toda sobreposição.
                         -->
                         <DataTrigger Binding="{Binding EhEncaixe}" Value="True">
                             <Setter TargetName="fundo" Property="BorderBrush"

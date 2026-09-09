@@ -29,8 +29,13 @@ public enum RecursoAgenda
 }
 
 /// <summary>
-/// Um choque de horário detectado ao marcar. A agenda não decide sozinha: ela devolve
-/// o choque para a recepção, que pode escolher outro horário ou assumir o encaixe.
+/// Um choque de horário detectado ao marcar — e desde set/2026 ele é só AVISO: nada
+/// recusa (ver <c>AgendaService.ConflitosAsync</c>). Quem decide é quem está no balcão
+/// com o paciente na frente, e o que este record carrega é o que a tela escreve para ele.
+///
+/// A frase e a gravidade de cada linha saem de <see cref="AvisosDeChoque"/>, não daqui:
+/// duas telas de marcação as escreviam com cópias próprias, e cópia de frase diverge na
+/// primeira correção.
 /// </summary>
 public sealed record ConflitoAgenda(
     RecursoAgenda Recurso,

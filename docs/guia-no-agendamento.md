@@ -196,7 +196,8 @@ que já existe**.
       Profissional [— sem profissional definido —▾]   Sala [Sala 2 ▾]
       ⚠ Sem profissional, a sessão não aparece no quadro do médico
         e fica fora do repasse — defina quando souber quem atende.
-      ⚠ 14:30 já tem sessão da Dra. Paula (choque) — será um encaixe.
+      ⚠ 14:30 já tem sessão da Dra. Paula — marcar aqui põe dois no mesmo horário.
+        (set/2026: isto AVISA e não impede; o encaixe virou caixinha à parte.)
       ⚠ Agenda fechada neste período: Férias da Dra. Paula.
 ```
 
@@ -226,9 +227,14 @@ O que muda de lugar, e o que NÃO muda:
   cancelar, falta, comprovante, reabrir). Marcar NOVO e mexer no EXISTENTE são atos
   diferentes; uma definição por ATO. O formulário antigo da agenda se aposenta só da
   metade "novo".
-- **Choque e bloqueio criticam ANTES do clique com a MESMA regra que recusa no serviço**
-  (`AgendaService` ganha a leitura de crítica reutilizável) — a regra do número da guia,
-  aplicada ao horário.
+- **Choque e bloqueio criticam ANTES do clique com a MESMA leitura do serviço**
+  (`AgendaService.ConflitosAsync`, sem cópia) — a regra do número da guia, aplicada ao
+  horário. ⚠️ **Atualizado em set/2026: essa leitura não RECUSA mais nada** (decisão da
+  direção — *"horário na agenda livre, não precisa dar choque/bloqueio porque já tem
+  paciente naquele mesmo horário"*). A crítica na tela deixou de ser a metade que explica
+  uma recusa e passou a ser o único lugar onde a clínica vê que há alguém ali; ela ganhou
+  cabeçalho dizendo que nada impede e a agenda FECHADA em vermelho, separada da rotina.
+  A única recusa que ficou é a de *quem vai atender*, logo abaixo.
 - ⚠️ **"Profissional aleatório" NÃO é sorteio.** Deixar sem profissional é permitido e
   avisado (o aviso acima); o sistema **nunca escolhe sozinho** — profissional define
   repasse (dinheiro) e o quadro de quem atende, e um sorteio pagaria a pessoa errada. O

@@ -242,9 +242,11 @@ zero.**
 
 > **A série sai da PRIMEIRA data mais N períodos**, nunca da anterior mais um: encadear
 > faria uma sessão adiada empurrar todas as seguintes, e o paciente perderia o horário
-> fixo — que é exatamente o motivo de marcar em série. Data que esbarra em choque ou em
-> agenda fechada é **PULADA e dita**, e a janela fica aberta: a recepção resolve com o
-> paciente ainda na frente dela, em vez de descobrir o buraco na semana seguinte.
+> fixo — que é exatamente o motivo de marcar em série. Data recusada é **PULADA e dita**,
+> e a janela fica aberta: a recepção resolve com o paciente ainda na frente dela, em vez
+> de descobrir o buraco na semana seguinte. ⚠️ Desde set/2026 choque e agenda fechada não
+> recusam mais nada, então a série marca por cima deles; o que ainda é pulado é a data sem
+> profissional. (A série está sem porta nas telas desde set/2026 — só o motor.)
 
 ### Feature 05 · Prontuário — evolução + EVA — ✅ · parcela 2
 
