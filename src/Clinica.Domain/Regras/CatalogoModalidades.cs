@@ -50,6 +50,40 @@ public static class CatalogoModalidades
             ? ModalidadeInfo.NomeExibicao(familia)
             : Nome(codigo);
 
+    /// <summary>
+    /// O QUE A SESSÃO É, em uma frase: a modalidade e — só quando ela é CONSULTA — a
+    /// especialidade ao lado ("Consulta · Psiquiatria").
+    ///
+    /// A especialidade da consulta é gravada desde sempre (é ela que a operadora cobra na
+    /// guia, e é por ela que a Consulta de guias filtra), e NENHUMA tela de quem atende a
+    /// lia: o "Meu dia" do médico, a "Minha semana" e a agenda do balcão escreviam
+    /// "Consulta" para a de psiquiatria e para a de geriatria. Dado gravado sem leitor, no
+    /// lugar em que a diferença muda quem senta na cadeira.
+    ///
+    /// ⚠️ Ela só entra quando a modalidade é consulta: nas outras a especialidade não tem
+    /// onde morar (<c>RemarcarAsync</c> a limpa), e escrevê-la ali seria afirmar sobre a
+    /// sessão algo que o horário não guarda.
+    ///
+    /// A composição mora AQUI, e não em cada tela, pela razão de sempre: são quatro
+    /// leitores (a lista do dia e a grade do balcão, o dia e a semana do médico), e quatro
+    /// frases divergem na primeira correção.
+    /// </summary>
+    public static string NomeComEspecialidade(
+        string? codigo, ModalidadeAtendimento familia, string? especialidadeCodigo)
+    {
+        var nome = Nome(codigo, familia);
+
+        // A família sai do MESMO caminho do nome — código quando há, família como caminho
+        // de baixo. `Base("")` cairia no padrão dele (acupuntura com eletro) e diria que a
+        // consulta não é consulta.
+        var baseDaModalidade = string.IsNullOrWhiteSpace(codigo) ? familia : Base(codigo);
+        if (baseDaModalidade != ModalidadeAtendimento.Consulta) return nome;
+        if (string.IsNullOrWhiteSpace(especialidadeCodigo)) return nome;
+
+        var especialidade = CatalogoEspecialidades.Nome(especialidadeCodigo);
+        return string.IsNullOrWhiteSpace(especialidade) ? nome : $"{nome} · {especialidade}";
+    }
+
     /// <summary>Base (comportamento) da modalidade pelo código; se desconhecido, tenta interpretar o código como o próprio enum.</summary>
     public static ModalidadeAtendimento Base(string? codigo)
     {

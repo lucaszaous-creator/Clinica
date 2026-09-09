@@ -181,7 +181,9 @@ public sealed class ConsultorioService
                 x.Agendamento.DataHora,
                 x.Agendamento.PacienteId,
                 x.Agendamento.Paciente?.Nome ?? "Paciente",
-                CatalogoModalidades.Nome(x.Agendamento.ModalidadeCodigo),
+                CatalogoModalidades.NomeComEspecialidade(
+                    x.Agendamento.ModalidadeCodigo, x.Agendamento.ModalidadePrevista,
+                    x.Agendamento.EspecialidadeConsultaCodigo),
                 x.Agendamento.AtendimentoId)
             {
                 Profissional = x.Agendamento.Profissional?.Nome
@@ -470,7 +472,11 @@ public sealed class ConsultorioService
             a.DataHora,
             a.PacienteId,
             a.Paciente?.Nome ?? "Paciente",
-            CatalogoModalidades.Nome(a.ModalidadeCodigo),
+            // O que a sessão É — com a especialidade quando ela é consulta (set/2026).
+            // O balcão corrige a modalidade do horário importado e o médico vê a correção
+            // aqui, na lista dele: é o outro lado do botão "Editar" da agenda do dia.
+            CatalogoModalidades.NomeComEspecialidade(
+                a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo),
             a.Sala?.Nome,
             a.Status,
             a.Etapa,

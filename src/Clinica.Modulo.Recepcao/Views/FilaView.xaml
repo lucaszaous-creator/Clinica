@@ -602,6 +602,24 @@
                                                 </Style>
                                             </Button.Style>
                                         </Button>
+                                        <!-- EDITAR — corrigir o que a sessão É sem sair da
+                                             agenda do dia (set/2026). A importação do Smart
+                                             Clinic trouxe todo horário como "Consulta", e
+                                             corrigir ficava a quatro cliques e uma troca de
+                                             aba, atrás de um botão chamado "Remarcar".
+                                             SOME na linha fechada: ali "editar" REABRIRIA o
+                                             horário em silêncio, e a porta com o nome certo
+                                             ("Reabrir este horário") é a da grade. -->
+                                        <Button Content="Editar" Margin="0,0,6,0"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                ToolTip="Corrigir a modalidade, a especialidade, quem atende, a sala ou o horário"
+                                                Visibility="{Binding EmAberto,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                IsEnabled="{Binding DataContext.PodeEditarHorario,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Command="{Binding DataContext.EditarHorarioCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
                                         <!-- ⚠️ O "⋯" NÃO segue `PodeEditarAgenda` (parcela 66, 2ª
                                              rodada): ele abriga a coleta do termo, que é ato de
                                              quem tem `ColherAssinaturaPaciente` — e agora a porta

@@ -292,7 +292,15 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public bool PodeFechar => Etapa == EtapaFila.Finalizado;
 
-    /// <summary>Só horário em aberto aceita falta/cancelamento — o cancelado e a falta já saíram.</summary>
+    /// <summary>
+    /// Só horário em aberto aceita falta/cancelamento — o cancelado e a falta já saíram.
+    ///
+    /// ⚠️ Ele responde a uma SEGUNDA pergunta desde set/2026, e por acaso a resposta é a
+    /// mesma: é a condição do botão "Editar". <c>RemarcarAsync</c> recusa o realizado
+    /// (<see cref="EtapaFila.Finalizado"/>) e REABRE o cancelado e a falta
+    /// (<see cref="EtapaFila.ForaDaFila"/>) — os dois casos que este booleano já excluía.
+    /// Quem mexer aqui mexe nos dois leitores.
+    /// </summary>
     public bool EmAberto => Etapa is not (EtapaFila.Finalizado or EtapaFila.ForaDaFila);
 
     /// <summary>
@@ -541,6 +549,17 @@ public sealed partial class FilaViewModel : ObservableObject
     /// capacidades que a guarda lhe dá e o menu escondia.
     /// </summary>
     public bool PodeMarcarFaltaOuCancelar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
+    /// Editar o horário é <c>EditarAgenda</c> ESTRITO — a mesma conta do <c>Exigir</c> de
+    /// <see cref="EditarHorarioCommand"/> e do <c>Salvar</c> do formulário.
+    ///
+    /// ⚠️ NÃO é <see cref="PodeEditarAgenda"/>, que é o OU com <c>MovimentarFila</c>: a
+    /// enfermagem move a fila e não mexe na agenda, e com a conta larga aqui ela veria o
+    /// botão aceso e levaria a recusa depois do clique — metade visível mais larga que a
+    /// guarda é o "botão que não faz nada" pelo avesso (parcela 41).
+    /// </summary>
+    public bool PodeEditarHorario => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
     /// <summary>
     /// Fechar a sessão (pacote, insumo, caixa) é ato do balcão: <c>EditarAgenda</c> estrito,
@@ -979,9 +998,11 @@ public sealed partial class FilaViewModel : ObservableObject
                 Foto = a.Paciente?.FotoMiniatura,
                 Convenio = a.Paciente?.ConvenioNome ?? string.Empty,
                 // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
-                // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
-                Modalidade = CatalogoModalidades.Nome(
-                    a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+                // "AcupunturaComEletro" no cartão que o médico lê (parcela 41). E com a
+                // ESPECIALIDADE ao lado quando é consulta: é o que a secretária acaba de
+                // corrigir pelo "Editar", e é assim que ela confere que ficou certo.
+                Modalidade = CatalogoModalidades.NomeComEspecialidade(
+                    a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo),
                 ModalidadeFamilia = a.ModalidadePrevista,
                 // "sem profissional" é o que a GRADE já escreve, e é aviso, não
                 // enfeite: horário sem dono some do "Meu dia" de quem atende e do
@@ -1513,6 +1534,71 @@ public sealed partial class FilaViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Recepção — novo horário pela agenda do dia", ex);
+            _snackbar.Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// EDITAR O HORÁRIO — corrigir o que a sessão É, sem sair da agenda do dia
+    /// (set/2026, pedido da direção depois da importação do Smart Clinic).
+    ///
+    /// Os 227 horários importados vieram todos como <b>"Consulta"</b> — o sistema antigo
+    /// não guardava mais que isso —, e "Consulta" não é nenhuma das modalidades que a
+    /// clínica atende. Enquanto o horário diz isso, o médico lê "Consulta" no "Meu dia"
+    /// dele e a guia nasce pela regra errada. Corrigir existia e ficava a QUATRO cliques e
+    /// uma troca de aba (lista → grade → cartão → janela do horário → "Remarcar"), atrás
+    /// de um botão cujo nome fala de mudar o horário de lugar, que não é o que se quer
+    /// fazer.
+    ///
+    /// ⚠️ A janela é a MESMA da grade (<c>AgendamentoWindow</c>): uma segunda janela do
+    /// horário divergiria na primeira correção — é a razão pela qual a lista não repete as
+    /// sete ações do cartão. O que muda é o TÍTULO, que vem da porta.
+    ///
+    /// Só em horário EM ABERTO, e não é enfeite: <c>RemarcarAsync</c> recusa o realizado
+    /// ("estorne o atendimento antes") e REABRE o cancelado (<c>Status = Agendado</c>) —
+    /// um "Editar" que ressuscita um horário cancelado em silêncio seria pior do que não
+    /// ter o botão. Para esses a porta continua sendo a grade, onde o botão se chama
+    /// "Reabrir este horário" e diz o que faz.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditarHorarioAsync(CartaoFila? cartao)
+    {
+        if (cartao is null) return;
+
+        try
+        {
+            // A guarda que IMPEDE; o `IsEnabled` da linha (`PodeEditarHorario`) é a que
+            // explica. O formulário confere de novo ao salvar, porque são várias as portas
+            // que o abrem (parcela 51: "só se chega por ali" não é barreira).
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "editar o horário");
+
+            var vm = new AgendamentoEdicaoViewModel(_escopos, cartao.AgendamentoId)
+            {
+                TituloDaEdicao = "Editar o horário"
+            };
+
+            var janela = new Janelas.AgendamentoWindow(vm)
+            {
+                Owner = JanelaDona.Atual()
+            };
+
+            // Fechar sem salvar não recarrega: a lista é relida a cada minuto de qualquer
+            // forma, e uma consulta ao banco remoto por desistência é a que ninguém pediu.
+            if (janela.ShowDialog() != true) return;
+
+            // Com "guia no agendamento" ligada, trocar a modalidade REGERA as guias, e o
+            // que aconteceu com elas vem escrito do serviço. Dizer é a metade que faz a
+            // secretária saber que a correção chegou ao faturamento; o que RECUSA já
+            // chegou como erro na própria janela, que nem fechou.
+            _snackbar.Sucesso(vm.AvisosDoSalvamento.Count == 0
+                ? $"Horário de {cartao.Paciente} atualizado."
+                : $"Horário de {cartao.Paciente} atualizado — {string.Join(" ", vm.AvisosDoSalvamento)}");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — editar o horário pela agenda do dia", ex);
             _snackbar.Erro(ex.Message);
         }
     }

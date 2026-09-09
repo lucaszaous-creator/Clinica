@@ -8458,3 +8458,58 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **A sidebar do FATURAMENTO não recebeu o acordeão, e é decisão**: ela tem poucos itens,
   não rola, e o app está em produção. O desenho do ITEM (ícone, rótulo, barra de 3 px)
   continua idêntico nos dois — é ele que faz os dois apps parecerem o mesmo produto.
+
+- **CORRIGIR O QUE A SESSÃO É, SEM SAIR DA AGENDA DO DIA** (set/2026 — a cliente, com o
+  print da lista: *"temos muitos atendimentos que foram importados que vieram como
+  consulta e não as nossas especialidades cadastradas… um botão de editar na agenda para
+  que a secretaria possa colocar a situação correta para que reflita no médico"*). A
+  importação do Smart Clinic trouxe 227 horários e o sistema antigo não guardava mais que
+  **"Consulta"** — que não é nenhuma das modalidades que a clínica atende.
+  ⚠️ **A capacidade existia; faltava a PORTA — e o nome dela mentia.** Corrigir era
+  possível pelo formulário do horário, a QUATRO cliques e uma troca de aba (lista →
+  "Abrir na grade" → cartão → janela do horário → **"Remarcar"**), atrás de um botão cujo
+  nome fala de mudar o horário de LUGAR, que não é o que se quer fazer. A lista ganhou o
+  botão **Editar**, e ele abre a MESMA `AgendamentoWindow` da grade: uma segunda janela do
+  horário divergiria na primeira correção — é a razão pela qual a lista nunca repetiu as
+  sete ações do cartão. O que muda é o TÍTULO, e ele vem da PORTA
+  (`TituloDaEdicao`), pela lição de `RotulosDeAbrir`: rótulo fixo mente numa das duas.
+  ⚠️ **O botão SOME na linha fechada, e não é enfeite:** `RemarcarAsync` recusa o
+  realizado ("estorne o atendimento antes") e **REABRE** o cancelado e a falta
+  (`Status = Agendado`). Um "Editar" que ressuscita um horário cancelado em silêncio é
+  pior do que não ter o botão; para esses a porta continua sendo a grade, onde ele se
+  chama "Reabrir este horário" e diz o que faz. A condição é o `EmAberto` que já existia —
+  **booleano reusado numa segunda decisão**, e desta vez ele responde à segunda pergunta:
+  os dois casos que ele exclui são exatamente os dois que o serviço trata de outro jeito.
+  Fica escrito nele, senão o próximo a mexer só enxerga um leitor.
+  ⚠️ **A metade visível é `EditarAgenda` ESTRITO, não `PodeEditarAgenda`** — aquele é o OU
+  com `MovimentarFila`, e a enfermagem move a fila sem mexer na agenda: com a conta larga
+  ela veria o botão aceso e levaria a recusa depois do clique.
+  ⚠️ **A ESPECIALIDADE da consulta era gravada e NENHUMA tela de quem atende a lia.** É a
+  segunda metade do pedido ("que reflita no médico"): a modalidade já chegava ao "Meu dia"
+  (`CatalogoModalidades.Nome`), a especialidade não — a consulta de psiquiatria e a de
+  geriatria saíam as duas como "Consulta". `NomeComEspecialidade` compõe as duas coisas
+  numa frase só, e mora no DOMÍNIO porque são QUATRO leitores (a lista e a grade do
+  balcão, o dia e a semana do médico) e quatro frases divergem na primeira correção. Ela
+  só entra quando a modalidade é consulta — nas outras `RemarcarAsync` limpa a
+  especialidade, e escrevê-la ao lado de "Acupuntura" afirmaria sobre a sessão algo que o
+  horário não guarda. De quebra, ela mata a armadilha do `Nome(codigo ?? familia.
+  ToString())` nas duas telas do balcão: **`Base("")` cai no padrão dele** (acupuntura com
+  eletro), e a consulta deixaria de ser consulta.
+  ⚠️ **O aviso das GUIAS morria entre as camadas.** Trocar a modalidade de um horário que
+  já tem guia as REGERA, `AjustarAoRemarcarAsync` devolve isso escrito, `RemarcarAsync`
+  aceita o canal — e o formulário **não o passava**: a janela fechava e o único fato que
+  interessa ao faturamento sumia (a lição da parcela 62). Agora ele é dito pelas DUAS
+  portas do mesmo formulário, porque capacidade que existe numa porta só é o defeito
+  recorrente do projeto. O que RECUSA continua sendo exceção, e essa fica na tela.
+  ⚠️ **O teste que carrega isto é o do CIRCUITO** (`CorrigirModalidadeDoHorarioTests`):
+  balcão corrige pelo caminho do botão (mesma data, mesma hora, modalidade nova) →
+  `ConsultorioService` devolve a modalidade nova na lista do médico. Elo partido aqui não
+  vira erro: vira uma tela que continua dizendo "Consulta" depois de alguém ter corrigido.
+  Verificado que ele REPROVA no código anterior, não presumido. Junto vão as duas garantias
+  que a edição não pode levar embora: o **check-in** de quem já está no balcão (a data não
+  mudou, então os carimbos ficam) e a **procedência** escrita na observação, que é por onde
+  a clínica reconhece o que ainda falta corrigir.
+  **O que ficou de fora, com o motivo**: não há edição em LOTE — regerar guia em massa é
+  decisão que ninguém revisa linha a linha, e a correção acontece com a agenda do dia à
+  frente; e a lista continua sendo por DIA, então achar os importados é navegar os dias
+  em que eles estão.
