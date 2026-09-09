@@ -265,9 +265,16 @@
                     <comp:FolhaDaSessaoView Contexto="{Binding LinhaDeContexto}">
                         <comp:FolhaDaSessaoView.Ferramentas>
                             <StackPanel Orientation="Horizontal">
-                                <!-- A porta AVULSA do termo (parcela 66, 3ª rodada): some
-                                     quando há pendência, porque a linha de aviso acima já
-                                     traz o botão. -->
+                                <!-- A porta AVULSA do termo (parcela 66, 3ª rodada): colher
+                                     a assinatura sem procedimento marcado para hoje.
+
+                                     ⚠️ Ela some quando HÁ pendência, e desde set/2026 o
+                                     botão que a resolve não está mais "logo acima": ele
+                                     subiu para a RÉGUA do workspace, onde acompanha o
+                                     prontuário aberto em todas as sete seções. A regra não
+                                     mudou (uma porta por vez para o mesmo ato); mudou onde
+                                     mora a outra, e é isso que este comentário precisava
+                                     dizer para não mandar procurar o que saiu daqui. -->
                                 <Button Content="Colher termo…" MinWidth="120"
                                         ToolTip="Colher a assinatura de um termo agora, mesmo sem procedimento marcado para hoje"
                                         Command="{Binding ColherTermoCommand}">

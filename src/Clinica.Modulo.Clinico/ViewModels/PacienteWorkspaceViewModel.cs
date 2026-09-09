@@ -354,6 +354,15 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// no caminho de baixo. Botão que anuncia um destino e leva a outro é a mesma família
     /// do botão que não faz nada (parcela 41) — só que pior, porque ele FUNCIONA.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ Sem <c>OnPropertyChanged</c>, e isso é medido: a tela é REMONTADA a cada
+    /// navegação — <c>ModuloClinico.CriarTela</c> faz <c>new PacienteWorkspaceViewModel</c>
+    /// nas oito chaves que caem aqui —, então o foco não muda dentro de uma instância viva
+    /// (trocar de paciente passa pela carteira, que é outra navegação). O único
+    /// <c>_foco.Definir</c> desta tela, no Concluir, mantém o mesmo <c>AgendamentoId</c>.
+    /// Uma notificação aqui seria linha morta com justificativa falsa, que é pior do que
+    /// linha morta.
+    /// </remarks>
     public string RotuloVoltar
         => ChaveDeVolta(_foco.AgendamentoId) == ModuloClinico.ChaveMeuDia
             ? "Meu dia"
@@ -443,11 +452,6 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// </summary>
     private void DescreverSessao()
     {
-        // O destino do "voltar" segue o foco, e o foco pode mudar sem a tela ser
-        // remontada (a troca de paciente pela carteira). Sem esta linha o botão continuaria
-        // anunciando o destino do paciente anterior.
-        OnPropertyChanged(nameof(RotuloVoltar));
-
         if (_horario is null) { TemSessao = false; _relogio.Stop(); return; }
 
         TemSessao = true;

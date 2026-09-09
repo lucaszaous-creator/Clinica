@@ -4009,6 +4009,17 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   SINTOMA**: a regra estava privada dentro de um serviço, então cada porta que precisou
   dela escreveu a sua. **Teste que precisa de reflexão para alcançar uma regra está dizendo
   que a regra está no lugar errado.**
+  ⚠️ **E A NONA PORTA CONSUMIA O RESULTADO DA OITAVA, não a regra — então herdou o nulo e
+  perdeu o terceiro estado.** A capa do paciente escrevia a idade a partir de
+  `cabecalho?.Idade`, que é o campo do CRACHÁ e já vem nulo quando a data é implausível:
+  com a regra unificada ela parou de imprimir "1851 anos" (certo) e passou a mostrar só
+  "01/01/1851", em SILÊNCIO, enquanto o crachá logo acima — na MESMA tela — escrevia
+  "idade a conferir". Ausente e errado voltaram a ser a mesma coisa numa porta só, e ela
+  não aparece em varredura nenhuma porque o `grep` da conta à mão não a alcança: ela não
+  faz conta, faz uma leitura de segunda mão. **Unificar a regra não basta enquanto houver
+  leitor que consome o RESULTADO JÁ FILTRADO de outro leitor** — a lista das portas a
+  percorrer é a de quem MOSTRA o dado, não a de quem o CALCULA. Pego relendo o diff, não
+  por rede.
   ⚠️ **O "EMITIR DOCUMENTO" DUPLICADO ERA UM BOTÃO ACESO QUE NÃO FAZIA NADA — na OUTRA
   porta.** Ele estava no corpo COMPARTILHADO da `FolhaDaSessaoView` e no slot `Ferramentas`
   do Consultório: dois botões idênticos lado a lado ali. E `EmitirDocumentoCommand` /
