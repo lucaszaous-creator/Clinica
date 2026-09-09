@@ -1,0 +1,892 @@
+<title>Documentos em cinco desenhos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+/* ==================================================================================
+   Mesma moldura de leitura dos outros mockups da pasta. As TELAS desenhadas dentro
+   das janelas usam os tokens REAIS do design system da suíte (Styles/Tokens.xaml):
+   Cinza.50/100/200/300/500/700/900, Azul.50/100/600, Verde.600, Laranja.600,
+   Vermelho.600; Fonte.Corpo 14 / Tabela 13 / Legenda 12; Raio.Pequeno 4 / Medio 8;
+   campo de 36 px. Um valor fora deles seria o primeiro ponto em que o mockup e o WPF
+   param de bater.
+   ================================================================================== */
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB; --sobre-acento:#FFFFFF;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+
+  /* Tokens do design system da suíte — a janela desenhada é sempre CLARA, como o app. */
+  --ds-cinza-50:#F8FAFC; --ds-cinza-100:#F1F5F9; --ds-cinza-200:#E5E7EB; --ds-cinza-300:#D1D5DB;
+  --ds-cinza-500:#6B7280; --ds-cinza-700:#374151; --ds-cinza-900:#111827;
+  --ds-azul-50:#EEF3FC; --ds-azul-100:#D8E3F7; --ds-azul-600:#123A9E;
+  --ds-verde-600:#16A34A; --ds-verde-50:#F0FDF4;
+  --ds-laranja-600:#EA580C; --ds-vermelho-600:#DC2626;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436; --sobre-acento:#0B1120;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+     font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding-block:48px 80px; padding-left:24px; padding-right:24px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em;
+         text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px; text-wrap:balance}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:70ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin-block:52px}
+
+/* ---- cabeçalho de cada desenho ---- */
+.desenho{margin-block:0 8px}
+.numero{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; letter-spacing:.1em;
+        color:var(--acento); display:block; margin:0 0 4px}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-style:italic; font-size:17px; color:var(--tinta-2);
+      max-width:70ch; margin:0 0 20px}
+
+/* ---- moldura de janela ---- */
+.janela{background:var(--ds-cinza-50); border:1px solid var(--fio-forte); border-radius:10px;
+        box-shadow:var(--sombra); overflow:hidden; color:var(--ds-cinza-900);
+        font-size:13px; line-height:1.45}
+.barra{background:var(--sup-2); border-bottom:1px solid var(--fio); padding:7px 12px; display:flex;
+       align-items:center; gap:7px}
+.pt{width:9px; height:9px; border-radius:50%; background:var(--fio-forte)}
+.barra .tit{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--mudo); margin-left:6px}
+.tela{padding:18px; background:var(--ds-cinza-50)}
+/* A janela COM bolhas numeradas ganha calha nas laterais: bolha sobre texto é a
+   anotação escondendo justamente o que ela aponta. */
+.tela.calha{padding-left:34px; padding-right:34px}
+.rolagem{overflow-x:auto}
+
+/* ---- peças do design system ---- */
+.h1ds{font-size:20px; font-weight:600; color:var(--ds-cinza-900); margin:0 0 3px}
+.sub{font-size:12px; color:var(--ds-cinza-500); margin:0 0 14px; max-width:80ch}
+.rotulo{font-size:11px; font-weight:600; color:var(--ds-cinza-700); letter-spacing:.02em; margin:0 0 4px}
+.campo{background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px; height:32px;
+       display:flex; align-items:center; padding:0 9px; font-size:13px; color:var(--ds-cinza-900)}
+.campo.vazio{color:var(--ds-cinza-500)}
+.card{background:#fff; border:1px solid var(--ds-cinza-200); border-radius:8px; padding:12px}
+.btn{display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px;
+     border-radius:4px; font-size:13px; font-weight:500; background:var(--ds-azul-600); color:#fff; white-space:nowrap}
+.btn.sec{background:#fff; color:var(--ds-cinza-900); border:1px solid var(--ds-cinza-300)}
+.btn.peq{height:26px; padding:0 10px; font-size:12px}
+.btn.off{background:var(--ds-cinza-200); color:var(--ds-cinza-500)}
+.abas{display:flex; gap:2px; border-bottom:1px solid var(--ds-cinza-200); margin:0 0 14px}
+.aba{padding:7px 14px; font-size:13px; color:var(--ds-cinza-500); border-bottom:2px solid transparent}
+.aba.on{color:var(--ds-azul-600); font-weight:600; border-bottom-color:var(--ds-azul-600)}
+.chip{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:11.5px;
+      background:#fff; border:1px solid var(--ds-cinza-300); color:var(--ds-cinza-700); white-space:nowrap}
+.chip.on{background:var(--ds-azul-600); border-color:var(--ds-azul-600); color:#fff; font-weight:500}
+.selo{display:inline-block; padding:1px 7px; border-radius:4px; font-size:10.5px; font-weight:600;
+      background:var(--ds-cinza-100); color:var(--ds-cinza-700)}
+.selo.al{background:#FDF0E6; color:#9A3412}
+.selo.er{background:#FBECEC; color:#991B1B}
+.selo.ok{background:var(--ds-verde-50); color:#15803D}
+.aviso{border-left:3px solid var(--ds-laranja-600); background:#FDF0E6; padding:8px 11px; border-radius:4px;
+       font-size:12px; color:#7C2D12}
+.aviso.perigo{border-left-color:var(--ds-vermelho-600); background:#FBECEC; color:#991B1B}
+.aviso.info{border-left-color:var(--ds-azul-600); background:var(--ds-azul-50); color:#1E3A8A}
+.linhads{border-bottom:1px solid var(--ds-cinza-200); padding:9px 0; display:grid; align-items:center; gap:10px}
+.mono{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.mudods{color:var(--ds-cinza-500)}
+.peq{font-size:11.5px}
+
+/* ---- a folha de papel desenhada (prévia) ---- */
+.papel{background:#fff; border:1px solid var(--ds-cinza-300); border-radius:2px; padding:16px 18px;
+       box-shadow:0 1px 3px rgba(16,23,40,.10); font-size:11.5px; color:var(--ds-cinza-900); line-height:1.5}
+.papel .cab{display:flex; justify-content:space-between; align-items:flex-start;
+            border-bottom:1.5px solid var(--ds-cinza-900); padding-bottom:7px; margin-bottom:11px}
+.papel .marca{font-weight:700; font-size:12.5px; letter-spacing:.01em}
+.papel .num{font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:var(--ds-cinza-500); text-align:right}
+.papel .tituloDoc{font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:11px;
+                  text-align:center; margin:0 0 10px}
+.papel .rodape{border-top:1px solid var(--ds-cinza-300); margin-top:12px; padding-top:7px;
+               font-size:9.5px; color:var(--ds-cinza-500); display:flex; justify-content:space-between; gap:10px}
+.papel .falta{background:#FBECEC; outline:1px dashed var(--ds-vermelho-600); color:#991B1B; padding:0 3px; border-radius:2px}
+.qr{width:34px; height:34px; background:
+    repeating-linear-gradient(0deg,var(--ds-cinza-900) 0 3px,transparent 3px 6px),
+    repeating-linear-gradient(90deg,var(--ds-cinza-900) 0 3px,transparent 3px 6px);
+    opacity:.75; flex:none}
+
+/* ---- balões de problema numerados ---- */
+.marcado{position:relative}
+.bolha{position:absolute; width:20px; height:20px; border-radius:50%; background:var(--custo); color:#fff;
+       font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; display:flex;
+       align-items:center; justify-content:center; box-shadow:0 0 0 2px var(--sup); z-index:2}
+.legenda{list-style:none; padding:0; margin:16px 0 0; display:grid; gap:9px}
+.legenda li{display:grid; grid-template-columns:22px 1fr; gap:10px; align-items:start; font-size:14.5px;
+            color:var(--tinta-2); line-height:1.5}
+.legenda .n{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; color:#fff;
+            background:var(--custo); border-radius:50%; width:20px; height:20px; display:flex;
+            align-items:center; justify-content:center; margin-top:2px}
+
+/* ---- veredito de cada desenho ---- */
+.balanco{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-top:18px}
+.bal{border-radius:8px; padding:13px 15px; font-size:14px; line-height:1.5}
+.bal h4{margin:0 0 6px; font-size:12px; font-family:"IBM Plex Mono",monospace; letter-spacing:.09em;
+        text-transform:uppercase; font-weight:600}
+.bal.ok{background:var(--ganho-fundo); color:var(--ganho)}
+.bal.no{background:var(--custo-fundo); color:var(--custo)}
+.bal.nt{background:var(--sup-2); color:var(--tinta-2); border:1px solid var(--fio)}
+.bal ul{margin:0; padding-left:17px} .bal li{margin:0 0 4px}
+
+.grade2{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+.grade3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+@media (max-width:860px){ .grade2,.grade3{grid-template-columns:1fr} }
+.nota{background:var(--sup); border:1px solid var(--fio); border-left:3px solid var(--acento);
+      border-radius:8px; padding:14px 16px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.tabela{width:100%; border-collapse:collapse; font-size:14px}
+.tabela th{text-align:left; font-size:11.5px; font-family:"IBM Plex Mono",monospace; letter-spacing:.08em;
+           text-transform:uppercase; color:var(--mudo); font-weight:600; padding:0 10px 8px 0;
+           border-bottom:1px solid var(--fio)}
+.tabela td{padding:10px 10px 10px 0; border-bottom:1px solid var(--fio); color:var(--tinta-2); vertical-align:top}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Recepção · Documentos e emissão · set/2026</p>
+  <h1>Documentos em cinco desenhos</h1>
+  <p class="lede">
+    A central emite onze folhas e ninguém acha a que quer; a janela que as escreve tem oito
+    blocos empilhados e <strong>não mostra o papel que vai sair</strong> — e emitir é
+    definitivo, porque documento não se apaga, cancela-se com motivo. Cinco desenhos, dois
+    problemas separados. Escolha um de cada lado, ou diga que nenhum serve.
+  </p>
+
+  <hr class="reg">
+
+  <!-- ======================= O QUE ESTÁ ERRADO HOJE ======================= -->
+  <h2>Antes de desenhar: o que trava hoje</h2>
+  <p class="prosa" style="margin-bottom:26px">
+    Duas telas, e o defeito de cada uma é de natureza diferente. A central erra a
+    <strong>ordem</strong> — ela pergunta o papel antes de perguntar a pessoa, quando o
+    balcão trabalha ao contrário. A janela de emissão erra a <strong>confiança</strong>:
+    pede oito blocos de dados e nunca mostra o resultado.
+  </p>
+
+  <div class="grade2">
+    <div>
+      <h3>Hoje · Documentos › Emitir</h3>
+      <div class="janela marcado">
+        <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+          <span class="tit">Recepção — Documentos</span></div>
+        <div class="tela calha">
+          <div class="h1ds">Documentos</div>
+          <div class="sub">Todas as folhas que a clínica emite, num lugar só — numeradas por ano, com código de conferência.</div>
+          <div class="abas"><span class="aba on">Emitir</span><span class="aba">O que já saiu</span></div>
+
+          <div class="bolha" style="top:152px; right:6px">2</div>
+          <div class="bolha" style="top:152px; left:6px">1</div>
+
+          <div style="display:grid; grid-template-columns:1fr 168px; gap:14px">
+            <div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
+                <div class="card" style="padding:9px 10px">
+                  <div class="peq mudods">Do atendimento</div>
+                  <div style="font-weight:600; margin:2px 0 8px">Receituário</div>
+                  <span class="btn peq off">Escolha o paciente</span>
+                </div>
+                <div class="card" style="padding:9px 10px">
+                  <div class="peq mudods">Do atendimento</div>
+                  <div style="font-weight:600; margin:2px 0 8px">Atestado</div>
+                  <span class="btn peq off">Escolha o paciente</span>
+                </div>
+                <div class="card" style="padding:9px 10px">
+                  <div class="peq mudods">Do atendimento</div>
+                  <div style="font-weight:600; margin:2px 0 3px; font-size:12.5px">Declaração de comparecimento</div>
+                  <span class="btn peq off">Escolha o paciente</span>
+                </div>
+                <div class="card" style="padding:9px 10px">
+                  <div class="peq mudods">Do atendimento</div>
+                  <div style="font-weight:600; margin:2px 0 3px; font-size:12.5px">Solicitação de exames</div>
+                  <span class="btn peq off">Escolha o paciente</span>
+                </div>
+                <div class="card" style="padding:9px 10px">
+                  <div class="peq mudods">Do atendimento</div>
+                  <div style="font-weight:600; margin:2px 0 3px; font-size:12.5px">Relatório de evolução</div>
+                  <span class="btn peq off">Escolha o paciente</span>
+                </div>
+                <div class="card" style="padding:9px 10px">
+                  <div class="peq mudods">Do atendimento</div>
+                  <div style="font-weight:600; margin:2px 0 3px; font-size:12.5px">Ficha de anamnese</div>
+                  <span class="btn peq off">Escolha o paciente</span>
+                </div>
+              </div>
+              <div class="peq mudods" style="margin-top:9px; text-align:center">
+                ↓ mais cinco fichas abaixo da dobra (termos, recibo, orçamento, fechamento)
+              </div>
+            </div>
+
+            <div class="card" style="align-self:start">
+              <div style="font-weight:600; font-size:13px; margin-bottom:3px">Paciente</div>
+              <div class="peq mudods" style="margin-bottom:7px">Sete das nove folhas são de alguém. Escolha aqui antes de emitir.</div>
+              <div class="campo vazio">Buscar…</div>
+              <div style="height:64px; border:1px dashed var(--ds-cinza-300); border-radius:4px; margin-top:6px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="legenda">
+        <li><span class="n">1</span><span><strong>Onze fichas iguais.</strong> Para achar uma, você lê onze títulos. Nenhuma se destaca, e a ordem é a do catálogo — não a do que o balcão emite dez vezes por dia.</span></li>
+        <li><span class="n">2</span><span><strong>O paciente numa faixa de 280 px</strong>, à direita, depois das fichas. Ele é a pré-condição de <em>oito das onze</em> — e a tela o pede por último. Todo botão nasce apagado dizendo "escolha o paciente".</span></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>Hoje · a janela de emissão</h3>
+      <div class="janela marcado">
+        <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+          <span class="tit">Documento clínico — Maria Aparecida S.</span></div>
+        <div class="tela calha" style="background:#fff">
+          <div style="font-weight:600; font-size:15px; margin-bottom:12px">Documento clínico — Maria Aparecida S.</div>
+
+          <div class="bolha" style="top:76px; left:6px">3</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px">
+            <div><div class="rotulo">Tipo de documento</div><div class="campo">Receita ▾</div></div>
+            <div><div class="rotulo">Data</div><div class="campo mono">09/09/2026</div></div>
+            <div><div class="rotulo">Quem assina</div><div class="campo">Dra. Ana ▾</div></div>
+          </div>
+
+          <div class="bolha" style="top:172px; left:6px">4</div>
+          <div class="card" style="margin-bottom:12px; background:var(--ds-cinza-50)">
+            <div style="font-weight:600; margin-bottom:2px">Modelos</div>
+            <div class="peq mudods" style="margin-bottom:7px">O modelo nasce de um documento que você acabou de escrever.</div>
+            <div style="display:grid; grid-template-columns:1fr auto auto; gap:7px; margin-bottom:7px">
+              <div class="campo vazio">— nenhum —  ▾</div><span class="btn sec">Aplicar</span><span class="btn sec">Apagar</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:7px">
+              <div class="campo vazio">Nome do modelo</div><span class="btn sec">Guardar como modelo</span>
+            </div>
+          </div>
+
+          <div class="rotulo">Título impresso (opcional)</div>
+          <div class="campo vazio" style="margin-bottom:9px"></div>
+          <div class="rotulo">Texto do documento</div>
+          <div style="height:52px; background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px; margin-bottom:9px"></div>
+
+          <div class="card" style="margin-bottom:10px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:7px">
+              <span style="font-weight:600">Itens da receita</span><span class="btn sec peq">Adicionar linha</span>
+            </div>
+            <div style="display:grid; grid-template-columns:2.4fr 1fr 2.4fr auto; gap:6px">
+              <div class="campo vazio peq">o que é</div><div class="campo vazio peq">qtd.</div>
+              <div class="campo vazio peq">como usar</div><span class="btn sec peq">Remover</span>
+            </div>
+          </div>
+          <div class="peq mudods" style="text-align:center; margin-bottom:12px">
+            ↓ mais três blocos abaixo da dobra (afastamento, comparecimento, observações)
+          </div>
+
+          <div class="bolha" style="bottom:16px; left:6px">5</div>
+          <div style="display:flex; justify-content:flex-end; align-items:center; gap:10px;
+                      border-top:1px solid var(--ds-cinza-200); padding-top:11px">
+            <span class="peq">☐ Assinar digitalmente (ICP-Brasil)</span>
+            <span class="btn sec">Fechar</span><span class="btn">Emitir e imprimir</span>
+          </div>
+        </div>
+      </div>
+      <ul class="legenda">
+        <li><span class="n">3</span><span><strong>O tipo é um combo no meio da tela.</strong> Você clicou em "Atestado" na central e ainda pode trocar aqui — e trocar muda os campos, o texto e até a permissão exigida.</span></li>
+        <li><span class="n">4</span><span><strong>"Modelos" é o segundo bloco da tela.</strong> Cinco controles de configuração, para um ato ocasional, antes do texto que a pessoa veio escrever.</span></li>
+        <li><span class="n">5</span><span><strong>Você nunca vê o papel.</strong> Escreve às cegas, clica em "Emitir e imprimir", e o documento nasce numerado e definitivo — errou, só cancelando com motivo e emitindo outro.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ======================= 1 ======================= -->
+  <div class="desenho">
+    <span class="numero">DESENHO 1 · A CENTRAL</span>
+    <h2>O paciente primeiro</h2>
+    <p class="tese">A tela abre com uma pergunta só — <em>para quem é o papel?</em> — e só então vira
+      a pasta daquela pessoa: o que dá para emitir e o que já saiu, lado a lado.</p>
+  </div>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Recepção — Documentos · com o paciente escolhido</span></div>
+    <div class="tela">
+      <div style="display:flex; align-items:center; gap:12px; background:#fff; border:1px solid var(--ds-cinza-200);
+                  border-radius:8px; padding:11px 14px; margin-bottom:14px">
+        <div style="width:36px; height:36px; border-radius:50%; background:var(--ds-azul-100); color:var(--ds-azul-600);
+                    display:flex; align-items:center; justify-content:center; font-weight:600">MA</div>
+        <div style="flex:1">
+          <div style="font-weight:600; font-size:14px">Maria Aparecida Silva</div>
+          <div class="peq mudods">62 anos · Unimed Costa do Sol · carteirinha 0821 4477 <span class="selo ok">em dia</span></div>
+        </div>
+        <span class="btn sec peq">Trocar paciente</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.15fr 1fr; gap:16px">
+        <div>
+          <div class="rotulo" style="margin-bottom:8px">EMITIR PARA ELA</div>
+          <div style="display:grid; gap:6px">
+            <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-azul-600); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Receituário</div>
+                <div class="peq mudods">Prescrição, com quem assina. Última: 12/08.</div></div>
+              <span class="btn peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-azul-600); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Atestado</div>
+                <div class="peq mudods">Afastamento. O CID só sai com autorização dela.</div></div>
+              <span class="btn peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-cinza-300); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Declaração de comparecimento</div>
+                <div class="peq mudods">Esteve aqui hoje, 14:00 às 14:40.</div></div>
+              <span class="btn peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-laranja-600); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Termo de consentimento (LGPD)</div>
+                <div class="peq mudods" style="color:#9A3412">Ela ainda não assinou nenhum.</div></div>
+              <span class="btn peq">Colher assinatura</span>
+            </div>
+            <div class="peq mudods" style="padding:4px 2px">+ relatório de evolução · anamnese · termo de procedimento · orçamento</div>
+          </div>
+
+          <div class="rotulo" style="margin:16px 0 6px">SEM PACIENTE</div>
+          <div style="display:flex; gap:7px; flex-wrap:wrap">
+            <span class="chip">Recibo de pagamento →&nbsp;Caixa</span>
+            <span class="chip">Fechamento do período</span>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px">
+            <span class="rotulo" style="margin:0">JÁ SAIU PARA ELA · 6</span>
+            <span class="peq mudods">ver todos os documentos da clínica →</span>
+          </div>
+          <div style="background:#fff; border:1px solid var(--ds-cinza-200); border-radius:8px; padding:0 12px">
+            <div class="linhads" style="grid-template-columns:78px 1fr auto">
+              <span class="mono peq">2026/0184</span>
+              <span>Receituário<div class="peq mudods">Dra. Ana · 12/08</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+            <div class="linhads" style="grid-template-columns:78px 1fr auto">
+              <span class="mono peq">2026/0161</span>
+              <span>Atestado <span class="selo">3 dias</span><div class="peq mudods">Dra. Ana · 28/07</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+            <div class="linhads" style="grid-template-columns:78px 1fr auto">
+              <span class="mono peq">2026/0140</span>
+              <span>Relatório de evolução<div class="peq mudods">para o convênio · 15/07</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+            <div class="linhads" style="grid-template-columns:78px 1fr auto; border-bottom:0">
+              <span class="mono peq">2026/0098</span>
+              <span style="color:var(--ds-cinza-500)">Receituário <span class="selo er">cancelada</span>
+                <div class="peq mudods">dose errada · 02/07</div></span>
+              <span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>A ordem vira a do balcão: pessoa → papel.</li>
+      <li>Some a faixa lateral e somem os onze botões apagados.</li>
+      <li>A 2ª via fica ao lado do emitir — hoje é outra aba.</li>
+      <li>Cada folha diz algo <em>dela</em>: "última: 12/08", "ainda não assinou".</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Recibo e fechamento não são de ninguém: viram rodapé, um degrau abaixo.</li>
+      <li>Quem quer só conferir um código passa por uma tela que pede paciente.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É o mockup 05 do Novo atendimento, que você já aprovou: busca centrada enquanto não há ninguém escolhido.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ======================= 2 ======================= -->
+  <div class="desenho">
+    <span class="numero">DESENHO 2 · A CENTRAL</span>
+    <h2>Uma lista, não onze cartões</h2>
+    <p class="tese">As folhas viram linhas de largura inteira, na ordem do que a clínica emite
+      mais — e cada linha já diz quantas saíram este mês.</p>
+  </div>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Recepção — Documentos</span></div>
+    <div class="tela">
+      <div class="h1ds">Documentos</div>
+      <div class="sub">Numeradas por ano, com código de conferência. Documento não se apaga: cancela-se com motivo.</div>
+
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap">
+        <div class="campo" style="width:290px"><span class="mudods">🔍&nbsp;</span>Maria Aparecida Silva</div>
+        <span class="chip on">Do atendimento</span><span class="chip">Do dinheiro</span><span class="chip">Da gestão</span>
+        <span style="flex:1"></span>
+        <span class="peq mudods">Conferir um papel pelo código →</span>
+      </div>
+
+      <div class="rolagem"><div style="background:#fff; border:1px solid var(--ds-cinza-200); border-radius:8px; padding:0 14px; min-width:640px">
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px; border-bottom:1px solid var(--ds-cinza-300); padding-bottom:7px">
+          <span class="rotulo" style="margin:0">FOLHA</span><span class="rotulo" style="margin:0">O QUE ELA É</span>
+          <span class="rotulo" style="margin:0">ESTE MÊS</span><span></span>
+        </div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px">
+          <span style="font-weight:600">Receituário</span>
+          <span class="peq mudods">Prescrição · exige quem assina</span>
+          <span class="mono peq">31</span><span class="btn peq">Emitir</span></div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px">
+          <span style="font-weight:600">Declaração de comparecimento</span>
+          <span class="peq mudods">Esteve aqui, com hora</span>
+          <span class="mono peq">24</span><span class="btn peq">Emitir</span></div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px">
+          <span style="font-weight:600">Atestado</span>
+          <span class="peq mudods">Afastamento · CID só com autorização</span>
+          <span class="mono peq">12</span><span class="btn peq">Emitir</span></div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px">
+          <span style="font-weight:600">Termo de procedimento</span>
+          <span class="peq mudods">Assinado por ela, na tela do balcão</span>
+          <span class="mono peq">9</span><span class="btn peq">Colher</span></div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px">
+          <span style="font-weight:600">Solicitação de exames</span>
+          <span class="peq mudods">Lista de exames · exige quem assina</span>
+          <span class="mono peq">6</span><span class="btn peq">Emitir</span></div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px">
+          <span style="font-weight:600">Relatório de evolução</span>
+          <span class="peq mudods">Montado do prontuário · não se digita</span>
+          <span class="mono peq">4</span><span class="btn peq">Emitir</span></div>
+        <div class="linhads" style="grid-template-columns:1.5fr 1fr 96px 104px; border-bottom:0">
+          <span style="color:var(--ds-cinza-500)">Recibo de pagamento</span>
+          <span class="peq mudods">Nasce de um lançamento do caixa</span>
+          <span class="mono peq mudods">18</span><span class="btn sec peq">Ir ao Caixa</span></div>
+      </div></div>
+
+      <div class="rotulo" style="margin:16px 0 7px">ÚLTIMAS EMITIDAS</div>
+      <div class="rolagem"><div style="min-width:640px">
+        <div class="linhads" style="grid-template-columns:88px 190px 1fr 82px auto">
+          <span class="mono peq">2026/0184</span><span>Receituário</span>
+          <span>Maria Aparecida Silva</span><span class="mono peq mudods">12/08</span>
+          <span class="btn sec peq">2ª via</span></div>
+        <div class="linhads" style="grid-template-columns:88px 190px 1fr 82px auto">
+          <span class="mono peq">2026/0183</span><span>Declaração de comparecimento</span>
+          <span>João Batista Nunes</span><span class="mono peq mudods">12/08</span>
+          <span class="btn sec peq">2ª via</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Onze títulos numa coluna: o olho desce, não salta na diagonal.</li>
+      <li>A coluna "este mês" ordena por uso real, e é informação que hoje não existe em lugar nenhum.</li>
+      <li>Emitir e o que já saiu na MESMA tela.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>O paciente volta a ser um campo no topo, não o assunto — mais discreto que no desenho 1.</li>
+      <li>Não diz nada sobre <em>aquele</em> paciente ("ainda não assinou o termo").</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É a regra do README ("lista de largura inteira → tela do item"), a mesma que a agenda do dia passou a seguir.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ======================= 3 ======================= -->
+  <div class="desenho">
+    <span class="numero">DESENHO 3 · A JANELA DE EMISSÃO</span>
+    <h2>A folha em branco</h2>
+    <p class="tese">Você escreve à esquerda e vê o papel se formar à direita — com o número, o
+      carimbo e o código de conferência no lugar onde eles vão sair de verdade.</p>
+  </div>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Receituário — Maria Aparecida Silva</span></div>
+    <div class="tela" style="background:#fff">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+        <div><div style="font-weight:600; font-size:15px">Receituário</div>
+          <div class="peq mudods">para Maria Aparecida Silva · 09/09/2026</div></div>
+        <div style="display:flex; gap:7px"><span class="btn sec peq">Modelos…</span><span class="btn sec peq">Trocar tipo</span></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px">
+        <div>
+          <div class="rotulo">Quem assina</div>
+          <div class="campo" style="margin-bottom:10px">Dra. Ana Ribeiro — CRM-SP 123456 ▾</div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px">
+            <span class="rotulo" style="margin:0">O QUE PRESCREVER</span><span class="btn sec peq">+ linha</span>
+          </div>
+          <div style="display:grid; grid-template-columns:2.2fr 1fr auto; gap:6px; margin-bottom:5px">
+            <div class="campo peq">Passiflora 300mg</div><div class="campo peq">30 cáps.</div><span class="btn sec peq">×</span>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr auto; gap:6px; margin-bottom:9px">
+            <div class="campo peq">1 cápsula à noite, por 30 dias</div><span></span>
+          </div>
+          <div style="display:grid; grid-template-columns:2.2fr 1fr auto; gap:6px">
+            <div class="campo vazio peq">o que é</div><div class="campo vazio peq">quanto</div><span class="btn sec peq">×</span>
+          </div>
+
+          <div class="rotulo" style="margin-top:12px">Orientações (saem no rodapé)</div>
+          <div style="height:44px; background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px"></div>
+
+          <div class="aviso" style="margin-top:11px">
+            <strong>Falta o endereço da paciente.</strong> A farmácia precisa dele para aviar
+            (art. 35 da Lei 5.991/73). Sai assim mesmo — mas ela pode voltar.
+            <span style="text-decoration:underline">Preencher na ficha</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="rotulo" style="display:flex; justify-content:space-between">
+            <span>COMO VAI SAIR</span><span class="mudods" style="font-weight:400">prévia</span></div>
+          <div class="papel">
+            <div class="cab">
+              <div><div class="marca">CLÍNICA DE ACUPUNTURA COSTA DO SOL</div>
+                <div class="peq mudods" style="font-size:9.5px">CNPJ 12.345.678/0001-90 · Rua das Palmeiras, 210 — Macaé/RJ</div></div>
+              <div class="num">Nº <strong>2026/0185</strong><br>09/09/2026</div>
+            </div>
+            <div class="tituloDoc">Receituário</div>
+            <div style="margin-bottom:9px">
+              <div><strong>Paciente:</strong> Maria Aparecida Silva</div>
+              <div><strong>Endereço:</strong> <span class="falta">— a preencher —</span></div>
+            </div>
+            <div style="border-top:1px dotted var(--ds-cinza-300); padding-top:8px; margin-bottom:9px">
+              <div style="display:flex; justify-content:space-between"><span>1. Passiflora 300mg</span><span class="mono">30 cáps.</span></div>
+              <div class="peq mudods" style="padding-left:12px">1 cápsula à noite, por 30 dias</div>
+            </div>
+            <div style="height:26px"></div>
+            <div style="text-align:center; border-top:1px solid var(--ds-cinza-900); width:62%; margin:0 auto; padding-top:4px">
+              <div style="font-weight:600">Dra. Ana Ribeiro</div><div class="peq mudods">CRM-SP 123456</div>
+            </div>
+            <div class="rodape">
+              <div>Confira este documento em <strong>clinica.med.br/conferir</strong><br>
+                Código <span class="mono">4KQ2-9TXB</span></div>
+              <div class="qr"></div>
+            </div>
+          </div>
+          <div class="peq mudods" style="margin-top:7px">O número <span class="mono">2026/0185</span> é o próximo da fila — ele só é gasto quando você emitir.</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;
+                  border-top:1px solid var(--ds-cinza-200); padding-top:12px; margin-top:14px">
+        <span class="peq"><span style="font-size:13px">☐</span> Assinar digitalmente (ICP-Brasil) — sai como arquivo, com QR de validação</span>
+        <div style="display:flex; gap:8px; align-items:center">
+          <span class="btn sec">Fechar</span><span class="btn">Emitir e imprimir</span>
+        </div>
+      </div>
+      <div class="peq mudods" style="text-align:right; margin-top:5px">
+        Emitir gasta o número e é definitivo — depois, só cancelando com motivo.
+      </div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Você vê o papel <em>antes</em> de um ato irreversível — o defeito nº 5.</li>
+      <li>O que falta aparece como <span class="falta">buraco no documento</span>, no lugar em que ele vai faltar.</li>
+      <li>"Modelos" vira botão; o tipo vira o título da janela, não um combo (defeitos 3 e 4).</li>
+      <li>O rodapé diz que emitir é definitivo — hoje não diz.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>A janela fica mais larga: 980 px. Cabe no monitor do balcão (1366), mas é o limite.</li>
+      <li>A prévia é um desenho aproximado, não o PDF real — ela pode divergir do papel num detalhe.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É a prévia da guia do Novo atendimento, que você aprovou: o documento desenhado, com o campo que falta em vermelho.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ======================= 4 ======================= -->
+  <div class="desenho">
+    <span class="numero">DESENHO 4 · A JANELA DE EMISSÃO</span>
+    <h2>Três passos, como o Novo atendimento</h2>
+    <p class="tese">A mesma gramática da tela que a recepcionista mais usa: 1 QUEM · 2 O QUE ·
+      3 O QUE VAI SAIR. Nada aparece e some no meio do caminho.</p>
+  </div>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Emitir documento</span></div>
+    <div class="tela" style="background:#fff">
+      <div style="font-weight:600; font-size:15px; margin-bottom:2px">Emitir documento</div>
+      <div class="sub">Atestado · para Maria Aparecida Silva</div>
+
+      <div class="rotulo" style="color:var(--ds-azul-600); margin-top:6px">1 · QUEM</div>
+      <hr style="border:0; border-top:1px solid var(--ds-cinza-200); margin:0 0 10px">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px">
+        <div style="width:30px; height:30px; border-radius:50%; background:var(--ds-azul-100);
+                    color:var(--ds-azul-600); display:flex; align-items:center; justify-content:center;
+                    font-weight:600; font-size:12px">MA</div>
+        <div style="flex:1"><span style="font-weight:600">Maria Aparecida Silva</span>
+          <span class="peq mudods"> · 62 anos · esteve aqui hoje às 14:00</span></div>
+        <span class="btn sec peq">Trocar</span>
+        <div style="width:1px; height:26px; background:var(--ds-cinza-200)"></div>
+        <span class="peq">assina <strong>Dra. Ana Ribeiro</strong></span>
+        <span class="btn sec peq">Trocar</span>
+      </div>
+
+      <div class="rotulo" style="color:var(--ds-azul-600)">2 · O QUE O ATESTADO DIZ</div>
+      <hr style="border:0; border-top:1px solid var(--ds-cinza-200); margin:0 0 10px">
+      <div style="display:grid; grid-template-columns:120px 150px 1fr; gap:10px; margin-bottom:9px">
+        <div><div class="rotulo">Dias de afastamento</div><div class="campo mono">3</div></div>
+        <div><div class="rotulo">A partir de</div><div class="campo mono">09/09/2026</div></div>
+        <div><div class="rotulo">CID (opcional)</div>
+          <div style="display:flex; gap:6px"><div class="campo mono" style="flex:1">M54.5</div><span class="btn sec">Buscar…</span></div>
+          <div class="peq mudods" style="margin-top:3px">M54.5 — Dor lombar baixa</div></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+        <span style="font-size:13px">☐</span>
+        <span class="peq">A paciente autorizou imprimir o CID</span>
+      </div>
+      <div class="aviso" style="margin-bottom:16px">
+        O CID <strong>não</strong> vai sair impresso: o diagnóstico é sigilo dela e só entra com autorização expressa.
+      </div>
+
+      <div class="rotulo" style="color:var(--ds-azul-600)">3 · O QUE VAI SAIR</div>
+      <hr style="border:0; border-top:1px solid var(--ds-cinza-200); margin:0 0 10px">
+      <div style="display:grid; grid-template-columns:1fr 1.05fr; gap:16px; align-items:start">
+        <div>
+          <div style="display:grid; gap:7px">
+            <div style="display:flex; gap:9px"><span class="mono peq mudods" style="width:78px">número</span>
+              <span class="mono"><strong>2026/0185</strong> <span class="peq mudods">— gasto ao emitir</span></span></div>
+            <div style="display:flex; gap:9px"><span class="mono peq mudods" style="width:78px">conferência</span>
+              <span class="mono">4KQ2-9TXB</span></div>
+            <div style="display:flex; gap:9px"><span class="mono peq mudods" style="width:78px">assinatura</span>
+              <span>à caneta <span class="peq mudods">(marque abaixo para assinar com e-CPF)</span></span></div>
+            <div style="display:flex; gap:9px"><span class="mono peq mudods" style="width:78px">via</span>
+              <span>1 impressa · fica na lista de documentos dela</span></div>
+          </div>
+          <div class="aviso info" style="margin-top:11px">
+            Documento não se apaga. Se sair errado, cancela-se com motivo e emite-se outro —
+            o número <span class="mono">2026/0185</span> fica gasto.
+          </div>
+        </div>
+        <div class="papel" style="font-size:11px">
+          <div class="cab">
+            <div><div class="marca">CLÍNICA DE ACUPUNTURA COSTA DO SOL</div>
+              <div class="peq mudods" style="font-size:9.5px">CNPJ 12.345.678/0001-90</div></div>
+            <div class="num">Nº <strong>2026/0185</strong></div>
+          </div>
+          <div class="tituloDoc">Atestado</div>
+          <p style="margin:0 0 8px">Atesto para os devidos fins que <strong>Maria Aparecida Silva</strong>
+            esteve sob meus cuidados profissionais nesta data, necessitando de afastamento de suas
+            atividades por <strong>3 (três) dias</strong> a partir de <strong>09/09/2026</strong>.</p>
+          <div style="height:20px"></div>
+          <div style="text-align:center; border-top:1px solid var(--ds-cinza-900); width:62%; margin:0 auto; padding-top:4px">
+            <div style="font-weight:600">Dra. Ana Ribeiro</div><div class="peq mudods">CRM-SP 123456</div>
+          </div>
+          <div class="rodape"><div>Código <span class="mono">4KQ2-9TXB</span></div><div class="qr"></div></div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; align-items:center; gap:10px;
+                  border-top:1px solid var(--ds-cinza-200); padding-top:12px; margin-top:14px">
+        <span class="peq">☐ Assinar digitalmente (ICP-Brasil)</span>
+        <span class="btn sec">Fechar</span><span class="btn">Emitir e imprimir</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Uma gramática só no balcão: os passos numerados do Novo atendimento.</li>
+      <li>A pilha de oito blocos vira três seções fixas — nada aparece e some.</li>
+      <li>O passo 3 responde o que hoje ninguém responde: qual número, qual código, quantas vias, e que é definitivo.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Mais rolagem que o desenho 3: os passos são verticais.</li>
+      <li>A prévia é menor — cabe conferir, não cabe ler o texto todo.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É a estrutura do Novo atendimento (1 QUEM · 2 O QUE FOI FEITO · 3 O QUE VAI SAIR), aplicada ao papel.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ======================= 5 ======================= -->
+  <div class="desenho">
+    <span class="numero">DESENHO 5 · A PORTA</span>
+    <h2>O papel nasce onde o trabalho está</h2>
+    <p class="tese">A pergunta de fundo: a central deveria ser o lugar de EMITIR? Aqui ela vira o
+      arquivo, e emitir passa a acontecer de onde a pessoa já está — a agenda, a ficha, o atendimento.</p>
+  </div>
+
+  <div class="grade2">
+    <div>
+      <div class="rotulo" style="margin-bottom:7px">NA AGENDA DO DIA — a linha ganha "Documentos"</div>
+      <div class="janela">
+        <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+          <span class="tit">Recepção — Agenda do dia</span></div>
+        <div class="tela" style="padding:14px">
+          <div class="rolagem"><div style="min-width:520px">
+          <div class="linhads" style="grid-template-columns:74px 1fr 120px auto; border-bottom:1px solid var(--ds-cinza-300); padding-bottom:6px">
+            <span class="rotulo" style="margin:0">HORÁRIO</span><span class="rotulo" style="margin:0">PACIENTE</span>
+            <span class="rotulo" style="margin:0">STATUS</span><span></span></div>
+          <div class="linhads" style="grid-template-columns:74px 1fr 120px auto">
+            <span class="mono peq">14:00</span>
+            <span><strong>Maria Aparecida Silva</strong><div class="peq mudods">Acupuntura · Dra. Ana</div></span>
+            <span><span class="selo ok">No local</span><div class="peq mudods">chegou às 13:52</div></span>
+            <span style="display:flex; gap:5px"><span class="btn sec peq">Documentos ▾</span><span class="btn peq">⋯</span></span></div>
+          <div style="background:#fff; border:1px solid var(--ds-cinza-300); border-radius:6px;
+                      box-shadow:var(--sombra); padding:5px; width:250px; margin:4px 0 4px auto">
+            <div style="padding:6px 9px; border-radius:4px; background:var(--ds-azul-50)">Declaração de comparecimento</div>
+            <div style="padding:6px 9px">Receituário</div>
+            <div style="padding:6px 9px">Atestado</div>
+            <div style="padding:6px 9px">Solicitação de exames</div>
+            <div style="border-top:1px solid var(--ds-cinza-200); margin:4px 0"></div>
+            <div style="padding:6px 9px" class="mudods">Ver os 6 papéis dela…</div>
+          </div>
+          <div class="linhads" style="grid-template-columns:74px 1fr 120px auto; border-bottom:0">
+            <span class="mono peq">14:30</span>
+            <span><strong>João Batista Nunes</strong><div class="peq mudods">BSV · Dra. Ana</div></span>
+            <span><span class="selo">Marcado</span></span>
+            <span style="display:flex; gap:5px"><span class="btn sec peq">Documentos ▾</span><span class="btn peq">⋯</span></span></div>
+          </div></div>
+        </div>
+      </div>
+      <p class="prosa" style="font-size:15px; margin-top:12px">
+        A declaração de comparecimento aparece <strong>primeiro</strong> porque ela já
+        chegou — e é a folha que o balcão entrega mais. O menu é curto: quatro papéis e uma
+        saída para o resto.
+      </p>
+    </div>
+
+    <div>
+      <div class="rotulo" style="margin-bottom:7px">A CENTRAL VIRA O ARQUIVO</div>
+      <div class="janela">
+        <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+          <span class="tit">Recepção — Documentos emitidos</span></div>
+        <div class="tela" style="padding:14px">
+          <div class="h1ds" style="font-size:17px">Documentos emitidos</div>
+          <div class="sub" style="margin-bottom:11px">Tudo o que saiu da clínica. Para emitir, use o botão
+            <strong>Documentos</strong> na agenda, na ficha ou no atendimento.</div>
+
+          <div style="display:flex; gap:7px; align-items:center; margin-bottom:11px; flex-wrap:wrap">
+            <div class="campo peq" style="width:120px">01/09/2026</div>
+            <span class="peq mudods">até</span>
+            <div class="campo peq" style="width:120px">09/09/2026</div>
+            <div class="campo peq" style="width:150px"><span class="mudods">código&nbsp;</span><span class="mono">4KQ2-9TXB</span></div>
+            <span class="btn sec peq">Conferir</span>
+          </div>
+
+          <div class="aviso info" style="margin-bottom:11px">
+            <strong>4KQ2-9TXB</strong> — Receituário <span class="mono">2026/0184</span>, para
+            Maria Aparecida Silva, emitido em 12/08/2026 por Dra. Ana. <strong>Válido.</strong>
+          </div>
+
+          <div class="rolagem"><div style="min-width:560px">
+          <div class="linhads" style="grid-template-columns:86px 172px 1fr 74px auto; border-bottom:1px solid var(--ds-cinza-300); padding-bottom:6px">
+            <span class="rotulo" style="margin:0">NÚMERO</span><span class="rotulo" style="margin:0">FOLHA</span>
+            <span class="rotulo" style="margin:0">PARA</span><span class="rotulo" style="margin:0">DATA</span><span></span></div>
+          <div class="linhads" style="grid-template-columns:86px 172px 1fr 74px auto">
+            <span class="mono peq">2026/0184</span><span>Receituário</span>
+            <span>Maria Aparecida Silva</span><span class="mono peq mudods">12/08</span>
+            <span class="btn sec peq">2ª via</span></div>
+          <div class="linhads" style="grid-template-columns:86px 172px 1fr 74px auto">
+            <span class="mono peq">2026/0183</span><span>Decl. de comparecimento</span>
+            <span>João Batista Nunes</span><span class="mono peq mudods">12/08</span>
+            <span class="btn sec peq">2ª via</span></div>
+          <div class="linhads" style="grid-template-columns:86px 172px 1fr 74px auto; border-bottom:0">
+            <span class="mono peq">2026/0098</span>
+            <span style="color:var(--ds-cinza-500)">Receituário <span class="selo er">cancelada</span></span>
+            <span style="color:var(--ds-cinza-500)">Maria Aparecida Silva</span>
+            <span class="mono peq mudods">02/07</span><span></span></div>
+          </div></div>
+        </div>
+      </div>
+      <p class="prosa" style="font-size:15px; margin-top:12px">
+        Sem o paciente no caminho: aqui a pergunta é <em>"que papel é este que está na minha
+        mão?"</em> — e a resposta é o código de conferência, que hoje divide espaço com onze
+        cartões de emitir.
+      </p>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Ninguém precisa achar a central: o papel sai de onde a pessoa já está.</li>
+      <li>Cada porta oferece os papéis que fazem sentido ali — a agenda oferece comparecimento, o atendimento oferece receita.</li>
+      <li>A central passa a responder uma pergunta só, e responde bem.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>É o maior dos cinco: mexe em três telas, não em uma.</li>
+      <li>Quem se acostumou a ir à central para emitir precisa reaprender — e o menu novo tem de aparecer em todo lugar, senão a capacidade some.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É a lição que este projeto repete há doze parcelas: a porta tem de estar onde o trabalho acontece, não num item de menu que ninguém abre.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ======================= COMO ESCOLHER ======================= -->
+  <h2>Como escolher</h2>
+  <p class="prosa">
+    Os cinco não competem entre si — são <strong>dois problemas</strong>. Os desenhos 1, 2 e 5
+    decidem <em>onde se começa</em>; os desenhos 3 e 4 decidem <em>como se escreve o papel</em>.
+    Dá para aprovar um de cada lado, e eles se combinam sem conflito.
+  </p>
+
+  <div style="overflow-x:auto; margin-top:18px">
+    <table class="tabela">
+      <thead><tr><th>Desenho</th><th>Responde</th><th>Tamanho</th><th>Se você aprovar…</th></tr></thead>
+      <tbody>
+        <tr><td><strong>1 · O paciente primeiro</strong></td><td>onde se começa</td><td>médio</td>
+            <td>a central inverte a ordem e passa a mostrar a pasta da pessoa</td></tr>
+        <tr><td><strong>2 · Uma lista</strong></td><td>onde se começa</td><td>pequeno</td>
+            <td>os onze cartões viram linhas, e a lista do que saiu volta para a mesma tela</td></tr>
+        <tr><td><strong>3 · A folha em branco</strong></td><td>como se escreve</td><td>médio</td>
+            <td>a janela ganha a prévia do papel ao vivo, e "Modelos" vira botão</td></tr>
+        <tr><td><strong>4 · Três passos</strong></td><td>como se escreve</td><td>médio</td>
+            <td>a janela ganha a gramática do Novo atendimento, com o resumo do que vai sair</td></tr>
+        <tr><td><strong>5 · Onde o trabalho está</strong></td><td>onde se começa</td><td>grande</td>
+            <td>emitir sai da central e entra na agenda, na ficha e no atendimento</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="nota" style="margin-top:26px">
+    <strong>A minha recomendação, se ajudar:</strong> <strong>1 + 3</strong>. O desenho 1 põe o
+    paciente onde o balcão já o tem na cabeça e mata a faixa lateral; o 3 resolve o defeito que
+    mais custa — emitir às cegas um documento que não se apaga. Os dois reusam desenhos que você
+    já aprovou noutras telas, o que é meio caminho para eles parecerem o mesmo sistema.
+    O <strong>5</strong> é o mais certo a longo prazo e o que eu não faria sem você dizer que
+    quer: ele mexe em três telas e muda o hábito de quem já usa.
+  </div>
+
+  <p class="prosa" style="margin-top:26px">
+    Nada disso foi construído ainda — são desenhos. Diga qual (ou quais) aprova, ou o que está
+    errado neles, e eu levo para o WPF.
+  </p>
+
+</div>
