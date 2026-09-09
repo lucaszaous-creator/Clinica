@@ -358,17 +358,26 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         _escopos = escopos;
         _foco = foco;
 
-        // O outro lado do circuito. O consultório sabe o que ele mesmo clicou, mas quem
-        // faz o check-in é o BALCÃO — e sem esta batida "Chamar próximo" continuaria
-        // dizendo "ninguém aguardando" com o paciente já sentado na sala de espera,
-        // porque a tela só releria por clique em Atualizar. É o mesmo relógio da fila da
-        // recepção, pelo mesmo motivo e no mesmo intervalo.
+        // O outro lado do circuito. O consultório sabe o que ele mesmo clicou, e quase
+        // tudo o que muda esta lista é feito na OUTRA máquina: o balcão marca a chegada,
+        // cancela, marca falta e CORRIGE o que a sessão é (a modalidade e a
+        // especialidade, pelo Editar da agenda do dia). Sem esta batida, a lista só
+        // releria por clique em Atualizar — e quem atende leria "Consulta" depois de a
+        // secretária já ter corrigido para a especialidade certa.
+        //
+        // ⚠️ São 30 SEGUNDOS, e não o minuto dos quadros do balcão (decisão da direção,
+        // set/2026). A assimetria é deliberada e tem duas metades: aqui é o lado que
+        // RECEBE — quem muda está no balcão, e a tela de quem muda já recarrega a cada
+        // ação —, e a batida silenciosa custa UMA leitura do dia (`DoDiaAsync`: os
+        // horários e as evoluções de um dia só). Dobrar a frequência dela é barato; o
+        // mesmo não vale para o painel, que custa três consultas por batida e por isso
+        // bate de dois em dois minutos.
         //
         // Quem liga e desliga é a View (Loaded/Unloaded): o shell cria uma tela nova a
         // cada navegação, e um timer rodando manteria vivo cada ViewModel já trocado.
         _relogio = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromMinutes(1)
+            Interval = TimeSpan.FromSeconds(30)
         };
         _relogio.Tick += (_, _) => _ = ReconferirAsync();
 
@@ -383,7 +392,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// ⚠️ A releitura ao voltar é a metade que faltava, e ela não é a batida do relógio.
     /// Hoje, Semana e Sem evolução são ABAS do mesmo item: o shell monta cada aba UMA vez
     /// e a guarda, então voltar a ela devolve a mesma tela com os dados de quando a
-    /// pessoa saiu — e o relógio, que só bate de minuto em minuto e só enquanto a tela
+    /// pessoa saiu — e o relógio, que só bate de meio em meio minuto e só enquanto a tela
     /// está visível, não cobre esse instante: ele havia PARADO junto com a tela. Quem
     /// conferia a semana e voltava para o dia via a fila de antes, com o paciente que o
     /// balcão acabou de receber ainda como "Marcado".
@@ -432,7 +441,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     ///
     /// Não acende o "Carregando" nem escreve mensagem de erro: é recarga de fundo, e
     /// quem está com um paciente na frente não pode ver o quadro piscar em branco a
-    /// cada minuto nem levar um aviso vermelho porque o banco demorou uma vez. A falha
+    /// cada batida nem levar um aviso vermelho porque o banco demorou uma vez. A falha
     /// vai para o log e a tela segue com o quadro do minuto anterior.
     ///
     /// Só relê HOJE: quem está conferindo a agenda de terça que vem não tem fila
@@ -486,7 +495,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         {
             Carregando = !silencioso;
             // A recarga de fundo não apaga o recado da última ação: "Ana foi chamada —
-            // a recepção já está vendo o aviso" sumindo sozinho um minuto depois faria
+            // a recepção já está vendo o aviso" sumindo sozinho meio minuto depois faria
             // quem clicou duvidar de que o clique valeu.
             //
             // E não apaga o "não verificado" pendente: a batida silenciosa que também
@@ -519,7 +528,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // ⚠️ O Clear vem DEPOIS do await, junto dos Adds — nunca antes.
             //
             // Limpar a lista na entrada esvaziava a tela durante todo o roundtrip ao
-            // banco remoto, e a releitura de fundo (1 min, sem "Carregando") fazia isso
+            // banco remoto, e a releitura de fundo (sem "Carregando") fazia isso
             // debaixo do olho de quem atende. Pior: quando a leitura falhava, o catch
             // encontrava a lista JÁ vazia — e o comentário logo acima promete o
             // contrário ("a tela segue com o quadro do minuto anterior"). Comentário que
@@ -548,7 +557,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // Aqui só se conta. A LISTA mora na tela dela.
             //
             // ⚠️ E a batida do relógio NÃO reconta: são os agendamentos e as evoluções de
-            // 30 dias relidos a cada minuto para atualizar um número que só muda quando
+            // 30 dias relidos a cada batida para atualizar um número que só muda quando
             // alguém escreve uma evolução — e quem escreve está NESTA máquina, que
             // recarrega ao voltar para a tela. A recarga silenciosa relê só o quadro de
             // hoje, que é o que a outra máquina muda por baixo.

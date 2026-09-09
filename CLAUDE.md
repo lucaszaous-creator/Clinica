@@ -1477,7 +1477,8 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   primeiro); **entrar carimba a chamada junto**, porque linha do tempo com entrada e sem
   chamada não existe; e a **espera para na CHAMADA, não na entrada** — o que se mede é
   quanto tempo o paciente ficou sem notícia, e contar até ele levantar da cadeira somaria o
-  tempo de atravessar a sala. A **releitura periódica** (1 min, ligada/desligada pelo
+  tempo de atravessar a sala. A **releitura periódica** (1 min à época; 30 s no Meu dia
+  desde set/2026 — ver a lição do intervalo mais abaixo —, ligada/desligada pelo
   Loaded/Unloaded da View) é o que faz o recado CHEGAR: até aqui as duas telas só reliam
   por clique, o que bastava porque tudo o que mexia no quadro era clicado nelas mesmas. Ela
   é **silenciosa** — não acende "Carregando" nem escreve erro, porque quem está no balcão
@@ -8458,6 +8459,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **A sidebar do FATURAMENTO não recebeu o acordeão, e é decisão**: ela tem poucos itens,
   não rola, e o app está em produção. O desenho do ITEM (ícone, rótulo, barra de 3 px)
   continua idêntico nos dois — é ele que faz os dois apps parecerem o mesmo produto.
+
+- **O INTERVALO DA RELEITURA SEGUE QUEM RECEBE, NÃO QUEM MUDA** (set/2026 — decisão da
+  direção depois de medirmos a latência da correção do horário: *"diminua para 30
+  segundos a releitura do Meu dia"*). O quadro do médico passou a bater a cada **30 s**;
+  os do balcão (lista do dia e grade) continuam em 1 min e o painel em 2, e a assimetria
+  é o ponto: **a tela de quem MUDA já recarrega a cada ação** — quem marca a chegada,
+  cancela, marca falta e corrige a modalidade está no balcão, e cada um desses cliques
+  recarrega a tela dele —, então quem precisa de batida curta é o lado que só RECEBE.
+  ⚠️ **Frequência se decide pelo CUSTO da batida, medido, não pela simetria.** A
+  silenciosa do Meu dia é UMA leitura de UM dia (`DoDiaAsync` — os horários e as
+  evoluções daquele dia); as 30 dias de pendências ficaram de fora dela desde a parcela
+  69, justamente para ela poder ser barata. O painel custa três consultas por batida e é
+  por isso que ele bate de dois em dois minutos: dobrá-lo custaria seis.
+  ⚠️ E o comentário que justificava o relógio ainda falava do **"Chamar próximo"**, que
+  saiu com o fluxo de fila — descrevia como razão do intervalo um botão que não existe
+  mais. Foi reescrito no mesmo commit, com a razão de hoje. **Ao mexer num número que um
+  comentário justifica, releia a justificativa antes: ela é a primeira coisa a
+  apodrecer.**
 
 - **CORRIGIR O QUE A SESSÃO É, SEM SAIR DA AGENDA DO DIA** (set/2026 — a cliente, com o
   print da lista: *"temos muitos atendimentos que foram importados que vieram como

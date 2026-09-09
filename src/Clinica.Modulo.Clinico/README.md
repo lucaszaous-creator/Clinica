@@ -75,7 +75,8 @@ pessoa. Toda tela clínica abre no paciente em foco e trata a busca como atalho.
 ligam e desligam um `DispatcherTimer` no `Loaded`/`Unloaded`. Ligar no VM manteria vivo um
 timer por tela já trocada — o shell constrói uma nova a cada navegação. A releitura é
 **silenciosa** (não acende "Carregando", não escreve erro na tela, mas registra no log):
-quem está com um paciente na cadeira não pode ver a lista piscar em branco a cada minuto.
+quem está com um paciente na cadeira não pode ver a lista piscar em branco a cada batida.
+O intervalo do `MeuDiaView` é de **30 s** (set/2026); o da sala de infusão, de 1 min.
 
 ---
 
