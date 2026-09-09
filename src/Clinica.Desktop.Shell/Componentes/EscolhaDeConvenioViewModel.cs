@@ -132,7 +132,15 @@ public sealed partial class EscolhaDeConvenioViewModel : ObservableObject
                 // de sucesso e um lançamento recusado logo em seguida.
                 .Where(c => !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir,
                                            StringComparison.OrdinalIgnoreCase))
-                .OrderBy(c => c.Nome)
+                // Os que GERAM GUIA primeiro, e o particular por último — não em ordem
+                // alfabética pura (set/2026). São duas respostas de naturezas diferentes:
+                // as de cima são operadoras, a de baixo é "não tem convênio". Misturá-las
+                // pelo nome punha "Particular" entre a Petrobras e a Unimed, com o mesmo
+                // peso, e essa lista é justamente onde a recepcionista descobre que o
+                // particular existe (ele não existia até set/2026 — ver
+                // `ConvenioCadastro.Particular`).
+                .OrderBy(c => c.GeraGuia ? 0 : 1)
+                .ThenBy(c => c.Nome)
                 .Select(c => new LinhaConvenio(
                     c,
                     c.Nome,
@@ -142,18 +150,28 @@ public sealed partial class EscolhaDeConvenioViewModel : ObservableObject
                     // propósito; ele não pode parecer um convênio comum na lista.
                     c.GeraGuia
                         ? "Gera guia para o faturamento."
-                        : "Não gera guia — é como se cadastra quem paga do bolso (particular).",
+                        : "Sem guia: o paciente paga a sessão. O valor é combinado no "
+                          + "Finalizar, pela tabela de preço do particular.",
                     c.GeraGuia))
                 .ToList();
 
             Convenios.Clear();
             foreach (var l in linhas) Convenios.Add(l);
 
-            // Nada vem pré-selecionado: o primeiro da lista é alfabético, e um padrão que
-            // ninguém escolheu é justamente o defeito que esta janela existe para corrigir.
+            // Nada vem pré-selecionado: o primeiro da lista é o primeiro convênio que
+            // gera guia, e um padrão que ninguém escolheu é justamente o defeito que esta
+            // janela existe para corrigir — aqui ele marcaria uma operadora na ficha de
+            // quem talvez seja particular.
+
+            // ⚠️ Esta lista NUNCA nasce vazia desde set/2026: o catálogo garante os
+            // quatro embutidos e o Particular. Se ela vier vazia, alguém desativou todos —
+            // e a frase precisa apontar o app CERTO: o cadastro de convênios só existe no
+            // faturamento (`Clinica.Desktop` → Configurações → Convênios), e não no
+            // Gerente, como esta mensagem dizia. Instrução que manda procurar no lugar
+            // errado é pior que nenhuma.
             if (Convenios.Count == 0)
-                Mensagem = "Nenhum convênio ativo no catálogo. A direção cadastra em "
-                           + "Configurações → Convênios, no aplicativo do Gerente.";
+                Mensagem = "Nenhum convênio ativo no catálogo. Reative um em Configurações "
+                           + "→ Convênios, no aplicativo de Faturamento.";
         }
         catch (Exception ex)
         {

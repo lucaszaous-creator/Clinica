@@ -298,9 +298,17 @@
                                            Text="Sem profissional: o horário não aparece no quadro de ninguém e fica fora do repasse. Escolha em &quot;Quem atende&quot;, na linha acima — o sistema não sorteia." />
                             </Grid>
 
-                            <!-- O choque criticado A CADA TECLA, pela MESMA leitura que o
-                                 serviço usa para recusar (parcela 51, a dica que virou
-                                 crítica). -->
+                            <!-- Os avisos do horário, criticados A CADA TECLA pela MESMA
+                                 leitura do serviço (parcela 51, a dica que virou crítica).
+                                 Desde set/2026 nenhum deles IMPEDE marcar, e é por isso
+                                 que esta lista deixou de ser a metade que explica uma
+                                 recusa e passou a ser o único lugar onde a clínica vê que
+                                 há alguém no horário. O cabeçalho DIZ que nada impede:
+                                 tarja de aviso com o botão "Lançar" aceso ao lado é tela
+                                 que se contradiz. -->
+                            <TextBlock Text="{Binding CabecalhoDosAvisos}" Style="{StaticResource TextoSuave}"
+                                       Margin="0,2,0,4"
+                                       Visibility="{Binding TemConflitoMarcacao, Converter={StaticResource BoolParaVisibilidade}}" />
                             <ItemsControl ItemsSource="{Binding ConflitosMarcacao}"
                                           Visibility="{Binding TemConflitoMarcacao, Converter={StaticResource BoolParaVisibilidade}}">
                                 <ItemsControl.ItemTemplate>
@@ -310,16 +318,36 @@
                                                 <ColumnDefinition Width="3" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
+                                            <!-- Âmbar é a rotina da casa (já tem paciente
+                                                 no horário); o vermelho fica para a agenda
+                                                 FECHADA, que é o aviso sem ninguém do
+                                                 outro lado. Duas cores porque pintar as
+                                                 duas de vermelho ensina a ignorar as duas. -->
                                             <Border Grid.Column="0" CornerRadius="2"
-                                                    Background="{StaticResource Brush.Semaforo.Vermelho}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding}" Margin="10,0,0,0"
+                                                    Background="{StaticResource Brush.Semaforo.Amarelo}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Grave}" Value="True">
+                                                                <Setter Property="Background"
+                                                                        Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="{Binding Texto}" Margin="10,0,0,0"
                                                        TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <!-- A caixinha continua, e o verbo dela mudou: ela não fura
+                                 mais recusa nenhuma (não há), ela REGISTRA que o horário é
+                                 encaixe — o dado que o cartão mostra e que dispensa o
+                                 profissional na marcação (parcela 95). -->
                             <CheckBox IsChecked="{Binding ComoEncaixe}" Margin="0,2,0,0"
-                                      Content="Marcar mesmo assim, como encaixe (atender por cima do choque)"
+                                      Content="Registrar como encaixe (atender por cima de um horário que já tem paciente)"
                                       Visibility="{Binding TemConflitoMarcacao, Converter={StaticResource BoolParaVisibilidade}}" />
                         </StackPanel>
 

@@ -314,8 +314,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     // testada e as séries já marcadas continuam existindo (`SerieId`, "cancelar o resto da
     // série" na janela do horário) —, mas nenhuma porta da Recepção o chama.
 
-    /// <summary>Choques e agenda fechada no horário escolhido, criticados A CADA TECLA.</summary>
-    public ObservableCollection<string> ConflitosMarcacao { get; } = new();
+    /// <summary>
+    /// Choques e agenda fechada no horário escolhido, criticados A CADA TECLA — e nenhum
+    /// deles impede marcar (set/2026). A frase que diz isso é <see
+    /// cref="AvisosDeChoque.Cabecalho"/>, acima da lista; a gravidade de cada linha vem do
+    /// <see cref="AvisoDeChoque.Grave"/>, que separa "já tem paciente aqui" (a rotina da
+    /// casa) de "a clínica está fechada neste dia".
+    /// </summary>
+    public ObservableCollection<AvisoDeChoque> ConflitosMarcacao { get; } = new();
+
+    /// <summary>A frase acima da lista de avisos — mora na Application, não no XAML.</summary>
+    public string CabecalhoDosAvisos => AvisosDeChoque.Cabecalho;
 
     public bool TemConflitoMarcacao => ConflitosMarcacao.Count > 0;
 
@@ -772,8 +781,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     private int _geracaoConflitos;
 
     /// <summary>
-    /// Mostra o choque e a agenda fechada ANTES de salvar, com a MESMA leitura que o
-    /// serviço usa para recusar (<see cref="AgendaService.ConflitosAsync"/> — sem cópia).
+    /// Mostra o choque e a agenda fechada ANTES de salvar
+    /// (<see cref="AgendaService.ConflitosAsync"/> — sem cópia).
+    ///
+    /// ⚠️ Desde set/2026 o serviço não recusa mais nada por choque, e por isso <b>esta
+    /// tela é o único lugar onde a clínica vê que há alguém naquele horário</b>. Antes ela
+    /// era a metade que EXPLICA de uma barreira que impedia; agora ela é a barreira
+    /// inteira, e o que a sustenta é ser criticada a cada tecla.
     /// Silencioso quanto a falhas: é aviso, e uma consulta que não respondeu não pode
     /// impedir de marcar.
     /// </summary>
@@ -799,8 +813,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             // Chegou tarde: outra tecla já pediu uma conferência mais nova.
             if (geracao != _geracaoConflitos) return;
 
-            foreach (var c in achados.Select(DescreverConflito).Distinct())
-                ConflitosMarcacao.Add(c);
+            foreach (var aviso in AvisosDeChoque.Montar(achados))
+                ConflitosMarcacao.Add(aviso);
         }
         catch (Exception ex)
         {
@@ -819,12 +833,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             }
         }
     }
-
-    private static string DescreverConflito(ConflitoAgenda c) => c.Recurso switch
-    {
-        RecursoAgenda.Paciente => $"{c.Descricao} (aviso — não impede marcar)",
-        _ => c.Descricao
-    };
 
     private int? DuracaoInformada()
         => int.TryParse(Duracao, out var m) && m > 0 ? m : null;
@@ -1575,9 +1583,19 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 var preco = await scope.ServiceProvider.GetRequiredService<PrecoParticularService>().ProporAsync(
                     codigoModalidade, Modalidade,
                     ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null, data);
+                // ⚠️ A frase do preço que FALTA aponta a porta do BALCÃO (set/2026): ela
+                // mandava a recepcionista ao "Gerente → Tabela de preço", que é outro app
+                // e outra pessoa — e a Recepção publica a mesma tela desde que ela nasceu.
+                // Instrução que manda procurar no lugar errado é pior que nenhuma, e foi
+                // metade do *"não consegui entender como fazer um atendimento
+                // particular"*. As duas dizem também ONDE o dinheiro entra: sem isso, a
+                // prévia informa o preço e cala sobre o que fazer com ele.
                 valor = preco.Houve
-                    ? $"Particular — {preco.Valor:C} ({preco.Procedencia})"
-                    : "Particular — sem preço cadastrado para esta modalidade (Gerente → Tabela de preço → Particular).";
+                    ? $"Particular — {preco.Valor:C} ({preco.Procedencia}). "
+                      + "O pagamento é registrado no Finalizar da sessão."
+                    : "Particular — sem preço cadastrado para esta modalidade. Cadastre em "
+                      + "\"Particular e pacotes → Preço da sessão\", ou combine o valor no "
+                      + "Finalizar da sessão.";
             }
 
             // Chegou tarde: alguém pediu outra prévia enquanto o banco respondia esta.

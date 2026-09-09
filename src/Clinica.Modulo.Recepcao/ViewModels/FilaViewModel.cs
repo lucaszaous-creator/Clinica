@@ -249,9 +249,10 @@ public sealed partial class CartaoFila : ObservableObject
 
     /// <summary>
     /// A fila corre HOJE — a regra que o Meu dia do médico já tinha, agora nos DOIS
-    /// quadros (set/2026). Chegada, chamada e entrada são carimbos de hora do DIA da
-    /// sessão: registrá-los num horário de amanhã ou de ontem carimba a hora de agora numa
-    /// sessão que não está acontecendo, e a espera e o atraso saem de um horário morto.
+    /// quadros (set/2026). A CHEGADA (o único movimento de fila com porta no balcão) é um
+    /// carimbo de hora do DIA da sessão: registrá-lo num horário de amanhã ou de ontem
+    /// carimba a hora de agora numa sessão que não está acontecendo, e a espera e o atraso
+    /// saem de um horário morto.
     /// Concluir, fechar a sessão, falta e cancelamento continuam valendo em qualquer dia —
     /// a sessão de ontem que ficou aberta se conclui hoje.
     /// </summary>
@@ -314,13 +315,18 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     public string ProximoPasso => Etapa switch
     {
-        // ⚠️ "Chegou", "Chamar" e "Entrou" SAÍRAM (decisão da clínica, set/2026): ela não
-        // quer o fluxo de fila. Quem registra a entrada na sala é o "Atender" do
-        // profissional (`AgendaService.IniciarAtendimentoAsync`), e a linha vai de
-        // Marcado direto para EM ATENDIMENTO. O balcão marca o horário e o profissional
-        // atende — os dois passos que a direção pediu, e nada entre eles.
+        // ⚠️ "CHEGOU NO LOCAL" VOLTOU, e só ele (set/2026 — pedido da secretária: *"hoje
+        // temos Marcado e Concluído, poderíamos colocar um chegou no local entre os
+        // dois"*). O fluxo de fila inteiro saiu semanas antes, a pedido da direção, e o
+        // que a prática mostrou é que a clínica não queria as QUATRO etapas — queria
+        // saber quem já está na sala de espera. "Chamar" e "Entrou" continuam fora: quem
+        // registra a entrada na sala é o "Atender" do profissional
+        // (`AgendaService.IniciarAtendimentoAsync`).
         //
-        // O que sobra aqui é o que continua sendo do balcão:
+        // De "No local" o balcão não tem passo: quem age em seguida é quem atende. Botão
+        // aceso que não é do balcão é o defeito da parcela 41 pelo avesso — ele daria à
+        // recepcionista um "Concluir" que pula o registro clínico inteiro.
+        EtapaFila.Aguardando when EhHoje => "Chegou",
         EtapaFila.EmAtendimento => "Concluir",
         // Concluída pelo Consultório e com pacote por debitar. Sem pendência não há passo
         // nenhum: a linha concluída é o registro do dia, e o fechamento continua a um
@@ -1133,8 +1139,9 @@ public sealed partial class FilaViewModel : ObservableObject
 
         switch (cartao.Etapa)
         {
-            // Chegada, chamada e entrada saíram (ver `CartaoFila.ProximoPasso`): quem
-            // registra a entrada é o "Atender" do profissional.
+            // Só a CHEGADA voltou (ver `CartaoFila.ProximoPasso`); chamada e entrada
+            // continuam fora, e quem registra a entrada é o "Atender" do profissional.
+            case EtapaFila.Aguardando: await RegistrarChegadaAsync(cartao); break;
             case EtapaFila.EmAtendimento: await FinalizarAsync(cartao); break;
             case EtapaFila.Finalizado: await FecharSessaoAsync(cartao); break;
         }
@@ -1191,6 +1198,44 @@ public sealed partial class FilaViewModel : ObservableObject
     // O ARRASTO entre raias (parcelas 58 e 87) morreu com as raias: numa lista ordenada
     // pela hora não há para onde arrastar. O que ele fazia — andar um passo — é o botão
     // de passo de cada linha, com a mesma regra e a mesma guarda.
+
+    /// <summary>
+    /// CHEGOU NO LOCAL — o check-in do balcão (set/2026, pedido da secretária: *"hoje temos
+    /// Marcado e Concluído, poderíamos colocar um chegou no local entre os dois"*).
+    ///
+    /// É o único movimento de fila que voltou a ter porta. O fluxo de quatro etapas saiu
+    /// semanas antes a pedido da direção, e a prática mostrou o que ela de fato dispensava:
+    /// as etapas intermediárias, não o "quem já está aqui". Chamar e entrar continuam sem
+    /// porta — quem registra a entrada na sala é o "Atender" do profissional.
+    ///
+    /// ⚠️ É daqui que volta a sair o TEMPO DE ESPERA. Sem carimbo de chegada,
+    /// <c>Agendamento.EsperaMinutos</c> é nulo (nunca zero — "não medido" e "ninguém
+    /// esperou" são coisas diferentes), e foi por isso que os cartões de espera média
+    /// saíram do painel quando o check-in saiu. Eles NÃO voltam neste commit: a média só
+    /// significa alguma coisa quando a clínica estiver de fato carimbando, e um cartão
+    /// que responde sobre metade do dia é pior que cartão nenhum.
+    ///
+    /// O bit é o do movimento de fila (<c>EditarAgenda</c> OU <c>MovimentarFila</c>) — a
+    /// mesma conta do <see cref="PodeEditarAgenda"/> que acende o botão.
+    ///
+    /// ⚠️ NÃO leva <c>[RelayCommand]</c>: quem o chama é o <c>AvancarAsync</c>, e o
+    /// atributo fica COLADO ao método seguinte. Escrevendo-o entre o <c>[RelayCommand]</c>
+    /// e o <c>FinalizarAsync</c> — que foi o que aconteceu na primeira versão desta
+    /// parcela — o atributo troca de dono em silêncio, e o comando gerado passa a ser o
+    /// errado.
+    /// </summary>
+    private async Task RegistrarChegadaAsync(CartaoFila? cartao)
+        => await ExecutarAsync(cartao, async c =>
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a chegada");
+
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.RegistrarChegadaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Sucesso($"{c.Paciente} está no local.");
+        }, "registro da chegada");
 
     /// <summary>
     /// Encerra a sessão. Concluir são QUATRO fatos do mesmo ato — a guia nasce, o pacote

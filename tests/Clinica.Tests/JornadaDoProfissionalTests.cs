@@ -164,8 +164,16 @@ public class JornadaDoProfissionalTests : IDisposable
         return p.Id;
     }
 
+    /// <summary>
+    /// Fora do expediente deixou de RECUSAR em set/2026 (nenhum choque recusa) — e o aviso,
+    /// que é o que fica, continua dizendo QUANDO ele atende. Essa frase é a metade útil:
+    /// "Dra. Ana não atende neste horário" sem o "atende seg · qua · sex, das 08:00 às
+    /// 12:00" manda a recepcionista adivinhar o horário certo.
+    ///
+    /// Substituiu o <c>Marcar_fora_do_expediente_e_recusado_dizendo_quando_ele_atende</c>.
+    /// </summary>
     [Fact]
-    public async Task Marcar_fora_do_expediente_e_recusado_dizendo_quando_ele_atende()
+    public async Task Marcar_fora_do_expediente_MARCA_e_avisa_dizendo_quando_ele_atende()
     {
         var ana = await _equipe.SalvarProfissionalAsync(new Profissional
         {
@@ -174,20 +182,27 @@ public class JornadaDoProfissionalTests : IDisposable
         var paciente = await PacienteAsync();
 
         // Segunda às 14h: dia certo, hora errada.
-        var acao = () => _agenda.AgendarAsync(
-            paciente, Segunda9h.AddHours(5), ModalidadeAtendimento.Consulta, null, profissionalId: ana.Id);
+        var tarde = Segunda9h.AddHours(5);
+        (await _agenda.AgendarAsync(
+            paciente, tarde, ModalidadeAtendimento.Consulta, null, profissionalId: ana.Id))
+            .Id.Should().BePositive();
 
-        var erro = await acao.Should().ThrowAsync<InvalidOperationException>();
-        erro.Which.Message.Should().Contain("Dra. Ana").And.Contain("seg · qua · sex, das 08:00 às 12:00");
+        var avisos = await _agenda.ConflitosAsync(tarde, profissionalId: ana.Id);
+        avisos.Should().ContainSingle(c => c.Recurso == RecursoAgenda.Expediente)
+            .Which.Descricao.Should().Contain("Dra. Ana").And.Contain("seg · qua · sex, das 08:00 às 12:00");
 
-        // Terça às 9h: hora certa, dia errado.
-        await _agenda.Invoking(a => a.AgendarAsync(
-                paciente, Segunda9h.AddDays(1), ModalidadeAtendimento.Consulta, null, profissionalId: ana.Id))
-            .Should().ThrowAsync<InvalidOperationException>();
+        // Terça às 9h: hora certa, dia errado — o mesmo aviso, pelo outro lado da jornada.
+        (await _agenda.ConflitosAsync(Segunda9h.AddDays(1), profissionalId: ana.Id))
+            .Should().Contain(c => c.Recurso == RecursoAgenda.Expediente);
     }
 
     [Fact]
-    public async Task Dentro_do_expediente_marca_e_o_encaixe_fura_a_jornada()
+    /// <summary>
+    /// Dentro da jornada não há aviso nenhum — é o caso normal, e é ele que faz o aviso
+    /// significar alguma coisa quando aparece. O encaixe continua sendo registrado (ele
+    /// não "fura" mais nada: nada recusa desde set/2026).
+    /// </summary>
+    public async Task Dentro_do_expediente_marca_sem_aviso_e_o_encaixe_fica_registrado()
     {
         var ana = await _equipe.SalvarProfissionalAsync(new Profissional
         {
@@ -198,6 +213,8 @@ public class JornadaDoProfissionalTests : IDisposable
         var dentro = await _agenda.AgendarAsync(
             paciente, Segunda9h, ModalidadeAtendimento.Consulta, null, profissionalId: ana.Id);
         dentro.Id.Should().BePositive();
+        (await _agenda.ConflitosAsync(Segunda9h, profissionalId: ana.Id, ignorarAgendamentoId: dentro.Id))
+            .Should().BeEmpty("segunda às 9h está dentro de seg · qua · sex, das 08:00 às 12:00");
 
         var outro = await PacienteAsync();
         var encaixe = await _agenda.AgendarAsync(

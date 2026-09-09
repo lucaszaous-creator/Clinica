@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -249,24 +250,36 @@ public class AgendaRemarcacaoTests : IDisposable
     /// existe para impedir que se crie a sobreposição, e é isso que não pode cair junto.
     /// </summary>
     [Fact]
-    public async Task Mover_o_horario_para_cima_de_outro_continua_recusando()
+    /// <summary>
+    /// Mover para cima de outro MOVE (set/2026 — nenhum choque recusa; ver
+    /// <c>AgendaService.ConflitosAsync</c>). Substituiu o
+    /// <c>Mover_o_horario_para_cima_de_outro_continua_recusando</c>.
+    ///
+    /// O aviso continua sendo produzido: é a tela de remarcação que o mostra, criticado a
+    /// cada tecla, e desde que a recusa saiu ele é a barreira inteira.
+    /// </summary>
+    public async Task Mover_o_horario_para_cima_de_outro_MOVE_e_avisa()
     {
         var pacienteId = await CriarPacienteAsync();
         var outro = await CriarPacienteAsync();
+        var destino = new DateTime(2026, 7, 20, 16, 0, 0);
 
         var meu = await _agenda.AgendarAsync(
             pacienteId, new DateTime(2026, 7, 20, 14, 0, 0), ModalidadeAtendimento.AcupunturaSimples,
             null, profissionalId: _profPadrao);
         await _agenda.AgendarAsync(
-            outro, new DateTime(2026, 7, 20, 16, 0, 0), ModalidadeAtendimento.AcupunturaSimples,
+            outro, destino, ModalidadeAtendimento.AcupunturaSimples,
             null, profissionalId: _profPadrao);
 
-        var mover = async () => await _agenda.RemarcarAsync(
-            meu.Id, new DateTime(2026, 7, 20, 16, 0, 0), null,
+        await _agenda.RemarcarAsync(
+            meu.Id, destino, null,
             profissionalId: _profPadrao, salaId: null, duracaoMinutos: null,
             manterRecursos: false, encaixe: false);
 
-        await mover.Should().ThrowAsync<InvalidOperationException>();
+        (await _agenda.ObterAsync(meu.Id))!.DataHora.Should().Be(destino);
+
+        (await _agenda.ConflitosAsync(destino, profissionalId: _profPadrao, ignorarAgendamentoId: meu.Id))
+            .Should().Contain(c => c.Recurso == RecursoAgenda.Profissional);
     }
 
     /// <summary>
@@ -274,7 +287,16 @@ public class AgendaRemarcacaoTests : IDisposable
     /// dele pode ter sido dado a outra pessoa nesse meio-tempo.
     /// </summary>
     [Fact]
-    public async Task Reabrir_um_cancelado_ainda_confere_o_choque()
+    /// <summary>
+    /// Reabrir um cancelado cujo vão já foi dado a outra pessoa REABRE — os dois ficam no
+    /// mesmo horário (set/2026). Substituiu o <c>Reabrir_um_cancelado_ainda_confere_o_choque</c>.
+    ///
+    /// Era o caso que a conferência condicional protegia com mais razão: aqui o horário
+    /// tinha SOLTADO o recurso. Com a decisão de set/2026 nem esse recusa — e é coerente
+    /// com o pedido da clínica, que é justamente ter dois pacientes no mesmo horário. Quem
+    /// diz que há alguém ali continua sendo o aviso da tela.
+    /// </summary>
+    public async Task Reabrir_um_cancelado_cujo_vao_foi_dado_a_outro_REABRE_e_avisa()
     {
         var pacienteId = await CriarPacienteAsync();
         var outro = await CriarPacienteAsync();
@@ -290,12 +312,16 @@ public class AgendaRemarcacaoTests : IDisposable
             outro, quando, ModalidadeAtendimento.AcupunturaSimples, null,
             profissionalId: _profPadrao);
 
-        var reabrir = async () => await _agenda.RemarcarAsync(
+        await _agenda.RemarcarAsync(
             meu.Id, quando, null,
             profissionalId: _profPadrao, salaId: null, duracaoMinutos: null,
             manterRecursos: false, encaixe: false);
 
-        await reabrir.Should().ThrowAsync<InvalidOperationException>();
+        var reaberto = (await _agenda.ObterAsync(meu.Id))!;
+        reaberto.Status.Should().Be(StatusAgendamento.Agendado);
+
+        (await _agenda.ConflitosAsync(quando, profissionalId: _profPadrao, ignorarAgendamentoId: meu.Id))
+            .Should().Contain(c => c.Recurso == RecursoAgenda.Profissional);
     }
 
     public void Dispose()

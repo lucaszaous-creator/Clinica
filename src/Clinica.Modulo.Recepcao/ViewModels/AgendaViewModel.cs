@@ -183,16 +183,15 @@ public sealed class CelulaAgenda
     /// O motivo do fechamento, quando a agenda está bloqueada aqui (parcela 63) — "Férias
     /// da Ana", "Feriado". Nulo = aberto.
     ///
-    /// A marcação JÁ era recusada pelo `AgendaService`; o que faltava era a grade dizer
-    /// antes. Um vão bloqueado é visualmente idêntico a um vão livre, e o vão livre é
-    /// clicável desde a parcela 58 — a recepcionista escolhia o paciente, preenchia o
-    /// formulário e levava a recusa no Salvar, com ele na frente dela.
+    /// ⚠️ Desde set/2026 ele NÃO impede o clique: o serviço deixou de recusar (ver
+    /// <c>AgendaService.ConflitosAsync</c>), e um vão que só serve para explicar por que
+    /// não dá deixou de existir junto com a recusa que ele explicava. O que fica é a
+    /// hachura com o motivo escrito — a informação, sem a barreira.
     /// </summary>
     public string? Bloqueio { get; init; }
 
     public bool Bloqueada => Bloqueio is not null;
 
-    /// <summary>Só o que está livre, no futuro e com a agenda aberta convida a marcar.</summary>
     /// <summary>
     /// Fora da jornada declarada do profissional da coluna (set/2026), com a descrição
     /// para a dica — ou nulo. Sem jornada declarada é sempre nulo: a grade continua como
@@ -202,7 +201,49 @@ public sealed class CelulaAgenda
 
     public bool Expediente => ForaDoExpediente is not null;
 
-    public bool PodeMarcar => Livre && !NoPassado && !Bloqueada && !Expediente;
+    /// <summary>
+    /// O vão VAZIO convida a marcar — e agora convida também no feriado e fora do
+    /// expediente (set/2026): o pedido da clínica foi *"horário na agenda livre, não
+    /// precisa dar choque/bloqueio"*, e o serviço deixou de recusar. O que sobrou aqui é a
+    /// única restrição que nunca foi choque: <b>o passado</b>. Marcar para trás continua
+    /// sendo quase sempre engano de clique, e quem precisa de verdade digita a data no
+    /// formulário — o clique na grade é atalho, não é a porta.
+    /// </summary>
+    public bool PodeMarcar => Livre && !NoPassado;
+
+    /// <summary>
+    /// Marcar MAIS UM sobre um vão que já tem paciente — o "+" pequeno no canto, que só
+    /// existe quando a célula está ocupada.
+    ///
+    /// É a metade visível do pedido da clínica: na acupuntura o profissional deixa o
+    /// paciente na maca com as agulhas e atende outro, então o horário com um cartão
+    /// dentro continua sendo horário livre. Sem este botão, tirar a recusa do serviço
+    /// resolveria metade — a recepcionista veria o vão tomado e nem tentaria.
+    ///
+    /// A CONTINUAÇÃO (a meia hora coberta por uma sessão de uma hora) entra: o horário das
+    /// 14h30 dentro da sessão das 14h é exatamente o caso da segunda maca.
+    /// </summary>
+    public bool PodeSobrepor => !Livre && !NoPassado;
+
+    /// <summary>
+    /// A dica do "+" — "Marcar neste horário", e o MOTIVO do fechamento quando há um.
+    ///
+    /// ⚠️ Ela existe porque as camadas de hachura viraram <c>IsHitTestVisible="False"</c>
+    /// para deixar o clique passar até o botão (set/2026), e elemento sem hit test não
+    /// recebe hover — <b>o ToolTip que dizia "atende seg · qua · sex, das 08:00 às 12:00"
+    /// parou de aparecer junto</b>. Trocar a recusa pelo aviso e perder o aviso no mesmo
+    /// gesto seria trocar barreira por silêncio, que é o único desfecho que esta mudança
+    /// não pode ter. O motivo do BLOQUEIO continua escrito na célula; o do expediente
+    /// nunca teve texto (dezoito vãos escritos numa agenda de 7h às 20h), e é só por aqui
+    /// que ele se lê.
+    /// </summary>
+    public string DicaDoVao => ComMotivo("Marcar neste horário");
+
+    /// <summary>A dica do "+" pequeno — mesma composição, outro verbo.</summary>
+    public string DicaDeSobrepor => ComMotivo("Marcar mais um paciente neste horário");
+
+    private string ComMotivo(string acao)
+        => (Bloqueio ?? ForaDoExpediente) is { } motivo ? $"{acao} — atenção: {motivo}" : acao;
 
     /// <summary>O fechamento vence: se há bloqueio, é ele que se desenha.</summary>
     public bool MostrarExpediente => Expediente && Livre && !Bloqueada;
@@ -1306,16 +1347,12 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
-        // Guarda com VOZ (a lição da parcela 41): o vão fechado é clicável no XAML apenas
-        // para poder dizer por que não dá — deixá-lo inerte faria a pessoa clicar duas ou
-        // três vezes concluindo que a tela travou.
-        if (celula.Bloqueio is { } motivo)
-        {
-            Mensagem = $"A agenda está fechada neste horário: {motivo}. "
-                       + "Para marcar mesmo assim, remova ou encurte o bloqueio em Profissionais e salas.";
-            MensagemEhErro = true;
-            return;
-        }
+        // ⚠️ A guarda do vão FECHADO saiu em set/2026, junto com a recusa que ela
+        // explicava. Ela dizia *"para marcar mesmo assim, remova ou encurte o bloqueio"* —
+        // e agora dá para marcar sem remover nada: mandar a recepcionista mexer no feriado
+        // da clínica para encaixar um paciente seria a instrução errada com cara de
+        // instrução certa. Quem avisa do fechamento é a hachura aqui e a lista de avisos
+        // do formulário, que abre com o motivo já escrito.
 
         // O gesto da parcela 58 sobrevive à unificação (parcela 70): o clique no vão das
         // 14h30 do Dr. Fulano chega ao Novo atendimento com dia, hora, profissional e

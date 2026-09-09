@@ -160,7 +160,7 @@ zero.**
 | **✓ de confirmação na grade** | ✅ | **set/2026** — o cartão do balcão mostra "Confirmou" / "Não confirmou" pelo que a RODADA registrou (`AgendaViewModel.Confirmacao`, leitura em lote); sem contato, sem selo |
 | **Retornos a marcar** | ✅ | **set/2026** — aba do item Atendimento: o retorno que quem atendeu pediu na sessão (`Evolucao.RetornoSugeridoEm`) vira fila do balcão (`RetornosAMarcarService`), com "Marcar horário" já preenchido e o convite pelo WhatsApp. Nunca vira agendamento sozinho (a regra da parcela 58) |
 | **Próximos horários na ficha** | ✅ | **set/2026** — a ficha do paciente lista o que ele tem marcado daqui em diante e abre a agenda no dia (`FichaPacienteViewModel.ProximosHorarios`) |
-| **Jornada por profissional** (dias e horário) | ✅ | **set/2026** — `Profissional.DiasDeAtendimento`/`AtendeDas`/`AtendeAte`: a grade pinta o fora-do-expediente e o Salvar RECUSA como recusa o bloqueio (`RecursoAgenda.Expediente` — "escolha outro horário ou marque como encaixe"; o encaixe passa). A ocupação usa a jornada DELE; a global vale para quem não declarou. Em branco, tudo como antes |
+| **Jornada por profissional** (dias e horário) | ✅ | **set/2026** — `Profissional.DiasDeAtendimento`/`AtendeDas`/`AtendeAte`: a grade pinta o fora-do-expediente e a tela AVISA, dizendo quando ele atende (`RecursoAgenda.Expediente`). ⚠️ Ela RECUSAVA até set/2026; hoje nenhum choque recusa — ver a nota abaixo da tabela. A ocupação usa a jornada DELE; a global vale para quem não declarou. Em branco, tudo como antes |
 | **Próxima vaga com o profissional** | ✅ | **set/2026** — botão "Próximas vagas…" no Marcar (`BuscaDeVagasService`): as dez primeiras vagas em até 60 dias, pela jornada e pelos bloqueios; clicar preenche data e hora, e quem grava continua sendo o Salvar |
 | **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26) |
 | ~~**Agendamento em série** (o pacote de dez)~~ | ⛔ | **Retirada das telas em set/2026, por decisão da cliente** ("não precisamos disso; se o paciente precisar voltar, a recepcionista marca uma agenda"). O motor `AgendaService.AgendarSerieAsync` fica, sem porta; `CancelarSerieAsync` continua na janela do horário para as séries já marcadas |
@@ -175,18 +175,25 @@ zero.**
 > A lista filtrada **diz que está filtrada** — título e texto do vazio mudam, porque
 > "ninguém espera" e "ninguém serve para este horário" são respostas diferentes.
 
-> O choque de horário passou a ser por **intervalo e por recurso**: uma sessão de 30 min
-> marcada às 14h colide com outra às 14h30, e o que colide é o profissional ou a sala
-> (respeitando a capacidade dela). A agenda **recusa** o choque; a recepção pode assumir
-> o **encaixe**, e aí ele fica registrado em vez de virar conflito silencioso. Quem não
-> informa profissional nem sala — o faturamento — enxerga o comportamento de sempre.
+> **A agenda AVISA e não impede (set/2026, decisão da direção).** O choque continua sendo
+> lido por **intervalo e por recurso** — uma sessão de 30 min marcada às 14h colide com
+> outra às 14h30, e o que colide é o profissional, a sala (respeitando a capacidade dela),
+> o próprio paciente, a agenda fechada ou a jornada declarada —, e **nenhum deles recusa**:
+> o pedido da clínica foi *"horário na agenda livre, não precisa dar choque/bloqueio porque
+> já tem paciente naquele mesmo horário"*, e ele descreve como a casa trabalha (na
+> acupuntura o paciente fica na maca com as agulhas enquanto outro é atendido). As telas de
+> marcação criticam o horário **a cada tecla** e escrevem os avisos ao lado do botão, com o
+> cabeçalho dizendo que nada impede e a agenda FECHADA em vermelho, separada da rotina; na
+> grade, o vão ocupado ganhou um "+" próprio. O **encaixe** continua existindo como FATO
+> registrado — ele deixou de ser a saída para a recusa. A única recusa que ficou não é
+> choque: marcar sem dizer **quem vai atender** (parcela 95).
 
 ### Feature 03 · Agenda do dia — ✅ · parcelas 1 e set/2026
 
 | Item | Estado | Onde |
 |---|---|---|
 | **A agenda do dia em LISTA** — aba **Dia** do item Agenda | ✅ | **set/2026** — `FilaView`/`FilaViewModel`: uma linha por horário, na ordem da hora, com HORÁRIO · PACIENTE · PROFISSIONAL · STATUS · ações. A cliente, com o print do Smart Clinic: a agenda e a fila "acabam sendo uma duplicata para a mesma função". O kanban de cinco raias (parcelas 26, 58 e 87) e o arrasto saíram; a "Fila do dia" deixou de ser item de menu |
-| Chegou · Chamar · Entrou · Concluir · Fechar sessão · falta · cancelamento | ✅ | o passo seguinte é o botão da linha; o resto no "⋯" — as mesmas guardas de sempre |
+| **Chegou no local** · Concluir · Fechar sessão · falta · cancelamento | ✅ | o passo seguinte é o botão da linha; o resto no "⋯" — as mesmas guardas de sempre. ⚠️ "Chamar" e "Entrou" NÃO têm porta (a direção dispensou a fila em etapas); o "Chegou" voltou em set/2026 a pedido da secretária, e só ele. Quem registra a entrada na sala é o "Atender" do profissional |
 | Status por linha, com a hora do fato | ✅ | `StatusDaFila` (Application) — o MESMO vocabulário do Meu dia do médico: Marcado · No local · Chamado · Em atendimento · Concluído; "chegou às 14:40 · espera 12 min" |
 | Cancelado e falta FICAM na lista, apagados | ✅ | a regra da folha do dia; a única ação deles é "Abrir na grade (reabrir ou remarcar)…" |
 | Tempo de espera visível | ✅ | `Agendamento.EsperaMinutos`, atualizado a cada minuto na tela |
@@ -600,7 +607,9 @@ zero.**
 | **Parcela do pacote é conta a receber COM DONO** | ✅ set/2026 | `LancamentoFinanceiro.PacotePacienteId`; a inadimplência e o aviso do balcão a enxergam quando vence |
 | **Situação de pagamento na lista** ("pago" · "R$ 400 a receber, 1 vencida" · "sem lançamento") | ✅ set/2026 | `SaldoPacote.PagamentoRotulo`, lida em lote (`LancamentosDosPacotesAsync`) |
 | **Cancelar a venda derruba as parcelas previstas e mantém o recebido** | ✅ set/2026 | `PacoteService.CancelarAsync` devolve o aviso do que já entrou |
-| **Tabela de preço do PARTICULAR por especialidade atendida** | ✅ set/2026 | `PrecoParticular` + `PrecoParticularService`; tela do SHELL (`PrecosParticularView`) publicada pela **Recepção** (item "Preços do particular", bit `VenderPacote`) e pelo Gerente (aba Particular da Tabela de preço) pela mesma chave; lida pelo Finalizar e pela aba Particulares da Conciliação |
+| **Tabela de preço do PARTICULAR por especialidade atendida** | ✅ set/2026 | `PrecoParticular` + `PrecoParticularService`; tela do SHELL (`PrecosParticularView`) publicada pela **Recepção** (aba "Preço da sessão" do item "Particular e pacotes", bit `VenderPacote`) e pelo Gerente (aba Particular da Tabela de preço) pela mesma chave; lida pelo Finalizar, pela PRÉVIA do Novo atendimento e pela aba Particulares da Conciliação |
+| **O convênio "Particular" EXISTE** | ✅ set/2026 | `ConvenioCadastro.Particular()`, garantido pelo `ConvenioCatalogoService.ListarAsync` como os embutidos. Até aqui ele não era semeado por migration nenhuma e só passava a existir se alguém o criasse à mão no app de FATURAMENTO — sem ele, lançar um paciente sem convênio caía na recusa da parcela 92 e a janela de escolha abria sem opção de particular |
+| **Uma porta só para o particular** | ✅ set/2026 | Item composto **"Particular e pacotes"** (Recepção): "Pacotes" · "Preço da sessão". Eram dois itens soltos no grupo PACIENTE, e quem procurava "particular" achava um que fala de PREÇO e nenhum que fale de VENDER |
 
 > **A venda COPIA o catálogo.** Mudar o preço de tabela em novembro não pode reescrever
 > o que o paciente comprou em março — o vínculo com o catálogo fica só como procedência.
@@ -1103,7 +1112,8 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
-| **FINANCEIRO** · Pacotes (era "Pacotes / Sessões" até a parcela 95) | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
+| **FINANCEIRO** · Pacotes (era "Pacotes / Sessões" até a parcela 95) | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente. ⚠️ Na RECEPÇÃO ela é aba de **"Particular e pacotes"** (set/2026), ao lado do preço da sessão; no exe do Financeiro, que não carrega a Recepção, continua item solto |
+| **PACIENTE** · Particular e pacotes | Recepção | ✅ set/2026 | O item que reúne o que se faz com quem paga do bolso: **Pacotes** · **Preço da sessão**. Nasceu da reprovação do cliente (*"não consegui entender como fazer um atendimento particular, vender pacote ou sessão particular"*) — as duas telas existiam soltas no grupo PACIENTE |
 | **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
 | **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |

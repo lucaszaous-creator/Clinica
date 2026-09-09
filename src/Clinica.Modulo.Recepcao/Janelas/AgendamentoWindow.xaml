@@ -125,17 +125,33 @@
         <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
         <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 
-        <!-- ============ Choque de horário ============
-             O conflito aparece ANTES de salvar: a recepção decide com a informação
-             na mão — trocar o horário ou assumir o encaixe. -->
+        <!-- ============ Quem já está neste horário ============
+             Aparece ANTES de salvar, criticado a cada tecla. Desde set/2026 NENHUM destes
+             avisos impede (ver AgendaService.ConflitosAsync), então este bloco deixou de
+             ser a metade que explica uma recusa e passou a ser o único lugar onde a
+             clínica vê que há alguém ali — e o cabeçalho diz que nada impede, senão a
+             tarja e o botão "Salvar" aceso ao lado se contradizem. -->
         <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
                 Visibility="{Binding TemConflito, Converter={StaticResource BoolParaVisibilidade}}">
             <StackPanel>
-                <TextBlock Text="Choque de horário" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding CabecalhoDosAvisos}" FontWeight="SemiBold" Margin="0,0,0,4"
+                           TextWrapping="Wrap" />
                 <ItemsControl ItemsSource="{Binding Conflitos}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <!-- O grave (agenda fechada) em negrito: numa lista de quatro
+                                 linhas, é o único que costuma mudar a decisão. -->
+                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Grave}" Value="True">
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

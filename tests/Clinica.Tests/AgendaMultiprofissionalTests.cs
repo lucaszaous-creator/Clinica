@@ -68,22 +68,40 @@ public class AgendaMultiprofissionalTests : IDisposable
 
     // ===== Choque por recurso =====
 
+    /// <summary>
+    /// A regra que a clínica pediu em set/2026: *"horário na agenda livre, não precisa dar
+    /// choque/bloqueio porque já tem paciente naquele mesmo horário"*. Na acupuntura o
+    /// profissional deixa o paciente na maca com as agulhas e atende outro — "o
+    /// profissional está ocupado" nunca foi verdade aqui.
+    ///
+    /// Este teste substituiu o <c>Agendar_MesmoProfissionalNoMesmoHorario_Recusa</c>, que
+    /// provava o contrário. As DUAS metades importam: marca (a recusa saiu) E o choque
+    /// continua sendo LIDO (o aviso ficou) — sem a segunda, tirar a recusa teria trocado a
+    /// barreira por silêncio.
+    /// </summary>
     [Fact]
-    public async Task Agendar_MesmoProfissionalNoMesmoHorario_Recusa()
+    public async Task Dois_pacientes_no_mesmo_horario_do_mesmo_profissional_MARCA_e_avisa()
     {
         var prof = await CriarProfissionalAsync();
         await _agenda.AgendarAsync(await CriarPacienteAsync("Ana Paciente"), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: prof.Id);
         var outroId = await CriarPacienteAsync("Outro");
 
-        var acao = () => _agenda.AgendarAsync(outroId, Manha,
+        var segundo = await _agenda.AgendarAsync(outroId, Manha,
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: prof.Id);
 
-        await acao.Should().ThrowAsync<InvalidOperationException>();
+        segundo.Id.Should().BePositive();
+        segundo.Encaixe.Should().BeFalse(
+            "não é encaixe: é o horário normal da clínica, e marcar deixou de exigir o rótulo");
+        (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().HaveCount(2);
+
+        var avisos = await _agenda.ConflitosAsync(Manha, profissionalId: prof.Id);
+        avisos.Should().Contain(c => c.Recurso == RecursoAgenda.Profissional,
+            "a tela precisa continuar dizendo que já tem alguém ali — o aviso é a barreira inteira agora");
     }
 
     [Fact]
-    public async Task Agendar_HorarioQueInvadeAAnterior_Recusa()
+    public async Task Horario_que_invade_a_sessao_anterior_MARCA_e_avisa()
     {
         var prof = await CriarProfissionalAsync(duracao: 60);
         await _agenda.AgendarAsync(await CriarPacienteAsync("Primeiro"), Manha,
@@ -91,13 +109,18 @@ public class AgendaMultiprofissionalTests : IDisposable
 
         var segundoId = await CriarPacienteAsync("Segundo");
 
-        // 09:30 cai DENTRO da sessão de 60 min que começou às 09:00 — a comparação
-        // antiga, por igualdade de horário, deixaria passar.
-        var acao = () => _agenda.AgendarAsync(segundoId,
+        // 09:30 cai DENTRO da sessão de 60 min que começou às 09:00 — a comparação por
+        // INTERVALO continua sendo a que o aviso usa (a por igualdade de horário deixaria
+        // passar sem dizer nada).
+        var segundo = await _agenda.AgendarAsync(segundoId,
             Manha.AddMinutes(30), ModalidadeAtendimento.AcupunturaSimples, null,
             profissionalId: prof.Id);
 
-        await acao.Should().ThrowAsync<InvalidOperationException>();
+        segundo.Id.Should().BePositive();
+
+        var avisos = await _agenda.ConflitosAsync(
+            Manha.AddMinutes(30), profissionalId: prof.Id);
+        avisos.Should().Contain(c => c.Recurso == RecursoAgenda.Profissional);
     }
 
     [Fact]
@@ -115,8 +138,14 @@ public class AgendaMultiprofissionalTests : IDisposable
         doDia.Should().HaveCount(2, "dois consultórios atendendo ao mesmo tempo é o normal da clínica");
     }
 
+    /// <summary>
+    /// A sala além da capacidade também deixou de recusar (set/2026) — o que fica é o
+    /// aviso. A CAPACIDADE continua valendo para produzi-lo: sala de duas macas não acusa
+    /// nada com dois dentro, e é isso que faz o aviso significar alguma coisa quando
+    /// aparece.
+    /// </summary>
     [Fact]
-    public async Task Agendar_MesmaSalaAlemDaCapacidade_Recusa()
+    public async Task Sala_alem_da_capacidade_MARCA_e_avisa()
     {
         var ana = await CriarProfissionalAsync("Ana");
         var bruno = await CriarProfissionalAsync("Bruno");
@@ -127,10 +156,12 @@ public class AgendaMultiprofissionalTests : IDisposable
 
         var doisId = await CriarPacienteAsync("Dois");
 
-        var acao = () => _agenda.AgendarAsync(doisId, Manha,
+        var segundo = await _agenda.AgendarAsync(doisId, Manha,
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: bruno.Id, salaId: sala.Id);
 
-        await acao.Should().ThrowAsync<InvalidOperationException>();
+        segundo.Id.Should().BePositive();
+        (await _agenda.ConflitosAsync(Manha, salaId: sala.Id))
+            .Should().Contain(c => c.Recurso == RecursoAgenda.Sala);
     }
 
     [Fact]
@@ -181,8 +212,14 @@ public class AgendaMultiprofissionalTests : IDisposable
         (await _agenda.DoDiaAsync(DateOnly.FromDateTime(Manha))).Should().HaveCount(1);
     }
 
+    /// <summary>
+    /// O ENCAIXE deixou de ser "a saída para o choque" (nada recusa) e continua sendo o
+    /// FATO que ele sempre descreveu: o cartão o mostra, e é ele que dispensa o
+    /// profissional na marcação (parcela 95). Marcar por cima sem marcá-lo é o caminho
+    /// normal agora — ver o teste dos dois pacientes no mesmo horário, acima.
+    /// </summary>
     [Fact]
-    public async Task Agendar_ComEncaixe_PassaPorCimaDoChoque()
+    public async Task Encaixe_por_cima_de_horario_ocupado_fica_REGISTRADO()
     {
         var prof = await CriarProfissionalAsync();
         await _agenda.AgendarAsync(await CriarPacienteAsync("Primeiro"), Manha,
@@ -252,7 +289,7 @@ public class AgendaMultiprofissionalTests : IDisposable
     }
 
     [Fact]
-    public async Task Remarcar_ParaHorarioOcupadoDoMesmoProfissional_Recusa()
+    public async Task Remarcar_para_horario_ocupado_do_mesmo_profissional_MOVE()
     {
         var prof = await CriarProfissionalAsync();
         await _agenda.AgendarAsync(await CriarPacienteAsync("Fixo"), Manha,
@@ -260,9 +297,9 @@ public class AgendaMultiprofissionalTests : IDisposable
         var movel = await _agenda.AgendarAsync(await CriarPacienteAsync("Móvel"), Manha.AddHours(3),
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: prof.Id);
 
-        var acao = () => _agenda.RemarcarAsync(movel.Id, Manha, null);
+        await _agenda.RemarcarAsync(movel.Id, Manha, null);
 
-        await acao.Should().ThrowAsync<InvalidOperationException>();
+        (await _agenda.ObterAsync(movel.Id))!.DataHora.Should().Be(Manha);
     }
 
     [Fact]

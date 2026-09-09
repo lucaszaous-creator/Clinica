@@ -29,6 +29,42 @@ public class ConvenioCadastro
         FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao
     };
 
+    /// <summary>
+    /// O convênio PARTICULAR (set/2026) — quem paga do bolso.
+    ///
+    /// ⚠️ <b>Ele não existia, e é por isso que o fluxo do particular não funcionava.</b> A
+    /// migration semeia quatro convênios (Unimed x2, Amil, Petrobras) e os quatro geram
+    /// guia; "particular" era um estado que só passava a existir se alguém abrisse o app
+    /// de FATURAMENTO → Configurações → Convênios, criasse uma linha à mão e desmarcasse
+    /// "gera guia". A recepção não tem essa tela. Sem a linha, lançar um paciente sem
+    /// convênio caía na recusa da parcela 92 e a janela que oferece escolher abria SEM
+    /// opção de particular — beco sem saída, e foi o relato do cliente: *"nem eu mesmo
+    /// consegui entender como fazer um atendimento particular"*.
+    ///
+    /// Como <see cref="ADefinir"/>, ele é GARANTIDO na leitura do catálogo
+    /// (<c>ConvenioCatalogoService.ListarAsync</c>) em vez de semeado por migration: a
+    /// linha nasce no banco no primeiro uso, e a base que nunca precisou dele não ganha
+    /// cadastro que ninguém pediu.
+    ///
+    /// ⚠️ <b>A diferença entre os dois é o que cada um SIGNIFICA</b>, e ela decide o
+    /// alerta do balcão: "a definir" é a PERGUNTA (a ficha veio do sistema anterior sem
+    /// convênio, e o <c>ElegibilidadeService</c> acusa em vermelho até alguém responder);
+    /// "particular" é a RESPOSTA (parcela 60) — escolha registrada, que não gera guia de
+    /// propósito e não alerta nada. Tratá-los como a mesma coisa faria a clínica inteira
+    /// de particulares aparecer como pendência para sempre.
+    /// </summary>
+    public const string CodigoParticular = "Particular";
+
+    public static ConvenioCadastro Particular() => new()
+    {
+        Codigo = CodigoParticular,
+        Nome = "Particular",
+        Familia = Convenio.Personalizado,
+        Ativo = true,
+        GeraGuia = false,
+        FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao
+    };
+
     /// <summary>Código único (chave). Para os embutidos, é o nome da família (ex.: "Amil").</summary>
     public string Codigo { get; set; } = string.Empty;
 

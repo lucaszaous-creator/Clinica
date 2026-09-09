@@ -98,11 +98,20 @@ public class RemarcacaoEmLoteTests : IDisposable
     }
 
     /// <summary>
-    /// A data de destino já ocupada é PULADA e volta dita, com o motivo. O resto do lote
-    /// segue: é isso que separa o botão do trabalho manual.
+    /// A data de destino já ocupada RECEBE a sessão empurrada (set/2026 — nenhum choque
+    /// recusa; ver <c>AgendaService.ConflitosAsync</c>). Este teste substituiu o
+    /// <c>Data_de_destino_ocupada_e_pulada_e_dita</c>, que provava o contrário.
+    ///
+    /// ⚠️ É a consequência mais forte da decisão, e ela está escrita aqui de propósito:
+    /// empurrar as trinta sessões de um congresso passou a empilhá-las sobre quem já
+    /// estiver na semana seguinte, sem pular nada e sem dizer nada. Numa clínica que
+    /// atende vários pacientes no mesmo horário — a razão de a recusa ter saído — isso é o
+    /// certo; numa que não atendesse, seria o lote desfazendo a agenda de outra pessoa.
+    /// A lista de <c>Recusados</c> continua no resultado e continua sendo mostrada: o que
+    /// cair nela daqui em diante é o que ainda recusa (a data sem profissional).
     /// </summary>
     [Fact]
-    public async Task Data_de_destino_ocupada_e_pulada_e_dita()
+    public async Task Data_de_destino_ocupada_RECEBE_a_sessao_empurrada()
     {
         var pacienteId = await CriarPacienteAsync();
         var outro = await CriarPacienteAsync("João");
@@ -119,11 +128,9 @@ public class RemarcacaoEmLoteTests : IDisposable
 
         var r = await _bloqueios.RemarcarEmLoteAsync(bloqueio.Bloqueio.Id, 7, "recepcao");
 
-        r.Remarcados.Should().ContainSingle("a segunda sessão cabe no destino");
-        r.Recusados.Should().ContainSingle("a primeira esbarra em horário ocupado");
-        r.TudoRemarcado.Should().BeFalse();
-        r.Recusados[0].Motivo.Should().NotBeNullOrWhiteSpace(
-            "a recepção precisa saber POR QUE aquela ficou para trás");
+        r.Remarcados.Should().HaveCount(2, "as duas cabem — o horário ocupado deixou de barrar");
+        r.Recusados.Should().BeEmpty();
+        r.TudoRemarcado.Should().BeTrue();
     }
 
     /// <summary>

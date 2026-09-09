@@ -109,7 +109,16 @@ public class AgendamentoEmSerieTests : IDisposable
     }
 
     [Fact]
-    public async Task Data_bloqueada_e_pulada_e_o_resto_da_serie_entra()
+    /// <summary>
+    /// A série MARCA a data que cai no feriado (set/2026 — nenhum choque recusa; ver
+    /// <c>AgendaService.ConflitosAsync</c>). Este teste substituiu o
+    /// <c>Data_bloqueada_e_pulada_e_o_resto_da_serie_entra</c>, que provava o contrário.
+    ///
+    /// O aviso continua LEGÍVEL para quem quiser lê-lo — a série não tem tela na Recepção
+    /// desde set/2026, e quem a chamasse de novo mostraria o feriado pelo mesmo
+    /// `ConflitosAsync` das duas telas de marcação.
+    /// </summary>
+    public async Task Data_bloqueada_ENTRA_na_serie_e_o_feriado_continua_legivel()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -122,11 +131,11 @@ public class AgendamentoEmSerieTests : IDisposable
             pacienteId, Primeira, ModalidadeAtendimento.AcupunturaComEletro, quantidade: 5,
             intervaloDias: 7, profissionalId: profissionalId);
 
-        serie.Marcados.Should().HaveCount(4);
-        serie.TudoMarcado.Should().BeFalse();
-        serie.Recusados.Should().ContainSingle();
-        serie.Recusados[0].Quando.Date.Should().Be(feriado);
-        serie.Recusados[0].Motivo.Should().Contain("Feriado");
+        serie.Marcados.Should().HaveCount(5, "o feriado avisa, não recusa");
+        serie.TudoMarcado.Should().BeTrue();
+
+        (await _agenda.ConflitosAsync(Primeira.AddDays(14), profissionalId: profissionalId))
+            .Should().Contain(c => c.Descricao.Contains("Feriado"));
     }
 
     [Fact]

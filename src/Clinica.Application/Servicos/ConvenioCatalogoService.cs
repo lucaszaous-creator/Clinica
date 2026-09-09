@@ -8,7 +8,7 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// Catálogo de convênios: lê/grava as entradas no banco e mantém o cache em memória
 /// (<see cref="CatalogoConvenios"/>) que serve nome/família de forma síncrona às telas.
-/// Garante que os quatro convênios embutidos sempre existam.
+/// Garante que os quatro convênios embutidos — e o PARTICULAR — sempre existam.
 /// </summary>
 public sealed class ConvenioCatalogoService
 {
@@ -39,6 +39,20 @@ public sealed class ConvenioCatalogoService
                     FormatoNumeroGuia = RegraNumeroGuia.PadraoDaFamilia(familia)
                 };
         }
+
+        // ===== O PARTICULAR É GARANTIDO, como os embutidos (set/2026) =====
+        //
+        // Ele não vem de migration nenhuma: até aqui, "particular" só existia se alguém
+        // criasse a linha à mão no app de FATURAMENTO, e por isso o fluxo do particular
+        // não tinha por onde começar (ver `ConvenioCadastro.Particular`). Garantido aqui,
+        // ele aparece em TODA porta que lista convênios — a janela que pergunta o convênio
+        // do paciente, a ficha, o cadastro do faturamento, o mapeamento da importação —
+        // em vez de só naquela em que alguém lembrasse de construí-lo.
+        //
+        // Só é acrescentado quando não existe: a clínica que já criou o dela (com outro
+        // nome, ou com o formato do número preenchido) continua com a linha dela.
+        if (!salvos.ContainsKey(ConvenioCadastro.CodigoParticular))
+            salvos[ConvenioCadastro.CodigoParticular] = ConvenioCadastro.Particular();
 
         return salvos.Values.OrderBy(c => c.Nome).ToList();
     }

@@ -75,7 +75,16 @@ public class BloqueioAgendaTests : IDisposable
     }
 
     [Fact]
-    public async Task Agenda_recusa_marcacao_dentro_do_bloqueio()
+    /// <summary>
+    /// A agenda FECHADA deixou de recusar em set/2026 (nenhum choque recusa), e o que fica
+    /// é o AVISO — com o motivo escrito, que é o que faz a recepcionista pensar duas
+    /// vezes. As duas metades são o teste: marca E o motivo continua legível.
+    ///
+    /// Este é o aviso que mais custa quando some, e por isso é o único que a tela desenha
+    /// em VERMELHO (<c>AvisosDeChoque.EhGrave</c>): os outros dizem que o horário está
+    /// disputado; este diz que não há ninguém na clínica para atender.
+    /// </summary>
+    public async Task Marcar_dentro_do_bloqueio_MARCA_e_avisa_com_o_motivo()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -83,16 +92,19 @@ public class BloqueioAgendaTests : IDisposable
         await _bloqueios.CriarAsync(
             Manha.Date, Manha.Date.AddDays(1), "Férias", profissionalId: profissionalId);
 
-        var marcar = () => _agenda.AgendarAsync(
+        var marcado = await _agenda.AgendarAsync(
             pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null,
             profissionalId: profissionalId);
 
-        await marcar.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Férias*");
+        marcado.Id.Should().BePositive();
+
+        var avisos = await _agenda.ConflitosAsync(Manha, profissionalId: profissionalId);
+        avisos.Should().Contain(c => c.Recurso == RecursoAgenda.Bloqueio && c.Descricao.Contains("Férias"));
+        AvisosDeChoque.Montar(avisos).Should().Contain(a => a.Grave && a.Texto.Contains("Férias"));
     }
 
     [Fact]
-    public async Task Encaixe_fura_o_bloqueio()
+    public async Task Encaixe_no_feriado_fica_REGISTRADO_como_encaixe()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -100,7 +112,8 @@ public class BloqueioAgendaTests : IDisposable
         await _bloqueios.CriarAsync(
             Manha.Date, Manha.Date.AddDays(1), "Feriado", profissionalId: profissionalId);
 
-        // Quem assume atender no feriado assume por escrito — e fica registrado.
+        // Não é mais "furar" nada — nada recusa. O encaixe é o registro de que a clínica
+        // assumiu atender fora do normal, e continua valendo por isso.
         var agendamento = await _agenda.AgendarAsync(
             pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null,
             profissionalId: profissionalId, encaixe: true);
@@ -116,11 +129,13 @@ public class BloqueioAgendaTests : IDisposable
         // Sem profissional e sem sala: feriado da clínica inteira.
         await _bloqueios.CriarAsync(Manha.Date, Manha.Date.AddDays(1), "Natal");
 
-        var marcar = () => _agenda.AgendarAsync(
+        await _agenda.AgendarAsync(
             pacienteId, Manha, ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
 
-        await marcar.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Natal*");
+        // O que se cobra é o ALCANCE: o feriado da clínica avisa mesmo para o profissional
+        // que não tem bloqueio nenhum no nome dele.
+        (await _agenda.ConflitosAsync(Manha, profissionalId: _profPadrao))
+            .Should().Contain(c => c.Recurso == RecursoAgenda.Bloqueio && c.Descricao.Contains("Natal"));
     }
 
     [Fact]
