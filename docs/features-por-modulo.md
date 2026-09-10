@@ -339,6 +339,7 @@ zero.**
 | Fechamento do período, **na suíte** | ✅ | `CentralDocumentosService.GerarFechamentoPeriodoAsync` |
 | Lista unificada do que já saiu (clínico + financeiro) | ✅ | `EmitidasAsync` · `DocumentosClinicosNoPeriodoAsync` |
 | Segunda via e cancelamento com motivo | ✅ | `DocumentosViewModel.Reimprimir` / `Cancelar` |
+| **Assinar com e-CPF · enviar ao paciente · renovar/tirar o link do ar** | ✅ set/2026 | `AcoesDoDocumento` (shell) — os SEIS atos numa definição só, chamada pela central, pela ficha do paciente e pelas Prescrições do Consultório. Eram três cópias, e a que faltava era sempre a da porta mais usada |
 | **Conferir o papel pelo código impresso** | ✅ | `DocumentoClinicoService.PorCodigoAsync` (parcela 25) |
 
 > **As nove existiam e nenhuma estava no mesmo lugar.** Quatro saíam de uma janela dentro
@@ -1108,7 +1109,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **GESTÃO** · Agenda → aba **Dia** (era o item "Fila do dia"; antes da parcela 95, "Recepção / Check-in") | Recepção | ✅ | `FilaView` em **LISTA** (set/2026): a agenda do dia com o status em cada linha, o desenho do Smart Clinic e do Meu dia. Os selos continuam **no máximo três**, por ordem fixa (`SelosDaFila`): o que impede (termo), o que cobra agora (guia, pacote no fim), o estado (atraso, encerrado). Confirmação é ✓ ao lado da hora; pacote N/M vai para a linha de contexto; encaixe é selo ao lado do nome |
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
-| **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
+| **ATENDIMENTO** · Documentos (era, em parte, "Prescrições") | Recepção | ✅ set/2026 | `DocumentosView` — a central passou a **assinar, enviar, renovar o link e tirar do ar**, que eram os únicos atos que só a tela "Prescrições / Receituário" tinha. Com isso ela saiu: eram TRÊS portas para o mesmo papel, cada uma com um pedaço do trabalho. A central ganhou o filtro **"Só deste paciente"**; a ficha do paciente mantém a aba Documentos, com os mesmos seis atos |
 | **PACIENTE** · Retorno de pacientes | Recepção | 🔵 | `RetornoView` (parcela 48) — o recall onde quem telefona trabalha |
 | **PACIENTE** · Convênio (senha/cota) | Recepção | 🔵 | aba na ficha + `AutorizacaoWindow` (parcela 48) |
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
@@ -1578,14 +1579,16 @@ enfermagem espalhada por GESTÃO e PACIENTE, INTELIGÊNCIA com um item só.
 | GESTÃO | **Enfermagem** | Sala de infusão · Passagens | `consultorio-enfermagem` |
 | GESTÃO | Ajuda e suporte | — | `ajuda` |
 | PACIENTE | **Pacientes** | Em tratamento · Registros e pendências · Exames | `pacientes` (a mesma da Recepção) |
-| PACIENTE | **Prescrições** | Receitas e documentos · Infusão | `receituario` (a mesma da Recepção) |
+| PACIENTE | **Prescrições** | Receitas e documentos · Infusão | `receituario` (era a mesma da Recepção; set/2026 a tela de lá saiu e a chave voltou a ser const do módulo) |
 | INTELIGÊNCIA | Meus números | — | `consultorio-meus-numeros` |
 
 Nenhuma tela sumiu e nenhuma chave de navegação mudou: a sub-tela continua sendo item, e
 `NavegacaoSuite.Ir` com a chave dela abre o pai na aba certa. "Pacientes" e "Prescrições"
 usam a **mesma chave** dos compostos da Recepção (subiram para `ChavesSuite`) para a dedupe
 do shell fundi-los no Gerente Geral em vez de mostrar dois itens homônimos — a duplicata da
-checagem 45. "Minha agenda" é "Minha" pela mesma razão: a Recepção publica "Agenda".
+checagem 45. *(Set/2026: a Recepção deixou de publicar "Prescrições" — a tela dela saiu, ver
+acima —, então essa chave voltou a ser const do `ModuloClinico`. "Pacientes" segue
+compartilhada.)* "Minha agenda" é "Minha" pela mesma razão: a Recepção publica "Agenda".
 
 O rail da tela do paciente passou a mostrar só a seção de escrita de quem está logado
 (§ em `docs/atendimento-medico-e-enfermagem.md`). As abas internas do atendimento (A sessão

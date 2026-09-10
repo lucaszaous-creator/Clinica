@@ -268,6 +268,60 @@ public class PacoteServiceTests : IDisposable
         saldos.Single(s => s.PacoteId == venceDepois.Id).SaldoSessoes.Should().Be(10);
     }
 
+    /// <summary>
+    /// A PRÉVIA aponta o MESMO pacote que a baixa automática debita (set/2026).
+    ///
+    /// A escolha ("o que vence primeiro") estava escrita à mão em DOIS lugares — o consumo
+    /// automático e a proposta do Finalizar —, cada um com um comentário dizendo que era "a
+    /// MESMA escolha". A prévia do Novo atendimento passou a ser a TERCEIRA leitura, e é a
+    /// que afirma ao balcão que a sessão NÃO vai ser cobrada porque debita do pacote:
+    /// apontar ali um pacote diferente do que o serviço debita muda o número que o paciente
+    /// paga. Agora a regra é uma só (<c>PacotePaciente.ADebitar</c>) e este teste compara as
+    /// DUAS pontas.
+    /// </summary>
+    [Fact]
+    public async Task A_previa_aponta_o_MESMO_pacote_que_a_baixa_automatica_debita()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var catalogo = await CriarNoCatalogoAsync();
+
+        var vencePrimeiro = await _pacotes.VenderAsync(pacienteId, catalogo.Id, Hoje.AddDays(-60));
+        await _pacotes.VenderAsync(pacienteId, catalogo.Id, Hoje);
+
+        // O que a tela PROMETE, antes de a sessão existir.
+        var prometido = await _pacotes.ADebitarAsync(pacienteId, Hoje);
+        prometido.Should().NotBeNull();
+        prometido!.PacoteId.Should().Be(vencePrimeiro.Id);
+
+        // ⚠️ Sem a situação de PAGAMENTO: quem pergunta "o que esta sessão debita" não
+        // pergunta se o pacote está pago, e nulo é "não conferido" — nunca "não pago".
+        prometido.ValorPago.Should().BeNull();
+        prometido.ValorAReceber.Should().BeNull();
+
+        // E o que o serviço FAZ.
+        var atendimentoId = await CriarAtendimentoAsync(pacienteId, Hoje);
+        var consumo = await _pacotes.ConsumirPorAtendimentoAsync(pacienteId, atendimentoId, Hoje);
+
+        consumo!.PacotePacienteId.Should().Be(prometido.PacoteId);
+    }
+
+    /// <summary>
+    /// Sem pacote utilizável a prévia não promete desconto nenhum: o particular é cobrado, e
+    /// é isso que a frase do balcão tem de dizer.
+    /// </summary>
+    [Fact]
+    public async Task Sem_pacote_utilizavel_a_previa_nao_aponta_nada()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var catalogo = await CriarNoCatalogoAsync();
+
+        // Vendido e ESGOTADO: o pacote existe e não cobre esta sessão.
+        var vendido = await _pacotes.VenderAsync(pacienteId, catalogo.Id, Hoje);
+        for (var i = 0; i < 10; i++) await _pacotes.ConsumirAsync(vendido.Id, Hoje);
+
+        (await _pacotes.ADebitarAsync(pacienteId, Hoje)).Should().BeNull();
+    }
+
     [Fact]
     public async Task Baixa_automatica_nao_debita_duas_vezes_o_mesmo_atendimento()
     {

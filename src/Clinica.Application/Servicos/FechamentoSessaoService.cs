@@ -453,19 +453,11 @@ public sealed class FechamentoSessaoService
     {
         try
         {
-            var pacotes = await _repo.PacotesDoPacienteAsync(pacienteId, ct);
-            var escolhido = pacotes
-                .Where(p => p.PodeConsumir(dia))
-                .OrderBy(p => p.ValidoAte ?? DateOnly.MaxValue)
-                .ThenBy(p => p.DataCompra)
-                .ThenBy(p => p.Id)
-                .Select(p => p.Id)
-                .FirstOrDefault();
-
-            if (escolhido == 0) return null;
-
-            var saldos = await _pacotes.DoPacienteAsync(pacienteId, dia, ct);
-            return saldos.FirstOrDefault(s => s.PacoteId == escolhido);
+            // A escolha e a leitura moram no PacoteService (set/2026): a regra estava
+            // copiada aqui, e a cópia ainda lia os pacotes DUAS vezes (as entidades para
+            // escolher, os saldos para descrever) — a proposta não usa a situação de
+            // pagamento do pacote, só o saldo de sessões.
+            return await _pacotes.ADebitarAsync(pacienteId, dia, ct);
         }
         catch (Exception ex)
         {

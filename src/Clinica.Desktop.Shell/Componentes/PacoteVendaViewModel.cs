@@ -138,12 +138,41 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _salvando;
 
+    /// <summary>
+    /// Não há pacote ATIVO no catálogo — não há o que vender. A janela diz qual é o primeiro
+    /// passo e oferece fazê-lo aqui, em vez de deixar a pessoa clicar em Vender para
+    /// descobrir que a lista está vazia.
+    /// </summary>
+    [ObservableProperty] private bool _catalogoVazio;
+
+    /// <summary>
+    /// Quem pode CADASTRAR no catálogo: o mesmo par do vender (set/2026 — a direção: *"o
+    /// ideal seria a recepção também cadastrar e editar preços"*). Sem o bit, a frase diz o
+    /// caminho e o botão não aparece — botão que só leva recusa é o defeito da parcela 41.
+    /// </summary>
+    public bool PodeMexerNoCatalogo => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
+
     public event Action? Concluido;
 
-    public PacoteVendaViewModel(IServiceScopeFactory escopos)
+    /// <param name="paciente">
+    /// O paciente JÁ ESCOLHIDO, quando a venda começa numa tela que já sabe quem é
+    /// (set/2026 — o "Vender pacote…" do Novo atendimento).
+    ///
+    /// ⚠️ Entra pelo <c>SelecionarGarantindoNaLista</c>: um <c>Selector</c> do WPF cujo
+    /// <c>SelectedItem</c> recebe item que não está no <c>ItemsSource</c> devolve NULL pelo
+    /// binding de volta — a escolha se limparia no mesmo instante em que é feita, sem erro
+    /// nenhum. O componente já tem esta porta; ela existe exatamente para isto.
+    ///
+    /// Nulo mantém o comportamento de sempre: a busca, para quem chegou pela tela Pacotes.
+    /// </param>
+    public PacoteVendaViewModel(IServiceScopeFactory escopos, Paciente? paciente = null)
     {
         _escopos = escopos;
         Seletor = new SeletorPacienteViewModel(escopos);
+
+        if (paciente is not null) Seletor.SelecionarGarantindoNaLista(paciente);
+
         _ = CarregarAsync();
     }
 
@@ -173,12 +202,57 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
                         : $"{p.Nome} — {p.Valor:C}",
                     Valor = p.Valor
                 });
+
+            // ⚠️ CATÁLOGO VAZIO é o estado de TODA instalação nova: nenhuma migration semeia
+            // pacote, e com razão — o que a clínica vende é decisão dela. O que faltava era
+            // a tela DIZER isso: a janela abria com o combo vazio, a pessoa clicava em
+            // Vender e levava "Escolha o pacote" sobre uma lista que não tem nada. É o mesmo
+            // defeito do particular que não existia (set/2026): comportamento pronto e
+            // testado que nenhum CADASTRO alcança, sem uma frase dizendo qual é o primeiro
+            // passo.
+            CatalogoVazio = Opcoes.Count == 0;
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — catálogo não pôde ser lido", ex);
             Erro(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Cadastra um pacote no catálogo SEM sair da venda — a porta que faltava quando a lista
+    /// está vazia.
+    ///
+    /// Abre a MESMA janela do catálogo da tela de Pacotes (não há um segundo formulário de
+    /// pacote: dois divergiriam na primeira correção) e recarrega o combo ao voltar.
+    /// </summary>
+    [RelayCommand]
+    private async Task CadastrarNoCatalogoAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.VenderPacote | Permissao.EditarFinanceiro, "mexer no catálogo de pacotes");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
+
+        var vm = new PacoteCatalogoEdicaoViewModel(_escopos);
+        var janela = new PacoteCatalogoWindow(vm) { Owner = JanelaDona.Atual() };
+
+        if (janela.ShowDialog() != true) return;
+
+        await CarregarAsync();
+
+        // O pacote que acabou de nascer é o único da lista: escolhê-lo poupa o clique que a
+        // pessoa viria dar de qualquer forma — e com mais de um, escolher seria adivinhar.
+        if (Opcoes.Count == 1) PacoteSelecionado = Opcoes[0];
+
+        Mensagem = "Pacote cadastrado no catálogo. Agora dá para vendê-lo.";
+        MensagemEhErro = false;
     }
 
     [RelayCommand]
@@ -209,7 +283,13 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
 
         if (PacoteSelecionado is not { } pacote)
         {
-            Erro("Escolha o pacote.");
+            // Catálogo vazio não é "escolha o pacote": é "não há pacote para escolher", e a
+            // saída é outra. Mandar escolher de uma lista vazia é o que faz a pessoa clicar
+            // no combo três vezes antes de desistir.
+            Erro(CatalogoVazio
+                ? "Não há pacote no catálogo para vender. Cadastre o primeiro — o botão está "
+                  + "aí em cima."
+                : "Escolha o pacote.");
             return;
         }
 

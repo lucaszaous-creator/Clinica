@@ -20,8 +20,16 @@ public partial class PacienteEdicaoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
-    /// <summary>Convênios ATIVOS do catálogo (código + nome + família).</summary>
-    public ObservableCollection<EntradaConvenio> Convenios { get; } = new();
+    /// <summary>
+    /// Convênios ATIVOS do catálogo, na ordem de <see cref="OpcoesDeConvenio"/> (set/2026):
+    /// as OPERADORAS primeiro, o PARTICULAR depois e o "a definir" por último.
+    ///
+    /// ⚠️ Era ordem alfabética, e nela "Particular" caía entre a Petrobras e a Unimed com o
+    /// mesmo peso — numa lista que é justamente onde se descobre que o particular existe.
+    /// A mesma ordem e a mesma frase do cadastro do balcão: a escolha é a mesma, e duas
+    /// regras para ela divergem na primeira correção (a lição da parcela 64).
+    /// </summary>
+    public ObservableCollection<OpcaoDeConvenio> Convenios { get; } = new();
 
     /// <summary>Modalidades ATIVAS do catálogo (código + nome + base).</summary>
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
@@ -37,11 +45,35 @@ public partial class PacienteEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _carteirinha;
     [ObservableProperty] private DateTime? _validadeCarteirinha;
 
-    /// <summary>Código do convênio selecionado (do catálogo). A família é derivada dele.</summary>
+    /// <summary>
+    /// Código do convênio selecionado (do catálogo). A família é derivada dele.
+    ///
+    /// ⚠️ O PADRÃO continua sendo a Unimed Intercâmbio, e isso é DECISÃO declarada, não
+    /// esquecimento: paciente cadastrado com ele gera guia, e se for particular a guia cai
+    /// na pendência e na rodada. O cadastro do BALCÃO — que é por onde o particular entra —
+    /// passou a nascer sem nada escolhido e a cobrar a resposta (set/2026); aqui o padrão
+    /// ficou porque a <c>Categoria</c> sugerida é DERIVADA do convênio (<c>SugerirCategoria</c>)
+    /// e, com ele nulo, <c>CatalogoConvenios.Familia(null)</c> cai na Unimed de qualquer
+    /// forma — a sugestão passaria a falar de um convênio que ninguém escolheu. O que este
+    /// app ganhou foi a metade que EXPLICA: a frase sob o campo diz o que a escolha atual
+    /// significa ("Gera guia para o faturamento"), que é o que faz o faturista perceber que
+    /// precisa trocar.
+    /// </summary>
     [ObservableProperty] private string? _convenioCodigo = Convenio.UnimedIntercambio.ToString();
 
     /// <summary>Família de regra do convênio selecionado (derivada do código).</summary>
     private Convenio _convenio = Convenio.UnimedIntercambio;
+
+    /// <summary>
+    /// O que a escolha do convênio SIGNIFICA, ao lado do campo — "Gera guia para o
+    /// faturamento." / "Sem guia: o paciente paga a sessão…".
+    ///
+    /// É a metade que explica: sem ela, um paciente particular cadastrado aqui sai com o
+    /// convênio padrão e as guias dele nascem para nunca serem faturadas.
+    /// </summary>
+    public string ExplicacaoDoConvenio
+        => Convenios.FirstOrDefault(c => c.Codigo == ConvenioCodigo)?.Explicacao
+           ?? "Escolha o convênio do paciente — ou \"Particular\", se ele paga do bolso.";
 
     [ObservableProperty] private bool _possuiApp;
     [ObservableProperty] private Sexo _sexo = Sexo.Feminino;
@@ -82,6 +114,7 @@ public partial class PacienteEdicaoViewModel : ObservableObject
     partial void OnConvenioCodigoChanged(string? value)
     {
         _convenio = CatalogoConvenios.Familia(value);
+        OnPropertyChanged(nameof(ExplicacaoDoConvenio));
         if (!_carregando) SugerirCategoria();
     }
     partial void OnPossuiAppChanged(bool value) { if (!_carregando) SugerirCategoria(); }
@@ -113,7 +146,7 @@ public partial class PacienteEdicaoViewModel : ObservableObject
         }
 
         Convenios.Clear();
-        foreach (var c in CatalogoConvenios.Ativos)
+        foreach (var c in OpcoesDeConvenio.Montar(CatalogoConvenios.Ativos, incluirADefinir: true))
             Convenios.Add(c);
         Modalidades.Clear();
         foreach (var m in CatalogoModalidades.Ativas)

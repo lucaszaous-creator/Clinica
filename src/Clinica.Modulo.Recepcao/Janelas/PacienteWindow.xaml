@@ -115,9 +115,19 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                <TextBlock Text="Convênio ou particular" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Convenios}" SelectedItem="{Binding Convenio}"
                           DisplayMemberPath="Nome" />
+
+                <!-- O que a escolha SIGNIFICA (set/2026). O combo não dizia nada, e
+                     "Particular" era um nome entre operadoras: a recepcionista que nunca
+                     lançou um particular não tinha como saber que aquela linha era a dela.
+                     Sem nada escolhido a frase é o CONVITE — o campo nasce vazio de
+                     propósito, porque o padrão alfabético marcava "A definir" na ficha de
+                     quem foi cadastrado hoje. -->
+                <TextBlock Text="{Binding ExplicacaoDoConvenio}"
+                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0" />
             </StackPanel>
 
             <StackPanel Grid.Column="2">

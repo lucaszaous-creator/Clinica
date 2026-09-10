@@ -44,7 +44,7 @@
     <li><a href="#cap-6"><em>Lançar e marcar</em><span>o atendimento entra no sistema e a guia nasce</span></a></li>
     <li><a href="#cap-7"><em>Fechar a sessão</em><span>pacote, material e o dinheiro do particular</span></a></li>
     <li><a href="#cap-8"><em>Pacientes</em><span>cadastro, ficha completa, convênio, LGPD</span></a></li>
-    <li><a href="#cap-9"><em>Prontuário, Receituário e Documentos</em><span>o que a recepção alcança, e o que não</span></a></li>
+    <li><a href="#cap-9"><em>Prontuário e Documentos</em><span>o que a recepção alcança, e o que não</span></a></li>
     <li><a href="#cap-10"><em>Pacotes e preços do particular</em><span>vender sessões e combinar valores</span></a></li>
     <li><a href="#cap-11"><em>Retorno de pacientes</em><span>chamar de volta quem parou de vir</span></a></li>
     <li><a href="#cap-12"><em>Profissionais e salas</em><span>quem atende, quando e onde</span></a></li>
@@ -716,11 +716,38 @@
     <li><b>Confira quem atendeu.</b> Se ficar em branco, a sessão não entra no repasse do profissional
       e não aparece na agenda dele — o sistema avisa isso ao lado do campo.</li>
     <li><b>Olhe a coluna da direita.</b> Ela desenha a guia que vai nascer. <b>Campo faltando aparece com
-      fundo colorido</b> — é o buraco que faria a guia voltar glosada semanas depois.</li>
+      fundo colorido</b> — é o buraco que faria a guia voltar glosada semanas depois.
+      Se o paciente for <b>particular</b>, o que aparece ali em cima é <b>O PAGAMENTO</b>, não a guia
+      (veja o quadro abaixo).</li>
     <li><b>Clique no botão azul grande.</b> Ele diz exatamente o que vai fazer: <i>“Lançar e gerar 2 guias”</i>.</li>
     <li><b>Leia a confirmação.</b> Ela diz quantas guias nasceram e quando a segunda libera.
       Para lançar o próximo paciente, clique em <b>Lançar outro</b>.</li>
   </ol>
+
+  <div class="nota">
+    <b>Quando o paciente é particular: a linha <span style="color:var(--accent)">O PAGAMENTO</span></b>
+    <p>Particular não tem guia, então a coluna da direita responde a outra pergunta —
+    <b>como esta sessão vai ser paga</b> —, e ela aparece <b>sem precisar abrir nada</b>. São três
+    respostas possíveis:</p>
+    <table class="botoes">
+      <thead><tr><th>O que a linha diz</th><th>O que isso significa</th></tr></thead>
+      <tbody>
+        <tr><td class="bt">Particular — R$ 180,00 (tabela do particular…)</td>
+          <td>O valor vem da <b>tabela de preço</b> (capítulo 10). O pagamento é registrado no
+          <b>Finalizar</b> da sessão, pelo profissional ou pelo balcão.</td></tr>
+        <tr><td class="bt">Particular — pacote “10 sessões” (7 de 10): esta sessão DEBITA do pacote</td>
+          <td>O paciente <b>já pagou</b> estas sessões. Não há nada a cobrar, e o Finalizar não vai
+          pedir dinheiro — ele desconta uma sessão do pacote.</td></tr>
+        <tr><td class="bt">Particular — sem preço cadastrado para esta modalidade</td>
+          <td>O sistema <b>não inventa valor</b>. Ou você cadastra o preço em
+          <b>Particular e pacotes › Preço da sessão</b>, ou combina o valor no Finalizar.</td></tr>
+      </tbody>
+    </table>
+    <p>Logo abaixo da linha aparece o botão <b>Vender pacote…</b> — ele só existe para o particular,
+    porque a conversa <i>“quer fechar um pacote de dez?”</i> nasce no instante em que você diz o preço da
+    sessão avulsa. O paciente já vai <b>escolhido</b> na janela: você não digita o nome de novo.
+    Vendido o pacote, <b>esta mesma sessão já debita dele</b> — a linha do pagamento muda na hora.</p>
+  </div>
 
   <div class="nota">
     <b>Quando o paciente já tem horário hoje</b>
@@ -744,6 +771,7 @@
       <tr><td class="bt">Trocar</td><td>Troca o paciente escolhido, voltando para a busca.</td></tr>
       <tr><td class="bt">Escolher convênio…</td><td>Aparece quando a ficha está sem convênio (“A definir”). Abre a janela para escolher o convênio e a carteirinha, e já atualiza a ficha.</td></tr>
       <tr><td class="bt">Receber…</td><td>Aparece quando o paciente tem conta em aberto. Abre a cobrança para receber ali mesmo, no balcão.</td></tr>
+      <tr><td class="bt">Vender pacote…</td><td>Aparece quando o paciente é <b>particular</b>, ao lado do preço da sessão. Vende um pacote de sessões com ele <b>já escolhido</b>; a sessão que você está lançando passa a debitar do pacote.</td></tr>
       <tr><td class="bt">Capa inicial (PDF)</td><td>Imprime a capa do atendimento.</td></tr>
       <tr><td class="bt">Próximas vagas…</td><td>Mostra os próximos horários livres daquele profissional — útil quando o paciente pergunta “quando eu volto?”.</td></tr>
       <tr><td class="bt">Ver a guia</td><td>Abre o desenho da guia em tamanho maior.</td></tr>
@@ -945,8 +973,11 @@
   <ol class="passos">
     <li>Clique em <b>Novo paciente</b>.</li>
     <li>Preencha <b>Nome</b> (o único realmente obrigatório), <b>CPF</b>, <b>telefone</b> e <b>nascimento</b>.</li>
-    <li><b>Convênio</b> e <b>carteirinha</b>: escolha o convênio da lista e informe o número e a validade da
-      carteirinha. Se ele é particular, escolha o convênio “Particular”.</li>
+    <li><b>Convênio ou particular</b> e <b>carteirinha</b>: o campo <b>nasce em branco</b> e o sistema não
+      salva sem resposta — a pergunta é feita com o paciente na frente, que é o único momento em que ela é
+      respondível. A lista traz primeiro as <b>operadoras</b>, depois <b>Particular</b> (quem paga do bolso)
+      e por último <b>A definir</b>. Abaixo do campo, uma linha diz o que a escolha significa: “gera guia
+      para o faturamento” ou “sem guia: o paciente paga a sessão”.</li>
     <li><b>Endereço residencial</b>: importante para quem vai receber <b>receita</b> — a lei exige o endereço
       na receita para a farmácia poder aviá-la.</li>
     <li><b>Como conheceu a clínica</b> e <b>Quem indicou</b>: é a pergunta que a direção usa para saber de onde
@@ -1011,7 +1042,7 @@
 <!-- ==================== 9. PRONTUÁRIO, RECEITUÁRIO E DOCUMENTOS ==================== -->
 <section class="cap" id="cap-9">
   <div class="cap-num">Capítulo 9<a class="voltar" href="#sumario">sumário</a></div>
-  <h1 class="cap-titulo">Prontuário, Receituário e Documentos</h1>
+  <h1 class="cap-titulo">Prontuário e Documentos</h1>
   <div class="cap-linha"></div>
   <p class="cap-intro">Três telas que lidam com papel e com registro clínico. O que você alcança em cada
   uma depende do seu acesso — e isso é decisão da direção, não defeito do sistema.</p>
@@ -1045,39 +1076,49 @@
     o que foi escrito e quando.</p>
   </div>
 
-  <h2>9.2 · Prescrições / Receituário</h2>
-  <p><span class="caminho">Menu <b>ATENDIMENTO › Prescrições</b> › aba <b>Receituário</b></span></p>
-  <p>Lista os documentos clínicos já emitidos para um paciente (receita, atestado, comparecimento, pedido de
-  exame) e permite emitir outro. <b>Quem assina receita e atestado é o profissional</b> — a recepção
-  costuma usar esta tela para tirar <b>2ª via</b> e para <b>enviar</b> o documento ao paciente.</p>
-  <table class="botoes">
-    <thead><tr><th>Botão</th><th>O que faz</th></tr></thead>
-    <tbody>
-      <tr><td class="bt">Emitir documento</td><td>Abre a janela para escrever e imprimir uma folha nova.</td></tr>
-      <tr><td class="bt">2ª via</td><td>Reimprime <b>exatamente</b> a folha que o paciente levou — não é gerada de novo, é a mesma.</td></tr>
-      <tr><td class="bt">Assinar</td><td>Assinatura digital ICP-Brasil (com o certificado do profissional). Só quem prescreve.</td></tr>
-      <tr><td class="bt">Enviar</td><td>Manda o documento ao paciente.</td></tr>
-      <tr><td class="bt">Cancelar</td><td>Cancela o documento com motivo. A folha continua na lista, marcada como cancelada.</td></tr>
-    </tbody>
-  </table>
-
-  <h2>9.3 · Documentos — a central</h2>
+  <h2>9.2 · Documentos — a central, e o único lugar de emitir papel</h2>
   <p><span class="caminho">Menu <b>PACIENTE › Documentos</b></span></p>
   <p>Todas as folhas que a clínica entrega, num lugar só, em duas abas: <b>Emitir</b> e <b>O que já saiu</b>.</p>
+
+  <div class="atencao">
+    <b>A tela “Prescrições / Receituário” saiu</b>
+    <p>A recepção tinha <b>três</b> lugares para papel — esta central, a aba Documentos da ficha e a tela
+    “Receituário” — e cada uma fazia um pedaço diferente do trabalho: a central emitia e não assinava; o
+    Receituário assinava e não mexia no link publicado. Agora <b>a central faz tudo</b>, e a ficha do
+    paciente continua tendo a lista dele. Nada foi perdido: os mesmos botões estão aqui.</p>
+  </div>
+
   <ol class="passos">
-    <li>Na aba <b>Emitir</b>, escolha o <b>paciente</b> na coluna da esquerda.</li>
+    <li>Na aba <b>Emitir</b>, escolha o <b>paciente</b> — pela busca, ou clicando em quem tem horário hoje.</li>
     <li>Cada folha vira um cartão. O cartão diz <b>o que falta</b> quando não dá para emitir (“escolha o
       paciente”, “precisa de um profissional que assine”) — em vez de deixar você descobrir errando.</li>
     <li>Clique no cartão da folha desejada.</li>
-    <li>Na aba <b>O que já saiu</b>, escolha o período e ache a folha para tirar <b>2ª via</b>. Também há a
-      busca <b>Conferir pelo código</b>: digite o código impresso no rodapé do papel e o sistema mostra
-      qual documento é aquele.</li>
+    <li>Na aba <b>O que já saiu</b>, escolha o período e ache a folha. Com um paciente escolhido, o chip
+      <b>“Só deste paciente”</b> recorta a lista para ele — é a resposta a “quais papéis ele já levou?”.
+      Também há a busca <b>Conferir pelo código</b>: digite o código impresso no rodapé do papel e o sistema
+      mostra qual documento é aquele.</li>
   </ol>
-  <p class="suave">Os cartões que o seu acesso não alcança <b>não aparecem</b> — em vez de aparecerem
-  apagados, porque um cartão apagado escrito “Relatório de evolução — Fulano” já estaria contando algo
-  que você não deveria ver.</p>
 
-  <h2>9.4 · Colher a assinatura do paciente num termo</h2>
+  <p>Cada folha da lista tem <b>uma ação à vista</b> — <b>Assinar</b>, quando falta assinatura, e
+  <b>2ª via</b> no resto — e o botão <b>“⋯”</b> com as outras:</p>
+  <table class="botoes">
+    <thead><tr><th>Ação</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Imprimir a 2ª via</td><td>Reimprime <b>exatamente</b> a folha que o paciente levou — não é gerada de novo, é a mesma.</td></tr>
+      <tr><td class="bt">Assinar com o e-CPF…</td><td>Assinatura digital ICP-Brasil, com o certificado de quem assina. É o <b>arquivo</b> que vale: a via impressa de um documento assinado é cópia.</td></tr>
+      <tr><td class="bt">Enviar ao paciente…</td><td>Manda o <b>arquivo assinado</b> pelo WhatsApp. Só aparece depois de assinado — sem assinatura, o que vale é o papel com a caneta.</td></tr>
+      <tr><td class="bt">Renovar o link</td><td>Põe de volta no ar o link vencido, com o <b>mesmo endereço</b>: o QR que o paciente já tem impresso volta a funcionar.</td></tr>
+      <tr><td class="bt">Tirar do ar</td><td>O QR para de abrir na hora. O documento continua guardado e o link pode voltar depois.</td></tr>
+      <tr><td class="bt">Cancelar o documento…</td><td>Cancela com motivo. A folha continua na lista, marcada como cancelada.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="suave">Os cartões e as ações que o seu acesso não alcança <b>não aparecem</b> — em vez de
+  aparecerem apagados, porque um cartão apagado escrito “Relatório de evolução — Fulano” já estaria contando
+  algo que você não deveria ver. <b>Quem assina receita e atestado é o profissional</b>; a recepção emite a
+  declaração de comparecimento, colhe termos e tira 2ª via.</p>
+
+  <h2>9.3 · Colher a assinatura do paciente num termo</h2>
   <p>Alguns procedimentos (o BSV, por exemplo) exigem termo assinado. O sistema tem três caminhos, e todos
   chegam na mesma janela:</p>
   <ul>
@@ -1106,16 +1147,35 @@
   <p class="cap-intro">Duas telas do dinheiro que ficam no balcão porque é aqui que se combina preço com o
   paciente: o <b>pacote de sessões</b> que ele compra e a <b>tabela de preço</b> do particular.</p>
 
+  <div class="nota">
+    <b>As duas telas ficam no mesmo item do menu</b>
+    <p>Elas eram dois itens soltos no grupo PACIENTE, separados por outros — quem procurava
+    “particular” achava um item que fala de <b>preço</b> e nenhum que fale de <b>vender</b>. Hoje são as
+    duas abas de <b>PACIENTE › Particular e pacotes</b>: <b>Pacotes</b> e <b>Preço da sessão</b>.</p>
+  </div>
+
   <h2>10.1 · Pacotes, planos e vouchers</h2>
-  <p><span class="caminho">Menu <b>PACIENTE › Pacotes</b></span></p>
+  <p><span class="caminho">Menu <b>PACIENTE › Particular e pacotes › aba Pacotes</b></span></p>
   <p>Pacote é uma <b>venda da clínica</b>: “dez sessões por tal valor”. Não confunda com a
   <b>autorização do convênio</b> — as duas contam sessões e não têm nada a ver uma com a outra.
   A cota do convênio evita glosa; o pacote evita atender de graça.</p>
 
-  <h3>Vender um pacote</h3>
+  <h3>Vender um pacote — por aqui, ou no lançamento</h3>
+  <p>São <b>duas portas para a mesma janela</b>, e a diferença é só quem já está escolhido:</p>
+  <table class="botoes">
+    <thead><tr><th>De onde você vende</th><th>Quando usar</th></tr></thead>
+    <tbody>
+      <tr><td class="bt">Aqui, no botão <b>Vender pacote…</b></td>
+        <td>Você vai vender e <b>escolhe o paciente</b> na própria janela. É a porta de quem veio só
+        comprar, ou de quem ligou.</td></tr>
+      <tr><td class="bt">No <b>Lançar e marcar</b>, ao lado do preço da sessão</td>
+        <td><b>O paciente está na sua frente</b> e acabou de ver quanto custa a sessão avulsa. O paciente
+        já vai escolhido, e a sessão que você está lançando <b>passa a debitar do pacote</b>.</td></tr>
+    </tbody>
+  </table>
   <ol class="passos">
     <li>Clique em <b>Vender pacote…</b></li>
-    <li>Escolha o <b>paciente</b> e o <b>pacote</b> do catálogo. Nome, sessões, valor e validade vêm
+    <li>Escolha o <b>paciente</b> (se ele já não vier escolhido) e o <b>pacote</b> do catálogo. Nome, sessões, valor e validade vêm
       preenchidos — e ficam <b>copiados na venda</b>: mudar o preço de tabela amanhã não muda o que este
       paciente comprou hoje.</li>
     <li>Informe <b>como o paciente paga</b>:
@@ -1139,14 +1199,24 @@
       <tr><td class="bt">Só ativos</td><td>Esconde os pacotes vencidos e esgotados.</td></tr>
     </tbody>
   </table>
+  <div class="atencao">
+    <b>Na primeira venda o catálogo está vazio — e é assim mesmo</b>
+    <p>O sistema <b>não vem com pacote nenhum cadastrado</b>: o que a clínica vende é decisão dela. Então
+    na primeira vez a janela de venda abre dizendo que <b>não há pacote no catálogo</b>, com o botão
+    <b>Cadastrar um pacote…</b> ali mesmo — você cadastra (nome, quantas sessões, valor, validade em
+    dias) e continua a venda <b>sem sair da janela</b>.</p>
+    <p>Cadastrado uma vez, ele fica à venda para todos os pacientes. A lista só volta a aparecer vazia se
+    alguém excluir tudo.</p>
+  </div>
+
   <div class="nota">
     <b>A situação do pacote é calculada, não digitada</b>
     <p>“Ativo”, “vencido”, “esgotado” são resultado da conta entre as sessões usadas e a validade. Não
     existe um campo para você marcar — se existisse, ele viraria mentira à meia-noite do vencimento.</p>
   </div>
 
-  <h2>10.2 · Preços do particular</h2>
-  <p><span class="caminho">Menu <b>PACIENTE › Preços do particular</b></span></p>
+  <h2>10.2 · Preço da sessão do particular</h2>
+  <p><span class="caminho">Menu <b>PACIENTE › Particular e pacotes › aba Preço da sessão</b></span></p>
   <p>É a tabela que faz o sistema <b>propor</b> o valor da sessão quando o paciente é particular — no
   fechamento da sessão e na conferência do Financeiro.</p>
   <ol class="passos">

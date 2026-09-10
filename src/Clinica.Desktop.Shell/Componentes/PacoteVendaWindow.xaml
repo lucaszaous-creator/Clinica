@@ -8,6 +8,7 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <DockPanel Margin="24">
@@ -23,8 +24,24 @@
                     IsDefault="True" MinWidth="140" />
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- ⚠️ Quem decide se APARECE é o TEXTO; quem decide a COR é a gravidade. Amarrada a
+             `MensagemEhErro`, esta caixa escondia junto toda mensagem de ÊXITO — e a janela
+             passou a ter uma ("pacote cadastrado no catálogo"). É o defeito que as parcelas
+             62, 64 e 69 corrigiram em mais de vinte telas; ele volta na tela N+1 sempre que
+             só as telas são corrigidas. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
@@ -38,8 +55,47 @@
 
             <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
                 <TextBlock Text="Pacote" Style="{StaticResource Rotulo}" />
+
+                <!-- ============ CATÁLOGO VAZIO ============
+                     É o estado de TODA instalação nova: nenhuma migration semeia pacote, e
+                     com razão — o que a clínica vende é decisão dela. O que faltava era a
+                     tela DIZER isso: o combo abria vazio e o clique em Vender respondia
+                     "Escolha o pacote" sobre uma lista que não tem nada.
+
+                     Mesmo defeito do particular que não existia: comportamento pronto e
+                     testado que nenhum CADASTRO alcança. A região SOME quando há catálogo. -->
+                <Border Style="{StaticResource AlertaAviso}" Margin="0,6,0,6"
+                        Visibility="{Binding CatalogoVazio,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="Nenhum pacote à venda no catálogo — é o primeiro passo. O catálogo é o que a clínica oferece (&quot;10 sessões&quot;, &quot;mensal&quot;) e quanto custa; a venda copia o preço dele, então reajustar depois não muda o que já foi vendido." />
+                        <Button Content="Cadastrar um pacote no catálogo…" MinHeight="36"
+                                HorizontalAlignment="Left" Margin="0,8,0,0"
+                                Style="{StaticResource BotaoSecundario}"
+                                Visibility="{Binding PodeMexerNoCatalogo,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding CadastrarNoCatalogoCommand}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ⚠️ A inversão é DataTrigger, nunca o conversor: o
+                     `BooleanToVisibilityConverter` do WPF mapeia true→Visible, e ligá-lo a
+                     `CatalogoVazio` mostraria o combo EXATAMENTE quando não há nada nele
+                     (o `ConverterParameter=Inverso` que a parcela 95 já tentou — ele é
+                     ignorado). Combo vazio debaixo do aviso é o campo que não faz nada. -->
                 <ComboBox ItemsSource="{Binding Opcoes}" SelectedItem="{Binding PacoteSelecionado}"
-                          DisplayMemberPath="Rotulo" />
+                          DisplayMemberPath="Rotulo">
+                    <ComboBox.Style>
+                        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CatalogoVazio}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ComboBox.Style>
+                </ComboBox>
 
                 <Grid Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>

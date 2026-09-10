@@ -201,7 +201,17 @@ public sealed class ModuloClinico : IModuloApp
     /// composto da Recepção, pela razão do de cima; lá as abas são "Receituário · No
     /// consultório · Infusão", que contêm as duas daqui.
     /// </summary>
-    public const string ChaveGrupoPrescricoes = ChavesSuite.GrupoPrescricoes;
+    /// <summary>
+    /// O composto "Prescrições" do Consultório.
+    ///
+    /// ⚠️ A chave morava em <c>ChavesSuite</c> porque a RECEPÇÃO publicava um composto com o
+    /// mesmo rótulo, e a dedupe do shell só funde por CHAVE (a duplicata da checagem 45).
+    /// Set/2026 aposentou a tela "Prescrições / Receituário" da Recepção — a central de
+    /// documentos passou a fazer tudo o que ela fazia —, e daí em diante só este módulo a
+    /// publica. Chave que um módulo só usa não é contrato de ninguém e volta a ser const
+    /// dele; o VALOR fica como estava, porque ele é o endereço de navegação.
+    /// </summary>
+    public const string ChaveGrupoPrescricoes = "receituario";
 
     public string Nome => "Consultório";
 

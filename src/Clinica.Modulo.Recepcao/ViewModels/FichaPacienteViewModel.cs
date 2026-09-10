@@ -200,22 +200,29 @@ public sealed class LinhaTermo
     };
 }
 
-/// <summary>Um documento clínico emitido, na lista da ficha.</summary>
+/// <summary>
+/// Um documento clínico emitido, na lista da ficha.
+///
+/// ⚠️ O DOCUMENTO é <see cref="DocumentoNaTela"/> e a linha o CARREGA (set/2026): número,
+/// tipo, cancelado, assinado, link e as duas permissões moram lá, e os seis atos
+/// (<see cref="AcoesDoDocumento"/>) leem dali. Eram quatro telas resolvendo isso cada uma do
+/// seu jeito, com um subconjunto diferente dos atos em cada uma.
+/// </summary>
 public sealed class LinhaDocumento
 {
-    public required int DocumentoId { get; init; }
+    /// <summary>O documento, como os atos do shell o consultam.</summary>
+    public required DocumentoNaTela Documento { get; init; }
 
-    /// <summary>Dono do documento — a entrega precisa do telefone dele.</summary>
-    public required int PacienteId { get; init; }
-    public required string Numero { get; init; }
-    public required string Tipo { get; init; }
+    public int DocumentoId => Documento.DocumentoId;
+    public string Numero => Documento.Numero;
+    public string Tipo => Documento.Rotulo;
+    public bool Cancelado => Documento.Cancelado;
+    public bool Assinado => Documento.Assinado;
+
     public required string Data { get; init; }
     public required string Profissional { get; init; }
     public required string Codigo { get; init; }
-    public required bool Cancelado { get; init; }
-    public required bool Assinado { get; init; }
     public required string Situacao { get; init; }
-
 
     /// <summary>
     /// A SESSÃO a que este documento pertence (set/2026) — "Sessão de 08/09/2026, 09h00 ·
@@ -224,78 +231,30 @@ public sealed class LinhaDocumento
     /// </summary>
     public string? Sessao { get; init; }
 
-    /// <summary>Nome sugerido ao salvar o PDF.</summary>
-    public string NomeArquivo => $"{Tipo}-{Numero.Replace('/', '-')}.pdf";
-
     /// <summary>
-    /// Nome do arquivo entregue ao paciente — o mesmo sufixo que o serviço de assinatura
-    /// grava, para a pasta de entregas não guardar duas versões do mesmo número.
+    /// Estado do LINK público, em palavras ("link no ar até 09/10", "link vencido — dá para
+    /// renovar"). Vazio em documento que nunca foi publicado, e aí a linha some.
     /// </summary>
-    public string NomeArquivoAssinado => $"{Tipo}-{Numero.Replace('/', '-')}-assinado.pdf";
+    public required string Link { get; init; }
 
-    /// <summary>
-    /// O acesso que ESTE papel exige para ser visto (parcela 59).
-    ///
-    /// Receita, atestado, pedido de exame, relatório de evolução e anamnese pedem
-    /// <c>VerProntuario</c>; declaração de comparecimento e termo de consentimento pedem
-    /// só a ficha. Quem decide é o CATÁLOGO, para as três telas que listam documento
-    /// clínico não terem três respostas para a mesma pergunta.
-    /// </summary>
-    public required Permissao AcessoParaVer { get; init; }
+    // ===== A metade VISÍVEL dos atos: uma resolução só, no documento =====
+    public bool PodeCancelar => Documento.OferecerCancelar;
+    public bool PodeAssinar => Documento.OferecerAssinar;
+    public bool PodeEnviar => Documento.OferecerEnviar;
+    public bool PodeRenovarLink => Documento.OferecerRenovarLink;
+    public bool PodeTirarDoAr => Documento.OferecerTirarDoAr;
 
-    /// <summary>O acesso para cancelar ou assinar este papel.</summary>
-    public required Permissao AcessoParaMexer { get; init; }
-
-    /// <summary>
-    /// Cancelar duas vezes não existe — o botão desliga depois do primeiro. E cancelar
-    /// uma receita é ato de quem prescreve: é a metade VISÍVEL do acesso; a que impede é
-    /// o <c>Exigir</c> no comando.
-    /// </summary>
-    public bool PodeCancelar => !Cancelado && SessaoUsuario.Atual.Pode(AcessoParaMexer);
-
-    /// <summary>
-    /// Assinar depois existe porque emissão e assinatura nem sempre acontecem no mesmo
-    /// minuto. Assinado não se reassina (dois arquivos válidos do mesmo ato, e nada
-    /// diria qual o paciente levou) e cancelado não se assina. Compõe com o acesso
-    /// (parcela 61), como o <see cref="PodeCancelar"/> logo acima: sem o bit o botão
-    /// ficava aceso e o clique estourava no Exigir.
-    /// </summary>
-    public bool PodeAssinar => !Cancelado && !Assinado
-        && SessaoUsuario.Atual.Pode(AcessoParaMexer);
-
-    /// <summary>
-    /// Só documento ASSINADO se entrega como arquivo. Mandar um PDF sem assinatura pelo
-    /// WhatsApp entrega ao paciente algo que a farmácia não tem como conferir — e ele só
-    /// descobre no balcão. Sem assinatura, o que vale é a via impressa, assinada à caneta.
-    /// </summary>
-    /// <summary>
-    /// ⚠️ Compõe com o ACESSO, como <see cref="PodeCancelar"/> e <see cref="PodeAssinar"/>
-    /// ao lado. Era estado puro, e a enfermeira — que tem `VerProntuario` e não tem
-    /// `Prescrever` — via a receita na lista (o filtro por folha a deixa passar) com o
-    /// botão "Enviar" ACESO: um clique mandava a receita assinada pelo WhatsApp.
-    /// </summary>
-    public bool PodeEnviar => Assinado && !Cancelado
-        && SessaoUsuario.Atual.Pode(AcessoParaMexer);
-
-    /// <summary>
-    /// Mesma razão do <see cref="LinhaEvolucao.De"/>: a ficha e a tela de Prescrições
-    /// listam o mesmo documento, e a situação ("Cancelado em…") não pode ser escrita
-    /// duas vezes em lugares diferentes.
-    /// </summary>
     public static LinhaDocumento De(DocumentoClinico d) => new()
     {
-        DocumentoId = d.Id,
-        PacienteId = d.PacienteId,
-        Numero = d.Numero,
-        Tipo = TipoDocumentoInfo.Rotular(d.Tipo),
+        Documento = DocumentoNaTela.De(d),
         Data = d.Data.ToString("dd/MM/yyyy"),
         Profissional = d.Profissional?.Rotulo ?? "—",
         Codigo = d.CodigoVerificacao,
-        Cancelado = d.Cancelado,
-        Assinado = d.AssinadoEletronicamente,
-        AcessoParaVer = CentralDocumentosService.AcessoParaVer(d.Tipo),
-        AcessoParaMexer = CentralDocumentosService.AcessoParaEmitir(d.Tipo),
         Sessao = ProcedenciaDaSessao.Descrever(d.Agendamento),
+        Link = string.IsNullOrWhiteSpace(d.TokenPublicacao) ? string.Empty
+            : d.LinkNoAr(DateOnly.FromDateTime(DateTime.Today))
+                ? $"link no ar até {d.PublicadoAte:dd/MM/yyyy}"
+                : "link vencido — dá para renovar",
         Situacao = d.Cancelado
             ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
             : d.AssinadoEletronicamente
@@ -1316,7 +1275,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         foreach (var d in doPaciente)
         {
             var linha = LinhaDocumento.De(d);
-            if (SessaoUsuario.Atual.Pode(linha.AcessoParaVer)) Documentos.Add(linha);
+            if (SessaoUsuario.Atual.Pode(linha.Documento.AcessoParaVer)) Documentos.Add(linha);
         }
 
         // O termo LGPD sai da mesma leitura, mas precisa de UMA pergunta a mais: quais
@@ -1811,10 +1770,14 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             }
 
             await CarregarAsync();
-            await ImprimirAsync(
-                emitido.Id,
-                $"{TipoDocumentoInfo.Rotular(tipo)}-{emitido.Numero.Replace('/', '-')}.pdf",
-                emitido.Numero);
+
+            // Pelo DOCUMENTO recém-emitido, e não pela linha da lista: a folha pode não
+            // estar na coleção ainda, e a impressão não aconteceria — em silêncio, depois
+            // de o número ter sido gasto.
+            var impressao = await AcoesDoDocumento.ImprimirAsync(
+                DocumentoNaTela.De(emitido), _escopos);
+            Mensagem = impressao.Inline ?? string.Empty;
+            MensagemEhErro = impressao.EhErro;
         }
         catch (Exception ex)
         {
@@ -1825,237 +1788,92 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         }
     }
 
+    // ==================== Os SEIS atos do documento: no shell ====================
+    //
+    // Imprimir, assinar, enviar, renovar o link, tirar do ar e cancelar moram em
+    // <see cref="AcoesDoDocumento"/> desde set/2026. Eram quatro cópias em quatro telas, e
+    // esta tinha QUATRO dos seis atos: o link publicado só se mexia na central — e a
+    // pergunta "o link da receita venceu" chega no balcão, com o paciente ligando.
+    //
+    // ⚠️ O comentário que estava aqui dizia que os comandos eram "os MESMOS da tela irmã …
+    // duas versões divergiriam na primeira correção". Eram duas versões. Comentário que
+    // afirma que duas cópias são a mesma coisa é a segunda definição se anunciando.
+
+    /// <summary>
+    /// Escreve o que o ato respondeu e relê a lista quando o documento mudou de estado.
+    /// Roteiro, não regra: o que dizer e o que impede mora no ato.
+    /// </summary>
+    private async Task AplicarNoDocumentoAsync(ResultadoAcaoDocumento r)
+    {
+        if (!r.Silencioso)
+        {
+            Mensagem = r.Inline ?? string.Empty;
+            MensagemEhErro = r.EhErro;
+        }
+
+        if (r.Mudou) await CarregarAsync();
+    }
+
     /// <summary>Segunda via: reimprime exatamente o que foi emitido.</summary>
     [RelayCommand]
     private async Task ImprimirDocumentoAsync(LinhaDocumento? linha)
     {
         if (linha is null) return;
-        await ImprimirAsync(linha.DocumentoId, linha.NomeArquivo, linha.Numero);
-    }
-
-    private async Task ImprimirAsync(int documentoId, string nomeArquivo, string numero)
-    {
-        try
-        {
-            byte[] pdf;
-            using (var scope = _escopos.CreateScope())
-            {
-                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
-                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
-                pdf = await pdfs.GerarAsync(documentoId, await parametros.ObterPrestadorAsync());
-            }
-
-            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
-
-            if (erro is null)
-            {
-                Mensagem = string.Empty;
-                MensagemEhErro = false;
-                return;
-            }
-
-            Mensagem = erro;
-            MensagemEhErro = true;
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — documento clínico não pôde ser impresso", ex);
-            Mensagem = $"O documento {numero} está emitido, mas o PDF não pôde ser gerado: {ex.Message}";
-            MensagemEhErro = true;
-        }
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.ImprimirAsync(linha.Documento, _escopos));
     }
 
     /// <summary>
-    /// Cancela um documento. Ele NÃO some da lista: a via que o paciente levou continua
-    /// no mundo, e o registro é o que prova que ela não vale mais.
-    /// </summary>
-    /// <summary>
-    /// ASSINAR e ENVIAR o documento, na ficha (parcela 72).
-    ///
-    /// ⚠️ <c>LinhaDocumento.PodeAssinar</c> e <c>PodeEnviar</c> eram calculados aqui e
-    /// NUNCA lidos: a ficha imprimia e cancelava, e a tela irmã do MESMO módulo
-    /// (<c>PrescricoesView</c>) tinha os quatro botões. Sem assinatura o arquivo não vale
-    /// (art. 13 da Lei 14.063/2020, para o atestado; art. 14 para receita e pedido), e a
-    /// porta incompleta é a que fica aberta com o paciente na frente — ele sai com o papel
-    /// e o PDF assinado fica no computador da clínica.
-    ///
-    /// Os dois comandos são os MESMOS da tela irmã, e é de propósito: duas versões da
-    /// assinatura divergiriam na primeira correção, e a que ninguém lembraria de ajustar é
-    /// a que produz o arquivo com valor jurídico.
+    /// Assina o documento com o e-CPF. Sem assinatura o arquivo não vale (art. 13 da Lei
+    /// 14.063/2020 para o atestado; art. 14 para receita e pedido de exame) — e a porta
+    /// incompleta é a que fica aberta com o paciente na frente: ele sai com o papel e o PDF
+    /// assinado fica no computador da clínica.
     /// </summary>
     [RelayCommand]
     private async Task AssinarDocumentoAsync(LinhaDocumento? linha)
     {
         if (linha is null) return;
-
-        // Guarda de ESTADO: diz por que não dá, em vez de voltar calada.
-        if (!linha.PodeAssinar)
-        {
-            Mensagem = linha.Cancelado
-                ? $"O documento {linha.Numero} está cancelado e não pode ser assinado."
-                : $"O documento {linha.Numero} já foi assinado digitalmente.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        try
-        {
-            // ⚠️ O bit do TIPO que está na linha, não o da porta (a regra da parcela 60).
-            // Com `Prescrever` fixo, as duas barreiras DISCORDAVAM sobre que ato é aquele:
-            // o botão acende por `AcessoParaMexer` — que é `EditarPaciente` na declaração
-            // de comparecimento, `VerProntuario` no relatório de evolução e
-            // `ColherAssinaturaPaciente` no termo —, e o comando exigia `Prescrever`. Em
-            // quatro dos oito tipos isso é o corredor sem saída da parcela 69: a pessoa
-            // atravessa a porta, faz o trabalho e leva a recusa no fim. E havia a fuga
-            // oposta: quem tem `Prescrever` e não tem o bit do tipo passava direto — a
-            // segunda barreira mais FROUXA que a primeira.
-            SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "assinar documento clínico");
-
-            var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
-                System.Windows.Application.Current?.MainWindow, _escopos);
-
-            if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
-
-            DocumentoAssinado assinado;
-            using (var scope = _escopos.CreateScope())
-            {
-                var assinaturas = scope.ServiceProvider
-                    .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
-
-                assinado = await assinaturas.AssinarAsync(
-                    linha.DocumentoId, certificado,
-                    SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                    SessaoUsuario.Atual.Operador);
-            }
-
-            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));
-
-            if (erro is not null)
-            {
-                Mensagem = $"{erro} O documento foi assinado e está guardado no sistema.";
-                MensagemEhErro = true;
-            }
-            else
-            {
-                _snackbar.Sucesso("Documento assinado. Entregue o ARQUIVO ao paciente.");
-                Mensagem = null;
-                MensagemEhErro = false;
-            }
-
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — documento não pôde ser assinado", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.AssinarAsync(linha.Documento, _escopos, _snackbar));
     }
 
-    /// <summary>
-    /// Entrega o ARQUIVO assinado ao paciente pelo WhatsApp (parcela 43, 2ª rodada).
-    ///
-    /// A assinatura vive nos bytes: quem sai só com o papel leva um documento sem a
-    /// garantia que o sistema produziu, e a farmácia recusa — com razão. Ver
-    /// <see cref="EntregaAoPaciente"/>, inclusive por que o anexo não é automático.
-    /// </summary>
+    /// <summary>Entrega o ARQUIVO assinado ao paciente pelo WhatsApp.</summary>
     [RelayCommand]
     private async Task EnviarDocumentoAsync(LinhaDocumento? linha)
     {
         if (linha is null) return;
-
-        if (!linha.PodeEnviar)
-        {
-            Mensagem = linha.Cancelado
-                ? $"O documento {linha.Numero} está cancelado."
-                : $"O documento {linha.Numero} ainda não foi assinado digitalmente. "
-                  + "Sem assinatura, o que vale é a via impressa e assinada à caneta — "
-                  + "assine antes de enviar o arquivo.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        try
-        {
-            // ⚠️ A barreira que NÃO EXISTIA (parcela 72). Este comando não tinha `Exigir`
-            // nenhum, e a metade visível (`PodeEnviar`) era estado puro — `Assinado &&
-            // !Cancelado`, sem permissão. Enviar é DADO DE SAÚDE SAINDO para o WhatsApp do
-            // paciente, que é o que uma investigação procura (a lição da parcela 60); e o
-            // `Cancelar` ao lado já guardava com o mesmo bit. Três comandos vizinhos
-            // guardados e um não: o errado é o um.
-            SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "enviar documento clínico");
-
-            byte[] pdf;
-            Paciente? paciente;
-            string? nomeClinica;
-
-            using (var scope = _escopos.CreateScope())
-            {
-                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
-                var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
-                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
-
-                // Bytes GUARDADOS: o documento está assinado, e regerar produziria um
-                // arquivo que abre como inválido no leitor de quem confere.
-                pdf = await pdfs.GerarAsync(linha.DocumentoId);
-                paciente = await pacientes.ObterComHistoricoAsync(linha.PacienteId);
-
-                var prestador = await parametros.ObterPrestadorAsync();
-                nomeClinica = prestador.NomeFantasia ?? prestador.RazaoSocial;
-            }
-
-            var entrega = EntregaAoPaciente.Entregar(
-                pdf, linha.NomeArquivoAssinado, paciente?.Telefone,
-                paciente?.Nome ?? "paciente", linha.Tipo, nomeClinica);
-
-            Mensagem = entrega.Frase;
-            MensagemEhErro = entrega.EhErro;
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — documento não pôde ser entregue ao paciente", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.EnviarAsync(linha.Documento, _escopos));
     }
 
+    /// <summary>Põe o link vencido de volta no ar, com o MESMO endereço selado no QR.</summary>
+    [RelayCommand]
+    private async Task RenovarLinkDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null) return;
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.RenovarLinkAsync(linha.Documento, _escopos, _snackbar));
+    }
+
+    /// <summary>Tira do ar AGORA o link publicado — receita publicada por engano não espera o prazo.</summary>
+    [RelayCommand]
+    private async Task TirarDoArDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null) return;
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.TirarDoArAsync(linha.Documento, _escopos, _dialogo, _snackbar));
+    }
+
+    /// <summary>
+    /// Cancela um documento. Ele NÃO some da lista: a via que o paciente levou continua no
+    /// mundo, e o registro é o que prova que ela não vale mais.
+    /// </summary>
     [RelayCommand]
     private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
     {
-        if (linha is null || linha.Cancelado) return;
-
-        SessaoUsuario.Atual.Exigir(
-            linha.AcessoParaMexer, $"cancelar {linha.Tipo.ToLowerInvariant()}");
-
-        var motivo = _dialogo.PerguntarTexto(
-            "Cancelar documento",
-            $"Por que o(a) {linha.Tipo.ToLowerInvariant()} {linha.Numero} está sendo cancelado? "
-            + "Ele continua na lista, marcado como cancelado — a via impressa não desaparece "
-            + "por ser apagada do sistema.");
-        if (string.IsNullOrWhiteSpace(motivo)) return;
-
-        try
-        {
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
-            await servico.CancelarAsync(linha.DocumentoId, motivo, SessaoUsuario.Atual.Operador);
-
-            _snackbar.Info("Documento cancelado.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Recepção — documento clínico não pôde ser cancelado", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
+        if (linha is null) return;
+        await AplicarNoDocumentoAsync(
+            await AcoesDoDocumento.CancelarAsync(linha.Documento, _escopos, _dialogo, _snackbar));
     }
 
     // ==================== Direitos do titular (LGPD) ====================

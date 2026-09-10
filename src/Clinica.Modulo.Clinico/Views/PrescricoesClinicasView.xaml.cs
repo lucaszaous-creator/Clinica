@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using Clinica.Clinico.ViewModels;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Clinico.Views;
 
@@ -13,18 +13,10 @@ public partial class PrescricoesClinicasView : UserControl
     /// <summary>
     /// O "⋯" da linha: as ações que não são a principal daquele documento.
     ///
-    /// Eram seis botões por linha (mockup 01, a tela que a direção mandou profissionalizar).
-    /// Fica visível o que a linha está pedindo — assinar, quando falta assinatura; 2ª via,
-    /// no resto —, e as outras continuam TODAS aqui: nada foi tirado.
-    ///
-    /// ⚠️ Montado em CÓDIGO, e não como <c>ContextMenu</c> em XAML: o menu declarado vive
-    /// num <c>Popup</c>, fora da árvore visual desta tela, e os comandos precisariam de
-    /// <c>PlacementTarget.Tag</c> para chegar ao ViewModel — binding que erra o caminho
-    /// falha em RUNTIME, calado, que é a categoria que nenhuma rede local pega.
-    ///
-    /// ⚠️ Item que a linha não pode exercer NÃO ENTRA no menu, em vez de entrar apagado:
-    /// menu de seis itens com quatro cinzentos é menu que se fecha sem ler. As duas
-    /// barreiras continuam de pé — o comando do ViewModel exige a permissão.
+    /// O menu é o do shell (<see cref="MenuDoDocumento"/>) desde set/2026 — são TRÊS telas
+    /// com os mesmos seis atos, e os rótulos deles ("Imprimir a 2ª via", "Assinar com o
+    /// e-CPF…") são metade do que a consolidação entrega: três cópias chamariam o mesmo ato
+    /// por nomes diferentes na primeira correção.
     /// </summary>
     private void AoAbrirMenuDoDocumento(object sender, RoutedEventArgs e)
     {
@@ -32,40 +24,8 @@ public partial class PrescricoesClinicasView : UserControl
         if (botao.DataContext is not LinhaDocumentoClinico linha) return;
         if (DataContext is not PrescricoesClinicasViewModel vm) return;
 
-        var menu = new ContextMenu
-        {
-            PlacementTarget = botao,
-            Placement = PlacementMode.Bottom
-        };
-
-        void Acrescentar(string rotulo, System.Windows.Input.ICommand comando, bool visivel)
-        {
-            if (!visivel) return;
-            menu.Items.Add(new MenuItem
-            {
-                Header = rotulo,
-                Command = comando,
-                CommandParameter = linha
-            });
-        }
-
-        // A 2ª via está sempre aqui, inclusive quando ela é o botão da linha: quem abriu o
-        // menu procurando por ela não deveria ter de fechá-lo para achá-la ao lado.
-        Acrescentar("Imprimir a 2ª via", vm.ImprimirCommand, true);
-        Acrescentar("Assinar com o e-CPF…", vm.AssinarCommand, linha.PodeAssinar);
-
-        // É o ARQUIVO que vale: sem esta porta, o paciente sai com o papel e o PDF
-        // assinado fica na clínica.
-        Acrescentar("Enviar ao paciente…", vm.EnviarCommand, linha.PodeEnviar);
-
-        // Renovar põe o link vencido de volta no ar com o MESMO endereço — o QR já
-        // impresso volta a funcionar.
-        Acrescentar("Renovar o link", vm.RenovarLinkCommand, linha.PodeRenovarLink);
-        Acrescentar("Tirar do ar", vm.TirarDoArCommand, linha.PodeTirarDoAr);
-        Acrescentar("Cancelar o documento…", vm.CancelarCommand, linha.PodeCancelar);
-
-        // O menu nunca fica vazio (a 2ª via entra sempre), e é isso que impede o "⋯" de
-        // abrir e fechar sem dizer nada — o botão que não faz nada da parcela 41.
-        menu.IsOpen = true;
+        MenuDoDocumento.Abrir(sender, linha.Documento, linha, new ComandosDoDocumento(
+            vm.ImprimirCommand, vm.AssinarCommand, vm.EnviarCommand,
+            vm.RenovarLinkCommand, vm.TirarDoArCommand, vm.CancelarCommand));
     }
 }
