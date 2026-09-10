@@ -178,6 +178,29 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
     public ObservableCollection<LinhaDocumentoClinico> Documentos { get; } = [];
 
+    /// <summary>
+    /// A régua EMITIR — as folhas clínicas que ESTA pessoa pode emitir (set/2026, tela 2
+    /// do mockup aprovado "documentos nas quatro telas").
+    ///
+    /// Eram QUATRO botões escritos à mão no XAML (receita, atestado, comparecimento,
+    /// pedido de exame), e o catálogo tem seis folhas clínicas de paciente: o
+    /// <b>relatório de evolução</b> — o papel que o paciente leva ao convênio — e a
+    /// <b>ficha de anamnese</b> só se emitiam pela central da RECEPÇÃO. Quem atende
+    /// pedia ao balcão o relatório do próprio paciente.
+    ///
+    /// ⚠️ A lista vem do CATÁLOGO, e não de mais dois botões no XAML: folha nova aparece
+    /// aqui sozinha, e — o que mais importa — cada uma traz o BIT dela. O comparecimento
+    /// pede <c>EditarPaciente</c> e a receita pede <c>Prescrever</c>; com a régua inteira
+    /// sob um <c>IsEnabled</c> só, quem tem um e não o outro via os seis apagados ou os
+    /// seis acesos.
+    ///
+    /// ⚠️ Os dois TERMOS assinados pelo paciente ficam de fora, e é decisão: eles não se
+    /// emitem por janela nenhuma — colhem-se com o traço na tela —, e a pendência deles
+    /// já tem porta na RÉGUA do workspace, que acompanha o prontuário aberto nas sete
+    /// seções. Duas portas para o mesmo ato na mesma tela é o que a parcela 79 tirou daqui.
+    /// </summary>
+    public ObservableCollection<FolhaCatalogo> FolhasParaEmitir { get; } = [];
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
@@ -210,29 +233,14 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// <summary>O par invertido — o projeto não tem conversor de booleano invertido.</summary>
     public bool TrabalhandoNoPaciente => !EscolhendoPaciente;
 
-    /// <summary>
-    /// Os quatro botões de emitir só funcionam com paciente escolhido E com permissão de
-    /// escrever no prontuário.
-    ///
-    /// É a metade VISÍVEL da regra, e ela faltava: a tela abre pela sidebar sem paciente
-    /// nenhum em foco, os botões ficavam acesos e o clique não fazia NADA — o comando
-    /// batia num `if (_pacienteId == 0) return;` e voltava calado. Botão aceso que não faz
-    /// nada é pior do que botão apagado: quem clica conclui que o sistema quebrou.
-    /// </summary>
-    public bool PodeEmitirDocumento => TemPaciente && PodeEditarProntuario;
-
     partial void OnSemPacienteChanged(bool value)
     {
         OnPropertyChanged(nameof(TemPaciente));
         OnPropertyChanged(nameof(EscolhendoPaciente));
         OnPropertyChanged(nameof(TrabalhandoNoPaciente));
-        OnPropertyChanged(nameof(PodeEmitirDocumento));
     }
 
     private int _pacienteId;
-
-    /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     public PrescricoesClinicasViewModel(
         IServiceScopeFactory escopos, PacienteEmFoco foco,
@@ -257,6 +265,11 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             Paciente = paciente.Nome;
             _ = CarregarAsync();
         };
+
+        // A régua de emitir: as folhas CLÍNICAS de paciente que este acesso alcança.
+        // Estática — a lista de papéis que a clínica emite não depende do banco.
+        foreach (var folha in CentralDocumentosService.Catalogo.Where(EhFolhaDesteConsultorio))
+            FolhasParaEmitir.Add(folha);
 
         // Abre já no paciente do posto — este é o ponto da tela.
         if (_foco.PacienteId is { } id)
@@ -339,19 +352,35 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Emite já no tipo pedido.
+    /// A folha entra na régua desta tela: clínica, de PACIENTE, e emitida por quem atende.
     ///
-    /// São quatro botões, e não um "Novo documento" que abre pedindo o tipo, porque no
+    /// Os dois termos assinados pelo paciente ficam de fora (ver
+    /// <see cref="FolhasParaEmitir"/>), e o recibo, o orçamento e o fechamento do período
+    /// também: nenhum deles é papel de quem está com o paciente na sala.
+    /// </summary>
+    private static bool EhFolhaDesteConsultorio(FolhaCatalogo f)
+        => f.Natureza == NaturezaFolha.Clinico
+           && f.Exigencia is ExigenciaFolha.Paciente or ExigenciaFolha.PacienteComProntuario
+           && SessaoUsuario.Atual.Pode(f.PermissaoEmitir);
+
+    /// <summary>
+    /// Emite já a folha pedida.
+    ///
+    /// São botões por TIPO, e não um "Novo documento" que abre pedindo o tipo, porque no
     /// consultório a decisão vem ANTES do clique: ninguém pensa "vou emitir um documento",
-    /// pensa "vou dar um atestado". O tipo inicial é o único parâmetro que a janela do
-    /// shell precisa para isso — ela já aceitava, e ninguém aproveitava.
+    /// pensa "vou dar um atestado".
+    ///
+    /// As QUATRO escritas abrem a janela do shell com o tipo pré-selecionado; as duas
+    /// MONTADAS do prontuário (relatório de evolução e anamnese) não passam por janela
+    /// nenhuma — emitir é imprimir o que já está lá.
     /// </summary>
     [RelayCommand]
-    private async Task EmitirAsync(string? tipo)
+    private async Task EmitirAsync(FolhaCatalogo? folha)
     {
-        // Sem paciente, DIZ. O botão já nasce apagado (`PodeEmitirDocumento`), mas um
-        // atalho de teclado ou um clique numa corrida de carregamento chegam aqui — e
-        // guarda que volta em silêncio é exatamente o defeito que esta linha corrigiu.
+        // Sem paciente, DIZ. O botão já nasce apagado, mas um atalho de teclado ou um
+        // clique numa corrida de carregamento chegam aqui — e guarda que volta em
+        // silêncio é exatamente o defeito que esta linha corrigiu.
+        if (folha is null) return;
         if (_pacienteId == 0)
         {
             Mensagem = "Escolha um paciente antes de emitir: a tela abre no paciente que "
@@ -360,30 +389,15 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             return;
         }
 
-        if (!Enum.TryParse<TipoDocumentoClinico>(tipo, out var tipoDocumento))
-            tipoDocumento = TipoDocumentoClinico.Receita;
-
         try
         {
-            // O bit do TIPO que está sendo emitido — não um fixo. Receita pede
+            // O bit da FOLHA que está sendo emitida — não um fixo. Receita pede
             // `Prescrever`; declaração de comparecimento, não (parcela 59/60).
             SessaoUsuario.Atual.Exigir(
-                CentralDocumentosService.AcessoParaEmitir(tipoDocumento),
-                "emitir documento clínico");
+                folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}");
 
-            var vm = new DocumentoEdicaoViewModel(_escopos, _pacienteId, tipoDocumento);
-            var janela = new DocumentoWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-
-            var concluiu = janela.ShowDialog() == true;
-
-            // Recarrega dos dois jeitos: fechar sem concluir não significa que nada
-            // aconteceu — o documento pode ter sido emitido e só a impressão ter falhado.
-            await CarregarAsync();
-
-            if (concluiu) _snackbar.Sucesso("Documento emitido.");
+            if (folha.MontadaDoProntuario) await EmitirMontadaAsync(folha);
+            else await AbrirJanelaAsync(folha);
         }
         catch (Exception ex)
         {
@@ -394,16 +408,91 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         }
     }
 
+    private async Task AbrirJanelaAsync(FolhaCatalogo folha)
+    {
+        if (folha.TipoClinico is not { } tipo) return;
+
+        var vm = new DocumentoEdicaoViewModel(_escopos, _pacienteId, tipo);
+        var janela = new DocumentoWindow(vm)
+        {
+            Owner = JanelaDona.Atual()
+        };
+
+        var concluiu = janela.ShowDialog() == true;
+
+        // Recarrega dos dois jeitos: fechar sem concluir não significa que nada
+        // aconteceu — o documento pode ter sido emitido e só a impressão ter falhado.
+        await CarregarAsync();
+
+        if (concluiu) _snackbar.Sucesso($"{folha.Rotulo} emitido(a).");
+    }
+
+    /// <summary>
+    /// As montadas do prontuário. O sistema monta e imprime: não há o que digitar, e por
+    /// isso não há janela — abrir uma pediria à pessoa que confirmasse um formulário em
+    /// branco.
+    /// </summary>
+    private async Task EmitirMontadaAsync(FolhaCatalogo folha)
+    {
+        DocumentoClinico emitido;
+        using (var scope = _escopos.CreateScope())
+        {
+            var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            var operador = SessaoUsuario.Atual.Operador;
+
+            emitido = folha.TipoClinico == TipoDocumentoClinico.Anamnese
+                ? await servico.EmitirAnamneseAsync(_pacienteId, operador: operador)
+                : await servico.EmitirRelatorioEvolucaoAsync(_pacienteId, operador: operador);
+        }
+
+        await CarregarAsync();
+        await ImprimirDocumentoAsync(
+            emitido.Id, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf");
+
+        _snackbar.Sucesso($"{folha.Rotulo} {emitido.Numero} emitido(a).");
+    }
+
+    /// <summary>
+    /// A prescrição de infusão é OUTRA tela, e por isso o botão NAVEGA em vez de emitir.
+    ///
+    /// Ela não é um <c>DocumentoClinico</c>: tem ciclo de vida próprio (rascunho →
+    /// assinada → executada → encerrada) e é executada item a item pela enfermagem — foi
+    /// por isso que a parcela 42 recusou enfiá-la no catálogo de folhas.
+    /// </summary>
+    [RelayCommand]
+    private void IrParaInfusao() => NavegacaoSuite.Ir(ChavesSuite.ConsultorioPrescricaoInfusao);
+
+    /// <summary>
+    /// A tela de prescrição de infusão existe NESTE executável.
+    ///
+    /// ⚠️ Propriedade de INSTÂNCIA, e não estática: <c>{Binding X}</c> não alcança membro
+    /// estático — o botão sumiria da tela sem erro nenhum (a lição das formas de pagamento
+    /// da conciliação).
+    /// </summary>
+    public bool TemPrescricaoDeInfusao
+        => NavegacaoSuite.Existe(ChavesSuite.ConsultorioPrescricaoInfusao);
+
     /// <summary>
     /// Segunda via: reimprime o que foi EMITIDO, não o que o prontuário diz hoje. É a
     /// regra do documento clínico, e ela mora no serviço — a via que o paciente levou e a
     /// que a clínica reimprime têm de ser a mesma folha.
     /// </summary>
     [RelayCommand]
-    private async Task ImprimirAsync(LinhaDocumentoClinico? linha)
-    {
-        if (linha is null) return;
+    private Task ImprimirAsync(LinhaDocumentoClinico? linha)
+        => linha is null
+            ? Task.CompletedTask
+            : ImprimirDocumentoAsync(linha.DocumentoId, linha.NomeArquivo);
 
+    /// <summary>
+    /// Gera e abre o PDF de um documento JÁ EMITIDO — a segunda via e a impressão do que
+    /// acabou de ser montado passam pelo mesmo caminho.
+    ///
+    /// Por id e nome, e não pela linha da lista: a folha recém-emitida pode não estar na
+    /// coleção ainda (ou pode ter caído fora do filtro), e nesse caso a impressão
+    /// simplesmente não aconteceria — em silêncio, depois de o número ter sido gasto.
+    /// </summary>
+    private async Task ImprimirDocumentoAsync(int documentoId, string nomeArquivo)
+    {
         try
         {
             byte[] pdf;
@@ -411,11 +500,11 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             {
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
-                pdf = await pdfs.GerarAsync(linha.DocumentoId, await parametros.ObterPrestadorAsync());
+                pdf = await pdfs.GerarAsync(documentoId, await parametros.ObterPrestadorAsync());
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                pdf, ImpressaoPdf.NomeSeguro(linha.NomeArquivo));
+                pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
 
             Mensagem = erro;
             MensagemEhErro = erro is not null;

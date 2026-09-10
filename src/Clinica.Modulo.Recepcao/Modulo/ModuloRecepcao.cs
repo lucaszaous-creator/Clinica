@@ -87,6 +87,29 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveGrupoPrescricoes = ChavesSuite.GrupoPrescricoes;
 
     /// <summary>
+    /// O item composto "Particular e pacotes" (set/2026) — a resposta à reprovação do
+    /// cliente: *"o fluxo do particular não está intuitivo e nem eu mesmo consegui
+    /// entender como fazer um atendimento particular, vender pacote ou sessão
+    /// particular"*.
+    ///
+    /// Nada de capacidade nova: as duas telas existiam e eram DOIS itens soltos no grupo
+    /// PACIENTE, "Pacotes" e "Preços do particular", separados por outros itens e sem
+    /// nada dizendo que respondem à mesma pergunta ("quanto custa e como se vende a
+    /// sessão de quem paga do bolso"). Quem procura "particular" na sidebar achava um
+    /// item que fala de PREÇO e nenhum que fale de vender.
+    ///
+    /// ⚠️ O rótulo diz as DUAS coisas de propósito. "Particular" sozinho mentiria sobre
+    /// o pacote — pacote é venda da clínica e o paciente de convênio também compra
+    /// (parcela 4) —, e "Pacotes" sozinho é o que já existia e não era achado.
+    ///
+    /// Chave LOCAL, e não em <see cref="ChavesSuite"/>: nenhum outro módulo publica
+    /// composto com este rótulo, então não há a duplicata que a checagem 45 pega. O
+    /// Financeiro continua publicando "Pacotes" solto, e no exe dele — que não carrega a
+    /// Recepção — a tela volta a ser item de menu, como manda a regra da tela órfã.
+    /// </summary>
+    public const string ChaveGrupoParticular = "particular";
+
+    /// <summary>
     /// O item composto "Prontuário" (set/2026). Junta a leitura POR PACIENTE (a tela
     /// deste módulo) com a lista plana de REGISTROS E PENDÊNCIAS do Consultório.
     ///
@@ -304,28 +327,24 @@ public sealed class ModuloRecepcao : IModuloApp
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerDocumentos
         },
 
-        // PACOTES DE SESSÕES (parcela 60). A tela existe desde a parcela 4 e a única porta
-        // estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é o BALCÃO,
-        // com ele na frente. É o defeito recorrente do projeto na variante "a porta está no
-        // módulo de quem não usa", e ele bloqueava o caso que motivou o PARTICULAR: o
-        // paciente sem convênio que compra um pacote.
+        // PARTICULAR E PACOTES (set/2026) — o item que reúne o que se faz com quem paga do
+        // bolso: quanto custa a sessão e como se vende o pacote. As duas telas já existiam
+        // (a de Pacotes desde a parcela 4, a de Preços de set/2026) e eram dois itens
+        // soltos no grupo PACIENTE — ver `ChaveGrupoParticular` para o motivo de juntá-las.
         //
-        // A tela não foi copiada: SUBIU para o shell (`Componentes/PacotesView`), como a
-        // sala de infusão na parcela 48, e os dois módulos publicam a MESMA chave.
+        // O `Requer` é o bit MAIS FROUXO das abas (a regra da parcela 95), e aqui as duas
+        // pedem o mesmo: `VenderPacote`. Combinar preço é o ato que ele já nomeia, e o
+        // enum tem UM bit sobrando antes de virar `long` numa coluna de produção.
         new ItemMenuModulo
         {
-            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719", Icone = "caixa",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
-        },
-
-        // PREÇOS DO PARTICULAR (set/2026). A direção pediu que a Recepção também cadastre e
-        // edite — quem combina o preço com o paciente é o balcão. É o MESMO bit do Pacotes:
-        // combinar preço é o ato que `VenderPacote` já nomeia, e o enum tem um bit só
-        // sobrando antes de virar `long` numa coluna de produção.
-        new ItemMenuModulo
-        {
-            Chave = ChavePrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF", Icone = "etiqueta",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
+            Chave = ChaveGrupoParticular, Rotulo = "Particular e pacotes",
+            Glifo = "\uE719", Icone = "caixa",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote,
+            Abas =
+            [
+                new AbaMenu("Pacotes", ChavePacotes),
+                new AbaMenu("Pre\u00E7o da sess\u00E3o", ChavePrecosParticular)
+            ]
         },
 
         // ===== Sub-telas =====
@@ -341,6 +360,23 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B", Icone = "pessoa",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+        },
+        // As duas abas de "Particular e pacotes", declaradas como itens pela checagem 28 —
+        // e, mais que isso, porque SEM ELAS o composto ficaria vazio no
+        // `Clinica.Recepcao.exe`: `AbasDisponiveis` só enxerga aba cuja chave é item de um
+        // módulo CARREGADO, e quem declara estas duas fora daqui é o Financeiro (Pacotes)
+        // e o Gerente (Preços) — nenhum dos dois carregado no exe do balcão. Um composto
+        // sem aba some da sidebar, e a recepcionista perderia as duas telas.
+        // Quem as esconde do menu é o PAI, e só onde o pai existe.
+        new ItemMenuModulo
+        {
+            Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719", Icone = "caixa",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF", Icone = "etiqueta",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
         new ItemMenuModulo
         {

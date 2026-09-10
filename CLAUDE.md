@@ -4076,6 +4076,111 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   vale para componente e correção compartilhados, não para comportamento de navegação de
   um shell que o outro app não possui.
 
+- **O PAPEL SAI DA SESSÃO SEM SAIR DA SESSÃO — e o documento nascia AVULSO** (set/2026;
+  mockup "documentos nas quatro telas" aprovado ANTES de uma linha de WPF, depois de cinco
+  desenhos reprovados; o pedido foi por SUPERFÍCIE: *"a tela de documentos na hora do
+  atendimento e também a tela de Documentos que aparece na recepção, gerente,
+  consultório"*). Quatro telas para o mesmo assunto, cada uma respondendo a pergunta de
+  quem a abre — e a janela de emissão como a peça comum.
+  ⚠️ **O achado que a construção revelou: `DocumentoClinico.AgendamentoId` e `EvolucaoId`
+  eram GRAVÁVEIS SEM ESCRITOR.** `ProcedenciaDaSessao` sabia escrever "da sessão de
+  08/09", as TRÊS listas de documento mostravam a coluna, e o único escritor do vínculo
+  era o termo assinado pelo paciente: toda receita emitida DENTRO da consulta aparecia
+  como "avulsa", ao lado da sessão que a produziu. É o defeito recorrente do projeto pelo
+  avesso — não é dado gravado sem leitor, é **coluna com leitor e sem escritor** —, e ele
+  só apareceu porque uma tela nova precisou da frase que a coluna promete.
+  ⚠️ **DESVIO DECLARADO DO MOCKUP APROVADO, e é o único.** O desenho mostra a receita
+  dizendo *"já com a Passiflora que você escreveu"*, e isso não se entrega sem LER o texto
+  livre da conduta à procura de nome de medicamento. Adivinhar ali é pôr no papel que a
+  farmácia avia algo que o profissional não escreveu como prescrição — a garantia aparente
+  que este projeto recusa desde a parcela 3. A receita abre EM BRANCO e o cartão DIZ isso,
+  em cinza; o que herda de verdade é o CID da hipótese (atestado), a hipótese como
+  indicação clínica (pedido de exame) e os carimbos da fila (comparecimento), cada um com a
+  frase de acento explicando a origem **e dizendo que trocar ali não muda o prontuário**.
+  Desvio de mockup aprovado se escreve, não se comete em silêncio.
+  ⚠️ **A SAÍDA só entra quando a sessão foi ENCERRADA.** O mockup escreve "esteve aqui
+  14:00 → agora", e "agora" numa declaração é afirmar um fato que ainda não aconteceu:
+  enquanto o paciente está na sala a frase é "está aqui desde 14:00", e a declaração sai só
+  com a chegada — que é a verdade disponível.
+  ⚠️ **Quem assinava era o PRIMEIRO DA LISTA — em ordem alfabética.** `CarregarAsync` fazia
+  `Profissional = Profissionais.FirstOrDefault()`, e a janela é a mesma nas quatro portas:
+  no consultório, quem emitia tinha de trocar o combo toda vez. O padrão passou a ser
+  `SessaoUsuario.Atual.ProfissionalId`, com o primeiro da lista como caminho de baixo — o
+  nome no papel é quem responde por ele.
+  ⚠️ **A régua de EMITIR tinha quatro botões escritos à mão e o catálogo tem SEIS folhas
+  clínicas de paciente**: o relatório de evolução — o papel que o paciente leva ao
+  convênio — e a anamnese só se emitiam pela central da RECEPÇÃO, e quem atende pedia ao
+  balcão o relatório do próprio paciente. A régua passou a vir do `CentralDocumentosService.
+  Catalogo`, e o ganho não é a folha nova: é **cada uma trazer o BIT dela**. O
+  comparecimento pede `EditarPaciente` e a receita pede `Prescrever`; sob um `IsEnabled` só,
+  quem tem um e não o outro via os seis apagados ou os seis acesos.
+  ⚠️ **`Selector.SelectedItem` que recebe item FORA do `ItemsSource` devolve NULL pelo
+  binding** — a pílula "quem está hoje" limparia a escolha no mesmo instante em que a faz,
+  sem erro nenhum, porque a lista de resultados só existe com termo digitado. O componente
+  já tinha a porta desde a remarcação (`SeletorPacienteViewModel.SelecionarGarantindoNaLista`);
+  **antes de escrever a seleção por fora, procure o método que o componente já tem.**
+  ⚠️ **A coluna PERMANENTE de 340 px contraria a régua do README de propósito**, e a
+  exceção tem medida: a tela do paciente roda em modo IMERSIVO (sidebar e barra de cima
+  recolhem), então em 1366 sobram ~1000 px para a folha. Sem o modo imersivo ela não
+  caberia — e é por isso que ela existe ali e não na janela "Nova sessão" do Prontuário,
+  que é modal e estreita.
+  ⚠️ **Num DockPanel, o ancorado leva a altura que pede e quem paga é o FILL** (parcela
+  79): a lista "já saiu hoje" cresce com o DIA, e sem teto ela espremeria os cartões — que
+  são o assunto da coluna — até zero. Teto pede a roda de volta para a página; as duas
+  metades andam juntas. O mesmo vale para as PÍLULAS do balcão: num dia de trinta sessões
+  elas quebrariam em quatro linhas, então são dez e o rótulo DIZ que a lista está cortada
+  ("10 de 31 — digite para achar os outros"), senão a recepcionista conclui que só dez
+  pessoas vêm hoje.
+  ⚠️ **A tela da direção não tem um único botão de emitir**, e é a decisão inteira dela: o
+  balcão opera, a direção lê o agregado. `PainelDeDocumentos` (Application, puro) responde
+  quantos saíram — **cancelados INCLUSIVE**, porque o número da folha foi gasto e a
+  numeração por ano não se reaproveita —, quantos foram selados com e-CPF, quantos estão no
+  ar e quem assinou o quê. O desempate do "mais emitido" é pelo NOME: sem ele, duas folhas
+  com a mesma contagem trocariam de lugar entre duas leituras do MESMO período, e a direção
+  veria o número mudar sem nada ter mudado.
+  **O que ficou de fora, com o motivo**: a PRÉVIA DO PAPEL ao lado do formulário (a metade
+  direita da "janela que escreve o papel") — ela é a quinta peça do mockup, não uma das
+  quatro telas, e é um desenho de ~490 px que nenhuma rede deste ambiente consegue ver
+  montado; a lista da tela 2 continua sendo a rica (badges, link, correções) em vez da
+  tabela de quatro colunas do desenho, porque trocá-la perderia o que ela já mostra (a
+  lição da parcela 72).
+
+- **A REVISÃO DA PARCELA: quatro achados que as três redes deram por verdes** (set/2026,
+  conferência da PR das quatro telas de documentos — build, `compilar-sombra`,
+  `verificar-suite` e 2472 testes verdes na entrada).
+  ⚠️ **`BasedOn="{StaticResource {x:Type T}}"` SÓ EXISTE SE ALGUÉM DECLAROU O IMPLÍCITO.**
+  A lista de avisos do formulário de agendamento nasceu com um `Style` local herdando o
+  estilo implícito de `TextBlock` — e o design system não tem nenhum: **todos os estilos de
+  `TextBlock` da casa têm `x:Key`**. `TextBlock` não é `Control`, então não há
+  `generic.xaml` para onde cair, e o `StaticResource` lança
+  `ResourceReferenceKeyNotFoundException`. Pior: dentro de um `DataTemplate` o conteúdo é
+  ADIADO, então a janela ABRE e só quebra quando o primeiro item aparece — que ali é
+  exatamente quando há aviso para mostrar. **A checagem 2 não via**: ela IGNORA toda chave
+  `{x:Type ...}` presumindo que é do sistema, e o ponto cego durou até esta PR. Virou a
+  **checagem 48**, com a pergunta certa ("existe estilo implícito para este tipo?") e a
+  distinção que a torna sem ruído: controle do WPF cai no TEMA, controle da CASA e
+  não-`Control` não caem em lugar nenhum. Medida antes de ligar — nove usos no repositório,
+  oito legítimos, o nono era o defeito.
+  ⚠️ **Limpar antes do await vale para TODA coleção da tela, não só a que o comentário
+  lembra.** A coluna ENTREGAR AGORA zerava os carimbos da sessão antes da leitura (com a
+  lição da parcela 89 escrita ao lado) e deixava o `SaiuHoje` para depois — então, na troca
+  de paciente, o crachá já mostrava quem entrou na sala e a lista "JÁ SAIU HOJE" continuava
+  com os papéis de quem saiu, com o "2ª via" apontando para o documento da outra pessoa.
+  **Contador de geração impede a resposta VELHA de sobrescrever a nova; ele não impede a
+  lista velha de FICAR na tela** — e a janela aqui é a carga inteira do prontuário.
+  ⚠️ **A cópia campo a campo tem um segundo lugar: o ramo de UPDATE do REPOSITÓRIO.**
+  `SalvarConvenioAsync` copia treze campos e não copiava `GeraGuia` nem
+  `RegistroAnsOperadora` — os dois editáveis na tela de Convênios do faturamento. A
+  CRIAÇÃO funcionava (o outro ramo é um `Add` do objeto inteiro), que é o que escondeu o
+  defeito por duas parcelas: desmarcar "gera guia" numa linha existente era um clique que
+  não fazia nada — a outra metade do *"não consegui entender como fazer um atendimento
+  particular"* —, e o registro ANS digitado nunca valia, então o lote TISS saía com o
+  registro global. **Ao procurar o lugar 3, olhe também quem grava no banco.**
+  ⚠️ **Lista cortada não responde por quem ficou de fora.** As pílulas de "quem está hoje"
+  na central de documentos param em dez, e o contexto do paciente escolhido as consultava
+  para dizer "tem horário hoje às 14h": quem fosse o décimo primeiro do dia perdia a frase.
+  Atalho cortado é atalho; a resposta sai da lista INTEIRA.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
@@ -8504,6 +8609,13 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   e tem teste próprio. O que reproduz o caso da clínica
   (`Corrigir_a_especialidade_nao_esbarra_no_encaixe_que_ja_existia`) foi verificado
   REPROVANDO no código anterior, não presumido.
+  ⛔ **SUPERADA duas semanas depois: hoje NENHUM choque recusa** (ver a lição logo abaixo).
+  A condição `disputaRecurso` não existe mais — nem a recusa que ela condicionava. Fica
+  aqui porque o *diagnóstico* continua valendo e é o que levou à decisão maior: a clínica
+  vinha esbarrando na recusa em situações em que ela não protegia nada, e a correção
+  condicional tratou o caso que doeu em vez da premissa ("o profissional só atende um
+  paciente por vez") que nunca foi verdade nesta clínica. **Correção condicional de uma
+  regra que a casa não segue é remendo que a próxima situação fura.**
 
 - **CORRIGIR O QUE A SESSÃO É, SEM SAIR DA AGENDA DO DIA** (set/2026 — a cliente, com o
   print da lista: *"temos muitos atendimentos que foram importados que vieram como
@@ -8559,3 +8671,138 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   decisão que ninguém revisa linha a linha, e a correção acontece com a agenda do dia à
   frente; e a lista continua sendo por DIA, então achar os importados é navegar os dias
   em que eles estão.
+
+- **A AGENDA AVISA E NÃO IMPEDE — nenhum choque recusa** (set/2026, decisão da direção; o
+  pedido da clínica foi literal: *"horário na agenda livre, não precisa dar choque/bloqueio
+  porque já tem paciente naquele mesmo horário"*). `GarantirSemChoqueAsync` foi REMOVIDO, e
+  com ele a última recusa por sobreposição: profissional ocupado, sala além da capacidade,
+  agenda fechada (feriado, férias, folga) e hora fora da jornada declarada viraram TODOS
+  aviso. `ConflitosAsync` fica, e ficou mais importante — é a leitura que as telas
+  criticam a cada tecla.
+  ⚠️ **A premissa que caiu não é técnica, é sobre como a casa trabalha.** "O profissional
+  já atende alguém às 14h" nunca foi verdade aqui: na acupuntura o paciente fica na maca
+  com as agulhas enquanto outro é atendido. Enquanto a recusa existiu, a única saída dela
+  era marcar como ENCAIXE — e o campo passou a ser preenchido **para contornar a recusa em
+  vez de descrever o fato**, que é como um dado deixa de significar o que promete. A
+  caixinha continua, com o verbo trocado ("registrar como encaixe"), e o encaixe segue
+  sendo o que dispensa o profissional na marcação (parcela 95).
+  ⚠️ **A recusa que FICOU é a de "quem vai atender"** (parcela 95), e ela não é choque:
+  horário sem dono não aparece na agenda de ninguém nem entra no repasse — não é um
+  horário disputado, é um horário que o fluxo inteiro não alcança.
+  ⚠️ **Tirar a barreira sem perder o aviso é o trabalho todo**, e ele é maior que a
+  remoção. O que se ganha em fluidez se paga em ATENÇÃO: sem a lista de avisos, marcar em
+  cima do feriado passaria a depender da memória de quem está no balcão. Por isso as duas
+  telas ganharam **cabeçalho que DIZ que nada impede** (tarja de aviso com o botão
+  "Lançar" aceso ao lado é tela que se contradiz, e a recepcionista que já levou a recusa
+  antiga fica procurando o que fazer para o aviso sumir) e **duas cores por gravidade**:
+  âmbar para a rotina da casa, VERMELHO só para a agenda fechada, que é o único aviso sem
+  ninguém do outro lado. Pintar as duas de vermelho ensina a ignorar as duas.
+  ⚠️ **A frase saiu das ViewModels para a Application** (`AvisosDeChoque`) — havia DUAS
+  cópias de `Descrever`, uma em cada tela de marcação, e o que a tela AFIRMA precisa morar
+  onde o `dotnet test` alcança. Foi só ao escrevê-la ali que ela ganhou teste.
+  ⚠️ **Na GRADE, a metade visível**: `PodeMarcar` deixou de exigir vão aberto (o feriado e
+  o fora-do-expediente voltaram a ser clicáveis, com a hachura e o motivo ficando como
+  INFORMAÇÃO), e o vão OCUPADO ganhou um "+" próprio (`VaoMaisUm`, no design system).
+  Sem esse botão a correção resolveria metade: a recepcionista veria o vão tomado e nem
+  tentaria. Ele é VISÍVEL, ao contrário do `VaoLivre` — lá o argumento para escondê-lo é a
+  quantidade; aqui a DESCOBERTA é metade do que a mudança precisa entregar.
+  ⚠️ E a releitura do diff pegou o preço de mexer em camada de desenho: pôr
+  `IsHitTestVisible="False"` nas hachuras (para o clique passar até o botão) **matou o
+  ToolTip que dizia quando o profissional atende** — elemento sem hit test não recebe
+  hover. Trocar a recusa pelo aviso e perder o aviso no mesmo gesto seria trocar barreira
+  por SILÊNCIO, o único desfecho que esta mudança não podia ter; o motivo subiu para a
+  dica do próprio "+" (`CelulaAgenda.DicaDoVao`). **Ao tirar o hit test de um elemento,
+  procure o que ele mostrava no hover.**
+  ⚠️ **O que a decisão custa, e está escrito no teste**: empurrar as trinta sessões de um
+  congresso (`RemarcarEmLoteAsync`) passou a EMPILHÁ-LAS sobre quem já estiver na semana
+  seguinte, sem pular nada; a série marca por cima do feriado; e reabrir um cancelado cujo
+  vão foi dado a outra pessoa põe os dois no mesmo horário. Numa clínica que atende vários
+  ao mesmo tempo isso é o certo — e é por isso que a consequência mora no nome dos testes
+  em vez de numa nota de rodapé. Cinco testes existiam para provar o CONTRÁRIO e foram
+  reescritos (a regra da parcela 95), cada um passando a cobrar as DUAS metades: que marca,
+  e que o aviso continua sendo produzido.
+  ⚠️ **No FATURAMENTO a confirmação ficou**, e não é incoerência: aquela tela não tem a
+  lista criticada a cada tecla, então o diálogo é o único lugar em que o faturista vê que
+  há alguém ali — confirmar não é recusar. De quebra, o texto dele parou de prometer
+  "(encaixe)": a chamada nunca passou `encaixe: true`, então o que a pessoa confirmava era
+  um encaixe que não nascia — e, até aqui, um Salvar que estourava logo depois.
+
+- **"CHEGOU NO LOCAL" VOLTOU, e só ele** (set/2026 — a secretária: *"hoje temos Marcado e
+  Concluído, poderíamos colocar um chegou no local entre os dois"*). Semanas antes, a
+  direção mandou tirar a fila em etapas (*"a secretaria marca e o médico/enfermeiro
+  atende"*) e os quatro botões saíram das duas listas do dia. O uso mostrou o que ela de
+  fato dispensava: as ETAPAS INTERMEDIÁRIAS, não o *"quem já está aqui"*.
+  ⚠️ **A lição de método é sobre a granularidade do pedido.** "Não quero esse fluxo" foi
+  lido como "não quero nenhum passo", e a leitura estava perto o bastante para ninguém
+  questionar — o custo só aparece quando a pessoa que usa a tela pede de volta a metade
+  que servia. **Quando um pedido manda REMOVER um conjunto, vale perguntar qual peça dele
+  a pessoa usa todo dia.**
+  Chamar e entrar continuam sem porta (quem registra a entrada é o "Atender" do
+  profissional), e `ChamarAsync`/`DesfazerChamadaAsync`/`VoltarEtapaAsync` seguem no motor,
+  testados e sem chamador, com o aviso escrito para quem varrer "método sem chamador".
+  ⚠️ **De "No local" o balcão não tem passo seguinte**, e o botão não aparece: quem age em
+  seguida é quem atende. Dar à recepcionista um "Concluir" ali seria pular o registro
+  clínico inteiro.
+  ⚠️ **A ESPERA volta a ter base, e o cartão dela NÃO volta junto.** Sem carimbo de chegada
+  `EsperaMinutos` é nulo, e foi por isso que os cartões de espera média saíram do painel e
+  da lista quando o check-in saiu. Repô-los agora daria uma média sobre metade do dia —
+  número com cara de exato enquanto a clínica ainda não está de fato carimbando. A espera
+  aparece só na LINHA, ao lado do fato que a produziu.
+  ⚠️ E `IniciarAtendimentoAsync` continua NÃO inventando a chegada. Com a porta de volta,
+  inventá-la daria espera zero para todo mundo — o *"ninguém espera nesta clínica"* que
+  aquela remoção evitou.
+  ⚠️ **O defeito que a releitura do diff pegou**: o método novo entrou ENTRE o
+  `[RelayCommand]` e o `FinalizarAsync`, e o atributo trocou de dono em silêncio. É a
+  lição já escrita neste arquivo (set/2026, o circuito do particular) cometida de novo —
+  e desta vez nem o `compilar-sombra` acusou, porque o comando gerado errado não é
+  referenciado por XAML nenhum. **`[RelayCommand]` fica COLADO ao método; helper novo vai
+  antes do comentário XML do vizinho, nunca entre o atributo e a assinatura.**
+
+- **O PARTICULAR NÃO EXISTIA — e por isso o fluxo dele não tinha por onde começar**
+  (set/2026 — o cliente: *"o fluxo do particular não está intuitivo e nem eu mesmo
+  consegui entender como fazer um atendimento particular, vender pacote ou sessão
+  particular"*). A parcela 60 desenhou o particular inteiro (`ConvenioCadastro.GeraGuia`,
+  códigos `NaoAplicavel`, fora da pendência e da rodada), a de set/2026 lhe deu tabela de
+  preço e conciliação — e **nenhuma delas criou o cadastro**. A migration semeia quatro
+  convênios (Unimed x2, Amil, Petrobras) e os quatro geram guia; "particular" só passava a
+  existir se alguém abrisse o app de FATURAMENTO → Configurações → Convênios, criasse uma
+  linha à mão e desmarcasse "gera guia". **A recepção não tem essa tela.** Sem a linha,
+  lançar caía na recusa da parcela 92 e a janela que oferece escolher abria SEM opção de
+  particular: beco sem saída.
+  ⚠️ **É a variante mais discreta do defeito recorrente do projeto**, e ela não estava
+  catalogada: não é dado sem leitor nem capacidade sem porta — é **comportamento testado
+  que nenhum CADASTRO alcança**. O `ConvenioParticularTests` cobre o particular desde a
+  parcela 60 e monta o catálogo À MÃO, com uma entrada que o teste inventa. A lição de
+  teste: **quando o teste de uma feature MONTA o dado que a torna possível, falta o teste
+  de que alguém o cria.**
+  `ConvenioCadastro.Particular()` é GARANTIDO na leitura do catálogo, como os embutidos —
+  não por migration: a linha nasce no primeiro uso, e a base que nunca precisou dele não
+  ganha cadastro que ninguém pediu. Garantido no `ListarAsync`, ele aparece em TODA porta
+  que lista convênios, e não só naquela em que alguém lembrasse de construí-lo.
+  ⚠️ **"A definir" e "Particular" não se confundem**, e a diferença decide o alerta do
+  balcão: o primeiro é a PERGUNTA (a ficha veio do sistema anterior sem convênio, e o
+  `ElegibilidadeService` acusa em vermelho até alguém responder); o segundo é a RESPOSTA.
+  Tratá-los como a mesma coisa faria a clínica inteira de particulares aparecer como
+  pendência para sempre.
+  ⚠️ **Três frases de tela mandavam procurar no app errado**, e elas são metade do "não
+  consegui entender": o estado vazio da janela de convênio mandava cadastrar *"no
+  aplicativo do Gerente"* (só o faturamento tem a tela) e a prévia do preço mandava ao
+  *"Gerente → Tabela de preço"* (a Recepção publica a mesma tela desde que ela nasceu).
+  **Instrução que manda procurar no lugar errado é pior que instrução nenhuma** — e ela
+  não aparece em rede nenhuma, porque é texto.
+  ⚠️ **A janela de convênio ordena por GERA GUIA, não por nome**: alfabética, "Particular"
+  caía entre a Petrobras e a Unimed com o mesmo peso, e essa lista é justamente onde a
+  recepcionista descobre que ele existe. E a linha dele diz o que a escolha significa —
+  *"sem guia: o paciente paga a sessão"* —, não só que não gera guia.
+  Do lado da sidebar, "Pacotes" e "Preços do particular" eram dois itens SOLTOS no grupo
+  PACIENTE, separados por outros e sem nada dizendo que respondem à mesma pergunta: quem
+  procurava "particular" achava um item que fala de PREÇO e nenhum que fale de VENDER.
+  Viraram o composto **"Particular e pacotes"** — o rótulo diz as duas coisas porque
+  "Particular" sozinho mentiria (pacote é venda da clínica, e o paciente de convênio
+  também compra).
+  ⚠️ **As duas sub-telas continuam DECLARADAS pela Recepção**, e não é só a checagem 28:
+  `AbasDisponiveis` só enxerga aba cuja chave é item de um módulo CARREGADO, e quem as
+  declara fora dali é o Financeiro (Pacotes) e o Gerente (Preços) — nenhum dos dois no exe
+  do balcão. Sem a declaração, o composto ficaria SEM ABAS, sumiria da sidebar, e a
+  recepcionista perderia as duas telas. **Ao criar um composto, simule a sidebar de cada
+  exe**: a conta que importa não é "a aba existe?", é "ela existe NESTE executável?".

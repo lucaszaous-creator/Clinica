@@ -252,10 +252,12 @@
                                     Value="{StaticResource Brush.Modalidade.Consulta.Suave}" />
                         </DataTrigger>
                         <!--
-                          Encaixe: marcado por cima de um horário ocupado, com o choque
-                          aceito. Ele muda a COR do traço, não o cartão inteiro — o cartão
-                          inteiro em laranja faria a agenda de um dia de encaixes parecer
-                          uma tela de erro.
+                          Encaixe: o horário que a clínica assumiu por cima de outro. Ele
+                          muda a COR do traço, não o cartão inteiro — o cartão inteiro em
+                          laranja faria a agenda de um dia de encaixes parecer uma tela de
+                          erro. ⚠️ Desde set/2026 marcar por cima NÃO exige mais o encaixe
+                          (nada recusa): o selo virou a exceção que alguém declarou, e não
+                          mais o carimbo de toda sobreposição.
                         -->
                         <DataTrigger Binding="{Binding EhEncaixe}" Value="True">
                             <Setter TargetName="fundo" Property="BorderBrush"
@@ -309,6 +311,60 @@
                              volta ao normal e o "+" não acende nem no hover. -->
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+      MAIS UM NO MESMO HORÁRIO (set/2026). O irmão do VaoLivre para a célula OCUPADA: a
+      clínica atende vários pacientes na mesma meia hora (na acupuntura o paciente fica na
+      maca com as agulhas enquanto outro é atendido), e desde set/2026 o serviço não recusa
+      mais choque — o horário com um cartão dentro continua sendo horário livre.
+
+      ⚠️ Ao contrário do VaoLivre, o "+" daqui é VISÍVEL SEMPRE (esmaecido), e é de
+      propósito. Lá o argumento para escondê-lo é a quantidade: um "+" por meia hora num
+      dia vazio dá uma tela de sinais de mais. Aqui eles são poucos — um por cartão — e a
+      DESCOBERTA é metade do que esta mudança precisa entregar: escondido no hover de
+      18×18 px, ninguém acharia que dá para marcar em cima, e a recusa teria saído sem
+      ninguém perceber que ela saiu.
+    -->
+    <Style x:Key="VaoMaisUm" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Margin" Value="0,1,1,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="fundo" Background="Transparent"
+                            CornerRadius="{StaticResource Raio.Pequeno}">
+                        <ContentPresenter x:Name="sinal"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Opacity="0.45" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Superficie.Hover}" />
+                            <Setter TargetName="sinal" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <!-- Sem permissão de agenda ele não convida a nada — e SOME, em vez
+                             de ficar esmaecido: um "+" apagado permanente sobre o cartão de
+                             quem só lê a agenda é ruído que não leva a lugar nenhum.
+                             ⚠️ Quem some é o `fundo`, DENTRO do template, e não o botão:
+                             a tela liga `Visibility` ao `PodeSobrepor`, e valor local VENCE
+                             trigger de template — um `Setter Property="Visibility"` aqui
+                             seria uma linha que nunca faz nada. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="fundo" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

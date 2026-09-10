@@ -35,8 +35,16 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<Sala> Salas { get; } = [];
 
-    /// <summary>Choques detectados para o horário atual (vazio = livre).</summary>
-    public ObservableCollection<string> Conflitos { get; } = [];
+    /// <summary>
+    /// Avisos do horário atual — vazio = livre. Nenhum impede salvar (set/2026, ver
+    /// <c>AgendaService.ConflitosAsync</c>): a frase que diz isso é
+    /// <see cref="CabecalhoDosAvisos"/>, e o <see cref="AvisoDeChoque.Grave"/> separa a
+    /// rotina da casa ("já tem paciente aqui") da agenda FECHADA.
+    /// </summary>
+    public ObservableCollection<AvisoDeChoque> Conflitos { get; } = [];
+
+    /// <summary>A frase acima da lista de avisos — mora na Application, não no XAML.</summary>
+    public string CabecalhoDosAvisos => AvisosDeChoque.Cabecalho;
 
     /// <summary>
     /// Carteirinha, cota e consentimento do paciente escolhido — conferidos AQUI, na hora
@@ -404,8 +412,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             // Chegou tarde: outra tecla já pediu uma conferência mais nova.
             if (geracao != _geracaoConflitos) return;
 
-            foreach (var c in achados.Select(Descrever).Distinct())
-                Conflitos.Add(c);
+            foreach (var aviso in AvisosDeChoque.Montar(achados))
+                Conflitos.Add(aviso);
         }
         catch (Exception ex)
         {
@@ -418,12 +426,6 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                 OnPropertyChanged(nameof(TemConflito));
         }
     }
-
-    private static string Descrever(ConflitoAgenda c) => c.Recurso switch
-    {
-        RecursoAgenda.Paciente => $"{c.Descricao} (aviso — não impede marcar)",
-        _ => c.Descricao
-    };
 
     [RelayCommand]
     private async Task SalvarAsync()

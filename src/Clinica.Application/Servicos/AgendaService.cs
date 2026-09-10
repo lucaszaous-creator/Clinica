@@ -108,10 +108,10 @@ public sealed class AgendaService
                 "Escolha quem vai atender. Sem profissional o horário não aparece na agenda "
                 + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
 
-        // Só valida choque quando há recurso disputado. Sem sala e sem profissional — o
-        // encaixe que a recepção lança com o paciente no balcão — nada há para disputar.
-        await GarantirSemChoqueAsync(
-            dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, encaixe, ct);
+        // ⚠️ NENHUM CHOQUE RECUSA — a agenda AVISA e registra (set/2026, decisão da
+        // direção). Ver a nota inteira em <see cref="ConflitosAsync"/>: quem lê o choque
+        // é a TELA, a cada tecla, e quem decide é quem está no balcão com o paciente na
+        // frente. Aqui não há conferência nenhuma, de propósito.
 
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         var ag = new Agendamento
@@ -221,37 +221,14 @@ public sealed class AgendaService
         if (novaDuracao is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
 
-        // ⚠️ O CHOQUE só se reconfere quando a edição DISPUTA recurso (set/2026 — a clínica
-        // corrigiu a especialidade de um horário e levou *"Dr. … já atende SUELLI às 14:01.
-        // Escolha outro horário ou marque como encaixe"*, com o médico ainda não tendo
-        // atendido ninguém).
-        //
-        // A conferência existe para impedir que se CRIE uma sobreposição. O botão Editar da
-        // agenda do dia abre este mesmo caminho para corrigir o que a sessão É — modalidade,
-        // especialidade, observação — sem mover o horário um minuto: o formulário devolve a
-        // mesma hora, o mesmo profissional, a mesma sala e a mesma duração. Reconferir ali
-        // não impede sobreposição nenhuma; ela JÁ existia, e é exatamente o cenário da
-        // parcela 93 — o horário importado que ficou parado ao lado do ENCAIXE da sessão
-        // lançada (mesmo paciente, mesmo profissional, um minuto depois). O desfecho era o
-        // corredor sem saída da parcela 69: a secretária atravessa a porta, escolhe a
-        // especialidade certa e leva no Salvar uma recusa que ela não tem como cumprir — o
-        // encaixe é a sessão que aconteceu, e a única saída seria cancelá-la.
-        //
-        // Reabrir cancelado/falta/substituído CONFERE, e é a metade que não pode cair: o
-        // horário tinha SOLTADO o recurso, e o vão dele pode ter sido dado a outra pessoa
-        // enquanto isso.
-        var disputaRecurso =
-            dataHora != ag.DataHora
-            || novaDuracao != ag.DuracaoMinutos
-            || novoProfissional != ag.ProfissionalId
-            || novaSala != ag.SalaId
-            || novoEncaixe != ag.Encaixe
-            || statusAnterior != StatusAgendamento.Agendado;
-
-        if (disputaRecurso)
-            await GarantirSemChoqueAsync(
-                dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId,
-                ignorarAgendamentoId: ag.Id, novoEncaixe, ct);
+        // ⚠️ REMARCAR NÃO CONFERE CHOQUE — nada mais recusa por sobreposição (set/2026,
+        // decisão da direção; ver <see cref="ConflitosAsync"/>). O que aqui existia era a
+        // conferência condicional que a clínica derrubou por outro caminho, duas semanas
+        // antes: corrigir a especialidade de um horário devolvia *"Dr. … já atende SUELLI
+        // às 14:01. Escolha outro horário ou marque como encaixe"* com o médico ainda não
+        // tendo atendido ninguém — o encaixe era a sessão que de fato aconteceu, e a única
+        // forma de obedecer seria cancelá-la. A regra nova torna aquele corredor sem saída
+        // impossível de existir por construção, em vez de por condição.
 
         ag.ProfissionalId = novoProfissional;
         ag.SalaId = novaSala;
@@ -387,7 +364,31 @@ public sealed class AgendaService
 
     /// <summary>
     /// Choques de um horário candidato, por recurso: o profissional já está ocupado, a
-    /// sala já está tomada, ou o próprio paciente já tem hora marcada nesse intervalo.
+    /// sala já está tomada, o próprio paciente já tem hora marcada nesse intervalo, a
+    /// agenda está fechada (feriado, férias, folga) ou a hora está fora da jornada
+    /// declarada de quem atende.
+    ///
+    /// ⛔ <b>ESTA LEITURA NÃO IMPEDE NADA, e desde set/2026 nenhuma outra impede.</b>
+    /// A direção decidiu que a agenda AVISA e REGISTRA: o horário continua livre para
+    /// marcar mesmo com outro paciente ali. O pedido da clínica foi literal — *"horário
+    /// na agenda livre, não precisa dar choque/bloqueio porque já tem paciente naquele
+    /// mesmo horário"* — e ele descreve como a casa trabalha: na acupuntura o profissional
+    /// deixa o paciente na maca com as agulhas e atende outro, então "o profissional está
+    /// ocupado" nunca foi verdade aqui. O que existia era um <c>GarantirSemChoqueAsync</c>
+    /// que lançava, e a única saída dele era marcar como ENCAIXE — um campo que passou a
+    /// ser preenchido para contornar a recusa em vez de descrever o fato.
+    ///
+    /// ⚠️ O que se ganhou em fluidez se paga em ATENÇÃO, e é por isso que esta leitura
+    /// continua existindo e ficou mais importante, não menos: sem ela, marcar em cima do
+    /// feriado passaria a depender da memória de quem está no balcão. As duas telas de
+    /// marcação a chamam A CADA TECLA (hora, duração, profissional, sala) e escrevem o
+    /// resultado ao lado do botão — <b>é o único lugar onde a clínica ainda vê que há
+    /// alguém naquele horário</b>. Tela de marcação nova nasce chamando isto.
+    ///
+    /// ⚠️ A recusa que FICOU é outra e não é choque: marcar sem dizer <b>quem vai
+    /// atender</b> (parcela 95) continua recusado, porque horário sem dono não aparece na
+    /// agenda de ninguém nem entra no repasse — não é um horário disputado, é um horário
+    /// que o fluxo inteiro não alcança.
     ///
     /// Compara por INTERVALO, não por igualdade de horário: marcar 14h30 sobre uma
     /// sessão de 30 min que começou às 14h é o mesmo choque, e a comparação antiga
@@ -465,38 +466,6 @@ public sealed class AgendaService
     }
 
     /// <summary>
-    /// Barra o choque quando há recurso em disputa — a menos que a recepção tenha
-    /// assumido o <paramref name="encaixe"/>. O encaixe existe justamente para o caso
-    /// em que a clínica DECIDE atender por cima: a agenda registra em vez de impedir.
-    /// </summary>
-    private async Task GarantirSemChoqueAsync(
-        DateTime dataHora, int? duracaoMinutos, int? profissionalId, int? salaId,
-        int? pacienteId, int? ignorarAgendamentoId, bool encaixe, CancellationToken ct)
-    {
-        if (encaixe) return;
-
-        // Sem profissional e sem sala não há recurso disputado — mas o bloqueio DA
-        // CLÍNICA (feriado) vale mesmo assim, e por isso a conferência não pode mais
-        // sair aqui como saía antes.
-        var soBloqueioDaClinica = profissionalId is null && salaId is null;
-
-        var conflitos = await ConflitosAsync(
-            dataHora, duracaoMinutos, profissionalId, salaId,
-            pacienteId: pacienteId, ignorarAgendamentoId: ignorarAgendamentoId, ct: ct);
-
-        // Choque com o próprio paciente é aviso da tela, não impedimento: ele pode ter
-        // dois procedimentos seguidos. O que trava é recurso disputado — e agenda fechada.
-        var impeditivos = conflitos
-            .Where(c => c.Recurso != RecursoAgenda.Paciente)
-            .Where(c => !soBloqueioDaClinica || c.Recurso == RecursoAgenda.Bloqueio)
-            .ToList();
-        if (impeditivos.Count == 0) return;
-
-        throw new InvalidOperationException(
-            impeditivos[0].Descricao + " Escolha outro horário ou marque como encaixe.");
-    }
-
-    /// <summary>
     /// Marca várias sessões de uma vez — o pacote de dez, o tratamento de oito semanas.
     ///
     /// Até aqui o Financeiro vendia dez sessões e a agenda marcava UMA por vez: dez
@@ -508,9 +477,12 @@ public sealed class AgendaService
     /// 1. **A série sai da PRIMEIRA data mais N períodos**, nunca da ocorrência anterior
     ///    mais um. Encadear faria uma sessão adiada empurrar todas as seguintes — e a
     ///    recepção perderia o horário fixo do paciente, que é o motivo de marcar em série.
-    /// 2. **Conflito não aborta a série: ele PULA a data e diz qual.** Recusar as dez
-    ///    porque a sexta caiu em feriado devolveria a recepção ao trabalho manual; marcar
-    ///    nove e dizer "a de 25/12 não deu" é o que ela faria à mão.
+    /// 2. **Uma data recusada não aborta a série: ela é PULADA e a lista diz qual.**
+    ///    ⚠️ Desde set/2026 CHOQUE não recusa mais nada (ver <see cref="ConflitosAsync"/>),
+    ///    então a série marca por cima de horário ocupado e de feriado — o que ainda cai
+    ///    em <see cref="SerieAgendada.Recusados"/> é a data sem profissional. O
+    ///    <c>catch</c> fica: recusar as dez porque uma não deu devolveria a recepção ao
+    ///    trabalho manual, e é a próxima recusa nova que ele apanha sem ninguém lembrar.
     /// 3. **Todas compartilham o <see cref="Agendamento.SerieId"/>**, que é o que permite
     ///    tratar o resto do bloco depois — cancelar as que sobraram quando o paciente
     ///    desiste no meio do tratamento.
@@ -566,7 +538,8 @@ public sealed class AgendaService
             }
             catch (InvalidOperationException ex)
             {
-                // Choque de recurso e agenda fechada param ESTA data, não a série.
+                // O que recusar ESTA data não para a série. Hoje é a falta de
+                // profissional; choque e agenda fechada deixaram de recusar em set/2026.
                 recusados.Add(new SessaoRecusada(quando, ex.Message));
             }
         }
@@ -641,15 +614,27 @@ public sealed class AgendaService
     /// Check-in no balcão: o paciente chegou. É daqui que sai o tempo de espera — sem
     /// carimbo de chegada a fila não tem como dizer há quanto tempo alguém aguarda.
     ///
-    /// ⛔ SEM PORTA EM PRODUÇÃO desde set/2026, e é decisão da clínica, não esquecimento.
-    /// Ela dispensou a fila em etapas — *"a secretaria marca e o médico/enfermeiro
-    /// atende"* —, e os botões de Chegou · Chamar · Entrou · Voltar saíram das duas
-    /// listas do dia. Este método, o <see cref="ChamarAsync"/>, o
-    /// <see cref="DesfazerChamadaAsync"/> e o <see cref="VoltarEtapaAsync"/> FICAM,
-    /// testados: a fila volta a ter tela no dia em que uma clínica a quiser, e apagar o
-    /// motor obrigaria a reescrevê-lo. Quem varrer "método sem chamador" leia isto antes
-    /// de removê-los — e, se for construir a porta de volta, leia também o
-    /// <see cref="IniciarAtendimentoAsync"/>, que deixou de inventar a chegada.
+    /// ⚠️ ELE TEM PORTA DE NOVO — a agenda do dia da Recepção (set/2026, pedido da
+    /// secretária: *"hoje temos Marcado e Concluído, poderíamos colocar um chegou no local
+    /// entre os dois"*). E a história vale mais que a porta: semanas antes, a direção
+    /// tinha mandado tirar a fila em etapas (*"a secretaria marca e o médico/enfermeiro
+    /// atende"*) e os quatro botões saíram das duas listas. O que a prática mostrou é que
+    /// a clínica dispensava as ETAPAS INTERMEDIÁRIAS, não o "quem já está aqui" — então
+    /// só a chegada voltou.
+    ///
+    /// ⛔ O <see cref="ChamarAsync"/>, o <see cref="DesfazerChamadaAsync"/> e o
+    /// <see cref="VoltarEtapaAsync"/> CONTINUAM sem porta em produção, testados, e é
+    /// decisão: a fila em etapas volta a ter tela no dia em que uma clínica a quiser, e
+    /// apagar o motor obrigaria a reescrevê-lo. Quem varrer "método sem chamador" leia
+    /// isto antes de removê-los.
+    ///
+    /// ⚠️ E é daqui que volta a sair o TEMPO DE ESPERA. Enquanto não houve porta,
+    /// <see cref="Agendamento.EsperaMinutos"/> era nulo em toda sessão — e por isso os
+    /// cartões de espera média saíram do painel e da lista. Eles não voltaram junto:
+    /// média sobre uma base que a clínica ainda não está de fato colhendo é número com
+    /// cara de exato. Ver também o <see cref="IniciarAtendimentoAsync"/>, que deixou de
+    /// INVENTAR a chegada — com a porta de volta, inventá-la daria espera zero para todo
+    /// mundo, que é o *"ninguém espera nesta clínica"* que aquela mudança evitou.
     ///
     /// ⚠️ Os cinco movimentos da fila recebem o OPERADOR e gravam trilha (parcela 69):
     /// a parcela 61 criou a permissão do ato e o ato continuava sem autoria — mover a
@@ -1120,10 +1105,6 @@ public sealed class AgendaService
     {
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
-
-        // Encaixe: aceita por cima de horário ocupado — o paciente já está aqui.
-        await GarantirSemChoqueAsync(
-            dataHora, null, profissionalId, null, pacienteId, null, encaixe: true, ct);
 
         var agora = DateTime.Now;
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;

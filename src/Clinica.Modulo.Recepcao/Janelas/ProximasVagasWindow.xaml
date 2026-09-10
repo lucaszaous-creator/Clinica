@@ -33,7 +33,7 @@
 
         <Grid>
             <!-- Um estado vazio por pergunta: não achou em dois meses É a resposta. -->
-            <TextBlock Text="Nenhuma vaga com esta duração nos próximos 60 dias. Confira a jornada e os bloqueios de quem atende — ou marque como encaixe."
+            <TextBlock Text="Nenhuma vaga LIVRE com esta duração nos próximos 60 dias. Confira a jornada e os bloqueios de quem atende — ou escolha a data e a hora à mão: marcar sobre um horário que já tem paciente é permitido, e a tela avisa."
                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                        VerticalAlignment="Top"
                        Visibility="{Binding Vazio, Converter={StaticResource BoolParaVisibilidade}}" />

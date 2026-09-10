@@ -46,6 +46,12 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveOrigens = "origens-pacientes";
 
     /// <summary>
+    /// O que SAIU da clínica no período (set/2026, tela 4 do mockup aprovado
+    /// "documentos nas quatro telas") — a leitura agregada dos papéis emitidos.
+    /// </summary>
+    public const string ChaveDocumentosEmitidos = "documentos-emitidos";
+
+    /// <summary>
     /// Importar pacientes do sistema anterior (set/2026). Fica no Gerente e não na
     /// Recepção porque é ato de MIGRAÇÃO, feito uma vez pela direção — e porque cria
     /// centenas de fichas num clique, o que não é trabalho de balcão.
@@ -177,6 +183,11 @@ public sealed class ModuloGerente : IModuloApp
             Abas =
             [
                 new AbaMenu("Auditoria", ChaveAuditoria),
+                // "O que SAIU" ao lado de "quem mexeu" e "o que está guardado": é a mesma
+                // pergunta de fiscalização, e é a única leitura da suíte que responde
+                // quantos papéis a clínica emitiu, quem assinou e quantos foram
+                // cancelados — com o motivo escrito de cada um.
+                new AbaMenu("Documentos emitidos", ChaveDocumentosEmitidos),
                 new AbaMenu("Guarda do prontu\u00E1rio", ChaveGuarda),
                 new AbaMenu("Acessos", ChaveAcessos)
             ]
@@ -257,6 +268,18 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C", Icone = "escudo",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
         },
+        // ⚠️ O bit é o da SEÇÃO de documentos (parcela 59), não o da auditoria: quem lê a
+        // trilha e quem lê os papéis emitidos são perguntas diferentes, e juntá-las seria
+        // o bit sobrecarregado que a parcela 49 desfez. O grupo "Conformidade e acessos"
+        // pede o bit mais frouxo dele (`VerAuditoria`), então quem tiver SÓ `VerDocumentos`
+        // alcança esta tela pela navegação, não pela sidebar — a direção, que é quem a
+        // usa, tem os dois.
+        new ItemMenuModulo
+        {
+            Chave = ChaveDocumentosEmitidos, Rotulo = "Documentos emitidos",
+            Glifo = "\uE8A5", Icone = "documento",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerDocumentos
+        },
         new ItemMenuModulo
         {
             Chave = ChaveGuarda, Rotulo = "Guarda do prontu\u00E1rio", Glifo = "\uE7B8", Icone = "estoque",
@@ -297,6 +320,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<MetasViewModel>();
         servicos.AddTransient<RetencaoViewModel>();
         servicos.AddTransient<OrigensViewModel>();
+        servicos.AddTransient<DocumentosEmitidosViewModel>();
         servicos.AddTransient<ImportacaoPacientesViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
         // usuário no construtor, como os demais formulários da suíte.
@@ -359,6 +383,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveRetencao => new RetencaoView
         {
             DataContext = servicos.GetRequiredService<RetencaoViewModel>()
+        },
+        ChaveDocumentosEmitidos => new DocumentosEmitidosView
+        {
+            DataContext = servicos.GetRequiredService<DocumentosEmitidosViewModel>()
         },
         ChaveOrigens => new OrigensView
         {

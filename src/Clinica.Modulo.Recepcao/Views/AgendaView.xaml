@@ -109,56 +109,43 @@
 
         <!-- ============ Uma célula da linha do tempo ============ -->
         <DataTemplate x:Key="CelulaAgendaTemplate" DataType="{x:Type vm:CelulaAgenda}">
+            <!-- A ORDEM dos filhos é o que decide quem recebe o clique: o Grid empilha na
+                 ordem do XAML e o último desenha por cima. As camadas decorativas vêm
+                 primeiro e são IsHitTestVisible="False" — sem isso a hachura do feriado
+                 comeria o clique do vão que agora é clicável. -->
             <Grid Margin="1,0">
-                <!-- Vão livre: o clique JÁ abre o formulário nesta hora e nesta coluna.
-                     É o gesto que a agenda existe para ter. O botão fica quase invisível
-                     até o mouse chegar — um "+" aceso em cada vão de um dia vazio seria
-                     uma tela de sinais de mais. -->
-                <Button Style="{StaticResource VaoLivre}"
-                        Visibility="{Binding PodeMarcar,
-                                     Converter={StaticResource BoolParaVisibilidade}}"
-                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
-                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        ToolTip="Marcar neste horário"
-                        Command="{Binding DataContext.AgendarNaFaixaCommand,
-                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}">
-                    <TextBlock Text="+" FontSize="{StaticResource Fonte.H3}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                </Button>
-
                 <!-- Continuação: coberto por uma sessão que começou antes. Sem esta faixa,
-                     uma sessão de uma hora deixaria a meia hora seguinte parecendo vaga —
-                     e a recepção marcaria por cima. -->
+                     uma sessão de uma hora deixaria a meia hora seguinte parecendo vaga. -->
                 <Border Background="{StaticResource Brush.Acento.Suave}"
                         CornerRadius="{StaticResource Raio.Pequeno}"
-                        Margin="0,0,0,1"
+                        Margin="0,0,0,1" IsHitTestVisible="False"
                         Visibility="{Binding Continuacao,
                                      Converter={StaticResource BoolParaVisibilidade}}" />
 
                 <!-- FORA DO EXPEDIENTE (set/2026): a jornada declarada do profissional da
                      coluna. Mais leve que o bloqueio — é rotina, não exceção — e SEM texto:
                      numa agenda de 7h às 20h, quem atende de tarde teria "fora do
-                     expediente" escrito em dezoito vãos. A dica diz, e o "+" não aparece:
-                     o serviço recusaria no Salvar (o encaixe passa). O bloqueio, quando
+                     expediente" escrito em dezoito vãos. A dica diz. O bloqueio, quando
                      há, vence e se desenha por cima. -->
+                <!-- Sem ToolTip: com IsHitTestVisible="False" ele nunca apareceria, e
+                     dica que não abre é dica que ninguém sabe que perdeu. Quem diz quando
+                     ele atende é a do "+" (`CelulaAgenda.DicaDoVao`). -->
                 <Border Background="{StaticResource Brush.Raia}"
                         CornerRadius="{StaticResource Raio.Pequeno}"
-                        Margin="0,0,0,1"
-                        ToolTip="{Binding ForaDoExpediente}"
+                        Margin="0,0,0,1" IsHitTestVisible="False"
                         Visibility="{Binding MostrarExpediente,
                                      Converter={StaticResource BoolParaVisibilidade}}" />
-                <!-- AGENDA FECHADA (parcela 63): férias, feriado ou folga. O vão bloqueado
-                     era visualmente IDÊNTICO ao vão livre, e o vão livre é clicável — a
-                     recepcionista escolhia o paciente, preenchia o formulário e só levava
-                     a recusa no Salvar, com ele na frente dela.
-                     Ele não é clicável: o motivo já está escrito, e botão que só serve
-                     para explicar por que não dá é um clique cobrado à toa. -->
+
+                <!-- AGENDA FECHADA (parcela 63): férias, feriado ou folga. A hachura e o
+                     motivo FICAM — é a informação que faz a recepcionista pensar duas
+                     vezes. O que saiu foi a barreira: desde set/2026 o serviço não recusa
+                     mais, então o vão fechado voltou a ser clicável e o formulário repete
+                     o motivo como aviso. -->
                 <Border Background="{StaticResource Brush.AgendaFechada}"
                         BorderBrush="{StaticResource Brush.Borda}"
                         BorderThickness="0,0,0,1"
                         CornerRadius="{StaticResource Raio.Pequeno}"
-                        Margin="0,0,0,1" Padding="4,0"
+                        Margin="0,0,0,1" Padding="4,0" IsHitTestVisible="False"
                         Visibility="{Binding MostrarBloqueio,
                                      Converter={StaticResource BoolParaVisibilidade}}">
                     <!-- O motivo sobre a hachura leva um fundo próprio: texto direto sobre
@@ -169,16 +156,53 @@
                         <TextBlock Text="{Binding Bloqueio}" VerticalAlignment="Center"
                                    FontSize="{StaticResource Fonte.Legenda}"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding Bloqueio}" />
+                                   TextTrimming="CharacterEllipsis" />
                     </Border>
                 </Border>
+
+                <!-- Vão livre: o clique JÁ abre o formulário nesta hora e nesta coluna.
+                     É o gesto que a agenda existe para ter. O botão fica quase invisível
+                     até o mouse chegar — um "+" aceso em cada vão de um dia vazio seria
+                     uma tela de sinais de mais. -->
+                <Button Style="{StaticResource VaoLivre}"
+                        Visibility="{Binding PodeMarcar,
+                                     Converter={StaticResource BoolParaVisibilidade}}"
+                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
+                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        ToolTip="{Binding DicaDoVao}"
+                        Command="{Binding DataContext.AgendarNaFaixaCommand,
+                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}">
+                    <TextBlock Text="+" FontSize="{StaticResource Fonte.H3}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                </Button>
 
                 <!-- Ocupado. Mais de um cartão só quando houve encaixe — e aí eles se
                      empilham e a faixa inteira cresce, que é honesto: dois pacientes na
                      mesma meia hora ocupam mesmo o dobro. -->
                 <ItemsControl ItemsSource="{Binding Cartoes}"
                               ItemTemplate="{StaticResource CartaoAgendaTemplate}" />
+
+                <!-- MAIS UM NO MESMO HORÁRIO (set/2026): o vão ocupado continua sendo vão
+                     livre. Pedido da clínica — na acupuntura o paciente fica na maca com
+                     as agulhas enquanto outro é atendido —, e sem este botão tirar a
+                     recusa do serviço resolveria metade: a recepcionista veria o vão
+                     tomado e nem tentaria.
+                     Pequeno e no canto de propósito: ele divide a célula com o cartão, e o
+                     clique no cartão (que abre a janela do horário) continua sendo o gesto
+                     principal. É o ÚLTIMO filho, senão o cartão o cobriria. -->
+                <Button Style="{StaticResource VaoMaisUm}"
+                        Visibility="{Binding PodeSobrepor,
+                                     Converter={StaticResource BoolParaVisibilidade}}"
+                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
+                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        ToolTip="{Binding DicaDeSobrepor}"
+                        Command="{Binding DataContext.AgendarNaFaixaCommand,
+                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}">
+                    <TextBlock Text="+" FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                </Button>
             </Grid>
         </DataTemplate>
 

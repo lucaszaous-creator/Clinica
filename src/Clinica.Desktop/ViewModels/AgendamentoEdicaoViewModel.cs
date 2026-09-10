@@ -325,13 +325,22 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
                     return;
             }
 
-            // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
-            // Numa remarcação, o próprio agendamento não conflita consigo mesmo.
+            // Quem já está neste horário — avisa e pede confirmação. Numa remarcação, o
+            // próprio agendamento não conflita consigo mesmo.
+            //
+            // ⚠️ O serviço não recusa mais choque nenhum (set/2026, ver
+            // `AgendaService.ConflitosAsync`), e esta tela não tem a lista de avisos que a
+            // suíte critica a cada tecla — então a confirmação FICA: é o único lugar em
+            // que o faturista vê que há alguém ali. Confirmar não é recusar.
+            //
+            // ⚠️ E o texto parou de prometer "(encaixe)": esta chamada nunca passou
+            // `encaixe: true`, então o que a pessoa confirmava era um encaixe que não
+            // nascia — e, até set/2026, um Salvar que estourava logo depois.
             var conflito = await agenda.ConflitoAsync(dataHora, ignorarAgendamentoId: EditandoId);
             if (conflito is not null &&
-                !_dialogo.Confirmar("Horário ocupado",
+                !_dialogo.Confirmar("Já tem paciente neste horário",
                     $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM/yyyy} às {dataHora:HH:mm}.\n" +
-                    "Agendar mesmo assim (encaixe)?"))
+                    "Marcar os dois no mesmo horário?"))
                 return;
 
             if (EditandoId is int id)

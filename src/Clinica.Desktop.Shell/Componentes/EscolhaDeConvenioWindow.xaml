@@ -95,7 +95,7 @@
                     <ctrl:EstadoDaTela Itens="{Binding Convenios}"
                                        Carregando="{Binding Carregando}"
                                        Titulo="Nenhum convênio ativo"
-                                       Descricao="A direção cadastra em Configurações → Convênios, no aplicativo do Gerente." />
+                                       Descricao="Reative um em Configurações → Convênios, no aplicativo de Faturamento — é o único que tem essa tela." />
                 </Grid>
             </Border>
         </DockPanel>

@@ -206,8 +206,17 @@ public class ListaEsperaServiceTests : IDisposable
             "duas secretárias chamando o mesmo paciente: a segunda para aqui");
     }
 
+    /// <summary>
+    /// Chamar para um horário que já tem paciente AGENDA (set/2026 — nenhum choque recusa;
+    /// ver <c>AgendaService.ConflitosAsync</c>). Substituiu o
+    /// <c>Chamar_ParaHorarioOcupado_RecusaSemEncaixe</c>.
+    ///
+    /// É o caso que a lista de espera existe para servir: o vão "vagou" e a recepcionista
+    /// chama alguém — e agora chamar para um vão que não vagou também vale, que é o
+    /// pedido da clínica.
+    /// </summary>
     [Fact]
-    public async Task Chamar_ParaHorarioOcupado_RecusaSemEncaixe()
+    public async Task Chamar_para_horario_ocupado_AGENDA()
     {
         var prof = await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Ana" });
         var jaMarcado = await CriarPacienteAsync("Já marcado");
@@ -217,10 +226,29 @@ public class ListaEsperaServiceTests : IDisposable
         var naFila = await CriarPacienteAsync("Na fila");
         var pedido = await _espera.AdicionarAsync(naFila, profissionalId: prof.Id);
 
+        var agendado = await _espera.ChamarAsync(pedido.Id, Manha, ModalidadeAtendimento.AcupunturaSimples);
+
+        agendado.DataHora.Should().Be(Manha);
+        (await _db.ListaEspera.AsNoTracking().FirstAsync(l => l.Id == pedido.Id))
+            .Status.Should().Be(StatusListaEspera.Agendado);
+    }
+
+    /// <summary>
+    /// A garantia que o teste acima carregava e não podia perder: <b>chamada que FALHA não
+    /// tira o pedido da lista</b>. O choque deixou de falhar, então o caso passou a ser o
+    /// que ainda recusa — chamar sem dizer quem vai atender (parcela 95).
+    /// </summary>
+    [Fact]
+    public async Task Chamada_que_falha_deixa_o_pedido_na_lista()
+    {
+        var naFila = await CriarPacienteAsync("Na fila");
+
+        // Pedido sem profissional: `AgendarAsync` recusa (o horário marcado precisa de dono).
+        var pedido = await _espera.AdicionarAsync(naFila);
+
         var acao = () => _espera.ChamarAsync(pedido.Id, Manha, ModalidadeAtendimento.AcupunturaSimples);
         await acao.Should().ThrowAsync<InvalidOperationException>();
 
-        // O pedido continua aberto: uma chamada que falhou não pode sumir da lista.
         var intacto = await _db.ListaEspera.AsNoTracking().FirstAsync(l => l.Id == pedido.Id);
         intacto.Status.Should().Be(StatusListaEspera.Aguardando);
     }

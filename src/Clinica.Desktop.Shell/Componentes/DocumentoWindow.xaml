@@ -17,6 +17,16 @@
         <TextBlock DockPanel.Dock="Top" Text="{Binding TituloJanela}"
                    Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
+        <!-- Para quem, quem assina e DE QUAL SESSÃO (set/2026). A procedência aparece
+             porque o documento passou a nascer preso ao horário: quem abre a janela pela
+             coluna do atendimento precisa ver a qual sessão o papel vai ficar ligado, e
+             quem a abre pela central precisa ver que ele é avulso — daí a frase encolher
+             em vez de mentir. -->
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Subtitulo}"
+                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Visibility="{Binding Subtitulo, Converter={StaticResource TextoParaVisibilidade},
+                                FallbackValue=Collapsed}" />
+
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,16,0,0">
             <!-- Assinar é ESCOLHA do momento, não configuração: o certificado pode não
@@ -272,6 +282,13 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Acento}"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="A indicação clínica da primeira linha veio da hipótese desta sessão. Trocar aqui não muda o prontuário."
+                                   Visibility="{Binding IndicacaoVeioDaSessao,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+
                         <TextBlock Margin="0,8,0,0" Style="{StaticResource TextoSuave}"
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap">
                             <Run Text="Colunas: o que é · quantidade · " />
@@ -316,8 +333,34 @@
                                             ToolTip="Procurar o código pela palavra (ex.: lombar, ansiedade)"
                                             Command="{Binding BuscarCidCommand}" />
                                     <TextBox Text="{Binding Cid, UpdateSourceTrigger=PropertyChanged}"
-                                             MaxLength="20" VerticalAlignment="Center" />
+                                             MaxLength="20" VerticalAlignment="Center">
+                                        <!-- Campo HERDADO fica marcado: quem lê um campo já
+                                             preenchido pergunta primeiro de onde ele veio, e
+                                             a resposta não pode ser um clique adiante.
+                                             ⚠️ `BasedOn` obrigatório — sem ele o estilo local
+                                             SUBSTITUI o implícito do design system e o campo
+                                             perde o Template, desenhando nada. -->
+                                        <TextBox.Style>
+                                            <Style TargetType="TextBox"
+                                                   BasedOn="{StaticResource {x:Type TextBox}}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding CidVeioDaSessao}" Value="True">
+                                                        <Setter Property="Background"
+                                                                Value="{StaticResource Brush.Acento.Suave}" />
+                                                        <Setter Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Acento}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBox.Style>
+                                    </TextBox>
                                 </DockPanel>
+
+                                <TextBlock Text="{Binding ExplicacaoDoCid}" TextWrapping="Wrap"
+                                           Foreground="{StaticResource Brush.Acento}"
+                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                                           Visibility="{Binding CidVeioDaSessao,
+                                                        Converter={StaticResource BoolParaVisibilidade}}" />
 
                                 <!-- O que o código digitado QUER DIZER (parcela 63). É o
                                      que denuncia o dígito trocado: "M54.4" é tão plausível
@@ -372,6 +415,13 @@
                                 <TextBox Text="{Binding HoraSaidaTexto}" MaxLength="5" />
                             </StackPanel>
                         </Grid>
+
+                        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Acento}"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Os horários vieram do carimbo da fila desta sessão. Trocar aqui não muda o prontuário."
+                                   Visibility="{Binding HorasVieramDaSessao,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
 
                         <TextBlock Margin="0,8,0,0" Style="{StaticResource TextoSuave}"
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"

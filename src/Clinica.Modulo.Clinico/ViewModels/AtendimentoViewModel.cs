@@ -30,6 +30,28 @@ public sealed class LinhaAlertaClinico
     public required bool Grave { get; init; }
 }
 
+/// <summary>
+/// Um papel que já saiu para este paciente NO DIA desta sessão — a lista curta da coluna
+/// ENTREGAR AGORA, que responde "eu já dei a receita para ela?".
+/// </summary>
+public sealed record FolhaDeHoje(
+    int DocumentoId, string Rotulo, string Numero, string Detalhe, bool Cancelado)
+{
+    /// <summary>O nome do arquivo da segunda via.</summary>
+    public string NomeArquivo => $"{Rotulo}-{Numero.Replace('/', '-')}.pdf";
+
+    public static FolhaDeHoje De(DocumentoClinico d) => new(
+        d.Id,
+        CentralDocumentosService.RotularClinico(d.Tipo),
+        d.Numero,
+        // Cancelada aparece MARCADA, nunca sumindo: documento não se apaga neste sistema,
+        // e esconder o cancelado faria a coluna mentir sobre o que já foi entregue.
+        d.Cancelado
+            ? $"cancelada — {d.MotivoCancelamento}"
+            : $"{d.CriadoEm:HH':'mm}" + (d.Profissional is null ? "" : $" · {d.Profissional.Rotulo}"),
+        d.Cancelado);
+}
+
 /// <summary>Uma sessão anterior, do jeito que o consultório precisa relê-la: inteira.</summary>
 
 /// <summary>
@@ -267,17 +289,264 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         MensagemEhErro = r.EhErro;
     }
 
+    // ===================================================================================
+    //  ENTREGAR AGORA — a coluna dos papéis (set/2026, tela 1 do mockup aprovado)
+    // ===================================================================================
+    //
+    //  O que ela corrige: emitir era "sair do atendimento, achar a tela de documentos,
+    //  escolher o paciente de novo e voltar" — para um ato que acontece com o paciente
+    //  ainda na maca. E o documento abria EM BRANCO na frente de quem tinha acabado de
+    //  escrever o CID, a hipótese e a hora em que aquela pessoa chegou.
+    //
+    //  ⚠️ A coluna é PERMANENTE, e isso contraria a régua do README ("o que a pessoa FAZ
+    //  de vez em quando é botão, não painel aberto") de propósito: aqui o papel não é o
+    //  que se faz de vez em quando, é o que a consulta ENTREGA — e a tela do paciente roda
+    //  em modo IMERSIVO (a sidebar e a barra de cima recolhem), então em 1366 sobram ~1000
+    //  px para a folha depois dos 340 dela.
+    //
+    //  ⚠️ Quem decide o que cada cartão DIZ é `FolhasParaEntregar`, na Application: "CID
+    //  M54.5 da sua hipótese" é uma promessa que a janela tem de cumprir, e regra que
+    //  decide o que a tela afirma mora onde o `dotnet test` alcança.
+
+    /// <summary>Os papéis que esta sessão entrega, com o que cada um já traz preenchido.</summary>
+    public ObservableCollection<FolhaParaEntregar> Entregar { get; } = [];
+
+    /// <summary>O que já saiu para este paciente NO DIA desta sessão.</summary>
+    public ObservableCollection<FolhaDeHoje> SaiuHoje { get; } = [];
+
+    /// <summary>
+    /// A região "já saiu hoje" tem o que mostrar.
+    ///
+    /// Existe como propriedade, e não como um conversor de contagem, porque a região
+    /// inteira SOME enquanto nada saiu: cartão vazio dizendo "nenhum documento hoje"
+    /// ocuparia 60 px da coluna para não informar nada.
+    /// </summary>
+    public bool TemFolhasDeHoje => SaiuHoje.Count > 0;
+
+    /// <summary>Quando a sessão é — só para a janela escrever a procedência.</summary>
+    private DateTime? _dataHoraDaSessao;
+
+    /// <summary>Os carimbos da fila deste horário, que a declaração de comparecimento usa.</summary>
+    private TimeOnly? _chegadaDaSessao;
+    private TimeOnly? _saidaDaSessao;
+
+    /// <summary>Quantas sessões o prontuário tem — o relatório de evolução precisa de base.</summary>
+    private int _sessoesRegistradas;
+
+    /// <summary>
+    /// A última herança que gerou os cartões. Existe para NÃO remontar a coluna a cada
+    /// tecla da hipótese: cinco records iguais reescritos em toda letra fazem a coluna
+    /// piscar ao lado de quem está escrevendo.
+    /// </summary>
+    private HerancaDaSessao? _herancaMontada;
+
+    /// <summary>O que a sessão tem AGORA para dar aos papéis.</summary>
+    private HerancaDaSessao HerancaDeAgora() => new(
+        PacienteId,
+        Cid: CidSessao,
+        Hipotese: HipoteseDiagnostica,
+        Chegada: _chegadaDaSessao,
+        Saida: _saidaDaSessao,
+        SessoesRegistradas: _sessoesRegistradas,
+        AgendamentoId: _foco.AgendamentoId,
+        // Enquanto a sessão não foi salva não há evolução para apontar — e apontar para
+        // uma que não existe é um vínculo para lugar nenhum.
+        EvolucaoId: EvolucaoId == 0 ? null : EvolucaoId,
+        DataHoraDaSessao: _dataHoraDaSessao);
+
+    /// <summary>
+    /// Refaz a coluna — só quando o que ela DIZ mudou.
+    ///
+    /// A comparação é do record inteiro (igualdade estrutural): o CID que o profissional
+    /// acabou de escrever muda o cartão do atestado, e o resto continua igual.
+    /// </summary>
+    private void MontarEntregar()
+    {
+        if (!TemPaciente)
+        {
+            _herancaMontada = null;
+            Entregar.Clear();
+            return;
+        }
+
+        var heranca = HerancaDeAgora();
+        if (heranca == _herancaMontada) return;
+        _herancaMontada = heranca;
+
+        Entregar.Clear();
+        foreach (var cartao in FolhasParaEntregar.Montar(heranca, SessaoUsuario.Atual.Efetivas))
+            Entregar.Add(cartao);
+    }
+
+    /// <summary>
+    /// Emite o papel do cartão clicado.
+    ///
+    /// Os quatro escritos abrem a JANELA QUE JÁ EXISTE, agora com a herança — ela resolve
+    /// quem assina, os modelos, a regra do CID e a conferência de alergia. O relatório é
+    /// MONTADO do prontuário e não passa por janela nenhuma: emitir é imprimir o que já
+    /// está lá.
+    /// </summary>
+    [RelayCommand]
+    private async Task EntregarFolhaAsync(FolhaParaEntregar? cartao)
+    {
+        // Guarda que FALA: o cartão já nasce apagado quando não dá, e um atalho ou uma
+        // corrida de carregamento chegam aqui mesmo assim (parcela 41).
+        if (cartao is null) return;
+        if (PacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de emitir.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        var folha = CentralDocumentosService.Folha(cartao.Chave);
+        if (folha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}");
+
+            if (folha.MontadaDoProntuario) await EmitirMontadaAsync(folha);
+            else await AbrirJanelaDeEmissaoAsync(folha);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                $"Consultório — folha '{cartao.Rotulo}' não pôde ser emitida", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    private async Task AbrirJanelaDeEmissaoAsync(FolhaCatalogo folha)
+    {
+        if (folha.TipoClinico is not { } tipo) return;
+
+        var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId, tipo, HerancaDeAgora());
+        var janela = new DocumentoWindow(vm) { Owner = JanelaDona.Atual() };
+
+        // Recarrega dos dois jeitos: fechar sem concluir não quer dizer que nada
+        // aconteceu — o documento pode ter sido emitido e só a impressão ter falhado.
+        var concluiu = janela.ShowDialog() == true;
+        await CarregarSaiuHojeAsync();
+
+        if (concluiu) _snackbar?.Sucesso($"{folha.Rotulo} emitido(a).");
+    }
+
+    /// <summary>
+    /// O relatório de evolução: o sistema monta do prontuário e imprime. Não há janela —
+    /// não há o que digitar.
+    /// </summary>
+    private async Task EmitirMontadaAsync(FolhaCatalogo folha)
+    {
+        DocumentoClinico emitido;
+        using (var scope = _escopos.CreateScope())
+        {
+            var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            var operador = SessaoUsuario.Atual.Operador;
+
+            emitido = folha.TipoClinico == TipoDocumentoClinico.Anamnese
+                ? await servico.EmitirAnamneseAsync(PacienteId, operador: operador)
+                : await servico.EmitirRelatorioEvolucaoAsync(PacienteId, operador: operador);
+        }
+
+        await CarregarSaiuHojeAsync();
+        await ImprimirDocumentoAsync(
+            emitido.Id, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf");
+    }
+
+    /// <summary>
+    /// Segunda via do que saiu hoje. O conteúdo foi gravado na EMISSÃO e não é remontado —
+    /// a via que sai agora tem de ser idêntica à que o paciente levou.
+    /// </summary>
+    [RelayCommand]
+    private async Task SegundaViaAsync(FolhaDeHoje? linha)
+    {
+        if (linha is null) return;
+        await ImprimirDocumentoAsync(linha.DocumentoId, linha.NomeArquivo);
+    }
+
+    private async Task ImprimirDocumentoAsync(int documentoId, string nomeArquivo)
+    {
+        try
+        {
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+            {
+                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                pdf = await pdfs.GerarAsync(documentoId, await parametros.ObterPrestadorAsync());
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
+            Mensagem = erro;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — segunda via não pôde ser gerada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// O que já saiu para este paciente NO DIA desta sessão.
+    ///
+    /// Só o dia, e não a lista inteira: a pasta clínica é a aba "Prescrições e documentos",
+    /// e repetir os quarenta papéis dele numa coluna de 340 px daria duas respostas para a
+    /// mesma pergunta. Aqui a pergunta é outra — "eu já dei a receita para ela?".
+    ///
+    /// Falha SOZINHA: quem está na sala é o paciente, e uma leitura de documentos que não
+    /// respondeu não pode impedir a consulta de abrir. Mas não passa calada — vai ao log.
+    /// </summary>
+    private async Task CarregarSaiuHojeAsync()
+    {
+        var doDia = DateOnly.FromDateTime(Data);
+
+        // ⚠️ Descarte de resposta fora de ordem (parcela 60), e aqui ele não é otimização:
+        // trocar de paciente enquanto esta leitura está no ar poria os PAPÉIS de quem já
+        // saiu na coluna de quem está na sala — com o botão "2ª via" apontando para o
+        // documento da outra pessoa. Um clique imprimiria o papel errado.
+        var doPaciente = PacienteId;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+
+            var todos = await documentos.DoPacienteAsync(doPaciente);
+
+            // Chegou tarde: o posto já está em outro paciente.
+            if (doPaciente != PacienteId) return;
+
+            // Entre o Clear() e o último Add não pode haver await (parcela 62).
+            var linhas = todos
+                .Where(d => d.Data == doDia)
+                .Select(FolhaDeHoje.De)
+                .ToList();
+
+            SaiuHoje.Clear();
+            foreach (var l in linhas) SaiuHoje.Add(l);
+            OnPropertyChanged(nameof(TemFolhasDeHoje));
+        }
+        catch (Exception ex)
+        {
+            if (doPaciente != PacienteId) return;
+
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — documentos do dia não puderam ser lidos", ex);
+            SaiuHoje.Clear();
+            OnPropertyChanged(nameof(TemFolhasDeHoje));
+        }
+    }
+
     /// <summary>De onde veio a sessão: chamada do dia, ou escolhida na busca.</summary>
     [ObservableProperty] private string _origem = string.Empty;
 
     [ObservableProperty] private string _resumoDor = string.Empty;
-
-    /// <summary>
-    /// Sem paciente na sala não há para quem emitir, e o botão diz isso apagado — a tela
-    /// abre pela sidebar sem ninguém em foco, e botão aceso que não faz nada faz quem
-    /// clica concluir que o sistema quebrou (parcela 41).
-    /// </summary>
-    public bool PodeEmitirDocumento => TemPaciente && PodeEditarProntuario;
 
     /// <summary>
     /// A ficha do atendimento pede <see cref="Permissao.VerProntuario"/> — ela IMPRIME o
@@ -294,8 +563,11 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     /// </summary>
     protected override void AoMudarPresencaDePaciente()
     {
-        OnPropertyChanged(nameof(PodeEmitirDocumento));
         OnPropertyChanged(nameof(PodeImprimirFicha));
+
+        // Sem paciente não há papel a entregar — e cinco cartões acesos sobre uma tela
+        // vazia é o botão que não faz nada, com moldura.
+        MontarEntregar();
     }
 
     /// <summary>
@@ -318,6 +590,20 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         : base(escopos, snackbar)
     {
         _foco = foco;
+
+        // A coluna ENTREGAR AGORA acompanha o que está sendo ESCRITO: o cartão do
+        // atestado passa a dizer "CID M54.5 da sua hipótese" no instante em que o
+        // profissional escreve o CID.
+        //
+        // ⚠️ Por `PropertyChanged`, e não por `partial void OnCidSessaoChanged`: os
+        // `partial` são gerados na classe BASE (a folha da sessão), e uma derivada não
+        // pode implementá-los — a armadilha da parcela 88.
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(CidSessao) or nameof(HipoteseDiagnostica)
+                or nameof(EvolucaoId))
+                MontarEntregar();
+        };
 
         LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
         {
@@ -433,6 +719,26 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             Anteriores.Clear();
             ContextoDaUltimaSessao = string.Empty;
 
+            // O contexto que a coluna ENTREGAR AGORA herda. Zerado ANTES da leitura: o
+            // horário do paciente anterior daria à declaração de comparecimento a hora de
+            // quem já saiu (a lição da parcela 89 — limpar depois do await deixa o dado
+            // de outra pessoa na tela).
+            _dataHoraDaSessao = null;
+            _chegadaDaSessao = null;
+            _saidaDaSessao = null;
+            _sessoesRegistradas = 0;
+
+            // ⚠️ E o "JÁ SAIU HOJE" pela MESMA razão. O contador de geração de
+            // `CarregarSaiuHojeAsync` impede a resposta VELHA de sobrescrever a nova; ele
+            // não impede a lista velha de FICAR na tela enquanto a leitura corre — e ela
+            // corre depois de toda esta carga, que num banco remoto são segundos. Nesse
+            // intervalo o crachá já mostra quem entrou na sala e a coluna mostra os papéis
+            // de quem saiu, com o "2ª via" apontando para o documento da outra pessoa: um
+            // clique imprimiria o papel errado, que é exatamente o que o comentário
+            // daquele método diz existir para evitar.
+            SaiuHoje.Clear();
+            OnPropertyChanged(nameof(TemFolhasDeHoje));
+
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
 
@@ -481,7 +787,27 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
                 doHorario = ConsultorioService.EvolucaoDoHorario(
                     sessoes, agendamentoId, PacienteId, diaDoHorario, doDia);
+
+                // Os carimbos da FILA deste horário — é deles que sai "esteve aqui 14:00
+                // → 14:40" na declaração de comparecimento, em vez de a recepcionista
+                // digitar de cabeça a hora em que o paciente chegou.
+                if (doDia.FirstOrDefault(x => x.Id == agendamentoId) is { } horario)
+                {
+                    _dataHoraDaSessao = horario.DataHora;
+                    _chegadaDaSessao = horario.ChegadaEm is { } chegou
+                        ? TimeOnly.FromDateTime(chegou)
+                        : null;
+
+                    // A saída só existe depois de a sessão ser encerrada. Nula é a
+                    // resposta certa enquanto o paciente está na sala: escrever "agora"
+                    // numa declaração seria afirmar um fato que ainda não aconteceu.
+                    _saidaDaSessao = horario.FimAtendimentoEm is { } saiu
+                        ? TimeOnly.FromDateTime(saiu)
+                        : null;
+                }
             }
+
+            _sessoesRegistradas = sessoes.Count;
 
             if (doHorario is not null) Preencher(doHorario);
             else Limpar(_foco.DataDoHorario);
@@ -511,6 +837,16 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             await mapa.CarregarAsync();
             if (geracao != _geracaoCarga) return;
             Mapa = mapa;
+
+            // A coluna de papéis, com o que a sessão já sabe. Depois do `Preencher`, que é
+            // quem põe o CID e a hipótese na tela.
+            MontarEntregar();
+
+            // Sequencial, como todo o resto desta carga: leitura composta em paralelo
+            // sobre o mesmo repositório é o defeito que o SQLite dos testes esconde
+            // (parcela 74), e aqui não há nada a ganhar em antecipá-la.
+            await CarregarSaiuHojeAsync();
+            if (geracao != _geracaoCarga) return;
 
             var dor = await prontuario.EvolucaoDaDorAsync(PacienteId);
             if (geracao != _geracaoCarga) return;
@@ -744,51 +1080,6 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         TermoPendente = pendente;
         OnPropertyChanged(nameof(TemTermoPendente));
         OnPropertyChanged(nameof(PodeColherTermo));
-    }
-
-    /// <summary>
-    /// Emite receita, atestado, declaração de comparecimento ou pedido de exame para o
-    /// paciente que está na sala.
-    ///
-    /// Abre a MESMA janela da Recepção — promovida ao shell na parcela 36, pelo mesmo
-    /// motivo do mapa corporal. Quem prescreve é quem atende, e um app de consultório
-    /// que não emite receita obriga o médico a pedir à recepcionista que digite o que
-    /// ele acabou de decidir. O serviço por trás (<c>DocumentoClinicoService</c>) já
-    /// exige o profissional que assina em receita, atestado e pedido de exame — é a única
-    /// regra do projeto que IMPEDE em vez de avisar, e ela continua valendo daqui.
-    /// </summary>
-    [RelayCommand]
-    private async Task EmitirDocumentoAsync()
-    {
-        if (PacienteId == 0)
-        {
-            Mensagem = "Escolha um paciente antes de emitir o documento.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "emitir documento clínico");
-
-            var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
-            var janela = new DocumentoWindow(vm)
-            {
-                Owner = JanelaDona.Atual()
-            };
-
-            if (janela.ShowDialog() != true) return;
-
-            _snackbar.Sucesso("Documento emitido e numerado.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar(
-                "Consultório — documento não pôde ser emitido", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
     }
 
 }

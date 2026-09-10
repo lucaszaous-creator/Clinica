@@ -742,6 +742,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             existe.CategoriaComApp = convenio.CategoriaComApp;
             existe.CategoriaSemApp = convenio.CategoriaSemApp;
             existe.FormatoNumeroGuia = convenio.FormatoNumeroGuia;
+
+            // ⚠️ ESTES DOIS FALTAVAM, e o que faltava com eles era o que a tela PROMETE.
+            // A cópia campo a campo é o lugar 3 da auditoria de linha, e aqui ela ficou
+            // para trás em duas parcelas: a de Convênios do faturamento tem o switch
+            // "gera guia" (`ConvenioEdicao.GeraGuia`) e o campo do registro ANS, os dois
+            // são devolvidos por `ParaCadastro()` — e nenhum dos dois chegava ao banco
+            // numa linha que já existia. A CRIAÇÃO funcionava (o ramo de cima é um `Add`
+            // do objeto inteiro), que é o que escondeu o defeito.
+            //
+            // O custo de cada um: desmarcar "gera guia" não transformava convênio nenhum
+            // em particular — foi metade do *"nem eu mesmo consegui entender como fazer um
+            // atendimento particular"* —, e o registro ANS digitado nunca valia, então o
+            // lote TISS por operadora (parcela 60) continuava saindo com o registro
+            // global, que é a operadora recusando o lote semanas depois.
+            existe.GeraGuia = convenio.GeraGuia;
+            existe.RegistroAnsOperadora = convenio.RegistroAnsOperadora;
         }
     }
 

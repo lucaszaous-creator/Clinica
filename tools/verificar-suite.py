@@ -4310,6 +4310,142 @@ for _cenario, _altura, _celula, _deve_pegar in (
             f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
         )
 
+# --------------------------------------------------------------- checagem 48
+# `BasedOn="{StaticResource {x:Type T}}"` PARA UM TIPO SEM ESTILO IMPLÍCITO: a tela lança
+# ao montar (set/2026 — a lista de avisos do formulário de agendamento, na parcela que
+# tirou a recusa de choque da agenda).
+#
+# O `BasedOn` de um estilo local herda o estilo IMPLÍCITO do design system, e é assim que
+# se acrescenta um gatilho sem perder o `Template` da casa. Só que a chave `{x:Type T}` só
+# existe quando ALGUÉM a declarou: para `Button`, `TextBox` ou `ComboBox` o WPF ainda cai
+# no dicionário de TEMA dele; para `TextBlock` — que não é `Control` e não tem estilo de
+# tema — e para todo controle da CASA (não há `themes/generic.xaml` em projeto nenhum) não
+# há para onde cair, e o `StaticResource` lança
+# `ResourceReferenceKeyNotFoundException`.
+#
+# ⚠️ E ele lança tarde: dentro de um `DataTemplate` o conteúdo é ADIADO, então a janela
+# ABRE e só quebra quando o primeiro item aparece — que no caso real era exatamente
+# quando havia aviso para mostrar.
+#
+# ⚠️ A checagem 2 não pega: ela IGNORA toda chave `{x:Type ...}` (`CHAVES_DO_SISTEMA`),
+# presumindo que é do sistema. É o ponto cego que deixou passar o caso real; aqui a
+# pergunta é outra — não "esta chave existe?" e sim "existe estilo implícito para ela?".
+#
+# Medido antes de ligar: no repositório inteiro há NOVE usos de `BasedOn="{StaticResource
+# {x:Type T}}"` e oito têm o implícito declarado (Button, TextBox, ComboBox, DataGridRow,
+# Separator, ctrl:EmptyState, ctrl:Avatar, ctrl:EstadoDaTela). O nono era o defeito.
+#
+# O remédio é declarar o estilo implícito, ou — quando não há o que herdar — tirar o
+# `BasedOn`: um `<Style TargetType="TextBlock">` local já herda do ambiente.
+
+# Tipos do WPF que NÃO recebem estilo de tema: sem `Control`, não há generic.xaml para
+# cair. Fora desta lista, o tipo sem prefixo passa — o tema cobre.
+SEM_ESTILO_DE_TEMA = {
+    "TextBlock", "Border", "Grid", "StackPanel", "DockPanel", "WrapPanel", "UniformGrid",
+    "Canvas", "Panel", "Image", "Run", "Span", "Bold", "Italic", "Hyperlink", "Viewbox",
+    "Rectangle", "Ellipse", "Path", "Line", "Polygon", "ContentPresenter", "ItemsPresenter",
+}
+
+BASE_EM_TIPO = re.compile(r'BasedOn="\{StaticResource\s+\{x:Type\s+([A-Za-z0-9_.:]+)\}\s*\}"')
+ALVO_IMPLICITO = re.compile(r'<Style\b(?![^>]*\bx:Key=)[^>]*\bTargetType="\{?(?:x:Type\s+)?([A-Za-z0-9_.:]+)\}?"')
+
+
+def _implicitos_do(base: Path) -> set[str]:
+    """Nomes locais dos tipos com estilo IMPLÍCITO no design system deste app."""
+    achados: set[str] = set()
+    for arq in sorted(base.rglob("*.xaml")):
+        if "Styles" not in arq.parts:
+            continue
+        for tipo in ALVO_IMPLICITO.findall(arq.read_text(encoding="utf-8")):
+            achados.add(tipo.split(":")[-1])
+    return achados
+
+
+_DS_SUITE = RAIZ / "src" / "Clinica.Desktop.Shell"
+_DS_FATURAMENTO = RAIZ / "src" / "Clinica.Desktop"
+
+# Os dois design systems não se referenciam (o débito permanente da parcela 7): resolver o
+# implícito no dicionário errado aprovaria um `BasedOn` que só existe do outro lado.
+_implicitos = {
+    "suite": _implicitos_do(_DS_SUITE),
+    "faturamento": _implicitos_do(_DS_FATURAMENTO),
+}
+
+
+def _bases_sem_implicito(texto: str, implicitos: set[str]) -> list[str]:
+    """Os tipos de `BasedOn={StaticResource {x:Type T}}` que não têm onde se apoiar."""
+    faltando = []
+    # Comentário XML fora antes de procurar: a nota que EXPLICA esta regra cita a linha
+    # errada, e checagem que reclama de prosa é checagem que alguém desliga (a lição da
+    # checagem 31).
+    for tipo in BASE_EM_TIPO.findall(re.sub(r"<!--.*?-->", "", texto, flags=re.S)):
+        local = tipo.split(":")[-1]
+        if local in implicitos:
+            continue
+        # Sem prefixo e fora da lista: é `Control` do WPF, e o tema resolve.
+        if ":" not in tipo and local not in SEM_ESTILO_DE_TEMA:
+            continue
+        faltando.append(tipo)
+    return faltando
+
+
+for f in arvores_com_faturamento:
+    _app = "faturamento" if _DS_FATURAMENTO in f.parents else "suite"
+    for _tipo in _bases_sem_implicito(f.read_text(encoding="utf-8"), _implicitos[_app]):
+        erros.append(
+            f"{rel(f)}: BasedOn=\"{{StaticResource {{x:Type {_tipo}}}}}\" aponta para um "
+            f"estilo IMPLÍCITO que o design system do {_app} não declara — e este tipo não "
+            f"tem estilo de tema para onde cair. O StaticResource lança ao montar (dentro "
+            f"de um DataTemplate, só quando o primeiro item aparece). Declare o implícito, "
+            f"ou tire o BasedOn: o estilo local já herda do ambiente."
+        )
+
+# Autoteste nos dois sentidos (a regra da checagem 34), chamando a MESMA função da
+# varredura (a regra da parcela 67).
+for _cenario, _texto, _implicitos_do_teste, _deve_pegar in (
+    (
+        "o caso real: TextBlock sem implícito no design system",
+        '<Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}" />',
+        {"Button", "TextBox"},
+        True,
+    ),
+    (
+        "controle da CASA sem implícito — não há generic.xaml para cair",
+        '<Style TargetType="ctrl:Avatar" BasedOn="{StaticResource {x:Type ctrl:Avatar}}" />',
+        {"Button"},
+        True,
+    ),
+    (
+        "TextBlock COM o implícito declarado",
+        '<Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}" />',
+        {"TextBlock"},
+        False,
+    ),
+    (
+        "Button sem implícito da casa: o tema do WPF resolve",
+        '<Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}" />',
+        set(),
+        False,
+    ),
+    (
+        "BasedOn por CHAVE nomeada, que a checagem 2 já cobre",
+        '<Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}" />',
+        set(),
+        False,
+    ),
+    (
+        "a mesma linha dentro de um COMENTÁRIO",
+        '<!-- BasedOn="{StaticResource {x:Type TextBlock}}" -->',
+        set(),
+        False,
+    ),
+):
+    if bool(_bases_sem_implicito(_texto, _implicitos_do_teste)) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 48 mudou de resposta ({_cenario}) — "
+            f"esperado {'pegar' if _deve_pegar else 'deixar passar'}."
+        )
+
 
 # ---------------------------------------------------------------------- saída
 for a in avisos:
