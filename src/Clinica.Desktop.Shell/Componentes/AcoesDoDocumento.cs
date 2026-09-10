@@ -57,7 +57,11 @@ public sealed record DocumentoNaTela
     /// </summary>
     public bool JaTeveLink { get; init; }
 
-    /// <summary>O acesso para LER este papel (parcela 59).</summary>
+    /// <summary>
+    /// Os acessos que LEEM este papel (parcela 59) — basta UM deles, porque desde
+    /// set/2026 uma folha pode ser alcançada por dois bits (o termo que a recepção
+    /// colhe). Quem pergunta usa <c>PodeAlgum</c>/<c>ExigirAlgum</c>, nunca <c>Pode</c>.
+    /// </summary>
     public Permissao AcessoParaVer => CentralDocumentosService.AcessoParaVer(Tipo);
 
     /// <summary>O acesso para assinar, enviar, republicar ou cancelar.</summary>
@@ -199,7 +203,11 @@ public static class AcoesDoDocumento
     {
         try
         {
-            SessaoUsuario.Atual.Exigir(doc.AcessoParaVer, $"abrir {doc.Rotulo.ToLowerInvariant()}");
+            // ExigirAlgum, nunca Exigir: `AcessoParaVer` é uma UNIÃO desde set/2026 (o
+            // termo que a recepção colhe é alcançado por dois bits), e `Exigir` sobre
+            // bits combinados é um E — ele fecharia a 2ª via justamente para quem
+            // colheu o papel e precisa entregar a via ao paciente.
+            SessaoUsuario.Atual.ExigirAlgum(doc.AcessoParaVer, $"abrir {doc.Rotulo.ToLowerInvariant()}");
 
             byte[] pdf;
             using (var escopo = escopos.CreateScope())

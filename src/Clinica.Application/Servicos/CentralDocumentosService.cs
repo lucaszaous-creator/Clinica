@@ -95,6 +95,40 @@ public sealed record FolhaCatalogo(
     public required Permissao PermissaoVer { get; init; }
 
     /// <summary>
+    /// UM SEGUNDO acesso que também alcança esta folha — <c>Nenhuma</c> na maioria delas.
+    ///
+    /// Existe porque QUEM COLHE PRECISA ALCANÇAR O QUE COLHEU. O caso que o criou é o
+    /// termo de procedimento (set/2026, achado pela clínica): a recepcionista o emite,
+    /// manda pelo WhatsApp, recebe a assinatura, confere a identidade e confirma — e o
+    /// papel exigia <see cref="Permissao.VerProntuario"/> para ser LIDO, que o perfil
+    /// Recepção não tem. O resultado do trabalho dela ficava invisível nas quatro portas
+    /// (a ficha, a seção de termos do dia, a central e a linha do tempo), e ela não tinha
+    /// como imprimir a via do paciente. É o corredor sem saída da parcela 69: atravessa a
+    /// porta, faz o trabalho todo, e a saída não existe.
+    ///
+    /// ⚠️ Isto NÃO afrouxa o corte da parcela 49, e a razão é o que autoriza o campo: o
+    /// bit que entra aqui já dá acesso ao CONTEÚDO daquele papel por outro caminho — quem
+    /// colhe abre a janela, lê o termo inteiro, vê as declarações e assiste à assinatura.
+    /// Ver a mesma folha depois não expõe uma linha a mais. Bit que ainda não alcança o
+    /// conteúdo NÃO entra aqui: seria a permissão granular desfeita por uma porta nova, que
+    /// é o que a parcela 60 achou nas cópias do faturamento.
+    ///
+    /// ⚠️ E ele vale só para VER. Assinar, enviar, republicar e cancelar continuam em
+    /// <see cref="PermissaoEmitir"/>, sem segunda via.
+    /// </summary>
+    public Permissao PermissaoVerTambem { get; init; } = Permissao.Nenhuma;
+
+    /// <summary>
+    /// Os acessos que alcançam esta folha para LEITURA — basta UM deles.
+    ///
+    /// ⚠️ Semântica de OU, e é por isso que ninguém deve testá-la com <c>HasFlag</c>: com
+    /// dois bits ligados, <c>HasFlag</c> exigiria os DOIS (é um E) e fecharia a folha para
+    /// as duas pessoas que deveriam alcançá-la. Quem pergunta usa <see cref="PodeVer"/>,
+    /// e a sessão usa <c>PodeAlgum</c>/<c>ExigirAlgum</c>.
+    /// </summary>
+    public Permissao AcessosQueVeem => PermissaoVer | PermissaoVerTambem;
+
+    /// <summary>
     /// O acesso para EMITIR esta folha. Mais forte que o de ver, na mesma família: quem lê
     /// o prontuário não necessariamente escreve nele, e receita e pedido de exame mandam
     /// alguém tomar ou fazer alguma coisa — daí <see cref="Permissao.Prescrever"/>.
@@ -384,6 +418,12 @@ public sealed class CentralDocumentosService
         {
             TipoClinico = TipoDocumentoClinico.TermoProcedimento,
             PermissaoVer = Permissao.VerProntuario,
+            // ⚠️ Quem COLHE alcança o que colheu (set/2026 — ver `PermissaoVerTambem`). A
+            // recepcionista tem `ColherAssinaturaPaciente` e não tem `VerProntuario`: sem
+            // esta linha, o termo que ela mesma acabou de colher some das quatro portas e
+            // ela não consegue entregar a via ao paciente. Não abre nada de novo — ela já
+            // leu o termo inteiro na janela em que o colheu.
+            PermissaoVerTambem = Permissao.ColherAssinaturaPaciente,
             PermissaoEmitir = Permissao.ColherAssinaturaPaciente
         },
 
@@ -424,7 +464,7 @@ public sealed class CentralDocumentosService
     /// só é o defeito recorrente do projeto com o agravante de PARECER coberto.
     /// </summary>
     public static IReadOnlyList<FolhaCatalogo> CatalogoPara(Permissao acessos)
-        => Catalogo.Where(f => acessos.HasFlag(f.PermissaoVer)).ToList();
+        => Catalogo.Where(f => PodeVer(acessos, f)).ToList();
 
     /// <summary>A folha pela chave, ou null se a chave não existe no catálogo.</summary>
     public static FolhaCatalogo? Folha(string chave)
@@ -435,14 +475,36 @@ public sealed class CentralDocumentosService
         => Catalogo.FirstOrDefault(f => f.TipoClinico == tipo);
 
     /// <summary>
-    /// O acesso para VER um documento clínico deste tipo.
+    /// Os acessos que VEEM um documento clínico deste tipo — <b>basta UM deles</b>.
+    ///
+    /// ⚠️ Devolve uma UNIÃO desde set/2026 (ver <see cref="FolhaCatalogo.PermissaoVerTambem"/>),
+    /// então quem a consome pergunta com <c>PodeAlgum</c>/<c>ExigirAlgum</c> ou com
+    /// <see cref="PodeVer(Permissao, TipoDocumentoClinico)"/> — nunca com <c>Pode</c> nem
+    /// <c>HasFlag</c>, que sobre dois bits viram um E e fechariam a folha para as duas
+    /// pessoas que deveriam alcançá-la.
     ///
     /// Tipo fora do catálogo cai em <see cref="Permissao.VerProntuario"/> — o mais
     /// restritivo dos dois candidatos. Papel novo cujo acesso ninguém declarou nasce
     /// FECHADO: nascer aberto é o defeito que só aparece quando já vazou.
     /// </summary>
     public static Permissao AcessoParaVer(TipoDocumentoClinico tipo)
-        => Folha(tipo)?.PermissaoVer ?? Permissao.VerProntuario;
+        => Folha(tipo)?.AcessosQueVeem ?? Permissao.VerProntuario;
+
+    /// <summary>
+    /// Este conjunto de acessos alcança esta folha para LEITURA? Basta um dos bits.
+    ///
+    /// É o ponto único da pergunta: quatro telas a faziam por conta própria com
+    /// <c>HasFlag</c>, e <c>HasFlag</c> sobre dois bits vira um E — a folha alcançada por
+    /// duas permissões diferentes fecharia para as duas pessoas. Quem pergunta pela sessão
+    /// usa <c>SessaoUsuario.PodeAlgum</c> sobre <see cref="AcessoParaVer"/>, que é a MESMA
+    /// conta.
+    /// </summary>
+    public static bool PodeVer(Permissao acessos, FolhaCatalogo folha)
+        => (acessos & folha.AcessosQueVeem) != Permissao.Nenhuma;
+
+    /// <summary>O mesmo, pelo TIPO do documento clínico já emitido.</summary>
+    public static bool PodeVer(Permissao acessos, TipoDocumentoClinico tipo)
+        => (acessos & AcessoParaVer(tipo)) != Permissao.Nenhuma;
 
     /// <summary>O acesso para EMITIR ou CANCELAR um documento clínico deste tipo.</summary>
     public static Permissao AcessoParaEmitir(TipoDocumentoClinico tipo)
@@ -544,7 +606,7 @@ public sealed class CentralDocumentosService
     /// papel cujo acesso ninguém declarou não aparece por omissão.
     /// </summary>
     private static bool Alcanca(Permissao acessos, string chave)
-        => Folha(chave) is { } f && acessos.HasFlag(f.PermissaoVer);
+        => Folha(chave) is { } f && PodeVer(acessos, f);
 
     // O RESUMO não é método deste serviço: é `ResumoFolhas.Montar`, sobre a lista que a
     // tela já leu. Ver o ⚠️ no tipo — a versão antiga refazia a consulta e, com o recorte

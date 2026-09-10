@@ -4181,6 +4181,48 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   para dizer "tem horário hoje às 14h": quem fosse o décimo primeiro do dia perdia a frase.
   Atalho cortado é atalho; a resposta sai da lista INTEIRA.
 
+- **QUEM COLHE NÃO ALCANÇAVA O QUE COLHEU — o termo assinado que sumia da recepção**
+  (set/2026 — a clínica: *"a recepção enviou, a paciente assinou, confirmou, porém não
+  achamos onde está indo. Até mesmo na ficha da paciente não aparece"*). O termo do BSV
+  foi emitido, mandado pelo WhatsApp, assinado no celular, conferido e selado — estava
+  gravado, numerado e ligado à sessão. O que faltava era a recepcionista poder LÊ-LO.
+  ⚠️ **A assimetria estava entre os DOIS bits da mesma folha**: `termo-procedimento` pede
+  `ColherAssinaturaPaciente` para EMITIR e pedia `VerProntuario` para VER — e o perfil
+  `Recepcao` tem o primeiro e não tem o segundo (o corte da parcela 49). Ela atravessava a
+  porta, fazia o trabalho todo, e o resultado ficava invisível nas QUATRO portas de leitura
+  (a lista de documentos da ficha, a seção de termos do dia, a central e a linha do tempo)
+  — inclusive na **2ª via**, que é como o paciente recebe a via dele. É o corredor sem
+  saída da parcela 69, com o agravante de o único sinal ser o selo "falta termo" SUMIR do
+  cartão da fila: sumir não se lê como "deu certo", se lê como "some do sistema".
+  ⚠️ **As duas saídas fáceis eram as erradas, e por que**: conceder `VerProntuario` à
+  recepção resolveria num clique e devolveria a evolução clínica inteira ao balcão (desfaz
+  a parcela 49, ponto 5 do compromisso); baixar a folha para `VerFichaPaciente` mentiria
+  sobre o que ela é — o termo diz qual procedimento a pessoa vai fazer e o que ela declarou
+  sobre o próprio corpo, que é dado de saúde (art. 5º, II).
+  A saída é `FolhaCatalogo.PermissaoVerTambem`: **um SEGUNDO acesso, por folha, só para
+  VER**. O que autoriza o campo é a pergunta que ele carrega escrita — *este bit já alcança
+  o CONTEÚDO deste papel por outro caminho?* Aqui sim: quem colhe abre a janela, lê o termo
+  inteiro, vê as declarações e assiste à assinatura; ver a mesma folha depois não expõe uma
+  linha a mais. **Bit que ainda não alcança o conteúdo não entra ali** — seria a permissão
+  granular desfeita por uma porta nova. E vale só para ver: assinar, enviar, republicar e
+  cancelar continuam em `PermissaoEmitir`, sem segunda via.
+  ⚠️ **A armadilha que o campo cria, e ela é de uma linha: `HasFlag` sobre dois bits é um
+  E.** As quatro telas perguntavam por conta própria com `HasFlag`, e `Pode(A | B)` também
+  exige os DOIS — deixá-los assim fecharia a folha para as duas pessoas que deveriam
+  alcançá-la, e o defeito apareceria como **lista vazia**, indistinguível de "esta paciente
+  não assinou nada". A pergunta virou ponto único (`CentralDocumentosService.PodeVer`), e
+  quem usa a sessão passou a `PodeAlgum`/`ExigirAlgum`. `AcessoParaVer` **mudou de
+  semântica** (de bit para união), então a conferência que a mudança exige é reler TODO
+  consumidor dele — foi por isso que a 2ª via precisou trocar `Exigir` por `ExigirAlgum`:
+  sem isso a correção deixaria justamente a entrega da via ao paciente de fora.
+  ⚠️ E a barreira da seção de termos do dia estava escrita À MÃO na ViewModel
+  (`Pode(VerProntuario)`), divergindo da lista logo abaixo dela no mesmo arquivo. Passou a
+  sair do catálogo. **Regra de acesso copiada para uma tela é a cópia que fica para trás.**
+  O teste que a fixa percorre o CATÁLOGO (toda folha com segundo acesso é alcançada por
+  cada bit sozinho, via `CatalogoPara` — o caminho real das telas), e não o termo pelo
+  nome: asserção escrita à mão é a que a próxima folha não alcança. Verificado que ele
+  REPROVA sem a linha do catálogo, não presumido.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

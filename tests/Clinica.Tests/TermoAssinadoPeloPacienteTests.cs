@@ -1114,6 +1114,13 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         folha.PermissaoVer.Should().Be(Permissao.VerProntuario,
             "o termo diz qual procedimento a pessoa vai fazer e o que ela declarou sobre o "
             + "próprio corpo — é dado de saúde (art. 5º, II)");
+
+        // ⚠️ E QUEM COLHE TAMBÉM ALCANÇA (set/2026, achado pela clínica). A recepção tem
+        // `ColherAssinaturaPaciente` e não tem `VerProntuario`: com um bit só, o termo que
+        // ela mesma colheu sumia das quatro portas e ela não conseguia imprimir a via do
+        // paciente. Não afrouxa nada — quem colhe já leu o termo inteiro na janela.
+        folha.PermissaoVerTambem.Should().Be(Permissao.ColherAssinaturaPaciente);
+
         folha.PermissaoEmitir.Should().Be(Permissao.ColherAssinaturaPaciente);
     }
 

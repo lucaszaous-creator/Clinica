@@ -124,7 +124,7 @@ public static class LinhaDoTempoClinica
         mapa[NaturezaRegistroClinico.DocumentoClinico] = Permitido(
             acessos, NaturezaRegistroClinico.DocumentoClinico,
             () => (documentos ?? [])
-                .Where(d => acessos.HasFlag(CentralDocumentosService.AcessoParaVer(d.Tipo)))
+                .Where(d => CentralDocumentosService.PodeVer(acessos, d.Tipo))
                 .Select(DeDocumento)
                 .ToList());
 

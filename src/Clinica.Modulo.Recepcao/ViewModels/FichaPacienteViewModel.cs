@@ -1214,7 +1214,15 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         // `VerFichaPaciente` e abrem esta ficha — a lista de documentos abaixo já os filtra
         // pelo acesso de cada papel, e a seção precisa da mesma barreira. Nem ler nem
         // desenhar: `TemTermoDoDia` fica falso e a região SOME.
-        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario)) return;
+        //
+        // ⚠️ A barreira sai do CATÁLOGO, e não de um bit escrito à mão aqui (set/2026).
+        // Escrito à mão, ele dizia `VerProntuario` — e o perfil Recepção, que é quem COLHE
+        // o termo, não o tem: a seção sumia justamente para quem acabara de colher, e ela
+        // não tinha por onde imprimir a via do paciente. Segundo bit lido do catálogo é o
+        // que impede esta cópia de divergir da lista logo abaixo.
+        if (!SessaoUsuario.Atual.PodeAlgum(
+                CentralDocumentosService.AcessoParaVer(TipoDocumentoClinico.TermoProcedimento)))
+            return;
 
         try
         {
@@ -1275,7 +1283,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         foreach (var d in doPaciente)
         {
             var linha = LinhaDocumento.De(d);
-            if (SessaoUsuario.Atual.Pode(linha.Documento.AcessoParaVer)) Documentos.Add(linha);
+            // PodeAlgum: o acesso de ver é uma UNIÃO (set/2026) — com `Pode`, a folha
+            // alcançada por dois bits ficaria fechada para as duas pessoas.
+            if (SessaoUsuario.Atual.PodeAlgum(linha.Documento.AcessoParaVer))
+                Documentos.Add(linha);
         }
 
         // O termo LGPD sai da mesma leitura, mas precisa de UMA pergunta a mais: quais
