@@ -199,6 +199,32 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// </summary>
     [ObservableProperty] private string _valorPrevisto = string.Empty;
 
+    /// <summary>
+    /// Oferecer "Vender pacote…" nesta tela (set/2026 — escolha da direção: *"quando o
+    /// paciente é particular, a tela de lançar oferece vender ao lado do preço da sessão"*).
+    ///
+    /// A venda tinha UMA porta: a tela Pacotes, pela barra lateral — e lá ela pede o paciente
+    /// DE NOVO, mesmo quando quem clicou acabou de escolhê-lo aqui. A conversa "quer fechar
+    /// um pacote de dez?" acontece no instante em que o balcão diz o preço da sessão avulsa,
+    /// com o paciente na frente; mandar a recepcionista a outra tela e pedir o nome outra vez
+    /// é o atrito que faz a venda não acontecer.
+    ///
+    /// ⚠️ Só para o PARTICULAR, e é decisão: o pacote é a alternativa de quem paga do bolso à
+    /// cobrança por sessão. O paciente de convênio também pode comprar (parcela 4) e continua
+    /// comprando pela tela Pacotes — oferecer a venda em toda linha de todo lançamento seria
+    /// o botão que aparece sempre e que por isso ninguém lê.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarVenderPacote))]
+    private bool _oferecerVenderPacote;
+
+    /// <summary>
+    /// O botão de vender aparece: é particular E quem está na tela pode vender. Duas
+    /// condições numa propriedade porque o XAML não compõe booleanos — e botão apagado
+    /// permanente para quem não tem o bit é o defeito da parcela 41.
+    /// </summary>
+    public bool MostrarVenderPacote => OferecerVenderPacote && PodeVenderPacote;
+
     public bool TemPrevia => Previa.Count > 0 && !Lancado;
 
     /// <summary>
@@ -1316,6 +1342,55 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Metade visível da permissão de receber; a outra é o <c>ExigirAlgum</c> do comando.</summary>
     public bool PodeReceberDivida => SessaoUsuario.Atual.PodeAlgum(CobrancaDoPacienteViewModel.QuemRecebe);
 
+    /// <summary>
+    /// VENDER UM PACOTE daqui (set/2026) — a porta que faltava no instante em que a venda
+    /// acontece.
+    ///
+    /// Ela existia num lugar só: a tela Pacotes, pela barra lateral. E lá a janela pede o
+    /// paciente DE NOVO, mesmo quando quem clicou acabou de escolhê-lo — a conversa "quer
+    /// fechar um pacote de dez?" nasce no instante em que o balcão diz o preço da sessão
+    /// avulsa, com o paciente na frente. É a mesma janela do shell, com o paciente já
+    /// escolhido: uma segunda tela de venda divergiria na primeira correção do pagamento.
+    ///
+    /// Vendido, a PRÉVIA é relida — e a frase da cobrança muda de "R$ 180,00 … pagamento no
+    /// Finalizar" para "debita do pacote, sem cobrança no caixa", que é o que o Finalizar vai
+    /// propor. Sem essa releitura a tela continuaria prometendo uma cobrança que o pacote
+    /// acabou de tornar desnecessária.
+    /// </summary>
+    [RelayCommand]
+    private async Task VenderPacoteAsync()
+    {
+        if (PacienteSelecionado is not { } paciente) return;
+
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
+
+            var vm = new PacoteVendaViewModel(_scopeFactory, paciente);
+            var janela = new PacoteVendaWindow(vm) { Owner = JanelaDona.Atual() };
+
+            if (janela.ShowDialog() != true) return;
+
+            Avisar($"Pacote vendido para {paciente.Nome}. Esta sessão já debita dele — "
+                   + "confira a coluna da direita.");
+            await PreverAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — venda de pacote não pôde abrir", ex);
+            Avisar(ex.Message, erro: true);
+        }
+    }
+
+    /// <summary>
+    /// Metade visível da permissão de vender; a outra é o <c>ExigirAlgum</c> do comando.
+    /// O par é o mesmo da tela Pacotes — combinar preço é o ato que <c>VenderPacote</c>
+    /// nomeia, e o Financeiro também vende.
+    /// </summary>
+    public bool PodeVenderPacote => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
+
     /// <summary>Descarte de resposta fora de ordem da capa — a data muda por clique de DatePicker.</summary>
     private int _geracaoJaLancado;
 
@@ -1574,34 +1649,40 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             var porModalidade = await atendimentos.PreverModalidadesAsync(
                 pacienteId, data, codigosDosCartoes);
 
-            // O particular não tem guia: o que a prévia dele mostra é o PREÇO da tabela.
-            // Sequencial, nunca WhenAll — é o mesmo DbContext do escopo (parcela 74).
-            var valor = string.Empty;
-            if (!paciente.ConvenioADefinir
-                && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()))
+            // O particular não tem guia: o que a prévia dele mostra é COMO esta sessão vai
+            // ser paga — o preço da tabela, ou o PACOTE que a cobre.
+            //
+            // ⚠️ Sequencial, nunca WhenAll — é o mesmo DbContext do escopo (parcela 74).
+            //
+            // ⚠️ A frase mora em `CobrancaDaSessao`, na Application (set/2026): ela dizia
+            // "Particular — R$ 180,00 … o pagamento é registrado no Finalizar" INCLUSIVE
+            // para quem tem pacote com saldo, e nesse caso a sessão debita do pacote e não
+            // é cobrada. A tela afirmava uma cobrança que não ia acontecer, com um valor ao
+            // lado — e o que decide o que a tela AFIRMA precisa morar onde o `dotnet test`
+            // alcança.
+            var cobranca = CobrancaDaSessao.Nenhuma;
+            var ehParticular = !paciente.ConvenioADefinir
+                && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
+
+            if (ehParticular)
             {
                 var preco = await scope.ServiceProvider.GetRequiredService<PrecoParticularService>().ProporAsync(
                     codigoModalidade, Modalidade,
                     ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null, data);
-                // ⚠️ A frase do preço que FALTA aponta a porta do BALCÃO (set/2026): ela
-                // mandava a recepcionista ao "Gerente → Tabela de preço", que é outro app
-                // e outra pessoa — e a Recepção publica a mesma tela desde que ela nasceu.
-                // Instrução que manda procurar no lugar errado é pior que nenhuma, e foi
-                // metade do *"não consegui entender como fazer um atendimento
-                // particular"*. As duas dizem também ONDE o dinheiro entra: sem isso, a
-                // prévia informa o preço e cala sobre o que fazer com ele.
-                valor = preco.Houve
-                    ? $"Particular — {preco.Valor:C} ({preco.Procedencia}). "
-                      + "O pagamento é registrado no Finalizar da sessão."
-                    : "Particular — sem preço cadastrado para esta modalidade. Cadastre em "
-                      + "\"Particular e pacotes → Preço da sessão\", ou combine o valor no "
-                      + "Finalizar da sessão.";
+
+                // O pacote que DEBITARIA esta sessão — a mesma escolha do consumo
+                // automático e da proposta do Finalizar (`PacotePaciente.ADebitar`).
+                var pacote = await scope.ServiceProvider.GetRequiredService<PacoteService>()
+                    .ADebitarAsync(pacienteId, data);
+
+                cobranca = CobrancaDaSessao.Montar(ehParticular, preco, pacote);
             }
 
             // Chegou tarde: alguém pediu outra prévia enquanto o banco respondia esta.
             if (geracao != _geracaoPrevia) return;
 
-            ValorPrevisto = valor;
+            ValorPrevisto = cobranca.Frase;
+            OferecerVenderPacote = ehParticular;
             PublicarPrevia(previa);
             AplicarNosCartoes(porModalidade);
         }
@@ -1612,6 +1693,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             LogSuite.Registrar("Novo atendimento — prévia das guias não pôde ser calculada", ex);
             Previa.Clear();
             ValorPrevisto = string.Empty;
+            OferecerVenderPacote = false;
             ResumoCurtoPrevia = string.Empty;
             ResumoPrevia = "Não foi possível calcular a prévia das guias — o lançamento continua liberado.";
             _totalGuiasPrevia = null;
@@ -1635,6 +1717,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         Previa.Clear();
         ValorPrevisto = string.Empty;
+        OferecerVenderPacote = false;
         ResumoPrevia = string.Empty;
         ResumoCurtoPrevia = string.Empty;
         _totalGuiasPrevia = null;

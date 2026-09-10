@@ -850,8 +850,33 @@
                                                            Visibility="{Binding Sessao,
                                                                         Converter={StaticResource TextoParaVisibilidade},
                                                                         FallbackValue=Collapsed}" />
+
+                                                <!-- O estado do LINK público (parcela 53).
+                                                     Entrou com os atos de link no "⋯"
+                                                     (set/2026): oferecer "Renovar o link" sem
+                                                     dizer que ele venceu é pedir uma decisão
+                                                     sobre um estado que a tela esconde. Some
+                                                     em documento que nunca foi publicado. -->
+                                                <TextBlock Margin="0,2,0,0"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           TextWrapping="Wrap"
+                                                           Text="{Binding Link}"
+                                                           Visibility="{Binding Link,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
                                             </StackPanel>
 
+                                            <!-- ============ UMA AÇÃO, E O "⋯" ============
+                                                 O mesmo desenho e o mesmo MENU das outras
+                                                 duas telas que listam documento (mockup 01,
+                                                 `MenuDoDocumento` no shell).
+
+                                                 Eram quatro botões aqui e os atos passaram a
+                                                 ser SEIS — renovar o link e tirar do ar só
+                                                 existiam na central, e a pergunta "o link da
+                                                 receita venceu" chega no balcão, com o
+                                                 paciente ligando. -->
                                             <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                         VerticalAlignment="Center">
                                                 <Border Style="{StaticResource Badge.Erro}" Margin="0,0,8,0"
@@ -859,37 +884,39 @@
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>
-                                                <Button Content="Imprimir" Style="{StaticResource BotaoPequeno}"
-                                                        Command="{Binding DataContext.ImprimirDocumentoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <!-- ⚠️ ASSINAR e ENVIAR (parcela 72). `PodeAssinar` e
-                                                     `PodeEnviar` eram calculados no VM e NUNCA lidos
-                                                     aqui: a ficha imprimia e cancelava, e a tela irmã do
-                                                     mesmo módulo tinha os quatro. Sem assinatura o
-                                                     arquivo não vale, e a porta incompleta é a que fica
-                                                     aberta com o paciente na frente — ele sai com o papel
-                                                     e o PDF assinado fica no computador da clínica. -->
-                                                <Button Content="Assinar" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding PodeAssinar}"
+
+                                                <Button Content="Assinar" MinWidth="80" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
                                                         ToolTip="Sela o arquivo com o certificado ICP-Brasil. É o ARQUIVO que a farmácia confere — a via impressa de um documento assinado é cópia."
+                                                        Visibility="{Binding PodeAssinar,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
                                                         Command="{Binding DataContext.AssinarDocumentoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="Enviar" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding PodeEnviar}"
-                                                        ToolTip="Entrega o arquivo assinado ao paciente pelo WhatsApp. A assinatura vive nos bytes: quem sai só com o papel leva um documento sem ela."
-                                                        Command="{Binding DataContext.EnviarDocumentoCommand,
+
+                                                <!-- A 2ª via some quando o Assinar está na
+                                                     linha: duas ações do mesmo tamanho, lado
+                                                     a lado, deixam de dizer qual é a
+                                                     principal. Ela continua no menu. -->
+                                                <Button Content="2ª via" MinWidth="70" Margin="0,0,6,0"
+                                                        Command="{Binding DataContext.ImprimirDocumentoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button Content="Cancelar" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding PodeCancelar}"
-                                                        Command="{Binding DataContext.CancelarDocumentoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGrid}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding PodeAssinar}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+
+                                                <Button Content="&#x22EF;" MinWidth="34"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        ToolTip="As outras ações deste documento"
+                                                        Click="AoAbrirMenuDoDocumento" />
                                             </StackPanel>
                                         </Grid>
                                     </Border>

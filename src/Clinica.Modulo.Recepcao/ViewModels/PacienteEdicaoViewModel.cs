@@ -23,12 +23,34 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
     private readonly IServiceScopeFactory _escopos;
     private readonly int? _id;
 
+    /// <summary>
+    /// O que a escolha do convênio SIGNIFICA, ao lado do campo — "Sem guia: o paciente paga
+    /// a sessão…", "Gera guia para o faturamento.".
+    ///
+    /// Sem nada escolhido ela é o CONVITE, e não um vazio: é a linha que diz à
+    /// recepcionista que existe uma opção para quem não tem plano. O combo antes não dizia
+    /// nada, e "Particular" era um nome entre operadoras.
+    /// </summary>
+    public string ExplicacaoDoConvenio => Convenio?.Explicacao
+        ?? "Escolha o convênio do paciente — ou \"Particular\", se ele paga do bolso.";
+
     /// <summary>Foto capturada nesta sessão, ainda não gravada.</summary>
     private byte[]? _fotoCheiaPendente;
     private byte[]? _fotoMiniaturaPendente;
     private bool _removerFoto;
 
-    public ObservableCollection<EntradaConvenio> Convenios { get; } = [];
+    /// <summary>
+    /// Convênio ou particular, na ordem e com a frase de <see cref="OpcoesDeConvenio"/>
+    /// (set/2026): operadoras primeiro, o Particular depois e o "a definir" por último.
+    ///
+    /// ⚠️ Era <c>CatalogoConvenios.Ativos</c> cru — ordem ALFABÉTICA — e o primeiro da lista
+    /// vinha PRÉ-SELECIONADO. Numa base que importou a carteira do sistema anterior, o
+    /// primeiro é "A definir (importado sem convênio)": todo paciente cadastrado no balcão
+    /// nascia com um convênio que afirma ter vindo de importação, que não gera guia e que
+    /// RECUSA o lançamento da sessão (parcela 92). Padrão que depende da ordem alfabética
+    /// não é decisão.
+    /// </summary>
+    public ObservableCollection<OpcaoDeConvenio> Convenios { get; } = [];
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = [];
 
     public IReadOnlyList<Sexo> Sexos { get; } = [Sexo.Feminino, Sexo.Masculino];
@@ -55,7 +77,14 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _endereco;
     [ObservableProperty] private DateTime? _dataNascimento;
     [ObservableProperty] private Sexo _sexoSelecionado = Sexo.Feminino;
-    [ObservableProperty] private EntradaConvenio? _convenio;
+    /// <summary>
+    /// O convênio escolhido. Nasce NULO no cadastro novo: a pergunta "convênio ou
+    /// particular?" é respondida por quem está com o paciente na frente, e o Salvar já
+    /// recusa sem resposta ("Escolha o convênio"). Na EDIÇÃO vem o que a ficha tem.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ExplicacaoDoConvenio))]
+    private OpcaoDeConvenio? _convenio;
     [ObservableProperty] private string? _carteirinha;
     [ObservableProperty] private DateTime? _validadeCarteirinha;
     [ObservableProperty] private EntradaModalidade? _modalidadePreferida;
@@ -104,8 +133,13 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
         try
         {
             Convenios.Clear();
-            foreach (var c in CatalogoConvenios.Ativos) Convenios.Add(c);
-            Convenio = Convenios.FirstOrDefault();
+            foreach (var c in OpcoesDeConvenio.Montar(CatalogoConvenios.Ativos, incluirADefinir: true))
+                Convenios.Add(c);
+
+            // ⚠️ NADA pré-selecionado. O "a definir" fica na LISTA (a ficha importada precisa
+            // continuar mostrando o convênio que ela tem, e "ainda não sei" é resposta
+            // legítima no balcão) — o que deixou de existir é ele ser o PADRÃO de quem foi
+            // cadastrado hoje, por acidente da ordem alfabética.
 
             Modalidades.Clear();
             foreach (var m in CatalogoModalidades.Ativas) Modalidades.Add(m);
@@ -128,6 +162,10 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             Endereco = p.Endereco;
             DataNascimento = p.DataNascimento?.ToDateTime(TimeOnly.MinValue);
             SexoSelecionado = p.Sexo;
+            // O CÓDIGO vence; a família é o caminho de baixo, para a ficha antiga cujo
+            // código é o próprio nome do enum. Sem achar nenhum dos dois o combo fica
+            // vazio, e o Salvar cobra a escolha — que é melhor do que marcar uma operadora
+            // qualquer na ficha de quem talvez seja particular.
             Convenio = Convenios.FirstOrDefault(c => c.Codigo == p.ConvenioCodigo)
                        ?? Convenios.FirstOrDefault(c => c.Familia == p.Convenio)
                        ?? Convenio;
@@ -205,9 +243,13 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             return;
         }
 
+        // A pergunta que o cadastro passou a FAZER (set/2026): ela já era recusada aqui, e
+        // a recusa nunca aparecia porque o combo vinha pré-selecionado com o primeiro da
+        // ordem alfabética. A frase diz as duas saídas, porque "escolha o convênio" não
+        // responde a quem não tem convênio nenhum.
         if (Convenio is null)
         {
-            Erro("Escolha o convênio.");
+            Erro("Escolha o convênio — ou \"Particular\", se o paciente paga do bolso.");
             return;
         }
 

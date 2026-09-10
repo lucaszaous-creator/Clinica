@@ -178,13 +178,52 @@ public sealed record FolhaEmitida(
     public string Chave { get; init; } = string.Empty;
 }
 
-/// <summary>Quantas de cada folha saíram no período.</summary>
-public sealed record ResumoFolhas(
-    int Emitidas,
-    int Canceladas,
-    IReadOnlyList<(string Folha, int Vezes)> PorFolha)
+/// <summary>
+/// O resumo da lista "o que já saiu" — a frase que a tela escreve abaixo dos filtros.
+///
+/// ⚠️ Ele é montado sobre a LISTA que a tela acabou de ler, e não por uma segunda consulta
+/// (set/2026). Era um <c>ResumoAsync</c> no serviço que chamava <c>EmitidasAsync</c> por
+/// dentro: a mesma ida ao banco duas vezes para desenhar uma linha de texto, e — quando a
+/// central ganhou o recorte por PACIENTE — a segunda definição que divergia, porque a lista
+/// saía filtrada e a contagem não. "30 folhas" acima de uma lista de doze faz a pessoa
+/// procurar as dezoito que faltam.
+///
+/// A FRASE mora aqui, e não na ViewModel, pela regra da casa: o que decide o que a tela
+/// AFIRMA precisa morar onde o <c>dotnet test</c> alcança.
+/// </summary>
+public sealed record ResumoFolhas(int Emitidas, int Canceladas, string Frase)
 {
     public bool Vazio => Emitidas == 0;
+
+    /// <summary>
+    /// Monta a contagem e a frase.
+    ///
+    /// ⚠️ Conta sobre o RESULTADO, nunca sobre a base — o filtro de acesso e o de paciente
+    /// já foram aplicados por quem leu a lista. É a mesma regra da auditoria (parcela 21) e
+    /// do filtro da Conciliação: "12 folhas emitidas" acima de uma lista de quatro faria a
+    /// pessoa procurar as oito que faltam, e pior, contaria que elas existem.
+    /// </summary>
+    /// <param name="nomeDoPaciente">
+    /// O recorte por paciente, quando ligado — a frase DIZ que está filtrada. "12 de 30" e
+    /// "12" respondem perguntas diferentes, e quem volta à tela depois do café não lembra o
+    /// que deixou marcado. Nulo = o período inteiro.
+    /// </param>
+    public static ResumoFolhas Montar(
+        IReadOnlyList<FolhaEmitida> folhas, string? nomeDoPaciente = null)
+    {
+        var canceladas = folhas.Count(f => f.Cancelado);
+        var deQuem = string.IsNullOrWhiteSpace(nomeDoPaciente)
+            ? string.Empty
+            : $" de {nomeDoPaciente}";
+
+        var frase = folhas.Count == 0
+            ? $"Nenhum papel{deQuem} emitido no período."
+            : canceladas > 0
+                ? $"{folhas.Count} folha(s) emitida(s){deQuem}, {canceladas} cancelada(s)."
+                : $"{folhas.Count} folha(s) emitida(s){deQuem}.";
+
+        return new ResumoFolhas(folhas.Count, canceladas, frase);
+    }
 }
 
 /// <summary>
@@ -507,31 +546,13 @@ public sealed class CentralDocumentosService
     private static bool Alcanca(Permissao acessos, string chave)
         => Folha(chave) is { } f && acessos.HasFlag(f.PermissaoVer);
 
-    /// <summary>
-    /// Quantas de cada folha saíram no período. Conta sobre o MESMO recorte da lista —
-    /// dois números diferentes para o mesmo papel na mesma tela é pior do que um só.
-    /// </summary>
-    /// <remarks>
-    /// O resumo conta sobre o RESULTADO do filtro de acesso, e não sobre a base: "12
-    /// folhas emitidas" acima de uma lista de quatro faria a pessoa procurar as oito que
-    /// faltam. É a mesma regra da auditoria (parcela 21) e do filtro da Conciliação.
-    /// </remarks>
-    public async Task<ResumoFolhas> ResumoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default,
-        Permissao? acessos = null)
-    {
-        var emitidas = await EmitidasAsync(inicio, fim, ct: ct, acessos: acessos);
-        if (emitidas.Count == 0) return new ResumoFolhas(0, 0, []);
-
-        return new ResumoFolhas(
-            emitidas.Count,
-            emitidas.Count(f => f.Cancelado),
-            emitidas.GroupBy(f => f.FolhaRotulo)
-                .Select(g => (Folha: g.Key, Vezes: g.Count()))
-                .OrderByDescending(x => x.Vezes)
-                .ThenBy(x => x.Folha)
-                .ToList());
-    }
+    // O RESUMO não é método deste serviço: é `ResumoFolhas.Montar`, sobre a lista que a
+    // tela já leu. Ver o ⚠️ no tipo — a versão antiga refazia a consulta e, com o recorte
+    // por paciente, contava sobre outro conjunto que o da lista.
+    //
+    // Quem quer "quantas de CADA folha" no agregado tem o `PainelDeDocumentos` da direção,
+    // que responde isso sobre o recorte dela. Aqui ninguém lia essa quebra, e número
+    // calculado sem leitor é só uma atribuição.
 
     // ==================== Fechamento do período ====================
 

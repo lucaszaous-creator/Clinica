@@ -8806,3 +8806,151 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do balcão. Sem a declaração, o composto ficaria SEM ABAS, sumiria da sidebar, e a
   recepcionista perderia as duas telas. **Ao criar um composto, simule a sidebar de cada
   exe**: a conta que importa não é "a aba existe?", é "ela existe NESTE executável?".
+
+- **A CENTRAL DE DOCUMENTOS NÃO ASSINAVA NEM ENVIAVA — três portas para o mesmo papel, cada
+  uma com um pedaço do trabalho** (set/2026 — a continuação do pedido *"resolver as questões
+  de intuitividade de documentos e do lançamento/atendimento de paciente particular"*). O
+  mesmo documento clínico era operado por TRÊS telas, e o que cada uma sabia fazer não era
+  decisão de ninguém — era o que sobrou de quem a escreveu por último:
+  a **central** (Documentos) emitia, imprimia a 2ª via e cancelava, e **não assinava com
+  e-CPF, não enviava ao paciente e não mexia no link publicado**; as **Prescrições da
+  Recepção** faziam os seis atos; as **Prescrições do Consultório**, idem. A central é a
+  porta mais caminhada — é ela que responde "onde está o papel que saiu?" —, e era a mais
+  pobre: quem emitia uma receita ali tinha de sair da tela e achar a MESMA receita noutra
+  para assiná-la.
+  ⚠️ **Nada falhava**, e é por isso que durou: cada tela funcionava por inteiro dentro do que
+  ela se propunha. O defeito só existe quando alguém compara duas — e quem compara é o
+  usuário, no meio de uma tarefa.
+  A correção é a de sempre: os seis atos numa definição só (`AcoesDoDocumento`, no shell) e
+  os RÓTULOS do menu noutra (`MenuDoDocumento`). Três cópias de "assinar" divergiriam na
+  primeira correção, e a que ficasse para trás produziria um PDF selado por outro caminho.
+  ⚠️ **A escolha do cliente foi "uma porta só", e ela custou uma TELA.** Com a central
+  fazendo tudo, "Prescrições / Receituário" da Recepção passou a ser a mesma tela com menos
+  coisas — e duas telas que respondem à mesma pergunta é o que faz a recepcionista procurar
+  a diferença que não existe. Ela saiu, e com ela o item da sidebar. **A conferência que
+  autoriza remover uma tela não é "o que ela fazia?", é "quem a alcançava, e por onde ele
+  passa agora?"**: `PerfilAcesso.Enfermagem` tem `VerProntuario` e **não** tem
+  `VerDocumentos` — ela nunca alcançou a central, e continua chegando aos documentos do
+  paciente pela FICHA, que pede só `VerFichaPaciente`. Quem tem `Prescrever` chega pela
+  central ou pelo Consultório. Nada se perdeu, e isso foi conferido perfil a perfil.
+  ⚠️ **A central ganhou o que a tela que saiu tinha de melhor**: o filtro **"Só deste
+  paciente"**. Sem ele, quem vinha de "emitir a receita da Maria" via a lista do período
+  inteiro e teria de procurar — a tela removida abria já filtrada. **Ao aposentar uma tela,
+  liste o que ela fazia MELHOR e leve isso junto**; o resto é regressão vestida de
+  simplificação.
+  ⚠️ **O FILTRO NOVO TRANSFORMOU UM SEGUNDO CÁLCULO EM DIVERGÊNCIA.** O resumo da lista
+  vinha de `CentralDocumentosService.ResumoAsync`, que chamava `EmitidasAsync` **por dentro**
+  — a mesma ida ao banco duas vezes para desenhar uma linha de texto. Enquanto as duas
+  consultas eram iguais isso era só desperdício; com o recorte por paciente, a lista saía
+  filtrada e a contagem **não**: "30 folhas" acima de uma lista de doze manda a pessoa
+  procurar as dezoito que faltam. A contagem passou a sair da LISTA que a tela acabou de
+  ler, e a FRASE foi para a Application (`ResumoFolhas.Montar`) — não para a ViewModel, pela
+  regra da casa: **o que decide o que a tela AFIRMA precisa morar onde o `dotnet test`
+  alcança.** A lição geral: **ao acrescentar um filtro a uma leitura, procure quem mais
+  CONTA aquela leitura** — dois caminhos que davam o mesmo número passam a dar dois.
+  ⚠️ E o `PorFolha` ("quantas de cada folha") saiu no caminho: ele era lido só pelos testes.
+  Quem responde isso no agregado é o `PainelDeDocumentos` da direção, sobre outro recorte —
+  **número calculado sem leitor é só uma atribuição**. Os testes que o cobriam não foram
+  apagados: passaram a exercitar a contagem e a frase pelo caminho que a tela usa, com dois
+  novos cobrando que a frase **DIGA** que está filtrada (no cheio e no vazio).
+  ⚠️ E a chave do composto "Prescrições" voltou a ser `const` do `ModuloClinico`: ela morava
+  em `ChavesSuite` porque DOIS módulos a publicavam (a dedupe do shell funde por chave — a
+  duplicata da checagem 45). Com a Recepção fora, ela deixou de ser contrato de alguém. **O
+  comentário que justifica uma chave compartilhada é o primeiro a apodrecer quando um dos
+  dois publicadores some.**
+
+- **A MESMA ESCOLHA COM DUAS REGRAS, e a do lugar mais importante era um ACIDENTE
+  ALFABÉTICO** (set/2026, `OpcoesDeConvenio`). "Convênio ou particular?" era respondida em
+  dois lugares: a **janela de vínculo** (parcela 92) ordena quem gera guia primeiro, explica
+  o que cada opção significa, exclui o "a definir" como resposta e **não pré-seleciona
+  nada** — porque "um padrão que ninguém escolheu" é o defeito que ela existe para corrigir;
+  o **CADASTRO do paciente**, que é por onde TODO paciente novo recebe um convênio, listava
+  em ordem ALFABÉTICA, pré-selecionava o primeiro e não explicava nada.
+  ⚠️ **Numa base que importou a carteira do sistema anterior, o primeiro em ordem alfabética
+  é "A definir (importado sem convênio)".** Todo paciente cadastrado no balcão nascia com um
+  convênio que AFIRMA ter vindo de importação, que não gera guia e que acende alerta
+  vermelho na primeira tentativa de lançar a sessão dele. **Um padrão que depende da ordem
+  alfabética não é uma decisão — é um acidente com aparência de decisão**, e foi metade do
+  *"não consegui entender como fazer um atendimento particular"*.
+  É a lição da parcela 64 ("o mesmo ato com duas regras: a metade sem regra é a que ninguém
+  confere") aplicada à porta principal — e a regra foi para o DOMÍNIO, porque enquanto ela
+  vivia dentro de uma ViewModel do WPF **nenhum teste a alcançava**.
+  ⚠️ **A frase diz também ONDE o dinheiro entra.** "Não gera guia" informa e cala sobre o
+  que fazer em seguida, que é exatamente a dúvida de quem nunca lançou um particular.
+  ⚠️ **O `incluirADefinir` é do CHAMADOR, e as duas respostas são certas**: a janela de
+  vínculo passa `false` (oferecê-lo como resposta devolveria uma tela de sucesso e um
+  lançamento recusado em seguida); o cadastro passa `true` por DUAS razões — "ainda não sei"
+  é resposta legítima no balcão, e a ficha importada precisa continuar mostrando o convênio
+  que ela TEM: combo cujo `ItemsSource` não contém o `SelectedItem` **devolve NULL pelo
+  binding**, e o Salvar apagaria a escolha.
+  ⚠️ **O faturamento MANTEVE o padrão dele (`UnimedIntercambio`), e está escrito por quê**:
+  `SugerirCategoria` deriva de um convênio não-nulo, e aquele app fatura a clínica em
+  produção. A regra 3 do bloco do faturamento vale para o efeito colateral de uma
+  atualização; aqui o que mudou foi a ORDEM e a EXPLICAÇÃO, não o padrão.
+
+- **A PRÉVIA AFIRMAVA UMA COBRANÇA QUE O FINALIZAR NÃO IA FAZER** (set/2026,
+  `CobrancaDaSessao`). Para todo particular a coluna direita dizia *"R$ 180,00 (tabela do
+  particular). O pagamento é registrado no Finalizar"* — **inclusive para quem tem um pacote
+  de dez sessões com sete pelo uso**. Nesse caso a sessão não é cobrada: ela DEBITA do
+  pacote, e é isso que `FechamentoSessaoService.PrepararAsync` propõe (sessão comprada já foi
+  paga). A tela afirmava um número que ninguém ia cobrar, com o paciente na frente.
+  ⚠️ **Nada falhava** — é a garantia aparente na forma mais barata de cometer: a frase estava
+  certa no caso comum e errada no caso que o pacote existe para criar.
+  ⚠️ **E a linha estava DENTRO do documento da guia**, que abre recolhido desde set/2026: a
+  única resposta que a coluna tinha para o particular só aparecia depois de clicar em **"Ver
+  a guia"** — um botão que fala de uma guia que o particular NÃO TEM. Ela subiu para uma
+  região própria ("O PAGAMENTO"), com visibilidade própria: **a pergunta do dinheiro não
+  depende de a guia nascer neste clique.** Ao recolher um bloco por padrão, liste o que ele
+  guardava e pergunte se algum daqueles itens é a resposta de OUTRA pergunta.
+  ⚠️ **Dinheiro montado na Application sai em pt-BR FIXO.** `:C` usa a cultura do processo, e
+  a Application é lida também pela web de leitura, que roda em Linux com a cultura
+  invariante — "¤180.00" numa clínica brasileira. Quem mostrou foi o teste, que roda com a
+  invariante; a correção foi na PRODUÇÃO, não na asserção.
+
+- **"QUAL PACOTE DEBITA" ESTAVA ESCRITO TRÊS VEZES** (set/2026, `PacotePaciente.ADebitar`).
+  O consumo automático, a proposta do Finalizar e (agora) a frase da prévia respondem à
+  mesma pergunta, e as três a resolviam à mão — `Where(PodeConsumir).OrderBy(ValidoAte)`
+  repetido. Divergir aqui não estoura nada: **muda o número que o paciente paga**, porque a
+  tela apontaria um pacote e o serviço debitaria outro. A regra desceu para a ENTIDADE, e o
+  desempate ficou completo (`ValidoAte` → `DataCompra` → `Id`): sem o último, dois pacotes
+  comprados no mesmo dia com a mesma validade eram escolhidos pela ordem que o banco
+  devolvesse — e ela pode mudar entre duas leituras.
+  ⚠️ O teste que carrega isto compara a PRÉVIA com o que a BAIXA automática debita. É a
+  forma da parcela 64: quando o mesmo ato existe em dois lugares, o teste que falta é o que
+  compara os dois — nunca o que prova que o que você acabou de escrever funciona.
+
+- **A VENDA DE PACOTE TINHA UMA PORTA, E ELA PERGUNTAVA O QUE A TELA JÁ SABIA** (set/2026 —
+  a escolha do cliente foi *"no lançamento do atendimento"*). Vender só se alcançava pela
+  tela Pacotes, que abre pedindo o paciente — e a conversa *"quer fechar um pacote de dez?"*
+  nasce no instante em que o balcão diz o preço da sessão avulsa, com a pessoa na frente. O
+  botão foi para o lado do preço, no Novo atendimento, e o paciente entra **já escolhido**.
+  ⚠️ **`Selector.SelectedItem` que recebe item FORA do `ItemsSource` devolve NULL pelo
+  binding** — a escolha se limparia no mesmo instante em que é feita, sem erro nenhum. O
+  componente já tinha a porta (`SelecionarGarantindoNaLista`, da remarcação): **antes de
+  escrever a seleção por fora, procure o método que o componente já tem.**
+  ⚠️ **O botão só existe para o PARTICULAR.** Oferecer a venda em toda linha de todo
+  lançamento seria o botão que aparece sempre e que por isso ninguém lê — e o paciente de
+  convênio não compra pacote.
+  ⚠️ **E o catálogo vazio não tinha primeiro passo.** O sistema não semeia pacote nenhum, e
+  com razão (o que a clínica vende é decisão dela); o que faltava era a tela DIZER isso —
+  ela abria com o combo vazio, a pessoa clicava em Vender e levava *"Escolha o pacote"* sobre
+  uma lista que não tem nada. É o mesmo defeito do particular que não existia:
+  **comportamento pronto e testado que nenhum CADASTRO alcança**, sem uma frase dizendo qual
+  é o primeiro passo. A janela passou a oferecer "Cadastrar um pacote…" ali mesmo, abrindo a
+  MESMA janela de catálogo da tela de Pacotes (um segundo formulário divergiria na primeira
+  correção).
+  ⚠️ **E a janela de venda tinha o defeito da mensagem invisível — pela enésima vez, numa
+  tela que as limpezas das parcelas 62/64 não alcançaram**: `Visibility="{Binding
+  MensagemEhErro}"` esconde junto a mensagem de ÊXITO, que zera o booleano. Minha
+  confirmação nova ("Pacote cadastrado no catálogo") nasceria invisível. **Quem decide se
+  aparece é o TEXTO; quem decide a cor é a GRAVIDADE** — e o padrão volta na tela N+1 porque
+  o par `AlertaPerigo` + `MensagemEhErro` continua sendo o que a mão escreve primeiro.
+
+- **Três armadilhas de XAML que a releitura do próprio diff pegou** (set/2026, mesma
+  parcela): `ChipFiltro` é `TargetType="ToggleButton"` e eu havia escrito um `<CheckBox>` —
+  estilo com `TargetType` que não bate **não é aplicado**, e o chip sairia com a cara de
+  caixa de seleção do sistema; `BooleanToVisibilityConverter` **ignora o
+  `ConverterParameter`**, então "mostre quando estiver VAZIO" não se escreve invertendo o
+  conversor (é `DataTrigger`, como o resto da suíte); e um `_` como parâmetro de lambda
+  colide com o descarte quando o corpo também usa `_` — o `compilar-sombra` acusou o
+  `CS0029` em segundos, sete minutos antes de o CI o acusar.

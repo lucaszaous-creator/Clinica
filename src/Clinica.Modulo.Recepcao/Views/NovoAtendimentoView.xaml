@@ -936,6 +936,43 @@
                                  some: sai da frente. `MostrarPrevia` e não `TemPrevia`: no
                                  marcar com a chave desligada a guia não nasce neste clique,
                                  e a nota abaixo diz onde ela nasce. -->
+                            <!-- ============================================================
+                                 O PARTICULAR: COMO ESTA SESSÃO VAI SER PAGA (set/2026)
+                                 ============================================================
+                                 ⚠️ Esta linha morava DENTRO do documento — que abre RECOLHIDO
+                                 desde set/2026. Ou seja: para o particular, a única resposta
+                                 que a coluna tinha (o preço) só aparecia depois de clicar em
+                                 "Ver a guia" — um botão que fala de uma guia que o particular
+                                 não tem. Ela subiu para cá, com visibilidade PRÓPRIA: a
+                                 pergunta do dinheiro não depende de a guia nascer neste
+                                 clique.
+
+                                 A frase vem de `CobrancaDaSessao` (Application, testada): com
+                                 pacote com saldo ela diz que a sessão DEBITA e não é cobrada —
+                                 antes afirmava a cobrança e o valor de tabela mesmo assim.
+                                 ============================================================ -->
+                            <StackPanel Margin="0,0,0,14"
+                                        Visibility="{Binding ValorPrevisto,
+                                                     Converter={StaticResource TextoParaVisibilidade},
+                                                     FallbackValue=Collapsed}">
+                                <TextBlock Text="O PAGAMENTO" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding ValorPrevisto}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left"
+                                           Foreground="{StaticResource Brush.Acento}" />
+
+                                <!-- A VENDA onde ela acontece: a conversa "quer fechar um
+                                     pacote de dez?" nasce no instante em que o balcão diz o
+                                     preço da sessão avulsa. A janela é a do shell, com o
+                                     paciente JÁ escolhido — ela pedia o nome de novo. -->
+                                <Button Content="Vender pacote…" MinHeight="36" MinWidth="150"
+                                        HorizontalAlignment="Left" Margin="0,8,0,0"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        ToolTip="Pacote de sessões para quem paga do bolso. Vendido, esta sessão já debita dele."
+                                        Visibility="{Binding MostrarVenderPacote,
+                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                        Command="{Binding VenderPacoteCommand}" />
+                            </StackPanel>
+
                             <StackPanel Visibility="{Binding MostrarPrevia, Converter={StaticResource BoolParaVisibilidade}}">
                                 <TextBlock Text="A GUIA" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
 
@@ -1158,13 +1195,6 @@
                                             <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
                                                        HorizontalAlignment="Left" Margin="0,0,0,10"
                                                        FontWeight="SemiBold" />
-
-                                            <!-- O preço do particular, pela MESMA tabela do Finalizar e da
-                                                 Conciliação (set/2026). Some para quem tem convênio. -->
-                                            <TextBlock Text="{Binding ValorPrevisto}" TextWrapping="Wrap"
-                                                       HorizontalAlignment="Left" Margin="0,0,0,10"
-                                                       Foreground="{StaticResource Brush.Acento}"
-                                                       Visibility="{Binding ValorPrevisto, Converter={StaticResource TextoParaVisibilidade}}" />
 
                                             <TextBlock Text="CÓDIGOS" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
 

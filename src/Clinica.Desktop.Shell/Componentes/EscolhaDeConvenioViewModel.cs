@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -122,37 +123,20 @@ public sealed partial class EscolhaDeConvenioViewModel : ObservableObject
         {
             var lista = await _catalogo.ListarAsync();
 
-            // Monta fora e só então publica: entre o Clear() e o último Add não pode
-            // haver await (a carga é disparada do construtor).
-            var linhas = lista
-                // Inativo some das escolhas novas, como em todo cadastro — o histórico de
-                // quem já está nele é preservado pelo próprio código gravado na ficha.
-                .Where(c => c.Ativo)
-                // "A definir" é a PERGUNTA. Oferecê-lo como resposta devolveria uma tela
-                // de sucesso e um lançamento recusado logo em seguida.
-                .Where(c => !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir,
-                                           StringComparison.OrdinalIgnoreCase))
-                // Os que GERAM GUIA primeiro, e o particular por último — não em ordem
-                // alfabética pura (set/2026). São duas respostas de naturezas diferentes:
-                // as de cima são operadoras, a de baixo é "não tem convênio". Misturá-las
-                // pelo nome punha "Particular" entre a Petrobras e a Unimed, com o mesmo
-                // peso, e essa lista é justamente onde a recepcionista descobre que o
-                // particular existe (ele não existia até set/2026 — ver
-                // `ConvenioCadastro.Particular`).
-                .OrderBy(c => c.GeraGuia ? 0 : 1)
-                .ThenBy(c => c.Nome)
-                .Select(c => new LinhaConvenio(
-                    c,
-                    c.Nome,
-                    // O que a escolha significa para a guia — dito na linha, porque é a
-                    // única diferença que a recepcionista precisa enxergar aqui. O
-                    // particular é escolha legítima (parcela 60) e some do faturamento de
-                    // propósito; ele não pode parecer um convênio comum na lista.
-                    c.GeraGuia
-                        ? "Gera guia para o faturamento."
-                        : "Sem guia: o paciente paga a sessão. O valor é combinado no "
-                          + "Finalizar, pela tabela de preço do particular.",
-                    c.GeraGuia))
+            // ⚠️ A ORDEM e a FRASE saem de `OpcoesDeConvenio`, no domínio (set/2026). Elas
+            // estavam escritas à mão aqui, e o CADASTRO do paciente — que é por onde todo
+            // paciente novo recebe um convênio — tinha outra regra: ordem alfabética, o
+            // primeiro da lista pré-selecionado e nenhuma explicação. A mesma escolha com
+            // duas regras é a lição da parcela 64, e a do outro lado era a errada.
+            //
+            // `incluirADefinir: false`: "A definir" é a PERGUNTA. Oferecê-lo como resposta
+            // devolveria uma tela de sucesso e um lançamento recusado logo em seguida.
+            var porCodigo = lista.ToDictionary(c => c.Codigo, StringComparer.OrdinalIgnoreCase);
+
+            // Monta fora e só então publica: entre o Clear() e o último Add não pode haver
+            // await (a carga é disparada do construtor).
+            var linhas = OpcoesDeConvenio.Montar(lista, incluirADefinir: false)
+                .Select(o => new LinhaConvenio(porCodigo[o.Codigo], o.Nome, o.Explicacao, o.GeraGuia))
                 .ToList();
 
             Convenios.Clear();

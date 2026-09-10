@@ -348,22 +348,21 @@ public class CentralDocumentosTests : IDisposable
         var atestado = await AtestadoAsync(paciente, profissional);
         await _clinicos.CancelarAsync(atestado.Id, "Data errada", "ana");
 
-        var r = await _central.ResumoAsync(Inicio, Fim);
+        var r = ResumoFolhas.Montar(await _central.EmitidasAsync(Inicio, Fim));
 
         r.Emitidas.Should().Be(3);
         r.Canceladas.Should().Be(1);
-        r.PorFolha[0].Should().Be(("Receituário", 2));
         r.Vazio.Should().BeFalse();
+        r.Frase.Should().Be("3 folha(s) emitida(s), 1 cancelada(s).");
     }
 
     [Fact]
     public async Task Resumo_PeriodoSemPapel_NaoQuebra()
     {
-        var r = await _central.ResumoAsync(Inicio, Fim);
+        var r = ResumoFolhas.Montar(await _central.EmitidasAsync(Inicio, Fim));
 
         r.Vazio.Should().BeTrue();
-        r.PorFolha.Should().BeEmpty();
-        await Task.CompletedTask;
+        r.Frase.Should().Be("Nenhum papel emitido no período.");
     }
 
     // ---------------- Fechamento do período ----------------
@@ -438,13 +437,51 @@ public class CentralDocumentosTests : IDisposable
         await ReceitaAsync(paciente, profissional);
         await ReciboAsync(paciente, 150m);
 
-        (await _central.ResumoAsync(Inicio, Fim)).Emitidas.Should().Be(2);
+        ResumoFolhas.Montar(await _central.EmitidasAsync(Inicio, Fim))
+            .Emitidas.Should().Be(2);
 
-        var doCaixa = await _central.ResumoAsync(
-            Inicio, Fim, acessos: PerfisAcesso.Padrao(PerfilAcesso.Financeiro));
+        var doCaixa = ResumoFolhas.Montar(await _central.EmitidasAsync(
+            Inicio, Fim, acessos: PerfisAcesso.Padrao(PerfilAcesso.Financeiro)));
 
         doCaixa.Emitidas.Should().Be(1);
-        doCaixa.PorFolha.Should().ContainSingle().Which.Folha.Should().Be("Recibo de pagamento");
+        doCaixa.Frase.Should().Be("1 folha(s) emitida(s).");
+    }
+
+    /// <summary>
+    /// A FRASE diz que a lista está recortada pelo paciente (set/2026). Sem isso, quem volta
+    /// à tela depois do café lê "2 folha(s) emitida(s)" sobre o chip "só deste paciente"
+    /// ligado e conclui que a clínica emitiu dois papéis no mês.
+    /// </summary>
+    [Fact]
+    public async Task Resumo_DIZ_quando_esta_filtrado_pelo_paciente()
+    {
+        var maria = await PacienteAsync("Maria Silva");
+        var joao = await PacienteAsync("João Souza");
+        var profissional = await ProfissionalAsync();
+
+        await ReceitaAsync(maria, profissional);
+        await ReceitaAsync(maria, profissional);
+        await ReceitaAsync(joao, profissional);
+
+        var doPeriodo = ResumoFolhas.Montar(await _central.EmitidasAsync(Inicio, Fim));
+        doPeriodo.Frase.Should().Be("3 folha(s) emitida(s).");
+
+        var daMaria = ResumoFolhas.Montar(
+            await _central.EmitidasAsync(Inicio, Fim, pacienteId: maria), "Maria Silva");
+
+        daMaria.Emitidas.Should().Be(2);
+        daMaria.Frase.Should().Be("2 folha(s) emitida(s) de Maria Silva.");
+    }
+
+    /// <summary>
+    /// E o VAZIO também diz de quem: "nenhum papel emitido no período" sobre um filtro
+    /// ligado é uma afirmação falsa sobre a clínica inteira.
+    /// </summary>
+    [Fact]
+    public async Task Resumo_vazio_com_filtro_diz_de_quem()
+    {
+        ResumoFolhas.Montar([], "Maria Silva").Frase
+            .Should().Be("Nenhum papel de Maria Silva emitido no período.");
     }
 
     /// <summary>

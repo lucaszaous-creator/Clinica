@@ -83,9 +83,6 @@ public static class ChavesSuite
     /// <summary>"Pacientes" — o composto que Recepção e Consultório publicam.</summary>
     public const string GrupoPacientes = "pacientes";
 
-    /// <summary>"Prescrições" — o composto que Recepção e Consultório publicam.</summary>
-    public const string GrupoPrescricoes = "receituario";
-
     /// <summary>
     /// "Prontuário" — o composto que Recepção e Consultório publicam (set/2026, o grupo
     /// ATENDIMENTO). A Recepção o publica com "Por paciente · Registros e pendências ·
@@ -109,9 +106,6 @@ public static class ChavesSuite
 
     /// <summary>Pacientes / CRM (Recepção).</summary>
     public const string PacientesRecepcao = "pacientes-recepcao";
-
-    /// <summary>Emissão de receituário e afins (Recepção).</summary>
-    public const string PrescricoesRecepcao = "prescricoes";
 
     /// <summary>Retorno de pacientes — o recall do balcão (Recepção).</summary>
     public const string RetornoPacientes = "retorno-pacientes";

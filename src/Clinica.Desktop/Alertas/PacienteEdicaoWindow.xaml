@@ -147,9 +147,19 @@
                         <TextBlock Text="CONVÊNIO E FATURAMENTO" Style="{StaticResource TituloSecao}" />
                         <Border Style="{StaticResource Divisor}" />
 
-                        <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                        <TextBlock Text="Convênio ou particular" Style="{StaticResource Rotulo}" />
                         <ComboBox ItemsSource="{Binding Convenios}" SelectedValue="{Binding ConvenioCodigo}"
                                   SelectedValuePath="Codigo" DisplayMemberPath="Nome" />
+
+                        <!-- O que a escolha SIGNIFICA (set/2026). A lista é ordenada com as
+                             operadoras primeiro e o Particular depois — alfabética, ele caía
+                             entre a Petrobras e a Unimed com o mesmo peso. E a frase é o que
+                             faz perceber que o PADRÃO desta tela gera guia: paciente
+                             particular cadastrado sem trocar o campo sai com guias que nunca
+                             serão faturadas. -->
+                        <TextBlock Text="{Binding ExplicacaoDoConvenio}"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0" />
 
                         <!-- Mesma régua da linha acima: ver o comentário do `SharedSizeGroup`. -->
                         <Grid Grid.IsSharedSizeScope="True">

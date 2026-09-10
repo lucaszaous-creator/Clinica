@@ -147,6 +147,26 @@ public class PacotePaciente
 
     /// <summary>Dá para debitar uma sessão hoje?</summary>
     public bool PodeConsumir(DateOnly hoje) => Situacao(hoje) == StatusPacote.Ativo;
+
+    /// <summary>
+    /// Qual pacote deste paciente seria DEBITADO nesta data: o que VENCE PRIMEIRO (sem
+    /// validade, o mais antigo; empatando, o menor id).
+    ///
+    /// ⚠️ Uma definição só, e é o que impede a tela de prometer um pacote e o serviço
+    /// debitar outro. A regra estava escrita à mão em DOIS lugares — o consumo automático
+    /// (<c>PacoteService.ConsumirPorAtendimentoAsync</c>) e a proposta do fechamento —, com
+    /// um comentário em cada dizendo que era "a MESMA escolha". Eram duas cópias, e a
+    /// terceira leitura (a prévia do lançamento, set/2026) seria a que divergiria: ela diz
+    /// ao balcão que a sessão NÃO será cobrada porque debita do pacote, e apontar o pacote
+    /// errado ali muda o número que o paciente paga.
+    /// </summary>
+    public static PacotePaciente? ADebitar(IEnumerable<PacotePaciente> pacotes, DateOnly dia)
+        => pacotes
+            .Where(p => p.PodeConsumir(dia))
+            .OrderBy(p => p.ValidoAte ?? DateOnly.MaxValue)
+            .ThenBy(p => p.DataCompra)
+            .ThenBy(p => p.Id)
+            .FirstOrDefault();
 }
 
 /// <summary>

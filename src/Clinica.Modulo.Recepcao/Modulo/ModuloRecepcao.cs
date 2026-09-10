@@ -42,7 +42,6 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveRetornosAMarcar = "retornos-a-marcar";
     public const string ChavePacientes = ChavesSuite.PacientesRecepcao;
     public const string ChaveProntuario = "prontuario";
-    public const string ChavePrescricoes = ChavesSuite.PrescricoesRecepcao;
     public const string ChaveRetorno = ChavesSuite.RetornoPacientes;
 
     /// <summary>
@@ -84,7 +83,6 @@ public sealed class ModuloRecepcao : IModuloApp
     // acontecer no Gerente Geral.
     public const string ChaveGrupoPacientes = ChavesSuite.GrupoPacientes;
     public const string ChaveGrupoAtendimento = "atendimento";
-    public const string ChaveGrupoPrescricoes = ChavesSuite.GrupoPrescricoes;
 
     /// <summary>
     /// O item composto "Particular e pacotes" (set/2026) — a resposta à reprovação do
@@ -113,7 +111,7 @@ public sealed class ModuloRecepcao : IModuloApp
     /// O item composto "Prontuário" (set/2026). Junta a leitura POR PACIENTE (a tela
     /// deste módulo) com a lista plana de REGISTROS E PENDÊNCIAS do Consultório.
     ///
-    /// ⚠️ Ele existe pela mesma razão do <see cref="ChaveGrupoPrescricoes"/> logo acima, e
+    /// ⚠️ Ele existe pela mesma razão do grupo "Pacientes" logo acima, e
     /// pelo mesmo defeito: os dois módulos publicavam item próprio, com chaves diferentes
     /// ("prontuario" e "consultorio-prontuarios"), então a dedupe por chave do shell não
     /// pegava e o Gerente Geral mostrava "Prontuário" e "Prontuários" lado a lado em
@@ -294,23 +292,29 @@ public sealed class ModuloRecepcao : IModuloApp
                 new AbaMenu("Exames", ChavesSuite.ConsultorioExames)
             ]
         },
-        // ⚠️ Aqui morava uma DUPLICATA: "Prescrições" era publicado por este módulo e
-        // pelo Consultório com chaves diferentes (`prescricoes` e
-        // `consultorio-prescricoes`), então a dedupe por chave do `ShellViewModel` não
-        // pegava, e o Gerente Geral mostrava dois itens com o MESMO rótulo, um do lado do
-        // outro, em PACIENTE. As duas telas existem e fazem coisas próximas de postos
-        // diferentes — viraram abas, que é onde a diferença se lê.
-        new ItemMenuModulo
-        {
-            Chave = ChaveGrupoPrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5", Icone = "rx",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerFichaPaciente,
-            Abas =
-            [
-                new AbaMenu("Receitu\u00E1rio", ChavePrescricoes),
-                new AbaMenu("No consult\u00F3rio", ChavesSuite.ConsultorioPrescricoes),
-                new AbaMenu("Infus\u00E3o", ChavesSuite.ConsultorioPrescricaoInfusao)
-            ]
-        },
+        // ⚠️ AQUI MORAVA O COMPOSTO "PRESCRIÇÕES", e ele saiu em set/2026 junto com a tela
+        // "Receituário" — a TERCEIRA porta da Recepção para o mesmo ato.
+        //
+        // A Recepção tinha três lugares para papel: esta, a aba Documentos da ficha e a
+        // central "Documentos". Cada uma fazia um SUBCONJUNTO diferente dos seis atos (a
+        // central não assinava nem enviava; esta e a ficha não mexiam no link publicado), e
+        // esta emitia com um botão genérico sob `Prescrever` — então a recepcionista não
+        // alcançava por ela a declaração de comparecimento, que é o papel que ela entrega
+        // todo dia. O cliente pediu UMA porta, e a central é a que responde a pergunta
+        // inteira ("emitir um papel" + "achar o que já saiu") com a régua do catálogo, onde
+        // cada folha traz o bit dela.
+        //
+        // Ninguém perdeu capacidade: os seis atos subiram para `AcoesDoDocumento` e a
+        // central passou a ter todos; a lista POR PACIENTE continua na ficha (e a central
+        // ganhou o filtro por paciente). Quem tem `VerProntuario` e NÃO tem `VerDocumentos`
+        // — a técnica de enfermagem — continua alcançando os documentos do paciente pela
+        // aba Documentos da ficha, que pede só `VerFichaPaciente`.
+        //
+        // O composto inteiro saiu porque as outras duas abas dele eram telas do CONSULTÓRIO:
+        // no exe da Recepção, que não carrega aquele módulo, `AbasDisponiveis` as descarta e
+        // o item ficaria sem aba nenhuma. No Gerente Geral, que carrega os dois, o composto
+        // "Prescrições" agora é o do Consultório (Receitas e documentos · Infusão) — mesma
+        // chave, e a dedupe do shell resolve.
         // As nove folhas do mockup num lugar só (parcela 24). Existiam todas e nenhuma
         // estava no mesmo lugar: quatro dentro da ficha do paciente, três no botão certo
         // da aba certa dessa ficha, o recibo no Caixa, o orçamento só dentro de um pacote
@@ -412,17 +416,6 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveRetornosAMarcar, Rotulo = "Retornos a marcar", Glifo = "\uE823", Icone = "volta",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda
         },
-        new ItemMenuModulo
-        {
-            Chave = ChavePrescricoes, Rotulo = "Receitu\u00E1rio", Glifo = "\uE8A5", Icone = "rx",
-            // \u26A0\uFE0F `VerProntuario` desde a parcela 59. A tela LISTA os documentos cl\u00EDnicos do
-            // paciente \u2014 receita, atestado, pedido de exame \u2014 e emite qualquer um deles
-            // pela janela gen\u00E9rica. Deix\u00E1-la em `VerFichaPaciente` faria a porta nova da
-            // central de documentos ser cosm\u00E9tica: bastaria a pessoa clicar no item ao
-            // lado para ler as mesmas receitas. Checagem de acesso que s\u00F3 existe numa
-            // porta \u00E9 o defeito recorrente do projeto, com o agravante de PARECER coberta.
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
-        },
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
         // Direção está carregada.
@@ -468,7 +461,6 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<PacotesViewModel>();
         servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
-        servicos.AddTransient<PrescricoesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
         // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
@@ -526,7 +518,6 @@ public sealed class ModuloRecepcao : IModuloApp
             DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
-        ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },
         ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
         ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.

@@ -292,6 +292,27 @@ public sealed class PacoteService
 
     // ==================== Saldo e consumo ====================
 
+    /// <summary>
+    /// O pacote que seria DEBITADO nesta data — a MESMA escolha do consumo automático
+    /// (<see cref="PacotePaciente.ADebitar"/>), para a tela não prometer um pacote e o
+    /// serviço debitar outro.
+    ///
+    /// ⚠️ Devolve o saldo SEM a situação de pagamento (uma consulta, não duas): quem
+    /// pergunta "o que esta sessão debita" não pergunta se o pacote está pago, e
+    /// <c>ValorPago</c>/<c>ValorAReceber</c> nulos querem dizer "não conferido" — nunca
+    /// "não pago".
+    /// </summary>
+    public async Task<SaldoPacote?> ADebitarAsync(
+        int pacienteId, DateOnly? hoje = null, CancellationToken ct = default)
+    {
+        var dia = hoje ?? DateOnly.FromDateTime(DateTime.Today);
+        var pacotes = await _repo.PacotesDoPacienteAsync(pacienteId, ct);
+
+        return PacotePaciente.ADebitar(pacotes, dia) is { } escolhido
+            ? Descrever(escolhido, dia)
+            : null;
+    }
+
     public async Task<IReadOnlyList<SaldoPacote>> DoPacienteAsync(
         int pacienteId, DateOnly? hoje = null, CancellationToken ct = default)
     {
@@ -395,13 +416,9 @@ public sealed class PacoteService
         var dia = data ?? DateOnly.FromDateTime(DateTime.Today);
         var pacotes = await _repo.PacotesDoPacienteAsync(pacienteId, ct);
 
-        var escolhido = pacotes
-            .Where(p => p.PodeConsumir(dia))
-            // O que vence primeiro sai na frente; sem validade, o mais antigo.
-            .OrderBy(p => p.ValidoAte ?? DateOnly.MaxValue)
-            .ThenBy(p => p.DataCompra)
-            .ThenBy(p => p.Id)
-            .FirstOrDefault();
+        // A escolha mora na ENTIDADE (`PacotePaciente.ADebitar`): é a mesma que a proposta
+        // do fechamento e a prévia do lançamento leem, e três cópias dela divergiriam.
+        var escolhido = PacotePaciente.ADebitar(pacotes, dia);
 
         if (escolhido is null) return null;
 
