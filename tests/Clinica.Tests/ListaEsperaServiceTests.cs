@@ -206,7 +206,6 @@ public class ListaEsperaServiceTests : IDisposable
             "duas secretárias chamando o mesmo paciente: a segunda para aqui");
     }
 
-    [Fact]
     /// <summary>
     /// Chamar para um horário que já tem paciente AGENDA (set/2026 — nenhum choque recusa;
     /// ver <c>AgendaService.ConflitosAsync</c>). Substituiu o
@@ -216,6 +215,7 @@ public class ListaEsperaServiceTests : IDisposable
     /// chama alguém — e agora chamar para um vão que não vagou também vale, que é o
     /// pedido da clínica.
     /// </summary>
+    [Fact]
     public async Task Chamar_para_horario_ocupado_AGENDA()
     {
         var prof = await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Ana" });

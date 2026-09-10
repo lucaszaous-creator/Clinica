@@ -108,7 +108,6 @@ public class AgendamentoEmSerieTests : IDisposable
             serie.Marcados[i].DataHora.Should().Be(Primeira.AddDays(7 * i));
     }
 
-    [Fact]
     /// <summary>
     /// A série MARCA a data que cai no feriado (set/2026 — nenhum choque recusa; ver
     /// <c>AgendaService.ConflitosAsync</c>). Este teste substituiu o
@@ -118,6 +117,7 @@ public class AgendamentoEmSerieTests : IDisposable
     /// desde set/2026, e quem a chamasse de novo mostraria o feriado pelo mesmo
     /// `ConflitosAsync` das duas telas de marcação.
     /// </summary>
+    [Fact]
     public async Task Data_bloqueada_ENTRA_na_serie_e_o_feriado_continua_legivel()
     {
         var pacienteId = await CriarPacienteAsync();

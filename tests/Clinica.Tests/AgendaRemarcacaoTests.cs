@@ -249,7 +249,6 @@ public class AgendaRemarcacaoTests : IDisposable
     /// A outra metade: MOVER o horário para cima de outro continua recusando. A conferência
     /// existe para impedir que se crie a sobreposição, e é isso que não pode cair junto.
     /// </summary>
-    [Fact]
     /// <summary>
     /// Mover para cima de outro MOVE (set/2026 — nenhum choque recusa; ver
     /// <c>AgendaService.ConflitosAsync</c>). Substituiu o
@@ -258,6 +257,7 @@ public class AgendaRemarcacaoTests : IDisposable
     /// O aviso continua sendo produzido: é a tela de remarcação que o mostra, criticado a
     /// cada tecla, e desde que a recusa saiu ele é a barreira inteira.
     /// </summary>
+    [Fact]
     public async Task Mover_o_horario_para_cima_de_outro_MOVE_e_avisa()
     {
         var pacienteId = await CriarPacienteAsync();
@@ -286,7 +286,6 @@ public class AgendaRemarcacaoTests : IDisposable
     /// E REABRIR um cancelado confere de novo: o horário tinha soltado o recurso, e o vão
     /// dele pode ter sido dado a outra pessoa nesse meio-tempo.
     /// </summary>
-    [Fact]
     /// <summary>
     /// Reabrir um cancelado cujo vão já foi dado a outra pessoa REABRE — os dois ficam no
     /// mesmo horário (set/2026). Substituiu o <c>Reabrir_um_cancelado_ainda_confere_o_choque</c>.
@@ -296,6 +295,7 @@ public class AgendaRemarcacaoTests : IDisposable
     /// com o pedido da clínica, que é justamente ter dois pacientes no mesmo horário. Quem
     /// diz que há alguém ali continua sendo o aviso da tela.
     /// </summary>
+    [Fact]
     public async Task Reabrir_um_cancelado_cujo_vao_foi_dado_a_outro_REABRE_e_avisa()
     {
         var pacienteId = await CriarPacienteAsync();

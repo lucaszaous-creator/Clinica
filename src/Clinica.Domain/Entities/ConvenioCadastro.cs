@@ -41,10 +41,16 @@ public class ConvenioCadastro
     /// opção de particular — beco sem saída, e foi o relato do cliente: *"nem eu mesmo
     /// consegui entender como fazer um atendimento particular"*.
     ///
-    /// Como <see cref="ADefinir"/>, ele é GARANTIDO na leitura do catálogo
-    /// (<c>ConvenioCatalogoService.ListarAsync</c>) em vez de semeado por migration: a
-    /// linha nasce no banco no primeiro uso, e a base que nunca precisou dele não ganha
-    /// cadastro que ninguém pediu.
+    /// Ele é GARANTIDO na leitura do catálogo (<c>ConvenioCatalogoService.ListarAsync</c>)
+    /// em vez de semeado por migration: a linha nasce no banco no primeiro uso, e a base
+    /// que nunca precisou dele não ganha cadastro que ninguém pediu.
+    ///
+    /// ⚠️ O <see cref="ADefinir"/> NÃO é garantido ali, ao contrário do que esta nota
+    /// dizia: quem o semeia é a IMPORTAÇÃO
+    /// (<c>ImportacaoPacientesService.GarantirConvenioADefinirAsync</c>), uma vez, quando
+    /// a clínica traz a carteira do sistema anterior — e é isso que o mantém fora do
+    /// catálogo de uma base que nunca importou nada. Os dois nascem sob demanda; o gatilho
+    /// é que é outro.
     ///
     /// ⚠️ <b>A diferença entre os dois é o que cada um SIGNIFICA</b>, e ela decide o
     /// alerta do balcão: "a definir" é a PERGUNTA (a ficha veio do sistema anterior sem

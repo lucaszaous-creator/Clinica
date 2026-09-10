@@ -196,12 +196,12 @@ public class JornadaDoProfissionalTests : IDisposable
             .Should().Contain(c => c.Recurso == RecursoAgenda.Expediente);
     }
 
-    [Fact]
     /// <summary>
     /// Dentro da jornada não há aviso nenhum — é o caso normal, e é ele que faz o aviso
     /// significar alguma coisa quando aparece. O encaixe continua sendo registrado (ele
     /// não "fura" mais nada: nada recusa desde set/2026).
     /// </summary>
+    [Fact]
     public async Task Dentro_do_expediente_marca_sem_aviso_e_o_encaixe_fica_registrado()
     {
         var ana = await _equipe.SalvarProfissionalAsync(new Profissional

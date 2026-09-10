@@ -143,7 +143,17 @@
                                  linhas, é o único que costuma mudar a decisão. -->
                             <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" Margin="0,2,0,0">
                                 <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <!-- SEM `BasedOn` de propósito: o design system não
+                                         declara estilo IMPLÍCITO de TextBlock (todos os
+                                         dele têm x:Key), e `{StaticResource {x:Type
+                                         TextBlock}}` procuraria uma chave que não existe
+                                         em dicionário nenhum — o WPF lança ao materializar
+                                         o primeiro item da lista, que é justamente quando
+                                         há aviso para mostrar. TextBlock não é Control e
+                                         não tem estilo de tema para cair; herdar aqui não
+                                         perde nada, porque o que este Style faz é só
+                                         engrossar a linha grave. -->
+                                    <Style TargetType="TextBlock">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Grave}" Value="True">
                                                 <Setter Property="FontWeight" Value="SemiBold" />

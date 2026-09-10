@@ -133,4 +133,54 @@ public class ParticularNoCatalogoTests : IDisposable
         ConvenioCadastro.ADefinir().GeraGuia.Should().BeFalse();
         ConvenioCadastro.Particular().GeraGuia.Should().BeFalse();
     }
+
+    /// <summary>
+    /// DESMARCAR "gera guia" numa linha que JÁ EXISTE grava — e não gravava.
+    ///
+    /// <c>ClinicaRepositorio.SalvarConvenioAsync</c> copia campo a campo no ramo de
+    /// UPDATE (o lugar 3 da auditoria de linha), e dois campos ficaram de fora: o
+    /// <c>GeraGuia</c> — o switch que a tela de Convênios do faturamento oferece desde a
+    /// parcela 60 — e o <c>RegistroAnsOperadora</c>, que o lote TISS por operadora lê. A
+    /// CRIAÇÃO funcionava (o outro ramo é um <c>Add</c> do objeto inteiro), e é o que
+    /// escondia o defeito.
+    ///
+    /// O custo era a outra metade do *"não consegui entender como fazer um atendimento
+    /// particular"*: transformar um convênio existente em particular era um clique que
+    /// não fazia nada. E o registro ANS digitado nunca valia, então o XML saía com o
+    /// registro global — a operadora recusando o lote semanas depois.
+    /// </summary>
+    /// <summary>
+    /// ⚠️ Numa operadora PRÓPRIA, e não num embutido: <c>SalvarAsync</c> recarrega o
+    /// <c>CatalogoConvenios</c>, que é cache ESTÁTICO — deixar "Amil" gravado como não
+    /// faturável ali seria uma bomba para qualquer outra classe de teste que lance um
+    /// atendimento Amil enquanto esta roda (o xUnit paraleliza por classe).
+    /// </summary>
+    [Fact]
+    public async Task Desmarcar_gera_guia_num_convenio_que_ja_existe_GRAVA()
+    {
+        var operadora = new ConvenioCadastro
+        {
+            Codigo = "OperadoraDoTeste",
+            Nome = "Operadora do teste",
+            Familia = Convenio.Personalizado,
+            Ativo = true,
+            GeraGuia = true
+        };
+
+        // Primeiro Salvar: a linha nasce no banco pelo ramo de `Add`.
+        await _catalogo.SalvarAsync([operadora]);
+        (await _catalogo.ListarAsync()).First(c => c.Codigo == "OperadoraDoTeste")
+            .GeraGuia.Should().BeTrue("nasceu faturável");
+
+        // Segundo Salvar, agora pelo ramo de UPDATE — que é o caminho da tela.
+        var editada = (await _catalogo.ListarAsync()).First(c => c.Codigo == "OperadoraDoTeste");
+        editada.GeraGuia = false;
+        editada.RegistroAnsOperadora = "326305";
+        await _catalogo.SalvarAsync([editada]);
+
+        var salva = (await _catalogo.ListarAsync()).First(c => c.Codigo == "OperadoraDoTeste");
+        salva.GeraGuia.Should().BeFalse("o switch da tela precisa chegar ao banco");
+        salva.RegistroAnsOperadora.Should().Be(
+            "326305", "é ele que endereça o lote TISS à operadora certa");
+    }
 }

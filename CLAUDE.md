@@ -4145,6 +4145,42 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   tabela de quatro colunas do desenho, porque trocá-la perderia o que ela já mostra (a
   lição da parcela 72).
 
+- **A REVISÃO DA PARCELA: quatro achados que as três redes deram por verdes** (set/2026,
+  conferência da PR das quatro telas de documentos — build, `compilar-sombra`,
+  `verificar-suite` e 2472 testes verdes na entrada).
+  ⚠️ **`BasedOn="{StaticResource {x:Type T}}"` SÓ EXISTE SE ALGUÉM DECLAROU O IMPLÍCITO.**
+  A lista de avisos do formulário de agendamento nasceu com um `Style` local herdando o
+  estilo implícito de `TextBlock` — e o design system não tem nenhum: **todos os estilos de
+  `TextBlock` da casa têm `x:Key`**. `TextBlock` não é `Control`, então não há
+  `generic.xaml` para onde cair, e o `StaticResource` lança
+  `ResourceReferenceKeyNotFoundException`. Pior: dentro de um `DataTemplate` o conteúdo é
+  ADIADO, então a janela ABRE e só quebra quando o primeiro item aparece — que ali é
+  exatamente quando há aviso para mostrar. **A checagem 2 não via**: ela IGNORA toda chave
+  `{x:Type ...}` presumindo que é do sistema, e o ponto cego durou até esta PR. Virou a
+  **checagem 48**, com a pergunta certa ("existe estilo implícito para este tipo?") e a
+  distinção que a torna sem ruído: controle do WPF cai no TEMA, controle da CASA e
+  não-`Control` não caem em lugar nenhum. Medida antes de ligar — nove usos no repositório,
+  oito legítimos, o nono era o defeito.
+  ⚠️ **Limpar antes do await vale para TODA coleção da tela, não só a que o comentário
+  lembra.** A coluna ENTREGAR AGORA zerava os carimbos da sessão antes da leitura (com a
+  lição da parcela 89 escrita ao lado) e deixava o `SaiuHoje` para depois — então, na troca
+  de paciente, o crachá já mostrava quem entrou na sala e a lista "JÁ SAIU HOJE" continuava
+  com os papéis de quem saiu, com o "2ª via" apontando para o documento da outra pessoa.
+  **Contador de geração impede a resposta VELHA de sobrescrever a nova; ele não impede a
+  lista velha de FICAR na tela** — e a janela aqui é a carga inteira do prontuário.
+  ⚠️ **A cópia campo a campo tem um segundo lugar: o ramo de UPDATE do REPOSITÓRIO.**
+  `SalvarConvenioAsync` copia treze campos e não copiava `GeraGuia` nem
+  `RegistroAnsOperadora` — os dois editáveis na tela de Convênios do faturamento. A
+  CRIAÇÃO funcionava (o outro ramo é um `Add` do objeto inteiro), que é o que escondeu o
+  defeito por duas parcelas: desmarcar "gera guia" numa linha existente era um clique que
+  não fazia nada — a outra metade do *"não consegui entender como fazer um atendimento
+  particular"* —, e o registro ANS digitado nunca valia, então o lote TISS saía com o
+  registro global. **Ao procurar o lugar 3, olhe também quem grava no banco.**
+  ⚠️ **Lista cortada não responde por quem ficou de fora.** As pílulas de "quem está hoje"
+  na central de documentos param em dez, e o contexto do paciente escolhido as consultava
+  para dizer "tem horário hoje às 14h": quem fosse o décimo primeiro do dia perdia a frase.
+  Atalho cortado é atalho; a resposta sai da lista INTEIRA.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

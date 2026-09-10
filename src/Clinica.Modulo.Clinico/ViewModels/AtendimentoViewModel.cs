@@ -728,6 +728,17 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             _saidaDaSessao = null;
             _sessoesRegistradas = 0;
 
+            // ⚠️ E o "JÁ SAIU HOJE" pela MESMA razão. O contador de geração de
+            // `CarregarSaiuHojeAsync` impede a resposta VELHA de sobrescrever a nova; ele
+            // não impede a lista velha de FICAR na tela enquanto a leitura corre — e ela
+            // corre depois de toda esta carga, que num banco remoto são segundos. Nesse
+            // intervalo o crachá já mostra quem entrou na sala e a coluna mostra os papéis
+            // de quem saiu, com o "2ª via" apontando para o documento da outra pessoa: um
+            // clique imprimiria o papel errado, que é exatamente o que o comentário
+            // daquele método diz existir para evitar.
+            SaiuHoje.Clear();
+            OnPropertyChanged(nameof(TemFolhasDeHoje));
+
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
 

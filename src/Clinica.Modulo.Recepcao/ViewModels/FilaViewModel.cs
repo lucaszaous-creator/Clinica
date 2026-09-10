@@ -1230,6 +1230,15 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar a chegada");
 
+            // A segunda barreira do "só HOJE" (a regra do `CartaoFila.EhHoje`): a primeira
+            // é o botão, que só nasce com o dia corrente. Guarda que FALA, e não `return`
+            // calado — carimbar a chegada num horário de amanhã grava a hora de agora numa
+            // sessão que não está acontecendo, e a espera passa a sair de um horário morto.
+            if (!c.EhHoje)
+                throw new InvalidOperationException(
+                    "O check-in é do dia da sessão. Volte para hoje na barra de cima — "
+                    + "num horário de outro dia ele carimbaria a hora de agora.");
+
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
             await agenda.RegistrarChegadaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);

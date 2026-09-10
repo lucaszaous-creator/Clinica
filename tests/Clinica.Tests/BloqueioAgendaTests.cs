@@ -74,7 +74,6 @@ public class BloqueioAgendaTests : IDisposable
         return p.Id;
     }
 
-    [Fact]
     /// <summary>
     /// A agenda FECHADA deixou de recusar em set/2026 (nenhum choque recusa), e o que fica
     /// é o AVISO — com o motivo escrito, que é o que faz a recepcionista pensar duas
@@ -84,6 +83,7 @@ public class BloqueioAgendaTests : IDisposable
     /// em VERMELHO (<c>AvisosDeChoque.EhGrave</c>): os outros dizem que o horário está
     /// disputado; este diz que não há ninguém na clínica para atender.
     /// </summary>
+    [Fact]
     public async Task Marcar_dentro_do_bloqueio_MARCA_e_avisa_com_o_motivo()
     {
         var pacienteId = await CriarPacienteAsync();

@@ -147,6 +147,15 @@ public sealed partial class DocumentosViewModel : ObservableObject
     public bool TemGenteHoje => DeHoje.Count > 0;
 
     /// <summary>
+    /// Todos os que têm horário hoje — inclusive os que não couberam na linha de pílulas.
+    ///
+    /// A coleção de cima é o ATALHO, cortada em <see cref="PilulasNaLinha"/>; esta é a
+    /// resposta. Quem lê é o contexto do paciente escolhido: escolhido pela BUSCA, ele
+    /// pode ser o décimo primeiro do dia, e o horário dele é um fato do mesmo jeito.
+    /// </summary>
+    private IReadOnlyList<PacienteDeHoje> _deHojeCompleto = [];
+
+    /// <summary>
     /// Quantas pílulas cabem antes de a linha virar um paredão.
     ///
     /// As pílulas são ATALHO, não a lista do dia: num dia de trinta sessões elas
@@ -287,6 +296,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 .Select(a => new PacienteDeHoje(a.Paciente!, a.DataHora.ToString("HH':'mm")))
                 .ToList();
 
+            // ⚠️ A lista INTEIRA fica guardada, e não só o que coube na linha: quem
+            // responde "tem horário hoje às 14h" é `AtualizarContextoDoPaciente`, e
+            // procurar isso na coleção CORTADA faria a frase sumir para o paciente de
+            // número onze — a tela calando sobre um horário que existe, que é pior do que
+            // não ter a frase.
+            _deHojeCompleto = pilulas;
+
             DeHoje.Clear();
             foreach (var p in pilulas.Take(PilulasNaLinha)) DeHoje.Add(p);
 
@@ -298,6 +314,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — quem tem horário hoje não pôde ser lido", ex);
+            _deHojeCompleto = [];
             DeHoje.Clear();
         }
 
@@ -329,7 +346,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
             return;
         }
 
-        var hoje = DeHoje.FirstOrDefault(p => p.Paciente.Id == paciente.Id);
+        var hoje = _deHojeCompleto.FirstOrDefault(p => p.Paciente.Id == paciente.Id);
         ContextoDoPaciente = hoje is null
             ? string.Empty
             : $"tem horário hoje às {hoje.Hora}";
