@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Assinatura;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Desktop.Controls;
@@ -42,6 +43,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     /// <summary>O paciente inteiro — a conferência legal lê o endereço dele.</summary>
     private Paciente? _paciente;
+
+    /// <summary>
+    /// O que a SESSÃO ABERTA já sabe (set/2026, tela 1 do mockup aprovado). Nulo quando a
+    /// janela é aberta fora de um atendimento — a central, a ficha, o balcão —, e aí o
+    /// papel abre em branco, que é o comportamento de sempre.
+    /// </summary>
+    private readonly HerancaDaSessao? _heranca;
 
     /// <summary>Os tipos que se escrevem à mão — os montados do prontuário ficam de fora.</summary>
     public IReadOnlyList<TipoDocumentoClinico> Tipos { get; } =
@@ -265,6 +273,99 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     public string TituloJanela => $"Emitir {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}";
 
+    // ===================================================================================
+    //  O QUE VEIO DA SESSÃO (set/2026, tela 1 do mockup aprovado)
+    // ===================================================================================
+    //
+    //  A janela é a MESMA das quatro telas, e agora ela abre sabendo DE ONDE veio. O que
+    //  a sessão preencheu fica marcado, com a frase dizendo de onde saiu — e dizendo
+    //  também que mexer aqui NÃO reescreve o prontuário, que é a pergunta que quem lê um
+    //  campo já preenchido faz primeiro.
+    //
+    //  ⚠️ Só se herda o que está GRAVADO num campo próprio: o CID da hipótese, a hipótese
+    //  por extenso, os carimbos de hora do horário. A receita abre em branco de propósito
+    //  — extrair medicamento do texto livre da conduta seria pôr no papel que a farmácia
+    //  avia algo que ninguém escreveu como prescrição.
+
+    /// <summary>De qual sessão este papel veio, por extenso. Vazio no documento avulso.</summary>
+    public string Subtitulo
+    {
+        get
+        {
+            var partes = new List<string>();
+            if (_paciente is not null) partes.Add($"para {_paciente.Nome}");
+            if (Profissional is not null) partes.Add($"assina {Profissional.Rotulo}");
+
+            var procedencia = _heranca?.Procedencia(DateOnly.FromDateTime(DateTime.Today)) ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(procedencia)) partes.Add(procedencia);
+
+            return string.Join("  ·  ", partes);
+        }
+    }
+
+    /// <summary>O CID no campo veio da hipótese desta sessão.</summary>
+    [ObservableProperty] private bool _cidVeioDaSessao;
+
+    /// <summary>Os horários da declaração vieram dos carimbos do horário.</summary>
+    [ObservableProperty] private bool _horasVieramDaSessao;
+
+    /// <summary>A indicação clínica da primeira linha veio da hipótese desta sessão.</summary>
+    [ObservableProperty] private bool _indicacaoVeioDaSessao;
+
+    /// <summary>A frase que explica o campo herdado, com a origem por extenso.</summary>
+    public string ExplicacaoDoCid =>
+        _heranca is null || string.IsNullOrWhiteSpace(_heranca.Hipotese)
+            ? "Veio da hipótese desta sessão. Trocar aqui não muda o prontuário."
+            : $"Veio da sua hipótese: {_heranca.Hipotese}. Trocar aqui não muda o prontuário.";
+
+    /// <summary>
+    /// Copia da sessão o que ESTE tipo de papel sabe aproveitar.
+    ///
+    /// Só preenche campo VAZIO: a pessoa pode ter escrito antes de trocar o tipo no combo,
+    /// e sobrescrever o que ela digitou seria a janela desfazendo o trabalho dela.
+    /// </summary>
+    private void AplicarHeranca()
+    {
+        CidVeioDaSessao = false;
+        HorasVieramDaSessao = false;
+        IndicacaoVeioDaSessao = false;
+
+        if (_heranca is null) return;
+
+        switch (TipoSelecionado)
+        {
+            case TipoDocumentoClinico.Atestado
+                when !string.IsNullOrWhiteSpace(_heranca.Cid) && string.IsNullOrWhiteSpace(Cid):
+                Cid = _heranca.Cid;
+                CidVeioDaSessao = true;
+                break;
+
+            // A saída pode não existir ainda (a sessão não foi encerrada), e aí a
+            // declaração sai só com a chegada — que é a verdade disponível.
+            case TipoDocumentoClinico.Comparecimento
+                when _heranca.Chegada is { } chegada && string.IsNullOrWhiteSpace(HoraChegadaTexto):
+                HoraChegadaTexto = chegada.ToString("HH':'mm");
+                if (_heranca.Saida is { } saida && string.IsNullOrWhiteSpace(HoraSaidaTexto))
+                    HoraSaidaTexto = saida.ToString("HH':'mm");
+                HorasVieramDaSessao = true;
+                break;
+
+            // A hipótese vira a INDICAÇÃO CLÍNICA da primeira linha — que é a coluna que o
+            // laboratório lê, e é literalmente o que ela é.
+            case TipoDocumentoClinico.PedidoExame
+                when !string.IsNullOrWhiteSpace(_heranca.Hipotese):
+                var primeira = Itens.FirstOrDefault();
+                if (primeira is not null && string.IsNullOrWhiteSpace(primeira.Detalhe))
+                {
+                    primeira.Detalhe = _heranca.Hipotese;
+                    IndicacaoVeioDaSessao = true;
+                }
+                break;
+        }
+    }
+
+    partial void OnProfissionalChanged(Profissional? value) => OnPropertyChanged(nameof(Subtitulo));
+
     /// <summary>Receita e pedido de exame são listas; atestado e declaração, não.</summary>
     public bool MostraItens => TipoDocumentoInfo.ExigeItens(TipoSelecionado);
 
@@ -293,7 +394,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     public DocumentoEdicaoViewModel(
         IServiceScopeFactory escopos, int pacienteId,
-        TipoDocumentoClinico tipoInicial = TipoDocumentoClinico.Receita)
+        TipoDocumentoClinico tipoInicial = TipoDocumentoClinico.Receita,
+        HerancaDaSessao? heranca = null)
     {
         // ⚠️ Esta janela NÃO sabe montar o termo que o paciente assina (parcela 66): ela não
         // copia o modelo, não traz as declarações e não grava `ModeloOrigemId`. Emitir por
@@ -320,7 +422,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         _escopos = escopos;
         _pacienteId = pacienteId;
         _tipoSelecionado = tipoInicial;
+        _heranca = heranca;
         Itens.Add(new LinhaItemDocumento());
+        AplicarHeranca();
         _ = CarregarAsync();
     }
 
@@ -332,6 +436,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(MostraComparecimento));
         OnPropertyChanged(nameof(RotuloItens));
         OnPropertyChanged(nameof(RotuloDetalhe));
+
+        // Trocar o tipo no combo é escolher OUTRO papel: o que a sessão tinha a dar para
+        // ele é outra coisa, e as marcas do papel anterior mentiriam sobre este.
+        AplicarHeranca();
         _ = CarregarModelosAsync();
 
         // Nem todo tipo se publica: trocar de Receita para Relatório tem de apagar a
@@ -373,6 +481,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(AvisaCidOmitido));
         OnPropertyChanged(nameof(DescricaoCid));
+
+        // Digitou outro código: a marca deixa de descrever o que está no campo, e uma
+        // frase dizendo "veio da sua hipótese" sobre um CID escrito à mão é pior do que
+        // frase nenhuma.
+        if (CidVeioDaSessao && !string.Equals(value?.Trim(), _heranca?.Cid?.Trim(),
+                                              StringComparison.OrdinalIgnoreCase))
+            CidVeioDaSessao = false;
     }
     partial void OnCidAutorizadoChanged(bool value) => OnPropertyChanged(nameof(AvisaCidOmitido));
 
@@ -385,12 +500,22 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             Profissionais.Clear();
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
-            Profissional = Profissionais.FirstOrDefault();
+
+            // Quem assina, por padrão, é QUEM ESTÁ LOGADO — não o primeiro da lista, que é
+            // o primeiro em ordem alfabética. Emitir uma receita no consultório e ter de
+            // trocar o combo toda vez é o tipo de detalhe que faz a pessoa emitir com o
+            // nome do colega sem perceber, e o nome no papel é quem responde por ele.
+            Profissional = Profissionais.FirstOrDefault(
+                                p => p.Id == SessaoUsuario.Atual.ProfissionalId)
+                           ?? Profissionais.FirstOrDefault();
+
+            OnPropertyChanged(nameof(Subtitulo));
 
             // O paciente vem inteiro porque a conferência legal lê o ENDEREÇO dele, e o
             // Id sozinho não responde se a receita pode ser aviada.
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
             _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
+            OnPropertyChanged(nameof(Subtitulo));
 
             await CarregarModelosAsync();
             await ConferirLegalmenteAsync();
@@ -778,6 +903,16 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Tipo = TipoSelecionado,
             PacienteId = _pacienteId,
             ProfissionalId = Profissional?.Id,
+
+            // ⚠️ A PROCEDÊNCIA. Sem estas duas linhas o documento nasce AVULSO — e era
+            // assim até set/2026: a coluna "de onde veio" das três listas de documento
+            // escrevia "avulso" para toda receita emitida dentro da consulta, porque o
+            // único escritor do vínculo era o termo assinado pelo paciente.
+            // Elas entram na lista da emissão, que COPIA campo a campo: o que ficar de
+            // fora é descartado em silêncio (o lugar 3 da auditoria de linha).
+            AgendamentoId = _heranca?.AgendamentoId,
+            EvolucaoId = _heranca?.EvolucaoId,
+
             Data = DateOnly.FromDateTime(Data),
             Titulo = Titulo,
             Corpo = Corpo,

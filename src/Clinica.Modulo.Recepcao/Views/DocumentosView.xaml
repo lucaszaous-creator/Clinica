@@ -2,12 +2,15 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <!-- Para OBJETO: string vazia não é nula, e "não tem" aqui quer dizer nulo. -->
+        <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
@@ -38,27 +41,128 @@
             <TabItem Header="Emitir">
                 <DockPanel Margin="0,12,0,0">
 
-                    <!-- Só o paciente na lateral, e SÓ nesta aba: ele é a pré-condição
-                         das folhas ao lado, não da página. -->
-                    <Border DockPanel.Dock="Right" Width="280" Margin="16,0,0,0"
-                            Style="{StaticResource Card}" VerticalAlignment="Top">
-                        <StackPanel>
-                <TextBlock Text="Paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                           Text="Sete das nove folhas são de alguém. Escolha aqui antes de emitir." />
+                    <!-- ============================================================
+                         A TELA ABRE POR QUEM (set/2026, tela 3 do mockup aprovado
+                         "documentos nas quatro telas").
 
-                <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                         MaxLength="80" />
-                <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                           TextWrapping="Wrap" Margin="0,4,0,0"
-                           FontSize="{StaticResource Fonte.Legenda}" />
-                <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                         SelectedItem="{Binding Seletor.Selecionado}"
-                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                         MaxHeight="260" Margin="0,6,0,0"
-                         BorderThickness="0" Background="Transparent" />
-            </StackPanel>
+                         No balcão a pergunta quase nunca é "que papel existe?" — é "a
+                         paciente está aqui pedindo uma declaração". A escolha do paciente
+                         morava numa faixa de 280 px À DIREITA, com um campo de busca
+                         vazio: a recepcionista digitava o nome de alguém que o sistema já
+                         sabia que estava na clínica naquela hora.
+
+                         Agora ela é a PRIMEIRA linha, com as pílulas de quem tem horário
+                         hoje — as mesmas do Novo atendimento —, e as folhas ganham a
+                         largura inteira em vez de disputá-la com uma faixa permanente.
+                         ============================================================ -->
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+
+                        <DockPanel>
+                            <TextBox DockPanel.Dock="Left" Width="300" MaxLength="80"
+                                     VerticalAlignment="Center"
+                                     ctrl:Ajudantes.Placeholder="Quem vai receber o papel?"
+                                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <!-- A linha das pílulas SOME quando não há ninguém no dia:
+                                 "ou escolha de quem está hoje" seguido de nada é a frase
+                                 que faz a pessoa procurar o que não existe. -->
+                            <!-- DockPanel, e não StackPanel horizontal: ali o WrapPanel
+                                 seria medido com largura INFINITA e nunca dobraria a
+                                 linha, empurrando as pílulas para fora da tela (a
+                                 checagem 32). Aqui ele é o filho que PREENCHE. -->
+                            <DockPanel Margin="12,0,0,0" VerticalAlignment="Center"
+                                       Visibility="{Binding TemGenteHoje,
+                                                    Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock DockPanel.Dock="Left"
+                                           Text="{Binding RotuloDeHoje}" TextWrapping="Wrap"
+                                           Style="{StaticResource TextoSuave}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"
+                                           FontSize="{StaticResource Fonte.Legenda}" />
+                                <ItemsControl ItemsSource="{Binding DeHoje}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:PacienteDeHoje}">
+                                            <Button Margin="0,0,6,4"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Command="{Binding DataContext.EscolherDeHojeCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <!-- Nome é dado do BANCO: numa pílula ele
+                                                     precisa de teto e de reticências, senão
+                                                     um nome de 60 caracteres empurra as
+                                                     outras pílulas para fora da linha. -->
+                                                <TextBlock MaxWidth="220"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Nome}">
+                                                    <Run Text="{Binding Nome, Mode=OneWay}" />
+                                                    <Run Text=" " />
+                                                    <Run Text="{Binding Hora, Mode=OneWay}"
+                                                         Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                </TextBlock>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DockPanel>
+                        </DockPanel>
+
+                        <!-- O resultado da BUSCA, só enquanto se busca: com o campo vazio
+                             ele não existe, e a caixa reservada faria um vão em branco no
+                             meio da tela (a lição de `SemBuscaInicial`). -->
+                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                                 SelectedItem="{Binding Seletor.Selecionado}"
+                                 ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                                 MaxHeight="216" Margin="0,8,0,0" MaxWidth="620"
+                                 HorizontalAlignment="Left"
+                                 BorderThickness="0" Background="Transparent"
+                                 Visibility="{Binding Seletor.TemResultados,
+                                              Converter={StaticResource BoolParaVisibilidade}}" />
+
+                        <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Visibility="{Binding Seletor.Erro,
+                                                Converter={StaticResource TextoParaVisibilidade},
+                                                FallbackValue=Collapsed}" />
+
+                        <!-- O CRACHÁ de quem foi escolhido. Sem ele, a régua de fichas
+                             abaixo não diz para quem o papel vai sair — e a folha errada
+                             sai numerada, e não se apaga. -->
+                        <Border Margin="0,10,0,0" Padding="12,9"
+                                CornerRadius="{StaticResource Raio.Medio}"
+                                Background="{StaticResource Brush.Acento.Suave}"
+                                BorderBrush="{StaticResource Brush.Acento}" BorderThickness="1"
+                                Visibility="{Binding Seletor.Selecionado,
+                                             Converter={StaticResource ObjetoParaVisibilidade},
+                                             FallbackValue=Collapsed}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Seletor.Selecionado.Nome}"
+                                           FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding ContextoDoPaciente}"
+                                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Visibility="{Binding ContextoDoPaciente,
+                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                        FallbackValue=Collapsed}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- O que NÃO é do balcão, dito em vez de simplesmente ausente: os
+                         cartões de receita, atestado e pedido de exame somem para quem não
+                         prescreve (a regra da parcela 59), e ausência sem explicação faz a
+                         recepcionista procurar o botão que ela viu na tela de outra
+                         pessoa. Some para quem PODE prescrever. -->
+                    <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaInfo}"
+                            Margin="0,12,0,0"
+                            Visibility="{Binding ExplicaOQuePedeProfissional,
+                                         Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="Receita, atestado e pedido de exame são emitidos por QUEM ASSINA, no Consultório. Aqui eles aparecem na aba “O que já saiu”, para segunda via." />
                     </Border>
 
                     <!-- As fichas pedem a altura que precisam e rolam quando não couber:

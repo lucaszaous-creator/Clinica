@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
+             xmlns:srv="clr-namespace:Clinica.Application.Servicos;assembly=Clinica.Application"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -97,23 +98,53 @@
                         </ListBox.Style>
                     </ListBox>
                 </StackPanel>
-                <!-- Apagados enquanto não houver paciente escolhido: a tela abre pela
-                     sidebar sem ninguém em foco, e botão aceso que não faz nada faz quem
-                     clica concluir que o sistema quebrou. -->
-                <WrapPanel HorizontalAlignment="Right" Margin="0,10,0,0"
-                           IsEnabled="{Binding PodeEmitirDocumento}">
-                    <Button Content="Receita" Margin="0,0,8,8" Padding="14,8"
-                            Command="{Binding EmitirCommand}" CommandParameter="Receita" />
-                    <Button Content="Atestado" Margin="0,0,8,8" Padding="14,8"
+                <!-- ============================================================
+                     A RÉGUA "EMITIR" (set/2026, tela 2 do mockup aprovado).
+
+                     Eram quatro botões escritos à mão e o catálogo tem SEIS folhas
+                     clínicas de paciente: o relatório de evolução — o papel que o paciente
+                     leva ao convênio — e a ficha de anamnese só se emitiam pela central da
+                     RECEPÇÃO. Agora a régua vem do catálogo, e cada folha traz o BIT dela.
+
+                     ⚠️ O `IsEnabled` do painel virou `TemPaciente`, e não
+                     `PodeEmitirDocumento`: aquele é o bit do PRONTUÁRIO, e o
+                     comparecimento pede o do CADASTRO. Sob um bit só, quem tem um e não o
+                     outro veria os seis apagados ou os seis acesos. Quem filtra por
+                     permissão é a própria lista.
+                     ============================================================ -->
+                <DockPanel Margin="0,10,0,0" IsEnabled="{Binding TemPaciente}">
+                    <!-- Declarado ANTES do que preenche: no DockPanel o docado ganha, e
+                         é ele que precisa da largura garantida. -->
+                    <Button DockPanel.Dock="Right" Content="Prescrição de infusão"
+                            Margin="12,0,0,8" Padding="14,8" VerticalAlignment="Top"
                             Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding EmitirCommand}" CommandParameter="Atestado" />
-                    <Button Content="Comparecimento" Margin="0,0,8,8" Padding="14,8"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding EmitirCommand}" CommandParameter="Comparecimento" />
-                    <Button Content="Pedido de exame" Margin="0,0,0,8" Padding="14,8"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding EmitirCommand}" CommandParameter="PedidoExame" />
-                </WrapPanel>
+                            ToolTip="Abre a folha de infusão — outra tela, com ciclo de vida próprio"
+                            Command="{Binding IrParaInfusaoCommand}"
+                            Visibility="{Binding TemPrescricaoDeInfusao,
+                                         Converter={StaticResource BoolParaVisibilidade}}" />
+
+                    <ItemsControl ItemsSource="{Binding FolhasParaEmitir}"
+                                  HorizontalAlignment="Right">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- WrapPanel como filho que PREENCHE: docado, ele seria
+                                     medido com largura infinita e nunca dobraria a linha
+                                     (a checagem 32). -->
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type srv:FolhaCatalogo}">
+                                <Button Content="{Binding Rotulo}" Margin="0,0,8,8" Padding="14,8"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        ToolTip="{Binding Descricao}"
+                                        Command="{Binding DataContext.EmitirCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
             </StackPanel>
         </Grid>
 

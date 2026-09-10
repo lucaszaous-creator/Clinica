@@ -4076,6 +4076,75 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   vale para componente e correção compartilhados, não para comportamento de navegação de
   um shell que o outro app não possui.
 
+- **O PAPEL SAI DA SESSÃO SEM SAIR DA SESSÃO — e o documento nascia AVULSO** (set/2026;
+  mockup "documentos nas quatro telas" aprovado ANTES de uma linha de WPF, depois de cinco
+  desenhos reprovados; o pedido foi por SUPERFÍCIE: *"a tela de documentos na hora do
+  atendimento e também a tela de Documentos que aparece na recepção, gerente,
+  consultório"*). Quatro telas para o mesmo assunto, cada uma respondendo a pergunta de
+  quem a abre — e a janela de emissão como a peça comum.
+  ⚠️ **O achado que a construção revelou: `DocumentoClinico.AgendamentoId` e `EvolucaoId`
+  eram GRAVÁVEIS SEM ESCRITOR.** `ProcedenciaDaSessao` sabia escrever "da sessão de
+  08/09", as TRÊS listas de documento mostravam a coluna, e o único escritor do vínculo
+  era o termo assinado pelo paciente: toda receita emitida DENTRO da consulta aparecia
+  como "avulsa", ao lado da sessão que a produziu. É o defeito recorrente do projeto pelo
+  avesso — não é dado gravado sem leitor, é **coluna com leitor e sem escritor** —, e ele
+  só apareceu porque uma tela nova precisou da frase que a coluna promete.
+  ⚠️ **DESVIO DECLARADO DO MOCKUP APROVADO, e é o único.** O desenho mostra a receita
+  dizendo *"já com a Passiflora que você escreveu"*, e isso não se entrega sem LER o texto
+  livre da conduta à procura de nome de medicamento. Adivinhar ali é pôr no papel que a
+  farmácia avia algo que o profissional não escreveu como prescrição — a garantia aparente
+  que este projeto recusa desde a parcela 3. A receita abre EM BRANCO e o cartão DIZ isso,
+  em cinza; o que herda de verdade é o CID da hipótese (atestado), a hipótese como
+  indicação clínica (pedido de exame) e os carimbos da fila (comparecimento), cada um com a
+  frase de acento explicando a origem **e dizendo que trocar ali não muda o prontuário**.
+  Desvio de mockup aprovado se escreve, não se comete em silêncio.
+  ⚠️ **A SAÍDA só entra quando a sessão foi ENCERRADA.** O mockup escreve "esteve aqui
+  14:00 → agora", e "agora" numa declaração é afirmar um fato que ainda não aconteceu:
+  enquanto o paciente está na sala a frase é "está aqui desde 14:00", e a declaração sai só
+  com a chegada — que é a verdade disponível.
+  ⚠️ **Quem assinava era o PRIMEIRO DA LISTA — em ordem alfabética.** `CarregarAsync` fazia
+  `Profissional = Profissionais.FirstOrDefault()`, e a janela é a mesma nas quatro portas:
+  no consultório, quem emitia tinha de trocar o combo toda vez. O padrão passou a ser
+  `SessaoUsuario.Atual.ProfissionalId`, com o primeiro da lista como caminho de baixo — o
+  nome no papel é quem responde por ele.
+  ⚠️ **A régua de EMITIR tinha quatro botões escritos à mão e o catálogo tem SEIS folhas
+  clínicas de paciente**: o relatório de evolução — o papel que o paciente leva ao
+  convênio — e a anamnese só se emitiam pela central da RECEPÇÃO, e quem atende pedia ao
+  balcão o relatório do próprio paciente. A régua passou a vir do `CentralDocumentosService.
+  Catalogo`, e o ganho não é a folha nova: é **cada uma trazer o BIT dela**. O
+  comparecimento pede `EditarPaciente` e a receita pede `Prescrever`; sob um `IsEnabled` só,
+  quem tem um e não o outro via os seis apagados ou os seis acesos.
+  ⚠️ **`Selector.SelectedItem` que recebe item FORA do `ItemsSource` devolve NULL pelo
+  binding** — a pílula "quem está hoje" limparia a escolha no mesmo instante em que a faz,
+  sem erro nenhum, porque a lista de resultados só existe com termo digitado. O componente
+  já tinha a porta desde a remarcação (`SeletorPacienteViewModel.SelecionarGarantindoNaLista`);
+  **antes de escrever a seleção por fora, procure o método que o componente já tem.**
+  ⚠️ **A coluna PERMANENTE de 340 px contraria a régua do README de propósito**, e a
+  exceção tem medida: a tela do paciente roda em modo IMERSIVO (sidebar e barra de cima
+  recolhem), então em 1366 sobram ~1000 px para a folha. Sem o modo imersivo ela não
+  caberia — e é por isso que ela existe ali e não na janela "Nova sessão" do Prontuário,
+  que é modal e estreita.
+  ⚠️ **Num DockPanel, o ancorado leva a altura que pede e quem paga é o FILL** (parcela
+  79): a lista "já saiu hoje" cresce com o DIA, e sem teto ela espremeria os cartões — que
+  são o assunto da coluna — até zero. Teto pede a roda de volta para a página; as duas
+  metades andam juntas. O mesmo vale para as PÍLULAS do balcão: num dia de trinta sessões
+  elas quebrariam em quatro linhas, então são dez e o rótulo DIZ que a lista está cortada
+  ("10 de 31 — digite para achar os outros"), senão a recepcionista conclui que só dez
+  pessoas vêm hoje.
+  ⚠️ **A tela da direção não tem um único botão de emitir**, e é a decisão inteira dela: o
+  balcão opera, a direção lê o agregado. `PainelDeDocumentos` (Application, puro) responde
+  quantos saíram — **cancelados INCLUSIVE**, porque o número da folha foi gasto e a
+  numeração por ano não se reaproveita —, quantos foram selados com e-CPF, quantos estão no
+  ar e quem assinou o quê. O desempate do "mais emitido" é pelo NOME: sem ele, duas folhas
+  com a mesma contagem trocariam de lugar entre duas leituras do MESMO período, e a direção
+  veria o número mudar sem nada ter mudado.
+  **O que ficou de fora, com o motivo**: a PRÉVIA DO PAPEL ao lado do formulário (a metade
+  direita da "janela que escreve o papel") — ela é a quinta peça do mockup, não uma das
+  quatro telas, e é um desenho de ~490 px que nenhuma rede deste ambiente consegue ver
+  montado; a lista da tela 2 continua sendo a rica (badges, link, correções) em vez da
+  tabela de quatro colunas do desenho, porque trocá-la perderia o que ela já mostra (a
+  lição da parcela 72).
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

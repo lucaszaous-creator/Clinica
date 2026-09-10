@@ -154,6 +154,20 @@ public sealed record FolhaEmitida(
     public bool JaTeveLink { get; init; }
 
     /// <summary>
+    /// O documento foi SELADO com certificado ICP-Brasil (set/2026, tela 4 do mockup
+    /// aprovado).
+    ///
+    /// É a pergunta que só a direção faz — "quantos dos nossos papéis saíram com
+    /// assinatura qualificada?" —, e ela distingue o arquivo que a farmácia confere
+    /// sozinha no validador do ITI do papel que vale pela caneta. Falso no financeiro,
+    /// que não se assina digitalmente.
+    ///
+    /// Aditivo com <c>init</c> e padrão falso, o padrão do projeto para record que já está
+    /// em produção: nenhum chamador existente precisa mudar.
+    /// </summary>
+    public bool Assinado { get; init; }
+
+    /// <summary>
     /// A chave da folha do catálogo (parcela 59). É por ela que a tela sabe qual acesso
     /// esta linha exige — para ver, e para cancelar ou republicar o link.
     ///
@@ -452,6 +466,7 @@ public sealed class CentralDocumentosService
                 PacienteId = d.PacienteId,
                 PublicadoAte = d.PublicadoAte,
                 JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao),
+                Assinado = d.AssinaturaTipo is not null,
                 Chave = Catalogo.FirstOrDefault(f => f.TipoClinico == d.Tipo)?.Chave ?? string.Empty
             }));
         }

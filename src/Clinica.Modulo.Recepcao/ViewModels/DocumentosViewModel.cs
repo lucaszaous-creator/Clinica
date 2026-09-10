@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -87,6 +88,15 @@ public sealed class LinhaFolhaEmitida
 }
 
 /// <summary>
+/// Quem tem horário HOJE — a pílula que o balcão clica em vez de digitar o nome
+/// (set/2026, tela 3 do mockup aprovado "documentos nas quatro telas").
+/// </summary>
+public sealed record PacienteDeHoje(Paciente Paciente, string Hora)
+{
+    public string Nome => Paciente.Nome;
+}
+
+/// <summary>
 /// A central de documentos (parcela 24): as nove folhas do mockup num lugar só.
 ///
 /// O mockup mostrava nove folhas como um conjunto — receituário, atestado, declaração de
@@ -116,6 +126,64 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
     /// <summary>Escolher paciente é um componente só — esta tela usa o de sempre.</summary>
     public SeletorPacienteViewModel Seletor { get; }
+
+    /// <summary>
+    /// Quem tem horário HOJE, para o balcão clicar em vez de digitar (set/2026, tela 3 do
+    /// mockup aprovado).
+    ///
+    /// No balcão a pergunta quase nunca é "que papel existe?" — é "a paciente está aqui
+    /// pedindo uma declaração". A tela abria com um campo de busca vazio numa faixa de
+    /// 280 px ao lado, e a recepcionista digitava o nome de alguém que o sistema já sabia
+    /// que estava na clínica naquela hora.
+    ///
+    /// ⚠️ São as MESMAS pessoas que o Novo atendimento oferece (a sugestão do mockup 05):
+    /// cancelado e falta saem — o horário existe e a pessoa não veio —, e o REALIZADO
+    /// fica, que é justamente quem acabou de ser atendido e está no balcão pedindo o
+    /// papel.
+    /// </summary>
+    public ObservableCollection<PacienteDeHoje> DeHoje { get; } = [];
+
+    /// <summary>Há gente com horário hoje. A linha inteira some quando não há.</summary>
+    public bool TemGenteHoje => DeHoje.Count > 0;
+
+    /// <summary>
+    /// Quantas pílulas cabem antes de a linha virar um paredão.
+    ///
+    /// As pílulas são ATALHO, não a lista do dia: num dia de trinta sessões elas
+    /// quebrariam em quatro linhas e empurrariam as fichas para fora da vista — a faixa
+    /// que come a tela, que o README recusa desde a parcela 38. Passando disso, digitar é
+    /// mais rápido de qualquer forma, e o campo está do lado.
+    /// </summary>
+    private const int PilulasNaLinha = 10;
+
+    /// <summary>
+    /// O rótulo DIZ quando a lista está cortada: "de quem está hoje" sobre dez pílulas de
+    /// um dia de trinta faria a recepcionista concluir que só dez pessoas vêm hoje.
+    /// </summary>
+    [ObservableProperty] private string _rotuloDeHoje = "ou escolha de quem está hoje:";
+
+    /// <summary>
+    /// Explicar o que NÃO está aqui (set/2026, tela 3 do mockup aprovado).
+    ///
+    /// Receita, atestado e pedido de exame exigem <c>Prescrever</c> e por isso não
+    /// aparecem para o balcão — o cartão SOME em vez de ficar apagado (a regra da parcela
+    /// 59). Só que ausência sem explicação faz a recepcionista procurar o botão que ela
+    /// viu ontem na tela de outra pessoa: a frase diz que aqueles papéis são de quem
+    /// ASSINA, e que aqui eles saem como segunda via.
+    ///
+    /// Some para quem PODE prescrever — a mesma tela abre no Gerente Geral, e ali a frase
+    /// falaria de uma ausência que não existe.
+    /// </summary>
+    public bool ExplicaOQuePedeProfissional => !SessaoUsuario.Atual.Pode(Permissao.Prescrever);
+
+    /// <summary>
+    /// O contexto do paciente escolhido: o horário dele hoje, quando existe.
+    ///
+    /// Vazio quando ele não tem horário — e vazio é a resposta certa: inventar "esteve
+    /// aqui hoje" para quem passou só para pegar uma segunda via seria afirmar uma
+    /// presença que a agenda não registra.
+    /// </summary>
+    [ObservableProperty] private string _contextoDoPaciente = string.Empty;
 
     [ObservableProperty] private DateTime _inicio = DateTime.Today.AddDays(-30);
     [ObservableProperty] private DateTime _fim = DateTime.Today;
@@ -173,15 +241,99 @@ public sealed partial class DocumentosViewModel : ObservableObject
         _snackbar = snackbar;
         _dialogo = dialogo;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += _ => AtualizarDisponibilidade();
+        // `SemBuscaInicial`: com o campo vazio a busca não filtra nada e despejaria o
+        // começo do alfabeto de 2.238 fichas. Quem a tela oferece é quem está HOJE.
+        Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
+        Seletor.SelecaoMudou += _ =>
+        {
+            AtualizarDisponibilidade();
+            AtualizarContextoDoPaciente();
+        };
 
         MontarCatalogo();
+        _ = CarregarDeHojeAsync();
         _ = CarregarAsync();
     }
 
     partial void OnInicioChanged(DateTime value) => _ = CarregarAsync();
     partial void OnFimChanged(DateTime value) => _ = CarregarAsync();
+
+    /// <summary>
+    /// Quem tem horário hoje. Uma consulta, na abertura.
+    ///
+    /// Falha SOZINHA: a lista é um ATALHO — a busca continua ali —, e um banco lento não
+    /// pode impedir a recepcionista de emitir uma declaração. Mas não passa calada: vai
+    /// ao log, e a linha das pílulas some em vez de ficar vazia dizendo que ninguém veio.
+    /// </summary>
+    private async Task CarregarDeHojeAsync()
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+
+            var hoje = DateTime.Today;
+            var agendamentos = await repo.AgendamentosNoPeriodoAsync(
+                hoje, hoje.AddDays(1).AddTicks(-1));
+
+            // Entre o Clear() e o último Add não pode haver await (parcela 62).
+            var pilulas = agendamentos
+                .Where(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+                .Where(a => a.Paciente is not null)
+                .OrderBy(a => a.DataHora)
+                // Quem tem duas sessões no dia apareceria duas vezes, e duas pílulas
+                // idênticas é a pessoa perguntando qual das duas é a certa.
+                .DistinctBy(a => a.PacienteId)
+                .Select(a => new PacienteDeHoje(a.Paciente!, a.DataHora.ToString("HH':'mm")))
+                .ToList();
+
+            DeHoje.Clear();
+            foreach (var p in pilulas.Take(PilulasNaLinha)) DeHoje.Add(p);
+
+            RotuloDeHoje = pilulas.Count > PilulasNaLinha
+                ? $"ou escolha de quem está hoje ({PilulasNaLinha} de {pilulas.Count} — digite para achar os outros):"
+                : "ou escolha de quem está hoje:";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — quem tem horário hoje não pôde ser lido", ex);
+            DeHoje.Clear();
+        }
+
+        OnPropertyChanged(nameof(TemGenteHoje));
+    }
+
+    /// <summary>
+    /// Escolher pela pílula é a mesma escolha da busca — o seletor é um só.
+    ///
+    /// ⚠️ Por <c>SelecionarGarantindoNaLista</c>, e nunca atribuindo <c>Selecionado</c>
+    /// direto: a lista de resultados está VAZIA (a busca só roda com termo digitado), e um
+    /// <c>Selector</c> do WPF cujo <c>SelectedItem</c> recebe um item que não está no
+    /// <c>ItemsSource</c> devolve NULL pelo binding de volta — o clique na pílula limparia
+    /// a escolha no mesmo instante em que a faz, sem erro nenhum. O componente já tem esta
+    /// porta desde a remarcação; ela existe exatamente para isto.
+    /// </summary>
+    [RelayCommand]
+    private void EscolherDeHoje(PacienteDeHoje? pilula)
+    {
+        if (pilula is null) return;
+        Seletor.SelecionarGarantindoNaLista(pilula.Paciente);
+    }
+
+    private void AtualizarContextoDoPaciente()
+    {
+        if (Seletor.Selecionado is not { } paciente)
+        {
+            ContextoDoPaciente = string.Empty;
+            return;
+        }
+
+        var hoje = DeHoje.FirstOrDefault(p => p.Paciente.Id == paciente.Id);
+        ContextoDoPaciente = hoje is null
+            ? string.Empty
+            : $"tem horário hoje às {hoje.Hora}";
+    }
 
     /// <summary>
     /// Os nove cartões. O catálogo é estático — a lista de papéis que a clínica emite não
