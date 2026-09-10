@@ -44,6 +44,35 @@ public class ColetaRemotaTermo
     /// <summary>IP, aparelho e hora informados pela borda ao receber a assinatura.</summary>
     public string? EvidenciaResposta { get; set; }
 
+    /// <summary>
+    /// O TRAÇO que o paciente desenhou no celular, GUARDADO aqui assim que o desktop o lê
+    /// (set/2026).
+    ///
+    /// ⚠️ Ele não morava em lugar nenhum: vivia só no balde, e quem o trazia para dentro era
+    /// a janela aberta. Quem enviava o link e fechava a janela perdia a assinatura — a
+    /// varredura de 24h cancelava a coleta e apagava o objeto, e o paciente tinha assinado
+    /// de verdade. Perder assinatura já dada é o pior desfecho possível deste fluxo, porque
+    /// nada falha: o termo continua "pendente" como se ninguém tivesse assinado.
+    ///
+    /// Reusa o <see cref="TracoAssinatura"/> do balcão — mesma tabela, mesma forma (PNG,
+    /// largura, altura). Tabela à parte é o que impede a lista de coletas de arrastar
+    /// imagens; aqui a coluna é só o ponteiro.
+    ///
+    /// Nulo enquanto o paciente não respondeu, e nulo nas coletas anteriores a esta versão.
+    /// </summary>
+    public int? TracoAssinaturaId { get; set; }
+    public TracoAssinatura? TracoAssinatura { get; set; }
+
+    /// <summary>
+    /// O que o paciente respondeu em cada declaração, como o celular mandou
+    /// (<c>{"1":"Sim","2":"Não"}</c>) — guardado junto do traço e pela mesma razão.
+    ///
+    /// ⚠️ Guardar o traço sem as respostas seria meia recuperação: o selo do termo cobre
+    /// o que o paciente VIU e RESPONDEU, e uma conferência que trouxesse a assinatura com
+    /// as declarações em branco obrigaria a técnica a responder POR ELE.
+    /// </summary>
+    public string? RespostasJson { get; set; }
+
     /// <summary>A coleta terminou: o traço entrou no documento pelo Confirmar da técnica.</summary>
     public DateTime? ConcluidaEm { get; set; }
 
@@ -53,6 +82,20 @@ public class ColetaRemotaTermo
     public bool EmAberto => ConcluidaEm is null && CanceladaEm is null;
 
     public bool Vencida(DateTime agora) => EmAberto && agora > ExpiraEm;
+
+    /// <summary>
+    /// O paciente JÁ ASSINOU no celular e a assinatura está guardada aqui, esperando que
+    /// alguém confira a identidade e conclua.
+    ///
+    /// É a fila que a parcela 81 não tinha: sem ela, o circuito só fechava se a janela
+    /// daquele termo estivesse aberta na hora em que a resposta chegou. É este estado que
+    /// vira o selo "Termo assinado — conferir" na lista do dia.
+    ///
+    /// ⚠️ Coleta neste estado NUNCA é cancelada pela expiração — o que vence é o LINK, e o
+    /// link já cumpriu o papel dele. O que sai do ar é o objeto no balde; a assinatura
+    /// fica.
+    /// </summary>
+    public bool AguardaConferencia => EmAberto && RespondidaEm is not null;
 
     /// <summary>Onde o PEDIDO (o que o paciente lê) mora no balde. Prefixo `t/` próprio —
     /// as receitas usam `r/`, e o Worker do termo só enxerga o dele.</summary>

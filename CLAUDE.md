@@ -4223,6 +4223,59 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   nome: asserção escrita à mão é a que a próxima folha não alcança. Verificado que ele
   REPROVA sem a linha do catálogo, não presumido.
 
+- **A ASSINATURA CHEGAVA E MORRIA NA VARREDURA DE 24 H — porque ela só existia no BALDE**
+  (set/2026, a segunda metade do "a paciente assinou e não achamos onde está indo"). A
+  primeira metade era de acesso (quem colhe não alcançava o que colheu, logo acima); esta
+  é pior, porque não é o papel que fica invisível: é a assinatura que **deixa de existir**.
+  O traço do celular vivia no objeto do balde, e quem o trazia para dentro era o polling da
+  **janela do termo ABERTA**. Quem enviava o link e fechava a janela nunca via a resposta
+  chegar; 24 h depois `LimparVencidasAsync` cancelava a coleta e apagava o objeto. **Nada
+  falhava** — o termo voltava a parecer "nunca assinado", e o gesto natural diante disso é
+  mandar OUTRO link, que é justamente o que o link write-once não aceita.
+  ⚠️ **A regra que fica: quando um dado só existe no ARMAZENAMENTO EXTERNO, a rotina que o
+  limpa é a rotina que o destrói.** A ordem passou a ser **colher → guardar → só então
+  apagar**, e a limpeza não cancela mais quem já respondeu: o que venceu foi o LINK, e o
+  link já cumpriu o papel dele. Coleta respondida sai do ar e continua na fila de
+  conferência.
+  ⚠️ **O traço reusa o `TracoAssinatura` do balcão** (tabela à parte, bytes fora da linha) e
+  as RESPOSTAS vão junto no mesmo `SaveChanges`: guardar o traço sem as declarações seria
+  meia recuperação — a conferência traria a assinatura com o formulário em branco, e quem
+  responderia pelo paciente seria a técnica.
+  ⚠️ **A janela deixou de ser o caminho crítico**: `SincronizarRespostasAsync` é varredura
+  de fundo chamada pela **lista do dia do balcão** (que já relê a cada minuto) e pela
+  limpeza. Ela **NUNCA lança** — balde fora do ar ou traço ilegível de UMA coleta viraria
+  agenda do dia em branco; vira log, e a janela do termo, onde alguém está de fato
+  esperando, continua dizendo o erro por extenso. O custo normal é UMA consulta indexada.
+  ⚠️ **E "assinado" ganhou selo PRÓPRIO na lista** (`Termo assinado — conferir`, âmbar). Os
+  dois estados são "o termo não está cumprido" e mandam fazer coisas OPOSTAS — um pede
+  colher a assinatura, o outro pede um clique sobre uma que já existe. Enquanto eram o
+  mesmo selo vermelho, a tela mandava a recepcionista repetir o gesto que não funciona; e
+  gastar o vermelho aqui ensina a ignorá-lo no caso em que ele importa. O rótulo do "⋯"
+  segue o selo pela mesma razão, e `EnviarAsync` **RECUSA** o reenvio para quem já assinou,
+  dizendo o que fazer.
+  ⚠️ **A CONDIÇÃO da varredura é "não tem assinatura GUARDADA", nunca "não respondeu"** — e
+  a diferença é o dia da atualização: a coleta que a versão anterior deixou respondida tem
+  carimbo e nada guardado dentro, e era justamente a primeira que a limpeza destruiria. Pela
+  mesma razão `ColherRespostaAsync` responde do banco **com queda para o balde**: sem ela,
+  essa coleta responderia "não há assinatura" sobre uma que está no ar, com o reenvio
+  recusado logo atrás — corredor sem saída. **Ao guardar num lugar novo o que antes vivia
+  noutro, pergunte o que a base tem no INSTANTE da atualização.**
+  ⚠️ **O objeto só sai do ar quando a assinatura está segura**: se a colheita falhou, a
+  limpeza não apaga — a coleta fica no ar mais um dia e a varredura seguinte tenta de novo.
+  Apagar ali seria destruir a assinatura pelo caminho exato que a correção existe para
+  fechar. E o log carrega o **id**, nunca o TOKEN: ele é a única barreira de acesso ao termo
+  publicado, e o log é um `.txt` na pasta da instalação.
+  ⚠️ **`MeioAssinaturaPaciente.LinkRemoto` deixou de ser "não implementado" e passou a ser
+  GRAVADO.** `ColherAsync` carimbava `NaClinica` em toda assinatura, inclusive nas que
+  vieram do celular — o sistema afirmando algo falso sobre como a assinatura foi obtida, no
+  único documento cujo valor inteiro é ser evidência. O canal entra também na TRILHA, que é
+  o primeiro leitor que a coluna teve. **Valor de enum documentado como "não implementado"
+  tem prazo: quando o caminho passa a existir, o comentário vira hedge falsa.**
+  **O que NÃO mudou, e é decisão da direção, não esquecimento:** a resposta continua não
+  selando nada sozinha — quem confere a identidade, preenche o documento conferido e conclui
+  é uma pessoa (parcela 81: *"o papel deste fluxo é tirar o custo do pad, não a pessoa do
+  circuito"*). O que a parcela tira do caminho é a JANELA ABERTA, não a conferência.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

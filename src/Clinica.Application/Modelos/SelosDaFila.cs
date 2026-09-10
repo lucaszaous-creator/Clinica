@@ -62,7 +62,8 @@ public static class SelosDaFila
     public const int RestantesParaAvisar = 2;
 
     /// <param name="etapa">A coluna em que o cartão está.</param>
-    /// <param name="termoPendente">O procedimento de hoje exige termo assinado e ele não foi assinado.</param>
+    /// <param name="termoPendente">O procedimento de hoje exige termo assinado e NINGUÉM assinou — nem no balcão, nem no celular.</param>
+    /// <param name="termoAConferir">O paciente já assinou pelo celular e falta conferir e concluir.</param>
     /// <param name="guiaPendente">Há guia de atendimento anterior por baixar.</param>
     /// <param name="sessoesUsadas">Sessões consumidas do pacote ativo; nulo sem pacote.</param>
     /// <param name="sessoesContratadas">Sessões contratadas do pacote ativo; nulo sem pacote.</param>
@@ -71,6 +72,7 @@ public static class SelosDaFila
     public static IReadOnlyList<SeloFila> Montar(
         EtapaFila etapa,
         bool termoPendente,
+        bool termoAConferir,
         bool guiaPendente,
         int? sessoesUsadas,
         int? sessoesContratadas,
@@ -83,6 +85,21 @@ public static class SelosDaFila
         if (termoPendente)
             selos.Add(new SeloFila("Termo pendente", TomDoSelo.Erro,
                 "Falta o termo do procedimento assinado — colha no “⋯” antes de o paciente entrar"));
+
+        // ⚠️ O termo assinado PELO CELULAR e ainda não conferido é selo PRÓPRIO, e não o
+        // vermelho de cima (set/2026).
+        //
+        // Os dois estados mandam fazer coisas diferentes: um pede colher a assinatura, o
+        // outro pede UM clique de conferência sobre uma assinatura que já existe. Enquanto
+        // eram o mesmo selo, a recepcionista lia "falta o termo" sobre quem já tinha
+        // assinado — e o gesto natural diante disso é mandar outro link, que é justamente
+        // o que o link não aceita.
+        //
+        // Âmbar e não vermelho: o vermelho é de quem não assinou nada, e gastá-lo aqui
+        // ensina a ignorá-lo no caso em que ele importa.
+        if (termoAConferir)
+            selos.Add(new SeloFila("Termo assinado — conferir", TomDoSelo.Aviso,
+                "O paciente assinou pelo celular. Abra no “⋯”, confira o documento e conclua"));
 
         // 2º — cobra agora, com o paciente aqui.
         if (guiaPendente)

@@ -73,8 +73,18 @@ public partial class FilaView : UserControl
         // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o SELO da
         // linha diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
         // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).
-        Acrescentar("Colher o termo do procedimento…", vm.ColherTermoCommand,
-            cartao.TemTermoPendente && vm.PodeColherTermo);
+        //
+        // ⚠️ O RÓTULO segue o selo (set/2026): quem já assinou pelo celular não precisa
+        // assinar de novo, precisa de conferência — e "colher o termo" ali mandaria a
+        // técnica pedir ao paciente uma segunda assinatura que o sistema já tem guardada.
+        // O comando é o MESMO: ele abre o termo com o traço aplicado, e o clique que falta
+        // é o Confirmar.
+        Acrescentar(
+            cartao.TemTermoAConferir
+                ? "Conferir o termo assinado no celular…"
+                : "Colher o termo do procedimento…",
+            vm.ColherTermoCommand,
+            (cartao.TemTermoPendente || cartao.TemTermoAConferir) && vm.PodeColherTermo);
 
         // A PORTA do dinheiro depois que o médico concluiu (parcela 95). Ela fica AQUI, e
         // não como botão da linha, porque só o PACOTE é anunciado como pendência: insumo e

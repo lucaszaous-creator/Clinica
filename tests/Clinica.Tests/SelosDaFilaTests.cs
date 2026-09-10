@@ -1,3 +1,4 @@
+using FluentAssertions;
 using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
@@ -13,10 +14,11 @@ public class SelosDaFilaTests
 {
     private static IReadOnlyList<SeloFila> Montar(
         EtapaFila etapa = EtapaFila.Aguardando,
-        bool termo = false, bool guia = false,
+        bool termo = false, bool termoAConferir = false, bool guia = false,
         int? usadas = null, int? contratadas = null,
         int? atraso = null, DateTime? encerradoEm = null)
-        => SelosDaFila.Montar(etapa, termo, guia, usadas, contratadas, atraso, encerradoEm);
+        => SelosDaFila.Montar(
+            etapa, termo, termoAConferir, guia, usadas, contratadas, atraso, encerradoEm);
 
     [Fact]
     public void Sem_nada_a_dizer_nao_ha_selo()
@@ -32,6 +34,29 @@ public class SelosDaFilaTests
         Assert.Equal(TomDoSelo.Erro, selos[0].Tom);
         Assert.Equal(TomDoSelo.Erro, selos[1].Tom);
         Assert.Equal(TomDoSelo.Aviso, selos[2].Tom);
+    }
+
+    [Fact]
+    public void Assinado_no_celular_e_selo_PROPRIO_em_ambar()
+    {
+        // Os dois estados são "o termo não está cumprido" e mandam fazer coisas OPOSTAS:
+        // um pede colher a assinatura, o outro pede UM clique sobre uma que já existe.
+        // Enquanto eram o mesmo selo, o balcão lia "falta o termo" sobre quem já assinou —
+        // e o gesto natural diante disso é mandar outro link, que o link não aceita.
+        var selo = Montar(termoAConferir: true).Should().ContainSingle().Subject;
+
+        selo.Texto.Should().Be("Termo assinado — conferir");
+        selo.Tom.Should().Be(TomDoSelo.Aviso,
+            "o vermelho é de quem não assinou NADA; gastá-lo aqui ensina a ignorá-lo");
+    }
+
+    [Fact]
+    public void Com_dois_termos_o_que_ninguem_assinou_vem_ANTES_do_que_falta_conferir()
+    {
+        var selos = Montar(termo: true, termoAConferir: true);
+
+        Assert.Equal(["Termo pendente", "Termo assinado — conferir"],
+            selos.Select(s => s.Texto).ToArray());
     }
 
     [Fact]

@@ -291,6 +291,224 @@ public class ColetaRemotaTermoTests : IDisposable
         _ = envio;
     }
 
+    // ====================================================================
+    // A ASSINATURA QUE CHEGOU NÃO SE PERDE (set/2026)
+    // ====================================================================
+    //
+    // A clínica enviou o link, a paciente assinou e confirmou — e o termo não apareceu em
+    // lugar nenhum. Uma das causas foi de PERMISSÃO (a recepção não alcançava o papel que
+    // colheu); a outra é esta: o traço vivia SÓ no balde, e quem o trazia para dentro era
+    // a janela do termo ABERTA. Quem fechava a janela perdia a assinatura, porque a
+    // varredura de 24 h cancelava a coleta e apagava o objeto.
+    //
+    // Nada falhava: o termo voltava a parecer "nunca assinado".
+
+    [Fact]
+    public async Task A_resposta_lida_fica_GUARDADA_no_banco_com_o_traco_e_as_declaracoes()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+
+        await _servico.ColherRespostaAsync(documentoId);
+
+        var linha = _db.ColetasRemotasTermo.Include(c => c.TracoAssinatura).Single();
+        linha.TracoAssinatura.Should().NotBeNull("o traço é a assinatura — ele fica");
+        linha.TracoAssinatura!.Conteudo.Length.Should().Be(600);
+        linha.TracoAssinatura.Largura.Should().Be(600);
+        linha.RespostasJson.Should().NotBeNullOrWhiteSpace(
+            "guardar o traço sem as declarações seria meia recuperação: a conferência "
+            + "traria a assinatura com o formulário em branco");
+        linha.AguardaConferencia.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Com_o_balde_VAZIO_a_resposta_guardada_continua_respondendo()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+        await _servico.ColherRespostaAsync(documentoId);
+
+        // O objeto sai do ar (é o que a limpeza faz) e a janela é reaberta amanhã.
+        _balde.Objetos.Clear();
+
+        var resposta = await _servico.ColherRespostaAsync(documentoId);
+
+        resposta.Should().NotBeNull("o que sai do ar é o objeto no balde, nunca o registro");
+        resposta!.TracoPng.Length.Should().Be(600);
+        resposta.Respostas[1].Should().Be("Sim");
+        resposta.Respostas[2].Should().Be("Não");
+        resposta.Evidencia.Should().Contain("203.0.113.7");
+    }
+
+    [Fact]
+    public async Task A_sincronizacao_colhe_SEM_a_janela_do_termo_aberta()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+
+        // Ninguém está com a janela aberta: quem lê o balde é a lista do dia do balcão.
+        ResponderNoBalde(envio.Token);
+
+        (await _servico.SincronizarRespostasAsync()).Should().Be(1);
+        _db.ColetasRemotasTermo.Single().AguardaConferencia.Should().BeTrue();
+
+        // Idempotente: a batida seguinte não tem o que colher e não vai ao balde de novo.
+        (await _servico.SincronizarRespostasAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task A_sincronizacao_NAO_derruba_a_lista_quando_uma_coleta_esta_ruim()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token,
+            traco: "data:image/png;base64," + Convert.ToBase64String(new byte[10]));
+
+        // Varredura de fundo, chamada por uma tela com paciente na frente: traço ilegível
+        // de UMA coleta vira log, nunca exceção que apaga a agenda do dia.
+        var colhidas = await _servico.SincronizarRespostasAsync();
+
+        colhidas.Should().Be(0);
+        _db.ColetasRemotasTermo.Single().AguardaConferencia.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_limpeza_COLHE_antes_de_apagar_e_NAO_cancela_quem_ja_assinou()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+
+        // A paciente assina perto do fim das 24 h e ninguém tinha a janela aberta.
+        ResponderNoBalde(envio.Token);
+        _agora = _agora.AddHours(ColetaRemotaTermo.HorasNoAr + 1);
+
+        var canceladas = await _servico.LimparVencidasAsync();
+
+        canceladas.Should().Be(0, "o que venceu foi o LINK, e ele já cumpriu o papel dele");
+        _balde.Objetos.Should().BeEmpty("o objeto sai do ar; o fato fica");
+
+        var linha = _db.ColetasRemotasTermo.Include(c => c.TracoAssinatura).Single();
+        linha.CanceladaEm.Should().BeNull();
+        linha.AguardaConferencia.Should().BeTrue("ela entra na fila de conferência");
+        linha.TracoAssinatura!.Conteudo.Length.Should().Be(600);
+
+        // E a assinatura continua alcançável depois de o balde ter sido esvaziado.
+        (await _servico.ColherRespostaAsync(documentoId)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task A_coleta_da_versao_ANTERIOR_e_recuperada_do_balde_em_vez_de_virar_beco()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+
+        // Como a versão anterior deixava: carimbada como respondida, com o traço só no
+        // balde. O reenvio está recusado (ela já assinou) — sem a queda para o balde,
+        // ninguém alcançaria a assinatura e a limpeza a apagaria.
+        var linha = _db.ColetasRemotasTermo.Single();
+        linha.RespondidaEm = _agora;
+        linha.EvidenciaResposta = "IP 203.0.113.7";
+        await _db.SaveChangesAsync();
+
+        var resposta = await _servico.ColherRespostaAsync(documentoId);
+
+        resposta.Should().NotBeNull();
+        resposta!.TracoPng.Length.Should().Be(600);
+        _db.ColetasRemotasTermo.Single().TracoAssinaturaId.Should().NotBeNull(
+            "e ela passa a estar guardada — a próxima limpeza já não a destrói");
+    }
+
+    [Fact]
+    public async Task A_limpeza_RESGATA_a_coleta_da_versao_anterior_antes_de_apagar()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+
+        var linha = _db.ColetasRemotasTermo.Single();
+        linha.RespondidaEm = _agora;
+        await _db.SaveChangesAsync();
+
+        _agora = _agora.AddHours(ColetaRemotaTermo.HorasNoAr + 1);
+        await _servico.LimparVencidasAsync();
+
+        _balde.Objetos.Should().BeEmpty();
+        _db.ColetasRemotasTermo.Single().TracoAssinaturaId.Should().NotBeNull(
+            "colher ANTES de apagar é a correção inteira: o que sai do ar é o objeto");
+        (await _servico.ColherRespostaAsync(documentoId)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task A_limpeza_NAO_apaga_o_objeto_de_quem_assinou_e_ainda_nao_foi_colhido()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+
+        // Respondida pela versão anterior E a colheita de hoje falha (balde fora do ar
+        // para LER). Apagar o objeto aqui destruiria a assinatura pelo caminho exato que
+        // esta correção existe para fechar.
+        _db.ColetasRemotasTermo.Single().RespondidaEm = _agora;
+        await _db.SaveChangesAsync();
+        _balde.RecusaLer = true;
+
+        _agora = _agora.AddHours(ColetaRemotaTermo.HorasNoAr + 1);
+        await _servico.LimparVencidasAsync();
+
+        _balde.Objetos.Should().ContainKey(ColetaRemotaTermo.CaminhoResposta(envio.Token),
+            "ela fica no ar mais um dia e a varredura seguinte tenta de novo");
+        var linha = _db.ColetasRemotasTermo.Single();
+        linha.CanceladaEm.Should().BeNull();
+
+        // E a varredura seguinte, com o balde de volta, resgata.
+        _balde.RecusaLer = false;
+        await _servico.LimparVencidasAsync();
+        _db.ColetasRemotasTermo.Single().TracoAssinaturaId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Reenviar_para_quem_JA_ASSINOU_e_recusado_dizendo_o_que_fazer()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+        await _servico.ColherRespostaAsync(documentoId);
+
+        var reenviar = () => _servico.EnviarAsync(documentoId, "evelyn");
+
+        // O link é write-once: reenviar faria a paciente ler o termo de novo para levar um
+        // "não foi possível" no fim — e, antes desta versão, apagaria a assinatura dada.
+        await reenviar.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*JÁ ASSINOU*");
+        _db.ColetasRemotasTermo.Single().TracoAssinaturaId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Concluir_sela_o_termo_como_assinado_PELO_CELULAR()
+    {
+        var (_, documentoId) = await CenarioAsync();
+        var envio = await _servico.EnviarAsync(documentoId, "evelyn");
+        ResponderNoBalde(envio.Token);
+
+        await _servico.SincronizarRespostasAsync();
+        var resposta = await _servico.ColherRespostaAsync(documentoId);
+
+        var assinaturas = new AssinaturaDoPacienteService(_repo);
+        await assinaturas.ColherAsync(
+            documentoId, resposta!.TracoPng, resposta.Largura, resposta.Altura,
+            resposta.Respostas, "CPF 123.456.789-00", "evelyn",
+            MeioAssinaturaPaciente.LinkRemoto);
+
+        var termo = _db.DocumentosClinicos.Single(d => d.Id == documentoId);
+        termo.PacienteAssinou.Should().BeTrue();
+        termo.PacienteAssinaturaMeio.Should().Be(MeioAssinaturaPaciente.LinkRemoto,
+            "gravar \"assinou na clínica\" sobre um termo assinado em casa seria o sistema "
+            + "afirmando algo falso sobre o próprio documento");
+    }
+
     public void Dispose()
     {
         _db.Dispose();

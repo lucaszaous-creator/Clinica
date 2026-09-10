@@ -716,7 +716,12 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
 
             await _assinaturas.ColherAsync(
                 _documento.Id, tracoPng, largura, altura, respostas,
-                DocumentoConferido, Testemunha);
+                DocumentoConferido, Testemunha,
+                // O CANAL, gravado no documento e na trilha: a assinatura veio da tela da
+                // clínica ou do celular do paciente. Ver `MeioAssinaturaPaciente`.
+                TemTracoRemoto
+                    ? MeioAssinaturaPaciente.LinkRemoto
+                    : MeioAssinaturaPaciente.NaClinica);
 
             // O circuito remoto fecha DEPOIS do selo: conclui a coleta e tira o link do
             // ar. Falha na remoção não desfaz o selo — mas nunca passa calada (dado de

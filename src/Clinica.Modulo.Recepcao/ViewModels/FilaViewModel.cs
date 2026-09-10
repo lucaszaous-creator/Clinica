@@ -152,7 +152,7 @@ public sealed partial class CartaoFila : ObservableObject
     /// Recalculado quando qualquer entrada muda (o atraso corre com o relógio).
     /// </summary>
     public IReadOnlyList<SeloFila> Selos => SelosDaFila.Montar(
-        Etapa, TemTermoPendente, TemGuiaPendente,
+        Etapa, TemTermoPendente, TemTermoAConferir, TemGuiaPendente,
         PacoteUsadas, PacoteContratadas, AtrasoMinutos, FimAtendimentoEm);
 
     /// <summary>Minutos além da hora marcada sem check-in; nulo sem atraso. Corre com o relógio.</summary>
@@ -165,6 +165,7 @@ public sealed partial class CartaoFila : ObservableObject
 
     partial void OnTemGuiaPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
     partial void OnTemTermoPendenteChanged(bool value) => OnPropertyChanged(nameof(Selos));
+    partial void OnTemTermoAConferirChanged(bool value) => OnPropertyChanged(nameof(Selos));
 
     /// <summary>"Atrasado 25 min" — a hora marcada estourou e o paciente não chegou.
     /// Recalculado a cada batida do relógio, como a espera. Vazio sem atraso.</summary>
@@ -197,6 +198,19 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     [ObservableProperty]
     private bool _temTermoPendente;
+
+    /// <summary>
+    /// O paciente JÁ ASSINOU o termo pelo celular e falta conferir e concluir (set/2026).
+    ///
+    /// ⚠️ É EXCLUSIVO do <see cref="TemTermoPendente"/>, e a separação é o ponto: os dois
+    /// estados são "o termo não está cumprido", e mandam fazer coisas OPOSTAS — um pede
+    /// colher a assinatura, o outro pede um clique sobre uma assinatura que já existe.
+    /// Enquanto eram um só, a recepcionista lia "falta o termo" sobre quem já tinha
+    /// assinado, e o gesto natural diante disso é mandar outro link — que é justamente o
+    /// que o link não aceita.
+    /// </summary>
+    [ObservableProperty]
+    private bool _temTermoAConferir;
 
     /// <summary>
     /// O PROFISSIONAL já encerrou o atendimento e o paciente está indo ao balcão
@@ -793,6 +807,32 @@ public sealed partial class FilaViewModel : ObservableObject
                 comPendencia = [];
             }
 
+            // ⚠️ ANTES de perguntar o que falta, PROCURA o que já chegou (set/2026).
+            //
+            // O paciente assina no celular e a resposta fica no balde até alguém trazê-la
+            // para dentro. Até aqui quem a trazia era a janela do termo ABERTA — quem
+            // enviava o link e fechava a janela nunca via a assinatura chegar, e ela morria
+            // na varredura de 24 h. Esta lista relê a cada minuto e é onde o selo aparece:
+            // é ela que fecha o circuito sem depender de ninguém deixar janela aberta.
+            //
+            // Falha aqui NÃO derruba a fila e nem sequer avisa na tela: é varredura de
+            // fundo (o serviço já loga por coleta), e a lista continua respondendo com o
+            // que está no banco. O custo normal é UMA consulta indexada — só há ida ao
+            // balde quando existe link enviado cuja assinatura ainda não está guardada.
+            try
+            {
+                await escopo.ServiceProvider
+                    .GetRequiredService<ColetaRemotaTermoService>()
+                    .SincronizarRespostasAsync();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — assinaturas do celular não puderam ser sincronizadas", ex);
+            }
+
+            if (geracao != _geracaoCarga) return;
+
             // Quem ainda tem termo por assinar hoje (parcela 66). Falha aqui, como a
             // pendência acima, não derruba a fila: é aviso, não o conteúdo da tela.
             Dictionary<int, IReadOnlyList<SituacaoTermo>> termos;
@@ -1029,7 +1069,9 @@ public sealed partial class FilaViewModel : ObservableObject
                 // que ensina a ignorar o selo da linha viva ao lado.
                 TemGuiaPendente = vivo && _comPendencia.Contains(a.PacienteId),
                 TemTermoPendente = vivo && _termos.TryGetValue(a.PacienteId, out var doPaciente)
-                                   && doPaciente.Any(t => t.Pendente),
+                                   && doPaciente.Any(t => t.PendenteSemAssinatura),
+                TemTermoAConferir = vivo && _termos.TryGetValue(a.PacienteId, out var aConferir)
+                                    && aConferir.Any(t => t.AssinaturaRemotaAguardaConferencia),
                 ConfirmacaoRotulo = confirmacao,
                 ConfirmouPresenca = confirmacao == "Confirmou",
                 PacoteUsadas = vivo && _pacotes.TryGetValue(a.PacienteId, out var pacote) ? pacote.Usadas : null,
@@ -1415,13 +1457,19 @@ public sealed partial class FilaViewModel : ObservableObject
                 situacoes = await e.ServiceProvider.GetRequiredService<TermoProcedimentoService>()
                     .SituacaoDoDiaAsync(c.PacienteId, DateOnly.FromDateTime(Dia));
 
-            var pendente = situacoes.FirstOrDefault(s => s.Pendente);
+            // ⚠️ O que JÁ FOI ASSINADO no celular vem primeiro (set/2026): ele está a UM
+            // clique de terminar, enquanto o não assinado ainda precisa do paciente na
+            // frente. Abrir o outro primeiro faria a técnica colher de novo a assinatura
+            // de quem já assinou.
+            var pendente = situacoes.FirstOrDefault(s => s.AssinaturaRemotaAguardaConferencia)
+                           ?? situacoes.FirstOrDefault(s => s.Pendente);
 
             // Guarda que FALA: o cartão pode ter sido resolvido noutra máquina entre a
             // carga do quadro e o clique, e sair calada aqui seria botão que não faz nada.
             if (pendente is null)
             {
                 c.TemTermoPendente = false;
+                c.TemTermoAConferir = false;
                 _snackbar.Info($"Não há termo pendente para {c.Paciente}.");
                 return;
             }

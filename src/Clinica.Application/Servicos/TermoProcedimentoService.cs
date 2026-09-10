@@ -213,7 +213,8 @@ public sealed class TermoProcedimentoService
         // pendente para sempre.
         var termos = await _repo.TermosDoPacienteAsync(pacienteId, ct);
 
-        return Resolver(exigencias, modalidades, termos, data);
+        return Resolver(exigencias, modalidades, termos, data,
+            await AssinaturasRemotasAguardandoAsync(termos, ct));
     }
 
     /// <summary>
@@ -244,18 +245,45 @@ public sealed class TermoProcedimentoService
         var termos = await _repo.TermosDosPacientesAsync(pacientes, ct);
         var porPaciente = termos.ToLookup(d => d.PacienteId);
 
+        // A QUARTA leitura, e ela só acontece quando há papel por assinar: quem já assinou
+        // não tem coleta em aberto, e o dia sem termo pendente não paga consulta nenhuma.
+        var aguardando = await AssinaturasRemotasAguardandoAsync(termos, ct);
+
         foreach (var grupo in agendamentos.GroupBy(a => a.PacienteId))
         {
             var modalidades = ModalidadesQuePedemTermo(grupo);
             if (modalidades.Count == 0) continue;
 
             var situacoes = Resolver(
-                exigencias, modalidades, porPaciente[grupo.Key].ToList(), data);
+                exigencias, modalidades, porPaciente[grupo.Key].ToList(), data, aguardando);
 
             if (situacoes.Count > 0) vazio[grupo.Key] = situacoes;
         }
 
         return vazio;
+    }
+
+    /// <summary>
+    /// Quais dos papéis por assinar já têm assinatura do celular GUARDADA, esperando a
+    /// conferência (set/2026).
+    ///
+    /// Só os que AGUARDAM assinatura entram na pergunta: o assinado não tem coleta em
+    /// aberto, e mandar a lista inteira de termos do paciente ao banco seria pagar por uma
+    /// resposta que já se sabe.
+    /// </summary>
+    private async Task<IReadOnlySet<int>> AssinaturasRemotasAguardandoAsync(
+        IReadOnlyList<DocumentoClinico> termos, CancellationToken ct)
+    {
+        var candidatos = termos
+            .Where(d => d.AguardaAssinaturaDoPaciente)
+            .Select(d => d.Id)
+            .Distinct()
+            .ToList();
+
+        if (candidatos.Count == 0) return new HashSet<int>();
+
+        return (await _repo.DocumentosComAssinaturaRemotaAguardandoAsync(candidatos, ct))
+            .ToHashSet();
     }
 
     /// <summary>
@@ -355,7 +383,8 @@ public sealed class TermoProcedimentoService
         IReadOnlyList<ExigenciaTermoProcedimento> exigencias,
         IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId, int? AgendamentoId)> modalidades,
         IReadOnlyList<DocumentoClinico> termosDoPaciente,
-        DateOnly dia)
+        DateOnly dia,
+        IReadOnlySet<int> assinaturasRemotasAguardando)
     {
         var situacoes = new List<SituacaoTermo>();
 
@@ -428,7 +457,10 @@ public sealed class TermoProcedimentoService
                 recusado?.MotivoRecusaPaciente,
                 DeclaracoesNegadas(assinado),
                 profissionalId,
-                modalidades[indice].AgendamentoId));
+                modalidades[indice].AgendamentoId,
+                // A assinatura do celular está guardada e falta conferir. Só faz sentido
+                // sobre o papel EMITIDO deste dia — é ele que a coleta remota aponta.
+                emitido is not null && assinaturasRemotasAguardando.Contains(emitido.Id)));
         }
 
         return situacoes;
@@ -470,6 +502,15 @@ public sealed class TermoProcedimentoService
 /// Nulo com dois horários: escolher o primeiro seria inventar a procedência, e quem
 /// desempata é quem está com o paciente na frente.
 /// </param>
+/// <param name="AssinaturaRemotaAguardaConferencia">
+/// O paciente JÁ ASSINOU pelo celular, a assinatura está guardada no banco e falta alguém
+/// conferir a identidade e concluir (set/2026).
+///
+/// ⚠️ Continua sendo <see cref="Pendente"/>: o documento não está selado, e o termo só
+/// está cumprido quando estiver. O que muda é a FRASE que o balcão lê — "falta o termo" e
+/// "o termo está assinado, falta conferir" mandam fazer coisas diferentes, e tratá-los
+/// como o mesmo estado faz a recepcionista mandar outro link para quem já assinou.
+/// </param>
 public sealed record SituacaoTermo(
     int ExigenciaId,
     ModalidadeAtendimento Modalidade,
@@ -481,11 +522,21 @@ public sealed record SituacaoTermo(
     string? MotivoRecusa,
     IReadOnlyList<string> DeclaracoesNegadas,
     int? ProfissionalId = null,
-    int? AgendamentoId = null)
+    int? AgendamentoId = null,
+    bool AssinaturaRemotaAguardaConferencia = false)
 {
 
     /// <summary>Falta assinar: nem assinado, nem recusado.</summary>
     public bool Pendente => !Assinado && !Recusado;
+
+    /// <summary>
+    /// Falta assinar e NINGUÉM assinou ainda — nem no balcão, nem no celular.
+    ///
+    /// É o que o selo vermelho da lista do dia lê. O termo já assinado pelo celular tem
+    /// selo próprio: um clique resolve, e cobrá-lo com a mesma cor de quem não assinou
+    /// nada ensina a ignorar a cor.
+    /// </summary>
+    public bool PendenteSemAssinatura => Pendente && !AssinaturaRemotaAguardaConferencia;
 
     /// <summary>Assinado, mas com alguma declaração respondida "não".</summary>
     public bool TemDeclaracaoNegada => Assinado && DeclaracoesNegadas.Count > 0;
