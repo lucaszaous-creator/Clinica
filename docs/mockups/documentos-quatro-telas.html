@@ -1,0 +1,756 @@
+<title>Documentos nas quatro telas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+/* ==================================================================================
+   Segunda rodada (a primeira, `documentos-cinco-desenhos.html`, foi reprovada: ela
+   ofereceu cinco leiautes para UMA tela, e o pedido são as QUATRO superfícies onde o
+   documento aparece). As telas desenhadas usam os tokens REAIS do design system
+   (Styles/Tokens.xaml): Cinza.50/100/200/300/500/700/900, Azul.50/100/600,
+   Verde.600, Laranja.600, Vermelho.600; Fonte.Corpo 14 / Tabela 13 / Legenda 12;
+   Raio.Pequeno 4 / Medio 8; campo de 36 px.
+   ================================================================================== */
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+  --ds-cinza-50:#F8FAFC; --ds-cinza-100:#F1F5F9; --ds-cinza-200:#E5E7EB; --ds-cinza-300:#D1D5DB;
+  --ds-cinza-500:#6B7280; --ds-cinza-700:#374151; --ds-cinza-900:#111827;
+  --ds-azul-50:#EEF3FC; --ds-azul-100:#D8E3F7; --ds-azul-600:#123A9E;
+  --ds-verde-600:#16A34A; --ds-verde-50:#F0FDF4;
+  --ds-laranja-600:#EA580C; --ds-vermelho-600:#DC2626;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+     font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding-block:48px 80px; padding-left:24px; padding-right:24px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em;
+         text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:44px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:27px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:17px; font-weight:600; margin:0 0 6px; text-wrap:balance}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:72ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin-block:52px}
+.numero{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; letter-spacing:.1em;
+        color:var(--acento); display:block; margin:0 0 4px}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-style:italic; font-size:17px; color:var(--tinta-2);
+      max-width:72ch; margin:0 0 20px}
+
+.janela{background:var(--ds-cinza-50); border:1px solid var(--fio-forte); border-radius:10px;
+        box-shadow:var(--sombra); overflow:hidden; color:var(--ds-cinza-900); font-size:13px; line-height:1.45}
+.barra{background:var(--sup-2); border-bottom:1px solid var(--fio); padding:7px 12px; display:flex;
+       align-items:center; gap:7px}
+.pt{width:9px; height:9px; border-radius:50%; background:var(--fio-forte)}
+.barra .tit{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--mudo); margin-left:6px}
+.tela{padding:18px; background:var(--ds-cinza-50)}
+.rolagem{overflow-x:auto}
+
+.h1ds{font-size:19px; font-weight:600; color:var(--ds-cinza-900); margin:0 0 3px}
+.sub{font-size:12px; color:var(--ds-cinza-500); margin:0 0 13px; max-width:82ch}
+.rotulo{font-size:11px; font-weight:600; color:var(--ds-cinza-700); letter-spacing:.02em; margin:0 0 4px}
+.campo{background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px; height:32px;
+       display:flex; align-items:center; padding:0 9px; font-size:13px; color:var(--ds-cinza-900)}
+.campo.vazio{color:var(--ds-cinza-500)}
+.card{background:#fff; border:1px solid var(--ds-cinza-200); border-radius:8px; padding:12px}
+.btn{display:inline-flex; align-items:center; justify-content:center; height:32px; padding:0 14px;
+     border-radius:4px; font-size:13px; font-weight:500; background:var(--ds-azul-600); color:#fff; white-space:nowrap}
+.btn.sec{background:#fff; color:var(--ds-cinza-900); border:1px solid var(--ds-cinza-300)}
+.btn.peq{height:26px; padding:0 10px; font-size:12px}
+.btn.off{background:var(--ds-cinza-200); color:var(--ds-cinza-500)}
+.abas{display:flex; gap:2px; border-bottom:1px solid var(--ds-cinza-200); margin:0 0 13px; flex-wrap:wrap}
+.aba{padding:7px 13px; font-size:13px; color:var(--ds-cinza-500); border-bottom:2px solid transparent}
+.aba.on{color:var(--ds-azul-600); font-weight:600; border-bottom-color:var(--ds-azul-600)}
+.chip{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:11.5px;
+      background:#fff; border:1px solid var(--ds-cinza-300); color:var(--ds-cinza-700); white-space:nowrap}
+.chip.on{background:var(--ds-azul-600); border-color:var(--ds-azul-600); color:#fff; font-weight:500}
+.selo{display:inline-block; padding:1px 7px; border-radius:4px; font-size:10.5px; font-weight:600;
+      background:var(--ds-cinza-100); color:var(--ds-cinza-700)}
+.selo.al{background:#FDF0E6; color:#9A3412}
+.selo.er{background:#FBECEC; color:#991B1B}
+.selo.ok{background:var(--ds-verde-50); color:#15803D}
+.selo.az{background:var(--ds-azul-50); color:var(--ds-azul-600)}
+.aviso{border-left:3px solid var(--ds-laranja-600); background:#FDF0E6; padding:8px 11px; border-radius:4px;
+       font-size:12px; color:#7C2D12}
+.aviso.info{border-left-color:var(--ds-azul-600); background:var(--ds-azul-50); color:#1E3A8A}
+.aviso.ok{border-left-color:var(--ds-verde-600); background:var(--ds-verde-50); color:#166534}
+.linhads{border-bottom:1px solid var(--ds-cinza-200); padding:9px 0; display:grid; align-items:center; gap:10px}
+.mono{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums}
+.mudods{color:var(--ds-cinza-500)}
+.peq{font-size:11.5px}
+.crach{display:flex; align-items:center; gap:11px; background:#fff; border:1px solid var(--ds-cinza-200);
+       border-radius:8px; padding:10px 13px}
+.ini{width:34px; height:34px; border-radius:50%; background:var(--ds-azul-100); color:var(--ds-azul-600);
+     display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; flex:none}
+
+.papel{background:#fff; border:1px solid var(--ds-cinza-300); border-radius:2px; padding:15px 17px;
+       box-shadow:0 1px 3px rgba(16,23,40,.10); font-size:11px; color:var(--ds-cinza-900); line-height:1.5}
+.papel .cab{display:flex; justify-content:space-between; align-items:flex-start;
+            border-bottom:1.5px solid var(--ds-cinza-900); padding-bottom:6px; margin-bottom:10px}
+.papel .marca{font-weight:700; font-size:12px}
+.papel .num{font-family:"IBM Plex Mono",monospace; font-size:10px; color:var(--ds-cinza-500); text-align:right}
+.papel .tituloDoc{font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:10.5px;
+                  text-align:center; margin:0 0 9px}
+.papel .rodape{border-top:1px solid var(--ds-cinza-300); margin-top:11px; padding-top:6px;
+               font-size:9.5px; color:var(--ds-cinza-500); display:flex; justify-content:space-between; gap:10px}
+.papel .herdado{background:var(--ds-azul-50); outline:1px dashed var(--ds-azul-600); border-radius:2px; padding:0 3px}
+.qr{width:30px; height:30px; background:
+    repeating-linear-gradient(0deg,var(--ds-cinza-900) 0 3px,transparent 3px 6px),
+    repeating-linear-gradient(90deg,var(--ds-cinza-900) 0 3px,transparent 3px 6px); opacity:.75; flex:none}
+
+.balanco{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; margin-top:18px}
+.bal{border-radius:8px; padding:13px 15px; font-size:14px; line-height:1.5}
+.bal h4{margin:0 0 6px; font-size:12px; font-family:"IBM Plex Mono",monospace; letter-spacing:.09em;
+        text-transform:uppercase; font-weight:600}
+.bal.ok{background:var(--ganho-fundo); color:var(--ganho)}
+.bal.no{background:var(--custo-fundo); color:var(--custo)}
+.bal.nt{background:var(--sup-2); color:var(--tinta-2); border:1px solid var(--fio)}
+.bal ul{margin:0; padding-left:17px} .bal li{margin:0 0 4px}
+.antes{background:var(--custo-fundo); color:var(--custo); border-radius:8px; padding:12px 15px;
+       font-size:14.5px; line-height:1.5; margin:0 0 18px}
+.antes strong{font-weight:600}
+.nota{background:var(--sup); border:1px solid var(--fio); border-left:3px solid var(--acento);
+      border-radius:8px; padding:14px 16px; font-size:14.5px; color:var(--tinta-2); line-height:1.55}
+.grade2{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+@media (max-width:900px){ .grade2{grid-template-columns:1fr} }
+.tabela{width:100%; border-collapse:collapse; font-size:14px}
+.tabela th{text-align:left; font-size:11.5px; font-family:"IBM Plex Mono",monospace; letter-spacing:.08em;
+           text-transform:uppercase; color:var(--mudo); font-weight:600; padding:0 10px 8px 0;
+           border-bottom:1px solid var(--fio)}
+.tabela td{padding:10px 10px 10px 0; border-bottom:1px solid var(--fio); color:var(--tinta-2); vertical-align:top}
+.kpi{display:flex; gap:10px; flex-wrap:wrap}
+.kpiC{background:#fff; border:1px solid var(--ds-cinza-200); border-radius:8px; padding:10px 14px; min-width:118px}
+.kpiC .r{font-size:10.5px; font-weight:600; color:var(--ds-cinza-500); letter-spacing:.04em; text-transform:uppercase}
+.kpiC .v{font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.15; margin-top:2px}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Recepção · Consultório · Gerente · set/2026 · 2ª rodada</p>
+  <h1>Documentos nas quatro telas</h1>
+  <p class="lede">
+    A primeira rodada errou o alvo: ofereceu cinco leiautes para uma tela. O problema não é
+    o leiaute de uma — são <strong>quatro superfícies que não conversam</strong>. O médico
+    emite no meio do atendimento e a janela abre em branco, sem saber o que ele acabou de
+    escrever. A direção abre "Documentos" e recebe a tela do balcão. Aqui estão as quatro,
+    desenhadas como um sistema só.
+  </p>
+
+  <div class="antes" style="margin-top:26px">
+    <strong>O que descobri medindo o código, e é o que muda o desenho:</strong>
+    <ul style="margin:8px 0 0; padding-left:18px">
+      <li>No atendimento, "Emitir documento" abre a janela GENÉRICA vazia. O médico escreveu
+          a hipótese <em>M54.5 — dor lombar baixa</em> na sessão, e o atestado abre com o CID
+          em branco. <strong>A sessão sabe; o documento não.</strong></li>
+      <li>O Gerente <strong>não tem tela de documentos</strong>: ele carrega o módulo da
+          Recepção e recebe a dela — onze cartões de emitir e um seletor de paciente, quando
+          a pergunta da direção é "quantos saíram, quem assinou, o que foi cancelado".</li>
+      <li>O Consultório oferece <strong>4 dos 11 tipos</strong> (receita, atestado,
+          comparecimento, pedido de exame). Relatório de evolução e anamnese — os dois que se
+          montam do prontuário, e que o médico é quem tem — só existem na Recepção.</li>
+    </ul>
+  </div>
+
+  <div class="nota">
+    <strong>O princípio das quatro telas:</strong> o documento nasce do que a tela
+    <em>já sabe</em>. Quem está no atendimento não redigita a hipótese; quem está no balcão
+    não procura o paciente que está na frente dele; quem está na direção não vê botão de
+    emitir. A mesma janela de emissão serve às quatro — muda o que ela já vem sabendo.
+  </div>
+
+  <hr class="reg">
+
+  <!-- ============ 1 · NO ATENDIMENTO ============ -->
+  <span class="numero">TELA 1 · CONSULTÓRIO — NA HORA DO ATENDIMENTO</span>
+  <h2>O papel sai da sessão, sem sair da sessão</h2>
+  <p class="tese">O médico está escrevendo a consulta. Ele clica no papel que quer, e o
+    documento já vem preenchido com o que ele acabou de escrever — sem trocar de tela.</p>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Consultório — Atendimento · Maria Aparecida Silva</span></div>
+    <div class="tela" style="padding:0; background:#fff">
+
+      <div style="display:flex; align-items:center; gap:11px; padding:11px 18px; border-bottom:1px solid var(--ds-cinza-200)">
+        <div class="ini">MA</div>
+        <div style="flex:1">
+          <div style="font-weight:600; font-size:14px">Maria Aparecida Silva <span class="peq mudods">· 62 anos</span></div>
+          <div class="peq mudods">Acupuntura · 14:00 · <span style="color:var(--ds-verde-600); font-weight:600">em atendimento há 12 min</span></div>
+        </div>
+        <span class="selo al">alergia: dipirona</span>
+      </div>
+
+      <div style="display:flex; gap:0; padding:0 18px; border-bottom:1px solid var(--ds-cinza-200); font-size:12.5px; flex-wrap:wrap">
+        <span style="padding:9px 12px; color:var(--ds-azul-600); font-weight:600; border-bottom:2px solid var(--ds-azul-600)">Atendimento</span>
+        <span style="padding:9px 12px; color:var(--ds-cinza-500)">Paciente</span>
+        <span style="padding:9px 12px; color:var(--ds-cinza-500)">Histórico</span>
+        <span style="padding:9px 12px; color:var(--ds-cinza-500)">Exames e anexos</span>
+        <span style="padding:9px 12px; color:var(--ds-cinza-500)">Prescrições e documentos</span>
+        <span style="padding:9px 12px; color:var(--ds-cinza-500)">Acompanhamento</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 340px; gap:0">
+        <div style="padding:16px 18px">
+          <div class="rotulo">Hipótese diagnóstica</div>
+          <div class="campo" style="margin-bottom:4px">Lombalgia mecânica — <span class="mono">&nbsp;M54.5</span></div>
+          <div class="peq mudods" style="margin-bottom:11px">M54.5 — Dor lombar baixa</div>
+
+          <div class="rotulo">Conduta</div>
+          <div style="background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px; padding:8px 9px;
+                      min-height:58px; font-size:12.5px; line-height:1.5">
+            Agulhamento lombar (BL23, BL25, GB30). Orientado repouso relativo por 3 dias e
+            retorno em 7. Passiflora 300mg à noite.
+          </div>
+
+          <div class="rotulo" style="margin-top:11px">Evolução da sessão</div>
+          <div style="background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px; padding:8px 9px;
+                      min-height:96px; font-size:12.5px; line-height:1.5">
+            Retorna referindo lombalgia há 3 semanas, pior ao levantar. EVA 7 na chegada, 4 ao fim
+            da sessão. Sem irradiação, sem sinais de alarme. Mantida a proposta de 10 sessões;
+            esta é a 4ª. Orientada quanto ao repouso relativo e ao uso da Passiflora.
+          </div>
+
+          <div style="display:flex; gap:7px; margin-top:12px; flex-wrap:wrap; align-items:center">
+            <span class="rotulo" style="margin:0 4px 0 0">Ferramentas</span>
+            <span class="btn sec peq">Mapa corporal</span>
+            <span class="btn sec peq">Modelo de evolução</span>
+            <span class="btn sec peq">Repetir a anterior</span>
+          </div>
+        </div>
+
+        <div style="border-left:1px solid var(--ds-cinza-200); background:var(--ds-cinza-50); padding:16px">
+          <div class="rotulo" style="margin-bottom:8px">ENTREGAR AGORA</div>
+
+          <div style="display:grid; gap:6px">
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-azul-600); border-radius:6px; padding:8px 11px">
+              <div style="flex:1"><div style="font-weight:600; font-size:12.5px">Receita</div>
+                <div class="peq" style="color:var(--ds-azul-600)">já com a Passiflora que você escreveu</div></div>
+              <span class="btn peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-azul-600); border-radius:6px; padding:8px 11px">
+              <div style="flex:1"><div style="font-weight:600; font-size:12.5px">Atestado</div>
+                <div class="peq" style="color:var(--ds-azul-600)">3 dias · CID M54.5 da sua hipótese</div></div>
+              <span class="btn peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-cinza-300); border-radius:6px; padding:8px 11px">
+              <div style="flex:1"><div style="font-weight:600; font-size:12.5px">Pedido de exame</div>
+                <div class="peq mudods">em branco — você escreve</div></div>
+              <span class="btn sec peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-cinza-300); border-radius:6px; padding:8px 11px">
+              <div style="flex:1"><div style="font-weight:600; font-size:12.5px">Comparecimento</div>
+                <div class="peq mudods">esteve aqui 14:00 → agora</div></div>
+              <span class="btn sec peq">Emitir</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-cinza-300); border-radius:6px; padding:8px 11px">
+              <div style="flex:1"><div style="font-weight:600; font-size:12.5px">Relatório de evolução</div>
+                <div class="peq mudods">18 sessões · monta sozinho</div></div>
+              <span class="btn sec peq">Emitir</span>
+            </div>
+          </div>
+
+          <div class="rotulo" style="margin:15px 0 7px">JÁ SAIU HOJE</div>
+          <div style="background:#fff; border:1px solid var(--ds-cinza-200); border-radius:6px; padding:0 11px">
+            <div class="linhads" style="grid-template-columns:1fr auto; border-bottom:0; padding:8px 0">
+              <span><span style="font-weight:600">Receita</span> <span class="mono peq mudods">2026/0185</span>
+                <div class="peq mudods">14:22 · impressa</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+          </div>
+          <div class="peq mudods" style="margin-top:9px">
+            Os 6 papéis dela estão na aba <strong>Prescrições e documentos</strong>.
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:9px; padding:10px 18px; border-top:1px solid var(--ds-cinza-200);
+                  background:var(--ds-cinza-50)">
+        <span class="peq mudods" style="flex:1">Última gravação às 14h37.</span>
+        <span class="btn sec">Imprimir a sessão</span>
+        <span class="btn sec">Salvar</span>
+        <span class="btn">Finalizar atendimento</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>O documento herda o que a sessão já tem: CID, conduta, hora de chegada.</li>
+      <li>Emitir deixa de ser "sair do atendimento e voltar" — a coluna fica ao lado do que se escreve.</li>
+      <li>Cada folha diz <em>por que ela já vem preenchida</em>; nenhuma abre em branco sem avisar.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Uma coluna de 340 px na tela mais disputada do sistema. Ela só existe no modo atendimento.</li>
+      <li>Herdar exige uma regra por tipo — e uma regra errada põe no papel algo que o médico não escreveu.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É "quem não edita, PRESERVA" pelo avesso: quem já sabe, PREENCHE — e diz que preencheu.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ============ 2 · CONSULTÓRIO ============ -->
+  <span class="numero">TELA 2 · CONSULTÓRIO — PRESCRIÇÕES E DOCUMENTOS</span>
+  <h2>A pasta clínica do paciente</h2>
+  <p class="tese">A aba que o médico abre quando a pergunta não é "emitir agora", e sim
+    "o que este paciente já tem, e o que falta assinar".</p>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Consultório — Maria Aparecida Silva · Prescrições e documentos</span></div>
+    <div class="tela">
+      <div style="display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin-bottom:13px">
+        <span class="rotulo" style="margin:0 4px 0 0">EMITIR</span>
+        <span class="btn peq">Receita</span>
+        <span class="btn sec peq">Atestado</span>
+        <span class="btn sec peq">Comparecimento</span>
+        <span class="btn sec peq">Pedido de exame</span>
+        <span class="btn sec peq">Relatório de evolução</span>
+        <span class="btn sec peq">Anamnese</span>
+        <span style="flex:1"></span>
+        <span class="btn sec peq">Prescrição de infusão</span>
+      </div>
+
+      <div class="aviso" style="margin-bottom:12px">
+        <strong>Falta o termo do BSV.</strong> Ela tem procedimento marcado para 16/09 e ainda
+        não assinou o consentimento. <span style="text-decoration:underline">Colher assinatura</span>
+      </div>
+
+      <div class="rolagem"><div style="min-width:600px">
+        <div class="linhads" style="grid-template-columns:1.6fr 108px 1fr auto; border-bottom:1px solid var(--ds-cinza-300); padding-bottom:6px">
+          <span class="rotulo" style="margin:0">DOCUMENTO</span><span class="rotulo" style="margin:0">NÚMERO</span>
+          <span class="rotulo" style="margin:0">DE ONDE VEIO</span><span></span></div>
+
+        <div class="linhads" style="grid-template-columns:1.6fr 108px 1fr auto">
+          <span><strong>Receita</strong> <span class="selo ok">assinada</span>
+            <div class="peq mudods">Passiflora 300mg · Dra. Ana · hoje 14:22</div></span>
+          <span class="mono peq">2026/0185</span>
+          <span class="peq" style="color:var(--ds-azul-600)">da sessão de hoje</span>
+          <span style="display:flex; gap:5px"><span class="btn sec peq">Abrir</span><span class="btn sec peq">Enviar</span></span></div>
+
+        <div class="linhads" style="grid-template-columns:1.6fr 108px 1fr auto">
+          <span><strong>Atestado</strong> <span class="selo">3 dias</span>
+            <div class="peq mudods">Dra. Ana · 28/07 · CID não impresso</div></span>
+          <span class="mono peq">2026/0161</span>
+          <span class="peq" style="color:var(--ds-azul-600)">da sessão de 28/07</span>
+          <span style="display:flex; gap:5px"><span class="btn sec peq">Abrir</span><span class="btn sec peq">2ª via</span></span></div>
+
+        <div class="linhads" style="grid-template-columns:1.6fr 108px 1fr auto">
+          <span><strong>Relatório de evolução</strong>
+            <div class="peq mudods">18 sessões · para o convênio · 15/07</div></span>
+          <span class="mono peq">2026/0140</span>
+          <span class="peq mudods">avulso</span>
+          <span style="display:flex; gap:5px"><span class="btn sec peq">Abrir</span><span class="btn sec peq">2ª via</span></span></div>
+
+        <div class="linhads" style="grid-template-columns:1.6fr 108px 1fr auto">
+          <span><strong>Termo de consentimento (LGPD)</strong> <span class="selo ok">assinado por ela</span>
+            <div class="peq mudods">4 finalidades · 3 sim, 1 não · 12/03</div></span>
+          <span class="mono peq">2026/0007</span>
+          <span class="peq mudods">avulso</span>
+          <span style="display:flex; gap:5px"><span class="btn sec peq">Abrir</span><span class="btn sec peq">2ª via</span></span></div>
+
+        <div class="linhads" style="grid-template-columns:1.6fr 108px 1fr auto; border-bottom:0">
+          <span style="color:var(--ds-cinza-500)"><strong>Receita</strong> <span class="selo er">cancelada</span>
+            <div class="peq mudods">motivo: dose errada · 02/07</div></span>
+          <span class="mono peq mudods">2026/0098</span>
+          <span class="peq mudods">da sessão de 02/07</span>
+          <span></span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Os <strong>onze</strong> tipos, não quatro: relatório de evolução e anamnese passam a existir para quem atende.</li>
+      <li>"De onde veio" liga o papel à sessão — a coluna que hoje o dado tem e nenhuma tela mostra.</li>
+      <li>O termo que falta assinar vira aviso com porta, no lugar em que o médico vê o paciente.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Sete botões numa régua. Se a clínica cadastrar mais folhas, ela quebra em duas linhas.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É a lista rica do prontuário, com o mesmo desenho de linha das quatro telas.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ============ 3 · RECEPÇÃO ============ -->
+  <span class="numero">TELA 3 · RECEPÇÃO — DOCUMENTOS</span>
+  <h2>Quem está na minha frente</h2>
+  <p class="tese">No balcão a pergunta quase nunca é "que papel existe?" — é "a paciente
+    está aqui pedindo uma declaração". A tela abre por quem, com o dia já carregado.</p>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Recepção — Documentos</span></div>
+    <div class="tela">
+      <div class="h1ds">Documentos</div>
+      <div class="sub">Numeradas por ano, com código de conferência. Documento não se apaga: cancela-se com motivo.</div>
+
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap">
+        <div class="campo" style="width:300px"><span class="mudods">🔍&nbsp;</span><span class="mudods">Quem vai receber o papel?</span></div>
+        <span class="peq mudods">ou escolha de quem está hoje:</span>
+        <span class="chip on">Maria A. Silva <span class="peq" style="opacity:.8">14:00</span></span>
+        <span class="chip">João B. Nunes <span class="peq mudods">14:30</span></span>
+        <span class="chip">Célia R. Matos <span class="peq mudods">15:00</span></span>
+      </div>
+
+      <div class="crach" style="margin-bottom:13px">
+        <div class="ini">MA</div>
+        <div style="flex:1">
+          <div style="font-weight:600; font-size:14px">Maria Aparecida Silva</div>
+          <div class="peq mudods">62 anos · Unimed Costa do Sol <span class="selo ok">carteirinha em dia</span>
+            · esteve aqui hoje das 14:00 às 14:40</div>
+        </div>
+        <span class="btn sec peq">Ver a ficha</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.1fr 1fr; gap:16px">
+        <div>
+          <div class="rotulo" style="margin-bottom:7px">O QUE O BALCÃO ENTREGA</div>
+          <div style="display:grid; gap:6px">
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-azul-600); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Declaração de comparecimento</div>
+                <div class="peq" style="color:var(--ds-azul-600)">já com 14:00 → 14:40 de hoje</div></div>
+              <span class="btn peq">Emitir</span></div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-laranja-600); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Termo de consentimento (LGPD)</div>
+                <div class="peq" style="color:#9A3412">assinado em 12/03 — está em dia</div></div>
+              <span class="btn sec peq">2ª via</span></div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-cinza-300); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Orçamento</div>
+                <div class="peq mudods">proposta com validade</div></div>
+              <span class="btn sec peq">Emitir</span></div>
+            <div style="display:flex; align-items:center; gap:9px; background:#fff; border:1px solid var(--ds-cinza-200);
+                        border-left:3px solid var(--ds-cinza-300); border-radius:6px; padding:9px 12px">
+              <div style="flex:1"><div style="font-weight:600">Recibo de pagamento</div>
+                <div class="peq mudods">nasce de um lançamento do caixa</div></div>
+              <span class="btn sec peq">Ir ao Caixa</span></div>
+          </div>
+
+          <div class="rotulo" style="margin:14px 0 7px">O QUE PEDE O PROFISSIONAL</div>
+          <div class="aviso info">
+            Receita, atestado e pedido de exame são emitidos por <strong>quem assina</strong> —
+            eles aparecem aqui como <strong>2ª via</strong>, não como emitir.
+          </div>
+        </div>
+
+        <div>
+          <div class="rotulo" style="margin-bottom:7px">OS 6 PAPÉIS DELA</div>
+          <div style="background:#fff; border:1px solid var(--ds-cinza-200); border-radius:8px; padding:0 12px">
+            <div class="linhads" style="grid-template-columns:76px 1fr auto">
+              <span class="mono peq">2026/0185</span>
+              <span>Receita<div class="peq mudods">Dra. Ana · hoje 14:22</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+            <div class="linhads" style="grid-template-columns:76px 1fr auto">
+              <span class="mono peq">2026/0161</span>
+              <span>Atestado <span class="selo">3 dias</span><div class="peq mudods">Dra. Ana · 28/07</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+            <div class="linhads" style="grid-template-columns:76px 1fr auto">
+              <span class="mono peq">2026/0140</span>
+              <span>Relatório de evolução<div class="peq mudods">para o convênio · 15/07</div></span>
+              <span class="btn sec peq">2ª via</span></div>
+            <div class="linhads" style="grid-template-columns:76px 1fr auto; border-bottom:0">
+              <span class="mono peq mudods">2026/0098</span>
+              <span style="color:var(--ds-cinza-500)">Receita <span class="selo er">cancelada</span>
+                <div class="peq mudods">dose errada · 02/07</div></span>
+              <span></span></div>
+          </div>
+
+          <div style="display:flex; gap:7px; align-items:center; margin-top:13px; flex-wrap:wrap">
+            <span class="peq mudods">Conferir um papel:</span>
+            <div class="campo peq" style="width:130px"><span class="mono mudods">código</span></div>
+            <span class="btn sec peq">Conferir</span>
+            <span style="flex:1"></span>
+            <span class="peq mudods" style="text-decoration:underline">Todos os documentos da clínica</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Abre por QUEM, e oferece quem está no dia — o balcão quase nunca digita o nome inteiro.</li>
+      <li>A faixa lateral de 280 px some; a lista do que já saiu volta para a mesma tela.</li>
+      <li>Diz o que NÃO é do balcão, em vez de mostrar quatro botões que a recepcionista não pode usar.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Recibo e fechamento continuam sendo o caso estranho: não são de ninguém.</li>
+      <li>Quem só quer conferir um código passa por uma tela que pergunta o paciente — daí o campo ficar solto embaixo.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>As pílulas de quem está hoje são as mesmas da busca do Novo atendimento (mockup 05).</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ============ 4 · GERENTE ============ -->
+  <span class="numero">TELA 4 · GERENTE — DOCUMENTOS EMITIDOS</span>
+  <h2>Outra pergunta, outra tela</h2>
+  <p class="tese">A direção não emite receita. Ela pergunta quantos papéis saíram, quem
+    assinou, quantos foram cancelados — e confere o que alguém trouxe na mão.</p>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Gerente — Documentos emitidos</span></div>
+    <div class="tela">
+      <div class="h1ds">Documentos emitidos</div>
+      <div class="sub">Tudo o que saiu da clínica no período. Para emitir, use a Recepção ou o Consultório.</div>
+
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:13px; flex-wrap:wrap">
+        <div class="campo peq" style="width:118px"><span class="mono">01/09/2026</span></div>
+        <span class="peq mudods">até</span>
+        <div class="campo peq" style="width:118px"><span class="mono">09/09/2026</span></div>
+        <span class="btn sec peq">Atualizar</span>
+        <span style="flex:1"></span>
+        <div class="campo peq" style="width:150px"><span class="mudods">código&nbsp;</span><span class="mono">4KQ2-9TXB</span></div>
+        <span class="btn sec peq">Conferir</span>
+      </div>
+
+      <div class="kpi" style="margin-bottom:13px">
+        <div class="kpiC"><div class="r">Emitidos</div><div class="v">184</div></div>
+        <div class="kpiC"><div class="r">Assinados c/ e-CPF</div><div class="v">57</div></div>
+        <div class="kpiC"><div class="r">Cancelados</div><div class="v" style="color:var(--ds-vermelho-600)">6</div></div>
+        <div class="kpiC"><div class="r">Publicados no ar</div><div class="v">23</div></div>
+        <div class="kpiC" style="min-width:210px"><div class="r">Mais emitido</div>
+          <div class="v" style="font-size:15px; margin-top:5px">Receituário — 31%</div></div>
+      </div>
+
+      <div class="grade2" style="gap:14px; margin-bottom:14px">
+        <div class="card">
+          <div class="rotulo" style="margin-bottom:8px">POR QUEM ASSINA</div>
+          <div style="display:grid; gap:7px; font-size:12.5px">
+            <div style="display:grid; grid-template-columns:118px 1fr 34px; gap:8px; align-items:center">
+              <span>Dra. Ana Ribeiro</span>
+              <span style="height:7px; background:var(--ds-azul-600); border-radius:4px; width:78%"></span>
+              <span class="mono peq" style="text-align:right">102</span></div>
+            <div style="display:grid; grid-template-columns:118px 1fr 34px; gap:8px; align-items:center">
+              <span>Dr. Paulo Bastos</span>
+              <span style="height:7px; background:var(--ds-azul-600); border-radius:4px; width:38%"></span>
+              <span class="mono peq" style="text-align:right">49</span></div>
+            <div style="display:grid; grid-template-columns:118px 1fr 34px; gap:8px; align-items:center">
+              <span class="mudods">balcão (sem assinatura)</span>
+              <span style="height:7px; background:var(--ds-cinza-300); border-radius:4px; width:26%"></span>
+              <span class="mono peq" style="text-align:right">33</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="rotulo" style="margin-bottom:8px">CANCELADOS NO PERÍODO · 6</div>
+          <div style="font-size:12.5px; display:grid; gap:6px">
+            <div><span class="mono peq">2026/0098</span> Receita — <em>dose errada</em>
+              <span class="peq mudods">· Dra. Ana · 02/07</span></div>
+            <div><span class="mono peq">2026/0121</span> Atestado — <em>dias errados</em>
+              <span class="peq mudods">· Dra. Ana · 19/07</span></div>
+            <div class="peq mudods">+ 4 · todos com motivo escrito</div>
+          </div>
+          <div class="peq mudods" style="margin-top:9px">
+            Cancelar exige motivo e não apaga o documento — é a trilha que responde à auditoria.
+          </div>
+        </div>
+      </div>
+
+      <div class="rolagem"><div style="min-width:660px">
+        <div class="linhads" style="grid-template-columns:86px 168px 1fr 118px 74px; border-bottom:1px solid var(--ds-cinza-300); padding-bottom:6px">
+          <span class="rotulo" style="margin:0">NÚMERO</span><span class="rotulo" style="margin:0">FOLHA</span>
+          <span class="rotulo" style="margin:0">PARA</span><span class="rotulo" style="margin:0">QUEM ASSINOU</span>
+          <span class="rotulo" style="margin:0">DATA</span></div>
+        <div class="linhads" style="grid-template-columns:86px 168px 1fr 118px 74px">
+          <span class="mono peq">2026/0185</span><span>Receituário <span class="selo ok">e-CPF</span></span>
+          <span>Maria Aparecida Silva</span><span class="peq">Dra. Ana</span><span class="mono peq mudods">09/09</span></div>
+        <div class="linhads" style="grid-template-columns:86px 168px 1fr 118px 74px">
+          <span class="mono peq">2026/0184</span><span>Decl. de comparecimento</span>
+          <span>João Batista Nunes</span><span class="peq mudods">balcão</span><span class="mono peq mudods">09/09</span></div>
+        <div class="linhads" style="grid-template-columns:86px 168px 1fr 118px 74px; border-bottom:0">
+          <span class="mono peq mudods">2026/0121</span>
+          <span style="color:var(--ds-cinza-500)">Atestado <span class="selo er">cancelado</span></span>
+          <span style="color:var(--ds-cinza-500)">Célia Regina Matos</span>
+          <span class="peq mudods">Dra. Ana</span><span class="mono peq mudods">19/07</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>A direção deixa de receber a tela do balcão: sem cartões de emitir, sem seletor de paciente.</li>
+      <li>Responde o que só ela pergunta — quem assina o quê, quantos cancelados e por quê, quantos no ar.</li>
+      <li>A conferência por código fica no topo: é o ato de quem recebe um papel de fora.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Uma tela nova de verdade (as outras três são reformas). É a maior peça desta proposta.</li>
+      <li>Quem é gerente E atende precisa lembrar que emite pelo Consultório.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>Mesma divisão do resto do sistema: o balcão opera, a direção lê o agregado.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <!-- ============ A JANELA ============ -->
+  <span class="numero">A PEÇA COMUM ÀS QUATRO</span>
+  <h2>A janela que escreve o papel</h2>
+  <p class="tese">Uma só, para as quatro telas — e ela abre sabendo de onde veio. Você
+    escreve à esquerda e vê o documento se formar à direita, com o que foi herdado marcado.</p>
+
+  <div class="janela">
+    <div class="barra"><span class="pt"></span><span class="pt"></span><span class="pt"></span>
+      <span class="tit">Atestado — Maria Aparecida Silva · da sessão de hoje</span></div>
+    <div class="tela" style="background:#fff">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:13px">
+        <div><div style="font-weight:600; font-size:15px">Atestado</div>
+          <div class="peq mudods">para Maria Aparecida Silva · assina Dra. Ana Ribeiro · da sessão de hoje, 14:00</div></div>
+        <span class="btn sec peq">Modelos…</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px">
+        <div>
+          <div style="display:grid; grid-template-columns:110px 1fr; gap:10px; margin-bottom:11px">
+            <div><div class="rotulo">Dias</div><div class="campo mono">3</div></div>
+            <div><div class="rotulo">A partir de</div><div class="campo mono">09/09/2026</div></div>
+          </div>
+          <div class="rotulo">CID</div>
+          <div style="display:flex; gap:6px; margin-bottom:3px">
+            <div class="campo mono" style="flex:1; border-color:var(--ds-azul-600); background:var(--ds-azul-50)">M54.5</div>
+            <span class="btn sec">Buscar…</span></div>
+          <div class="peq" style="color:var(--ds-azul-600); margin-bottom:10px">
+            ↑ veio da sua hipótese: <em>Lombalgia mecânica</em>. Trocar aqui não muda a sessão.
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px">
+            <span style="font-size:13px">☐</span><span class="peq">A paciente autorizou imprimir o CID</span></div>
+          <div class="aviso" style="margin-bottom:11px">
+            O CID <strong>não</strong> vai sair impresso — é sigilo dela, e só entra com autorização expressa.
+          </div>
+
+          <div class="rotulo">Observações (rodapé)</div>
+          <div style="height:44px; background:#fff; border:1px solid var(--ds-cinza-300); border-radius:4px"></div>
+        </div>
+
+        <div>
+          <div class="rotulo" style="display:flex; justify-content:space-between">
+            <span>COMO VAI SAIR</span>
+            <span class="mudods" style="font-weight:400">o <span style="background:var(--ds-azul-50); outline:1px dashed var(--ds-azul-600); border-radius:2px; padding:0 3px">azul</span> veio da sessão</span></div>
+          <div class="papel">
+            <div class="cab">
+              <div><div class="marca">CLÍNICA DE ACUPUNTURA COSTA DO SOL</div>
+                <div class="peq mudods" style="font-size:9.5px">CNPJ 12.345.678/0001-90 · Macaé/RJ</div></div>
+              <div class="num">Nº <strong>2026/0186</strong><br>09/09/2026</div></div>
+            <div class="tituloDoc">Atestado</div>
+            <p style="margin:0 0 8px">Atesto para os devidos fins que
+              <strong>Maria Aparecida Silva</strong> esteve sob meus cuidados profissionais
+              nesta data, necessitando de afastamento de suas atividades por
+              <span class="herdado"><strong>3 (três) dias</strong></span> a partir de
+              <span class="herdado">09/09/2026</span>.</p>
+            <p class="peq mudods" style="margin:0 0 8px">O CID não é impresso por opção da paciente.</p>
+            <div style="height:22px"></div>
+            <div style="text-align:center; border-top:1px solid var(--ds-cinza-900); width:62%; margin:0 auto; padding-top:4px">
+              <div style="font-weight:600">Dra. Ana Ribeiro</div><div class="peq mudods">CRM-SP 123456</div></div>
+            <div class="rodape"><div>Confira em <strong>clinica.med.br/conferir</strong><br>
+              Código <span class="mono">4KQ2-9TXB</span></div><div class="qr"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;
+                  border-top:1px solid var(--ds-cinza-200); padding-top:12px; margin-top:14px; flex-wrap:wrap">
+        <span class="peq"><span style="font-size:13px">☐</span> Assinar digitalmente (ICP-Brasil) — sai como arquivo, com QR de validação</span>
+        <div style="display:flex; gap:8px; align-items:center">
+          <span class="btn sec">Fechar</span><span class="btn">Emitir e imprimir</span></div>
+      </div>
+      <div class="peq mudods" style="text-align:right; margin-top:5px">
+        Emitir gasta o número <span class="mono">2026/0186</span> e é definitivo — depois, só cancelando com motivo.
+      </div>
+    </div>
+  </div>
+
+  <div class="balanco">
+    <div class="bal ok"><h4>Resolve</h4><ul>
+      <li>Você vê o papel <em>antes</em> de um ato que não se desfaz.</li>
+      <li>O que veio da sessão fica marcado no documento — e a tela diz que trocar ali não reescreve o prontuário.</li>
+      <li>Some o combo "tipo de documento" (o tipo é o título) e "Modelos" vira botão.</li>
+    </ul></div>
+    <div class="bal no"><h4>Custa</h4><ul>
+      <li>Janela de 980 px: cabe no monitor do balcão (1366), mas é o limite.</li>
+      <li>A prévia é um desenho aproximado — pode divergir do PDF num detalhe fino.</li>
+    </ul></div>
+    <div class="bal nt"><h4>Vem de onde</h4><ul>
+      <li>É a prévia da guia do Novo atendimento, que você aprovou — com o campo herdado no lugar do campo que falta.</li>
+    </ul></div>
+  </div>
+
+  <hr class="reg">
+
+  <h2>O que muda em cada lugar, e o que é igual nos quatro</h2>
+  <div style="overflow-x:auto; margin-top:16px">
+    <table class="tabela">
+      <thead><tr><th>Tela</th><th>A pergunta dela</th><th>O que muda</th></tr></thead>
+      <tbody>
+        <tr><td><strong>No atendimento</strong></td><td>"o que eu entrego a ela agora?"</td>
+            <td>coluna ao lado da sessão; o papel herda hipótese, CID, conduta e hora</td></tr>
+        <tr><td><strong>Consultório · pasta</strong></td><td>"o que ela já tem?"</td>
+            <td>os onze tipos, a lista com "de onde veio" e o termo que falta assinar</td></tr>
+        <tr><td><strong>Recepção</strong></td><td>"a paciente está aqui pedindo"</td>
+            <td>abre por quem, com as pílulas de quem está no dia; diz o que é do profissional</td></tr>
+        <tr><td><strong>Gerente</strong></td><td>"quantos saíram e quem assinou?"</td>
+            <td>números, por quem assina, cancelados com motivo — e nenhum botão de emitir</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="prosa" style="margin-top:22px">
+    <strong>Igual nas quatro:</strong> a linha do documento (número, tipo, quem assinou, os
+    selos de assinado/cancelado/no ar), a janela de emissão com a prévia, e a regra de que
+    cancelar exige motivo e não apaga. É isso que faz as quatro parecerem o mesmo sistema em
+    vez de quatro telas com o mesmo nome.
+  </p>
+
+  <div class="nota" style="margin-top:24px">
+    <strong>O que preciso que você diga:</strong> as quatro servem? Se alguma não serve, é o
+    <em>desenho</em> dela que está errado ou é a <em>pergunta</em> que eu atribuí a ela? — por
+    exemplo, se a direção também precisa emitir, a tela 4 muda de forma. E se a coluna
+    "Entregar agora" da tela 1 ocupa espaço demais na hora do atendimento, ela vira um botão
+    que abre a mesma lista.
+  </div>
+
+  <p class="prosa" style="margin-top:22px">
+    Nada disso foi construído — são desenhos.
+  </p>
+
+</div>
