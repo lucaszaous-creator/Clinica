@@ -1609,6 +1609,35 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(c => c.Id)
             .ToListAsync(ct);
 
+    // ⚠️ Nenhuma destas duas traz o traço: a coleta que ainda não respondeu não tem
+    // nenhum, e a lista de documentos é uma projeção de IDS. Os bytes só saem do banco
+    // pelo `ObterTracoAssinaturaAsync`, uma linha por vez, quando alguém vai conferir.
+
+    public async Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasAguardandoRespostaAsync(
+        CancellationToken ct = default)
+        => await _db.ColetasRemotasTermo
+            // O critério é NÃO TER TRAÇO GUARDADO, e não "não ter respondido": a coleta
+            // que a versão ANTERIOR deixou respondida tem carimbo e nenhuma assinatura
+            // dentro — ela é justamente a que a limpeza destruiria primeiro.
+            .Where(c => c.ConcluidaEm == null && c.CanceladaEm == null
+                        && c.TracoAssinaturaId == null)
+            .OrderBy(c => c.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<int>> DocumentosComAssinaturaRemotaAguardandoAsync(
+        IReadOnlyCollection<int> documentoIds, CancellationToken ct = default)
+    {
+        if (documentoIds.Count == 0) return [];
+
+        return await _db.ColetasRemotasTermo
+            .Where(c => c.ConcluidaEm == null && c.CanceladaEm == null
+                        && c.RespondidaEm != null
+                        && documentoIds.Contains(c.DocumentoClinicoId))
+            .Select(c => c.DocumentoClinicoId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default)
         => await _db.DocumentosClinicos

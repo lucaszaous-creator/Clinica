@@ -29,6 +29,13 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
     /// </summary>
     public bool RecusaRemover { get; set; }
 
+    /// <summary>
+    /// Quando true, a LEITURA falha. Separado dos outros dois porque a gravidade é outra:
+    /// não conseguir LER a resposta do celular é não saber se o paciente assinou — e é o
+    /// caso em que apagar o objeto destruiria uma assinatura dada.
+    /// </summary>
+    public bool RecusaLer { get; set; }
+
     /// <summary>Metadados gravados por objeto — o código de conferência que o Worker do validador lê.</summary>
     public Dictionary<string, IReadOnlyDictionary<string, string>?> Metadados { get; } = new();
 
@@ -52,7 +59,8 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
 
     public Task<byte[]?> LerAsync(string caminho, CancellationToken ct = default)
     {
-        if (Quebrado) throw new InvalidOperationException("armazenamento fora do ar");
+        if (Quebrado || RecusaLer)
+            throw new InvalidOperationException("armazenamento fora do ar");
         return Task.FromResult(Objetos.TryGetValue(caminho, out var b) ? b : null);
     }
 

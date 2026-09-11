@@ -130,11 +130,27 @@ public sealed class ElegibilidadeService
 
         var situacoes = await _termos.SituacaoDoDiaAsync(pacienteId, referencia, ct);
 
-        foreach (var s in situacoes.Where(s => s.Pendente))
+        foreach (var s in situacoes.Where(s => s.PendenteSemAssinatura))
             alertas.Add(new AlertaElegibilidade(
                 ImpedimentoElegibilidade.TermoProcedimentoPendente,
                 NivelUrgencia.Vermelho,
                 $"Falta o termo \"{s.NomeDoTermo}\" assinado pelo paciente."));
+
+        // ⚠️ O termo JÁ ASSINADO no celular é alerta PRÓPRIO, e não o vermelho de cima
+        // (set/2026). Enquanto era o mesmo, este serviço afirmava "falta o termo assinado
+        // pelo paciente" sobre um termo que o paciente ASSINOU — a cinco telas de uma vez
+        // (agendamento, check-in, Novo atendimento, ficha e Consultório), porque é daqui
+        // que o aviso viaja. E o gesto natural diante dessa frase é mandar outro link, que
+        // é justamente o que o link write-once recusa.
+        //
+        // ÂMBAR e não vermelho, pela mesma razão do selo da lista do dia: o vermelho é de
+        // quem não assinou nada, e gastá-lo aqui ensina a ignorá-lo no caso em que importa.
+        foreach (var s in situacoes.Where(s => s.AssinaturaRemotaAguardaConferencia))
+            alertas.Add(new AlertaElegibilidade(
+                ImpedimentoElegibilidade.TermoProcedimentoAConferir,
+                NivelUrgencia.Amarelo,
+                $"O paciente já assinou o termo \"{s.NomeDoTermo}\" pelo celular — "
+                + "falta conferir o documento e concluir."));
 
         // A recusa NÃO vira alerta de pendência: ela já foi decidida, e repeti-la todo dia
         // como se faltasse assinar mandaria o balcão apresentar de novo um termo que a

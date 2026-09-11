@@ -4181,6 +4181,239 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   para dizer "tem horário hoje às 14h": quem fosse o décimo primeiro do dia perdia a frase.
   Atalho cortado é atalho; a resposta sai da lista INTEIRA.
 
+- **QUEM COLHE NÃO ALCANÇAVA O QUE COLHEU — o termo assinado que sumia da recepção**
+  (set/2026 — a clínica: *"a recepção enviou, a paciente assinou, confirmou, porém não
+  achamos onde está indo. Até mesmo na ficha da paciente não aparece"*). O termo do BSV
+  foi emitido, mandado pelo WhatsApp, assinado no celular, conferido e selado — estava
+  gravado, numerado e ligado à sessão. O que faltava era a recepcionista poder LÊ-LO.
+  ⚠️ **A assimetria estava entre os DOIS bits da mesma folha**: `termo-procedimento` pede
+  `ColherAssinaturaPaciente` para EMITIR e pedia `VerProntuario` para VER — e o perfil
+  `Recepcao` tem o primeiro e não tem o segundo (o corte da parcela 49). Ela atravessava a
+  porta, fazia o trabalho todo, e o resultado ficava invisível nas QUATRO portas de leitura
+  (a lista de documentos da ficha, a seção de termos do dia, a central e a linha do tempo)
+  — inclusive na **2ª via**, que é como o paciente recebe a via dele. É o corredor sem
+  saída da parcela 69, com o agravante de o único sinal ser o selo "falta termo" SUMIR do
+  cartão da fila: sumir não se lê como "deu certo", se lê como "some do sistema".
+  ⚠️ **As duas saídas fáceis eram as erradas, e por que**: conceder `VerProntuario` à
+  recepção resolveria num clique e devolveria a evolução clínica inteira ao balcão (desfaz
+  a parcela 49, ponto 5 do compromisso); baixar a folha para `VerFichaPaciente` mentiria
+  sobre o que ela é — o termo diz qual procedimento a pessoa vai fazer e o que ela declarou
+  sobre o próprio corpo, que é dado de saúde (art. 5º, II).
+  A saída é `FolhaCatalogo.PermissaoVerTambem`: **um SEGUNDO acesso, por folha, só para
+  VER**. O que autoriza o campo é a pergunta que ele carrega escrita — *este bit já alcança
+  o CONTEÚDO deste papel por outro caminho?* Aqui sim: quem colhe abre a janela, lê o termo
+  inteiro, vê as declarações e assiste à assinatura; ver a mesma folha depois não expõe uma
+  linha a mais. **Bit que ainda não alcança o conteúdo não entra ali** — seria a permissão
+  granular desfeita por uma porta nova. E vale só para ver: assinar, enviar, republicar e
+  cancelar continuam em `PermissaoEmitir`, sem segunda via.
+  ⚠️ **A armadilha que o campo cria, e ela é de uma linha: `HasFlag` sobre dois bits é um
+  E.** As quatro telas perguntavam por conta própria com `HasFlag`, e `Pode(A | B)` também
+  exige os DOIS — deixá-los assim fecharia a folha para as duas pessoas que deveriam
+  alcançá-la, e o defeito apareceria como **lista vazia**, indistinguível de "esta paciente
+  não assinou nada". A pergunta virou ponto único (`CentralDocumentosService.PodeVer`), e
+  quem usa a sessão passou a `PodeAlgum`/`ExigirAlgum`. `AcessoParaVer` **mudou de
+  semântica** (de bit para união), então a conferência que a mudança exige é reler TODO
+  consumidor dele — foi por isso que a 2ª via precisou trocar `Exigir` por `ExigirAlgum`:
+  sem isso a correção deixaria justamente a entrega da via ao paciente de fora.
+  ⚠️ E a barreira da seção de termos do dia estava escrita À MÃO na ViewModel
+  (`Pode(VerProntuario)`), divergindo da lista logo abaixo dela no mesmo arquivo. Passou a
+  sair do catálogo. **Regra de acesso copiada para uma tela é a cópia que fica para trás.**
+  O teste que a fixa percorre o CATÁLOGO (toda folha com segundo acesso é alcançada por
+  cada bit sozinho, via `CatalogoPara` — o caminho real das telas), e não o termo pelo
+  nome: asserção escrita à mão é a que a próxima folha não alcança. Verificado que ele
+  REPROVA sem a linha do catálogo, não presumido.
+
+- **A ASSINATURA CHEGAVA E MORRIA NA VARREDURA DE 24 H — porque ela só existia no BALDE**
+  (set/2026, a segunda metade do "a paciente assinou e não achamos onde está indo"). A
+  primeira metade era de acesso (quem colhe não alcançava o que colheu, logo acima); esta
+  é pior, porque não é o papel que fica invisível: é a assinatura que **deixa de existir**.
+  O traço do celular vivia no objeto do balde, e quem o trazia para dentro era o polling da
+  **janela do termo ABERTA**. Quem enviava o link e fechava a janela nunca via a resposta
+  chegar; 24 h depois `LimparVencidasAsync` cancelava a coleta e apagava o objeto. **Nada
+  falhava** — o termo voltava a parecer "nunca assinado", e o gesto natural diante disso é
+  mandar OUTRO link, que é justamente o que o link write-once não aceita.
+  ⚠️ **A regra que fica: quando um dado só existe no ARMAZENAMENTO EXTERNO, a rotina que o
+  limpa é a rotina que o destrói.** A ordem passou a ser **colher → guardar → só então
+  apagar**, e a limpeza não cancela mais quem já respondeu: o que venceu foi o LINK, e o
+  link já cumpriu o papel dele. Coleta respondida sai do ar e continua na fila de
+  conferência.
+  ⚠️ **O traço reusa o `TracoAssinatura` do balcão** (tabela à parte, bytes fora da linha) e
+  as RESPOSTAS vão junto no mesmo `SaveChanges`: guardar o traço sem as declarações seria
+  meia recuperação — a conferência traria a assinatura com o formulário em branco, e quem
+  responderia pelo paciente seria a técnica.
+  ⚠️ **A janela deixou de ser o caminho crítico**: `SincronizarRespostasAsync` é varredura
+  de fundo chamada pela **lista do dia do balcão** (que já relê a cada minuto) e pela
+  limpeza. Ela **NUNCA lança** — balde fora do ar ou traço ilegível de UMA coleta viraria
+  agenda do dia em branco; vira log, e a janela do termo, onde alguém está de fato
+  esperando, continua dizendo o erro por extenso. O custo normal é UMA consulta indexada.
+  ⚠️ **E "assinado" ganhou selo PRÓPRIO na lista** (`Termo assinado — conferir`, âmbar). Os
+  dois estados são "o termo não está cumprido" e mandam fazer coisas OPOSTAS — um pede
+  colher a assinatura, o outro pede um clique sobre uma que já existe. Enquanto eram o
+  mesmo selo vermelho, a tela mandava a recepcionista repetir o gesto que não funciona; e
+  gastar o vermelho aqui ensina a ignorá-lo no caso em que ele importa. O rótulo do "⋯"
+  segue o selo pela mesma razão, e `EnviarAsync` **RECUSA** o reenvio para quem já assinou,
+  dizendo o que fazer.
+  ⚠️ **A CONDIÇÃO da varredura é "não tem assinatura GUARDADA", nunca "não respondeu"** — e
+  a diferença é o dia da atualização: a coleta que a versão anterior deixou respondida tem
+  carimbo e nada guardado dentro, e era justamente a primeira que a limpeza destruiria. Pela
+  mesma razão `ColherRespostaAsync` responde do banco **com queda para o balde**: sem ela,
+  essa coleta responderia "não há assinatura" sobre uma que está no ar, com o reenvio
+  recusado logo atrás — corredor sem saída. **Ao guardar num lugar novo o que antes vivia
+  noutro, pergunte o que a base tem no INSTANTE da atualização.**
+  ⚠️ **O objeto só sai do ar quando a assinatura está segura**: se a colheita falhou, a
+  limpeza não apaga — a coleta fica no ar mais um dia e a varredura seguinte tenta de novo.
+  Apagar ali seria destruir a assinatura pelo caminho exato que a correção existe para
+  fechar. E o log carrega o **id**, nunca o TOKEN: ele é a única barreira de acesso ao termo
+  publicado, e o log é um `.txt` na pasta da instalação.
+  ⚠️ **`MeioAssinaturaPaciente.LinkRemoto` deixou de ser "não implementado" e passou a ser
+  GRAVADO.** `ColherAsync` carimbava `NaClinica` em toda assinatura, inclusive nas que
+  vieram do celular — o sistema afirmando algo falso sobre como a assinatura foi obtida, no
+  único documento cujo valor inteiro é ser evidência. O canal entra também na TRILHA, que é
+  o primeiro leitor que a coluna teve. **Valor de enum documentado como "não implementado"
+  tem prazo: quando o caminho passa a existir, o comentário vira hedge falsa.**
+  **O que NÃO mudou, e é decisão da direção, não esquecimento:** a resposta continua não
+  selando nada sozinha — quem confere a identidade, preenche o documento conferido e conclui
+  é uma pessoa (parcela 81: *"o papel deste fluxo é tirar o custo do pad, não a pessoa do
+  circuito"*). O que a parcela tira do caminho é a JANELA ABERTA, não a conferência.
+
+- **A CORREÇÃO PAROU NUMA PORTA E CINCO CONTINUARAM DIZENDO O CONTRÁRIO** (set/2026, a
+  conferência da própria parcela do termo pelo WhatsApp, com CI verde nos três checks e
+  2513 testes verdes). O estado novo — "o paciente já assinou no celular, falta conferir"
+  — ganhou leitor no selo da lista do dia, e os **cinco outros leitores da mesma
+  `SituacaoTermo`** ficaram lendo `Pendente` cru: o `ElegibilidadeService` (que sozinho
+  alcança agendamento, check-in, Novo atendimento, ficha e Consultório) afirmava em
+  VERMELHO *"Falta o termo «X» assinado pelo paciente"*; a linha e o resumo da ficha
+  diziam *"Falta o paciente assinar"* e *"Falta 1 termo assinado"*; a faixa do Consultório
+  dizia *"Termo não assinado · colher"*; e o botão das duas telas de enfermagem dizia
+  **"Colher"** — o gesto que não funciona, porque o link write-once recusa a segunda
+  assinatura.
+  ⚠️ **É o defeito que a parcela existia para corrigir, sobrevivendo nas portas que não
+  reclamaram** — e cometido pelo commit que escreve, no próprio corpo, que *"a cópia que
+  fica para trás é onde a capacidade some"*.
+  A regra que fica, e ela é de MÉTODO: **ao acrescentar um ESTADO a um modelo que já tem
+  leitores, o `grep` da propriedade ANTIGA é parte da mudança.** Não basta o campo novo
+  ter um leitor; a pergunta é *quem lia o estado que eu acabei de dividir, e o que cada um
+  desses passou a afirmar?* Aqui eram `s.Pendente` em cinco arquivos, e nenhum quebrava.
+  ⚠️ **A frase e a ordem desceram para a Application** (`SituacaoTermo.VerboDaPendencia` /
+  `RotuloDaPendencia`, `PendenciasDeTermo.Primeira`): eram quatro telas montando
+  `$"Colher: {nome}"` à mão e quatro escolhendo qual pendência oferecer. Quatro cópias
+  divergem na primeira correção — e o que decide o que a tela AFIRMA precisa morar onde o
+  `dotnet test` alcança (a regra da `GradeSemana` e do `ResumoSessaoAnterior`).
+  ⚠️ **Contar por SUBTRAÇÃO é armadilha**: o resumo da ficha nasceu com
+  `Pendente - aConferir`, que fica NEGATIVO no dia em que um dos dois deixar de implicar o
+  outro — e número negativo ali vira uma frase sem sentido. Conte direto
+  (`Pendente && !AguardaConferencia`).
+  ⚠️ E o alerta novo é **ÂMBAR, com valor próprio de enum**: `TemImpedimento` só olha o
+  vermelho, e o vermelho é de quem não assinou nada — gastá-lo em quem está a um clique de
+  terminar ensina a ignorá-lo no caso em que importa. Valor próprio porque um futuro
+  consumidor que roteie pelo enum abriria a porta de COLHER para quem precisa CONFERIR.
+
+- **UMA REGIÃO TEM DUAS BARREIRAS: a que a CARREGA e a que a DESENHA** (set/2026, a
+  conferência da própria parcela antes de ela ir a produção). A correção de "quem colhe
+  alcança o que colheu" trocou o bit da CARGA dos termos do dia na ficha
+  (`CarregarTermosAsync`) e deixou intacto o `TemTermoDoDia`, que é o que o XAML amarra na
+  `Visibility` do cartão. Resultado: para a recepcionista a consulta passou a rodar e a
+  região continuou **`Collapsed`** — trabalho pago e nada na tela. O comentário da carga
+  dizia, por escrito, *"nem ler nem desenhar: `TemTermoDoDia` fica falso e a região SOME"*,
+  descrevendo um acoplamento que a própria mudança tinha desfeito.
+  ⚠️ **Nenhuma rede pega**: o XAML é bem-formado, o binding é válido, o C# compila e nada
+  lança — e as duas barreiras ficam a 700 linhas uma da outra, em arquivos diferentes.
+  A regra que fica: **ao trocar a regra de acesso de uma região, o `grep` da SEGUNDA
+  barreira é parte da mudança** — a que decide se ela é DESENHADA. As duas passaram a sair
+  do MESMO `CentralDocumentosService.AcessoParaVer`, que é o que impede de divergirem de
+  novo; barreira escrita à mão ao lado de uma lida do catálogo é a cópia que fica para trás.
+  ⚠️ E na mesma conferência: o botão da faixa do Consultório ganhou a FRASE nova e
+  continuou **vermelho** (`BotaoSecundarioPerigo`) nos dois estados, enquanto as outras
+  quatro portas pintam o termo já assinado de âmbar. **Trocar o texto de um aviso sem
+  trocar o PESO dele é meia correção**, e aqui ela contradizia a regra escrita no commit
+  anterior — o vermelho é de quem não assinou nada. Resolvido com estilo local
+  `BasedOn="{StaticResource BotaoSecundarioPerigo}"` + `DataTrigger` sobre os tokens de
+  aviso, sem componente novo no design system.
+
+- **VENDER PACOTE: a lista de pacientes tinha 8 px, e sem escolher o paciente não se vende
+  nada** (set/2026 — o cliente mandou o print: com "lucas" digitado, o primeiro resultado
+  aparecia como uma FATIA de oito pixels, cortado ao meio). `PacoteVendaWindow` é um
+  `DockPanel` em que o formulário inteiro — pacote, data, valor, forma de pagamento,
+  parcelas, observações — estava `Dock="Bottom"`, e a lista de resultados era o filho que
+  PREENCHE. **Num `DockPanel` o ANCORADO leva a altura que pede e quem paga é o fill**: o
+  formulário soma ~500 px numa janela de 690, e o que sobrou para a lista foi o resto.
+  ⚠️ **É a parcela 79 pelo AVESSO, e é pior.** Lá o filho ancorado que não cabia era
+  DECEPADO — dava para ver o estrago. Aqui quem some é o fill, e o que se vê é uma janela
+  bonita, com todos os campos no lugar, em que **a venda simplesmente não acontece**: sem
+  paciente escolhido o `Vender` recusa, e a pessoa não tem como saber por quê. Nada falha,
+  nada avisa, e as três redes e o CI ficam verdes — o XAML é bem-formado, o
+  `compilar-sombra` não lê o corpo e nada lança.
+  A regra que fica: **quem cresce com o DADO é que precisa de teto e de rolagem; quem tem
+  altura conhecida é que se ancora.** Aqui a lista ganhou `MaxHeight="150"` e virou
+  `Dock="Top"`, logo abaixo do campo que a produz, e o formulário virou o fill **dentro de
+  um `ScrollViewer`** — ele rola em vez de ser cortado. A pergunta que decide não é "o que
+  é mais importante?", é *"qual destes dois eu não sei o tamanho?"*.
+  ⚠️ **E a lista SOME quando não há resultado** (`Seletor.TemResultados`): caixa vazia
+  reservada no meio de um formulário se lê como lista que não carregou — é a lição dos três
+  formulários que ganharam `SemBuscaInicial`, e o custo previsto ali é o mesmo aqui.
+  ⚠️ **Quem foi escolhido é dito por extenso**, num crachá logo abaixo: com o formulário
+  rolando, a linha marcada dentro da lista sai de vista, e "a linha está azul lá em cima"
+  não é resposta — vender o pacote no nome errado é dinheiro registrado para quem não
+  comprou, e desfazer isso é cancelamento de venda, do Financeiro.
+
+
+- **DOCUMENTOS EM TRÊS PASSOS — e o passo 3 só promete o que entrega** (set/2026; mockup 5
+  de `docs/mockups/documentos-depois-de-escolher.html`, escolhido pela direção entre cinco).
+  O print da clínica mostrava a tela **acumulando** em vez de mudar de estado: paciente
+  escolhido, e a lista de quatro resultados continuava aberta, as linhas saíam em escada e
+  uma caixa azul de largura inteira dizia uma coisa só — o nome. As onze folhas, que são o
+  assunto, ficavam abaixo da dobra.
+  O desenho é o do **Novo atendimento**, que a clínica já aprovou: QUEM · QUAL PAPEL · O QUE
+  VAI SAIR. O passo cumprido RECOLHE — a busca some e vira a faixa de identidade, com os
+  campos que decidem se o papel pode sair naquele nome (documento, idade, convênio, o
+  horário de hoje).
+  ⚠️ **O cartão passou a ESCOLHER, e escolher NÃO exige que dê para emitir.** A folha cuja
+  exigência não está cumprida é justamente a que precisa ser escolhida para o passo 3 poder
+  EXPLICAR o que falta; recusar ali devolveria o botão que não faz nada da parcela 41. A
+  barreira fica no passo 3, onde o ato acontece.
+  ⚠️ **O passo 1 é um passo, NÃO um portão.** Duas folhas não são de pessoa nenhuma (o
+  fechamento do período e o recibo, que navega ao Caixa), e um assistente que exigisse o
+  paciente as tornaria inalcançáveis — a regra 3 do faturamento, que a parcela 88 já
+  invocou para deixar esta tela de fora da busca obrigatória. O passo 2 existe sempre.
+  ⚠️ **DESVIO DECLARADO DO MOCKUP APROVADO: o passo 3 não mostra o NÚMERO da folha.** O
+  desenho trazia "2026/0189"; o número é atribuído na EMISSÃO, por ano, e adivinhá-lo
+  escreveria na tela um número que a próxima emissão concorrente torna falso. É a prévia da
+  guia outra vez — ela não tem número porque ele nasce na baixa, e a tarja diz isso.
+  **Desvio de mockup aprovado se escreve, não se comete em silêncio.**
+  ⚠️ **O que o passo 3 acrescenta de verdade é a frase que o produto nunca teve: o que o
+  CLIQUE faz.** Quatro folhas não imprimem nada ao serem clicadas — uma navega para o
+  Caixa, duas abrem a coleta de uma assinatura, uma abre a janela onde se escreve — e a
+  leitura natural de um botão chamado "Emitir" é que o papel saiu. A frase sai da MESMA
+  `ExigenciaFolha` que ROTEIA a emissão de verdade: duas definições de "o que este botão
+  faz" divergiriam na primeira correção, e a que ficaria para trás é a da TELA, isto é, a
+  que a pessoa lê.
+  ⚠️ E a DESCRIÇÃO da folha voltou para a tela: nos cartões ela vive na dica do mouse, e
+  dica é o que ninguém lê — quem não conhece a folha descobre o que ela é ERRANDO, e o erro
+  aqui custa um cancelamento com motivo.
+  ⚠️ **`PreviaDaFolha` mora na Application e é PURA**, com onze testes — inclusive um que
+  percorre o CATÁLOGO INTEIRO em vez das folhas que eu lembrei: é o que faz a folha nova
+  cobrar a própria cobertura, como o `Os_sete_documentos_geram_PDF` cobrou quando nasceu o
+  oitavo tipo. O que a tela AFIRMA não pode morar num projeto WPF, onde o `dotnet test` não
+  alcança.
+  ⚠️ **`{Binding Garantias}` NÃO alcançaria a constante.** A frase das garantias nasceu
+  `const`, e binding do WPF não alcança membro ESTÁTICO: o texto sairia vazio, sem erro e
+  sem aviso, verde em todas as redes. Ela ganhou uma propriedade de instância ao lado.
+  ⚠️ **`CornerRadius="999"` num círculo de tamanho FIXO é a parcela 91 de novo** — o WPF não
+  trava o raio na metade da altura como o CSS. Os três números dos passos são 19×19 e usam
+  raio explícito (9,5); `Ajudantes.Pilula` é para o que TEM largura variável.
+  ⚠️ **Dois textos que apontavam LUGAR já estavam mentindo, e a reforma os expôs:** a
+  pendência dizia "Escolha o paciente **ao lado**" (ele está acima, no passo 1) e "Usa o
+  período escolhido **abaixo**" — e o período saiu desta aba na **parcela 82**, quando ela
+  virou duas. Texto espacial é o primeiro a apodrecer numa reforma de leiaute, e ele não
+  aparece em rede nenhuma.
+  ⚠️ E a faixa diz **"sem convênio"**, a MESMA palavra que a linha da lista usa dois
+  segundos antes — o nome de catálogo da ficha "a definir" tem 33 caracteres, e dois jeitos
+  de dizer o mesmo fato na mesma tela fazem a pessoa procurar a diferença que não existe.
+  **O que se perdeu, e é o custo aceito do desenho:** emitir virou TRÊS cliques onde eram
+  dois, e a declaração de comparecimento — o papel mais corriqueiro do balcão — paga esse
+  clique todo dia.
+
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

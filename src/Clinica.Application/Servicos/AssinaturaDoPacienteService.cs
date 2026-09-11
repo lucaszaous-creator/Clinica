@@ -73,6 +73,15 @@ public sealed class AssinaturaDoPacienteService
     /// Quem da clínica estava na frente do paciente. <c>SessaoUsuario.Atual.Operador</c>,
     /// nunca <c>Environment.UserName</c>: no balcão duas pessoas dividem a máquina.
     /// </param>
+    /// <param name="meio">
+    /// ONDE o traço foi desenhado — na tela da clínica ou no celular do paciente. O padrão
+    /// é o balcão, que é o caso da maioria; quem colhe pelo link informa
+    /// <see cref="MeioAssinaturaPaciente.LinkRemoto"/>.
+    ///
+    /// ⚠️ Não é enfeite: o termo existe para ser EVIDÊNCIA, e gravar "assinou na clínica"
+    /// sobre um termo assinado em casa é o sistema afirmando algo falso sobre o próprio
+    /// documento — a garantia aparente que este projeto recusa desde a parcela 3.
+    /// </param>
     public async Task<DocumentoClinico> ColherAsync(
         int documentoId,
         byte[] tracoPng,
@@ -81,6 +90,7 @@ public sealed class AssinaturaDoPacienteService
         IReadOnlyDictionary<int, string?> respostas,
         string documentoConferido,
         string testemunha,
+        MeioAssinaturaPaciente meio = MeioAssinaturaPaciente.NaClinica,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(tracoPng);
@@ -166,7 +176,7 @@ public sealed class AssinaturaDoPacienteService
 
         documento.TracoAssinatura = traco;
         documento.PacienteAssinadoEm = DateTime.Now;
-        documento.PacienteAssinaturaMeio = MeioAssinaturaPaciente.NaClinica;
+        documento.PacienteAssinaturaMeio = meio;
         documento.PacienteAssinaturaHash = SelarConteudo(documento);
         documento.PacienteDocumentoConferido = documentoConferido.Trim();
         documento.PacienteAssinaturaTestemunha = testemunha.Trim();
@@ -178,6 +188,12 @@ public sealed class AssinaturaDoPacienteService
 
         var detalhe = $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero} — "
                       + $"{documento.Paciente?.Nome}";
+
+        // O CANAL entra na trilha, e é o primeiro leitor que a coluna do meio teve: sem
+        // ele, "assinado no celular" ficava gravado e nenhuma tela, papel ou consulta
+        // dizia isso a ninguém.
+        if (meio == MeioAssinaturaPaciente.LinkRemoto)
+            detalhe += " — assinado pelo celular do paciente (link enviado pelo WhatsApp)";
 
         // A declaração negada vai para a TRILHA e não só para a tela: ela é o fato que uma
         // investigação procura, e a tela some quando o dia acaba.

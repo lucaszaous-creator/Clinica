@@ -1,5 +1,7 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 using FluentAssertions;
 using Xunit;
 
@@ -89,6 +91,131 @@ public class DocumentosPorAcessoTests
         Chaves(Balcao).Should().NotContain("recibo").And.NotContain("orcamento");
         Chaves(Caixa).Should().Contain("recibo").And.Contain("orcamento");
         Chaves(Caixa).Should().NotContain("receita", "cobrar não exige saber o diagnóstico");
+    }
+
+    // ================================================================
+    // QUEM COLHE ALCANÇA O QUE COLHEU (set/2026)
+    // ================================================================
+    //
+    // O defeito que a clínica encontrou: a recepção mandou o termo do BSV pelo WhatsApp, a
+    // paciente assinou no celular, a recepcionista conferiu a identidade e confirmou — e
+    // depois "não achamos onde está indo, nem na ficha da paciente".
+    //
+    // O termo estava gravado, numerado e selado. O que faltava era ela poder LÊ-LO: o termo
+    // de procedimento exige `VerProntuario`, que o perfil Recepção não tem desde a parcela
+    // 49, enquanto COLHER exige `ColherAssinaturaPaciente`, que ela tem. Ela atravessava a
+    // porta, fazia o trabalho todo e o resultado sumia das quatro portas — inclusive da 2ª
+    // via, que é como o paciente recebe a via dele.
+
+    /// <summary>
+    /// O balcão alcança o termo que ele mesmo colhe.
+    ///
+    /// ⚠️ Isto não afrouxa o corte da parcela 49, e é o teste ao lado que prova: quem colhe
+    /// já leu o termo inteiro na janela em que colheu a assinatura — ver a mesma folha
+    /// depois não expõe uma linha a mais.
+    /// </summary>
+    [Fact]
+    public void Balcao_alcanca_o_termo_de_procedimento_que_ele_colhe()
+    {
+        Chaves(Balcao).Should().Contain("termo-procedimento",
+            "quem colhe a assinatura precisa achar o papel depois — e entregar a via ao paciente");
+
+        CentralDocumentosService
+            .PodeVer(Balcao, TipoDocumentoClinico.TermoProcedimento)
+            .Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A METADE QUE SEGURA A REGRA: o segundo acesso vale para o TERMO e para mais nada.
+    ///
+    /// Sem este teste, a próxima "simplificação" — deixar `ColherAssinaturaPaciente`
+    /// alcançar toda folha clínica — passaria, e a recepção leria a evolução de todo mundo
+    /// pela porta dos documentos. Seria a permissão granular desfeita por uma porta nova,
+    /// que é o que a parcela 60 achou nas cópias do faturamento.
+    /// </summary>
+    [Theory]
+    [InlineData("receita")]
+    [InlineData("atestado")]
+    [InlineData("pedido-exame")]
+    [InlineData("relatorio-evolucao")]
+    [InlineData("anamnese")]
+    public void Colher_assinatura_NAO_abre_o_resto_do_prontuario(string chave)
+        => Chaves(Permissao.ColherAssinaturaPaciente).Should().NotContain(chave);
+
+    /// <summary>
+    /// A armadilha que o campo novo cria, fixada: <c>HasFlag</c> sobre DOIS bits é um E.
+    ///
+    /// Testada com `HasFlag`, a folha alcançada por duas permissões fecharia para as DUAS
+    /// pessoas — quem só tem prontuário e quem só colhe —, e o defeito apareceria como
+    /// lista vazia, indistinguível de "este paciente não tem termo". As duas pontas
+    /// precisam passar sozinhas.
+    /// </summary>
+    [Fact]
+    public void O_acesso_de_ver_e_um_OU_nunca_um_E()
+    {
+        // ⚠️ Percorre o CATÁLOGO em vez de nomear o termo: asserção escrita à mão é
+        // asserção que a próxima folha com segundo acesso não alcança. E pergunta pelo
+        // `CatalogoPara`, que é o caminho que as telas usam — testar só o `PodeVer`
+        // deixaria passar alguém trocando o filtro de volta por `HasFlag` lá dentro, que
+        // é exatamente como o E voltaria.
+        var comDoisAcessos = CentralDocumentosService.Catalogo
+            .Where(f => f.PermissaoVerTambem != Permissao.Nenhuma)
+            .ToList();
+
+        comDoisAcessos.Should().NotBeEmpty(
+            "o termo de procedimento tem dois — se esta lista esvaziou, a regra saiu do catálogo");
+
+        foreach (var f in comDoisAcessos)
+        {
+            Chaves(f.PermissaoVer).Should().Contain(f.Chave,
+                $"{f.Chave}: quem tem só o acesso principal continua alcançando");
+            Chaves(f.PermissaoVerTambem).Should().Contain(f.Chave,
+                $"{f.Chave}: quem tem só o segundo acesso passou a alcançar");
+        }
+
+        // E quem não tem nenhum dos dois continua de fora — o bit do cadastro não serve.
+        CentralDocumentosService
+            .PodeVer(Permissao.VerFichaPaciente, TipoDocumentoClinico.TermoProcedimento)
+            .Should().BeFalse("o termo diz o que a pessoa declarou sobre o próprio corpo");
+    }
+
+    /// <summary>
+    /// O CIRCUITO, e não o catálogo: o termo colhido pelo balcão aparece na linha do tempo
+    /// clínica — o montador da aba Prontuário da ficha, da tela da Enfermagem e do
+    /// Consultório.
+    ///
+    /// É por aqui que o defeito aparecia de verdade: elo partido neste filtro não vira
+    /// erro, vira LISTA VAZIA, que se lê como "a paciente não assinou nada".
+    /// </summary>
+    [Fact]
+    public void O_termo_colhido_pelo_balcao_aparece_na_linha_do_tempo_dele()
+    {
+        var termo = new DocumentoClinico
+        {
+            Id = 1,
+            PacienteId = 7,
+            Numero = "2026/0001",
+            Tipo = TipoDocumentoClinico.TermoProcedimento,
+            Data = new DateOnly(2026, 9, 10),
+            CodigoVerificacao = "ABC123"
+        };
+
+        var receita = new DocumentoClinico
+        {
+            Id = 2,
+            PacienteId = 7,
+            Numero = "2026/0002",
+            Tipo = TipoDocumentoClinico.Receita,
+            Data = new DateOnly(2026, 9, 10),
+            CodigoVerificacao = "DEF456"
+        };
+
+        var linhas = LinhaDoTempoClinica
+            .Montar(Balcao, documentos: [termo, receita])[NaturezaRegistroClinico.DocumentoClinico];
+
+        linhas.Should().ContainSingle(
+            "o termo entra e a receita não — o balcão colhe o primeiro e não lê a segunda");
+        linhas[0].Titulo.Should().Contain("2026/0001");
     }
 
     /// <summary>Quem atende alcança as clínicas — é o outro lado da decisão.</summary>

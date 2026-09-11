@@ -1285,12 +1285,24 @@ public class ClinicaDbContext : DbContext
             e.HasOne(x => x.Documento).WithMany()
                 .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);
 
+            // O traço guardado (set/2026). `SetNull`, como no documento assinado: apagar um
+            // traço não pode levar junto a evidência do canal — e a linha da coleta não se
+            // apaga nunca.
+            //
+            // ⚠️ Os BYTES ficam na tabela do traço, e aqui só o ponteiro: as varreduras
+            // desta tabela leem LISTAS (as vencidas, as que aguardam resposta), e uma
+            // coluna de imagem aqui faria cada varredura arrastar as assinaturas do dia
+            // pela rede para não usar nenhuma.
+            e.HasOne(x => x.TracoAssinatura).WithMany()
+                .HasForeignKey(x => x.TracoAssinaturaId).OnDelete(DeleteBehavior.SetNull);
+
             // Token único: é a chave do circuito com a borda, e dois envios com o mesmo
             // token fariam a resposta de um cair no outro.
             e.HasIndex(x => x.Token).IsUnique();
             e.HasIndex(x => x.DocumentoClinicoId);
 
             e.Ignore(x => x.EmAberto);
+            e.Ignore(x => x.AguardaConferencia);
         });
 
         b.Entity<ChecagemCuidado>(e =>

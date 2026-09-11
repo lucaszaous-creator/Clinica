@@ -412,18 +412,38 @@
                          e a que ninguém lembraria de ajustar seria esta. -->
                     <Button DockPanel.Dock="Right" VerticalAlignment="Center"
                             Margin="16,0,0,0"
-                            Style="{StaticResource BotaoSecundarioPerigo}"
                             Command="{Binding Atendimento.ColherTermoCommand}"
                             IsEnabled="{Binding Atendimento.PodeColherTermo}"
-                            ToolTip="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui."
+                            ToolTip="{Binding Atendimento.TermoPendenteDica}"
                             Visibility="{Binding Atendimento.TemTermoPendente,
                                          Converter={StaticResource BoolParaVisibilidade},
                                          FallbackValue=Collapsed}">
+                        <!-- O PESO segue o estado, não só a frase (set/2026): o vermelho é
+                             de quem NÃO assinou nada. Nas outras quatro portas o termo já
+                             assinado no celular é âmbar, e gastar o vermelho num caso que se
+                             resolve com UM clique ensina a ignorá-lo no caso em que ele
+                             impede o procedimento.
+
+                             `BasedOn` obrigatório: o Template mora no estilo do design
+                             system, e estilo local sem ele desenharia um botão sem nada. -->
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundarioPerigo}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Atendimento.TermoAConferir}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource FonteIcones}"
                                        FontSize="{StaticResource Fonte.Legenda}"
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <TextBlock Text="Termo não assinado · colher"
+                            <!-- O texto vem da ViewModel: literal aqui é a frase que mente
+                                 sobre quem já assinou pelo celular (set/2026). -->
+                            <TextBlock Text="{Binding Atendimento.TermoPendenteRotulo}"
+                                       TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

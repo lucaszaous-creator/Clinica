@@ -159,6 +159,32 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     public bool TemTermoPendente => TermoPendente is not null;
 
     /// <summary>
+    /// O que o botão da faixa diz (set/2026). Ele era LITERAL no XAML — "Termo não
+    /// assinado · colher" — e essa frase é falsa sobre quem já assinou pelo celular,
+    /// no app de quem vai fazer o procedimento.
+    /// </summary>
+    public string TermoPendenteRotulo
+        => TermoAConferir ? "Termo assinado · conferir" : "Termo não assinado · colher";
+
+    /// <summary>
+    /// O termo pendente da faixa é um que o paciente JÁ ASSINOU pelo celular (set/2026).
+    ///
+    /// ⚠️ É o que dá o PESO ao botão, e não só a frase: o vermelho é de quem não assinou
+    /// nada — nas outras quatro portas este estado é âmbar, e deixar o Consultório gastando
+    /// o vermelho num caso que se resolve com UM clique ensina a ignorá-lo no caso em que
+    /// ele impede o procedimento.
+    /// </summary>
+    public bool TermoAConferir => TermoPendente?.AssinaturaRemotaAguardaConferencia == true;
+
+    /// <summary>A dica da faixa — muda com o rótulo, pela mesma razão.</summary>
+    public string TermoPendenteDica
+        => TermoAConferir
+            ? "O paciente já assinou este termo pelo celular. Abra, confira o documento "
+              + "dele e conclua — não é preciso colher de novo."
+            : "O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não "
+              + "assinou. Colha agora — ele está aqui.";
+
+    /// <summary>
     /// A metade VISÍVEL do acesso; a que IMPEDE está no comando. Quem atende recebe
     /// <see cref="Permissao.ColherAssinaturaPaciente"/> por padrão desde a parcela 66.
     /// </summary>
@@ -1049,7 +1075,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             var situacoes = await termos.SituacaoDoDiaAsync(
                 PacienteId, DateOnly.FromDateTime(Data));
 
-            pendente = situacoes.FirstOrDefault(s => s.Pendente);
+            pendente = PendenciasDeTermo.Primeira(situacoes);
         }
         catch (Exception ex)
         {
@@ -1079,6 +1105,9 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
         TermoPendente = pendente;
         OnPropertyChanged(nameof(TemTermoPendente));
+        OnPropertyChanged(nameof(TermoAConferir));
+        OnPropertyChanged(nameof(TermoPendenteRotulo));
+        OnPropertyChanged(nameof(TermoPendenteDica));
         OnPropertyChanged(nameof(PodeColherTermo));
     }
 

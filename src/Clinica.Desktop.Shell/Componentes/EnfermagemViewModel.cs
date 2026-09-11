@@ -855,13 +855,17 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
                 .SituacaoDoDiaAsync(pacienteId, hoje);
             if (geracao != _geracaoCarga) return;
 
-            if (termos.FirstOrDefault(t => t.Pendente) is { } pendente)
+            // ⚠️ O rótulo vem da SITUAÇÃO (set/2026): "Colher" sobre um termo que o
+            // paciente já assinou no celular manda repetir o gesto que o link recusa.
+            if (PendenciasDeTermo.Primeira(termos) is { } pendente)
             {
-                TermoPendente = $"Colher: {pendente.NomeDoTermo}";
+                TermoPendente = pendente.RotuloDaPendencia;
                 _modeloTermoPendente = pendente.ModeloId;
                 _documentoTermoPendente = pendente.DocumentoId;
                 _agendamentoTermoPendente = pendente.AgendamentoId;
-                partes.Add($"termo pendente: {pendente.NomeDoTermo}");
+                partes.Add(pendente.AssinaturaRemotaAguardaConferencia
+                    ? $"termo assinado no celular, a conferir: {pendente.NomeDoTermo}"
+                    : $"termo pendente: {pendente.NomeDoTermo}");
             }
             else
             {

@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -1114,6 +1115,13 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         folha.PermissaoVer.Should().Be(Permissao.VerProntuario,
             "o termo diz qual procedimento a pessoa vai fazer e o que ela declarou sobre o "
             + "próprio corpo — é dado de saúde (art. 5º, II)");
+
+        // ⚠️ E QUEM COLHE TAMBÉM ALCANÇA (set/2026, achado pela clínica). A recepção tem
+        // `ColherAssinaturaPaciente` e não tem `VerProntuario`: com um bit só, o termo que
+        // ela mesma colheu sumia das quatro portas e ela não conseguia imprimir a via do
+        // paciente. Não afrouxa nada — quem colhe já leu o termo inteiro na janela.
+        folha.PermissaoVerTambem.Should().Be(Permissao.ColherAssinaturaPaciente);
+
         folha.PermissaoEmitir.Should().Be(Permissao.ColherAssinaturaPaciente);
     }
 
@@ -1172,5 +1180,242 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         termo.Itens.Should().OnlyContain(i => i.Quantidade == null,
             "pré-marcar \"Sim\" seria fabricar a resposta mais conveniente para a clínica, "
             + "que é o oposto do que o termo existe para provar");
+    }
+
+    // ====================================================================
+    // A FILA DO "ASSINOU NO CELULAR, FALTA CONFERIR" (set/2026)
+    // ====================================================================
+    //
+    // Sem ela, o circuito do link só fechava com a janela daquele termo ABERTA na hora em
+    // que a resposta chegou: a clínica enviava, a paciente assinava, e o balcão continuava
+    // lendo "falta o termo" — o que leva a mandar OUTRO link, que é justamente o que o
+    // link não aceita.
+
+    /// <summary>Uma coleta remota já respondida, como a sincronização a deixa.</summary>
+    private async Task AssinouNoCelularAsync(int documentoId)
+    {
+        _db.ColetasRemotasTermo.Add(new ColetaRemotaTermo
+        {
+            DocumentoClinicoId = documentoId,
+            Token = "TOKEN" + documentoId.ToString("D4") + "AAAAAAAAAAAAAAAAA",
+            TelefoneDestino = "(22) 99999-0000",
+            EnviadaPor = "ana.recepcao",
+            CriadaEm = DateTime.Now.AddMinutes(-40),
+            ExpiraEm = DateTime.Now.AddHours(23),
+            RespondidaEm = DateTime.Now.AddMinutes(-5),
+            EvidenciaResposta = "IP 203.0.113.7",
+            RespostasJson = "{\"1\":\"Sim\",\"2\":\"Sim\"}",
+            TracoAssinatura = new TracoAssinatura
+            {
+                Conteudo = TracoDeTeste(), Largura = 600, Altura = 220, ColhidoEm = DateTime.Now
+            }
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Assinado_no_celular_e_pendente_MAS_com_frase_propria()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        await AssinouNoCelularAsync(termo.Id);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.Assinado.Should().BeFalse(
+            "o documento não está selado — o termo só está cumprido quando estiver");
+        situacao.Pendente.Should().BeTrue();
+        situacao.AssinaturaRemotaAguardaConferencia.Should().BeTrue();
+        situacao.PendenteSemAssinatura.Should().BeFalse(
+            "cobrar com o vermelho de quem não assinou NADA ensina a ignorar o vermelho");
+    }
+
+    [Fact]
+    public async Task Sem_coleta_respondida_o_termo_e_pendente_SEM_assinatura()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+        await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.PendenteSemAssinatura.Should().BeTrue();
+        situacao.AssinaturaRemotaAguardaConferencia.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Os_dois_caminhos_de_leitura_concordam_sobre_o_que_falta_CONFERIR()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        await AssinouNoCelularAsync(termo.Id);
+
+        // A regra 6 desta suíte, aplicada ao estado novo: a fila lê em lote e a ficha lê
+        // por paciente. Divergir aqui aparece como cartão limpo no quadro do balcão.
+        var lote = await _termos.DoDiaAsync(Hoje);
+        var porPaciente = await _termos.SituacaoDoDiaAsync(paciente, Hoje);
+
+        lote[paciente].Select(s => s.AssinaturaRemotaAguardaConferencia)
+            .Should().BeEquivalentTo(
+                porPaciente.Select(s => s.AssinaturaRemotaAguardaConferencia));
+        lote[paciente].Should().ContainSingle()
+            .Which.AssinaturaRemotaAguardaConferencia.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Coleta_CONCLUIDA_nao_deixa_o_termo_esperando_conferencia_para_sempre()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        await AssinouNoCelularAsync(termo.Id);
+
+        // A técnica conferiu e concluiu: a coleta fecha e o termo é selado.
+        _db.ColetasRemotasTermo.Single().ConcluidaEm = DateTime.Now;
+        await _db.SaveChangesAsync();
+        await AssinarTudoAsync(termo.Id);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.Assinado.Should().BeTrue();
+        situacao.AssinaturaRemotaAguardaConferencia.Should().BeFalse(
+            "pendência que não some é pendência que ensina a ignorar a lista");
+    }
+
+    // ============================================================================
+    // A CORREÇÃO NÃO PODE PARAR NA LISTA DO DIA
+    //
+    // O selo da fila foi o primeiro leitor do estado novo, e havia CINCO outros dizendo o
+    // contrário: o alerta de elegibilidade (que sozinho alcança agendamento, check-in,
+    // Novo atendimento, ficha e Consultório), a frase e a cor da linha da ficha, a faixa do
+    // Consultório e o botão das duas telas de enfermagem — este último dizendo, com todas
+    // as letras, "Colher" sobre quem já tinha assinado.
+    //
+    // É a cópia que fica para trás, cometida pelo próprio commit que existe para acabar com
+    // ela. Os testes abaixo prendem o que cada porta AFIRMA.
+    // ============================================================================
+
+    private ElegibilidadeService Elegibilidade() => new(
+        _repo, new AutorizacaoService(_repo), new ConsentimentoService(_repo),
+        new ConsultaService(_repo), termos: _termos);
+
+    [Fact]
+    public async Task O_alerta_do_balcao_NAO_diz_que_falta_assinar_quem_ja_assinou()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        await AssinouNoCelularAsync(termo.Id);
+
+        var alertas = (await Elegibilidade().ConferirAsync(paciente, Hoje)).Alertas;
+
+        alertas.Should().NotContain(
+            a => a.Motivo == ImpedimentoElegibilidade.TermoProcedimentoPendente,
+            "o paciente ASSINOU — e é essa frase que faz o balcão mandar outro link, que o "
+            + "link write-once recusa");
+
+        var aConferir = alertas.Should().ContainSingle(
+            a => a.Motivo == ImpedimentoElegibilidade.TermoProcedimentoAConferir).Subject;
+
+        aConferir.Urgencia.Should().Be(NivelUrgencia.Amarelo,
+            "o vermelho é de quem não assinou nada; gastá-lo aqui ensina a ignorá-lo");
+        aConferir.Descricao.Should().Contain("já assinou").And.Contain("conferir");
+    }
+
+    [Fact]
+    public async Task Quem_nao_assinou_NADA_continua_com_o_alerta_vermelho()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+        await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+
+        var alertas = (await Elegibilidade().ConferirAsync(paciente, Hoje)).Alertas;
+
+        var pendente = alertas.Should().ContainSingle(
+            a => a.Motivo == ImpedimentoElegibilidade.TermoProcedimentoPendente).Subject;
+
+        pendente.Urgencia.Should().Be(NivelUrgencia.Vermelho);
+        alertas.Should().NotContain(
+            a => a.Motivo == ImpedimentoElegibilidade.TermoProcedimentoAConferir);
+    }
+
+    [Fact]
+    public async Task O_rotulo_do_botao_diz_CONFERIR_e_nao_COLHER()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        await AssinouNoCelularAsync(termo.Id);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        // O rótulo mora na SITUAÇÃO porque são quatro telas dizendo a mesma frase.
+        situacao.VerboDaPendencia.Should().Be("Conferir");
+        situacao.RotuloDaPendencia.Should().StartWith("Conferir: ").And.NotContain("Colher");
+    }
+
+    [Fact]
+    public async Task Quem_nao_assinou_nada_continua_mandando_COLHER()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
+        await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.VerboDaPendencia.Should().Be("Colher");
+        situacao.RotuloDaPendencia.Should().StartWith("Colher: ");
+    }
+
+    [Fact]
+    public async Task A_porta_oferece_PRIMEIRO_o_termo_que_ja_foi_assinado()
+    {
+        // Dois termos no mesmo dia: um assinado no celular, outro sem assinatura nenhuma.
+        // Abrir o segundo primeiro faria a técnica colher de novo quem já assinou.
+        var semAssinatura = new SituacaoTermo(
+            1, ModalidadeAtendimento.BsvComAcupuntura, "Termo do jejum", 0, null,
+            false, false, null, [], null, null, false);
+
+        var assinadoNoCelular = semAssinatura with
+        {
+            ExigenciaId = 2, NomeDoTermo = "TCLE do BSV",
+            AssinaturaRemotaAguardaConferencia = true
+        };
+
+        PendenciasDeTermo.Primeira([semAssinatura, assinadoNoCelular])
+            .Should().BeSameAs(assinadoNoCelular);
+
+        PendenciasDeTermo.Primeira([semAssinatura])
+            .Should().BeSameAs(semAssinatura);
+
+        PendenciasDeTermo.Primeira([]).Should().BeNull();
     }
 }

@@ -819,9 +819,29 @@ public interface IClinicaRepositorio
     Task<ColetaRemotaTermo?> ColetaRemotaAbertaDoDocumentoAsync(
         int documentoId, CancellationToken ct = default);
 
-    /// <summary>As coletas em aberto já vencidas — a varredura de limpeza.</summary>
+    /// <summary>
+    /// As coletas em aberto já vencidas — a varredura de limpeza. Traz também as que JÁ
+    /// FORAM respondidas: quem decide o que fazer com cada uma é o serviço (a respondida
+    /// sai do ar e continua esperando conferência; a muda é cancelada).
+    /// </summary>
     Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasVencidasAsync(
         DateTime agora, CancellationToken ct = default);
+
+    /// <summary>
+    /// As coletas em aberto que ainda não têm assinatura GUARDADA — o que a sincronização
+    /// vai procurar no balde (set/2026). Vencidas incluídas: assinatura que chegou perto
+    /// do fim das 24 h é justamente a que a limpeza destruiria. E a que a versão anterior
+    /// deixou respondida entra também: ela tem carimbo e nada guardado.
+    /// </summary>
+    Task<IReadOnlyList<ColetaRemotaTermo>> ColetasRemotasAguardandoRespostaAsync(
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Quais destes documentos têm assinatura do celular GUARDADA e ainda não conferida —
+    /// a fila do "termo assinado, falta conferir". Projeção de ids: nunca traz o traço.
+    /// </summary>
+    Task<IReadOnlyList<int>> DocumentosComAssinaturaRemotaAguardandoAsync(
+        IReadOnlyCollection<int> documentoIds, CancellationToken ct = default);
 
     Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default);

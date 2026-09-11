@@ -141,7 +141,7 @@ public static class FolhasParaEntregar
         {
             var folha = CentralDocumentosService.Folha(chave);
             if (folha is null) continue;
-            if (!acessos.HasFlag(folha.PermissaoVer)) continue;
+            if (!CentralDocumentosService.PodeVer(acessos, folha)) continue;
 
             var (frase, daSessao) = Descrever(chave, heranca);
             var podeEmitir = acessos.HasFlag(folha.PermissaoEmitir);

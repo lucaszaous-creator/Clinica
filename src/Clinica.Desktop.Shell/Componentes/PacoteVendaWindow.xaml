@@ -9,6 +9,8 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <!-- Para OBJETO: string vazia não é nula, e "não tem paciente" aqui quer dizer NULO. -->
+        <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
     </Window.Resources>
 
     <DockPanel Margin="24">
@@ -53,7 +55,48 @@
                          ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
             </StackPanel>
 
-            <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <!-- ============================================================
+                 A LISTA DE RESULTADOS LOGO ABAIXO DO CAMPO, e o formulário ROLANDO.
+
+                 ⚠️ Ela era o filho que PREENCHE deste DockPanel, com o formulário inteiro
+                 ancorado embaixo — e num DockPanel o ANCORADO ganha a altura que pede: o
+                 formulário somava ~500 px numa janela de 690, e a lista ficava com os ~8
+                 px que sobravam. O primeiro resultado aparecia como uma FATIA de 8 px e
+                 **não havia como escolher o paciente**, isto é, não havia como vender um
+                 pacote. É a parcela 79 pelo avesso: lá o ancorado era decepado, aqui é o
+                 fill que some.
+
+                 Agora quem cresce com o DADO é a lista (teto de 150, e ela SOME quando
+                 não há resultado — caixa vazia no meio do formulário se lê como lista que
+                 não carregou), e quem paga é o formulário, que ROLA em vez de ser
+                 cortado.
+                 ============================================================ -->
+            <ListBox DockPanel.Dock="Top" ItemsSource="{Binding Seletor.Resultados}"
+                     SelectedItem="{Binding Seletor.Selecionado}"
+                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                     MaxHeight="150" Margin="0,8,0,0"
+                     BorderThickness="1" BorderBrush="{StaticResource Brush.Borda}"
+                     Background="Transparent"
+                     HorizontalContentAlignment="Stretch"
+                     Visibility="{Binding Seletor.TemResultados,
+                                  Converter={StaticResource BoolParaVisibilidade}}" />
+
+            <!-- QUEM foi escolhido, dito por extenso: com a lista rolada para fora da
+                 vista, a linha marcada não é resposta — e vender o pacote para a pessoa
+                 errada é dinheiro registrado no nome de quem não comprou. -->
+            <Border DockPanel.Dock="Top" Margin="0,8,0,0" Padding="10,7"
+                    CornerRadius="{StaticResource Raio.Medio}"
+                    Background="{StaticResource Brush.Acento.Suave}"
+                    BorderBrush="{StaticResource Brush.Acento}" BorderThickness="1"
+                    Visibility="{Binding Seletor.Selecionado,
+                                 Converter={StaticResource ObjetoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <TextBlock Text="{Binding Seletor.Selecionado.Nome}" FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,12,4,0">
                 <TextBlock Text="Pacote" Style="{StaticResource Rotulo}" />
 
                 <!-- ============ CATÁLOGO VAZIO ============
@@ -180,14 +223,7 @@
                 <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="48"
                          TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="500" />
             </StackPanel>
-
-            <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                     SelectedItem="{Binding Seletor.Selecionado}"
-                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                     Margin="0,8,0,0"
-                     BorderThickness="1" BorderBrush="{StaticResource Brush.Borda}"
-                     Background="Transparent"
-                     HorizontalContentAlignment="Stretch" />
+            </ScrollViewer>
         </DockPanel>
     </DockPanel>
 </Window>

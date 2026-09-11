@@ -291,7 +291,7 @@
                                         Visibility="{Binding AguardandoCelular,
                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                     <TextBlock TextWrapping="Wrap"
-                                               Text="O termo foi para o WhatsApp do paciente. Esta janela percebe sozinha quando ele assinar — dá para deixá-la aberta e seguir o atendimento." />
+                                               Text="O termo foi para o WhatsApp do paciente. Pode FECHAR esta janela: quando ele assinar, a assinatura fica guardada e a linha dele na agenda do dia passa a dizer “Termo assinado — conferir”." />
                                 </Border>
 
                                 <!-- A técnica VÊ o que vai confirmar: o traço que chegou do

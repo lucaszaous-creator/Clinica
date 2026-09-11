@@ -82,6 +82,18 @@ public sealed class ColetaRemotaTermoService
         var agora = _agora();
         var aberta = await _repo.ColetaRemotaAbertaDoDocumentoAsync(documentoId, ct);
 
+        // ⚠️ RECUSA quando a assinatura JÁ CHEGOU e está esperando conferência (set/2026).
+        //
+        // Reenviar aqui seria o pior gesto possível: o link é write-once, então o paciente
+        // não conseguiria assinar de novo — ele leria o termo pela segunda vez para levar
+        // um "não foi possível" no fim. E, antes desta versão, era pior ainda: o reenvio
+        // cancelava a coleta anterior e apagava a assinatura que já estava dada.
+        if (aberta is { AguardaConferencia: true })
+            throw new InvalidOperationException(
+                $"{PrimeiroNome(paciente.Nome)} JÁ ASSINOU pelo celular — a assinatura está "
+                + "guardada, esperando a conferência. Abra o termo e confirme; não é "
+                + "preciso mandar outro link (o link aceita uma assinatura só).");
+
         if (aberta is not null && !aberta.Vencida(agora))
             return Montar(baseUrl, aberta.Token, paciente.Nome, aberta.TelefoneDestino);
 
@@ -146,6 +158,10 @@ public sealed class ColetaRemotaTermoService
     /// A resposta do celular, quando já chegou — ou <c>null</c> enquanto o paciente lê.
     /// É o que a janela chama no polling. Traço fora do tamanho de traço é RECUSADO com a
     /// saída escrita (cancelar e reenviar), porque write-once não tem segunda gravação.
+    ///
+    /// ⚠️ Ela responde do BANCO quando a assinatura já foi guardada (set/2026), e é isso
+    /// que faz a janela reaberta amanhã mostrar o traço de ontem: o objeto no balde sai do
+    /// ar, o registro fica.
     /// </summary>
     public async Task<RespostaRemotaTermo?> ColherRespostaAsync(
         int documentoId, CancellationToken ct = default)
@@ -153,6 +169,83 @@ public sealed class ColetaRemotaTermoService
         var coleta = await _repo.ColetaRemotaAbertaDoDocumentoAsync(documentoId, ct);
         if (coleta is null) return null;
 
+        // ⚠️ O banco PRIMEIRO, o balde como caminho de baixo — e o caminho de baixo não é
+        // enfeite: uma coleta respondida pela versão ANTERIOR tem `RespondidaEm` carimbado
+        // e nenhum traço guardado (ele só existia no balde). Sem a queda, ela responderia
+        // "não há assinatura" sobre uma assinatura que está no ar, e o reenvio estaria
+        // recusado logo atrás: corredor sem saída no dia da atualização.
+        if (coleta.AguardaConferencia && await DoBancoAsync(coleta, ct) is { } guardada)
+            return guardada;
+
+        return await DoBaldeAsync(coleta, ct);
+    }
+
+    /// <summary>
+    /// Procura no balde as assinaturas que chegaram e ainda não foram guardadas — e as
+    /// guarda (set/2026).
+    ///
+    /// É o que tira a janela aberta do caminho crítico. Antes disto, o único momento em
+    /// que a resposta era lida era o polling da janela do próprio termo: quem enviava o
+    /// link e fechava a janela nunca via a assinatura chegar, e ela morria na varredura de
+    /// 24 h. Aqui a lista do dia do balcão relê a cada minuto, e o selo do cartão passa a
+    /// dizer que há um termo assinado esperando conferência.
+    ///
+    /// ⚠️ NUNCA lança: é varredura de fundo, chamada por uma tela que tem paciente na
+    /// frente. Balde fora do ar ou traço ilegível de UMA coleta não pode derrubar a lista
+    /// nem impedir a leitura das outras — vira log, e a janela do termo (que é onde alguém
+    /// está esperando a resposta) continua dizendo o erro por extenso.
+    /// </summary>
+    /// <returns>Quantas assinaturas passaram a estar guardadas nesta passada.</returns>
+    public async Task<int> SincronizarRespostasAsync(CancellationToken ct = default)
+    {
+        var abertas = await _repo.ColetasRemotasAguardandoRespostaAsync(ct);
+        var colhidas = 0;
+
+        foreach (var coleta in abertas)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            try
+            {
+                if (await DoBaldeAsync(coleta, ct) is not null) colhidas++;
+            }
+            catch (Exception ex)
+            {
+                // O ID, nunca o TOKEN: ele é a única barreira de acesso ao termo publicado,
+                // e o log é um .txt na pasta da instalação. O id identifica a coleta para
+                // o suporte sem ser uma credencial.
+                Diagnostico.Registrar(
+                    $"Coleta remota #{coleta.Id} — a resposta não pôde ser lida", ex);
+            }
+        }
+
+        return colhidas;
+    }
+
+    /// <summary>A resposta já guardada, montada de volta para a janela.</summary>
+    private async Task<RespostaRemotaTermo?> DoBancoAsync(
+        ColetaRemotaTermo coleta, CancellationToken ct)
+    {
+        if (coleta.TracoAssinaturaId is not int tracoId) return null;
+
+        var traco = await _repo.ObterTracoAssinaturaAsync(tracoId, ct);
+        if (traco is null) return null;
+
+        return new RespostaRemotaTermo(
+            LerRespostas(coleta.RespostasJson), traco.Conteudo, traco.Largura, traco.Altura,
+            coleta.TelefoneDestino, coleta.EvidenciaResposta);
+    }
+
+    /// <summary>
+    /// Lê a resposta no balde e a GUARDA, no mesmo <c>SaveChanges</c> do carimbo.
+    ///
+    /// ⚠️ O traço e as respostas entram JUNTOS. Guardar o traço sem as declarações seria
+    /// meia recuperação — a conferência traria a assinatura com o formulário em branco, e
+    /// quem responderia pelo paciente seria a técnica.
+    /// </summary>
+    private async Task<RespostaRemotaTermo?> DoBaldeAsync(
+        ColetaRemotaTermo coleta, CancellationToken ct)
+    {
         var bytes = await _armazenamento.LerAsync(
             ColetaRemotaTermo.CaminhoResposta(coleta.Token), ct);
         if (bytes is null) return null;
@@ -174,16 +267,55 @@ public sealed class ColetaRemotaTermoService
                 "A assinatura que chegou do celular não é um traço válido. Cancele este "
                 + "envio e mande um link novo — o link antigo não aceita segunda assinatura.");
 
+        // O carimbo é de UMA vez (é quando o desktop VIU a resposta); a GUARDA acontece
+        // sempre que ainda não houver traço — é o que traz para dentro a coleta que a
+        // versão anterior deixou respondida e sem nada guardado.
+        var mudou = false;
+
         if (coleta.RespondidaEm is null)
         {
             coleta.RespondidaEm = _agora();
             coleta.EvidenciaResposta = Evidencia(raiz);
-            await _repo.SalvarAsync(ct);
+            mudou = true;
         }
+
+        if (coleta.TracoAssinaturaId is null && coleta.TracoAssinatura is null)
+        {
+            coleta.RespostasJson = JsonSerializer.Serialize(respostas, Json);
+            coleta.TracoAssinatura = new TracoAssinatura
+            {
+                Conteudo = traco.Png,
+                Largura = traco.Largura,
+                Altura = traco.Altura,
+                ColhidoEm = _agora()
+            };
+            mudou = true;
+        }
+
+        if (mudou) await _repo.SalvarAsync(ct);
 
         return new RespostaRemotaTermo(
             respostas, traco.Png, traco.Largura, traco.Altura,
             coleta.TelefoneDestino, coleta.EvidenciaResposta);
+    }
+
+    private static IReadOnlyDictionary<int, string?> LerRespostas(string? guardado)
+    {
+        if (string.IsNullOrWhiteSpace(guardado)) return new Dictionary<int, string?>();
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<int, string?>>(guardado, Json)
+                   ?? new Dictionary<int, string?>();
+        }
+        catch (JsonException ex)
+        {
+            // Respostas ilegíveis não podem esconder a ASSINATURA: a técnica confere as
+            // declarações com o paciente e conclui. Sumir com o traço por causa do texto
+            // seria destruir a parte cara por causa da barata.
+            Diagnostico.Registrar("Coleta remota — respostas guardadas ilegíveis", ex);
+            return new Dictionary<int, string?>();
+        }
     }
 
     /// <summary>
@@ -230,19 +362,53 @@ public sealed class ColetaRemotaTermoService
     /// A varredura de limpeza — roda junto da despublicação de receitas vencidas. Vencer
     /// não depende dela (o Worker recusa pedido vencido pela data DENTRO do JSON); ela
     /// existe para o objeto não ficar no balde depois de morto.
+    ///
+    /// ⚠️ ELA COLHE ANTES DE APAGAR, e a ordem é a correção inteira (set/2026). Até aqui
+    /// esta varredura era o caminho por onde uma assinatura DADA se perdia: o paciente
+    /// assinava, ninguém tinha a janela aberta, e 24 h depois a coleta era cancelada e o
+    /// objeto apagado — sem erro em lugar nenhum, com o termo voltando a parecer "nunca
+    /// assinado". Colher primeiro é o que garante que o que se apaga é o objeto, nunca o
+    /// fato.
+    ///
+    /// ⚠️ E coleta RESPONDIDA não é cancelada pela expiração: o que venceu foi o LINK, e o
+    /// link já cumpriu o papel dele. Ela sai do ar e continua na fila de conferência —
+    /// cancelá-la seria jogar fora a assinatura por causa do relógio.
     /// </summary>
+    /// <returns>Quantas coletas foram canceladas por não terem resposta nenhuma.</returns>
     public async Task<int> LimparVencidasAsync(CancellationToken ct = default)
     {
+        await SincronizarRespostasAsync(ct);
+
         var vencidas = await _repo.ColetasRemotasVencidasAsync(_agora(), ct);
+        var canceladas = 0;
+
         foreach (var coleta in vencidas)
         {
+            if (coleta.AguardaConferencia)
+            {
+                // ⚠️ SÓ sai do ar quando a assinatura já está guardada AQUI DENTRO. Se a
+                // colheita acima falhou (balde fora do ar), apagar o objeto destruiria a
+                // assinatura pelo caminho exato que esta correção existe para fechar — ela
+                // fica no ar mais um dia e a varredura seguinte tenta de novo.
+                if (coleta.TracoAssinaturaId is not null)
+                    await RemoverObjetosAsync(coleta.Token, ct);
+
+                continue;
+            }
+
+            // Sem resposta nenhuma no balde depois de 24 h: o link morreu sem ser usado.
+            // Dado de saúde no balde depois do prazo é a falha grave deste fluxo, e deixar
+            // a coleta em aberto para sempre por causa de uma leitura que pode nunca dar
+            // certo trocaria uma falha rara por uma permanente.
+            await RemoverObjetosAsync(coleta.Token, ct);
+
             coleta.CanceladaEm = _agora();
             coleta.CanceladaPor = "expiração automática";
-            await RemoverObjetosAsync(coleta.Token, ct);
+            canceladas++;
         }
 
-        if (vencidas.Count > 0) await _repo.SalvarAsync(ct);
-        return vencidas.Count;
+        if (canceladas > 0) await _repo.SalvarAsync(ct);
+        return canceladas;
     }
 
     private static EnvioRemotoTermo Montar(

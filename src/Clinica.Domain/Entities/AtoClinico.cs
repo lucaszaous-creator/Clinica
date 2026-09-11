@@ -733,12 +733,17 @@ public enum MeioAssinaturaPaciente
     NaClinica,
 
     /// <summary>
-    /// Assinou remotamente, por link. ⚠️ NÃO IMPLEMENTADO — o valor existe para a coluna
-    /// não precisar mudar depois, e porque é ele que torna a leitura honesta: sem ele, o
-    /// dia em que o link existir todo termo antigo passaria a parecer remoto.
+    /// Assinou no PRÓPRIO CELULAR, pelo link enviado no WhatsApp (parcela 81).
     ///
-    /// Ele exige um componente que hoje não temos: <c>IArmazenamentoPublico</c> publica e
-    /// remove — ele não RECEBE, e um S3 estático não aceita POST.
+    /// O que faltava na parcela 66 era quem RECEBESSE a assinatura — <c>IArmazenamentoPublico</c>
+    /// publica e remove, e um S3 estático não aceita POST. Quem passou a receber é o Worker
+    /// da borda, que grava a resposta no mesmo balde; o desktop a lê, guarda e conclui.
+    ///
+    /// ⚠️ A identidade continua sendo conferida por gente, no balcão: o que muda é ONDE o
+    /// traço foi desenhado, e é isso que esta coluna registra. Gravar
+    /// <see cref="NaClinica"/> num termo assinado em casa seria o sistema afirmando algo
+    /// falso sobre como a assinatura foi obtida — no único documento cujo valor inteiro é
+    /// ser evidência.
     /// </summary>
     LinkRemoto
 }

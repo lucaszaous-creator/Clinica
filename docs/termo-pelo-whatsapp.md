@@ -127,7 +127,60 @@ hostname está configurado** em Gerente → Configurações → Publicação, us
 Com domínio próprio no futuro, o mesmo arquivo atende com uma única rota `dominio/*` —
 nada muda no app nem nos QRs já impressos.
 
-## 6. O que fica para depois (dito, não prometido)
+## 6. A assinatura que chegou fica GUARDADA (set/2026)
+
+A clínica enviou o link, a paciente leu, assinou e confirmou — e o termo "não apareceu em
+lugar nenhum". Eram duas causas somadas; esta é a segunda, e a pior, porque não é o papel
+que fica invisível: é a **assinatura que deixa de existir**.
+
+O traço vivia SÓ no objeto do balde, e quem o trazia para dentro era o polling da **janela
+do termo ABERTA**. Quem enviava o link e fechava a janela nunca via a resposta chegar, e
+24 h depois a varredura de limpeza cancelava a coleta e apagava o objeto. Nada falhava: o
+termo voltava a parecer "nunca assinado" — e o gesto natural diante disso é mandar OUTRO
+link, que é exatamente o que o link write-once não aceita.
+
+**O que passou a acontecer**
+
+| Momento | Antes | Agora |
+|---|---|---|
+| A resposta chega | só a janela aberta a lê | a **lista do dia do balcão** a colhe, a cada releitura |
+| Onde o traço fica | no balde, até alguém confirmar | **no banco**, no mesmo `SaveChanges` do carimbo |
+| A janela reaberta amanhã | não acha nada | mostra o traço, lido do banco |
+| A varredura de 24 h | cancela e apaga | **colhe → guarda → só então apaga**; quem respondeu não é cancelado |
+| Reenviar para quem já assinou | apagava a assinatura dada | **recusado**, dizendo o que fazer |
+| A lista do dia | "Termo pendente" (vermelho) | **"Termo assinado — conferir"** (âmbar) |
+
+As decisões que não são óbvias pelo código:
+
+- **O traço reusa o `TracoAssinatura` do balcão** — mesma tabela, bytes fora da linha da
+  coleta: as varreduras desta tabela leem LISTAS, e uma coluna de imagem aqui faria cada
+  batida arrastar as assinaturas do dia pela rede para não usar nenhuma.
+- **As RESPOSTAS vão junto com o traço.** Guardar um sem o outro seria meia recuperação: a
+  conferência traria a assinatura com o formulário em branco, e quem responderia pelo
+  paciente seria a técnica.
+- **A varredura NUNCA lança.** Ela é chamada por uma tela com paciente na frente: balde
+  fora do ar ou traço ilegível de UMA coleta viraria agenda do dia em branco. Vira log — e
+  a janela do termo, onde alguém está de fato esperando, continua dizendo o erro por
+  extenso.
+- **O critério é "não tem assinatura guardada", nunca "não respondeu"** — a coleta que a
+  versão anterior deixou respondida tem carimbo e nada dentro, e era a primeira que a
+  limpeza destruiria. Pela mesma razão a leitura responde do banco **com queda para o
+  balde**.
+- **O objeto só sai do ar quando a assinatura está segura.** Colheita que falhou não apaga:
+  a coleta fica no ar mais um dia e a varredura seguinte tenta de novo.
+- **O selo é âmbar, não vermelho.** O vermelho é de quem não assinou NADA; gastá-lo aqui
+  ensina a ignorá-lo no caso em que ele importa.
+- **`MeioAssinaturaPaciente.LinkRemoto` passou a ser gravado.** Até aqui toda assinatura era
+  carimbada `NaClinica`, inclusive as do celular — o sistema afirmando algo falso sobre como
+  a assinatura foi obtida, no único documento cujo valor inteiro é ser evidência. O canal
+  entra também na trilha.
+
+**O que NÃO mudou, e é decisão da direção:** a resposta continua não selando nada sozinha.
+Quem confere a identidade, preenche o documento conferido e conclui é uma pessoa — *o papel
+deste fluxo é tirar o custo do pad, não a pessoa do circuito* (§1). O que esta rodada tira
+do caminho é a **janela aberta**, não a conferência.
+
+## 7. O que fica para depois (dito, não prometido)
 
 - **Envio automático** (WhatsApp Business API) — hoje é o wa.me de sempre: um clique, a
   mensagem pronta, quem envia é a pessoa. Prometer envio sem clique exigiria conta
@@ -136,3 +189,8 @@ nada muda no app nem nos QRs já impressos.
   a clínica pedir, é outra decisão, com a validade por modelo (parcela 67) fazendo o corte.
 - **Fotos de documento pelo link** — não; o link não coleta dado, só devolve a assinatura
   do texto que mostrou.
+- **Selar sozinho, sem o Confirmar de ninguém** — hoje a assinatura fica guardada e espera
+  a conferência de uma pessoa (§6). Tirar a pessoa do circuito é decisão da direção, não
+  efeito colateral de uma facilitação: o que a conferência entrega é a identidade
+  (`documento conferido`) e a testemunha, e sem ela o termo passaria a valer com a
+  identidade presumida pelo número de WhatsApp da ficha.

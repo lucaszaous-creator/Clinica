@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -25,6 +27,13 @@ public sealed partial class LinhaFolha : ObservableObject
     [ObservableProperty] private string _pendencia = string.Empty;
 
     [ObservableProperty] private bool _podeGerar;
+
+    /// <summary>
+    /// Marcada no passo 2. É estado de TELA, não do catálogo: quem o escreve é o
+    /// <c>OnFolhaEscolhidaChanged</c>, por REFERÊNCIA — a coleção é montada uma vez e as
+    /// instâncias são as mesmas do começo ao fim.
+    /// </summary>
+    [ObservableProperty] private bool _escolhida;
 
     /// <summary>Rótulo do botão: "Emitir", "Gerar PDF" ou "Ir para o Caixa".</summary>
     public required string AcaoRotulo { get; init; }
@@ -231,6 +240,62 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _soDoPaciente;
 
+    /// <summary>
+    /// A folha marcada no PASSO 2. Nula enquanto ninguém escolheu — e aí o passo 3 não
+    /// existe, em vez de existir vazio: bloco reservado sem conteúdo se lê como região que
+    /// não carregou.
+    /// </summary>
+    [ObservableProperty] private LinhaFolha? _folhaEscolhida;
+
+    /// <summary>O que o PASSO 3 afirma. Nulo junto com a folha escolhida.</summary>
+    [ObservableProperty] private PreviaDaFolha? _previa;
+
+    /// <summary>
+    /// A linha de baixo da faixa do passo 1: documento · idade · convênio · o horário de
+    /// hoje. Montada AQUI, e não por bindings concatenados no XAML, porque ela precisa
+    /// PULAR o que a ficha não tem — a importação do Smart Clinic produziu fichas
+    /// incompletas às centenas, e cada uma sairia com " ·  · " no meio.
+    ///
+    /// ⚠️ A idade sai de <see cref="IdadeDoPaciente"/>, nunca de uma conta à mão: a regra
+    /// recusa o IMPLAUSÍVEL e escreve o terceiro estado ("data a conferir"), que é o que
+    /// impede o "1851 anos" de voltar por uma nona porta.
+    /// </summary>
+    public string IdentidadeDoPaciente
+    {
+        get
+        {
+            if (Seletor.Selecionado is not { } p) return string.Empty;
+
+            var partes = new List<string>();
+            if (!string.IsNullOrWhiteSpace(p.DocumentoFormatado)) partes.Add(p.DocumentoFormatado);
+            if (IdadeDoPaciente.Texto(p.DataNascimento, DateOnly.FromDateTime(DateTime.Today))
+                is { Length: > 0 } idade) partes.Add(idade);
+            // ⚠️ A MESMA palavra da linha da lista, dois segundos antes: o nome de
+            // catálogo da ficha sem convênio tem 33 caracteres ("A definir (importado sem
+            // convênio)") e a lista já o resume em "sem convênio". Dois jeitos de dizer o
+            // mesmo fato na mesma tela fazem procurar a diferença que não existe.
+            if (p.ConvenioADefinir) partes.Add("sem convênio");
+            else if (!string.IsNullOrWhiteSpace(p.ConvenioNome)) partes.Add(p.ConvenioNome);
+            if (!string.IsNullOrWhiteSpace(ContextoDoPaciente)) partes.Add(ContextoDoPaciente);
+
+            return string.Join(" · ", partes);
+        }
+    }
+
+    /// <summary>
+    /// Volta ao passo 1. Limpar a escolha é o que faz a busca reaparecer — e ela reaparece
+    /// com o termo de antes, que é o certo: quem troca de paciente quase sempre troca
+    /// dentro da mesma família de nomes.
+    /// </summary>
+    [RelayCommand]
+    private void TrocarPaciente() => Seletor.Limpar();
+
+    partial void OnFolhaEscolhidaChanged(LinhaFolha? value)
+    {
+        AtualizarPrevia();
+        foreach (var linha in Folhas) linha.Escolhida = ReferenceEquals(linha, value);
+    }
+
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private bool _carregando;
 
@@ -297,6 +362,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
             AtualizarDisponibilidade();
             AtualizarContextoDoPaciente();
             OnPropertyChanged(nameof(TemPacienteEscolhido));
+            OnPropertyChanged(nameof(IdentidadeDoPaciente));
 
             // Trocar de paciente com o filtro LIGADO tem de trocar a lista junto: senão ela
             // continuaria mostrando as folhas de quem já saiu do balcão, com o "2ª via"
@@ -309,8 +375,26 @@ public sealed partial class DocumentosViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    partial void OnInicioChanged(DateTime value) => _ = CarregarAsync();
-    partial void OnFimChanged(DateTime value) => _ = CarregarAsync();
+    // ⚠️ A prévia do passo 3 vai junto: com "Fechamento do período" escolhido, o "para
+    // quem" É o período — e ele continuaria escrito com as datas de antes, afirmando na
+    // tela um recorte que o PDF não vai ter.
+    partial void OnInicioChanged(DateTime value)
+    {
+        AtualizarPrevia();
+        _ = CarregarAsync();
+    }
+
+    partial void OnFimChanged(DateTime value)
+    {
+        AtualizarPrevia();
+        _ = CarregarAsync();
+    }
+
+    // A faixa do passo 1 lê o contexto ("tem horário hoje às 14h"), e ele chega DEPOIS da
+    // escolha — a lista de quem está hoje é outra consulta. Sem isto a faixa nasceria sem a
+    // única informação que o balcão usa para conferir que é a pessoa certa.
+    partial void OnContextoDoPacienteChanged(string value)
+        => OnPropertyChanged(nameof(IdentidadeDoPaciente));
 
     /// <summary>
     /// Quem tem horário hoje. Uma consulta, na abertura.
@@ -469,7 +553,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
                         ? (podeEmitir
                             ? string.Empty
                             : $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).")
-                        : "Escolha o paciente ao lado.";
+                        : "Escolha o paciente no passo 1.";
                     break;
 
                 case ExigenciaFolha.LancamentoNoCaixa:
@@ -490,7 +574,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     // texto com calma. Quem escolhe o modelo é a janela.
                     linha.PodeGerar = temPaciente && podeEmitir;
                     linha.Pendencia = !temPaciente
-                        ? "Escolha o paciente ao lado."
+                        ? "Escolha o paciente no passo 1."
                         : podeEmitir
                             ? string.Empty
                             : $"Seu acesso permite ver, não colher ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).";
@@ -499,11 +583,54 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 default: // Periodo
                     linha.PodeGerar = podeEmitir;
                     linha.Pendencia = podeEmitir
-                        ? "Usa o período escolhido abaixo."
+                        ? "Usa o período da aba \u201cO que já saiu\u201d."
                         : $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).";
                     break;
             }
         }
+
+        // A prévia do passo 3 fala da folha escolhida E do estado de agora: trocar de
+        // paciente muda o "para quem" e pode acender ou apagar o botão.
+        AtualizarPrevia();
+    }
+
+    /// <summary>
+    /// O PASSO 2 escolhe; ele não emite (set/2026, mockup 5). O cartão deixou de disparar a
+    /// emissão no primeiro clique e passa a marcar a folha, e é o passo 3 que emite.
+    ///
+    /// ⚠️ **Escolher NÃO exige que dê para emitir.** A folha cuja exigência não está
+    /// cumprida é justamente a que precisa ser escolhida para o passo 3 poder EXPLICAR o
+    /// que falta — recusar aqui devolveria o botão que não faz nada da parcela 41.
+    /// </summary>
+    [RelayCommand]
+    private void EscolherFolha(LinhaFolha? linha)
+    {
+        if (linha is null) return;
+        FolhaEscolhida = linha;
+    }
+
+    /// <summary>
+    /// Monta o que o passo 3 AFIRMA. A composição mora na Application
+    /// (<see cref="PreviaDaFolha"/>) e é pura: o que a tela afirma precisa morar onde o
+    /// `dotnet test` alcança.
+    /// </summary>
+    private void AtualizarPrevia()
+    {
+        if (FolhaEscolhida is not { } escolhida)
+        {
+            Previa = null;
+            return;
+        }
+
+        var paciente = Seletor.Selecionado;
+        Previa = PreviaDaFolha.Montar(
+            escolhida.Folha,
+            escolhida.AcaoRotulo,
+            escolhida.PodeGerar,
+            escolhida.Pendencia,
+            paciente?.Nome,
+            paciente?.DocumentoFormatado,
+            $"de {Inicio:dd/MM/yyyy} a {Fim:dd/MM/yyyy}");
     }
 
     [RelayCommand]
