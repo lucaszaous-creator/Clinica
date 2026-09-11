@@ -4357,6 +4357,63 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   comprou, e desfazer isso é cancelamento de venda, do Financeiro.
 
 
+- **DOCUMENTOS EM TRÊS PASSOS — e o passo 3 só promete o que entrega** (set/2026; mockup 5
+  de `docs/mockups/documentos-depois-de-escolher.html`, escolhido pela direção entre cinco).
+  O print da clínica mostrava a tela **acumulando** em vez de mudar de estado: paciente
+  escolhido, e a lista de quatro resultados continuava aberta, as linhas saíam em escada e
+  uma caixa azul de largura inteira dizia uma coisa só — o nome. As onze folhas, que são o
+  assunto, ficavam abaixo da dobra.
+  O desenho é o do **Novo atendimento**, que a clínica já aprovou: QUEM · QUAL PAPEL · O QUE
+  VAI SAIR. O passo cumprido RECOLHE — a busca some e vira a faixa de identidade, com os
+  campos que decidem se o papel pode sair naquele nome (documento, idade, convênio, o
+  horário de hoje).
+  ⚠️ **O cartão passou a ESCOLHER, e escolher NÃO exige que dê para emitir.** A folha cuja
+  exigência não está cumprida é justamente a que precisa ser escolhida para o passo 3 poder
+  EXPLICAR o que falta; recusar ali devolveria o botão que não faz nada da parcela 41. A
+  barreira fica no passo 3, onde o ato acontece.
+  ⚠️ **O passo 1 é um passo, NÃO um portão.** Duas folhas não são de pessoa nenhuma (o
+  fechamento do período e o recibo, que navega ao Caixa), e um assistente que exigisse o
+  paciente as tornaria inalcançáveis — a regra 3 do faturamento, que a parcela 88 já
+  invocou para deixar esta tela de fora da busca obrigatória. O passo 2 existe sempre.
+  ⚠️ **DESVIO DECLARADO DO MOCKUP APROVADO: o passo 3 não mostra o NÚMERO da folha.** O
+  desenho trazia "2026/0189"; o número é atribuído na EMISSÃO, por ano, e adivinhá-lo
+  escreveria na tela um número que a próxima emissão concorrente torna falso. É a prévia da
+  guia outra vez — ela não tem número porque ele nasce na baixa, e a tarja diz isso.
+  **Desvio de mockup aprovado se escreve, não se comete em silêncio.**
+  ⚠️ **O que o passo 3 acrescenta de verdade é a frase que o produto nunca teve: o que o
+  CLIQUE faz.** Quatro folhas não imprimem nada ao serem clicadas — uma navega para o
+  Caixa, duas abrem a coleta de uma assinatura, uma abre a janela onde se escreve — e a
+  leitura natural de um botão chamado "Emitir" é que o papel saiu. A frase sai da MESMA
+  `ExigenciaFolha` que ROTEIA a emissão de verdade: duas definições de "o que este botão
+  faz" divergiriam na primeira correção, e a que ficaria para trás é a da TELA, isto é, a
+  que a pessoa lê.
+  ⚠️ E a DESCRIÇÃO da folha voltou para a tela: nos cartões ela vive na dica do mouse, e
+  dica é o que ninguém lê — quem não conhece a folha descobre o que ela é ERRANDO, e o erro
+  aqui custa um cancelamento com motivo.
+  ⚠️ **`PreviaDaFolha` mora na Application e é PURA**, com onze testes — inclusive um que
+  percorre o CATÁLOGO INTEIRO em vez das folhas que eu lembrei: é o que faz a folha nova
+  cobrar a própria cobertura, como o `Os_sete_documentos_geram_PDF` cobrou quando nasceu o
+  oitavo tipo. O que a tela AFIRMA não pode morar num projeto WPF, onde o `dotnet test` não
+  alcança.
+  ⚠️ **`{Binding Garantias}` NÃO alcançaria a constante.** A frase das garantias nasceu
+  `const`, e binding do WPF não alcança membro ESTÁTICO: o texto sairia vazio, sem erro e
+  sem aviso, verde em todas as redes. Ela ganhou uma propriedade de instância ao lado.
+  ⚠️ **`CornerRadius="999"` num círculo de tamanho FIXO é a parcela 91 de novo** — o WPF não
+  trava o raio na metade da altura como o CSS. Os três números dos passos são 19×19 e usam
+  raio explícito (9,5); `Ajudantes.Pilula` é para o que TEM largura variável.
+  ⚠️ **Dois textos que apontavam LUGAR já estavam mentindo, e a reforma os expôs:** a
+  pendência dizia "Escolha o paciente **ao lado**" (ele está acima, no passo 1) e "Usa o
+  período escolhido **abaixo**" — e o período saiu desta aba na **parcela 82**, quando ela
+  virou duas. Texto espacial é o primeiro a apodrecer numa reforma de leiaute, e ele não
+  aparece em rede nenhuma.
+  ⚠️ E a faixa diz **"sem convênio"**, a MESMA palavra que a linha da lista usa dois
+  segundos antes — o nome de catálogo da ficha "a definir" tem 33 caracteres, e dois jeitos
+  de dizer o mesmo fato na mesma tela fazem a pessoa procurar a diferença que não existe.
+  **O que se perdeu, e é o custo aceito do desenho:** emitir virou TRÊS cliques onde eram
+  dois, e a declaração de comparecimento — o papel mais corriqueiro do balcão — paga esse
+  clique todo dia.
+
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
