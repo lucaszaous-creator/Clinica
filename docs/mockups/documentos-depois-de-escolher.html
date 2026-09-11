@@ -1,0 +1,697 @@
+<title>Documentos depois de escolher</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+/* ==================================================================================
+   CINCO DESENHOS PARA A TELA DEPOIS DE O PACIENTE SER ESCOLHIDO
+   (Documentos > Emitir). O cliente mandou o print: com "lucas" digitado e o paciente
+   já escolhido, a tela ACUMULA em vez de mudar de estado.
+
+   Os desenhos usam os tokens REAIS de Styles/Tokens.xaml — Azul.600 #123A9E,
+   Azul.50 #EEF3FC, Cinza.50/100/200/300/500/700/900, Verde.600, Laranja.600,
+   Vermelho.600; Fonte.Corpo 14 / Tabela 13 / Legenda 12; Raio.Pequeno 4 / Medio 8;
+   campo de 36 px; ficha de 232x118 — e as ONZE folhas reais do
+   CentralDocumentosService.Catalogo, com a permissao de cada uma.
+   ================================================================================== */
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento:#123A9E; --acento-suave:#EAF0FB;
+  --ganho:#15803D; --ganho-fundo:#E9F6EE;
+  --custo:#B91C1C; --custo-fundo:#FBECEC;
+  --atencao:#C2410C; --atencao-fundo:#FDF0E6;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+  --ds-cinza-50:#F8FAFC; --ds-cinza-100:#F1F5F9; --ds-cinza-200:#E5E7EB; --ds-cinza-300:#D1D5DB;
+  --ds-cinza-500:#6B7280; --ds-cinza-700:#374151; --ds-cinza-900:#111827;
+  --ds-azul-50:#EEF3FC; --ds-azul-100:#D8E3F7; --ds-azul-600:#123A9E;
+  --ds-verde-600:#16A34A; --ds-verde-50:#F0FDF4;
+  --ds-laranja-100:#FFEDD5; --ds-laranja-600:#EA580C; --ds-vermelho-600:#DC2626;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#28303E; --fio-forte:#3A4354;
+    --acento:#8CA9F2; --acento-suave:#1B2436;
+    --ganho:#6EE7A3; --ganho-fundo:#12291D;
+    --custo:#F49B9B; --custo-fundo:#2C1718;
+    --atencao:#F5B481; --atencao-fundo:#2B1D12;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#28303E; --fio-forte:#3A4354;
+  --acento:#8CA9F2; --acento-suave:#1B2436;
+  --ganho:#6EE7A3; --ganho-fundo:#12291D;
+  --custo:#F49B9B; --custo-fundo:#2C1718;
+  --atencao:#F5B481; --atencao-fundo:#2B1D12;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--pg); color:var(--tinta); font-family:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+     font-size:16px; line-height:1.55; margin:0; -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px; margin:0 auto; padding-block:48px 80px; padding-left:24px; padding-right:24px}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; letter-spacing:.14em;
+         text-transform:uppercase; color:var(--mudo); margin:0 0 10px}
+h1{font-size:42px; line-height:1.08; font-weight:700; letter-spacing:-.022em; margin:0 0 18px; text-wrap:balance}
+h2{font-size:26px; font-weight:600; letter-spacing:-.015em; margin:0 0 6px; text-wrap:balance}
+h3{font-size:16.5px; font-weight:600; margin:0 0 8px; text-wrap:balance}
+p{margin:0 0 14px}
+.lede{font-family:"IBM Plex Serif",Georgia,serif; font-size:18.5px; line-height:1.62; color:var(--tinta-2); max-width:66ch}
+.prosa{font-family:"IBM Plex Serif",Georgia,serif; font-size:16px; line-height:1.65; color:var(--tinta-2); max-width:72ch}
+hr.reg{border:0; border-top:1px solid var(--fio); margin-block:54px}
+.numero{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; letter-spacing:.1em;
+        color:var(--acento); display:block; margin:0 0 4px}
+.tese{font-family:"IBM Plex Serif",Georgia,serif; font-style:italic; font-size:17px; color:var(--tinta-2);
+      max-width:74ch; margin:0 0 22px}
+
+/* ============ a janela desenhada ============ */
+.janela{background:var(--ds-cinza-50); border:1px solid var(--fio-forte); border-radius:10px;
+        box-shadow:var(--sombra); overflow:hidden; color:var(--ds-cinza-900);
+        font-size:13px; line-height:1.45; max-width:100%}
+.abas{background:#FFFFFF; border-bottom:1px solid var(--ds-cinza-200); padding:0 20px; display:flex; gap:22px}
+.aba{padding:11px 2px 9px; font-size:13.5px; color:var(--ds-cinza-500); border-bottom:2px solid transparent;
+     white-space:nowrap}
+.aba.on{color:var(--ds-azul-600); font-weight:600; border-bottom-color:var(--ds-azul-600)}
+.tela{padding:18px 20px 20px; background:var(--ds-cinza-50)}
+.titulo-pg{font-size:20px; font-weight:700; letter-spacing:-.01em; color:var(--ds-cinza-900); margin:0 0 3px}
+.sub-pg{font-size:12px; color:var(--ds-cinza-500); margin:0 0 14px; max-width:78ch}
+
+.campo{height:36px; border:1px solid var(--ds-cinza-300); border-radius:4px; background:#FFF;
+       display:flex; align-items:center; padding:0 10px; gap:8px; color:var(--ds-cinza-500); font-size:13px}
+.campo.foco{border-color:var(--ds-azul-600); box-shadow:0 0 0 2px var(--ds-azul-50)}
+.campo .val{color:var(--ds-cinza-900)}
+.lupa{width:13px;height:13px;flex:none;opacity:.55}
+
+.btn{height:30px; border-radius:4px; padding:0 12px; font-size:12.5px; font-weight:500;
+     display:inline-flex; align-items:center; justify-content:center; white-space:nowrap;
+     background:var(--ds-azul-600); color:#FFF; border:1px solid var(--ds-azul-600)}
+.btn.sec{background:#FFF; color:var(--ds-cinza-700); border-color:var(--ds-cinza-300)}
+.btn.ghost{background:transparent; color:var(--ds-azul-600); border-color:transparent; padding:0 6px}
+.btn.off{background:var(--ds-cinza-100); color:#9AA1AE; border-color:var(--ds-cinza-200)}
+.btn.g{height:36px; padding:0 16px; font-size:13px}
+
+.badge{display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:999px;
+       font-size:11px; font-weight:500; background:var(--ds-cinza-100); color:var(--ds-cinza-700);
+       border:1px solid var(--ds-cinza-200); white-space:nowrap}
+.badge.av{background:var(--ds-laranja-100); color:#9A3412; border-color:#FBD8B4}
+.badge.ac{background:var(--ds-azul-50); color:var(--ds-azul-600); border-color:var(--ds-azul-100)}
+.badge.ok{background:var(--ds-verde-50); color:#15803D; border-color:#BBF7D0}
+
+.av-ini{width:38px;height:38px;flex:none;border-radius:999px;background:var(--ds-azul-50);
+        color:var(--ds-azul-600); display:flex;align-items:center;justify-content:center;
+        font-size:12.5px;font-weight:600;letter-spacing:.02em}
+.av-ini.sm{width:30px;height:30px;font-size:11px}
+
+/* faixa do paciente */
+.faixa{background:#FFF; border:1px solid var(--ds-cinza-200); border-left:3px solid var(--ds-azul-600);
+       border-radius:8px; padding:10px 14px; display:flex; align-items:center; gap:12px}
+.faixa .nome{font-size:15px; font-weight:600; letter-spacing:-.01em; line-height:1.2}
+.faixa .meta{font-size:11.5px; color:var(--ds-cinza-500); margin-top:2px}
+.espaco{flex:1 1 auto; min-width:8px}
+
+/* fichas 232x118 */
+.fichas{display:flex; flex-wrap:wrap; gap:10px}
+.ficha{width:232px; height:118px; background:#FFF; border:1px solid var(--ds-cinza-200);
+       border-radius:8px; padding:10px 12px; display:flex; flex-direction:column}
+.ficha .grp{font-size:10.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+            color:var(--ds-cinza-500)}
+.ficha .rot{font-size:13.5px; font-weight:600; margin-top:3px; line-height:1.25}
+.ficha .pend{font-size:11px; font-style:italic; color:var(--ds-cinza-500); margin-top:3px}
+.ficha .pe{margin-top:auto}
+.ficha.mudo{opacity:.55}
+
+/* linha de folha (mockup 4) */
+.tab{background:#FFF;border:1px solid var(--ds-cinza-200);border-radius:8px;overflow:hidden}
+.th,.tr{display:grid; grid-template-columns:132px 1fr 190px 118px; gap:12px; align-items:center;
+        padding:0 14px; min-height:44px}
+.th{min-height:34px; background:var(--ds-cinza-100); border-bottom:1px solid var(--ds-cinza-200);
+    font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--ds-cinza-500)}
+.tr{border-bottom:1px solid var(--ds-cinza-100); font-size:13px}
+.tr:last-child{border-bottom:0}
+.tr .nm{font-weight:600}
+.tr .dc{font-size:11.5px;color:var(--ds-cinza-500)}
+
+/* lista de resultados */
+.lista{background:#FFF;border:1px solid var(--ds-cinza-200);border-radius:8px;overflow:hidden;max-width:620px}
+.li{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;padding:7px 12px;
+    border-bottom:1px solid var(--ds-cinza-100)}
+.li:last-child{border-bottom:0}
+.li.on{background:var(--ds-azul-50)}
+.li .nm{font-weight:600;font-size:13px;line-height:1.2}
+.li .dc{font-size:11.5px;color:var(--ds-cinza-500)}
+.nm-hoje{font-weight:600;font-size:13px;line-height:1.2}
+
+.alerta{border-radius:8px;border:1px solid var(--ds-azul-100);background:var(--ds-azul-50);
+        padding:9px 12px;font-size:12px;color:#1E3A8A}
+.alerta.av{border-color:#FBD8B4;background:var(--ds-laranja-100);color:#9A3412}
+
+.passo{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.07em;
+       text-transform:uppercase;color:var(--ds-cinza-500);margin:0 0 8px}
+.passo .n{width:19px;height:19px;border-radius:999px;background:var(--ds-azul-600);color:#FFF;
+          display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0}
+.passo.feito .n{background:var(--ds-verde-600)}
+.passo.off{opacity:.45}
+.passo.off .n{background:var(--ds-cinza-300);color:var(--ds-cinza-700)}
+
+.secao-rot{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+           color:var(--ds-cinza-500); margin:0 0 8px}
+.sup{background:#FFF;border:1px solid var(--ds-cinza-200);border-radius:8px;padding:14px}
+
+.jaSaiu{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+        padding:8px 0;border-bottom:1px solid var(--ds-cinza-100);font-size:12.5px}
+.jaSaiu:last-child{border-bottom:0}
+.jaSaiu .num{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ds-cinza-500)}
+
+.notas{margin-top:20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:20px}
+.notas ul{margin:0; padding-left:19px}
+.notas li{margin:0 0 8px; font-size:14.5px; color:var(--tinta-2); line-height:1.5}
+.notas li b{color:var(--tinta); font-weight:600}
+.rot-nota{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.1em;
+          text-transform:uppercase;color:var(--mudo);margin:0 0 8px}
+.custo li::marker{color:var(--custo)}
+.ganho li::marker{color:var(--ganho)}
+
+.defeito{border-left:3px solid var(--custo); background:var(--custo-fundo); padding:10px 14px;
+         border-radius:0 6px 6px 0; margin:0 0 10px; font-size:14.5px; color:var(--tinta-2)}
+.defeito b{color:var(--tinta)}
+.veredito{border-left:3px solid var(--ganho); background:var(--ganho-fundo); padding:14px 18px;
+          border-radius:0 8px 8px 0; margin:24px 0 0}
+.veredito p{margin:0; font-size:15.5px; color:var(--tinta-2)}
+.veredito b{color:var(--tinta)}
+
+.rolagem{overflow-x:auto; padding-bottom:4px}
+.rolagem > .janela{min-width:900px}
+@media (max-width:760px){
+  h1{font-size:33px} h2{font-size:22px}
+  .wrap{padding-block:32px 56px}
+  .notas{grid-template-columns:1fr}
+}
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Clinica · Recepção · Documentos</p>
+  <h1>Depois de escolher o paciente,<br>a tela precisa MUDAR de estado</h1>
+  <p class="lede">Hoje ela não muda: ela acumula. O campo de busca continua com o termo digitado,
+  a lista de resultados continua aberta com quatro nomes, e embaixo aparece uma caixa azul
+  de mil e seiscentos pixels que diz uma coisa só — o nome de quem foi escolhido. As folhas,
+  que são o assunto da tela, ficam abaixo da dobra.</p>
+
+  <p class="prosa">Cinco desenhos, cada um com uma resposta DIFERENTE para a mesma pergunta —
+  não cinco pinturas do mesmo leiaute. Todos usam os tokens do design system e as onze folhas
+  reais do catálogo, com a permissão de cada uma: quem está no balcão vê seis, e as três que
+  exigem quem assina aparecem ditas, não simplesmente ausentes.</p>
+
+  <hr class="reg">
+
+  <!-- =============================== HOJE =============================== -->
+  <section>
+    <span class="numero">O QUE HÁ HOJE</span>
+    <h2>Três defeitos somados, e nenhum deles falha</h2>
+
+    <div class="defeito"><b>A lista não fecha.</b> O paciente foi escolhido e os quatro
+    resultados continuam na tela, ocupando 216 px. A linha marcada é a única pista de que
+    houve escolha.</div>
+    <div class="defeito"><b>As linhas não têm colunas.</b> Cada linha é medida pelo próprio
+    conteúdo, então o crachá do convênio flutua logo depois do nome e a lista sai em escada —
+    e a barra de rolagem aparece solta, longe da borda das linhas.</div>
+    <div class="defeito"><b>O crachá é uma caixa de largura inteira com uma linha dentro.</b>
+    Ele foi desenhado para dizer PARA QUEM o papel vai sair, e diz só o nome: nem documento,
+    nem convênio, nem o horário de hoje — e gasta a tela inteira para isso.</div>
+
+    <div class="rolagem">
+    <div class="janela">
+      <div class="abas"><div class="aba on">Emitir</div><div class="aba">O que já saiu</div></div>
+      <div class="tela">
+        <div style="width:300px" class="campo foco"><span class="val">lucas</span></div>
+        <div style="margin-top:8px;max-width:620px">
+          <div style="background:#FFF;border:1px solid var(--ds-cinza-200);border-radius:4px;padding:4px 0">
+            <div style="display:flex;align-items:center;gap:10px;padding:5px 10px;width:430px">
+              <div class="av-ini sm">AD</div>
+              <div><div class="nm-hoje">ALESSANDRA LUCAS DUARTE</div>
+                   <div class="dc">164.107.247-48</div></div>
+              <span class="badge" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">Unimed Costa do Sol Intercâm…</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:5px 10px;width:392px">
+              <div class="av-ini sm">LA</div>
+              <div><div class="nm-hoje">LUCAS DA ROCHA DE ALMEIDA</div>
+                   <div class="dc">120.269.687-21</div></div>
+              <span class="badge av">sem convênio</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:5px 10px;width:445px;background:var(--ds-azul-50)">
+              <div class="av-ini sm">LS</div>
+              <div><div class="nm-hoje">Lucas de Souza Santos</div>
+                   <div class="dc">178.747.197-78</div></div>
+              <span class="badge" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">Unimed Costa do Sol Intercâm…</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:5px 10px;width:392px">
+              <div class="av-ini sm">LV</div>
+              <div><div class="nm-hoje">LUCAS FREITAS VILETE</div>
+                   <div class="dc">091.603.056-30</div></div>
+              <span class="badge av">sem convênio</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:10px;background:var(--ds-azul-50);border:1px solid var(--ds-azul-600);
+                    border-radius:8px;padding:12px 14px;font-weight:600">Lucas de Souza Santos</div>
+        <div style="margin-top:14px;text-align:center;font-size:11.5px;color:var(--ds-cinza-500);
+                    border-top:1px dashed var(--ds-cinza-300);padding-top:10px">
+          as onze folhas ficam aqui embaixo, fora da vista</div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =============================== 1 =============================== -->
+  <section>
+    <span class="numero">MOCKUP 1</span>
+    <h2>A faixa do paciente</h2>
+    <p class="tese">A busca é o portão, não a tela. Escolhido o paciente, ela se recolhe numa
+    faixa de identidade e as folhas ocupam o lugar que ela estava gastando.</p>
+
+    <div class="rolagem">
+    <div class="janela">
+      <div class="abas"><div class="aba on">Emitir</div><div class="aba">O que já saiu</div></div>
+      <div class="tela">
+        <div class="faixa">
+          <div class="av-ini">LS</div>
+          <div>
+            <div class="nome">Lucas de Souza Santos</div>
+            <div class="meta">178.747.197-78 · 34 anos · (22) 99876-5432</div>
+          </div>
+          <span class="badge ac">Unimed Costa do Sol Intercâmbio</span>
+          <span class="badge ok">horário hoje às 14h00</span>
+          <div class="espaco"></div>
+          <div class="btn sec">Trocar paciente</div>
+        </div>
+
+        <div style="height:16px"></div>
+        <div class="secao-rot">O que sai para ele</div>
+        <div class="fichas">
+          <div class="ficha"><div class="grp">Atendimento</div>
+            <div class="rot">Declaração de comparecimento</div>
+            <div class="pe"><span class="btn">Emitir</span></div></div>
+          <div class="ficha"><div class="grp">Atendimento</div>
+            <div class="rot">Termo de procedimento</div>
+            <div class="pend">exigido pelo BSV de hoje</div>
+            <div class="pe"><span class="btn">Colher assinatura…</span></div></div>
+          <div class="ficha"><div class="grp">Atendimento</div>
+            <div class="rot">Termo de consentimento (LGPD)</div>
+            <div class="pe"><span class="btn sec">Colher assinatura…</span></div></div>
+          <div class="ficha"><div class="grp">Dinheiro</div>
+            <div class="rot">Orçamento</div>
+            <div class="pe"><span class="btn sec">Emitir</span></div></div>
+          <div class="ficha"><div class="grp">Dinheiro</div>
+            <div class="rot">Recibo de pagamento</div>
+            <div class="pend">nasce no Caixa, sobre o lançamento</div>
+            <div class="pe"><span class="btn sec">Ir ao Caixa</span></div></div>
+          <div class="ficha mudo"><div class="grp">Gestão</div>
+            <div class="rot">Fechamento do período</div>
+            <div class="pend">é do período, não do paciente</div>
+            <div class="pe"><span class="btn off">Escolha o período</span></div></div>
+        </div>
+        <div style="height:12px"></div>
+        <div class="alerta">Receita, atestado e pedido de exame são emitidos por QUEM ASSINA, no
+        Consultório. Aqui eles aparecem em “O que já saiu”, para segunda via.</div>
+      </div>
+    </div>
+    </div>
+
+    <div class="notas">
+      <div class="ganho"><p class="rot-nota">O que decide</p><ul>
+        <li><b>A faixa é o mesmo componente que o Consultório já usa.</b> Quem trabalha nos
+        dois apps encontra a mesma peça, no mesmo lugar, com o mesmo “Trocar paciente”.</li>
+        <li><b>Ela DIZ o que a caixa azul de hoje cala</b> — documento, idade, telefone,
+        convênio por extenso e o horário de hoje. São os campos que decidem se o papel pode
+        sair no nome daquela pessoa.</li>
+        <li><b>A lista fecha ao escolher</b>, e é a faixa que prova a escolha. Enquanto a
+        prova é uma linha marcada dentro de uma lista aberta, a tela não respondeu nada.</li>
+      </ul></div>
+      <div class="custo"><p class="rot-nota">O que custa</p><ul>
+        <li>É o desenho <b>mais conservador dos cinco</b>: muda o topo da tela e não mexe em
+        mais nada. Se a reclamação for “a tela inteira é amadora”, ele resolve metade.</li>
+        <li>Trocar de paciente vira <b>dois cliques</b> (Trocar → digitar) em vez de um.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =============================== 2 =============================== -->
+  <section>
+    <span class="numero">MOCKUP 2</span>
+    <h2>A ficha de documentos do paciente</h2>
+    <p class="tese">Escolhido o paciente, a pergunta do balcão quase nunca é só “emitir” —
+    metade das vezes é “ele já tem um, me dá a segunda via”. As duas respostas passam a viver
+    na mesma tela, para a mesma pessoa.</p>
+
+    <div class="rolagem">
+    <div class="janela">
+      <div class="abas"><div class="aba on">Emitir</div><div class="aba">O que já saiu</div></div>
+      <div class="tela">
+        <div class="faixa">
+          <div class="av-ini">LS</div>
+          <div>
+            <div class="nome">Lucas de Souza Santos</div>
+            <div class="meta">178.747.197-78 · Unimed Costa do Sol Intercâmbio · horário hoje às 14h00</div>
+          </div>
+          <div class="espaco"></div>
+          <div class="btn sec">Trocar paciente</div>
+        </div>
+
+        <div style="height:16px"></div>
+        <div style="display:grid;grid-template-columns:1fr 330px;gap:14px;align-items:start">
+
+          <div>
+            <div class="secao-rot">Emitir agora</div>
+            <div class="fichas">
+              <div class="ficha"><div class="grp">Atendimento</div>
+                <div class="rot">Declaração de comparecimento</div>
+                <div class="pe"><span class="btn">Emitir</span></div></div>
+              <div class="ficha"><div class="grp">Atendimento</div>
+                <div class="rot">Termo de procedimento</div>
+                <div class="pend">exigido pelo BSV de hoje</div>
+                <div class="pe"><span class="btn">Colher assinatura…</span></div></div>
+              <div class="ficha"><div class="grp">Atendimento</div>
+                <div class="rot">Termo de consentimento (LGPD)</div>
+                <div class="pe"><span class="btn sec">Colher assinatura…</span></div></div>
+              <div class="ficha"><div class="grp">Dinheiro</div>
+                <div class="rot">Orçamento</div>
+                <div class="pe"><span class="btn sec">Emitir</span></div></div>
+            </div>
+            <div style="height:10px"></div>
+            <div class="alerta">Receita, atestado e pedido de exame saem por quem assina, no
+            Consultório — aqui, só a segunda via.</div>
+          </div>
+
+          <div class="sup">
+            <div class="secao-rot" style="margin-bottom:10px">O que ele já levou</div>
+            <div class="jaSaiu">
+              <div><div style="font-weight:600">Termo de procedimento</div>
+                   <div class="num">2026/0184 · 08/09 · assinado</div></div>
+              <div class="btn ghost">2ª via</div>
+            </div>
+            <div class="jaSaiu">
+              <div><div style="font-weight:600">Receituário</div>
+                   <div class="num">2026/0171 · 02/09 · Dra. Ana</div></div>
+              <div class="btn ghost">2ª via</div>
+            </div>
+            <div class="jaSaiu">
+              <div><div style="font-weight:600">Declaração de comparecimento</div>
+                   <div class="num">2026/0166 · 26/08</div></div>
+              <div class="btn ghost">2ª via</div>
+            </div>
+            <div style="margin-top:10px;font-size:11.5px;color:var(--ds-cinza-500)">
+              3 papéis · <span style="color:var(--ds-azul-600)">ver todos os 11 do ano</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="notas">
+      <div class="ganho"><p class="rot-nota">O que decide</p><ul>
+        <li><b>Responde a pergunta que hoje custa uma troca de aba.</b> “Quais papéis este
+        paciente já levou?” está na aba do lado, atrás de um chip que só existe depois de
+        alguém ter escolhido o paciente aqui.</li>
+        <li><b>A 2ª via é um clique</b>, ao lado do papel — e a 2ª via é como o paciente
+        recebe a via dele quando perde a primeira.</li>
+        <li>A coluna da direita <b>só existe com paciente escolhido</b>: ela é contexto DELE,
+        não uma faixa lateral permanente — o que a regra de leiaute do README proíbe.</li>
+      </ul></div>
+      <div class="custo"><p class="rot-nota">O que custa</p><ul>
+        <li><b>É o desenho que mais mexe no código</b>: a lista por paciente hoje mora na
+        outra aba, com o recorte por período. Aqui ela passa a ter um segundo dono.</li>
+        <li>Em 1366 px as fichas caem para <b>três por fileira</b>. Cabe, mas aperta.</li>
+        <li>Duas listas do mesmo dado em telas diferentes <b>divergem na primeira correção</b>
+        se não saírem da mesma leitura.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =============================== 3 =============================== -->
+  <section>
+    <span class="numero">MOCKUP 3</span>
+    <h2>O que costuma sair para quem está aqui</h2>
+    <p class="tese">Onze folhas é um catálogo. Com o paciente na frente e o horário de hoje
+    conhecido, a tela para de oferecer um catálogo e passa a propor — com as outras a um clique.</p>
+
+    <div class="rolagem">
+    <div class="janela">
+      <div class="abas"><div class="aba on">Emitir</div><div class="aba">O que já saiu</div></div>
+      <div class="tela">
+        <div class="faixa">
+          <div class="av-ini">LS</div>
+          <div>
+            <div class="nome">Lucas de Souza Santos</div>
+            <div class="meta">178.747.197-78 · Unimed Costa do Sol Intercâmbio</div>
+          </div>
+          <span class="badge ok">BSV hoje às 14h00</span>
+          <div class="espaco"></div>
+          <div class="btn sec">Trocar paciente</div>
+        </div>
+
+        <div style="height:16px"></div>
+        <div class="alerta av" style="margin-bottom:12px">
+          <b>Falta o termo do procedimento de hoje.</b> O BSV das 14h00 exige o termo assinado
+          pelo paciente, e ele ainda não assinou.
+          <span style="display:inline-block;margin-left:6px"><span class="btn" style="height:24px">Colher agora…</span></span>
+        </div>
+
+        <div class="secao-rot">Costuma sair nesta situação</div>
+        <div class="fichas">
+          <div class="ficha" style="border-color:var(--ds-azul-600);box-shadow:0 0 0 1px var(--ds-azul-600) inset">
+            <div class="grp">Atendimento</div>
+            <div class="rot">Termo de procedimento</div>
+            <div class="pend">exigido pelo BSV de hoje</div>
+            <div class="pe"><span class="btn">Colher assinatura…</span></div></div>
+          <div class="ficha"><div class="grp">Atendimento</div>
+            <div class="rot">Declaração de comparecimento</div>
+            <div class="pend">ele esteve aqui 7 vezes este ano</div>
+            <div class="pe"><span class="btn">Emitir</span></div></div>
+          <div class="ficha"><div class="grp">Dinheiro</div>
+            <div class="rot">Orçamento</div>
+            <div class="pe"><span class="btn sec">Emitir</span></div></div>
+        </div>
+
+        <div style="height:14px"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="btn sec">Ver as outras 8 folhas</div>
+          <span style="font-size:11.5px;color:var(--ds-cinza-500)">
+            3 delas saem por quem assina, no Consultório</span>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="notas">
+      <div class="ganho"><p class="rot-nota">O que decide</p><ul>
+        <li><b>A pendência vira a primeira coisa da tela</b>, com a porta dentro dela. Hoje o
+        termo que falta é um selo que some do cartão da fila — e sumir não se lê como “deu
+        certo”.</li>
+        <li><b>A tela usa o que o sistema já sabe</b>: a modalidade do horário de hoje, a
+        exigência de termo daquele procedimento, o histórico do paciente. Tudo já está no
+        banco e nenhuma tela o usa para ordenar nada.</li>
+        <li>Três fichas cabem numa fileira <b>em qualquer monitor da clínica</b>, inclusive o
+        de 1366.</li>
+      </ul></div>
+      <div class="custo"><p class="rot-nota">O que custa</p><ul>
+        <li><b>Esconder é uma decisão, e ela erra.</b> No dia em que a proposta não acerta, a
+        pessoa procura a folha que ela viu ontem e não acha — é preciso que “ver as outras”
+        seja óbvio, e ainda assim alguém vai reclamar.</li>
+        <li>A regra de “o que costuma sair” <b>é código novo</b>, e código novo que ordena
+        precisa de teste — senão ele passa a esconder a folha errada em silêncio.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =============================== 4 =============================== -->
+  <section>
+    <span class="numero">MOCKUP 4</span>
+    <h2>A tabela: uma linha por folha</h2>
+    <p class="tese">Para comparar onze coisas, o olho lê uma COLUNA, não uma grade. Em fichas
+    ele salta na diagonal; em linhas, o que falta em cada folha cai num prumo só.</p>
+
+    <div class="rolagem">
+    <div class="janela">
+      <div class="abas"><div class="aba on">Emitir</div><div class="aba">O que já saiu</div></div>
+      <div class="tela">
+        <div class="faixa">
+          <div class="av-ini">LS</div>
+          <div>
+            <div class="nome">Lucas de Souza Santos</div>
+            <div class="meta">178.747.197-78 · Unimed Costa do Sol Intercâmbio · horário hoje às 14h00</div>
+          </div>
+          <div class="espaco"></div>
+          <div class="btn sec">Trocar paciente</div>
+        </div>
+
+        <div style="height:16px"></div>
+        <div class="tab">
+          <div class="th"><div>Grupo</div><div>Folha</div><div>O que falta</div><div></div></div>
+          <div class="tr"><div><span class="badge ac">Atendimento</span></div>
+            <div><div class="nm">Declaração de comparecimento</div>
+                 <div class="dc">Prova de que esteve na clínica, com hora de chegada e de saída.</div></div>
+            <div class="dc">—</div><div><span class="btn">Emitir</span></div></div>
+          <div class="tr"><div><span class="badge ac">Atendimento</span></div>
+            <div><div class="nm">Termo de procedimento</div>
+                 <div class="dc">Assinado pelo paciente, na tela ou pelo celular.</div></div>
+            <div class="dc" style="color:#9A3412">exigido pelo BSV de hoje</div>
+            <div><span class="btn">Colher…</span></div></div>
+          <div class="tr"><div><span class="badge ac">Atendimento</span></div>
+            <div><div class="nm">Termo de consentimento (LGPD)</div>
+                 <div class="dc">As quatro finalidades, respondidas e assinadas.</div></div>
+            <div class="dc">—</div><div><span class="btn sec">Colher…</span></div></div>
+          <div class="tr"><div><span class="badge">Dinheiro</span></div>
+            <div><div class="nm">Orçamento</div>
+                 <div class="dc">Proposta de valor, sem comprovar pagamento.</div></div>
+            <div class="dc">—</div><div><span class="btn sec">Emitir</span></div></div>
+          <div class="tr"><div><span class="badge">Dinheiro</span></div>
+            <div><div class="nm">Recibo de pagamento</div>
+                 <div class="dc">Comprova dinheiro que entrou; aponta para o lançamento.</div></div>
+            <div class="dc" style="color:var(--ds-cinza-500)">nasce no Caixa</div>
+            <div><span class="btn sec">Ir ao Caixa</span></div></div>
+          <div class="tr" style="opacity:.6"><div><span class="badge">Gestão</span></div>
+            <div><div class="nm">Fechamento do período</div>
+                 <div class="dc">Conferência de um período — não é de uma pessoa.</div></div>
+            <div class="dc">um período (de/até)</div>
+            <div><span class="btn off">Escolha o período</span></div></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="alerta">Receita, atestado e pedido de exame são emitidos por QUEM ASSINA,
+        no Consultório.</div>
+      </div>
+    </div>
+    </div>
+
+    <div class="notas">
+      <div class="ganho"><p class="rot-nota">O que decide</p><ul>
+        <li><b>A descrição volta para a tela.</b> Nas fichas ela vive na dica do mouse, e
+        dica é o que ninguém lê — quem não conhece a folha descobre o que ela é errando.</li>
+        <li><b>“O que falta” vira coluna.</b> É a regra da parcela 24 levada às últimas: o
+        requisito se descobre ANTES de clicar, e num prumo só.</li>
+        <li>A tabela <b>não muda de altura</b> quando o paciente troca, e a tela para de
+        pular.</li>
+      </ul></div>
+      <div class="custo"><p class="rot-nota">O que custa</p><ul>
+        <li><b>Tabela é mais fria que ficha.</b> É o desenho mais administrativo dos cinco —
+        se a queixa é “parece amador”, este é o que menos parece um produto e mais parece um
+        sistema interno.</li>
+        <li>Onze linhas <b>rolam</b> numa tela de 768 px, e rolar para achar a folha é o que a
+        grade evita.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <!-- =============================== 5 =============================== -->
+  <section>
+    <span class="numero">MOCKUP 5</span>
+    <h2>Três passos, como o Novo atendimento</h2>
+    <p class="tese">A clínica já aprovou este desenho noutra tela: QUEM · O QUE · O QUE VAI
+    SAIR, numerados, com o passo cumprido recolhido numa linha. Repeti-lo aqui é o que faz os
+    dois itens do balcão parecerem o mesmo programa.</p>
+
+    <div class="rolagem">
+    <div class="janela">
+      <div class="abas"><div class="aba on">Emitir</div><div class="aba">O que já saiu</div></div>
+      <div class="tela">
+
+        <div class="passo feito"><span class="n">✓</span> 1 · Quem</div>
+        <div class="faixa" style="border-left-color:var(--ds-verde-600)">
+          <div class="av-ini">LS</div>
+          <div>
+            <div class="nome">Lucas de Souza Santos</div>
+            <div class="meta">178.747.197-78 · Unimed Costa do Sol Intercâmbio · horário hoje às 14h00</div>
+          </div>
+          <div class="espaco"></div>
+          <div class="btn ghost">Trocar</div>
+        </div>
+
+        <div style="height:18px"></div>
+        <div class="passo"><span class="n">2</span> 2 · Qual papel</div>
+        <div class="fichas">
+          <div class="ficha" style="border-color:var(--ds-azul-600);box-shadow:0 0 0 1px var(--ds-azul-600) inset">
+            <div class="grp">Atendimento</div>
+            <div class="rot">Declaração de comparecimento</div>
+            <div class="pend">escolhida</div>
+            <div class="pe"><span class="badge ac">selecionada</span></div></div>
+          <div class="ficha"><div class="grp">Atendimento</div>
+            <div class="rot">Termo de procedimento</div>
+            <div class="pend">exigido pelo BSV de hoje</div>
+            <div class="pe"><span class="btn sec">Escolher</span></div></div>
+          <div class="ficha"><div class="grp">Atendimento</div>
+            <div class="rot">Termo de consentimento (LGPD)</div>
+            <div class="pe"><span class="btn sec">Escolher</span></div></div>
+          <div class="ficha"><div class="grp">Dinheiro</div>
+            <div class="rot">Orçamento</div>
+            <div class="pe"><span class="btn sec">Escolher</span></div></div>
+        </div>
+
+        <div style="height:18px"></div>
+        <div class="passo"><span class="n">3</span> 3 · O que vai sair</div>
+        <div class="sup" style="display:flex;gap:16px;align-items:center">
+          <div style="flex:1 1 auto">
+            <div style="font-weight:600;font-size:14px">Declaração de comparecimento · 2026/0189</div>
+            <div style="font-size:12px;color:var(--ds-cinza-500);margin-top:3px">
+              Lucas de Souza Santos esteve na clínica em 11/09/2026, das 13h52 às —
+              &nbsp;·&nbsp; a saída entra quando a sessão for encerrada.</div>
+            <div style="font-size:11.5px;color:var(--ds-cinza-500);margin-top:6px">
+              Numerada por ano, com código de conferência no rodapé. Não se apaga: cancela-se
+              com motivo.</div>
+          </div>
+          <div class="btn g">Emitir e imprimir</div>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div class="notas">
+      <div class="ganho"><p class="rot-nota">O que decide</p><ul>
+        <li><b>O desenho já foi aprovado pela clínica</b> no Novo atendimento, e é o único dos
+        cinco que não pede uma decisão nova de leiaute.</li>
+        <li><b>O passo 3 mostra o papel ANTES de ele existir.</b> É a prévia da guia aplicada
+        ao documento: o campo que falta se vê como buraco, e documento numerado não se apaga —
+        errar aqui custa um cancelamento com motivo.</li>
+        <li>O passo cumprido <b>recolhe numa linha</b> em vez de continuar ocupando a tela.</li>
+      </ul></div>
+      <div class="custo"><p class="rot-nota">O que custa</p><ul>
+        <li><b>Emitir vira três cliques</b> onde hoje são dois. Para a declaração de
+        comparecimento — o papel mais corriqueiro do balcão — é um clique a mais, todo dia.</li>
+        <li>Exige uma <b>prévia por tipo de folha</b>: sete têm conteúdo diferente, e prévia
+        que não bate com o papel emitido é pior do que prévia nenhuma.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <hr class="reg">
+
+  <section>
+    <span class="numero">A RECOMENDAÇÃO</span>
+    <h2>O 1 é o piso; o 2 é o que eu entregaria</h2>
+    <p class="prosa">O <b>mockup 1</b> corrige os três defeitos da foto e não arrisca nada —
+    é o mínimo que a tela precisa para deixar de parecer inacabada. O <b>mockup 2</b> faz isso
+    e ainda responde a pergunta que hoje obriga a trocar de aba, que é onde o balcão perde
+    tempo de verdade: a segunda via do papel que o paciente já levou.</p>
+    <p class="prosa">O <b>3</b> é o mais ambicioso e o único que pode errar sozinho — ele
+    esconde folhas. O <b>4</b> é o mais legível e o menos caloroso. O <b>5</b> é o mais
+    coerente com o resto do produto e o mais caro no uso diário, porque cobra um clique a mais
+    justamente no papel mais frequente.</p>
+    <div class="veredito"><p><b>Os cinco começam pela mesma correção</b>, e ela vale sozinha:
+    a lista de resultados fecha quando alguém escolhe, e a caixa azul de largura inteira vira
+    uma faixa que diz quem é a pessoa. Sem isso, os outros quatro são pintura sobre a mesma
+    tela que acumula.</p></div>
+  </section>
+
+</div>

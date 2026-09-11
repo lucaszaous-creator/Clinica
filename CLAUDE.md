@@ -4330,6 +4330,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `BasedOn="{StaticResource BotaoSecundarioPerigo}"` + `DataTrigger` sobre os tokens de
   aviso, sem componente novo no design system.
 
+- **VENDER PACOTE: a lista de pacientes tinha 8 px, e sem escolher o paciente não se vende
+  nada** (set/2026 — o cliente mandou o print: com "lucas" digitado, o primeiro resultado
+  aparecia como uma FATIA de oito pixels, cortado ao meio). `PacoteVendaWindow` é um
+  `DockPanel` em que o formulário inteiro — pacote, data, valor, forma de pagamento,
+  parcelas, observações — estava `Dock="Bottom"`, e a lista de resultados era o filho que
+  PREENCHE. **Num `DockPanel` o ANCORADO leva a altura que pede e quem paga é o fill**: o
+  formulário soma ~500 px numa janela de 690, e o que sobrou para a lista foi o resto.
+  ⚠️ **É a parcela 79 pelo AVESSO, e é pior.** Lá o filho ancorado que não cabia era
+  DECEPADO — dava para ver o estrago. Aqui quem some é o fill, e o que se vê é uma janela
+  bonita, com todos os campos no lugar, em que **a venda simplesmente não acontece**: sem
+  paciente escolhido o `Vender` recusa, e a pessoa não tem como saber por quê. Nada falha,
+  nada avisa, e as três redes e o CI ficam verdes — o XAML é bem-formado, o
+  `compilar-sombra` não lê o corpo e nada lança.
+  A regra que fica: **quem cresce com o DADO é que precisa de teto e de rolagem; quem tem
+  altura conhecida é que se ancora.** Aqui a lista ganhou `MaxHeight="150"` e virou
+  `Dock="Top"`, logo abaixo do campo que a produz, e o formulário virou o fill **dentro de
+  um `ScrollViewer`** — ele rola em vez de ser cortado. A pergunta que decide não é "o que
+  é mais importante?", é *"qual destes dois eu não sei o tamanho?"*.
+  ⚠️ **E a lista SOME quando não há resultado** (`Seletor.TemResultados`): caixa vazia
+  reservada no meio de um formulário se lê como lista que não carregou — é a lição dos três
+  formulários que ganharam `SemBuscaInicial`, e o custo previsto ali é o mesmo aqui.
+  ⚠️ **Quem foi escolhido é dito por extenso**, num crachá logo abaixo: com o formulário
+  rolando, a linha marcada dentro da lista sai de vista, e "a linha está azul lá em cima"
+  não é resposta — vender o pacote no nome errado é dinheiro registrado para quem não
+  comprou, e desfazer isso é cancelamento de venda, do Financeiro.
+
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
