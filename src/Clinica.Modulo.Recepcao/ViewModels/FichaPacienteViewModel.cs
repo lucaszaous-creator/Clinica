@@ -480,8 +480,16 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// Quem TEM o acesso vê a seção mesmo sem termo nenhum: é ela que explica que o termo é
     /// colhido no DIA do procedimento, e sumir faria a recepcionista procurar onde assinar
     /// numa aba que decidiu não mostrar nada. O que a some é a falta de permissão.
+    ///
+    /// ⚠️ O ACESSO SAI DO CATÁLOGO, e é o MESMO que a carga usa (set/2026). Escrito à mão,
+    /// ele dizia <c>VerProntuario</c> — e o perfil Recepção, que é quem COLHE o termo, não o
+    /// tem: a carga passou a ler os termos para ela e a região continuava <i>Collapsed</i>,
+    /// isto é, a consulta acontecia e nada aparecia. Duas barreiras para a mesma pergunta,
+    /// com uma só corrigida, é a correção que para no meio do caminho — o defeito que esta
+    /// parcela existe para acabar, cometido dentro dela.
     /// </remarks>
-    public bool TemTermoDoDia => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+    public bool TemTermoDoDia => SessaoUsuario.Atual.PodeAlgum(
+        CentralDocumentosService.AcessoParaVer(TipoDocumentoClinico.TermoProcedimento));
 
     /// <summary>
     /// A conferência não rodou. Terceiro estado escrito, nunca lista vazia silenciosa:

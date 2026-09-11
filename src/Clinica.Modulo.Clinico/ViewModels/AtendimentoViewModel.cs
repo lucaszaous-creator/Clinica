@@ -164,13 +164,21 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     /// no app de quem vai fazer o procedimento.
     /// </summary>
     public string TermoPendenteRotulo
-        => TermoPendente?.AssinaturaRemotaAguardaConferencia == true
-            ? "Termo assinado · conferir"
-            : "Termo não assinado · colher";
+        => TermoAConferir ? "Termo assinado · conferir" : "Termo não assinado · colher";
+
+    /// <summary>
+    /// O termo pendente da faixa é um que o paciente JÁ ASSINOU pelo celular (set/2026).
+    ///
+    /// ⚠️ É o que dá o PESO ao botão, e não só a frase: o vermelho é de quem não assinou
+    /// nada — nas outras quatro portas este estado é âmbar, e deixar o Consultório gastando
+    /// o vermelho num caso que se resolve com UM clique ensina a ignorá-lo no caso em que
+    /// ele impede o procedimento.
+    /// </summary>
+    public bool TermoAConferir => TermoPendente?.AssinaturaRemotaAguardaConferencia == true;
 
     /// <summary>A dica da faixa — muda com o rótulo, pela mesma razão.</summary>
     public string TermoPendenteDica
-        => TermoPendente?.AssinaturaRemotaAguardaConferencia == true
+        => TermoAConferir
             ? "O paciente já assinou este termo pelo celular. Abra, confira o documento "
               + "dele e conclua — não é preciso colher de novo."
             : "O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não "
@@ -1097,6 +1105,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
         TermoPendente = pendente;
         OnPropertyChanged(nameof(TemTermoPendente));
+        OnPropertyChanged(nameof(TermoAConferir));
         OnPropertyChanged(nameof(TermoPendenteRotulo));
         OnPropertyChanged(nameof(TermoPendenteDica));
         OnPropertyChanged(nameof(PodeColherTermo));

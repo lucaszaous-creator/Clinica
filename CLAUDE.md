@@ -4308,6 +4308,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   terminar ensina a ignorá-lo no caso em que importa. Valor próprio porque um futuro
   consumidor que roteie pelo enum abriria a porta de COLHER para quem precisa CONFERIR.
 
+- **UMA REGIÃO TEM DUAS BARREIRAS: a que a CARREGA e a que a DESENHA** (set/2026, a
+  conferência da própria parcela antes de ela ir a produção). A correção de "quem colhe
+  alcança o que colheu" trocou o bit da CARGA dos termos do dia na ficha
+  (`CarregarTermosAsync`) e deixou intacto o `TemTermoDoDia`, que é o que o XAML amarra na
+  `Visibility` do cartão. Resultado: para a recepcionista a consulta passou a rodar e a
+  região continuou **`Collapsed`** — trabalho pago e nada na tela. O comentário da carga
+  dizia, por escrito, *"nem ler nem desenhar: `TemTermoDoDia` fica falso e a região SOME"*,
+  descrevendo um acoplamento que a própria mudança tinha desfeito.
+  ⚠️ **Nenhuma rede pega**: o XAML é bem-formado, o binding é válido, o C# compila e nada
+  lança — e as duas barreiras ficam a 700 linhas uma da outra, em arquivos diferentes.
+  A regra que fica: **ao trocar a regra de acesso de uma região, o `grep` da SEGUNDA
+  barreira é parte da mudança** — a que decide se ela é DESENHADA. As duas passaram a sair
+  do MESMO `CentralDocumentosService.AcessoParaVer`, que é o que impede de divergirem de
+  novo; barreira escrita à mão ao lado de uma lida do catálogo é a cópia que fica para trás.
+  ⚠️ E na mesma conferência: o botão da faixa do Consultório ganhou a FRASE nova e
+  continuou **vermelho** (`BotaoSecundarioPerigo`) nos dois estados, enquanto as outras
+  quatro portas pintam o termo já assinado de âmbar. **Trocar o texto de um aviso sem
+  trocar o PESO dele é meia correção**, e aqui ela contradizia a regra escrita no commit
+  anterior — o vermelho é de quem não assinou nada. Resolvido com estilo local
+  `BasedOn="{StaticResource BotaoSecundarioPerigo}"` + `DataTrigger` sobre os tokens de
+  aviso, sem componente novo no design system.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,
