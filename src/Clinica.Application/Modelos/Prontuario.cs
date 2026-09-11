@@ -199,6 +199,20 @@ public enum ImpedimentoElegibilidade
     TermoProcedimentoPendente,
 
     /// <summary>
+    /// O paciente JÁ ASSINOU o termo pelo celular, a assinatura está guardada, e falta
+    /// alguém conferir a identidade e concluir (set/2026).
+    ///
+    /// ⚠️ É SEPARADO do pendente porque manda fazer coisa OPOSTA: ali se colhe a
+    /// assinatura, aqui se dá um clique sobre uma assinatura que já existe. Enquanto eram
+    /// o mesmo impedimento, as cinco telas que leem este serviço afirmavam "falta o termo
+    /// assinado pelo paciente" sobre quem tinha assinado — e a saída natural diante dessa
+    /// frase é mandar outro link, que é justamente o que o link write-once recusa.
+    ///
+    /// Âmbar, não vermelho: o vermelho é de quem não assinou nada.
+    /// </summary>
+    TermoProcedimentoAConferir,
+
+    /// <summary>
     /// O termo foi assinado, e o paciente respondeu <b>NÃO</b> a alguma declaração — "não
     /// estou em jejum", "não informei meus medicamentos" (parcela 66).
     ///

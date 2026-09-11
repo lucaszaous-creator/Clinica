@@ -133,6 +133,13 @@ public sealed class LinhaTermo
     public required string Nome { get; init; }
     public required string Procedimento { get; init; }
     public required bool Pendente { get; init; }
+
+    /// <summary>
+    /// O paciente já assinou pelo celular e falta conferir e concluir (set/2026).
+    /// Continua <see cref="Pendente"/> — o papel só está cumprido quando estiver selado.
+    /// </summary>
+    public required bool AguardaConferencia { get; init; }
+
     public required bool Assinado { get; init; }
     public required bool Recusado { get; init; }
     public required string? MotivoRecusa { get; init; }
@@ -168,12 +175,23 @@ public sealed class LinhaTermo
             if (DeclaracoesNegadas.Count > 0)
                 return $"Assinado — respondeu NÃO em: {string.Join("; ", DeclaracoesNegadas)}";
 
-            return Assinado ? "Assinado hoje" : "Falta o paciente assinar";
+            if (Assinado) return "Assinado hoje";
+
+            // ⚠️ "Falta o paciente assinar" sobre quem JÁ ASSINOU no celular é a frase que
+            // manda reenviar o link — e o link write-once não aceita a segunda assinatura.
+            return AguardaConferencia
+                ? "Assinado no celular — falta conferir e concluir"
+                : "Falta o paciente assinar";
         }
     }
 
-    /// <summary>Vermelho: ou falta assinar, ou o paciente negou uma declaração.</summary>
-    public bool EhVermelho => Pendente || DeclaracoesNegadas.Count > 0;
+    /// <summary>
+    /// Vermelho: ou NINGUÉM assinou, ou o paciente negou uma declaração.
+    ///
+    /// O assinado no celular fica de fora: ele está a um clique de terminar, e gastar o
+    /// vermelho nele ensina a ignorá-lo em quem não assinou nada.
+    /// </summary>
+    public bool EhVermelho => (Pendente && !AguardaConferencia) || DeclaracoesNegadas.Count > 0;
 
     /// <summary>
     /// A metade VISÍVEL do acesso. A que IMPEDE é o <c>Exigir</c> no comando — só
@@ -191,6 +209,7 @@ public sealed class LinhaTermo
         // na ficha que a recepcionista lê (o defeito da parcela 41).
         Procedimento = CatalogoModalidades.Nome(s.Modalidade.ToString()),
         Pendente = s.Pendente,
+        AguardaConferencia = s.AssinaturaRemotaAguardaConferencia,
         Assinado = s.Assinado,
         Recusado = s.Recusado,
         MotivoRecusa = s.MotivoRecusa,
@@ -491,13 +510,31 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                        + "Dá para colher agora mesmo assim — o termo vale a partir da "
                        + "assinatura, e o paciente está aqui.";
 
-            var faltam = Termos.Count(t => t.Pendente);
+            // ⚠️ Os dois estados contam SEPARADO (set/2026): "falta 1 termo assinado"
+            // sobre quem assinou no celular é falso, e é a frase que faz a recepcionista
+            // mandar outro link para quem já assinou.
+            var aConferir = Termos.Count(t => t.AguardaConferencia);
+            // Contado DIRETO, nunca por subtração: "pendentes menos a conferir" fica
+            // negativo no dia em que um dos dois deixar de implicar o outro, e um número
+            // negativo aqui vira uma frase sem sentido na ficha.
+            var faltam = Termos.Count(t => t.Pendente && !t.AguardaConferencia);
+
+            if (faltam == 0 && aConferir > 0)
+                return aConferir == 1
+                    ? "1 termo já foi assinado no celular — falta conferir e concluir."
+                    : $"{aConferir} termos já foram assinados no celular — falta conferir e concluir.";
+
+            var conferir = aConferir == 0
+                ? string.Empty
+                : aConferir == 1
+                    ? " E 1 já assinado no celular, à espera de conferência."
+                    : $" E {aConferir} já assinados no celular, à espera de conferência.";
 
             return faltam switch
             {
                 0 => "Os termos de hoje já foram resolvidos.",
-                1 => "Falta 1 termo assinado para o procedimento de hoje.",
-                _ => $"Faltam {faltam} termos assinados para os procedimentos de hoje."
+                1 => "Falta 1 termo assinado para o procedimento de hoje." + conferir,
+                _ => $"Faltam {faltam} termos assinados para os procedimentos de hoje." + conferir
             };
         }
     }

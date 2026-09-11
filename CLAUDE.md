@@ -4276,6 +4276,38 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   é uma pessoa (parcela 81: *"o papel deste fluxo é tirar o custo do pad, não a pessoa do
   circuito"*). O que a parcela tira do caminho é a JANELA ABERTA, não a conferência.
 
+- **A CORREÇÃO PAROU NUMA PORTA E CINCO CONTINUARAM DIZENDO O CONTRÁRIO** (set/2026, a
+  conferência da própria parcela do termo pelo WhatsApp, com CI verde nos três checks e
+  2513 testes verdes). O estado novo — "o paciente já assinou no celular, falta conferir"
+  — ganhou leitor no selo da lista do dia, e os **cinco outros leitores da mesma
+  `SituacaoTermo`** ficaram lendo `Pendente` cru: o `ElegibilidadeService` (que sozinho
+  alcança agendamento, check-in, Novo atendimento, ficha e Consultório) afirmava em
+  VERMELHO *"Falta o termo «X» assinado pelo paciente"*; a linha e o resumo da ficha
+  diziam *"Falta o paciente assinar"* e *"Falta 1 termo assinado"*; a faixa do Consultório
+  dizia *"Termo não assinado · colher"*; e o botão das duas telas de enfermagem dizia
+  **"Colher"** — o gesto que não funciona, porque o link write-once recusa a segunda
+  assinatura.
+  ⚠️ **É o defeito que a parcela existia para corrigir, sobrevivendo nas portas que não
+  reclamaram** — e cometido pelo commit que escreve, no próprio corpo, que *"a cópia que
+  fica para trás é onde a capacidade some"*.
+  A regra que fica, e ela é de MÉTODO: **ao acrescentar um ESTADO a um modelo que já tem
+  leitores, o `grep` da propriedade ANTIGA é parte da mudança.** Não basta o campo novo
+  ter um leitor; a pergunta é *quem lia o estado que eu acabei de dividir, e o que cada um
+  desses passou a afirmar?* Aqui eram `s.Pendente` em cinco arquivos, e nenhum quebrava.
+  ⚠️ **A frase e a ordem desceram para a Application** (`SituacaoTermo.VerboDaPendencia` /
+  `RotuloDaPendencia`, `PendenciasDeTermo.Primeira`): eram quatro telas montando
+  `$"Colher: {nome}"` à mão e quatro escolhendo qual pendência oferecer. Quatro cópias
+  divergem na primeira correção — e o que decide o que a tela AFIRMA precisa morar onde o
+  `dotnet test` alcança (a regra da `GradeSemana` e do `ResumoSessaoAnterior`).
+  ⚠️ **Contar por SUBTRAÇÃO é armadilha**: o resumo da ficha nasceu com
+  `Pendente - aConferir`, que fica NEGATIVO no dia em que um dos dois deixar de implicar o
+  outro — e número negativo ali vira uma frase sem sentido. Conte direto
+  (`Pendente && !AguardaConferencia`).
+  ⚠️ E o alerta novo é **ÂMBAR, com valor próprio de enum**: `TemImpedimento` só olha o
+  vermelho, e o vermelho é de quem não assinou nada — gastá-lo em quem está a um clique de
+  terminar ensina a ignorá-lo no caso em que importa. Valor próprio porque um futuro
+  consumidor que roteie pelo enum abriria a porta de COLHER para quem precisa CONFERIR.
+
 ### Convenções
 
 - **⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE** (decisão da direção,

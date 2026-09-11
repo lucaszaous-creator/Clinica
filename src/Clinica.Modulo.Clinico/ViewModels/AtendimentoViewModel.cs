@@ -159,6 +159,24 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     public bool TemTermoPendente => TermoPendente is not null;
 
     /// <summary>
+    /// O que o botão da faixa diz (set/2026). Ele era LITERAL no XAML — "Termo não
+    /// assinado · colher" — e essa frase é falsa sobre quem já assinou pelo celular,
+    /// no app de quem vai fazer o procedimento.
+    /// </summary>
+    public string TermoPendenteRotulo
+        => TermoPendente?.AssinaturaRemotaAguardaConferencia == true
+            ? "Termo assinado · conferir"
+            : "Termo não assinado · colher";
+
+    /// <summary>A dica da faixa — muda com o rótulo, pela mesma razão.</summary>
+    public string TermoPendenteDica
+        => TermoPendente?.AssinaturaRemotaAguardaConferencia == true
+            ? "O paciente já assinou este termo pelo celular. Abra, confira o documento "
+              + "dele e conclua — não é preciso colher de novo."
+            : "O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não "
+              + "assinou. Colha agora — ele está aqui.";
+
+    /// <summary>
     /// A metade VISÍVEL do acesso; a que IMPEDE está no comando. Quem atende recebe
     /// <see cref="Permissao.ColherAssinaturaPaciente"/> por padrão desde a parcela 66.
     /// </summary>
@@ -1049,7 +1067,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             var situacoes = await termos.SituacaoDoDiaAsync(
                 PacienteId, DateOnly.FromDateTime(Data));
 
-            pendente = situacoes.FirstOrDefault(s => s.Pendente);
+            pendente = PendenciasDeTermo.Primeira(situacoes);
         }
         catch (Exception ex)
         {
@@ -1079,6 +1097,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
         TermoPendente = pendente;
         OnPropertyChanged(nameof(TemTermoPendente));
+        OnPropertyChanged(nameof(TermoPendenteRotulo));
+        OnPropertyChanged(nameof(TermoPendenteDica));
         OnPropertyChanged(nameof(PodeColherTermo));
     }
 

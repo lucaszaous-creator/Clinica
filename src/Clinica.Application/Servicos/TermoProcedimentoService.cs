@@ -540,6 +540,41 @@ public sealed record SituacaoTermo(
 
     /// <summary>Assinado, mas com alguma declaração respondida "não".</summary>
     public bool TemDeclaracaoNegada => Assinado && DeclaracoesNegadas.Count > 0;
+
+    /// <summary>
+    /// O VERBO do que falta fazer: "Colher" quando ninguém assinou, "Conferir" quando o
+    /// paciente já assinou pelo celular (set/2026).
+    ///
+    /// ⚠️ Mora AQUI porque são QUATRO telas dizendo a mesma frase — a lista do dia, a
+    /// ficha, o Consultório e a Enfermagem. Quatro cópias divergem na primeira correção, e
+    /// a que ficar para trás manda a pessoa repetir o gesto que não funciona: reenviar o
+    /// link para quem já assinou, que é justamente o que o link write-once recusa.
+    /// </summary>
+    public string VerboDaPendencia => AssinaturaRemotaAguardaConferencia ? "Conferir" : "Colher";
+
+    /// <summary>"Colher: Termo do BSV" — o rótulo do botão que resolve esta pendência.</summary>
+    public string RotuloDaPendencia => $"{VerboDaPendencia}: {NomeDoTermo}";
+}
+
+/// <summary>
+/// Como as telas escolhem QUAL pendência de termo mostrar (set/2026).
+/// </summary>
+public static class PendenciasDeTermo
+{
+    /// <summary>
+    /// A pendência que a tela deve oferecer: o que JÁ FOI ASSINADO no celular vem primeiro.
+    ///
+    /// ⚠️ A ordem não é estilo. O assinado está a UM clique de terminar; o não assinado
+    /// ainda precisa do paciente na frente. Oferecer o outro primeiro faria a técnica
+    /// colher de novo a assinatura de quem já assinou — e o link não aceita a segunda.
+    /// </summary>
+    public static SituacaoTermo? Primeira(IEnumerable<SituacaoTermo> situacoes)
+    {
+        var lista = situacoes as IReadOnlyList<SituacaoTermo> ?? situacoes.ToList();
+
+        return lista.FirstOrDefault(s => s.AssinaturaRemotaAguardaConferencia)
+               ?? lista.FirstOrDefault(s => s.Pendente);
+    }
 }
 
 

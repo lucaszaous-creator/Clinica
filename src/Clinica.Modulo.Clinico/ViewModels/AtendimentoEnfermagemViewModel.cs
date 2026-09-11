@@ -334,9 +334,11 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
                 .SituacaoDoDiaAsync(pacienteId, hoje);
             if (geracao != _geracaoCarga) return;
 
-            if (termos.FirstOrDefault(t => t.Pendente) is { } pendente)
+            // ⚠️ O rótulo vem da SITUAÇÃO (set/2026): "Colher" sobre um termo que o
+            // paciente já assinou no celular manda repetir o gesto que o link recusa.
+            if (PendenciasDeTermo.Primeira(termos) is { } pendente)
             {
-                TermoPendente = $"Colher: {pendente.NomeDoTermo}";
+                TermoPendente = pendente.RotuloDaPendencia;
                 _modeloTermoPendente = pendente.ModeloId;
                 _documentoTermoPendente = pendente.DocumentoId;
             }

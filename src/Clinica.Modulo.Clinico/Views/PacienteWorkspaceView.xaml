@@ -415,7 +415,7 @@
                             Style="{StaticResource BotaoSecundarioPerigo}"
                             Command="{Binding Atendimento.ColherTermoCommand}"
                             IsEnabled="{Binding Atendimento.PodeColherTermo}"
-                            ToolTip="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui."
+                            ToolTip="{Binding Atendimento.TermoPendenteDica}"
                             Visibility="{Binding Atendimento.TemTermoPendente,
                                          Converter={StaticResource BoolParaVisibilidade},
                                          FallbackValue=Collapsed}">
@@ -423,7 +423,10 @@
                             <TextBlock Text="&#xE7BA;" FontFamily="{StaticResource FonteIcones}"
                                        FontSize="{StaticResource Fonte.Legenda}"
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <TextBlock Text="Termo não assinado · colher"
+                            <!-- O texto vem da ViewModel: literal aqui é a frase que mente
+                                 sobre quem já assinou pelo celular (set/2026). -->
+                            <TextBlock Text="{Binding Atendimento.TermoPendenteRotulo}"
+                                       TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

@@ -1461,8 +1461,7 @@ public sealed partial class FilaViewModel : ObservableObject
             // clique de terminar, enquanto o não assinado ainda precisa do paciente na
             // frente. Abrir o outro primeiro faria a técnica colher de novo a assinatura
             // de quem já assinou.
-            var pendente = situacoes.FirstOrDefault(s => s.AssinaturaRemotaAguardaConferencia)
-                           ?? situacoes.FirstOrDefault(s => s.Pendente);
+            var pendente = PendenciasDeTermo.Primeira(situacoes);
 
             // Guarda que FALA: o cartão pode ter sido resolvido noutra máquina entre a
             // carga do quadro e o clique, e sair calada aqui seria botão que não faz nada.
