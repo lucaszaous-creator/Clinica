@@ -29,6 +29,37 @@ public sealed class ProntuarioService
     public Task<Evolucao?> ObterAsync(int evolucaoId, CancellationToken ct = default)
         => _repo.ObterEvolucaoAsync(evolucaoId, ct);
 
+    /// <summary>Vincula registro avulso à sessão após conferência, preservando texto, autoria e versão.</summary>
+    public async Task VincularAoHorarioAsync(int evolucaoId, int agendamentoId, string operador,
+        CancellationToken ct = default)
+    {
+        var evo = await _repo.ObterEvolucaoAsync(evolucaoId, ct)
+            ?? throw new InvalidOperationException("Registro não encontrado.");
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException("Horário não encontrado.");
+        if (evo.CanceladaEm is not null || !ag.OcupaAgenda
+            || evo.PacienteId != ag.PacienteId || evo.Data != DateOnly.FromDateTime(ag.DataHora))
+            throw new InvalidOperationException("Escolha um registro vigente do mesmo paciente e dia.");
+        if (evo.AgendamentoId == ag.Id) return;
+        if (evo.AgendamentoId is not null || (evo.AtendimentoId is not null && evo.AtendimentoId != ag.AtendimentoId))
+            throw new InvalidOperationException("Este registro já pertence a outra sessão.");
+        var existentes = await _repo.VinculosEvolucoesNoPeriodoAsync(evo.Data, evo.Data, ct);
+        if (existentes.Any(e => e.Id != evo.Id && (e.AgendamentoId == ag.Id
+            || (ag.AtendimentoId != null && e.AtendimentoId == ag.AtendimentoId))))
+            throw new InvalidOperationException("A sessão já possui evolução. Atualize a tela para consultá-la.");
+        var vinculoAnterior = $"horário {evo.AgendamentoId?.ToString() ?? "não vinculado"}, atendimento {evo.AtendimentoId?.ToString() ?? "não vinculado"}";
+        GuardarVersao(evo, operador, "Vínculo conferido com o horário da sessão; anterior: " + vinculoAnterior);
+        evo.AgendamentoId = ag.Id;
+        evo.AtendimentoId = ag.AtendimentoId;
+        evo.AtualizadoEm = DateTime.Now;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador, Acao = "EvolucaoVinculada", PacienteId = evo.PacienteId,
+            Detalhe = $"Evolução {evo.Id}: {vinculoAnterior} → horário {ag.Id}; atendimento {ag.AtendimentoId}."
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     /// <summary>
     /// Registra (ou atualiza) a evolução de uma sessão. Grava auditoria no mesmo
     /// SaveChanges: prontuário é documento clínico, e alteração sem rastro não presta.

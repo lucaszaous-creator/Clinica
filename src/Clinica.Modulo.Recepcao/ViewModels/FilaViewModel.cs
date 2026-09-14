@@ -76,7 +76,9 @@ public sealed partial class CartaoFila : ObservableObject
     /// do médico (<see cref="StatusDaFila"/>) — duas telas sobre o mesmo horário, uma
     /// palavra.
     /// </summary>
-    public string Status => StatusDaFila.Palavra(Situacao, Etapa);
+    public string Status => Situacao == StatusAgendamento.Agendado
+        && (FimAtendimentoEm is not null || (InicioEm is not null && DataHora.Date < DateTime.Today))
+        ? "Conclusão pendente" : StatusDaFila.Palavra(Situacao, Etapa);
 
     /// <summary>A hora do fato sob a palavra ("chegou às 14:40 · espera 12 min"). Corre com o relógio.</summary>
     [ObservableProperty]
@@ -786,6 +788,14 @@ public sealed partial class FilaViewModel : ObservableObject
             var servicoTermos = escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
 
             var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+            // Pendências atravessam a virada do dia e continuam resolvíveis na mesma lista.
+            if (Dia.Date == DateTime.Today)
+            {
+                var pendentes = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                    .HorariosComConclusaoPendenteAsync(DateOnly.FromDateTime(Dia));
+                doDia = doDia.Concat(pendentes).DistinctBy(a => a.Id).ToList();
+            }
+
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -1039,7 +1049,9 @@ public sealed partial class FilaViewModel : ObservableObject
             {
                 AgendamentoId = a.Id,
                 PacienteId = a.PacienteId,
-                Horario = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
+                Horario = a.DataHora.Date == Dia.Date
+                    ? $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}"
+                    : $"{a.DataHora:dd/MM HH:mm}",
                 Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                 Foto = a.Paciente?.FotoMiniatura,
                 Convenio = a.Paciente?.ConvenioNome ?? string.Empty,

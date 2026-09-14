@@ -44,6 +44,27 @@ public class TraducaoNoNpgsqlTests
             .Options);
 
     [Fact]
+    public void Pendencias_de_conclusao_e_vinculos_sem_texto_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var inicio = new DateTime(2026, 9, 14);
+        var fim = inicio.AddDays(1);
+        var pendentes = db.Agendamentos.AsNoTracking().Include(a => a.Paciente)
+            .Include(a => a.Profissional).Include(a => a.Sala)
+            .Where(a => a.Status == StatusAgendamento.Agendado && a.DataHora < fim
+                && (a.FimAtendimentoEm != null || (a.InicioAtendimentoEm != null && a.DataHora < inicio)))
+            .ToQueryString();
+        pendentes.Should().Contain("FimAtendimentoEm");
+        var dia = DateOnly.FromDateTime(inicio);
+        var vinculos = db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null && e.Data >= dia && e.Data <= dia)
+            .Select(e => new Evolucao { Id = e.Id, PacienteId = e.PacienteId, Data = e.Data,
+                AgendamentoId = e.AgendamentoId, AtendimentoId = e.AtendimentoId,
+                ProfissionalId = e.ProfissionalId }).ToQueryString();
+        vinculos.Should().Contain("AgendamentoId").And.NotContain("TextoEvolucao");
+    }
+
+    [Fact]
     public void As_duas_leituras_do_vinculo_evolucao_x_atendimento_traduzem()
     {
         using var db = Postgres();

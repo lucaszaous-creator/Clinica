@@ -184,19 +184,30 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        <Button Content="Finalizar atendimento" Margin="8,0,0,0" MinWidth="190"
+                        <Button Content="{Binding DataContext.RotuloFinalizarSessao, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}" Margin="8,0,0,0" MinWidth="190"
                                 Command="{Binding DataContext.FinalizarSessaoCommand,
                                           RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
-                                IsEnabled="{Binding DataContext.PodeMoverFila,
+                                IsEnabled="{Binding DataContext.PodeConcluirComAcesso,
                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
                                 ToolTip="Salva a sessão, encerra o horário e gera a guia. O que segue no balcão é o dinheiro: pacote, insumo e caixa."
-                                Visibility="{Binding DataContext.EmAtendimento,
+                                Visibility="{Binding DataContext.PodeFinalizarSessao,
                                              RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
                                              Converter={StaticResource BoolParaVisibilidade}}" />
                     </StackPanel>
 
                 </Grid>
             </Border>
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"
+                        Visibility="{Binding TemRegistrosParaVincular, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="Há registros deste dia sem vínculo. Confira o histórico e selecione o registro desta sessão."
+                           TextWrapping="Wrap" />
+                <ComboBox ItemsSource="{Binding RegistrosParaVincular}" DisplayMemberPath="Rotulo"
+                          SelectedItem="{Binding RegistroSelecionadoParaVincular}" Margin="0,6,0,6" />
+                <Button Content="Vincular registro existente" Command="{Binding VincularRegistroCommand}"
+                        IsEnabled="{Binding PodeEditarProntuario}" HorizontalAlignment="Left"
+                        Style="{StaticResource BotaoSecundario}" />
+            </StackPanel>
 
         <!-- ================== TRÊS ABAS, TRÊS PERGUNTAS ==================
              (set/2026 — a reprovação do cliente: "essas tabelas laterais não me agradam!

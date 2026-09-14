@@ -995,8 +995,23 @@ public sealed class AgendaService
     /// segundo momento não duplica. Conflito de concorrência agora significa "releia: o
     /// `AtendimentoId` já está lá".
     /// </summary>
+    /// <summary>Conclui a sessão e registra seu fim no mesmo commit das guias. Aceita retomada.</summary>
+    public async Task<ResultadoLancamento> ConcluirAtendimentoClinicoAsync(
+        int agendamentoId, string operador, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+        if (ag.Status == StatusAgendamento.Realizado && ag.AtendimentoId is { } existente)
+            return new ResultadoLancamento(await _repo.ObterAtendimentoAsync(existente, ct)
+                ?? throw new InvalidOperationException("O atendimento vinculado não foi encontrado."), []);
+        if (ag.Status != StatusAgendamento.Agendado || ag.InicioAtendimentoEm is null)
+            throw new InvalidOperationException("Inicie o atendimento deste horário antes de concluir.");
+
+        return await ConfirmarNucleoAsync(ag, operador, ct, encerrarClinico: true);
+    }
+
     private async Task<ResultadoLancamento> ConfirmarNucleoAsync(
-        Agendamento ag, string? operador, CancellationToken ct)
+        Agendamento ag, string? operador, CancellationToken ct,
+        bool confirmarPresenca = true, bool encerrarClinico = false)
     {
         List<string> avisos;
         Atendimento atendimento;
@@ -1043,23 +1058,38 @@ public sealed class AgendaService
             else evolucao.Atendimento = atendimento; // a navegação: o Id ainda não existe
         }
 
-        ag.Status = StatusAgendamento.Realizado;
-        // A âncora de "a sessão ACONTECEU" (parcela 70): com a guia nascendo na marcação,
-        // existir atendimento deixou de significar sessão realizada — quem significa é
-        // este carimbo, e os leitores de BI/rentabilidade/retenção ancoram nele.
-        atendimento.RealizadoEm ??= DateTime.Now;
-
-        // Efeitos de PRESENÇA que entram no mesmo commit (NCs reabertas)…
-        avisos.AddRange(await _atendimentos.PrepararPresencaAsync(atendimento, ct));
-
-        // …e a trilha do ato que gera as guias (item 5 da fila da parcela 69), idem.
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        if (confirmarPresenca)
         {
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "PresencaConfirmada",
-            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — {atendimento.Codigos.Count} código(s) de faturamento",
-            PacienteId = ag.PacienteId
-        }, ct);
+            if (encerrarClinico && ag.FimAtendimentoEm is null)
+            {
+                ag.FimAtendimentoEm = DateTime.Now;
+                await AuditarFilaAsync(ag, operador ?? "?", "FilaAtendimentoEncerrado",
+                    $"Atendimento encerrado às {ag.FimAtendimentoEm:HH:mm}", ct);
+            }
+            ag.Status = StatusAgendamento.Realizado;
+            // A âncora de "a sessão ACONTECEU" (parcela 70): com a guia nascendo na marcação,
+            // existir atendimento deixou de significar sessão realizada — quem significa é
+            // este carimbo, e os leitores de BI/rentabilidade/retenção ancoram nele.
+            atendimento.RealizadoEm ??= DateTime.Now;
+
+            // Efeitos de PRESENÇA que entram no mesmo commit (NCs reabertas)…
+            avisos.AddRange(await _atendimentos.PrepararPresencaAsync(atendimento, ct));
+
+            // …e a trilha do ato que gera as guias (item 5 da fila da parcela 69), idem.
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "PresencaConfirmada",
+                Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — {atendimento.Codigos.Count} código(s) de faturamento",
+                PacienteId = ag.PacienteId
+            }, ct);
+
+        }
+        else
+        {
+            await AuditarFilaAsync(ag, operador ?? "?", "AtendimentoPreparado",
+                "Atendimento e guias registrados; a sessão permanece aberta para o profissional.", ct);
+        }
 
         // ⚠️ O COMMIT ATÔMICO.
         await _repo.SalvarAsync(ct);
@@ -1084,7 +1114,8 @@ public sealed class AgendaService
         }
 
         // Renovação da consulta: gravação própria, falha vira aviso (nunca desfaz).
-        avisos.AddRange(await _atendimentos.ConcluirPresencaAsync(atendimento, ct));
+        if (confirmarPresenca)
+            avisos.AddRange(await _atendimentos.ConcluirPresencaAsync(atendimento, ct));
 
         return new ResultadoLancamento(atendimento, avisos);
     }
@@ -1101,7 +1132,8 @@ public sealed class AgendaService
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
         CancellationToken ct = default, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null, TipoCodigo? primeiroCodigo = null,
-        int? profissionalId = null, string? operador = null, int? salaId = null)
+        int? profissionalId = null, string? operador = null, int? salaId = null,
+        bool concluirSessao = true)
     {
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
@@ -1136,7 +1168,7 @@ public sealed class AgendaService
         await AuditarFilaAsync(ag, operador ?? "?", "FilaChegada",
             $"Check-in às {agora:HH:mm} — encaixe avulso de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
 
-        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct);
+        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct, confirmarPresenca: concluirSessao);
         return (ag, lancamento);
     }
 
@@ -1198,7 +1230,7 @@ public sealed class AgendaService
         int agendamentoId, string? observacoes, CancellationToken ct = default,
         string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
         TipoCodigo? primeiroCodigo = null, int? profissionalId = null, string? operador = null,
-        int? salaId = null)
+        int? salaId = null, bool concluirSessao = true)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
@@ -1278,7 +1310,7 @@ public sealed class AgendaService
         var avisosGuia = await _atendimentos.AjustarAoRemarcarAsync(
             ag, DateOnly.FromDateTime(ag.DataHora), mudouModalidade, operador, ct);
 
-        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct);
+        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct, confirmarPresenca: concluirSessao);
         if (avisosGuia.Count > 0)
             lancamento = lancamento with { Avisos = avisosGuia.Concat(lancamento.Avisos).ToList() };
         return (ag, lancamento);

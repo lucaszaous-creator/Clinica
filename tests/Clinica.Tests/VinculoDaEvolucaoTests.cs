@@ -149,29 +149,27 @@ public class VinculoDaEvolucaoTests : IDisposable
     public void Uma_avulsa_nao_cobre_duas_sessoes_do_mesmo_dia()
     {
         // Paciente com sessão de manhã e de tarde, e UMA evolução escrita sem vínculo.
-        // Antes, o caminho de baixo dava as DUAS por escritas: a segunda sumia da cobrança
-        // e abri-la na tela de Atendimento continuava o texto da primeira. A avulsa casa
-        // com uma só — a mais cedo — e a outra continua pendente.
+        // A data não identifica a sessão. Ambas exigem conferência até o vínculo explícito.
         var avulsa = new Evolucao { Id = 1, PacienteId = 9, Data = Dia, AgendamentoId = null };
         var irmas = new[] { Sessao(77, 9), Sessao(78, 15) };
 
         ConsultorioService.EvolucaoDoHorario([avulsa], 77, 9, Dia, irmas)
-            .Should().BeSameAs(avulsa, "a sessão da manhã fica com a avulsa");
+            .Should().BeNull("o horário mais cedo não prova a qual sessão o registro pertence");
         ConsultorioService.EvolucaoDoHorario([avulsa], 78, 9, Dia, irmas)
             .Should().BeNull("a sessão da tarde continua sem registro — e sem cobrança ela some");
     }
 
     [Fact]
-    public void Duas_avulsas_cobrem_as_duas_sessoes_na_ordem_em_que_foram_escritas()
+    public void Duas_avulsas_exigem_conferencia_sem_distribuicao_pela_ordem()
     {
         var primeira = new Evolucao { Id = 1, PacienteId = 9, Data = Dia };
         var segunda = new Evolucao { Id = 2, PacienteId = 9, Data = Dia };
         var irmas = new[] { Sessao(77, 9), Sessao(78, 15) };
 
         ConsultorioService.EvolucaoDoHorario([segunda, primeira], 77, 9, Dia, irmas)
-            .Should().BeSameAs(primeira);
+            .Should().BeNull();
         ConsultorioService.EvolucaoDoHorario([segunda, primeira], 78, 9, Dia, irmas)
-            .Should().BeSameAs(segunda);
+            .Should().BeNull();
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.Json;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -277,9 +279,14 @@ public sealed class FechamentoSessaoService
     /// </summary>
     public async Task<RegistroAtendimento> RegistrarAtendimentoAsync(
         int agendamentoId, string? operador = null, DateOnly? hoje = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, bool concluirClinico = false)
     {
         var proposta = await PrepararAsync(agendamentoId, hoje, ct);
+        if (concluirClinico)
+        {
+            var clinico = await _agenda.ConcluirAtendimentoClinicoAsync(agendamentoId, operador ?? "?", ct);
+            return new RegistroAtendimento(clinico.Atendimento, proposta, clinico.Avisos, false);
+        }
         var (atendimento, recados, jaExistia) =
             await GarantirAtendimentoAsync(agendamentoId, operador, ct);
 
@@ -344,9 +351,11 @@ public sealed class FechamentoSessaoService
         {
             try
             {
-                consumo = await _pacotes.ConsumirPorAtendimentoAsync(
-                    atendimento.PacienteId, atendimento.Id, atendimento.Data,
-                    decisao.AgendamentoId, operador, ct);
+                var consumoId = await _repo.ExecutarEtapaFechamentoAsync(atendimento.Id, "pacote", "consumir",
+                    async () => (await _pacotes.ConsumirPorAtendimentoAsync(
+                        atendimento.PacienteId, atendimento.Id, atendimento.Data,
+                        decisao.AgendamentoId, operador, ct))?.Id ?? 0, ct);
+                consumo = consumoId == 0 ? null : await _repo.ObterConsumoPacoteAsync(consumoId, ct);
             }
             catch (Exception ex)
             {
@@ -355,15 +364,20 @@ public sealed class FechamentoSessaoService
             }
         }
 
-        foreach (var insumo in decisao.Insumos ?? [])
+        foreach (var insumo in (decisao.Insumos ?? []).GroupBy(i => i.ItemId)
+                     .Select(g => new InsumoAConsumir(g.Key, g.Sum(i => i.Quantidade))))
         {
             if (insumo.Quantidade <= 0) continue;
 
             try
             {
-                movimentos.Add(await _estoque.BaixarAsync(
-                    insumo.ItemId, insumo.Quantidade, atendimento.Id, atendimento.PacienteId,
-                    atendimento.Data, observacao: "Consumo da sessão", operador: operador, ct: ct));
+                var movimentoId = await _repo.ExecutarEtapaFechamentoAsync(atendimento.Id,
+                    $"insumo:{insumo.ItemId}", JsonSerializer.Serialize(new { insumo.ItemId, Quantidade = insumo.Quantidade.ToString("G29", CultureInfo.InvariantCulture) }), async () =>
+                        (await _estoque.BaixarAsync(insumo.ItemId, insumo.Quantidade, atendimento.Id,
+                            atendimento.PacienteId, atendimento.Data, observacao: "Consumo da sessão",
+                            operador: operador, ct: ct)).Id, ct);
+                movimentos.Add((await _repo.MovimentosDoAtendimentoAsync(atendimento.Id, ct))
+                    .Single(m => m.Id == movimentoId));
             }
             catch (Exception ex)
             {
@@ -385,45 +399,55 @@ public sealed class FechamentoSessaoService
                     CatalogoModalidades.Nome(atendimento.ModalidadeCodigo, atendimento.Modalidade),
                     atendimento.Paciente?.Nome ?? "(paciente removido)");
 
-                if (decisao.FicaAReceber)
+                var pedido = JsonSerializer.Serialize(new
                 {
-                    // Não pagou agora: conta a receber COM DONO e COM VENCIMENTO, ligada à
-                    // sessão. É o que faz a inadimplência enxergá-la quando vencer, o balcão
-                    // ser avisado na próxima visita e a sessão sair da conciliação do
-                    // particular — "a receber" resolve tanto quanto "pago".
-                    if (decisao.Vencimento is not { } vencimento)
-                        throw new InvalidOperationException(
-                            "Diga quando a sessão será paga — sem vencimento a cobrança não tem dia.");
-                    if (vencimento < atendimento.Data)
-                        throw new InvalidOperationException(
-                            "O vencimento não pode ser anterior à sessão.");
+                    Valor = decisao.Valor?.ToString("G29", CultureInfo.InvariantCulture),
+                    Forma = decisao.FicaAReceber ? null : decisao.Forma, decisao.CategoriaId,
+                    decisao.FicaAReceber, Vencimento = decisao.FicaAReceber ? decisao.Vencimento : null
+                });
+                var lancamentoId = await _repo.ExecutarEtapaFechamentoAsync(atendimento.Id, "caixa", pedido, async () =>
+                {
+                    if (decisao.FicaAReceber)
+                    {
+                        // Não pagou agora: conta a receber COM DONO e COM VENCIMENTO, ligada à
+                        // sessão. É o que faz a inadimplência enxergá-la quando vencer, o balcão
+                        // ser avisado na próxima visita e a sessão sair da conciliação do
+                        // particular — "a receber" resolve tanto quanto "pago".
+                        if (decisao.Vencimento is not { } vencimento)
+                            throw new InvalidOperationException(
+                                "Diga quando a sessão será paga — sem vencimento a cobrança não tem dia.");
+                        if (vencimento < atendimento.Data)
+                            throw new InvalidOperationException(
+                                "O vencimento não pode ser anterior à sessão.");
 
-                    lancamento = await _contas.LancarContaAsync(
-                        TipoLancamento.Entrada,
-                        descricao,
-                        valor,
-                        vencimento,
-                        competencia: atendimento.Data,
-                        categoriaId: decisao.CategoriaId,
-                        operador: operador,
-                        pacienteId: atendimento.PacienteId,
-                        atendimentoId: atendimento.Id,
-                        ct: ct);
-                }
-                else
-                {
-                    lancamento = await _financeiro.LancarAsync(
-                        atendimento.Data,
-                        TipoLancamento.Entrada,
-                        descricao,
-                        valor,
-                        formaPagamento: decisao.Forma,
-                        categoriaId: decisao.CategoriaId,
-                        pacienteId: atendimento.PacienteId,
-                        atendimentoId: atendimento.Id,
-                        operador: operador,
-                        ct: ct);
-                }
+                        return (await _contas.LancarContaAsync(
+                            TipoLancamento.Entrada,
+                            descricao,
+                            valor,
+                            vencimento,
+                            competencia: atendimento.Data,
+                            categoriaId: decisao.CategoriaId,
+                            operador: operador,
+                            pacienteId: atendimento.PacienteId,
+                            atendimentoId: atendimento.Id,
+                            ct: ct)).Id;
+                    }
+                    else
+                    {
+                        return (await _financeiro.LancarAsync(
+                            atendimento.Data,
+                            TipoLancamento.Entrada,
+                            descricao,
+                            valor,
+                            formaPagamento: decisao.Forma,
+                            categoriaId: decisao.CategoriaId,
+                            pacienteId: atendimento.PacienteId,
+                            atendimentoId: atendimento.Id,
+                            operador: operador,
+                            ct: ct)).Id;
+                    }
+                }, ct);
+                lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct);
             }
             catch (Exception ex)
             {

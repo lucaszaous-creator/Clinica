@@ -7,6 +7,8 @@ public class ClinicaDbContext : DbContext
 {
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
 
+    public DbSet<EtapaFechamentoSessao> EtapasFechamentoSessao => Set<EtapaFechamentoSessao>();
+
     public DbSet<Paciente> Pacientes => Set<Paciente>();
     public DbSet<PacienteFoto> PacientesFotos => Set<PacienteFoto>();
     public DbSet<AutorizacaoSessoes> Autorizacoes => Set<AutorizacaoSessoes>();
@@ -97,6 +99,14 @@ public class ClinicaDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<EtapaFechamentoSessao>(e =>
+        {
+            e.HasKey(x => new { x.AtendimentoId, x.Etapa });
+            e.Property(x => x.Etapa).HasMaxLength(80);
+            e.Property(x => x.Pedido).HasMaxLength(2000);
+            e.HasOne(x => x.Atendimento).WithMany().HasForeignKey(x => x.AtendimentoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
         b.Entity<Paciente>(e =>
         {
             e.HasKey(p => p.Id);

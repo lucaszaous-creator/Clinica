@@ -12,6 +12,47 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public ClinicaRepositorio(ClinicaDbContext db) => _db = db;
 
+    public async Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
+        Func<Task<int>> executar, CancellationToken ct = default)
+    {
+        await using var transacao = await _db.Database.BeginTransactionAsync(ct);
+        try
+        {
+            // Serializa o fechamento da sessão entre estações. A trava termina com a transação.
+            // SQLite serializa as escritas pela transação; a chave primária continua sendo a defesa final.
+            if (_db.Database.IsNpgsql())
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT pg_advisory_xact_lock(1129072963, {atendimentoId})", ct);
+            var recibo = await _db.EtapasFechamentoSessao.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.AtendimentoId == atendimentoId && x.Etapa == etapa, ct);
+            if (recibo is not null)
+            {
+                if (recibo.Pedido != pedido)
+                    throw new InvalidOperationException("Esta etapa do fechamento já foi registrada com outros valores. Confira no Financeiro antes de ajustar.");
+                await transacao.CommitAsync(ct);
+                return recibo.ResultadoId;
+            }
+            var resultado = await executar();
+            if (resultado != 0)
+            {
+                _db.EtapasFechamentoSessao.Add(new EtapaFechamentoSessao
+                {
+                    AtendimentoId = atendimentoId, Etapa = etapa, Pedido = pedido, ResultadoId = resultado
+                });
+                await _db.SaveChangesAsync(ct);
+            }
+            await transacao.CommitAsync(ct);
+            return resultado;
+        }
+        catch
+        {
+            await transacao.RollbackAsync(CancellationToken.None);
+            // O fechamento pode seguir com outra etapa. Nenhum insert que falhou pode viajar junto.
+            _db.ChangeTracker.Clear();
+            throw;
+        }
+    }
+
     public Task<Paciente?> ObterPacienteAsync(int pacienteId, CancellationToken ct = default)
         => _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
 
@@ -2224,6 +2265,18 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // ---- Conciliação da agenda (parcela 93) ----
 
+    public async Task<IReadOnlyList<Agendamento>> HorariosComConclusaoPendenteAsync(
+        DateOnly hoje, CancellationToken ct = default)
+    {
+        var inicioHoje = hoje.ToDateTime(TimeOnly.MinValue);
+        var fimHoje = inicioHoje.AddDays(1);
+        return await _db.Agendamentos.AsNoTracking().Include(a => a.Paciente)
+            .Include(a => a.Profissional).Include(a => a.Sala)
+            .Where(a => a.Status == StatusAgendamento.Agendado && a.DataHora < fimHoje
+                && (a.FimAtendimentoEm != null || (a.InicioAtendimentoEm != null && a.DataHora < inicioHoje)))
+            .OrderBy(a => a.DataHora).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Agendamento>> HorariosEmAbertoVencidosAsync(
         DateTime desde, DateTime ate, CancellationToken ct = default)
         => await _db.Agendamentos.AsNoTracking()
@@ -2960,6 +3013,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     // Uma consulta só para o BI e para o consultório. O filtro de profissional vai no
     // SQL, e a evolução SEM profissional entra junto: ela é a sessão escrita antes de a
     // clínica cadastrar a equipe.
+    public async Task<IReadOnlyList<Evolucao>> VinculosEvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null && e.Data >= inicio && e.Data <= fim)
+            .Select(e => new Evolucao
+            {
+                Id = e.Id, PacienteId = e.PacienteId, Data = e.Data,
+                AgendamentoId = e.AgendamentoId, AtendimentoId = e.AtendimentoId,
+                ProfissionalId = e.ProfissionalId
+            }).ToListAsync(ct);
+
     public async Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default, int? profissionalId = null)
     {

@@ -299,6 +299,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>O par do de cima, para os elementos que só existem no lançar agora.</summary>
     public bool LancarAgora => !MarcarParaDepois;
 
+    /// <summary>Confirmação explícita para lançar sessão que já aconteceu.</summary>
+    [ObservableProperty] private bool _atendimentoJaRealizado;
+
     /// <summary>
     /// Fixa o modo da aba. Chamado por quem cria a tela (o módulo), antes de a tela
     /// aparecer — é o que faz "Lançar" e "Marcar" serem duas abas do mesmo ViewModel em
@@ -1206,6 +1209,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
     private void AoTrocarPaciente(Paciente? value)
     {
+        AtendimentoJaRealizado = false;
         OnPropertyChanged(nameof(PacienteSelecionado));
         AvisoJaLancado = null;
         HorarioDoDia = null;
@@ -1962,6 +1966,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         NumeroAtendimento = null;
         TituloResultado = null;
         _ultimoAtendimentoId = 0;
+        AtendimentoJaRealizado = false;
         CodigosGerados.Clear();
         Avisos.Clear();
         ResumoBaixas = null;
@@ -2135,7 +2140,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                     // Nulo mantém o profissional/sala que o horário já tem.
                     profissionalId: Profissional?.Id,
                     operador: SessaoUsuario.Atual.Operador,
-                    salaId: Sala?.Id)
+                    salaId: Sala?.Id, concluirSessao: AtendimentoJaRealizado)
                 : await agenda.LancarAvulsoAsync(
                     paciente.Id,
                     Data.Date.Add(hora.ToTimeSpan()),
@@ -2150,7 +2155,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                     operador: SessaoUsuario.Atual.Operador,
                     // A sala vai junto no avulso também: a chamada da Fila anuncia
                     // "para a sala X", e sem ela saía "sala —".
-                    salaId: Sala?.Id);
+                    salaId: Sala?.Id, concluirSessao: AtendimentoJaRealizado);
             var sobreOHorario = horarioUsado is not null;
 
             agendamentoId = agendamento.Id;
@@ -2164,8 +2169,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                               + (sobreOHorario ? $" no horário das {agendamento.DataHora:HH'h'mm}" : "");
             Lancado = true;
 
-            // O horário usado deixou de estar em aberto: o aviso some, e o próximo Lançar
-            // para o mesmo paciente volta a ser encaixe (com a capa avisando o repetido).
+            // Atualiza o horário disponível: guias antecipadas preservam a sessão aberta;
+            // um lançamento retrospectivo já concluído deixa de aparecer nesta seleção.
             _ = VerificarHorarioDoDiaAsync(paciente.Id);
 
         }
@@ -2174,6 +2179,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             LogSuite.Registrar("Novo atendimento — lançamento falhou", ex);
             Avisar($"Não foi possível lançar: {ex.Message} Nada foi gravado — corrija e "
                    + "tente de novo.", erro: true);
+            Ocupado = false;
+            return;
+        }
+
+        if (!AtendimentoJaRealizado)
+        {
+            Avisar("Atendimento e guias registrados. A sessão continua aberta para o profissional atender e finalizar.");
             Ocupado = false;
             return;
         }

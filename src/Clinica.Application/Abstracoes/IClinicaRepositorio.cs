@@ -1720,5 +1720,16 @@ public interface IClinicaRepositorio
     Task AdicionarUsuarioAsync(UsuarioSistema usuario, CancellationToken ct = default);
     Task RemoverUsuarioAsync(int usuarioId, CancellationToken ct = default);
 
+    /// <summary>Somente os vínculos de evoluções vigentes, sem texto clínico e sem filtro de autoria.</summary>
+    Task<IReadOnlyList<Evolucao>> VinculosEvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>Sessões encerradas, ou iniciadas em dias anteriores, que ainda não foram concluídas.</summary>
+    Task<IReadOnlyList<Agendamento>> HorariosComConclusaoPendenteAsync(DateOnly hoje, CancellationToken ct = default);
+
+    /// <summary>Executa uma etapa uma única vez, persistindo seu recibo atomicamente com o efeito.</summary>
+    Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
+        Func<Task<int>> executar, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }
