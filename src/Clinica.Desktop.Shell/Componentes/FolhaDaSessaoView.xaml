@@ -30,6 +30,16 @@
 
         <DockPanel>
 
+            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                <TextBlock Text="Reutilizar evolução" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <ComboBox ItemsSource="{Binding Anteriores}" SelectedItem="{Binding SessaoParaReutilizar}"
+                          DisplayMemberPath="Data" Width="155" Margin="0,0,8,0"
+                          AutomationProperties.Name="Sessão anterior para reutilizar" />
+                <Button Content="Usar texto anterior" Command="{Binding ReutilizarSessaoCommand}"
+                        IsEnabled="{Binding TemPaciente}" Style="{StaticResource BotaoSecundario}"
+                        ToolTip="Preenche os campos vazios com a sessão escolhida; sem seleção, usa a última" />
+            </WrapPanel>
+
             <!-- A TIRA: o que a sessão tem de NÚMERO, numa linha só. A data, o
                  par da EVA e a data do retorno — os quatro campos que não são
                  texto e que alimentam a curva da dor e o painel da direção. -->

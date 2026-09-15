@@ -115,7 +115,7 @@ public class DocumentosClinicosTests : IDisposable
     // ==================== Validações por tipo ====================
 
     [Fact]
-    public async Task Receita_sem_nenhum_item_e_recusada()
+    public async Task Receita_sem_texto_nem_itens_e_recusada()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -129,7 +129,7 @@ public class DocumentosClinicosTests : IDisposable
         });
 
         await emitir.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*sem nenhum item*");
+            .WithMessage("*Escreva a prescrição*");
     }
 
     [Fact]

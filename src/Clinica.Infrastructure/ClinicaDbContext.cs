@@ -1144,7 +1144,7 @@ public class ClinicaDbContext : DbContext
         b.Entity<ItemPrescricaoInterna>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Descricao).IsRequired().HasColumnType("text");
             e.Property(x => x.Dose).HasMaxLength(60);
             e.Property(x => x.Diluente).HasMaxLength(120);
             e.Property(x => x.Volume).HasMaxLength(60);

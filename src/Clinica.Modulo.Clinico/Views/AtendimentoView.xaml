@@ -330,6 +330,10 @@
 
                         <TextBlock DockPanel.Dock="Top" Text="ENTREGAR AGORA"
                                    Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                        <Button DockPanel.Dock="Top" Content="Prescrever infusão" Margin="0,0,0,10"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding PrescreverInfusaoCommand}"
+                                IsEnabled="{Binding PodePrescreverInfusao}" />
 
                         <!-- O que JÁ SAIU no dia desta sessão, ancorado embaixo: a
                              pergunta dele ("eu já dei a receita para ela?") só aparece

@@ -440,7 +440,7 @@ public sealed class PrescricaoInternaPdfService
             tabela.Header(h =>
             {
                 CabecalhoCelula(h, "#");
-                CabecalhoCelula(h, "Medicamento · dose · diluente · volume");
+                CabecalhoCelula(h, "Prescrição e preparo");
                 CabecalhoCelula(h, "Via");
                 CabecalhoCelula(h, "Tempo");
                 CabecalhoCelula(h, "Prev.");
@@ -457,8 +457,11 @@ public sealed class PrescricaoInternaPdfService
 
                 Celula(tabela).Column(c =>
                 {
-                    c.Item().Text(item.TextoCompleto).FontSize(9.5f)
-                        .SemiBold().FontColor(apagado ? TextoSecundario : TextoPrimario)
+                    var preparo = PreparoDoItem(item);
+                    if (preparo.Length > 0)
+                        c.Item().Text(preparo).FontSize(8.5f).SemiBold().FontColor(TextoSecundario);
+                    c.Item().Text(item.Descricao).FontSize(9.5f)
+                        .FontColor(apagado ? TextoSecundario : TextoPrimario)
                         .Strikethrough(apagado);
 
                     if (item.SeNecessario)
@@ -536,7 +539,7 @@ public sealed class PrescricaoInternaPdfService
             tabela.Header(h =>
             {
                 CabecalhoCelula(h, "#");
-                CabecalhoCelula(h, "Medicamento · dose · diluente · volume");
+                CabecalhoCelula(h, "Prescrição e preparo");
                 CabecalhoCelula(h, "Via");
                 CabecalhoCelula(h, "Checagem");
                 CabecalhoCelula(h, "Executante");
@@ -550,7 +553,10 @@ public sealed class PrescricaoInternaPdfService
 
                 Celula(tabela).Column(c =>
                 {
-                    c.Item().Text(item.TextoCompleto).FontSize(9.5f).SemiBold()
+                    var preparo = PreparoDoItem(item);
+                    if (preparo.Length > 0)
+                        c.Item().Text(preparo).FontSize(8.5f).SemiBold().FontColor(TextoSecundario);
+                    c.Item().Text(item.Descricao).FontSize(9.5f)
                         .Strikethrough(item.Suspenso);
                     if (item.SeNecessario)
                         c.Item().Text("se necessário (SOS)").FontSize(8).FontColor(AmareloForte);
@@ -1169,6 +1175,15 @@ public sealed class PrescricaoInternaPdfService
             if (!string.IsNullOrWhiteSpace(detalhe))
                 c.Item().Text(detalhe!).FontSize(9).FontColor(tinta);
         });
+
+    private static string PreparoDoItem(ItemPrescricaoInterna item)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.Dose)) partes.Add($"Dose: {item.Dose.Trim()}");
+        if (!string.IsNullOrWhiteSpace(item.Diluente)) partes.Add($"Diluente: {item.Diluente.Trim()}");
+        if (!string.IsNullOrWhiteSpace(item.Volume)) partes.Add($"Volume: {item.Volume.Trim()}");
+        return string.Join(" · ", partes);
+    }
 
     private static void CabecalhoCelula(TableCellDescriptor h, string texto)
         => h.Cell().Background(FundoCabecalhoTabela)

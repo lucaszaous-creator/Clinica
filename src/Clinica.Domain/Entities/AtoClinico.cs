@@ -271,9 +271,9 @@ public static class TipoDocumentoInfo
                or TipoDocumentoClinico.Consentimento
                or TipoDocumentoClinico.Anamnese;
 
-    /// <summary>O documento é uma lista de itens (medicamentos, exames) e exige ao menos um.</summary>
+    /// <summary>Pedido de exame exige itens; a receita também aceita o corpo em texto livre.</summary>
     public static bool ExigeItens(TipoDocumentoClinico tipo)
-        => tipo is TipoDocumentoClinico.Receita or TipoDocumentoClinico.PedidoExame;
+        => tipo is TipoDocumentoClinico.PedidoExame;
 
     /// <summary>
     /// Os tipos que a clínica EMITE. <see cref="TipoDocumentoClinico.Desconhecido"/> fica de

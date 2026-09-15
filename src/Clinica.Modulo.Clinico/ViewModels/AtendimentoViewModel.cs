@@ -380,6 +380,32 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
         EvolucaoId: EvolucaoId == 0 ? null : EvolucaoId,
         DataHoraDaSessao: _dataHoraDaSessao);
 
+    public bool PodePrescreverInfusao => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
+
+    [RelayCommand]
+    private async Task PrescreverInfusaoAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "prescrever infusão");
+            if (!TemPaciente) throw new InvalidOperationException("Escolha um paciente antes de prescrever.");
+            using var scope = _escopos.CreateScope();
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+            var vm = new PrescricaoInternaEdicaoViewModel(
+                _escopos, dialogo, PacienteId, Paciente, SessaoUsuario.Atual.ProfissionalId,
+                _foco.AgendamentoId, evolucaoId: EvolucaoId == 0 ? null : EvolucaoId);
+            new PrescricaoInternaWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog();
+            // Recarrega somente a leitura da enfermagem. O texto em edição fica intacto.
+            await LinhaDoTempo.CarregarAsync(PacienteId);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Infusão no atendimento", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     /// <summary>
     /// Refaz a coluna — só quando o que ela DIZ mudou.
     ///

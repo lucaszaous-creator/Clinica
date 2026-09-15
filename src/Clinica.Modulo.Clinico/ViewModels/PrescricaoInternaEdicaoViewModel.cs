@@ -15,19 +15,17 @@ namespace Clinica.Clinico.ViewModels;
 /// <summary>
 /// Uma linha da prescrição sendo escrita.
 ///
-/// Os campos são separados — droga, dose, diluente, volume, via, tempo — e não uma caixa
-/// de texto livre, porque cada um deles é conferido isoladamente por quem prepara. Lido de
-/// um campo só, "Dipirona 1g + SF 0,9% 100mL EV em 30 min" obriga a técnica a fazer a
-/// separação de cabeça, toda vez, com o paciente na cadeira — e é aí que se troca o diluente.
+/// O profissional escreve a prescrição livremente. Cada bloco continua sendo um item
+/// de checagem; diluente, volume, via e tempo ficam visíveis ao preparar a infusão.
 /// </summary>
 public sealed partial class LinhaItemPrescricao : ObservableObject
 {
     [ObservableProperty] private string _descricao = string.Empty;
     [ObservableProperty] private string? _dose;
-    [ObservableProperty] private string? _diluente;
+    [ObservableProperty] private string? _diluente = "SF 0,9%";
     [ObservableProperty] private string? _volume;
     [ObservableProperty] private ViaAdministracao _via = ViaAdministracao.Endovenosa;
-    [ObservableProperty] private string? _tempoInfusao;
+    [ObservableProperty] private string? _tempoInfusao = "1 hora";
     [ObservableProperty] private string? _horaPrevista;
     [ObservableProperty] private bool _seNecessario;
     [ObservableProperty] private string? _observacoes;
@@ -84,6 +82,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     private readonly int _pacienteId;
     private readonly int? _profissionalId;
     private readonly int? _agendamentoId;
+    private readonly int? _evolucaoId;
 
     public ObservableCollection<LinhaItemPrescricao> Itens { get; } = [];
 
@@ -154,13 +153,14 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     public PrescricaoInternaEdicaoViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo,
         int pacienteId, string paciente, int? profissionalId, int? agendamentoId = null,
-        int? prescricaoId = null)
+        int? prescricaoId = null, int? evolucaoId = null)
     {
         _escopos = escopos;
         _dialogo = dialogo;
         _pacienteId = pacienteId;
         _profissionalId = profissionalId;
         _agendamentoId = agendamentoId;
+        _evolucaoId = evolucaoId;
         _prescricaoId = prescricaoId ?? 0;
         Paciente = paciente;
 
@@ -389,8 +389,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
         if (itens.Count == 0)
         {
-            Mensagem = "Escreva ao menos um item (o medicamento é obrigatório; dose, "
-                     + "diluente e volume ajudam quem vai preparar).";
+            Mensagem = "Escreva a prescrição. Use um bloco para cada item que será checado pela enfermagem.";
             MensagemEhErro = true;
             return null;
         }
@@ -406,6 +405,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             {
                 var criada = await servico.CriarAsync(
                     _pacienteId, _profissionalId, _agendamentoId,
+                    evolucaoId: _evolucaoId,
                     operador: SessaoUsuario.Atual.Operador);
 
                 _prescricaoId = criada.Id;

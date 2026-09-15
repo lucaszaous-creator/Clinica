@@ -61,6 +61,11 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     {
         _escopos = escopos;
         _snackbar = snackbar;
+        Anteriores.CollectionChanged += (_, _) =>
+        {
+            if (SessaoParaReutilizar is not null && !Anteriores.Contains(SessaoParaReutilizar))
+                SessaoParaReutilizar = null;
+        };
     }
 
     public FolhaDaSessaoViewModel(IServiceScopeFactory escopos) : this(escopos, null) { }
@@ -118,6 +123,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     [ObservableProperty] private MapaCorporalViewModel? _mapa;
 
     public ObservableCollection<ResumoSessaoAnterior> Anteriores { get; } = [];
+    [ObservableProperty] private ResumoSessaoAnterior? _sessaoParaReutilizar;
 
     /// <summary>Evolução em edição. 0 = sessão nova.</summary>
     [ObservableProperty] private int _evolucaoId;
@@ -589,8 +595,15 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     protected virtual void RepetirUltima()
+        => ReutilizarSessao(Anteriores.FirstOrDefault());
+
+    [RelayCommand]
+    private void ReutilizarSessao(ResumoSessaoAnterior? sessao)
     {
-        var ultima = Anteriores.FirstOrDefault();
+        // Só aceita uma sessão do contexto atual; uma seleção antiga não atravessa
+        // a troca de paciente. O botão sem seleção usa a última sessão disponível.
+        var ultima = sessao ?? SessaoParaReutilizar ?? Anteriores.FirstOrDefault();
+        if (ultima is not null && !Anteriores.Contains(ultima)) ultima = null;
         if (ultima is null)
         {
             Mensagem = "Não há sessão anterior para repetir.";

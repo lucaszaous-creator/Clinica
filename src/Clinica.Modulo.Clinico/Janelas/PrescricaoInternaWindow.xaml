@@ -43,13 +43,17 @@
 
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <StackPanel Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal">
                     <Button Content="Acrescentar item" MinWidth="150"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
@@ -62,11 +66,11 @@
                     <CheckBox Margin="16,0,0,0" VerticalAlignment="Center"
                               IsChecked="{Binding ExigirAssinaturaDaExecucao}"
                               IsEnabled="{Binding PodePrescrever}"
-                              Content="Colher assinatura eletrônica da enfermagem no encerramento (recomendado)"
+                              Content="Assinatura eletrônica da enfermagem ao encerrar"
                               ToolTip="MARCADO (padrão): ao encerrar, o sistema PEDE a assinatura da enfermeira — ela assina ESTA MESMA prescrição com o certificado dela (a sua não é tocada, e a folha sai com as duas) e o registro de execução sai selado, mostrando o que foi feito, o não realizado e o suspenso.&#10;&#10;DESMARCADO: o sistema NÃO pede assinatura nenhuma no encerramento; a enfermeira assina à caneta na via impressa." />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                     <Button Content="Fechar" IsCancel="True" MinWidth="100"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}" />
@@ -109,7 +113,9 @@
                              TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Text="Itens" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+                <TextBlock Text="Prescrição" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
+                <TextBlock Text="Escreva ou cole o texto livremente. Use um bloco por item de checagem. Diluente e tempo já vêm preenchidos e podem ser ajustados."
+                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10" />
 
                 <ItemsControl ItemsSource="{Binding Itens}">
                     <ItemsControl.ItemTemplate>
@@ -128,12 +134,15 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                            <TextBlock Text="Medicamento" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBlock Text="Prescrição livre" Style="{StaticResource Rotulo}" />
+                                            <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
+                                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="110"
+                                                     VerticalContentAlignment="Top"
+                                                     VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Prescrição livre da infusão" />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Margin="0,0,10,0">
-                                            <TextBlock Text="Dose" Style="{StaticResource Rotulo}" />
+                                            <TextBlock Text="Dose (opcional)" Style="{StaticResource Rotulo}" />
                                             <TextBox Text="{Binding Dose, UpdateSourceTrigger=PropertyChanged}" />
                                         </StackPanel>
 
