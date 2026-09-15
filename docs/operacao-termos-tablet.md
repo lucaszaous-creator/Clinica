@@ -220,3 +220,23 @@ chaves, schema e submissões; corrigir/reiniciar permite ao worker retomar.
 Reverter aplicação/interface para versão compatível, sem apagar tabelas nem
 executar Down: a migração bloqueia remoção de evidências. Manter leitores desktop
 compatíveis com as vias arquivadas.
+
+## Atualização da experiência — 15/09/2026
+
+Backend `7ff2107` e interface `c4ab81a` publicados em
+`/opt/clinica-tablet/releases/7ff21079094f-c4ab81a8afb3`. A referência `current`
+foi trocada após conferir todos os hashes do pacote e executar as consultas
+novas na cópia restaurada do PostgreSQL. Os dois termos fictícios foram
+encontrados como arquivados, vinculados à ficha correta e com PDFs idênticos,
+em transação somente de leitura. Nenhuma migration foi aplicada.
+
+Após ativar, health e JavaScript público conferidos; agenda real autenticada
+exibiu as situações de assinatura. PostgreSQL, configurações de rede, chaves e
+permissões foram preservados. Reversão disponível para
+`/opt/clinica-tablet/releases/488f8c4ba264-7d413ad75854`.
+
+Relatórios sanitizados: `tablet-stage/ux-homologacao.json` e
+`tablet-stage/ux-producao.json` sob a conta administrativa; cópias locais em
+`artifacts/`. Testes locais: 2.549 regras, fronteira HTTP e percurso real de dois
+termos em demonstração; CI Linux e PostgreSQL aprovados. Não foi distribuída
+nova versão dos aplicativos desktop nesta atualização do portal.
