@@ -144,7 +144,8 @@ public sealed class ConciliacaoAgendaService
         {
             var dia = DateOnly.FromDateTime(a.DataHora);
             var chave = (a.PacienteId, dia);
-            var sessoes = sessoesPorPacienteEDia.TryGetValue(chave, out var s) ? s : [];
+            var sessoes = sessoesPorPacienteEDia.TryGetValue(chave, out var s)
+                ? s.Where(x => x.AtendimentoId != a.AtendimentoId).ToList() : [];
 
             return new HorarioParado(
                 a.Id, a.PacienteId,

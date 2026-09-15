@@ -11,8 +11,10 @@ using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Clinico.ViewModels;
+using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
@@ -57,6 +59,8 @@ static class Program
         services.AddClinica("Host=127.0.0.1;Database=nao_usado;Username=nao_usado");
         services.AddScoped(_ => new ClinicaDbContext(options));
         services.AddSingleton<IDialogoService>(dialogo);
+        services.AddSingleton<ISnackbarService, SnackbarService>();
+        new ModuloClinico().Registrar(services);
         using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
@@ -125,6 +129,80 @@ static class Program
         folha.Anteriores.Clear(); Exigir(folha.SessaoParaReutilizar is null, "Seleção atravessou troca de contexto.");
         var folhaView = new FolhaDaSessaoView { DataContext = folha };
         await Desenhar(new Window { Content = folhaView }, "evolucao.png", 1050, 760);
+
+        await ConferirMapaEFinalizacao(provider, scope.ServiceProvider, factory, paciente, profissional);
+    }
+
+    static async Task ConferirMapaEFinalizacao(IServiceProvider provider, IServiceProvider servicos,
+        IServiceScopeFactory factory, Paciente paciente, Profissional profissional)
+    {
+        var prontuario = servicos.GetRequiredService<ProntuarioService>();
+        var mapas = servicos.GetRequiredService<MapaCorporalService>();
+        var dia = DateOnly.FromDateTime(DateTime.Today);
+        var anterior = await prontuario.SalvarAsync(new Evolucao { PacienteId = paciente.Id,
+            ProfissionalId = profissional.Id, Data = dia.AddDays(-2), TextoEvolucao = "Sessão anterior demonstrativa." });
+        await mapas.SalvarAsync(anterior.Id,
+            [new PontoMapa { Face = FaceCorpo.Frente, X = .3, Y = .3, Nome = "P1" },
+             new PontoMapa { Face = FaceCorpo.Costas, X = .6, Y = .45, Nome = "P2", Tecnica = TecnicaPonto.Moxa }],
+            "Observações demonstrativas da equipe.");
+        var mapa = new MapaCorporalViewModel(factory, paciente.Id, null, dia);
+        await mapa.CarregarAsync();
+        Exigir(mapa.PodeEditar && mapa.SessoesAnteriores.Count == 1, "Histórico do mapa não carregado.");
+        await Desenhar(new MapaCorporalWindow(mapa, "Mapa corporal — paciente demonstrativo"), "mapa-vazio.png", 1140, 720);
+        await mapa.CopiarSessaoCommand.ExecuteAsync(null);
+        Exigir(mapa.Pontos.Count == 2 && mapa.Observacoes == "Observações demonstrativas da equipe.", "Cópia incompleta do mapa.");
+        mapa.Pontos[0].Nome = "P1 ajustado";
+        mapa.NomeProximoPonto = "P3"; mapa.Marcar(FaceCorpo.Frente, .55, .7);
+        mapa.NomeDoModelo = "Modelo demonstrativo da equipe"; mapa.ProtocoloDaClinica = true;
+        await mapa.SalvarComoProtocoloCommand.ExecuteAsync(null);
+        Exigir(mapa.Protocolos.Count == 1, "Modelo com pontos não foi cadastrado.");
+        mapa.LimparCommand.Execute(null); mapa.DesfazerCommand.Execute(null);
+        Exigir(mapa.Pontos.Count == 3, "Desfazer não recuperou os pontos.");
+        var window = new MapaCorporalWindow(mapa, "Mapa corporal — paciente demonstrativo");
+        await Desenhar(window, "mapa-preenchido.png", 1140, 720);
+        await Desenhar(window, "mapa-compacto.png", 920, 620);
+        foreach (var expander in Descendentes<Expander>((DependencyObject)window.Content))
+            expander.IsExpanded = expander.Header?.ToString()?.Contains("modelo") == true;
+        await Desenhar(window, "mapa-modelos.png", 1140, 720);
+        mapa.LimparCommand.Execute(null); mapa.Observacoes = "Alteração descartada";
+        typeof(MapaCorporalWindow).GetMethod("OnClosing", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(window, [new System.ComponentModel.CancelEventArgs()]);
+        Exigir(mapa.Pontos.Count == 3 && mapa.Observacoes == "Observações demonstrativas da equipe.", "Descartar não restaurou o mapa.");
+        Exigir((await mapas.DaEvolucaoAsync(anterior.Id))!.Pontos.Count == 2, "Editar cópia alterou a sessão anterior.");
+
+        var agenda = servicos.GetRequiredService<AgendaService>();
+        var horario = await agenda.AgendarAsync(paciente.Id, dia.AddDays(-1).ToDateTime(new TimeOnly(13, 30)),
+            ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: profissional.Id);
+        var evo = await prontuario.SalvarAsync(new Evolucao { PacienteId = paciente.Id, ProfissionalId = profissional.Id,
+            AgendamentoId = horario.Id, Data = dia.AddDays(-1), TextoEvolucao = "Evolução salva, aguardando finalizar." });
+        var foco = provider.GetRequiredService<PacienteEmFoco>();
+        foco.Definir(paciente.Id, paciente.Nome, horario.Id, null, dia.AddDays(-1));
+        var workspace = new PacienteWorkspaceViewModel(provider, foco);
+        await Esperar(() => workspace.TemSessao && !workspace.Atendimento.Carregando && workspace.Atendimento.Mapa is not null);
+        Exigir(workspace.PodeFinalizarSessao && !workspace.EmAtendimento, "Finalizar continua dependendo do cronômetro.");
+        workspace.Atendimento.Mapa!.NomeProximoPonto = "Ponto da sessão";
+        workspace.Atendimento.Mapa.Marcar(FaceCorpo.Frente, .5, .4);
+        await workspace.FinalizarSessaoCommand.ExecuteAsync(null);
+        Exigir(workspace.SessaoConcluida, "Finalização da tela falhou: " + workspace.MensagemSessao);
+        using var conferencia = factory.CreateScope();
+        var db = conferencia.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+        var salvo = await db.Agendamentos.SingleAsync(a => a.Id == horario.Id);
+        Exigir(salvo.Status == StatusAgendamento.Realizado && salvo.FimAtendimentoEm is not null && salvo.InicioAtendimentoEm is null,
+            "Estado de finalização incoerente.");
+        Exigir(await db.Evolucoes.AnyAsync(e => e.Id == evo.Id && e.AtendimentoId == salvo.AtendimentoId), "Evolução não vinculada ao atendimento.");
+        Exigir(await db.MapasCorporais.AnyAsync(m => m.EvolucaoId == evo.Id), "Mapa não vinculado à evolução.");
+        Exigir(await db.Codigos.AnyAsync(c => c.AtendimentoId == salvo.AtendimentoId), "Guias não geradas ao finalizar.");
+        Console.WriteLine("QA MAPA E FINALIZAÇÃO OK: modelo, cópia, desfazer, descarte, evolução, mapa e guias vinculados.");
+    }
+
+    static IEnumerable<T> Descendentes<T>(DependencyObject raiz) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(raiz); i++)
+        {
+            var filho = VisualTreeHelper.GetChild(raiz, i);
+            if (filho is T encontrado) yield return encontrado;
+            foreach (var descendente in Descendentes<T>(filho)) yield return descendente;
+        }
     }
 
     static async Task Esperar(Func<bool> condicao)

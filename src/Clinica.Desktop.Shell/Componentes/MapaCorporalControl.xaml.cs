@@ -69,6 +69,17 @@ public partial class MapaCorporalControl : UserControl
     private void TelaCostas_Clique(object sender, MouseButtonEventArgs e)
         => Marcar(FaceCorpo.Costas, sender, e);
 
+    private void Ponto_Clique(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: PontoMapaItem ponto }
+            && DataContext is MapaCorporalViewModel mapa)
+        {
+            mapa.SelecionarPontoCommand.Execute(ponto);
+            DetalhesDoPonto.IsExpanded = true;
+            e.Handled = true;
+        }
+    }
+
     /// <summary>
     /// Converte o pixel clicado em fração da figura (0 a 1) e entrega ao ViewModel.
     ///

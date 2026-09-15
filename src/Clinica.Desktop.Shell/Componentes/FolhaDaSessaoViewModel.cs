@@ -710,7 +710,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
                 CamposPersonalizados = CampoPersonalizadoService.Montar(
                     _definicoesDosCampos,
                     CamposPersonalizados.ToDictionary(c => c.Id, c => c.Resposta)).ToList()
-            }, SessaoUsuario.Atual.Operador);
+            }, SessaoUsuario.Atual.Operador, mapa: Mapa?.ParaGravacao());
 
             EvolucaoId = salva.Id;
 
@@ -718,7 +718,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             // sessão, e antes de a sessão existir não há a que pertencer. Os pontos
             // trazidos por "repetir" ou por protocolo viram prontuário só aqui — até este
             // ponto eram tela, e prontuário não é rascunho.
-            if (Mapa is not null) await Mapa.SalvarAsync(salva.Id);
+            Mapa?.ConfirmarGravacao(salva.Id);
 
             _snackbar?.Sucesso("Sessão registrada no prontuário.");
             UltimaGravacao = $"Última gravação às {DateTime.Now:HH\\:mm}";
@@ -793,7 +793,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
            || EvaAntes is not null
            || EvaDepois is not null
            || !string.IsNullOrWhiteSpace(CidSessao)
-           || Mapa?.Pontos.Count > 0;
+           || Mapa?.Pontos.Count > 0
+           || !string.IsNullOrWhiteSpace(Mapa?.Observacoes);
 
     /// <summary>
     /// Abre o mapa corporal em JANELA (parcela 37, rodada de leiaute).

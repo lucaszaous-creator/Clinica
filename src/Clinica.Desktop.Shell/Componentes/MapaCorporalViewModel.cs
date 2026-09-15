@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Domain.Entities;
@@ -80,11 +81,16 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
     private int? _evolucaoId;
+    private readonly DateOnly _dataSessao;
+    private int _geracaoCarga;
+    private int? _protocoloOrigemId;
+    private RascunhoMapaCorporal? _antesDaUltimaAcao;
 
     public ObservableCollection<PontoMapaItem> Pontos { get; } = [];
     public ObservableCollection<PontoMapaItem> PontosFrente { get; } = [];
     public ObservableCollection<PontoMapaItem> PontosCostas { get; } = [];
     public ObservableCollection<ProtocoloCorporal> Protocolos { get; } = [];
+    public ObservableCollection<ResumoMapaAnterior> SessoesAnteriores { get; } = [];
 
     /// <summary>Técnicas oferecidas ao marcar — a escolhida vale para o próximo clique.</summary>
     public IReadOnlyList<TecnicaPonto> Tecnicas { get; } = Enum.GetValues<TecnicaPonto>();
@@ -96,6 +102,37 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     [ObservableProperty] private bool _protocoloDaClinica;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _ocupado;
+    [ObservableProperty] private bool _cargaConcluida;
+    [ObservableProperty] private ResumoMapaAnterior? _sessaoAnteriorSelecionada;
+    [ObservableProperty] private PontoMapaItem? _pontoSelecionado;
+    [ObservableProperty] private string? _nomeDoModelo;
+    [ObservableProperty] private string _titulo = "Mapa corporal";
+
+    public bool PodeEditar => !Ocupado && CargaConcluida;
+    public bool PodeGuardarModelo => PodeEditar && Pontos.Count > 0
+        && SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeApagarModelo => PodeEditar && ProtocoloSelecionado is not null
+        && SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool TemPontos => Pontos.Count > 0;
+    public bool PodeDesfazer => PodeEditar && _antesDaUltimaAcao is not null;
+    public string EstadoDoHistorico => SessoesAnteriores.Count == 0
+        ? "Nenhum mapa anterior disponível para esta sessão." : "Copie os pontos e ajuste o que mudou hoje.";
+    public string EstadoDosModelos => Protocolos.Count == 0
+        ? "Marque os pontos no corpo e use ‘Salvar como modelo’ para cadastrar o primeiro."
+        : "Modelos deste paciente e modelos compartilhados pela clínica.";
+
+    partial void OnOcupadoChanged(bool value) => AvisarAcoes();
+    partial void OnCargaConcluidaChanged(bool value) => AvisarAcoes();
+    partial void OnProtocoloSelecionadoChanged(ProtocoloCorporal? value) => AvisarAcoes();
+
+    private void AvisarAcoes()
+    {
+        OnPropertyChanged(nameof(PodeEditar));
+        OnPropertyChanged(nameof(PodeGuardarModelo));
+        OnPropertyChanged(nameof(PodeApagarModelo));
+        OnPropertyChanged(nameof(PodeDesfazer));
+    }
 
     public string Resumo => Pontos.Count == 0
         ? "Nenhum ponto marcado. Clique na figura para marcar."
@@ -106,16 +143,21 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
     partial void OnMensagemChanged(string value) => OnPropertyChanged(nameof(TemMensagem));
 
-    public MapaCorporalViewModel(IServiceScopeFactory escopos, int pacienteId, int? evolucaoId)
+    public MapaCorporalViewModel(IServiceScopeFactory escopos, int pacienteId, int? evolucaoId,
+        DateOnly? dataSessao = null)
     {
         _escopos = escopos;
         _pacienteId = pacienteId;
         _evolucaoId = evolucaoId;
+        _dataSessao = dataSessao ?? DateOnly.FromDateTime(DateTime.Today);
     }
 
     /// <summary>Carrega o mapa já gravado (se houver) e os protocolos disponíveis.</summary>
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+        Ocupado = true;
+        CargaConcluida = false;
         try
         {
             using var scope = _escopos.CreateScope();
@@ -123,24 +165,33 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
             // Entre o Clear() e o último Add não pode haver await (parcela 62).
             var protocolos = await mapas.ProtocolosAsync(_pacienteId);
+            var historico = await mapas.HistoricoAsync(_pacienteId, _evolucaoId, _dataSessao);
+            var mapa = _evolucaoId is { } id ? await mapas.DaEvolucaoAsync(id) : null;
+            if (geracao != _geracaoCarga) return;
             Protocolos.Clear();
             foreach (var p in protocolos)
                 Protocolos.Add(p);
-
-            if (_evolucaoId is null) return;
-
-            var mapa = await mapas.DaEvolucaoAsync(_evolucaoId.Value);
-            if (mapa is null) return;
-
-            Observacoes = mapa.Observacoes;
-            Substituir(mapa.Pontos.OrderBy(p => p.Ordem).ThenBy(p => p.Id));
+            SessoesAnteriores.Clear();
+            foreach (var anterior in historico) SessoesAnteriores.Add(anterior);
+            SessaoAnteriorSelecionada = SessoesAnteriores.FirstOrDefault();
+            OnPropertyChanged(nameof(EstadoDoHistorico));
+            OnPropertyChanged(nameof(EstadoDosModelos));
+            if (mapa is not null)
+            {
+                Observacoes = mapa.Observacoes;
+                _protocoloOrigemId = mapa.ProtocoloOrigemId;
+                Substituir(mapa.Pontos.OrderBy(p => p.Ordem).ThenBy(p => p.Id));
+            }
+            CargaConcluida = true;
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
             Clinica.Application.Diagnostico.Registrar(
                 "Mapa corporal não pôde ser carregado", ex);
             Erro($"Não foi possível carregar o mapa: {ex.Message}");
         }
+        finally { if (geracao == _geracaoCarga) Ocupado = false; }
     }
 
     /// <summary>
@@ -150,6 +201,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     /// </summary>
     public void Marcar(FaceCorpo face, double x, double y)
     {
+        if (!PodeEditar) return;
         if (!MapaCorporal.CoordenadaValida(x) || !MapaCorporal.CoordenadaValida(y)) return;
 
         if (Pontos.Count >= MapaCorporal.MaximoPontos)
@@ -158,14 +210,17 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
             return;
         }
 
-        Pontos.Add(new PontoMapaItem
+        GuardarParaDesfazer();
+        var ponto = new PontoMapaItem
         {
             Face = face,
             X = x,
             Y = y,
             Nome = string.IsNullOrWhiteSpace(NomeProximoPonto) ? null : NomeProximoPonto!.Trim(),
             Tecnica = TecnicaSelecionada
-        });
+        };
+        Pontos.Add(ponto);
+        PontoSelecionado = ponto;
 
         // O nome é do ponto que acabou de ser marcado: deixá-lo no campo repetiria
         // "IG4" no próximo clique sem ninguém pedir.
@@ -176,15 +231,21 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     [RelayCommand]
     private void RemoverPonto(PontoMapaItem? ponto)
     {
-        if (ponto is null) return;
+        if (!PodeEditar || ponto is null || !Pontos.Contains(ponto)) return;
+        GuardarParaDesfazer();
         Pontos.Remove(ponto);
+        if (PontoSelecionado == ponto) PontoSelecionado = Pontos.LastOrDefault();
         Reindexar();
     }
 
     [RelayCommand]
     private void Limpar()
     {
+        if (!PodeEditar || Pontos.Count == 0) return;
+        GuardarParaDesfazer();
         Pontos.Clear();
+        PontoSelecionado = null;
+        _protocoloOrigemId = null;
         Reindexar();
     }
 
@@ -192,20 +253,30 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     [RelayCommand]
     private async Task RepetirAnteriorAsync()
     {
+        SessaoAnteriorSelecionada = SessoesAnteriores.FirstOrDefault();
+        await CopiarSessaoAsync();
+    }
+
+    [RelayCommand]
+    private async Task CopiarSessaoAsync()
+    {
+        if (!PodeEditar) return;
+        if (SessaoAnteriorSelecionada is not { } anterior || !SessoesAnteriores.Contains(anterior))
+        {
+            Erro("Escolha uma sessão anterior com mapa.");
+            return;
+        }
+        Ocupado = true;
         try
         {
             using var scope = _escopos.CreateScope();
             var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
-            var pontos = await mapas.PontosDaSessaoAnteriorAsync(_pacienteId, _evolucaoId);
-
-            if (pontos.Count == 0)
-            {
-                Erro("Nenhuma sessão anterior deste paciente tem mapa para repetir.");
-                return;
-            }
-
-            Substituir(pontos);
-            Informar($"{pontos.Count} ponto(s) trazidos da sessão anterior. Ajuste e salve a sessão.");
+            var mapa = await mapas.CopiarParaEdicaoAsync(_pacienteId, anterior.EvolucaoId, _evolucaoId, _dataSessao);
+            GuardarParaDesfazer();
+            Substituir(mapa.Pontos);
+            Observacoes = mapa.Observacoes;
+            _protocoloOrigemId = mapa.ProtocoloOrigemId;
+            Informar($"Mapa de {anterior.Data:dd/MM/yyyy} copiado, com {mapa.Pontos.Count} pontos. Ajuste para esta sessão.");
         }
         catch (Exception ex)
         {
@@ -213,13 +284,14 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
                 "Mapa da sessão anterior não pôde ser lido", ex);
             Erro(ex.Message);
         }
+        finally { Ocupado = false; }
     }
 
     /// <summary>Aplica o protocolo escolhido, substituindo o que estiver marcado.</summary>
     [RelayCommand]
     private void AplicarProtocolo()
     {
-        if (ProtocoloSelecionado is not { } protocolo) return;
+        if (!PodeEditar || ProtocoloSelecionado is not { } protocolo || !Protocolos.Contains(protocolo)) return;
 
         var pontos = MapaCorporalService.PontosDoProtocolo(protocolo);
         if (pontos.Count == 0)
@@ -228,8 +300,11 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
             return;
         }
 
+        GuardarParaDesfazer();
         Substituir(pontos);
-        Informar($"Protocolo \"{protocolo.Nome}\" aplicado. Ajuste e salve a sessão.");
+        Observacoes = protocolo.Descricao;
+        _protocoloOrigemId = protocolo.Id;
+        Informar($"Modelo \"{protocolo.Nome}\" aplicado. Ajuste os pontos para esta sessão.");
     }
 
     /// <summary>
@@ -246,7 +321,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     [RelayCommand]
     private async Task ExcluirProtocoloAsync()
     {
-        if (ProtocoloSelecionado is not { } protocolo) return;
+        if (!PodeEditar || ProtocoloSelecionado is not { } protocolo) return;
 
         try
         {
@@ -264,11 +339,14 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
                     + "As sessões já salvas com ele NÃO mudam — os pontos foram copiados para cada uma."))
                 return;
 
+            Ocupado = true;
             var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
             await mapas.ExcluirProtocoloAsync(protocolo.Id, SessaoUsuario.Atual.Operador);
 
             Protocolos.Remove(protocolo);
             ProtocoloSelecionado = null;
+            if (_protocoloOrigemId == protocolo.Id) _protocoloOrigemId = null;
+            OnPropertyChanged(nameof(EstadoDosModelos));
             Informar($"Protocolo \"{protocolo.Nome}\" apagado. As sessões já salvas com ele não mudam.");
         }
         catch (Exception ex)
@@ -277,12 +355,15 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
                 "Protocolo corporal não pôde ser apagado", ex);
             Erro(ex.Message);
         }
+        finally { Ocupado = false; }
     }
 
     /// <summary>Guarda o que está desenhado como protocolo reutilizável.</summary>
     [RelayCommand]
     private async Task SalvarComoProtocoloAsync(string? nome)
     {
+        if (!PodeEditar) return;
+        nome ??= NomeDoModelo;
         if (string.IsNullOrWhiteSpace(nome))
         {
             Erro("Dê um nome ao protocolo antes de guardá-lo.");
@@ -298,16 +379,19 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "guardar protocolo do mapa corporal");
+            Ocupado = true;
 
             using var scope = _escopos.CreateScope();
             var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
 
             var protocolo = await mapas.SalvarComoProtocoloAsync(
                 _pacienteId, nome!, ParaDominio(), ProtocoloDaClinica,
-                descricao: null, operador: SessaoUsuario.Atual.Operador);
+                descricao: Observacoes, operador: SessaoUsuario.Atual.Operador);
 
             Protocolos.Add(protocolo);
             ProtocoloSelecionado = protocolo;
+            NomeDoModelo = null;
+            OnPropertyChanged(nameof(EstadoDosModelos));
             Informar(ProtocoloDaClinica
                 ? $"Protocolo \"{protocolo.Nome}\" guardado para toda a clínica."
                 : $"Protocolo \"{protocolo.Nome}\" guardado para este paciente.");
@@ -318,6 +402,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
                 "Protocolo corporal não pôde ser guardado", ex);
             Erro(ex.Message);
         }
+        finally { Ocupado = false; }
     }
 
     /// <summary>
@@ -326,6 +411,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
     /// </summary>
     public async Task SalvarAsync(int evolucaoId)
     {
+        if (!PodeEditar) throw new InvalidOperationException("Aguarde o carregamento do mapa antes de salvar a sessão.");
         _evolucaoId = evolucaoId;
 
         using var scope = _escopos.CreateScope();
@@ -336,7 +422,49 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         if (Pontos.Count == 0 && await mapas.DaEvolucaoAsync(evolucaoId) is null) return;
 
         await mapas.SalvarAsync(
-            evolucaoId, ParaDominio(), Observacoes, SessaoUsuario.Atual.Operador);
+            evolucaoId, ParaDominio(), Observacoes, SessaoUsuario.Atual.Operador, _protocoloOrigemId);
+    }
+
+    public RascunhoMapaCorporal CapturarRascunho()
+        => new(ParaDominio(), Observacoes, _protocoloOrigemId);
+
+    public MapaCorporal ParaGravacao()
+    {
+        if (!PodeEditar) throw new InvalidOperationException("Aguarde o carregamento do mapa antes de salvar a sessão.");
+        return new MapaCorporal { Pontos = ParaDominio().ToList(), Observacoes = Observacoes,
+            ProtocoloOrigemId = _protocoloOrigemId };
+    }
+
+    public void ConfirmarGravacao(int evolucaoId) => _evolucaoId = evolucaoId;
+
+    public void RestaurarRascunho(RascunhoMapaCorporal rascunho)
+    {
+        Substituir(rascunho.Pontos);
+        Observacoes = rascunho.Observacoes;
+        _protocoloOrigemId = rascunho.ProtocoloOrigemId;
+        _antesDaUltimaAcao = null;
+        Mensagem = string.Empty;
+        AvisarAcoes();
+    }
+
+    private void GuardarParaDesfazer()
+    {
+        _antesDaUltimaAcao = CapturarRascunho();
+        AvisarAcoes();
+    }
+
+    [RelayCommand]
+    private void Desfazer()
+    {
+        if (!PodeEditar || _antesDaUltimaAcao is not { } anterior) return;
+        RestaurarRascunho(anterior);
+        Informar("Última alteração dos pontos desfeita.");
+    }
+
+    [RelayCommand]
+    private void SelecionarPonto(PontoMapaItem? ponto)
+    {
+        if (ponto is not null && Pontos.Contains(ponto)) PontoSelecionado = ponto;
     }
 
     private IReadOnlyList<PontoMapa> ParaDominio()
@@ -363,7 +491,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
                 Tecnica = p.Tecnica,
                 Observacao = p.Observacao
             });
-
+        PontoSelecionado = Pontos.FirstOrDefault();
         Reindexar();
     }
 
@@ -379,6 +507,8 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
             (p.Face == FaceCorpo.Frente ? PontosFrente : PontosCostas).Add(p);
 
         OnPropertyChanged(nameof(Resumo));
+        OnPropertyChanged(nameof(TemPontos));
+        AvisarAcoes();
     }
 
     private void Informar(string texto)
@@ -393,3 +523,5 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         MensagemEhErro = true;
     }
 }
+
+public sealed record RascunhoMapaCorporal(IReadOnlyList<PontoMapa> Pontos, string? Observacoes, int? ProtocoloOrigemId);

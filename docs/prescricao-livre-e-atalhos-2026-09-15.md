@@ -8,7 +8,7 @@
 - **Infusão:** descrição livre, sem limite de 300 caracteres, e um bloco por checagem da enfermagem. Novos blocos começam com `SF 0,9%` e `1 hora`, ambos editáveis. Reabrir uma prescrição anterior mantém seus parâmetros, inclusive campos vazios.
 - **Atendimento:** o botão `Prescrever infusão` abre o editor com o paciente, profissional, agendamento e evolução salva do atendimento. Ao fechar, atualiza a linha do tempo sem recarregar o texto da sessão.
 - **Evolução:** a folha compartilhada pelo atendimento e pelo editor de sessões mostra a seleção das sessões anteriores disponíveis e o botão `Usar texto anterior`. O reaproveitamento preenche apenas campos vazios. A seleção é descartada quando muda o contexto.
-- **Acupuntura:** o mapa corporal existente ganhou um botão mais visível, `Repetir pontos anteriores`. A rotina existente de repetição dos pontos continua sendo utilizada.
+- **Acupuntura:** o mapa corporal ganhou atalhos de reaproveitamento. A ampliação posterior, com escolha da sessão de origem, cadastro de modelos com pontos e conclusão vinculada às guias, está documentada em [Mapa corporal e conclusão da sessão](mapa-corporal-e-finalizacao-2026-09-15.md).
 - **Acesso:** prescrição e sugestões ficam em evidência; a gestão de modelos fica recolhida. O rodapé da infusão mantém os botões de salvar e assinar visíveis. As mudanças compartilhadas alcançam o módulo Clínico e o Gerente Geral.
 
 Os alertas de alergia passam a conferir o texto livre da receita. Identificação, autoria, assinatura e checagem da enfermagem mantêm suas regras. Emitir uma prescrição não confirma sua administração nem encerra o atendimento.

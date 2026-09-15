@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -25,6 +26,40 @@ public sealed class MapaCorporalService
     public Task<MapaCorporal?> DaEvolucaoAsync(int evolucaoId, CancellationToken ct = default)
         => _repo.ObterMapaDaEvolucaoAsync(evolucaoId, ct);
 
+    public async Task<IReadOnlyList<ResumoMapaAnterior>> HistoricoAsync(
+        int pacienteId, int? evolucaoIdAtual = null, DateOnly? dataSessao = null, CancellationToken ct = default)
+    {
+        var data = await DataDaSessaoAsync(pacienteId, evolucaoIdAtual, dataSessao, ct);
+        return await _repo.HistoricoMapasAsync(pacienteId, data, evolucaoIdAtual, ct);
+    }
+
+    /// <summary>Copia pontos e observações de uma sessão escolhida, sem gravar nem alterar a origem.</summary>
+    public async Task<MapaCorporal> CopiarParaEdicaoAsync(int pacienteId, int evolucaoOrigemId,
+        int? evolucaoIdAtual = null, DateOnly? dataSessao = null, CancellationToken ct = default)
+    {
+        var data = await DataDaSessaoAsync(pacienteId, evolucaoIdAtual, dataSessao, ct);
+        var origem = await _repo.ObterEvolucaoAsync(evolucaoOrigemId, ct)
+            ?? throw new InvalidOperationException("Sessão de origem não encontrada.");
+        if (origem.PacienteId != pacienteId || origem.CanceladaEm is not null || origem.Data > data
+            || (evolucaoIdAtual is { } atual && origem.Data == data && origem.Id >= atual))
+            throw new InvalidOperationException("Escolha uma sessão anterior vigente deste paciente.");
+        var mapa = await _repo.ObterMapaDaEvolucaoAsync(origem.Id, ct);
+        if (mapa is null || mapa.Pontos.Count == 0)
+            throw new InvalidOperationException("Esta sessão não tem pontos para copiar.");
+        return new MapaCorporal { Observacoes = mapa.Observacoes,
+            ProtocoloOrigemId = mapa.ProtocoloOrigemId, Pontos = Copiar(mapa.Pontos).ToList() };
+    }
+
+    private async Task<DateOnly> DataDaSessaoAsync(int pacienteId, int? evolucaoIdAtual,
+        DateOnly? dataSessao, CancellationToken ct)
+    {
+        if (evolucaoIdAtual is not { } id) return dataSessao ?? DateOnly.FromDateTime(DateTime.Today);
+        var atual = await _repo.ObterEvolucaoAsync(id, ct);
+        if (atual is null || atual.PacienteId != pacienteId || atual.CanceladaEm is not null)
+            throw new InvalidOperationException("A sessão atual não pertence a este paciente ou foi cancelada.");
+        return atual.Data;
+    }
+
     /// <summary>
     /// Grava o mapa da sessão. Os pontos são substituídos por INTEIRO: a tela edita o
     /// desenho todo, e casar ponto a ponto o que mudou custaria mais do que regravar.
@@ -36,16 +71,27 @@ public sealed class MapaCorporalService
         var evolucao = await _repo.ObterEvolucaoAsync(evolucaoId, ct)
             ?? throw new InvalidOperationException("Sessão não encontrada.");
 
-        ValidarPontos(pontos);
+        var mapa = await PrepararGravacaoAsync(evolucao, pontos, observacoes, operador, protocoloOrigemId, ct: ct);
+        await _repo.SalvarAsync(ct);
+        return mapa!;
+    }
 
-        var mapa = await _repo.ObterMapaDaEvolucaoAsync(evolucaoId, ct);
+    /// <summary>Prepara o mapa no mesmo contexto da evolução; o chamador confirma os dois juntos.</summary>
+    internal async Task<MapaCorporal?> PrepararGravacaoAsync(Evolucao evolucao,
+        IReadOnlyList<PontoMapa> pontos, string? observacoes, string? operador, int? protocoloOrigemId,
+        bool ignorarNovoVazio = false, CancellationToken ct = default)
+    {
+        ValidarConteudo(pontos, observacoes);
+
+        var mapa = evolucao.Id == 0 ? null : await _repo.ObterMapaDaEvolucaoAsync(evolucao.Id, ct);
+        if (ignorarNovoVazio && mapa is null && pontos.Count == 0 && string.IsNullOrWhiteSpace(observacoes)) return null;
         var novo = mapa is null;
 
         if (mapa is null)
         {
             mapa = new MapaCorporal
             {
-                EvolucaoId = evolucaoId,
+                Evolucao = evolucao,
                 CriadoEm = DateTime.Now,
                 CriadoPor = operador
             };
@@ -82,7 +128,6 @@ public sealed class MapaCorporalService
             PacienteId = evolucao.PacienteId
         }, ct);
 
-        await _repo.SalvarAsync(ct);
         return mapa;
     }
 
@@ -293,6 +338,15 @@ public sealed class MapaCorporalService
             if (!MapaCorporal.CoordenadaValida(p.X) || !MapaCorporal.CoordenadaValida(p.Y))
                 throw new InvalidOperationException(
                     "Ponto marcado fora da figura — a marcação tem de cair sobre o corpo.");
+    }
+
+    internal static void ValidarConteudo(IReadOnlyList<PontoMapa> pontos, string? observacoes)
+    {
+        ValidarPontos(pontos);
+        if (observacoes?.Length > 1000)
+            throw new InvalidOperationException("As observações do mapa aceitam até 1000 caracteres.");
+        if (pontos.Any(p => p.Nome?.Length > 40 || p.Observacao?.Length > 200))
+            throw new InvalidOperationException("Use até 40 caracteres no nome do ponto e 200 na observação.");
     }
 
     private static string? Limpar(string? valor)

@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914133708_EtapasDoFechamentoDaSessao")]
+    partial class EtapasDoFechamentoDaSessao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1134,104 +1137,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("TracoAssinaturaId");
 
                     b.ToTable("ColetasRemotasTermo", (string)null);
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.ColetaTablet", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ChaveAtiva")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<string>("ConteudoHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("ConteudoJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("DocumentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)");
-
-                    b.Property<long>("ExpiraEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Falha")
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<long?>("FinalizadoEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid?>("Idempotencia")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("IdentidadeConferida")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("Operadora")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("PacienteId")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("PreparadoEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<long?>("RecebidoEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("SessaoId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("SubmissaoHash")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("SubmissaoJson")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Tentativas")
-                        .HasColumnType("integer");
-
-                    b.Property<byte[]>("TracoPng")
-                        .HasColumnType("bytea");
-
-                    b.Property<Guid>("Versao")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChaveAtiva")
-                        .IsUnique();
-
-                    b.HasIndex("DocumentoId")
-                        .IsUnique();
-
-                    b.HasIndex("PacienteId");
-
-                    b.HasIndex("SessaoId");
-
-                    b.HasIndex("Estado", "ExpiraEm");
-
-                    b.ToTable("ColetasTablet", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ConfiguracaoGlobal", b =>
@@ -2503,7 +2408,8 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<string>("Descricao")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("Diluente")
                         .HasMaxLength(120)
@@ -4064,8 +3970,8 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("character varying(80)");
 
                     b.Property<string>("Descricao")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -4351,46 +4257,6 @@ namespace Clinica.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Salas");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.SessaoTablet", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("CredencialVersao")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Dispositivo")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<long>("ExpiraEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Modo")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("Versao")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpiraEm");
-
-                    b.HasIndex("UsuarioId");
-
-                    b.ToTable("SessoesTablet", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.TaxaCartao", b =>
@@ -4793,43 +4659,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("VersoesEvolucao");
                 });
 
-            modelBuilder.Entity("Clinica.Domain.Entities.ViaAssinadaPaciente", b =>
-                {
-                    b.Property<int>("DocumentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("ArquivadoEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<Guid>("ColetaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<byte[]>("Conteudo")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<string>("EvidenciaJson")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("EvidenciaSha256")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("Sha256")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.HasKey("DocumentoId");
-
-                    b.HasIndex("ColetaId")
-                        .IsUnique();
-
-                    b.ToTable("ViasAssinadasPaciente", (string)null);
-                });
-
             modelBuilder.Entity("Clinica.Domain.Entities.Agendamento", b =>
                 {
                     b.HasOne("Clinica.Domain.Entities.Atendimento", "Atendimento")
@@ -5104,33 +4933,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Documento");
 
                     b.Navigation("TracoAssinatura");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.ColetaTablet", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.DocumentoClinico", "Documento")
-                        .WithMany()
-                        .HasForeignKey("DocumentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
-                        .WithMany()
-                        .HasForeignKey("PacienteId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Clinica.Domain.Entities.SessaoTablet", "Sessao")
-                        .WithMany()
-                        .HasForeignKey("SessaoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Documento");
-
-                    b.Navigation("Paciente");
-
-                    b.Navigation("Sessao");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ConsentimentoLgpd", b =>
@@ -5782,17 +5584,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("PedidoDocumento");
                 });
 
-            modelBuilder.Entity("Clinica.Domain.Entities.SessaoTablet", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", "Usuario")
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Usuario");
-                });
-
             modelBuilder.Entity("Clinica.Domain.Entities.UsuarioSistema", b =>
                 {
                     b.HasOne("Clinica.Domain.Entities.Profissional", "Profissional")
@@ -5842,25 +5633,6 @@ namespace Clinica.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Evolucao");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.ViaAssinadaPaciente", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.ColetaTablet", "Coleta")
-                        .WithOne()
-                        .HasForeignKey("Clinica.Domain.Entities.ViaAssinadaPaciente", "ColetaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Clinica.Domain.Entities.DocumentoClinico", "Documento")
-                        .WithOne()
-                        .HasForeignKey("Clinica.Domain.Entities.ViaAssinadaPaciente", "DocumentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Coleta");
-
-                    b.Navigation("Documento");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.AnamnesePaciente", b =>

@@ -76,6 +76,32 @@ public sealed record FolhaDeHoje(
 /// </summary>
 public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 {
+    public sealed record RegistroParaVincular(int Id, string Rotulo);
+    public ObservableCollection<RegistroParaVincular> RegistrosParaVincular { get; } = [];
+    [ObservableProperty] private RegistroParaVincular? _registroSelecionadoParaVincular;
+    public bool TemRegistrosParaVincular => RegistrosParaVincular.Count > 0;
+
+    [RelayCommand]
+    private async Task VincularRegistroAsync()
+    {
+        if (RegistroSelecionadoParaVincular is not { } registro || _foco.AgendamentoId is not { } horario) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "vincular o registro à sessão");
+            if (TemAlgoParaGravar)
+                throw new InvalidOperationException("Salve o que escreveu antes de vincular outro registro. Nenhum texto será descartado.");
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ProntuarioService>()
+                .VincularAoHorarioAsync(registro.Id, horario, SessaoUsuario.Atual.Operador);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     private readonly PacienteEmFoco _foco;
 
     /// <summary>
@@ -769,6 +795,9 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             Mensagem = null;
             MensagemEhErro = false;
             Anteriores.Clear();
+            RegistrosParaVincular.Clear();
+            RegistroSelecionadoParaVincular = null;
+            OnPropertyChanged(nameof(TemRegistrosParaVincular));
             ContextoDaUltimaSessao = string.Empty;
 
             // O contexto que a coluna ENTREGAR AGORA herda. Zerado ANTES da leitura: o
@@ -859,6 +888,15 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
                 }
             }
 
+            if (doHorario is null && _foco.AgendamentoId is not null && _foco.DataDoHorario is { } dia)
+            {
+                foreach (var e in sessoes.Where(e => e.CanceladaEm is null && e.AgendamentoId is null
+                    && e.AtendimentoId is null && e.Data == dia))
+                    RegistrosParaVincular.Add(new RegistroParaVincular(e.Id,
+                        $"Registro #{e.Id} · {e.Data:dd/MM/yyyy} · {e.Profissional?.Nome ?? "sem profissional informado"}"));
+                OnPropertyChanged(nameof(TemRegistrosParaVincular));
+            }
+
             _sessoesRegistradas = sessoes.Count;
 
             if (doHorario is not null) Preencher(doHorario);
@@ -885,7 +923,7 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             // se está editando uma sessão já escrita (e então carrega os pontos dela) ou
             // começando uma nova.
             var mapa = new MapaCorporalViewModel(
-                _escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId);
+                _escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId, DateOnly.FromDateTime(Data));
             await mapa.CarregarAsync();
             if (geracao != _geracaoCarga) return;
             Mapa = mapa;
