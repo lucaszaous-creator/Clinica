@@ -19,7 +19,7 @@ var demo=builder.Configuration.GetValue<bool>("Portal:Demo");
 if(demo && !builder.Environment.IsDevelopment()) throw new InvalidOperationException("Demonstração só é permitida em Development.");
 var codigoTablet=builder.Configuration["Portal:CodigoTablet"] ?? "";
 var modelos=builder.Configuration.GetSection("Portal:Modelos").Get<int[]>() ?? [];
-if(!demo && (codigoTablet.Length<32 || modelos.Length!=2 || modelos.Any(id=>id<=0)))
+if(!demo && (codigoTablet.Length<32 || modelos.Length!=2 || modelos.Distinct().Count()!=2 || modelos.Any(id=>id<=0)))
     throw new InvalidOperationException("Configure o código de cadastro dos tablets e os dois modelos clínicos aprovados.");
 if(!demo && !builder.Configuration.GetValue<bool>("Portal:Habilitado"))
     throw new InvalidOperationException("Portal desabilitado. Habilite somente após a homologação e configuração.");
@@ -164,7 +164,9 @@ app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService ace
 });
 app.MapPost("/api/sair",async(HttpContext ctx,PortalTabletService svc,ClinicaDbContext db)=>
 {
-    var s=await Sessao(ctx,svc,false); s.Modo="revogada"; s.ExpiraEm=svc.Agora;
+    var s=await Sessao(ctx,svc,false);
+    if(s.Modo=="paciente") await svc.EncerrarAsync(s,false,null,ctx.RequestAborted);
+    s.Modo="revogada"; s.ExpiraEm=svc.Agora;
     await db.SaveChangesAsync(ctx.RequestAborted); ctx.Response.Cookies.Delete(cookieSessao,Cookie(0));
     return Results.NoContent();
 });
@@ -184,6 +186,8 @@ app.MapPost("/api/encerrar",async(HttpContext ctx,PortalTabletService svc,Encerr
 {var s=await Sessao(ctx,svc,false); await svc.EncerrarAsync(s,pedido.Recusa,pedido.Motivo,ctx.RequestAborted); return Results.NoContent();});
 app.MapGet("/api/documentos/{id:int}/via",async(HttpContext ctx,PortalTabletService svc,int id)=>
 {var s=await Sessao(ctx,svc,true); return Results.File(await svc.AbrirViaAsync(id,s.Usuario!.Login,ctx.RequestAborted),"application/pdf",$"termo-{id}-assinado.pdf");});
+app.MapPost("/api/coletas/{id:guid}/retomar",async(HttpContext ctx,PortalTabletService svc,Guid id)=>
+{var s=await Sessao(ctx,svc,true); await svc.RetomarAsync(id,s.Usuario!.Login,ctx.RequestAborted); return Results.Accepted();});
 app.MapGet("/health",()=>Results.Ok(new {status="ok",contrato=1}));
 var interfaceDir=Path.GetFullPath(builder.Configuration["Portal:Interface"] ?? Path.Combine(app.Environment.ContentRootPath,"wwwroot"));
 if(!Directory.Exists(interfaceDir)) throw new InvalidOperationException("Configure Portal:Interface com o artefato portal do clinica-site.");

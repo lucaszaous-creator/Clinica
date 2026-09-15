@@ -22,10 +22,7 @@ public sealed class FinalizadorTablet(IServiceScopeFactory scopes,ILogger<Finali
         using(var scope=scopes.CreateScope())
         {
             var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
-            var agora=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            foreach(var c in await db.ColetasTablet.Where(c=>c.Estado=="preparado" && c.ExpiraEm<agora).Take(20).ToListAsync(ct))
-            { c.Estado="expirado"; c.ChaveAtiva=null; }
-            await db.SaveChangesAsync(ct);
+            await scope.ServiceProvider.GetRequiredService<PortalTabletService>().ExpirarAsync(ct);
             id=await db.ColetasTablet.Where(c=>c.Estado=="recebido" && c.Tentativas<5)
                 .OrderBy(c=>c.RecebidoEm).Select(c=>(Guid?)c.Id).FirstOrDefaultAsync(ct);
         }

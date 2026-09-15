@@ -31,3 +31,6 @@ appsettings.*.Local.json
 node_modules/
 ui_kits/*/dist/
 ui_kits/*/tools/capturas/
+
+# Ferramentas locais de desenvolvimento
+.tools/

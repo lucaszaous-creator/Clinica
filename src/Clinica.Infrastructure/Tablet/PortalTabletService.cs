@@ -24,14 +24,19 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public async Task<(string Token, SessaoTablet Sessao)> EntrarAsync(UsuarioSistema u, string dispositivo, string? anterior, CancellationToken ct)
     {
         if (!PodeColher(u)) throw new UnauthorizedAccessException();
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (anterior is not null && await db.SessoesTablet.FindAsync([ContratoTablet.Hash(anterior)], ct) is { } velha)
-        { velha.Modo = "revogada"; velha.ExpiraEm = Agora; }
+        {
+            await EncerrarPreparadasAsync(velha.Id, "encerrado", "Equipe retomou o tablet", ct);
+            velha.Modo = "revogada"; velha.ExpiraEm = Agora;
+        }
         var token = Token();
         var sessao = new SessaoTablet { Id=ContratoTablet.Hash(token), UsuarioId=u.Id,
             CredencialVersao=ContratoTablet.Hash(u.SenhaHash), Dispositivo=dispositivo, ExpiraEm=Agora+7_200_000 };
         db.SessoesTablet.Add(sessao);
         await Auditar("TabletEntrada", null, Operador(u), "Acesso ao portal de coleta", ct);
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return (token,sessao);
     }
 
@@ -92,6 +97,8 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         var historico=await db.DocumentosClinicos.AsNoTracking().Where(d=>d.PacienteId==id
             && d.Tipo==TipoDocumentoClinico.TermoProcedimento).OrderByDescending(d=>d.Id).Take(40)
             .Select(d=>new {d.Id,d.Numero,d.Titulo,d.Data,d.PacienteAssinadoEm,d.CanceladoEm,
+                d.PacienteRecusouEm,d.MotivoRecusaPaciente,
+                Coleta=db.ColetasTablet.Where(c=>c.DocumentoId==d.Id).Select(c=>new {c.Id,c.Estado}).FirstOrDefault(),
                 Arquivado=db.ViasAssinadasPaciente.Any(v=>v.DocumentoId==d.Id),
                 Alerta=d.Itens.Any(i=>i.Codigo==RespostaDeclaracao.CodigoAlergiasTablet
                     ? i.Quantidade=="Sim" : i.Quantidade=="Não")}).ToListAsync(ct);
@@ -177,6 +184,9 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             throw new InvalidOperationException("O documento foi alterado. Chame a enfermeira para preparar uma nova coleta.");
         c.SubmissaoJson=json; c.SubmissaoHash=hash; c.TracoPng=png; c.Idempotencia=envio.Idempotencia;
         c.RecebidoEm=Agora; c.Estado="recebido";
+        // Concorre também com a reentrada da equipe: a sessão lida antes da entrega
+        // ou revogação não pode autorizar uma escrita depois dela.
+        db.Entry(s).Property(x=>x.Versao).IsModified=true;
         await Auditar("TabletRubricaRecebida",c.PacienteId,c.Operadora,$"Coleta {c.Id}; documento {c.DocumentoId}; aguardando arquivamento",ct);
         await db.SaveChangesAsync(ct);
     }
@@ -192,14 +202,49 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             c.Estado=recusa ? "recusado" : "encerrado"; c.ChaveAtiva=null;
             // Não registra a enfermeira como signatária do termo.
             var d=await repo.ObterDocumentoAsync(c.DocumentoId,ct);
-            if(d is not null && d.PacienteAssinadoEm==null)
-            { d.CanceladoEm=DateTime.Now; d.MotivoCancelamento=recusa ? "Paciente recusou: "+motivo : "Coleta encerrada sem assinatura"; }
+            if(d is not null && d.PacienteAssinadoEm==null && d.CanceladoEm==null)
+            {
+                if(recusa) await assinaturas.RecusarAsync(d.Id,motivo!,c.Operadora,ct);
+                else { d.CanceladoEm=DateTime.Now; d.MotivoCancelamento="Coleta encerrada sem assinatura"; }
+            }
             await Auditar(recusa ? "TabletRecusa" : "TabletEncerrado",c.PacienteId,c.Operadora,
                 $"Documento {c.DocumentoId}: "+(recusa ? motivo : "Coleta encerrada"),ct);
         }
         // Submissões recebidas continuam finalizando; nunca apagar após perder a rede.
         s.Modo="encerrada";
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
+    }
+
+    private async Task EncerrarPreparadasAsync(string sessaoId,string estado,string motivo,CancellationToken ct)
+    {
+        foreach(var c in await db.ColetasTablet.Where(c=>c.SessaoId==sessaoId && c.Estado=="preparado").ToListAsync(ct))
+        {
+            c.Estado=estado; c.ChaveAtiva=null;
+            var d=await repo.ObterDocumentoAsync(c.DocumentoId,ct);
+            if(d is not null && d.PacienteAssinadoEm==null && d.CanceladoEm==null && !d.PacienteRecusou)
+            { d.CanceladoEm=DateTime.Now; d.MotivoCancelamento=motivo; }
+            await Auditar("TabletColetaEncerrada",c.PacienteId,c.Operadora,$"Documento {c.DocumentoId}; {motivo}",ct);
+        }
+    }
+
+    public async Task ExpirarAsync(CancellationToken ct)
+    {
+        await using var tx=await db.Database.BeginTransactionAsync(ct);
+        var ids=await db.ColetasTablet.Where(c=>c.Estado=="preparado" && c.ExpiraEm<=Agora)
+            .Select(c=>c.SessaoId).Distinct().Take(20).ToListAsync(ct);
+        foreach(var id in ids) await EncerrarPreparadasAsync(id,"expirado","Prazo de leitura encerrado sem assinatura",ct);
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
+    }
+
+    public async Task RetomarAsync(Guid id,string operadora,CancellationToken ct)
+    {
+        var c=await db.ColetasTablet.SingleOrDefaultAsync(c=>c.Id==id,ct)
+            ?? throw new InvalidOperationException("Coleta não encontrada.");
+        if(c.Estado!="falha" || c.SubmissaoJson is null || c.TracoPng is null)
+            throw new InvalidOperationException("Somente um arquivamento pendente pode ser retomado.");
+        c.Estado="recebido"; c.Tentativas=0; c.Falha=null;
+        await Auditar("TabletArquivamentoRetomado",c.PacienteId,operadora,$"Coleta {id}; mesma rubrica recebida",ct);
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task FinalizarAsync(Guid id,CancellationToken ct)
@@ -221,7 +266,7 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         // A hora da assinatura é a recepção durável, não a hora de uma eventual retomada.
         assinado.PacienteAssinadoEm=TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(c.RecebidoEm!.Value),
             TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime;
-        var bytes=pdf.Gerar(assinado,await parametros.ObterPrestadorAsync(ct),tracoPaciente:c.TracoPng);
+        var bytes=pdf.Gerar(assinado,await parametros.ObterPrestadorAsync(ct),tracoPaciente:c.TracoPng,somentePaciente:true);
         if(bytes.Length is <100 or >10_000_000) throw new InvalidOperationException("PDF_FORA_DO_LIMITE");
         var hash=ContratoTablet.Hash(bytes);
         var evidencia=ContratoTablet.Serializar(new { Versao=1,c.Id,c.DocumentoId,c.PacienteId,

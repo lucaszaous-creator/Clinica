@@ -1,5 +1,46 @@
 # Retomada — BSV/TCLE assinados no tablet
 
+## Atualização de 15/09/2026 — implementação para homologação
+
+O checkpoint de 14/09 abaixo foi retomado nas duas branches `codex/termos-tablet`.
+API, interface, migração aditiva e recuperação estão implementadas. **Portal ainda
+não instalado na VPS; nenhuma migração desta entrega aplicada ao banco clínico.**
+O usuário confirmou tablet Android para a enfermeira.
+
+Entregue nesta retomada:
+
+- Interface em `clinica-site/portal/`: entrada, agenda/busca, conferência, leitura,
+  respostas obrigatórias, rubrica por termo, finalização e reentrada da equipe.
+- Recusa com semântica própria, expiração/abandono de preparações, retomada de
+  arquivamento sem nova rubrica e proteção contra submissões concorrentes.
+- Migração `20260915102346_ColetaDeTermosNoTablet` com três tabelas aditivas e
+  triggers para preservar via, conteúdo do documento, declarações e rubrica.
+- PDF somente com assinatura do paciente; operadora identificada sem linha para
+  assinatura profissional. Recuperação dos mesmos bytes pelo serviço do prontuário.
+- CI por componente, scripts de demonstração/pacote e exemplos de instalação.
+
+| Evidência local | Resultado |
+| --- | --- |
+| Suíte Clinica.Tests / SQLite | 2.548 aprovados, incluindo 19 cenários do tablet |
+| Fronteira HTTP real de demonstração | 1 percurso aprovado: autenticação, CSRF, modo paciente e revogação |
+| Tokens e verificar-suite | Aprovados |
+| Compilação-sombra | Dez projetos WPF aprovados |
+| Modelo EF | Snapshot sem mudanças pendentes |
+| Interface com contrato simulado | Alergias, rubrica após edição, rotação, reentrada, escaping e fonte 200% aprovados |
+| Navegador contra API real | Dois termos fictícios arquivados; PDFs reabertos idênticos; zero erros de página |
+| PDF | Todas as seis páginas conferidas visualmente |
+
+O job `testes-postgres` aplica todas as migrações em banco descartável e repete a
+suíte; consultar o resultado do commit no CI. SQLite não comprova os triggers.
+Falta homologação no Android físico e preparação operacional da VPS. Seguir o
+[roteiro de instalação, permissões, backup e piloto](operacao-termos-tablet.md).
+
+---
+
+## Registro histórico de 14/09/2026
+
+O texto abaixo descreve o checkpoint inicial, anterior à implementação acima.
+
 ## Checkpoint solicitado pelo responsável
 
 Branch dos dois repositórios: `codex/termos-tablet`.

@@ -9,6 +9,18 @@ public class ClinicaDbContext : DbContext
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        PrepararGravacaoTablet();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        PrepararGravacaoTablet();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    private void PrepararGravacaoTablet()
+    {
         foreach (var e in ChangeTracker.Entries<ViaAssinadaPaciente>())
             if (e.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("Uma via assinada é imutável. Preserve o documento original.");
@@ -16,7 +28,6 @@ public class ClinicaDbContext : DbContext
             e.Entity.Versao = Guid.NewGuid();
         foreach (var e in ChangeTracker.Entries<ColetaTablet>().Where(e => e.State == EntityState.Modified))
             e.Entity.Versao = Guid.NewGuid();
-        return base.SaveChangesAsync(cancellationToken);
     }
 
     public DbSet<Paciente> Pacientes => Set<Paciente>();
