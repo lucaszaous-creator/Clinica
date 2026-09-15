@@ -5,8 +5,14 @@
 **Portal instalado na VPS e acessível em
 https://portal.clinicasemdormacae.com.br/.** A migração aditiva foi aplicada ao
 banco clínico após backup e ensaio na cópia restaurada. Aparelho escolhido:
-tablet Android; falta homologação no aparelho físico e confirmação do login pelo
-responsável, usando sua própria conta.
+tablet Android; falta homologação no aparelho físico. A entrada com a conta do
+Clinica foi confirmada no navegador, com abertura da agenda da enfermagem.
+
+O menu e o rodapé do site, além do guia do paciente, já abrem o portal no domínio.
+Pacote institucional `a6357054c986cfe9e4aad7fa7c49f5da7924f3ca`, produzido pelo CI
+`34965408372` do fonte `bb0df0b40a2345f3a14d5d8d1edfa78c8f622cf4`, aplicado com
+o atualizador existente. Os 34 arquivos conferem com o manifesto do CI. A versão
+institucional anterior foi preservada para reversão.
 
 Versão instalada: backend `488f8c4ba264a94797296bc8662e1f5c0fb510d5`, interface
 `7d413ad75854143d8815f747d49795791f27c6e7`. Modelos existentes 3 (TCLE) e 4 (BSV).
