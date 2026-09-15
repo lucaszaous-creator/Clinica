@@ -3,8 +3,9 @@
 ## Atualização de 15/09/2026 — implementação para homologação
 
 O checkpoint de 14/09 abaixo foi retomado nas duas branches `codex/termos-tablet`.
-API, interface, migração aditiva e recuperação estão implementadas. **Portal ainda
-não instalado na VPS; nenhuma migração desta entrega aplicada ao banco clínico.**
+API, interface, migração aditiva e recuperação estão implementadas. **Portal
+instalado na VPS em https://portal.clinicasemdormacae.com.br/, com migração aplicada
+após backup e homologação na cópia PostgreSQL restaurada.**
 O usuário confirmou tablet Android para a enfermeira.
 
 Entregue nesta retomada:
@@ -32,7 +33,10 @@ Entregue nesta retomada:
 
 O job `testes-postgres` aplica todas as migrações em banco descartável e repete a
 suíte; consultar o resultado do commit no CI. SQLite não comprova os triggers.
-Falta homologação no Android físico e preparação operacional da VPS. Seguir o
+O CI PostgreSQL do commit `488f8c4` passou. O percurso HTTP na cópia da VPS também
+passou com privilégios restritos, dois PDFs arquivados e reabertura idêntica.
+Faltam a confirmação do login pelo responsável, a homologação no Android físico
+e a confirmação da versão dos leitores desktop em uso. Seguir o
 [roteiro de instalação, permissões, backup e piloto](operacao-termos-tablet.md).
 
 ---

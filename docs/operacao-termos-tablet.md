@@ -2,10 +2,36 @@
 
 ## Estado em 15/09/2026
 
-API, interface, migração aditiva, recuperação e testes implementados nas branches
-`codex/termos-tablet` dos dois repositórios. **Portal ainda não instalado na VPS;
-nenhuma migração desta entrega aplicada ao banco clínico.** Aparelho escolhido:
-tablet Android; falta homologação no aparelho físico.
+**Portal instalado na VPS e acessível em
+https://portal.clinicasemdormacae.com.br/.** A migração aditiva foi aplicada ao
+banco clínico após backup e ensaio na cópia restaurada. Aparelho escolhido:
+tablet Android; falta homologação no aparelho físico e confirmação do login pelo
+responsável, usando sua própria conta.
+
+Versão instalada: backend `488f8c4ba264a94797296bc8662e1f5c0fb510d5`, interface
+`7d413ad75854143d8815f747d49795791f27c6e7`. Modelos existentes 3 (TCLE) e 4 (BSV).
+API autocontida sob systemd, autenticação PostgreSQL local por peer, socket Unix
+privado e rota no túnel `clinica-site`. HTTPS público retornou contrato 1,
+`Cache-Control: no-store` e cache Cloudflare `DYNAMIC`.
+
+Na cópia PostgreSQL 16 restaurada, o runtime com privilégios restritos autenticou
+conta fictícia, preparou os dois modelos existentes, exigiu alergia, rejeitou
+rotas de equipe no modo paciente e arquivou duas vias sem duplicar reenvios.
+Downloads repetidos foram idênticos. Arquivamento: 10,48 s; pico de memória do
+serviço: 271.884.288 bytes, sem reinício nessa amostra. Não representa ensaio de
+carga. Nenhum paciente ou usuário fictício foi inserido em produção.
+
+Backups privados e relatórios administrativos estão na VPS em
+`/var/backups/clinica/tablet-20260915`; relatórios sem dados de pacientes também
+em `/home/clinica-admin/tablet-stage`. O código de cadastro está separado em
+`/etc/clinica-tablet/cadastro-tablet.txt`, root:root 0600; não entra no Git.
+As configurações SSH, PostgreSQL, Nginx e Docker foram preservadas, assim como o
+PID do PostgreSQL. Apenas o conector foi reiniciado para ler o grupo do socket.
+
+Antes do piloto assistencial, confirmar também que os módulos desktop usados
+para abrir/imprimir os termos contêm o leitor de vias arquivadas desta entrega.
+O CI Windows compilou e gerou os executáveis; seu upload de artefatos falhou
+por cota do GitHub. Isso não equivale a atualização dos computadores da clínica.
 
 - [Interface e testes](https://github.com/lucaszaous-creator/clinica-site/blob/codex/termos-tablet/docs/portal-assinaturas.md).
 - [Plano aceito](plano-assinatura-bsv-tcle-tablet.md).
