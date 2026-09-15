@@ -20,6 +20,14 @@ public static class RespostaDeclaracao
 {
     public const string Sim = "Sim";
     public const string Nao = "Não";
+    public const string CodigoAlergiasTablet = "ALERGIAS_TABLET";
+
+    // A pergunta direta sobre alergia tem polaridade diferente das declarações
+    // afirmativas do TCLE: "sim, tenho alergia" precisa de atenção clínica.
+    public static bool RequerAtencao(ItemDocumento item)
+        => item.Codigo == CodigoAlergiasTablet
+            ? EhPositiva(item.Quantidade)
+            : EhNegativa(item.Quantidade);
 
     /// <summary>
     /// A resposta é um "não". Compara sem acento e sem caixa porque o valor pode ter sido

@@ -149,6 +149,14 @@ public sealed class DocumentosClinicosPdfService
         var documento = await _repo.ObterDocumentoAsync(documentoId, ct)
             ?? throw new InvalidOperationException($"Documento {documentoId} não encontrado.");
 
+        if (documento.PacienteAssinadoEm is not null && documento.ArquivoAssinadoId is null
+            && await _repo.ObterViaAssinadaPacienteAsync(documentoId, ct) is { } viaPaciente)
+        {
+            if (Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(viaPaciente.Conteudo)) != viaPaciente.Sha256)
+                throw new InvalidOperationException("A integridade da via assinada precisa ser conferida. Acione o suporte.");
+            return viaPaciente.Conteudo;
+        }
+
         // Documento gravado por uma versão mais nova: esta não sabe montar o miolo dele. A
         // folha SAIRIA — com cabeçalho, número e assinatura, e sem as declarações no meio —,
         // e é justamente a garantia aparente que este serviço recusa desde a parcela 3.
@@ -811,7 +819,7 @@ public sealed class DocumentosClinicosPdfService
 
         foreach (var item in itens)
         {
-            var negativa = RespostaDeclaracao.EhNegativa(item.Quantidade);
+            var negativa = RespostaDeclaracao.RequerAtencao(item);
             var respondida = !string.IsNullOrWhiteSpace(item.Quantidade);
 
             // `ShowEntire()`: a declaração e a resposta dela são UMA linha. Quebrada, o

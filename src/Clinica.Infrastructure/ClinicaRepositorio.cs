@@ -8,6 +8,8 @@ namespace Clinica.Infrastructure;
 
 public sealed class ClinicaRepositorio : IClinicaRepositorio
 {
+    public Task<ViaAssinadaPaciente?> ObterViaAssinadaPacienteAsync(int documentoId, CancellationToken ct = default)
+        => _db.ViasAssinadasPaciente.AsNoTracking().SingleOrDefaultAsync(x => x.DocumentoId == documentoId, ct);
     private readonly ClinicaDbContext _db;
 
     public ClinicaRepositorio(ClinicaDbContext db) => _db = db;

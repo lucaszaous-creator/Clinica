@@ -1720,5 +1720,6 @@ public interface IClinicaRepositorio
     Task AdicionarUsuarioAsync(UsuarioSistema usuario, CancellationToken ct = default);
     Task RemoverUsuarioAsync(int usuarioId, CancellationToken ct = default);
 
+    Task<ViaAssinadaPaciente?> ObterViaAssinadaPacienteAsync(int documentoId, CancellationToken ct = default);
     Task<int> SalvarAsync(CancellationToken ct = default);
 }
