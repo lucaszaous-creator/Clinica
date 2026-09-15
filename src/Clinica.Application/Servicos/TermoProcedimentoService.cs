@@ -480,7 +480,7 @@ public sealed class TermoProcedimentoService
         => documento is null
             ? []
             : documento.Itens
-                .Where(i => RespostaDeclaracao.EhNegativa(i.Quantidade))
+                .Where(RespostaDeclaracao.RequerAtencao)
                 .Select(i => i.Descricao)
                 .ToList();
 

@@ -7,6 +7,29 @@ public class ClinicaDbContext : DbContext
 {
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
 
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        PrepararGravacaoTablet();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        PrepararGravacaoTablet();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    private void PrepararGravacaoTablet()
+    {
+        foreach (var e in ChangeTracker.Entries<ViaAssinadaPaciente>())
+            if (e.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException("Uma via assinada é imutável. Preserve o documento original.");
+        foreach (var e in ChangeTracker.Entries<SessaoTablet>().Where(e => e.State == EntityState.Modified))
+            e.Entity.Versao = Guid.NewGuid();
+        foreach (var e in ChangeTracker.Entries<ColetaTablet>().Where(e => e.State == EntityState.Modified))
+            e.Entity.Versao = Guid.NewGuid();
+    }
+
     public DbSet<Paciente> Pacientes => Set<Paciente>();
     public DbSet<PacienteFoto> PacientesFotos => Set<PacienteFoto>();
     public DbSet<AutorizacaoSessoes> Autorizacoes => Set<AutorizacaoSessoes>();
@@ -91,12 +114,16 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
+    public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
+    public DbSet<ColetaTablet> ColetasTablet => Set<ColetaTablet>();
+    public DbSet<ViaAssinadaPaciente> ViasAssinadasPaciente => Set<ViaAssinadaPaciente>();
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
     public DbSet<MetaMensal> Metas => Set<MetaMensal>();
     public DbSet<OrcamentoCategoria> Orcamentos => Set<OrcamentoCategoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        Tablet.MapeamentoTablet.Aplicar(b);
         b.Entity<Paciente>(e =>
         {
             e.HasKey(p => p.Id);

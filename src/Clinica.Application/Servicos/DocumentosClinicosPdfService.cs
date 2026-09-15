@@ -149,6 +149,14 @@ public sealed class DocumentosClinicosPdfService
         var documento = await _repo.ObterDocumentoAsync(documentoId, ct)
             ?? throw new InvalidOperationException($"Documento {documentoId} não encontrado.");
 
+        if (documento.PacienteAssinadoEm is not null && documento.ArquivoAssinadoId is null
+            && await _repo.ObterViaAssinadaPacienteAsync(documentoId, ct) is { } viaPaciente)
+        {
+            if (Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(viaPaciente.Conteudo)) != viaPaciente.Sha256)
+                throw new InvalidOperationException("A integridade da via assinada precisa ser conferida. Acione o suporte.");
+            return viaPaciente.Conteudo;
+        }
+
         // Documento gravado por uma versão mais nova: esta não sabe montar o miolo dele. A
         // folha SAIRIA — com cabeçalho, número e assinatura, e sem as declarações no meio —,
         // e é justamente a garantia aparente que este serviço recusa desde a parcela 3.
@@ -201,7 +209,7 @@ public sealed class DocumentosClinicosPdfService
     public byte[] Gerar(
         DocumentoClinico documento, DadosPrestador? prestador = null,
         bool paraAssinaturaEletronica = false, string? urlDoArquivo = null,
-        byte[]? tracoPaciente = null)
+        byte[]? tracoPaciente = null, bool somentePaciente = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -342,7 +350,7 @@ public sealed class DocumentosClinicosPdfService
                         });
 
 
-                    Assinaturas(col, documento, paraAssinaturaEletronica, tracoPaciente);
+                    Assinaturas(col, documento, paraAssinaturaEletronica, tracoPaciente, somentePaciente);
                 });
 
                 Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo);
@@ -811,7 +819,7 @@ public sealed class DocumentosClinicosPdfService
 
         foreach (var item in itens)
         {
-            var negativa = RespostaDeclaracao.EhNegativa(item.Quantidade);
+            var negativa = RespostaDeclaracao.RequerAtencao(item);
             var respondida = !string.IsNullOrWhiteSpace(item.Quantidade);
 
             // `ShowEntire()`: a declaração e a resposta dela são UMA linha. Quebrada, o
@@ -870,8 +878,28 @@ public sealed class DocumentosClinicosPdfService
     /// </summary>
     private static void Assinaturas(
         ColumnDescriptor col, DocumentoClinico documento, bool assinaturaEletronica,
-        byte[]? tracoPaciente = null)
+        byte[]? tracoPaciente = null, bool somentePaciente = false)
     {
+        // O portal presencial colhe exclusivamente a assinatura do próprio paciente.
+        // A operadora é evidência da coleta, sem linha para médico ou representante.
+        // O caminho dos documentos profissionais existentes mantém o padrão anterior.
+        if (somentePaciente)
+        {
+            if (!documento.PacienteAssinou || tracoPaciente is not { Length: > 0 })
+                throw new InvalidOperationException("A via do tablet exige a rubrica recebida do paciente.");
+            col.Item().ShowEntire().PaddingTop(8).Column(bloco =>
+            {
+                bloco.Item().Text("Assinatura do paciente").SemiBold().FontSize(10);
+                bloco.Item().Width(230).Height(36).Image(tracoPaciente).FitArea();
+                bloco.Item().Text(documento.Paciente?.Nome ?? "Paciente").SemiBold().FontSize(9);
+                bloco.Item().PaddingTop(4).Text(documento.FraseAssinaturaPaciente)
+                    .FontSize(7.5f).FontColor(TextoSecundario);
+                bloco.Item().Text("A operadora está identificada na coleta e não é signatária deste termo.")
+                    .FontSize(7.5f).FontColor(TextoSecundario);
+            });
+            return;
+        }
+
         var assinaPaciente = documento.Tipo is TipoDocumentoClinico.Consentimento
                                  or TipoDocumentoClinico.Anamnese
                                  or TipoDocumentoClinico.TermoProcedimento;

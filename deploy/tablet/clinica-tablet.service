@@ -1,0 +1,39 @@
+[Unit]
+Description=Coleta presencial de TCLE e BSV
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=clinica-tablet
+Group=clinica-tablet-proxy
+WorkingDirectory=/opt/clinica-tablet/current/app
+ExecStart=/opt/clinica-tablet/current/app/Clinica.Assinaturas.Api
+EnvironmentFile=/etc/clinica-tablet/portal.env
+Restart=on-failure
+RestartSec=15
+StateDirectory=clinica-tablet
+StateDirectoryMode=0700
+RuntimeDirectory=clinica-tablet
+RuntimeDirectoryMode=0750
+UMask=0007
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+CPUQuota=75%
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

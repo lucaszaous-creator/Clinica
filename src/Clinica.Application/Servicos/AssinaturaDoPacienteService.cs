@@ -182,7 +182,7 @@ public sealed class AssinaturaDoPacienteService
         documento.PacienteAssinaturaTestemunha = testemunha.Trim();
 
         var negadas = documento.Itens
-            .Where(i => RespostaDeclaracao.EhNegativa(i.Quantidade))
+            .Where(RespostaDeclaracao.RequerAtencao)
             .Select(i => i.Descricao)
             .ToList();
 
@@ -198,7 +198,7 @@ public sealed class AssinaturaDoPacienteService
         // A declaração negada vai para a TRILHA e não só para a tela: ela é o fato que uma
         // investigação procura, e a tela some quando o dia acaba.
         if (negadas.Count > 0)
-            detalhe += $" — respondeu NÃO em: {string.Join("; ", negadas)}";
+            detalhe += $" — respostas requerem avaliação em: {string.Join("; ", negadas)}";
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
