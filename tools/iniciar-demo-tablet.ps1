@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 $raizTablet = Split-Path -Parent $PSScriptRoot
 $interfaceTablet = Join-Path (Resolve-Path -LiteralPath $Site).Path 'portal'
 if (!(Test-Path -LiteralPath (Join-Path $interfaceTablet 'index.html'))) { throw 'Checkout clinica-site sem portal/index.html.' }
+& python (Join-Path (Split-Path $interfaceTablet -Parent) 'ferramentas/preparar-marca-portal.py')
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar a marca original do site.' }
 $pastaTablet = Join-Path $raizTablet 'artifacts'
 New-Item -ItemType Directory -Path $pastaTablet -Force | Out-Null
 $variaveisTablet = @('ConnectionStrings__Clinica','ASPNETCORE_ENVIRONMENT','Portal__Demo','Portal__Interface','Portal__BancoDemo')

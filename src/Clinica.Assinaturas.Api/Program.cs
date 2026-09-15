@@ -16,6 +16,13 @@ using Clinica.Assinaturas.Api;
 
 var builder=WebApplication.CreateBuilder(args);
 var demo=builder.Configuration.GetValue<bool>("Portal:Demo");
+var socketPortal=builder.Configuration["Portal:Socket"];
+if(!demo && !string.IsNullOrWhiteSpace(socketPortal))
+{
+    if(!OperatingSystem.IsLinux() || !Path.IsPathFullyQualified(socketPortal))
+        throw new InvalidOperationException("O socket privado do portal exige Linux e caminho absoluto.");
+    builder.WebHost.ConfigureKestrel(o=>o.ListenUnixSocket(socketPortal));
+}
 if(demo && !builder.Environment.IsDevelopment()) throw new InvalidOperationException("Demonstração só é permitida em Development.");
 var codigoTablet=builder.Configuration["Portal:CodigoTablet"] ?? "";
 var modelos=builder.Configuration.GetSection("Portal:Modelos").Get<int[]>() ?? [];

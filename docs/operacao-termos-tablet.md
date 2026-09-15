@@ -75,12 +75,16 @@ substitui medição sob carga.
    dono root, modo 0600. Preencher conexão restrita, dois IDs positivos/distintos
    de modelos ativos de termo de procedimento, código aleatório de cadastro e
    diretório de chaves. Manter `Portal__Habilitado=false` até concluir dependências.
-6. Instalar a unidade `clinica-tablet.service`. Ela escuta só em loopback 18121,
+6. Criar o grupo `clinica-tablet-proxy` e instalar `clinica-tablet.service`.
+   Ela escuta somente no socket Unix `/run/clinica-tablet/portal.sock`,
    tem limite inicial de 512 MiB e não acessa home, backups, certificados ou Docker.
    Conferir suporte às restrições systemd e dependências nativas de ICU/fontconfig;
    medir memória, CPU e tempo do PDF antes de ampliar o piloto.
-7. Preparar **hostname HTTPS exclusivo** no proxy/túnel, encaminhando para
-   `http://127.0.0.1:18121`, com `X-Forwarded-Proto: https` do proxy local confiável.
+7. Preparar **portal.clinicasemdormacae.com.br** no túnel existente, tipo Unix,
+   serviço `unix:/run/clinica-tablet/portal.sock`, preservando
+   `X-Forwarded-Proto: https`. O drop-in `cloudflared-portal.conf` concede ao
+   conector somente o grupo de acesso ao socket. As chaves continuam em diretório
+   0700 do serviço; o bloqueio TCP do conector para o banco permanece.
    A API recusa HTTP em produção. Desativar cache e log de corpos/query strings
    nessa rota. Preservar a origem/socket institucional e não abrir a porta pública.
 8. Com backup/restauração, modelos, permissões, desktop e HTTPS conferidos, definir
@@ -105,13 +109,19 @@ USAGE no schema. O runtime usa os seguintes objetos:
 | UPDATE de login | Somente `Usuarios.TentativasFalhas`, `BloqueadoAte`, `UltimoAcessoEm` |
 | SELECT/INSERT/UPDATE | `DocumentosClinicos`, `ItensDocumento`, `SessoesTablet`, `ColetasTablet` |
 | SELECT/INSERT | `TracosAssinatura`, `ViasAssinadasPaciente` |
-| INSERT | `Auditoria` |
+| INSERT e SELECT de Id (RETURNING) | `Auditoria` |
 | USAGE | Sequências dos objetos em que existe INSERT |
 
 Não conceder DELETE ou DDL ao serviço. Os triggers protegem via, conteúdo do
 documento, declarações e rubrica arquivados inclusive contra UPDATE fora da API.
 Ensaiar esses privilégios com o runtime na cópia restaurada; grants e papéis
 existentes são configuração de cada instalação.
+
+Na VPS conferida, PostgreSQL 16 escuta na porta 45432 e autentica conexões locais
+por `peer`. Usar o papel `clinica-tablet`, igual ao usuário Linux, pelo socket
+`/var/run/postgresql`, sem copiar senha do desktop nem alterar `pg_hba.conf`.
+Os modelos existentes são 3 (TCLE contínuo) e 4 (termo diário BSV); conferir
+novamente esses IDs no banco de destino antes de preencher a configuração.
 
 Conta da enfermeira: ativa, senha já trocada, permissões `ColherAssinaturaPaciente`
 e `VerAgenda`. Alteração de senha, bloqueio, desativação ou retirada de permissão
