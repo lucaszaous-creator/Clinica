@@ -168,10 +168,10 @@ e trocar o código de cadastro o invalida. Não persistir tokens na interface.
 
 | Endpoint | Escopo/resultado |
 | --- | --- |
-| `GET /api/sessao` | Estado, CSRF e expiração; não lista pacientes |
+| `GET /api/sessao` | Estado, CSRF, expiração e referência opaca do contexto de acesso; não lista pacientes |
 | `POST /api/entrar` | Credenciais e, no primeiro uso, código de dispositivo |
 | `POST /api/sair` | Revoga sessão; encerra preparações abandonadas |
-| `GET /api/dia`, `GET /api/pacientes?q=` | Equipe: agenda reduzida e busca limitada |
+| `GET /api/dia`, `GET /api/pacientes?q=` | Equipe: agenda reduzida e busca limitada, com situação de cada termo e validade diária |
 | `GET /api/pacientes/{id}` | Equipe: identidade, modelos e histórico |
 | `POST /api/preparar` | Equipe: paciente, nascimento, identidade e modelos |
 | `GET /api/coletas` | Paciente: somente coletas da própria sessão |
@@ -197,9 +197,12 @@ e vias permanecem. Com conexão interrompida, conferir estado antes de repetir;
 mesma chave/conteúdo é idempotente. Não editar o banco para converter falha em
 arquivado. Divergência de conteúdo/hash exige investigação e preservação da via.
 
-A interface não tem modo offline. Recarregar ou alternar o aplicativo pode apagar
-uma rubrica ainda não enviada, exigindo reler/rubricar; rubrica recebida fica no
-servidor. O paciente pode chamar a equipe ou recusar sem assinar.
+A interface não tem modo offline. Alternar abas/aplicativos conserva os campos
+e a rubrica na memória da página, com conteúdo oculto até revalidar o mesmo
+contexto de acesso no servidor. Nova sessão ou expiração descarta a tela antiga.
+Recarregar, fechar a página ou o sistema operacional descarregar a aba pode
+apagar uma rubrica não enviada; a recebida permanece no servidor. O paciente
+pode chamar a equipe ou recusar sem assinar.
 
 ## Backup, observação e reversão
 

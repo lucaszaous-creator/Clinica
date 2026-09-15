@@ -30,9 +30,13 @@ public sealed class FronteiraHttpTests
         var inicio=await Get("/api/sessao");
         client.DefaultRequestHeaders.Add("X-CSRF-TOKEN",inicio.GetProperty("csrf").GetString());
         Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/entrar",new{login="demo",senha="TabletDemo#2026"})).StatusCode);
+        var contexto=(await Get("/api/sessao")).GetProperty("contexto").GetString();
+        Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
         var dia=await Get("/api/dia");var id=dia.GetProperty("pacientes")[0].GetProperty("pacienteId").GetInt32();
         var preparar=new{pacienteId=id,modelos=new[]{1,2},nascimento="1980-01-15",identidadeConferida="Documento fictício conferido"};
         Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/preparar",preparar)).StatusCode);
+        Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
+        Assert.Equal("paciente",(await Get("/api/sessao")).GetProperty("modo").GetString());
         foreach(var path in new[]{"/api/dia","/api/pacientes?q=Paciente","/api/pacientes/2","/api/documentos/1/via"})
             Assert.Equal(HttpStatusCode.Forbidden,(await client.GetAsync(path)).StatusCode);
         var coletas=await Get("/api/coletas");Assert.Equal(2,coletas.GetArrayLength());
@@ -42,6 +46,7 @@ public sealed class FronteiraHttpTests
             new{idempotencia=Guid.NewGuid(),conteudoHash=c.GetProperty("conteudoHash").GetString(),respostas=new Dictionary<string,string>(),tracoPng="",confirmo=true})).StatusCode);
         Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/entrar",new{login="demo",senha="TabletDemo#2026"})).StatusCode);
         Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/dia")).StatusCode);
+        Assert.NotEqual(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
         Assert.Equal(HttpStatusCode.Forbidden,(await client.GetAsync("/api/coletas")).StatusCode);
         using(var scope=factory.Services.CreateScope())
         {

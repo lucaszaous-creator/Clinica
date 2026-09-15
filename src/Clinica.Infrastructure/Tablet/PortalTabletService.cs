@@ -63,15 +63,49 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             .OrderBy(a=>a.DataHora).Take(300).Select(a=>new {
                 a.Id,a.PacienteId,Nome=a.Paciente!.Nome,Nascimento=a.Paciente.DataNascimento,
                 Horario=a.DataHora,Procedimento=a.ModalidadePrevista.ToString() }).ToListAsync(ct);
-        return new { Data=Hoje,Pacientes=agenda };
+        var termos=await SituacoesAsync(agenda.Select(a=>a.PacienteId).Distinct().ToArray(),ct);
+        return new { Data=Hoje,Pacientes=agenda.Select(a=>new {
+            a.Id,a.PacienteId,a.Nome,a.Nascimento,a.Horario,a.Procedimento,Termos=termos[a.PacienteId] }) };
     }
 
     public async Task<object> BuscarAsync(string? busca, CancellationToken ct)
     {
         var q=busca?.Trim();
         if (q?.Length is not (>=3 and <=80)) return Array.Empty<object>();
-        return await db.Pacientes.AsNoTracking().Where(p=>p.Nome.Contains(q))
+        var pacientes=await db.Pacientes.AsNoTracking().Where(p=>p.Nome.ToLower().Contains(q.ToLower()))
             .OrderBy(p=>p.Nome).Take(20).Select(p=>new {p.Id,p.Nome,Nascimento=p.DataNascimento}).ToListAsync(ct);
+        var termos=await SituacoesAsync(pacientes.Select(p=>p.Id).ToArray(),ct);
+        return pacientes.Select(p=>new {p.Id,p.Nome,p.Nascimento,Termos=termos[p.Id]});
+    }
+
+    // A agenda e a busca mostram a mesma validade usada ao preparar a coleta.
+    // Consultas em lote: não carregar prontuários, respostas ou PDFs para cada linha.
+    private async Task<Dictionary<int,SituacaoTermoTablet[]>> SituacoesAsync(int[] pacientes,CancellationToken ct)
+    {
+        if(pacientes.Length==0) return new();
+        var modelos=await ModelosAsync(ct);
+        var ids=modelos.Select(m=>m.Id).ToArray();
+        var diarios=await db.ExigenciasTermo.AsNoTracking().Where(e=>e.Ativa && e.SoValeNoDiaDoProcedimento
+            && ids.Contains(e.ModeloDocumentoId)).Select(e=>e.ModeloDocumentoId).Distinct().ToListAsync(ct);
+        var hoje=Hoje;
+        var docs=await db.DocumentosClinicos.AsNoTracking().Where(d=>pacientes.Contains(d.PacienteId)
+            && d.ModeloOrigemId!=null && ids.Contains(d.ModeloOrigemId.Value) && d.CanceladoEm==null
+            && (!diarios.Contains(d.ModeloOrigemId.Value) || d.Data==hoje))
+            .Select(d=>new {d.Id,d.PacienteId,d.ModeloOrigemId,d.Numero,d.PacienteAssinadoEm,d.PacienteRecusouEm,
+                Arquivado=db.ViasAssinadasPaciente.Any(v=>v.DocumentoId==d.Id),
+                Coleta=db.ColetasTablet.Where(c=>c.DocumentoId==d.Id).Select(c=>new {c.Estado,c.ExpiraEm}).FirstOrDefault()})
+            .ToListAsync(ct);
+        var ultimos=docs.GroupBy(d=>(d.PacienteId,d.ModeloOrigemId)).ToDictionary(g=>g.Key,
+            g=>g.OrderByDescending(d=>d.PacienteAssinadoEm!=null).ThenByDescending(d=>d.Id).First());
+        return pacientes.ToDictionary(id=>id,id=>modelos.Select(m=>
+        {
+            ultimos.TryGetValue((id,(int?)m.Id),out var d);
+            var estado=d?.PacienteAssinadoEm!=null ? d.Arquivado ? "arquivado" : "assinado"
+                : d?.PacienteRecusouEm!=null ? "recusado"
+                : d?.Coleta is { } c && (c.Estado!="preparado" || c.ExpiraEm>Agora) ? c.Estado : "pendente";
+            return new SituacaoTermoTablet(m.Id,m.Nome,diarios.Contains(m.Id),estado,d?.Id,d?.Numero,
+                d?.PacienteAssinadoEm,d?.PacienteAssinadoEm!=null && d.Arquivado);
+        }).ToArray());
     }
 
     private Task<List<ModeloDocumento>> ModelosAsync(CancellationToken ct) => db.ModelosDocumento.AsNoTracking()
@@ -104,7 +138,8 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
                     ? i.Quantidade=="Sim" : i.Quantidade=="Não")}).ToListAsync(ct);
         await Auditar("TabletConsultaTermos",id,operadora,"Consulta de termos do paciente",ct);
         await db.SaveChangesAsync(ct);
-        return new { p.Id,p.Nome,Nascimento=p.DataNascimento,Modelos=modelos,Documentos=historico };
+        var termos=await SituacoesAsync([id],ct);
+        return new { p.Id,p.Nome,Nascimento=p.DataNascimento,Modelos=modelos,Documentos=historico,Termos=termos[id] };
     }
 
     public async Task PrepararAsync(SessaoTablet s, PrepararTablet pedido, CancellationToken ct)
@@ -154,11 +189,16 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         if(s.Modo!="paciente") throw new AcessoTabletBloqueado();
         var coletas=await db.ColetasTablet.AsNoTracking().Where(c=>c.SessaoId==s.Id)
             .OrderBy(c=>c.PreparadoEm).ThenBy(c=>c.DocumentoId)
-            .Select(c=>new {c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,c.ConteudoJson,c.Falha}).ToListAsync(ct);
+            .Select(c=>new {c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,c.ConteudoJson,c.Falha,c.RecebidoEm}).ToListAsync(ct);
         // Não expor documento de identidade completo no modo paciente.
-        return coletas.Select(c=>new { c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,
-            Documento=c.Estado=="preparado" ? JsonSerializer.Deserialize<DocumentoTablet>(c.ConteudoJson,ContratoTablet.Json)! with {Identificacao=null} : null,
-            PrecisaEquipe=c.Estado=="falha" });
+        return coletas.Select(c=>
+        {
+            var documento=JsonSerializer.Deserialize<DocumentoTablet>(c.ConteudoJson,ContratoTablet.Json)!;
+            return new { c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,c.RecebidoEm,
+                documento.Titulo,documento.Numero,
+                Documento=c.Estado=="preparado" ? documento with {Identificacao=null} : null,
+                PrecisaEquipe=c.Estado=="falha" };
+        });
     }
 
     public async Task ReceberAsync(SessaoTablet s,Guid coletaId,EnviarRubrica envio,CancellationToken ct)

@@ -84,6 +84,36 @@ public sealed class PortalTabletTests : IDisposable
         Assert.Equal("preparado",c.Estado);Assert.Null(c.TracoPng);
     }
 
+    [Fact] public async Task Situacao_da_busca_e_agenda_confirma_arquivo_e_respeita_validade_diaria()
+    {
+        var s=await Preparar(true);
+        static JsonElement Json(object valor)=>JsonSerializer.SerializeToElement(valor,ContratoTablet.Json);
+        async Task<JsonElement[]> Buscar()=>Json(await svc.BuscarAsync("paciente FICTÍCIO",default))[0]
+            .GetProperty("termos").EnumerateArray().ToArray();
+        var iniciais=await Buscar();Assert.Equal(2,iniciais.Length);
+        Assert.All(iniciais,t=>Assert.Equal("preparado",t.GetProperty("estado").GetString()));
+        var coletas=await db.ColetasTablet.OrderBy(c=>c.DocumentoId).ToListAsync();
+        await svc.ReceberAsync(s.Sessao,coletas[0].Id,Envio(coletas[0]),default);
+        var recebida=(await Buscar()).Single(t=>t.GetProperty("modeloId").GetInt32()==1);
+        Assert.Equal("recebido",recebida.GetProperty("estado").GetString());
+        Assert.False(recebida.GetProperty("arquivado").GetBoolean());
+        Assert.Equal(JsonValueKind.Null,recebida.GetProperty("assinadoEm").ValueKind);
+        await svc.FinalizarAsync(coletas[0].Id,default);
+        await svc.ReceberAsync(s.Sessao,coletas[1].Id,Envio(coletas[1]),default);
+        await svc.FinalizarAsync(coletas[1].Id,default);
+        Assert.All(await Buscar(),t=>{Assert.Equal("arquivado",t.GetProperty("estado").GetString());Assert.True(t.GetProperty("arquivado").GetBoolean());});
+        Assert.Empty(await db.Agendamentos.ToListAsync());
+        db.Agendamentos.Add(new(){PacienteId=paciente.Id,DataHora=svc.Hoje.ToDateTime(new TimeOnly(10,0))});
+        await db.SaveChangesAsync();
+        var dia=Json(await svc.DiaAsync(default)).GetProperty("pacientes")[0];
+        Assert.Equal(paciente.Id,dia.GetProperty("pacienteId").GetInt32());
+        Assert.All(dia.GetProperty("termos").EnumerateArray(),t=>Assert.Equal("arquivado",t.GetProperty("estado").GetString()));
+        relogio.Adiantar(86400);
+        var amanha=await Buscar();
+        Assert.Equal("arquivado",amanha.Single(t=>!t.GetProperty("diario").GetBoolean()).GetProperty("estado").GetString());
+        Assert.Equal("pendente",amanha.Single(t=>t.GetProperty("diario").GetBoolean()).GetProperty("estado").GetString());
+    }
+
     [Fact] public async Task Alergia_ausente_nao_vira_nao()
     {
         var s=await Preparar();var c=await db.ColetasTablet.SingleAsync();var e=Envio(c);

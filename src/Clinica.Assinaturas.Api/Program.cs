@@ -146,7 +146,10 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
     try
     {
         var s=await Sessao(ctx,svc,false);
-        return Results.Ok(new {csrf=token,modo=s.Modo,demo,operadora=s.Modo=="equipe" ? s.Usuario!.Nome : null,expiraEm=s.ExpiraEm});
+        // Referência de contexto, sem expor token/cookie: permite preservar a página
+        // ao voltar de outra aba, mas descartar conteúdo após troca de acesso.
+        return Results.Ok(new {csrf=token,modo=s.Modo,demo,operadora=s.Modo=="equipe" ? s.Usuario!.Nome : null,
+            expiraEm=s.ExpiraEm,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id)});
     }
     catch(UnauthorizedAccessException) {return Results.Ok(new {csrf=token,modo="entrada",demo});}
 });

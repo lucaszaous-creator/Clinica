@@ -15,6 +15,8 @@ public record PrepararTablet(int PacienteId, int[] Modelos, DateOnly Nascimento,
 public record EnviarRubrica(Guid Idempotencia, string ConteudoHash,
     Dictionary<int, string?> Respostas, string? AlergiasDetalhes, string TracoPng, bool Confirmo);
 public record RespostasTablet(SortedDictionary<int, string?> Respostas, string? AlergiasDetalhes);
+public record SituacaoTermoTablet(int ModeloId, string Nome, bool Diario, string Estado,
+    int? DocumentoId, string? Numero, DateTime? AssinadoEm, bool Arquivado);
 
 public static class ContratoTablet
 {
