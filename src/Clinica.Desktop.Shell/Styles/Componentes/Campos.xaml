@@ -57,7 +57,7 @@
                                        VerticalAlignment="Center" IsHitTestVisible="False"
                                        Visibility="Collapsed" />
                             <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
-                                          VerticalAlignment="Center" />
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                         </Grid>
                     </Border>
                         </Grid>

@@ -289,7 +289,14 @@ public sealed class DocumentosClinicosPdfService
                         col, paciente,
                         comEndereco: documento.Tipo == TipoDocumentoClinico.Receita);
 
-                    if (!string.IsNullOrWhiteSpace(documento.Corpo))
+                    if (documento.Tipo == TipoDocumentoClinico.Receita && itens.Count == 0)
+                    {
+                        col.Item().Text("Prescrição").Bold().FontSize(11).FontColor(AzulEscuro);
+                        // Um único bloco preserva linhas em branco e permite que o texto
+                        // livre continue nas páginas seguintes, sem uma tabela vazia.
+                        col.Item().Text(documento.Corpo ?? string.Empty).FontSize(10.5f).LineHeight(1.3f);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(documento.Corpo))
                         Paragrafos(col, documento.Corpo!,
                             // O TERMO é o único documento cujo corpo é um texto LONGO — dez,
                             // doze parágrafos de consentimento. Com o espaçamento de 10 que
@@ -302,7 +309,7 @@ public sealed class DocumentosClinicosPdfService
                     switch (documento.Tipo)
                     {
                         case TipoDocumentoClinico.Receita:
-                            ListaPrescrita(col, itens, "Prescrição");
+                            if (itens.Count > 0) ListaPrescrita(col, itens, "Prescrição");
                             break;
 
                         case TipoDocumentoClinico.PedidoExame:

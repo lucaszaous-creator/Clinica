@@ -35,6 +35,22 @@ namespace Clinica.Tests;
 /// </summary>
 public class TraducaoNoNpgsqlTests
 {
+    [Fact]
+    public void Historico_de_mapas_filtra_no_banco_e_nao_carrega_texto_clinico()
+    {
+        using var db = Postgres();
+        var data = new DateOnly(2026, 9, 15);
+        int? atual = 20;
+        var sql = db.MapasCorporais.AsNoTracking()
+            .Where(m => m.Evolucao!.PacienteId == 1 && m.Evolucao.CanceladaEm == null
+                && m.Pontos.Any() && (m.Evolucao.Data < data || (m.Evolucao.Data == data
+                    && (atual == null || m.EvolucaoId < atual))))
+            .OrderByDescending(m => m.Evolucao!.Data).ThenByDescending(m => m.EvolucaoId).Take(30)
+            .Select(m => new ResumoMapaAnterior(m.EvolucaoId, m.Evolucao!.Data, m.Pontos.Count,
+                m.Evolucao.Profissional == null ? null : m.Evolucao.Profissional.Nome)).ToQueryString();
+        sql.Should().Contain("LIMIT").And.Contain("CanceladaEm").And.NotContain("TextoEvolucao");
+    }
+
     /// <summary>
     /// Contexto configurado para o Npgsql. Nunca conecta — só compila consultas.
     /// </summary>
@@ -42,6 +58,27 @@ public class TraducaoNoNpgsqlTests
         => new(new DbContextOptionsBuilder<ClinicaDbContext>()
             .UseNpgsql("Host=nao-conecta;Database=x;Username=u;Password=p")
             .Options);
+
+    [Fact]
+    public void Pendencias_de_conclusao_e_vinculos_sem_texto_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var inicio = new DateTime(2026, 9, 14);
+        var fim = inicio.AddDays(1);
+        var pendentes = db.Agendamentos.AsNoTracking().Include(a => a.Paciente)
+            .Include(a => a.Profissional).Include(a => a.Sala)
+            .Where(a => a.Status == StatusAgendamento.Agendado && a.DataHora < fim
+                && (a.FimAtendimentoEm != null || (a.InicioAtendimentoEm != null && a.DataHora < inicio)))
+            .ToQueryString();
+        pendentes.Should().Contain("FimAtendimentoEm");
+        var dia = DateOnly.FromDateTime(inicio);
+        var vinculos = db.Evolucoes.AsNoTracking()
+            .Where(e => e.CanceladaEm == null && e.Data >= dia && e.Data <= dia)
+            .Select(e => new Evolucao { Id = e.Id, PacienteId = e.PacienteId, Data = e.Data,
+                AgendamentoId = e.AgendamentoId, AtendimentoId = e.AtendimentoId,
+                ProfissionalId = e.ProfissionalId }).ToQueryString();
+        vinculos.Should().Contain("AgendamentoId").And.NotContain("TextoEvolucao");
+    }
 
     [Fact]
     public void As_duas_leituras_do_vinculo_evolucao_x_atendimento_traduzem()

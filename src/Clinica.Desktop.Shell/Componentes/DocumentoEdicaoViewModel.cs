@@ -62,6 +62,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<LinhaItemDocumento> Itens { get; } = [];
+    public ObservableCollection<SugestaoTextoClinico> Sugestoes { get; } = [];
 
     // ===================== Conferência clínica (parcela 40) =====================
     //
@@ -146,7 +147,14 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 DocumentoParaConferencia(), AssinarDigitalmente);
 
             ExigenciasLegais.Clear();
-            foreach (var falta in faltas) ExigenciasLegais.Add(falta.Frase);
+            foreach (var falta in faltas)
+            {
+                // Essas duas respostas têm lugar na própria receita: o campo de texto
+                // e a pergunta de endereço antes da emissão. Não duplicar avisos no topo.
+                if (ReceitaLivre && (falta.Frase.Contains("endereço residencial")
+                    || falta.Frase.StartsWith("Escreva a prescrição"))) continue;
+                ExigenciasLegais.Add(falta.Frase);
+            }
         }
         catch (Exception ex)
         {
@@ -194,7 +202,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     partial void OnAlergiaConferidaChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
 
     /// <summary>Enquanto houver colisão não confirmada, o botão de emitir fica apagado.</summary>
-    private bool PodeEmitir() => !Emitindo && (!ColideComAlergia || AlergiaConferida);
+    private bool PodeEmitir() => !Emitindo && !Carregando && (!ColideComAlergia || AlergiaConferida);
 
     /// <summary>
     /// Relê o contexto clínico e reconfere os itens escritos.
@@ -209,9 +217,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         try
         {
             var escritos = Itens
-                .Where(i => !string.IsNullOrWhiteSpace(i.Descricao))
+                .Where(i => MostraItens && !string.IsNullOrWhiteSpace(i.Descricao))
                 .Select(i => $"{i.Descricao} {i.Detalhe}".Trim())
                 .ToList();
+            if (ReceitaLivre && !string.IsNullOrWhiteSpace(Corpo)) escritos.Add(Corpo);
 
             using var scope = _escopos.CreateScope();
             var prescricao = scope.ServiceProvider.GetRequiredService<PrescricaoService>();
@@ -266,10 +275,35 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _emitindo;
+    [ObservableProperty] private bool _carregando = true;
+
+    public bool ReceitaLivre => TipoSelecionado == TipoDocumentoClinico.Receita;
+    public string RotuloCorpo => ReceitaLivre ? "Prescrição" : "Texto do documento";
+    public bool PodeEditar => !Emitindo;
+    public bool TemSugestoes => ReceitaLivre && Sugestoes.Count > 0;
+    public string EnderecoDaReceita => string.IsNullOrWhiteSpace(_paciente?.Endereco)
+        ? "Endereço: será solicitado ao emitir."
+        : $"Endereço: {_paciente.Endereco}";
+
+    partial void OnCorpoChanged(string? value)
+    {
+        // A confirmação anterior não descreve o novo texto. A emissão reconfere antes
+        // de numerar, inclusive quando a alteração veio de uma sugestão selecionada.
+        AlergiaConferida = false;
+        ColideComAlergia = false;
+        ColisoesAlergia.Clear();
+        if (!Carregando) _ = ConferirLegalmenteAsync();
+    }
+
+    partial void OnCarregandoChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
 
     // Sem isto o botão continuaria apagado depois da emissão: `PodeEmitir` lê `Emitindo`,
     // e o gerador só reavalia o comando quando alguém avisa.
-    partial void OnEmitindoChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
+    partial void OnEmitindoChanged(bool value)
+    {
+        EmitirCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(PodeEditar));
+    }
 
     public string TituloJanela => $"Emitir {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}";
 
@@ -436,6 +470,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(MostraComparecimento));
         OnPropertyChanged(nameof(RotuloItens));
         OnPropertyChanged(nameof(RotuloDetalhe));
+        OnPropertyChanged(nameof(ReceitaLivre));
+        OnPropertyChanged(nameof(RotuloCorpo));
+        OnPropertyChanged(nameof(TemSugestoes));
 
         // Trocar o tipo no combo é escolher OUTRO papel: o que a sessão tinha a dar para
         // ele é outra coisa, e as marcas do papel anterior mentiriam sobre este.
@@ -516,6 +553,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
             _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
             OnPropertyChanged(nameof(Subtitulo));
+            OnPropertyChanged(nameof(EnderecoDaReceita));
 
             await CarregarModelosAsync();
             await ConferirLegalmenteAsync();
@@ -531,6 +569,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar(
                 "Documento clínico — tela de documento não pôde ser carregada", ex);
             Erro($"Não foi possível carregar a tela: {ex.Message}");
+        }
+        finally
+        {
+            Carregando = false;
         }
     }
 
@@ -579,10 +621,19 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             // Entre o Clear() e o último Add não pode haver await (parcela 62): a
             // segunda carga limparia o que a primeira ainda está preenchendo.
-            var modelos = await documentos.ModelosAsync(TipoSelecionado);
+            var tipo = TipoSelecionado;
+            var modelos = await documentos.ModelosAsync(tipo);
+            if (tipo != TipoSelecionado) return;
             Modelos.Clear();
+            Sugestoes.Clear();
             foreach (var m in modelos)
+            {
                 Modelos.Add(m);
+                var texto = TextoReceituario.DoModelo(m);
+                if (ReceitaLivre && texto.Length > 0)
+                    Sugestoes.Add(new SugestaoTextoClinico(m.Nome, texto, AcrescentarSugestao));
+            }
+            OnPropertyChanged(nameof(TemSugestoes));
         }
         catch (Exception ex)
         {
@@ -608,6 +659,12 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     {
         if (ModeloSelecionado is not { } modelo) return;
 
+        if (ReceitaLivre)
+        {
+            AcrescentarSugestao(TextoReceituario.DoModelo(modelo));
+            return;
+        }
+
         Titulo = modelo.Titulo;
         Corpo = modelo.Corpo;
 
@@ -622,6 +679,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         if (Itens.Count == 0) Itens.Add(new LinhaItemDocumento());
         Informar($"Modelo \"{modelo.Nome}\" aplicado.");
+    }
+
+    private void AcrescentarSugestao(string texto)
+    {
+        if (Emitindo || string.IsNullOrWhiteSpace(texto)) return;
+        Corpo = TextoReceituario.Acrescentar(Corpo, texto);
+        Informar("Sugestão acrescentada. Revise e edite a prescrição antes de emitir.");
     }
 
     /// <summary>
@@ -655,7 +719,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 Corpo = Corpo
             };
 
-            foreach (var i in Itens.Where(i => !string.IsNullOrWhiteSpace(i.Descricao)))
+            foreach (var i in Itens.Where(i => MostraItens && !string.IsNullOrWhiteSpace(i.Descricao)))
                 modelo.Itens.Add(new ItemModelo
                 {
                     Descricao = i.Descricao,
@@ -724,7 +788,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(PodeEmitir))]
     private async Task EmitirAsync()
     {
-        if (Emitindo) return;
+        if (Emitindo || Carregando) return;
 
         Mensagem = string.Empty;
         MensagemEhErro = false;
@@ -744,25 +808,25 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             return;
         }
 
-        // Reconfere com o que está escrito AGORA. A conferência da abertura viu uma
-        // receita em branco, e quem digitou o alérgeno depois dela passaria direto.
-        await ConferirClinicamenteAsync();
-
-        if (ColideComAlergia && !AlergiaConferida)
-        {
-            Erro("Esta prescrição bate com uma alergia registrada do paciente. "
-                 + "Confira o alerta e marque que você o viu antes de emitir.");
-            return;
-        }
-
-        // Reconfere a lei com o que está escrito AGORA — mesma razão da reconferência de
-        // alergia acima: a da abertura viu um documento em branco.
-        await ConferirLegalmenteAsync();
-
         Emitindo = true;
-
         try
         {
+            if (ReceitaLivre && string.IsNullOrWhiteSpace(Corpo))
+            {
+                Erro("Escreva a prescrição antes de emitir a receita.");
+                return;
+            }
+
+            await ConferirClinicamenteAsync();
+            if (ColideComAlergia && !AlergiaConferida)
+            {
+                Erro("Esta prescrição bate com uma alergia registrada do paciente. "
+                     + "Confira o alerta e marque que você o viu antes de emitir.");
+                return;
+            }
+
+            if (!await CompletarEnderecoDaReceitaAsync()) return;
+            await ConferirLegalmenteAsync();
             var dados = MontarDocumento();
 
             byte[] pdf;
@@ -820,6 +884,34 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         {
             Emitindo = false;
         }
+    }
+
+    private async Task<bool> CompletarEnderecoDaReceitaAsync()
+    {
+        if (!ReceitaLivre) return true;
+        // Relê antes de perguntar: o balcão pode ter completado o cadastro enquanto
+        // o profissional escrevia. Nenhum documento é numerado antes desta resposta.
+        using var scope = _escopos.CreateScope();
+        var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
+        _paciente = await pacientes.ObterAsync(_pacienteId)
+            ?? throw new InvalidOperationException("Paciente não encontrado.");
+        if (string.IsNullOrWhiteSpace(_paciente.Endereco))
+        {
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+            var endereco = dialogo.PerguntarTexto("Endereço para a receita",
+                $"Qual é o endereço residencial de {_paciente.Nome}? "
+                + "Informe rua, número, complemento, bairro e cidade. "
+                + "O endereço será guardado no cadastro para as próximas receitas.");
+            if (endereco is null)
+            {
+                Informar("Emissão adiada. A prescrição continua nesta janela para você completar o endereço.");
+                return false;
+            }
+            _paciente = await pacientes.CompletarEnderecoAsync(
+                _pacienteId, endereco, SessaoUsuario.Atual.Operador);
+        }
+        OnPropertyChanged(nameof(EnderecoDaReceita));
+        return true;
     }
 
     /// <summary>
@@ -881,6 +973,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Paciente = _paciente,
             ProfissionalId = Profissional?.Id,
             Profissional = Profissional,
+            Corpo = Corpo,
             Data = DateOnly.FromDateTime(Data)
         };
 

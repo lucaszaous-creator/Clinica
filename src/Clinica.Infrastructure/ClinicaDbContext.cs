@@ -30,6 +30,8 @@ public class ClinicaDbContext : DbContext
             e.Entity.Versao = Guid.NewGuid();
     }
 
+    public DbSet<EtapaFechamentoSessao> EtapasFechamentoSessao => Set<EtapaFechamentoSessao>();
+
     public DbSet<Paciente> Pacientes => Set<Paciente>();
     public DbSet<PacienteFoto> PacientesFotos => Set<PacienteFoto>();
     public DbSet<AutorizacaoSessoes> Autorizacoes => Set<AutorizacaoSessoes>();
@@ -124,6 +126,14 @@ public class ClinicaDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder b)
     {
         Tablet.MapeamentoTablet.Aplicar(b);
+        b.Entity<EtapaFechamentoSessao>(e =>
+        {
+            e.HasKey(x => new { x.AtendimentoId, x.Etapa });
+            e.Property(x => x.Etapa).HasMaxLength(80);
+            e.Property(x => x.Pedido).HasMaxLength(2000);
+            e.HasOne(x => x.Atendimento).WithMany().HasForeignKey(x => x.AtendimentoId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
         b.Entity<Paciente>(e =>
         {
             e.HasKey(p => p.Id);
@@ -930,7 +940,7 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
-            e.Property(x => x.Descricao).HasMaxLength(500);
+            e.Property(x => x.Descricao).HasMaxLength(1000);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
@@ -1144,7 +1154,7 @@ public class ClinicaDbContext : DbContext
         b.Entity<ItemPrescricaoInterna>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Descricao).IsRequired().HasColumnType("text");
             e.Property(x => x.Dose).HasMaxLength(60);
             e.Property(x => x.Diluente).HasMaxLength(120);
             e.Property(x => x.Volume).HasMaxLength(60);

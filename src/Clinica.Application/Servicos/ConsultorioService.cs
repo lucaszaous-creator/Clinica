@@ -64,7 +64,7 @@ public sealed class ConsultorioService
             ? todos.Where(a => a.ProfissionalId == id).ToList()
             : todos;
 
-        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(dia, dia, ct, profissionalId);
+        var evolucoes = await _repo.VinculosEvolucoesNoPeriodoAsync(dia, dia, ct);
 
         var sessoes = agendamentos
             .OrderBy(a => a.DataHora)
@@ -108,7 +108,7 @@ public sealed class ConsultorioService
             ? todos.Where(a => a.ProfissionalId == id).ToList()
             : todos;
 
-        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, fim, ct, profissionalId);
+        var evolucoes = await _repo.VinculosEvolucoesNoPeriodoAsync(inicio, fim, ct);
 
         var nome = profissionalId is null
             ? "Todos os profissionais"
@@ -169,7 +169,7 @@ public sealed class ConsultorioService
             ? todos.Where(a => a.ProfissionalId == id).ToList()
             : todos;
 
-        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, ontem, ct, profissionalId);
+        var evolucoes = await _repo.VinculosEvolucoesNoPeriodoAsync(inicio, ontem, ct);
 
         return agendamentos
             .Where(a => a.Status == StatusAgendamento.Realizado)
@@ -272,62 +272,35 @@ public sealed class ConsultorioService
     }
 
     /// <summary>
-    /// A evolução JÁ ESCRITA de um horário, ou nulo.
-    ///
-    /// O casamento é pelo <c>AgendamentoId</c> da evolução — que é o vínculo real — e cai
-    /// para paciente + data quando ele é nulo. O caminho de baixo existe porque a evolução
-    /// escrita direto no prontuário (fora da fila) não conhece o agendamento, e sem ele o
-    /// consultório cobraria para sempre um registro que já foi escrito.
-    ///
-    /// ⚠️ A avulsa casa com <b>NO MÁXIMO UMA</b> sessão do dia. Com duas sessões do mesmo
-    /// paciente no mesmo dia (manhã e tarde), uma única evolução sem vínculo dava as DUAS
-    /// por escritas — a segunda sumia da cobrança, e abrir qualquer uma delas na tela de
-    /// Atendimento CONTINUAVA o mesmo texto, fundindo duas sessões num registro só. A
-    /// distribuição é cronológica: avulsas na ordem em que foram escritas (Id), sessões na
-    /// ordem em que aconteceram — a primeira sem evolução própria fica com a primeira
-    /// avulsa. É uma escolha determinística sobre um dado que não diz de quem é; a que
-    /// erra, erra para o lado de COBRAR, nunca de calar. Cancelado e falta não disputam:
-    /// sessão que não aconteceu não tem o que escrever.
-    ///
-    /// Daí o parâmetro <paramref name="sessoesDoPacienteNoDia"/>: os agendamentos do
-    /// paciente NAQUELE dia (de todos os profissionais — a segunda sessão do dia costuma
-    /// ser de outra especialidade). Sem conhecer as irmãs não há como saber a vez de cada
-    /// uma na fila da avulsa.
-    ///
-    /// É <b>público e estático de propósito</b>: quem pergunta "esta sessão já foi
-    /// escrita?" são dois — o cartão do Meu dia e a tela de Atendimento, que decide entre
-    /// CONTINUAR o registro e começar um novo. Duas definições divergem na primeira
-    /// correção, e aqui a que ficasse para trás produziria uma SEGUNDA evolução do mesmo
-    /// atendimento, sem erro nenhum na tela.
+    /// Resolve a evolução por vínculo explícito com horário ou atendimento.
+    /// Registro avulso só é associado quando resta uma única sessão e um único registro;
+    /// casos ambíguos exigem conferência no consultório. Autoria não muda a existência do vínculo.
     /// </summary>
     public static Evolucao? EvolucaoDoHorario(
         IReadOnlyList<Evolucao> evolucoes, int agendamentoId, int pacienteId, DateOnly data,
         IReadOnlyList<Agendamento> sessoesDoPacienteNoDia)
     {
-        var porVinculo = evolucoes.FirstOrDefault(e => e.AgendamentoId == agendamentoId);
+        var vigentes = evolucoes.Where(e => e.CanceladaEm is null && e.PacienteId == pacienteId).ToList();
+        var porVinculo = vigentes.FirstOrDefault(e => e.AgendamentoId == agendamentoId);
         if (porVinculo is not null) return porVinculo;
 
-        var avulsas = evolucoes
-            .Where(e => e.AgendamentoId is null && e.PacienteId == pacienteId && e.Data == data)
-            .OrderBy(e => e.Id)
-            .ToList();
-        if (avulsas.Count == 0) return null;
+        var horario = sessoesDoPacienteNoDia.FirstOrDefault(s => s.Id == agendamentoId);
+        if (horario?.AtendimentoId is { } atendimentoId)
+        {
+            var peloAtendimento = vigentes.FirstOrDefault(e => e.AtendimentoId == atendimentoId);
+            if (peloAtendimento is not null) return peloAtendimento;
+        }
 
-        // Quem disputa a avulsa: sessão do MESMO paciente e dia, que aconteceu (ou ainda
-        // vai acontecer) e não tem evolução vinculada própria. Vinculada de outro
-        // profissional pode estar fora da lista filtrada — nesse caso a sessão dele entra
-        // na disputa sem precisar, e o erro cai para o lado de cobrar.
-        var concorrentes = sessoesDoPacienteNoDia
-            .Where(s => s.PacienteId == pacienteId
-                        && DateOnly.FromDateTime(s.DataHora) == data
-                        && s.OcupaAgenda // cancelada, falta e substituída não disputam
-                        && evolucoes.All(e => e.AgendamentoId != s.Id))
-            .OrderBy(s => s.DataHora).ThenBy(s => s.Id)
-            .ToList();
-
-        var vez = concorrentes.FindIndex(s => s.Id == agendamentoId);
-        if (vez < 0) return null;
-        return vez < avulsas.Count ? avulsas[vez] : null;
+        // Uma associação inferida só é segura quando existe uma única possibilidade.
+        // Duas sessões no dia exigem vínculo explícito, nunca distribuição por horário.
+        var avulsas = vigentes.Where(e => e.AgendamentoId is null && e.AtendimentoId is null
+                                         && e.Data == data).ToList();
+        var concorrentes = sessoesDoPacienteNoDia.Where(s => s.PacienteId == pacienteId
+            && DateOnly.FromDateTime(s.DataHora) == data && s.OcupaAgenda
+            && vigentes.All(e => e.AgendamentoId != s.Id
+                && (s.AtendimentoId == null || e.AtendimentoId != s.AtendimentoId))).ToList();
+        return avulsas.Count == 1 && concorrentes.Count == 1 && concorrentes[0].Id == agendamentoId
+            ? avulsas[0] : null;
     }
 
     /// <summary>

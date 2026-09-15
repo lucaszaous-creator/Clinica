@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915140519_PrescricaoInfusaoTextoLivre")]
+    partial class PrescricaoInfusaoTextoLivre
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1938,28 +1941,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Codigo");
 
                     b.ToTable("Especialidades");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.EtapaFechamentoSessao", b =>
-                {
-                    b.Property<int>("AtendimentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Etapa")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Pedido")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<int>("ResultadoId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("AtendimentoId", "Etapa");
-
-                    b.ToTable("EtapasFechamentoSessao");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.EventoAuditoria", b =>
@@ -4064,8 +4045,8 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("character varying(80)");
 
                     b.Property<string>("Descricao")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -5295,17 +5276,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Lancamento");
 
                     b.Navigation("Paciente");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.EtapaFechamentoSessao", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.Atendimento", "Atendimento")
-                        .WithMany()
-                        .HasForeignKey("AtendimentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Atendimento");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.Evolucao", b =>

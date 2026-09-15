@@ -705,10 +705,11 @@ public sealed class DocumentoClinicoService
         DocumentoClinico dados, IReadOnlyList<ItemDocumento> itens, CancellationToken ct)
     {
         if (TipoDocumentoInfo.ExigeItens(dados.Tipo) && itens.Count == 0)
-            throw new InvalidOperationException(
-                dados.Tipo == TipoDocumentoClinico.Receita
-                    ? "Uma receita sem nenhum item não é receita: acrescente ao menos um."
-                    : "Diga ao menos um exame no pedido.");
+            throw new InvalidOperationException("Diga ao menos um exame no pedido.");
+
+        if (dados.Tipo == TipoDocumentoClinico.Receita
+            && itens.Count == 0 && string.IsNullOrWhiteSpace(dados.Corpo))
+            throw new InvalidOperationException("Escreva a prescrição antes de emitir a receita.");
 
         // Receita, atestado e pedido de exame só existem porque alguém habilitado
         // assina. Sem assinante o papel não vale nada — e vale menos ainda descobrir

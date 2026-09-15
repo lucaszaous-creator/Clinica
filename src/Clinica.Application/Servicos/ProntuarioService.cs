@@ -29,6 +29,37 @@ public sealed class ProntuarioService
     public Task<Evolucao?> ObterAsync(int evolucaoId, CancellationToken ct = default)
         => _repo.ObterEvolucaoAsync(evolucaoId, ct);
 
+    /// <summary>Vincula registro avulso à sessão após conferência, preservando texto, autoria e versão.</summary>
+    public async Task VincularAoHorarioAsync(int evolucaoId, int agendamentoId, string operador,
+        CancellationToken ct = default)
+    {
+        var evo = await _repo.ObterEvolucaoAsync(evolucaoId, ct)
+            ?? throw new InvalidOperationException("Registro não encontrado.");
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException("Horário não encontrado.");
+        if (evo.CanceladaEm is not null || !ag.OcupaAgenda
+            || evo.PacienteId != ag.PacienteId || evo.Data != DateOnly.FromDateTime(ag.DataHora))
+            throw new InvalidOperationException("Escolha um registro vigente do mesmo paciente e dia.");
+        if (evo.AgendamentoId == ag.Id) return;
+        if (evo.AgendamentoId is not null || (evo.AtendimentoId is not null && evo.AtendimentoId != ag.AtendimentoId))
+            throw new InvalidOperationException("Este registro já pertence a outra sessão.");
+        var existentes = await _repo.VinculosEvolucoesNoPeriodoAsync(evo.Data, evo.Data, ct);
+        if (existentes.Any(e => e.Id != evo.Id && (e.AgendamentoId == ag.Id
+            || (ag.AtendimentoId != null && e.AtendimentoId == ag.AtendimentoId))))
+            throw new InvalidOperationException("A sessão já possui evolução. Atualize a tela para consultá-la.");
+        var vinculoAnterior = $"horário {evo.AgendamentoId?.ToString() ?? "não vinculado"}, atendimento {evo.AtendimentoId?.ToString() ?? "não vinculado"}";
+        GuardarVersao(evo, operador, "Vínculo conferido com o horário da sessão; anterior: " + vinculoAnterior);
+        evo.AgendamentoId = ag.Id;
+        evo.AtendimentoId = ag.AtendimentoId;
+        evo.AtualizadoEm = DateTime.Now;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador, Acao = "EvolucaoVinculada", PacienteId = evo.PacienteId,
+            Detalhe = $"Evolução {evo.Id}: {vinculoAnterior} → horário {ag.Id}; atendimento {ag.AtendimentoId}."
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     /// <summary>
     /// Registra (ou atualiza) a evolução de uma sessão. Grava auditoria no mesmo
     /// SaveChanges: prontuário é documento clínico, e alteração sem rastro não presta.
@@ -43,7 +74,7 @@ public sealed class ProntuarioService
     /// </param>
     public async Task<Evolucao> SalvarAsync(
         Evolucao dados, string? operador = null, string? motivoDaCorrecao = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, MapaCorporal? mapa = null)
     {
         if (await _repo.ObterPacienteAsync(dados.PacienteId, ct) is null)
             throw new InvalidOperationException("Paciente não encontrado.");
@@ -57,7 +88,8 @@ public sealed class ProntuarioService
         // eles, a consulta em que o médico registrou só a anamnese, o exame físico e a
         // hipótese — que é o caso normal da PRIMEIRA consulta, antes de haver conduta —
         // seria recusada como "evolução vazia", e a recusa nomeia campos que ele preencheu.
-        if (!TemRegistro(dados))
+        if (mapa is not null) MapaCorporalService.ValidarConteudo(mapa.Pontos, mapa.Observacoes);
+        if (!TemRegistro(dados) && (mapa is null || (mapa.Pontos.Count == 0 && string.IsNullOrWhiteSpace(mapa.Observacoes))))
             throw new InvalidOperationException(
                 "Registre ao menos a dor (EVA) ou um dos campos da evolução.");
 
@@ -145,6 +177,10 @@ public sealed class ProntuarioService
         // os mostra e teve todos apagados, e aí apagar é o certo.
         if (dados.CamposPersonalizados is { } respostas && !ReferenceEquals(respostas, destino.CamposPersonalizados))
             AplicarCamposPersonalizados(destino, respostas);
+
+        if (mapa is not null)
+            await new MapaCorporalService(_repo).PrepararGravacaoAsync(destino, mapa.Pontos,
+                mapa.Observacoes, operador, mapa.ProtocoloOrigemId, ignorarNovoVazio: true, ct);
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {

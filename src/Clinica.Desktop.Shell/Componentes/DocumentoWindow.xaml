@@ -34,6 +34,7 @@
                  fica junto do botão porque é ele que ela muda. -->
             <CheckBox Content="Assinar digitalmente (ICP-Brasil)"
                       IsChecked="{Binding AssinarDigitalmente}"
+                      IsEnabled="{Binding PodeEditar}"
                       VerticalAlignment="Center" Margin="0,0,16,0" />
             <Button x:Name="BtnCancelar" Content="Fechar" Style="{StaticResource BotaoSecundario}"
                     IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
@@ -113,7 +114,7 @@
             </StackPanel>
         </Border>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" IsEnabled="{Binding PodeEditar}">
             <StackPanel>
 
                 <!-- ===== O que o prontuário sabe deste paciente =====
@@ -168,7 +169,42 @@
                     </StackPanel>
                 </Grid>
 
+                <StackPanel Margin="0,16,0,0"
+                            Visibility="{Binding ReceitaLivre, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="{Binding EnderecoDaReceita}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" />
+                </StackPanel>
+
+                <StackPanel Margin="0,16,0,0"
+                            Visibility="{Binding TemSugestoes, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Sugestões da clínica" Style="{StaticResource H3}" />
+                    <TextBlock Text="Marque para acrescentar ao texto. Edite ou remova os trechos no campo Prescrição."
+                               Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                    <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" ctrl:Ajudantes.RodaDaPagina="True">
+                    <ItemsControl ItemsSource="{Binding Sugestoes}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding Selecionada}" Margin="0,4"
+                                          ToolTip="{Binding Texto}" AutomationProperties.Name="{Binding Nome}">
+                                    <TextBlock Text="{Binding Nome}" TextWrapping="Wrap" />
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    </ScrollViewer>
+                </StackPanel>
+
+                <!-- ===== Texto ===== -->
+                <TextBlock Text="{Binding RotuloCorpo}" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+                <TextBox Text="{Binding Corpo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="240"
+                         AutomationProperties.Name="{Binding RotuloCorpo}"
+                         VerticalContentAlignment="Top"
+                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                <TextBlock Text="Escreva ou cole o receituário completo, incluindo o modo de usar. O texto pode ser editado livremente."
+                           Margin="0,6,0,0" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           Visibility="{Binding ReceitaLivre, Converter={StaticResource BoolParaVisibilidade}}" />
+
                 <!-- ===== Modelos ===== -->
+                <Expander Header="Guardar e gerenciar sugestões e modelos" Margin="0,12,0,0">
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0">
                     <StackPanel>
                         <TextBlock Text="Modelos" Style="{StaticResource H3}" Margin="0" />
@@ -222,14 +258,10 @@
                         </Grid>
                     </StackPanel>
                 </Border>
+                </Expander>
 
-                <!-- ===== Texto ===== -->
                 <TextBlock Text="Título impresso (opcional)" Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
                 <TextBox Text="{Binding Titulo}" MaxLength="200" />
-
-                <TextBlock Text="Texto do documento" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
-                <TextBox Text="{Binding Corpo}" AcceptsReturn="True" Height="110"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="4000" />
 
                 <!-- ===== Linhas (receita e pedido de exame) ===== -->
                 <Border Style="{StaticResource Card}" Margin="0,16,0,0"

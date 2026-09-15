@@ -163,7 +163,7 @@ public sealed partial class EscreverSessaoViewModel : FolhaDaSessaoViewModel
 
             // O mapa vem depois de resolvida a sessão: ele carrega os pontos DELA quando é
             // edição, e os protocolos quando é nova.
-            var mapa = new MapaCorporalViewModel(_escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId);
+            var mapa = new MapaCorporalViewModel(_escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId, DateOnly.FromDateTime(Data));
             await mapa.CarregarAsync();
             if (geracao != _geracaoCarga) return;
             Mapa = mapa;

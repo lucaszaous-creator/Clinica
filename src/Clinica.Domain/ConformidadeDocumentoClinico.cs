@@ -123,12 +123,13 @@ public static class ConformidadeDocumentoClinico
                     "O paciente está sem endereço residencial — a receita não pode ser aviada sem ele",
                     Art35, PesoExigencia.Impeditiva));
 
-            if (documento.Itens.Count == 0)
+            if (documento.Itens.Count == 0 && string.IsNullOrWhiteSpace(documento.Corpo))
                 faltas.Add(new ExigenciaLegal(
-                    "A receita está sem nenhum item prescrito", Art35, PesoExigencia.Impeditiva));
+                    "Escreva a prescrição antes de emitir a receita", Art35, PesoExigencia.Impeditiva));
 
-            // "Modo de usar" é literal no art. 35. Um medicamento sem posologia obriga o
-            // farmacêutico a adivinhar a dose, que é exatamente o que a lei impede.
+            // Itens estruturados antigos continuam sendo conferidos. Na receita livre,
+            // o profissional escreve também o modo de usar no corpo; a ausência de uma
+            // coluna separada não significa ausência dessa informação no texto.
             var semPosologia = documento.Itens
                 .Where(i => string.IsNullOrWhiteSpace(i.Detalhe))
                 .Select(i => i.Descricao)

@@ -31,6 +31,34 @@ public sealed class PacienteService
     public Task<Paciente?> ObterAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteAsync(pacienteId, ct);
 
+    /// <summary>
+    /// Completa somente o endereço ausente durante a emissão, sem regravar a ficha.
+    /// Um endereço preenchido por outro operador enquanto a janela estava aberta é preservado.
+    /// </summary>
+    public async Task<Paciente> CompletarEnderecoAsync(
+        int pacienteId, string endereco, string operador, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(endereco))
+            throw new InvalidOperationException("Informe o endereço residencial do paciente.");
+        if (endereco.Trim().Length > 300)
+            throw new InvalidOperationException("O endereço aceita até 300 caracteres.");
+
+        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
+            ?? throw new InvalidOperationException("Paciente não encontrado.");
+        if (!string.IsNullOrWhiteSpace(paciente.Endereco)) return paciente;
+
+        paciente.Endereco = endereco.Trim();
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador,
+            Acao = "EnderecoCompletadoNaEmissao",
+            PacienteId = paciente.Id,
+            Detalhe = "Endereço residencial informado na emissão de receita."
+        }, ct);
+        await _repo.SalvarAsync(ct);
+        return paciente;
+    }
+
     /// <summary>Consultas autorizadas do paciente (ciclo de renovação), da mais recente para a mais antiga.</summary>
     public async Task<IReadOnlyList<Consulta>> ConsultasAsync(int pacienteId, CancellationToken ct = default)
         => (await _repo.ConsultasDoPacienteAsync(pacienteId, ct))

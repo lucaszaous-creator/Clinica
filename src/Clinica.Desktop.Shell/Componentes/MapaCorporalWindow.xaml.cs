@@ -1,4 +1,5 @@
 using System.Windows;
+using System.ComponentModel;
 
 namespace Clinica.Desktop.Shell.Componentes;
 
@@ -6,19 +7,24 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// O mapa corporal da sessão, em janela.
 ///
 /// Ela NÃO grava: o mapa é 1:1 com a evolução e só se efetiva depois que a sessão existe
-/// (é o `Mapa.SalvarAsync(evolucaoId)` que o Salvar da tela de atendimento chama). Fechar
-/// em "Concluir" apenas devolve o foco — os pontos marcados continuam no ViewModel, que é
+/// (evolução e mapa são confirmados juntos pelo salvamento da sessão). Fechar
+/// em "Usar mapa nesta sessão" apenas devolve o foco — os pontos continuam no ViewModel, que é
 /// o mesmo objeto que a tela de atendimento segura. "Descartar" fecha sem confirmar, e
-/// também não desfaz nada: desfazer marcação ponto a ponto é o que o botão "Limpar" do
-/// próprio mapa faz, e duplicar isso no fechamento daria dois significados para a mesma
-/// ação.
+/// restaura o rascunho que existia antes de abrir a janela, inclusive as observações.
+/// Modelos salvos explicitamente são cadastros separados e permanecem disponíveis.
 /// </summary>
 public partial class MapaCorporalWindow : Window
 {
+    private readonly MapaCorporalViewModel _mapa;
+    private readonly RascunhoMapaCorporal _aoAbrir;
+
     public MapaCorporalWindow(MapaCorporalViewModel vm, string titulo)
     {
+        _mapa = vm;
+        _aoAbrir = vm.CapturarRascunho();
         InitializeComponent();
         Titulo = titulo;
+        vm.Titulo = titulo;
         DataContext = vm;
     }
 
@@ -33,5 +39,15 @@ public partial class MapaCorporalWindow : Window
         set => SetValue(TituloProperty, value);
     }
 
-    private void Concluir(object remetente, RoutedEventArgs e) => DialogResult = true;
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (_mapa.Ocupado) e.Cancel = true;
+        else if (DialogResult != true) _mapa.RestaurarRascunho(_aoAbrir);
+        base.OnClosing(e);
+    }
+
+    private void Concluir(object remetente, RoutedEventArgs e)
+    {
+        if (_mapa.PodeEditar) DialogResult = true;
+    }
 }

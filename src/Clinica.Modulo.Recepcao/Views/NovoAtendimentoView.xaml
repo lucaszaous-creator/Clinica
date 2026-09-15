@@ -680,6 +680,10 @@
                         <!-- O rótulo DIZ o número e o modo: "Lançar e gerar 2 guias" /
                              "Marcar e gerar 2 guias". Botão que promete o número é o que
                              faz alguém perceber, antes de clicar, que escolheu errado. -->
+                        <CheckBox Content="O atendimento já aconteceu — registrar como realizado"
+                                  IsChecked="{Binding AtendimentoJaRealizado}" Margin="0,0,0,12"
+                                  ToolTip="Deixe desmarcado para o médico iniciar e finalizar. Marque apenas ao registrar uma sessão já realizada."
+                                  Visibility="{Binding LancarAgora, Converter={StaticResource BoolParaVisibilidade}}" />
                         <Button Content="{Binding RotuloLancar}" MinHeight="44"
                                 Command="{Binding LancarCommand}"
                                 IsEnabled="{Binding PodeLancar}"

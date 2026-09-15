@@ -1,254 +1,164 @@
 <UserControl x:Class="Clinica.Desktop.Shell.Componentes.MapaCorporalControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes">
-
-    <!--
-      O MAPA CORPORAL DA SUÍTE, num lugar só (parcela 36).
-
-      Nasceu dentro da janela de evolução da Recepção. Quando o Consultório passou a
-      existir, copiar a figura teria criado duas versões do mesmo desenho — e a segunda
-      correção de silhueta já sairia divergente. Como nenhum módulo conhece os outros, o
-      componente subiu para o shell, que é onde mora o que os dois usam.
-
-      O DataContext esperado é um MapaCorporalViewModel.
-    -->
-
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-
-        <!-- ===== Silhueta =====
-             O DESENHO NÃO MORA MAIS AQUI (parcela 79): ele é `SilhuetaCorporal`, no
-             domínio, e esta tela o monta no code-behind. A ficha do atendimento passou a
-             imprimir o mapa, e desenhar a figura de novo no PDF teria criado a segunda
-             versão do mesmo corpo — exatamente o que este componente subiu para o shell
-             para evitar, agora atravessando camadas, onde ninguém as lê lado a lado. -->
-
-        <!-- Bolinha numerada. Não recebe clique (IsHitTestVisible no ItemsControl):
-             assim marcar funciona em qualquer lugar da figura, inclusive em cima de um
-             ponto já marcado. Remover é pela lista ao lado, onde dá para ler o que se
-             está removendo. -->
+        <ctrl:ObjetoParaVisibilidade x:Key="ObjetoParaVisibilidade" />
         <DataTemplate x:Key="MarcadorPonto" DataType="{x:Type comp:PontoMapaItem}">
-            <Border Width="20" Height="20" CornerRadius="10"
-                    Background="{StaticResource Brush.Acento}"
-                    BorderBrush="{StaticResource Brush.Texto.Invertido}" BorderThickness="1.5">
-                <TextBlock Text="{Binding Numero}" FontWeight="Bold"
-                           FontSize="{StaticResource Fonte.Legenda}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource Brush.Texto.Invertido}" TextWrapping="Wrap" />
-            </Border>
+            <Button Width="20" Height="20" MinWidth="20" MinHeight="20" Padding="0"
+                    ToolTip="{Binding Rotulo}" AutomationProperties.Name="{Binding Rotulo}"
+                    Command="{Binding DataContext.SelecionarPontoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}" PreviewMouseLeftButtonDown="Ponto_Clique">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="10" Background="{StaticResource Brush.Acento}"
+                                BorderBrush="{StaticResource Brush.Texto.Invertido}" BorderThickness="1.5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+                <TextBlock Text="{Binding Numero}" FontWeight="Bold" FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                           Foreground="{StaticResource Brush.Texto.Invertido}" />
+            </Button>
         </DataTemplate>
-
         <Style x:Key="PosicaoDoPonto" TargetType="ContentPresenter">
             <Setter Property="Canvas.Left" Value="{Binding Esquerda}" />
             <Setter Property="Canvas.Top" Value="{Binding Topo}" />
         </Style>
     </UserControl.Resources>
-
-    <DockPanel>
-
-        <StackPanel DockPanel.Dock="Top">
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
-                       Text="Clique na figura para marcar onde foi aplicado. Escolha a técnica antes do clique; o nome do ponto (IG4, VB20) é opcional e vale para a próxima marcação." />
-
+    <Grid MaxWidth="1240" HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+            <RowDefinition Height="*" /><RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <!-- Copiar vem antes de desenhar: é o caminho mais frequente da sessão seguinte. -->
+        <Grid IsEnabled="{Binding PodeEditar}" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Copiar de outra sessão" Style="{StaticResource Rotulo}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Copiar mapa" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoSecundario}" Command="{Binding CopiarSessaoCommand}" />
+                    <ComboBox ItemsSource="{Binding SessoesAnteriores}" SelectedItem="{Binding SessaoAnteriorSelecionada}"
+                              DisplayMemberPath="Rotulo" AutomationProperties.Name="Sessão de origem do mapa" />
+                </DockPanel>
+                <TextBlock Text="{Binding EstadoDoHistorico}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Usar um modelo de pontos" Style="{StaticResource Rotulo}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Usar modelo" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoSecundario}" Command="{Binding AplicarProtocoloCommand}" />
+                    <ComboBox ItemsSource="{Binding Protocolos}" SelectedItem="{Binding ProtocoloSelecionado}"
+                              DisplayMemberPath="Nome" AutomationProperties.Name="Modelo de pontos" />
+                </DockPanel>
+                <TextBlock Text="{Binding EstadoDosModelos}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+        </Grid>
+        <Expander Grid.Row="1" Header="Salvar como modelo / gerenciar modelos" Margin="0,0,0,10" IsEnabled="{Binding PodeEditar}">
+            <StackPanel Margin="0,8,0,6">
+                <TextBlock Text="Marque os pontos no corpo, dê um nome e salve para reutilizar nas próximas sessões."
+                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                <TextBlock Text="Nome do modelo" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
+                <DockPanel Margin="0,6,0,0">
+                    <Button DockPanel.Dock="Right" Content="Salvar modelo com estes pontos" Margin="8,0,0,0"
+                            IsEnabled="{Binding PodeGuardarModelo}" Command="{Binding SalvarComoProtocoloCommand}" />
+                    <TextBox Text="{Binding NomeDoModelo, UpdateSourceTrigger=PropertyChanged}" MaxLength="100"
+                             MinHeight="36" AutomationProperties.Name="Nome do novo modelo" />
+                </DockPanel>
+                <DockPanel Margin="0,6,0,0">
+                    <Button DockPanel.Dock="Right" Content="Excluir modelo selecionado" Style="{StaticResource BotaoAcaoGridPerigo}"
+                            IsEnabled="{Binding PodeApagarModelo}" Command="{Binding ExcluirProtocoloCommand}" />
+                    <CheckBox Content="Disponível para toda a clínica" IsChecked="{Binding ProtocoloDaClinica}"
+                              ToolTip="Desmarcado: modelo apenas deste paciente." VerticalAlignment="Center" />
+                </DockPanel>
+            </StackPanel>
+        </Expander>
+        <Grid Grid.Row="2" IsEnabled="{Binding PodeEditar}">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="Técnica" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding Tecnicas}"
-                              SelectedItem="{Binding TecnicaSelecionada}"
-                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="Ponto (opcional)" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding NomeProximoPonto, UpdateSourceTrigger=PropertyChanged}"
-                             MaxLength="40" />
-                </StackPanel>
+                <!-- A escala visual preserva o Canvas e as coordenadas do domínio. -->
+                <Viewbox Stretch="Uniform" StretchDirection="Both" MaxHeight="540" VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="Frente" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,5" />
+                            <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="8">
+                                <Canvas x:Name="TelaFrente" Background="Transparent" ClipToBounds="True" MouseLeftButtonDown="TelaFrente_Clique" AutomationProperties.Name="Mapa corporal de frente">
+                                    <Path x:Name="CorpoFrente" Fill="{StaticResource Brush.Acento.Tint}" Stroke="{StaticResource Brush.Borda.Hover}" StrokeThickness="1" />
+                                    <ItemsControl x:Name="PontosFrente" ItemsSource="{Binding PontosFrente}" ItemTemplate="{StaticResource MarcadorPonto}" ItemContainerStyle="{StaticResource PosicaoDoPonto}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas Background="{x:Null}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </Canvas>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Costas" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,5" />
+                            <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="8">
+                                <Canvas x:Name="TelaCostas" Background="Transparent" ClipToBounds="True" MouseLeftButtonDown="TelaCostas_Clique" AutomationProperties.Name="Mapa corporal de costas">
+                                    <Path x:Name="CorpoCostas" Fill="{StaticResource Brush.Acento.Tint}" Stroke="{StaticResource Brush.Borda.Hover}" StrokeThickness="1" />
+                                    <Line x:Name="Coluna" Stroke="{StaticResource Brush.Borda.Hover}" StrokeThickness="1" StrokeDashArray="3 3" />
+                                    <ItemsControl x:Name="PontosCostas" ItemsSource="{Binding PontosCostas}" ItemTemplate="{StaticResource MarcadorPonto}" ItemContainerStyle="{StaticResource PosicaoDoPonto}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas Background="{x:Null}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </Canvas>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Viewbox>
             </Grid>
-        </StackPanel>
-
-        <!-- Protocolos, ações e a lista dos pontos marcados.
-             Os nomes dos comandos são os do MapaCorporalViewModel — este bloco é o
-             mesmo que existia na janela de evolução da Recepção, movido inteiro para
-             cá em vez de reescrito, justamente para nenhuma função se perder na mudança. -->
-        <!-- ⚠️ O teto de altura mora no ScrollViewer da LISTA DE PONTOS, lá embaixo, e
-             NÃO aqui. Enquanto ele esteve neste DockPanel, ele limitava o painel INTEIRO:
-             protocolo, observações e a linha de ações somam mais de 260 px sozinhos, então
-             o StackPanel do topo era cortado e o que sobrava fora do corte eram justamente
-             os botões "Repetir a anterior" e "Limpar" — meio visíveis, encavalados no
-             resumo. Teto posto no elemento errado não encolhe o conteúdo: ele o decepa. -->
-        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
-            <StackPanel DockPanel.Dock="Top">
-                <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,8"
-                        Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                </Border>
-
-                <TextBlock Text="Protocolo" Style="{StaticResource Rotulo}" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox Grid.Column="0" ItemsSource="{Binding Protocolos}"
-                              SelectedItem="{Binding ProtocoloSelecionado}"
-                              DisplayMemberPath="Nome" />
-                    <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
-                            Style="{StaticResource BotaoPequeno}"
-                            Command="{Binding AplicarProtocoloCommand}" />
-                    <!-- Protocolo é atalho, não prontuário: apaga-se mesmo. As sessões
-                         salvas com ele não mudam — aplicar COPIA os pontos, nunca aponta
-                         para o protocolo. -->
-                    <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
-                            Style="{StaticResource BotaoAcaoGridPerigo}"
-                            Command="{Binding ExcluirProtocoloCommand}" />
-                </Grid>
-
-                <Grid Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="CampoNomeProtocolo" Grid.Column="0" MaxLength="100" />
-                    <Button Grid.Column="1" Content="Guardar como protocolo" Margin="8,0,0,0"
-                            Style="{StaticResource BotaoPequeno}"
-                            Command="{Binding SalvarComoProtocoloCommand}"
-                            CommandParameter="{Binding Text, ElementName=CampoNomeProtocolo}" />
-                </Grid>
-
-                <CheckBox Content="Vale para toda a clínica (não só para este paciente)"
-                          Margin="0,6,0,0" IsChecked="{Binding ProtocoloDaClinica}" />
-
-                <!-- `MapaCorporalViewModel.Observacoes` existia desde a parcela 3 e
-                     NENHUMA tela o mostrava: o campo era gravado sempre nulo. É o mesmo
-                     defeito que o projeto já corrigiu cinco vezes (dado sem leitor), aqui
-                     na variante mais discreta — o campo tinha escritor e não tinha
-                     escrivão. Ao promover o componente, ele ganhou a caixa. -->
-                <TextBlock Text="Observações do mapa" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
-                <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}"
-                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="44"
-                         VerticalScrollBarVisibility="Auto" />
-
-                <Grid Margin="0,12,0,0">
-                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                               Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="Repetir a anterior" Style="{StaticResource BotaoPequeno}"
-                                Command="{Binding RepetirAnteriorCommand}" />
-                        <Button Content="Limpar" Margin="8,0,0,0"
-                                Style="{StaticResource BotaoAcaoGridSecundario}"
-                                Command="{Binding LimparCommand}" />
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="0,0,4,0">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="10" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Técnica" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding Tecnicas}" SelectedItem="{Binding TecnicaSelecionada}"
+                                  ItemTemplate="{StaticResource ItemRotuloEnum}" AutomationProperties.Name="Técnica do próximo ponto" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Próximo ponto (opcional)" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding NomeProximoPonto, UpdateSourceTrigger=PropertyChanged}" MaxLength="40"
+                                 MinHeight="36" AutomationProperties.Name="Nome do próximo ponto" />
                     </StackPanel>
                 </Grid>
-            </StackPanel>
-
-            <!-- É ESTA lista que precisa de teto: ela cresce com o número de pontos
-                 marcados e empurraria a figura para fora da janela. As ações acima têm
-                 altura conhecida e não podem ser cortadas. -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0" MaxHeight="180">
-                <ItemsControl ItemsSource="{Binding Pontos}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type comp:PontoMapaItem}">
-                            <Border Padding="0,6"
-                                    BorderBrush="{StaticResource Brush.Borda}"
-                                    BorderThickness="0,0,0,1">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{StaticResource Brush.Texto.Primario}" />
-                                    <Button Grid.Column="1" Content="Remover"
-                                            Style="{StaticResource BotaoAcaoGridPerigo}"
-                                            Command="{Binding DataContext.RemoverPontoCommand,
-                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding}" />
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                    <TextBlock Text="Pontos desta sessão" FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                    <WrapPanel Margin="0,8,0,0">
+                        <Button Content="Desfazer" Command="{Binding DesfazerCommand}" IsEnabled="{Binding PodeDesfazer}" Style="{StaticResource BotaoSecundario}"
+                                ToolTip="Desfaz inclusão, remoção, limpeza ou cópia de pontos." />
+                        <Button Content="Limpar pontos" Command="{Binding LimparCommand}" IsEnabled="{Binding TemPontos}" Margin="8,0,0,0" Style="{StaticResource BotaoAcaoGridSecundario}" />
+                    </WrapPanel>
+                </StackPanel>
+                <ListBox Grid.Row="2" ItemsSource="{Binding Pontos}" SelectedItem="{Binding PontoSelecionado}" DisplayMemberPath="Rotulo"
+                         ctrl:Ajudantes.RodaDaPagina="True"
+                         MinHeight="60" MaxHeight="150" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Pontos marcados; selecione para editar" />
+                <Expander x:Name="DetalhesDoPonto" Grid.Row="3" Header="Editar ponto selecionado" Margin="0,8,0,0"
+                          Visibility="{Binding PontoSelecionado, Converter={StaticResource ObjetoParaVisibilidade}}">
+                <StackPanel Margin="0,6,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding PontoSelecionado.Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" MinHeight="36" AutomationProperties.Name="Nome do ponto selecionado" />
+                        <ComboBox Grid.Column="2" ItemsSource="{Binding Tecnicas}" SelectedItem="{Binding PontoSelecionado.Tecnica}" ItemTemplate="{StaticResource ItemRotuloEnum}" AutomationProperties.Name="Técnica do ponto selecionado" />
+                        <Button Grid.Column="3" Content="Remover" Command="{Binding RemoverPontoCommand}" CommandParameter="{Binding PontoSelecionado}" Margin="8,0,0,0" Style="{StaticResource BotaoAcaoGridPerigo}" />
+                    </Grid>
+                    <TextBlock Text="Observação do ponto (opcional)" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
+                    <TextBox Text="{Binding PontoSelecionado.Observacao, UpdateSourceTrigger=PropertyChanged}" MinHeight="36" MaxLength="200" AutomationProperties.Name="Observação do ponto selecionado" />
+                </StackPanel>
+                </Expander>
+                <StackPanel Grid.Row="4" Margin="0,10,0,0">
+                    <TextBlock Text="Observações do mapa (opcional)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" Height="70" MaxLength="1000"
+                             VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Observações do mapa" />
+                </StackPanel>
+            </Grid>
             </ScrollViewer>
-        </DockPanel>
-
-        <!-- Figuras. A largura é FIXA e não pode deixar de ser: os dois Canvas de 220×460
-             são casados com PontoMapaItem.LarguraFigura, a mesma const que posiciona o
-             marcador e que converte o clique de volta em fração. Encolher a figura
-             espalharia os pontos em silêncio — quem cede é a janela. -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-
-                <StackPanel Margin="0,0,12,0">
-                    <TextBlock Text="Frente" HorizontalAlignment="Center"
-                               FontWeight="SemiBold" Margin="0,0,0,4"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                            CornerRadius="{StaticResource Raio.Medio}"
-                            Background="{StaticResource Brush.Superficie}">
-                        <Canvas x:Name="TelaFrente"
-                                Background="Transparent" ClipToBounds="True"
-                                MouseLeftButtonDown="TelaFrente_Clique">
-                            <Path x:Name="CorpoFrente"
-                                  Fill="{StaticResource Brush.Acento.Tint}"
-                                  Stroke="{StaticResource Brush.Borda.Hover}"
-                                  StrokeThickness="1" />
-                            <ItemsControl x:Name="PontosFrente" ItemsSource="{Binding PontosFrente}"
-                                          IsHitTestVisible="False"
-                                          ItemTemplate="{StaticResource MarcadorPonto}"
-                                          ItemContainerStyle="{StaticResource PosicaoDoPonto}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <Canvas />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </Canvas>
-                    </Border>
-                </StackPanel>
-
-                <StackPanel>
-                    <TextBlock Text="Costas" HorizontalAlignment="Center"
-                               FontWeight="SemiBold" Margin="0,0,0,4"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                            CornerRadius="{StaticResource Raio.Medio}"
-                            Background="{StaticResource Brush.Superficie}">
-                        <Canvas x:Name="TelaCostas"
-                                Background="Transparent" ClipToBounds="True"
-                                MouseLeftButtonDown="TelaCostas_Clique">
-                            <Path x:Name="CorpoCostas"
-                                  Fill="{StaticResource Brush.Acento.Tint}"
-                                  Stroke="{StaticResource Brush.Borda.Hover}"
-                                  StrokeThickness="1" />
-                            <!-- A linha da coluna é o que diferencia a figura de costas. -->
-                            <Line x:Name="Coluna"
-                                  Stroke="{StaticResource Brush.Borda.Hover}"
-                                  StrokeThickness="1" StrokeDashArray="3 3" />
-                            <ItemsControl x:Name="PontosCostas" ItemsSource="{Binding PontosCostas}"
-                                          IsHitTestVisible="False"
-                                          ItemTemplate="{StaticResource MarcadorPonto}"
-                                          ItemContainerStyle="{StaticResource PosicaoDoPonto}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <Canvas />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </Canvas>
-                    </Border>
-                </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
-    </DockPanel>
+        </Grid>
+        <Border Grid.Row="3" Style="{StaticResource AlertaInfo}" Margin="0,10,0,0" Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
 </UserControl>

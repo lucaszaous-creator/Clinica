@@ -61,6 +61,11 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     {
         _escopos = escopos;
         _snackbar = snackbar;
+        Anteriores.CollectionChanged += (_, _) =>
+        {
+            if (SessaoParaReutilizar is not null && !Anteriores.Contains(SessaoParaReutilizar))
+                SessaoParaReutilizar = null;
+        };
     }
 
     public FolhaDaSessaoViewModel(IServiceScopeFactory escopos) : this(escopos, null) { }
@@ -118,6 +123,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     [ObservableProperty] private MapaCorporalViewModel? _mapa;
 
     public ObservableCollection<ResumoSessaoAnterior> Anteriores { get; } = [];
+    [ObservableProperty] private ResumoSessaoAnterior? _sessaoParaReutilizar;
 
     /// <summary>Evolução em edição. 0 = sessão nova.</summary>
     [ObservableProperty] private int _evolucaoId;
@@ -589,8 +595,15 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     /// </summary>
     [RelayCommand]
     protected virtual void RepetirUltima()
+        => ReutilizarSessao(Anteriores.FirstOrDefault());
+
+    [RelayCommand]
+    private void ReutilizarSessao(ResumoSessaoAnterior? sessao)
     {
-        var ultima = Anteriores.FirstOrDefault();
+        // Só aceita uma sessão do contexto atual; uma seleção antiga não atravessa
+        // a troca de paciente. O botão sem seleção usa a última sessão disponível.
+        var ultima = sessao ?? SessaoParaReutilizar ?? Anteriores.FirstOrDefault();
+        if (ultima is not null && !Anteriores.Contains(ultima)) ultima = null;
         if (ultima is null)
         {
             Mensagem = "Não há sessão anterior para repetir.";
@@ -697,7 +710,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
                 CamposPersonalizados = CampoPersonalizadoService.Montar(
                     _definicoesDosCampos,
                     CamposPersonalizados.ToDictionary(c => c.Id, c => c.Resposta)).ToList()
-            }, SessaoUsuario.Atual.Operador);
+            }, SessaoUsuario.Atual.Operador, mapa: Mapa?.ParaGravacao());
 
             EvolucaoId = salva.Id;
 
@@ -705,7 +718,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             // sessão, e antes de a sessão existir não há a que pertencer. Os pontos
             // trazidos por "repetir" ou por protocolo viram prontuário só aqui — até este
             // ponto eram tela, e prontuário não é rascunho.
-            if (Mapa is not null) await Mapa.SalvarAsync(salva.Id);
+            Mapa?.ConfirmarGravacao(salva.Id);
 
             _snackbar?.Sucesso("Sessão registrada no prontuário.");
             UltimaGravacao = $"Última gravação às {DateTime.Now:HH\\:mm}";
@@ -780,7 +793,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
            || EvaAntes is not null
            || EvaDepois is not null
            || !string.IsNullOrWhiteSpace(CidSessao)
-           || Mapa?.Pontos.Count > 0;
+           || Mapa?.Pontos.Count > 0
+           || !string.IsNullOrWhiteSpace(Mapa?.Observacoes);
 
     /// <summary>
     /// Abre o mapa corporal em JANELA (parcela 37, rodada de leiaute).

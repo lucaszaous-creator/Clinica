@@ -450,6 +450,13 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// ("durou 24 min") e um timer batendo a cada 15 s para reescrever a mesma coisa é
     /// trabalho sem leitor.
     /// </summary>
+    public bool PodeFinalizarSessao => _horario is { Status: StatusAgendamento.Agendado }
+        or { Status: StatusAgendamento.Realizado, AtendimentoId: not null, FimAtendimentoEm: null };
+    public bool PodeConcluirComAcesso => PodeMoverFila && SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+    public string RotuloFinalizarSessao => _horario?.Status == StatusAgendamento.Realizado
+        ? "Finalizar registro clínico" : _horario?.FimAtendimentoEm is not null
+            ? "Concluir sessão pendente" : "Finalizar sessão e gerar guias";
+
     private void DescreverSessao()
     {
         if (_horario is null) { TemSessao = false; _relogio.Stop(); return; }
@@ -459,7 +466,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         var duracao = _horario.DuracaoDoAtendimento(agora);
 
         SessaoEncerrada = _horario.FimAtendimentoEm is not null;
-        SessaoConcluida = _horario.Status == StatusAgendamento.Realizado;
+        OnPropertyChanged(nameof(PodeFinalizarSessao));
+        OnPropertyChanged(nameof(RotuloFinalizarSessao));
+        SessaoConcluida = _horario.Status == StatusAgendamento.Realizado && SessaoEncerrada;
         EmAtendimento = _horario.InicioAtendimentoEm is not null && !SessaoEncerrada
                         && _horario.Status == StatusAgendamento.Agendado;
         PodeIniciar = _horario.InicioAtendimentoEm is null
@@ -471,8 +480,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             SituacaoSessao = "Sessão concluída"
                              + (_horario.FimAtendimentoEm is { } fim ? $" às {fim:HH\\:mm}" : "")
                              + (duracao is null ? "" : $" · durou {duracao} min");
+        else if (_horario.Status == StatusAgendamento.Realizado)
+            SituacaoSessao = "Guias geradas · registro clínico em aberto";
         else if (SessaoEncerrada)
-            SituacaoSessao = $"Atendimento encerrado às {_horario.FimAtendimentoEm:HH\\:mm}"
+            SituacaoSessao = $"Conclusão pendente — encerrado às {_horario.FimAtendimentoEm:HH\\:mm}"
                              + (duracao is null ? "" : $" · durou {duracao} min");
         else if (EmAtendimento)
             // ⚠️ SEM O TEMPO desde set/2026, e é o cronômetro que o tirou daqui. Enquanto
@@ -544,53 +555,14 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     }
 
     /// <summary>
-    /// FINALIZAR o atendimento: grava a sessão, encerra o horário e CONCLUI a sessão — a
-    /// guia vai para o faturamento no mesmo clique.
-    ///
-    /// ⚠️ A conclusão passou para cá na parcela 95, por pedido da direção: <i>"a secretária
-    /// agenda, cai na agenda do médico, ele clica em atender e faz o atendimento"</i>. O
-    /// desenho anterior (parcela 61) deixava o <c>Status</c> em <c>Agendado</c> e esperava
-    /// o <b>Concluir</b> do balcão, com o argumento de que concluir são quatro fatos e três
-    /// são do balcão. O argumento continua verdadeiro para pacote, insumo e caixa — e não
-    /// se sustentava para a GUIA, que é o fato do atendimento e nasce do que aconteceu na
-    /// sala. Na prática, no caso mais comum (convênio, sem pacote, sem insumo)
-    /// <c>RegistroAtendimento.TemDecisao</c> é FALSO: o clique do balcão não abria janela
-    /// nenhuma — era cerimônia para carimbar o que o médico já sabia.
-    ///
-    /// O que o balcão continua fazendo é o DINHEIRO: pacote, insumo e caixa aparecem na
-    /// fila como fechamento pendente (a raia FINALIZADO ganhou o botão), e o
-    /// <c>FechamentoSessaoService</c> já sabia reaproveitar a presença já confirmada — é
-    /// literalmente o caminho que <c>GarantirAtendimentoAsync</c> abre desde a parcela 65.
-    ///
-    /// ⚠️ A ORDEM dos três passos é a hierarquia da parcela 65, e ela decide o que sobra
-    /// quando algo falha: <b>1)</b> grava a sessão — sem ela nada acontece, porque anunciar
-    /// que o atendimento terminou com o registro clínico inexistente é falha exibida como
-    /// sucesso; <b>2)</b> encerra o horário (o carimbo, reversível); <b>3)</b> conclui. O
-    /// passo 3 falhando NÃO desfaz os dois primeiros: o prontuário está escrito, o balcão
-    /// sabe que a sala vagou, e o que ficou pendente é a guia — que a fila ainda conclui
-    /// pelo botão de sempre. Cada desfecho tem frase própria; nenhuma delas afirma o que
-    /// não aconteceu.
-    ///
-    /// ⚠️ Concluir é IRREVERSÍVEL por aqui: com a presença carimbada, desfazer é ESTORNO
-    /// (<c>EstornoAtendimentoService</c>, na aba Lançamentos da Recepção) e não o
-    /// <see cref="ReabrirSessaoAsync"/>. Por isso o botão diz o que vai fazer ANTES do
-    /// clique, e não depois.
-    ///
-    /// ⚠️ A ORDEM é a hierarquia da parcela 65: **grava primeiro**. Se a evolução não
-    /// puder ser salva, o carimbo não acontece — mandar o recado de que o médico terminou
-    /// enquanto o registro clínico não existe é falha exibida como sucesso. E o inverso
-    /// também vale: gravada a sessão, falhar o carimbo vira AVISO, nunca desfaz o
-    /// prontuário.
-    ///
-    /// ⚠️ Encerrar com a sessão EM BRANCO é legítimo — o profissional pode escrever depois,
-    /// e registro que não se consegue salvar é registro que não acontece —, mas é
-    /// exatamente a dívida que este app existe para cobrar. Por isso a tela PERGUNTA, com a
-    /// consequência escrita, em vez de impedir ou de calar.
+    /// Salva a evolução e conclui o mesmo horário. Fim e guias são confirmados juntos;
+    /// uma falha mantém a operação disponível para retomada, inclusive no legado encerrado.
+    /// O registro clínico já salvo é preservado. Pacote, estoque e caixa seguem no balcão.
     /// </summary>
     [RelayCommand]
     private async Task FinalizarSessaoAsync()
     {
-        if (_foco.AgendamentoId is not { } id || !EmAtendimento)
+        if (_foco.AgendamentoId is not { } id || !PodeFinalizarSessao)
         {
             Avisar("Não há atendimento em curso para finalizar.", erro: true);
             return;
@@ -615,7 +587,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                 + "Encerrar mesmo assim?"))
             return;
 
-        if (Atendimento.SessaoEmBranco
+        if (!Atendimento.TemAlgoParaGravar && Atendimento.EvolucaoId == 0
             && !_dialogo.Confirmar(
                 "Encerrar sem escrever a evolução?",
                 "Você não escreveu nada desta sessão.\n\n"
@@ -625,7 +597,6 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             return;
 
         var gravou = false;
-        var encerrou = false;
         try
         {
             SessaoUsuario.Atual.ExigirAlgum(
@@ -647,24 +618,15 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             // e o mapa de fora com razão — eles são medida, não registro do que aconteceu),
             // mas usá-la aqui descartava em silêncio a sessão de acupuntura mais comum da
             // casa: EVA antes 8, depois 3, seis pontos no mapa e nenhuma linha de texto.
-            if (Atendimento.TemAlgoParaGravar && !await Atendimento.TentarSalvarAsync())
+            if ((Atendimento.TemAlgoParaGravar || Atendimento.EvolucaoId != 0) && !await Atendimento.TentarSalvarAsync())
             {
                 Avisar("A sessão não pôde ser salva, então o atendimento NÃO foi encerrado. "
                        + "A mensagem do erro está na aba Atendimento.", erro: true);
                 return;
             }
-            gravou = true;
+            gravou = Atendimento.EvolucaoId != 0;
 
-            // 2) O RECADO — reversível pelo "voltar etapa" do quadro.
-            using (var escopo = _escopos.CreateScope())
-            {
-                var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
-                _horario = await agenda.EncerrarAtendimentoAsync(id, SessaoUsuario.Atual.Operador);
-                encerrou = true;
-                DescreverSessao();
-            }
-
-            // 3) A CONCLUSÃO — a guia vai para o faturamento.
+            // 2) Encerramento e conclusão: um único commit, após conferir o convênio.
             //
             // ⚠️ O CONVÊNIO ANTES (parcela 92): a importação do sistema anterior deixou
             // 2.021 fichas em "a definir", e sem convênio o atendimento não nasce — a
@@ -677,7 +639,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             // mensagem nenhuma (a lição da assinatura em nuvem, parcela 67).
             if (_foco.PacienteId is not { } pacienteId)
             {
-                Avisar("Sessão gravada e atendimento encerrado, mas a guia não foi gerada: "
+                Avisar("Sessão gravada, mas a conclusão ficou pendente: "
                        + "a tela perdeu o paciente em foco. A recepção conclui pela fila do dia.",
                        erro: true);
                 return;
@@ -686,11 +648,10 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             if (!await VinculoDeConvenio.GarantirAsync(
                     _escopos, pacienteId, SessaoUsuario.Atual.Operador))
             {
-                // Desistiu de escolher: a sessão está gravada e o horário encerrado. Não
-                // é erro — é o estado anterior a esta parcela, e a fila conclui depois.
-                Avisar("Sessão gravada e atendimento encerrado. A guia NÃO foi gerada porque "
+                // Desistiu de escolher: preserva o registro e permite retomar a conclusão.
+                Avisar("Sessão gravada. A conclusão está pendente porque "
                        + "o convênio do paciente ainda não está definido — a recepção conclui "
-                       + "pela fila do dia.", erro: true);
+                       + "pela agenda do dia. Você também pode tentar finalizar novamente.", erro: true);
                 return;
             }
 
@@ -699,7 +660,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             {
                 var fechamento = escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
                 registro = await fechamento.RegistrarAtendimentoAsync(
-                    id, SessaoUsuario.Atual.Operador);
+                    id, SessaoUsuario.Atual.Operador, concluirClinico: true);
             }
 
             // O posto passa a saber o atendimento que acabou de nascer: a próxima gravação
@@ -726,23 +687,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — atendimento não pôde ser encerrado", ex);
 
-            // ⚠️ A frase não pode AFIRMAR que a sessão foi gravada: a exceção pode ter vindo
-            // do `ExigirAlgum` acima, antes de qualquer gravação, e aí ela seria falsa
-            // justamente onde o profissional precisa saber o que fazer. Só quem chegou a
-            // gravar diz que gravou.
-            // ⚠️ Três desfechos, três frases — e nenhuma afirma o que não aconteceu. A
-            // exceção pode ter vindo do `Exigir` (antes de qualquer gravação), do carimbo
-            // ou da conclusão, e a diferença entre elas é o que a pessoa precisa fazer
-            // em seguida.
-            Avisar(
-                encerrou
-                    ? "A sessão foi gravada e o atendimento foi encerrado, mas a guia NÃO "
-                      + $"foi gerada: {ex.Message} A recepção conclui pela fila do dia."
-                    : gravou
-                        ? "A sessão foi gravada, mas o atendimento não foi encerrado: "
-                          + ex.Message
-                        : ex.Message,
-                erro: true);
+            // Confirma a preservação do registro somente depois de salvar a evolução.
+            // A recuperação usa o mesmo horário, inclusive se a resposta do commit se perdeu.
+            Avisar(gravou
+                ? "A evolução está salva. Não foi possível confirmar a conclusão: " + ex.Message
+                  + " Tente finalizar novamente neste mesmo atendimento; não crie outro lançamento."
+                : ex.Message, erro: true);
         }
     }
 

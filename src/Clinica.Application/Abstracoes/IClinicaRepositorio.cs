@@ -764,6 +764,10 @@ public interface IClinicaRepositorio
     /// <summary>Mapa da sessão, com os pontos carregados e RASTREADO (a edição substitui os pontos).</summary>
     Task<MapaCorporal?> ObterMapaDaEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
+    /// <summary>Até 30 mapas anteriores vigentes, sem textos clínicos nem pontos carregados.</summary>
+    Task<IReadOnlyList<ResumoMapaAnterior>> HistoricoMapasAsync(
+        int pacienteId, DateOnly data, int? evolucaoIdAtual, CancellationToken ct = default);
+
     /// <summary>
     /// Os mapas de VÁRIAS sessões de uma vez, para o relatório que desenha o período
     /// inteiro (parcela 79).
@@ -1721,5 +1725,17 @@ public interface IClinicaRepositorio
     Task RemoverUsuarioAsync(int usuarioId, CancellationToken ct = default);
 
     Task<ViaAssinadaPaciente?> ObterViaAssinadaPacienteAsync(int documentoId, CancellationToken ct = default);
+
+    /// <summary>Somente os vínculos de evoluções vigentes, sem texto clínico e sem filtro de autoria.</summary>
+    Task<IReadOnlyList<Evolucao>> VinculosEvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>Sessões encerradas, ou iniciadas em dias anteriores, que ainda não foram concluídas.</summary>
+    Task<IReadOnlyList<Agendamento>> HorariosComConclusaoPendenteAsync(DateOnly hoje, CancellationToken ct = default);
+
+    /// <summary>Executa uma etapa uma única vez, persistindo seu recibo atomicamente com o efeito.</summary>
+    Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
+        Func<Task<int>> executar, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }
