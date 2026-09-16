@@ -22,7 +22,7 @@ public sealed partial class AtendimentoTabletTests
     private async Task<PrescricaoInterna> Folha(SituacaoPrescricao situacao=SituacaoPrescricao.Assinada)
     {
         var f=new PrescricaoInterna {PacienteId=horario.PacienteId,ProfissionalId=horario.ProfissionalId,Data=svc.Hoje,
-            Numero=Guid.NewGuid().ToString("N"),CodigoVerificacao=Guid.NewGuid().ToString("N"),Situacao=situacao,
+            Numero=Guid.NewGuid().ToString("N")[..20],CodigoVerificacao=Guid.NewGuid().ToString("N")[..20],Situacao=situacao,
             Itens=[new ItemPrescricaoInterna {Descricao="Item fictício para teste",Ordem=1,Via=ViaAdministracao.Endovenosa}]};
         db.PrescricoesInternas.Add(f);await db.SaveChangesAsync();return f;
     }

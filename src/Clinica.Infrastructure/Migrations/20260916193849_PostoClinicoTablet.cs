@@ -5,6 +5,7 @@
 namespace Clinica.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    // MIGRATION-NAO-ADITIVA-CONSCIENTE(AlterColumn): permite recibos avulsos com AgendamentoId nulo; preserva todos os recibos antigos e suas FKs. Versões anteriores só consultam recibo por GUID de envio do próprio atendimento, sempre com AgendamentoId preenchido.
     public partial class PostoClinicoTablet : Migration
     {
         /// <inheritdoc />
