@@ -166,3 +166,26 @@ o callback e conferir as credenciais. O titular participa do ensaio de assinatur
 A rota Cloudflare nova aponta somente para o socket da homologação. A instalação
 verifica que o release e os PIDs do portal/túnel de produção permanecem iguais.
 Não fazer downgrade da migration com recibos avulsos já gravados.
+
+## Publicação de 16/09/2026
+
+O posto foi ativado em `https://portal.clinicasemdormacae.com.br/profissional/`
+com backend `970b553cb5363fd5619574e2d69f6e93ea83d1d5` e interface
+`55d0727d86b8dfc6c4a27dada108c6e924ea3b56`, os mesmos artefatos da homologação.
+`deploy/tablet/publicar-posto.py` documenta a aplicação das duas migrations e dos
+grants específicos, incluindo retorno do Id da auditoria e atualização somente
+da Categoria do paciente. O script é vinculado a esta publicação e recusa outro
+release de origem; não é um atualizador genérico.
+
+Backup PostgreSQL em formato custom, configuração anterior e permissões ficam
+em `/var/backups/clinica-posto-producao-20260916`, acessível somente a root.
+O recuo automático restaura configuração/release e retira permissões novas se
+a inicialização falhar, preservando schema aditivo e registros clínicos.
+O proxy `clinica-safeid.service` usa somente localhost:18744; a autenticação da
+aplicação foi conferida via client_token. Callback HTTPS de produção cadastrado.
+Chaves de proteção, código de ativação e cookies dos tablets foram preservados.
+
+Verificação pública: saúde, consultório e termos HTTP 200; agenda, ficha e fila
+de infusões anônimas HTTP 401; POST sem CSRF HTTP 400. Cache desabilitado, CSP,
+HSTS e proteção contra enquadramento conferidos. Nenhum dado clínico fictício foi
+gravado na produção. A assinatura final de um documento depende do titular.
