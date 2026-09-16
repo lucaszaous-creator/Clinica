@@ -139,6 +139,16 @@ public sealed class AtendimentoTabletTests : IDisposable
         await db.Entry(sessao).ReloadAsync();
         await svc.SalvarAsync(sessao,horario.Id,p,default);Assert.Empty(await db.Atendimentos.ToListAsync());
     }
+    [Fact] public async Task Campos_longos_respeitam_o_banco_sem_truncar_prescricoes()
+    {
+        await Preparar();var p=await Pedido();
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.SalvarAsync(sessao,horario.Id,p with {Evolucao=p.Evolucao with {QueixaPrincipal=new string('Q',1001)}},default));
+        await db.Entry(sessao).ReloadAsync();
+        var texto=new string('T',12000);
+        await svc.EmitirAsync(sessao,horario.Id,new(Guid.NewGuid(),"exame",texto),default);
+        var doc=await db.DocumentosClinicos.Include(d=>d.Itens).SingleAsync();
+        Assert.Equal(texto,doc.Corpo);Assert.True(doc.Itens.Single().Descricao.Length<=300);
+    }
     [Fact] public async Task Modelo_de_pontos_fica_no_paciente_e_nao_se_duplica()
     {
         await Preparar();var p=new SalvarModeloMapaTablet(Guid.NewGuid(),"Sessão habitual",new([new(FaceCorpo.Costas,.3,.4,"Ponto",TecnicaPonto.Ventosa)],"Observação"));

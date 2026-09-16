@@ -17,7 +17,7 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
     public long Agora => tempo.GetUtcNow().ToUnixTimeMilliseconds();
     public DateOnly Hoje => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(tempo.GetUtcNow(),
         TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime);
-    private static string Operador(UsuarioSistema u) => $"{u.Nome} ({u.Login})";
+    private static string Operador(UsuarioSistema u) => u.Login;
 
     public async Task<UsuarioSistema> AutorizarAsync(SessaoTablet sessao, CancellationToken ct)
     {
@@ -177,14 +177,15 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
             if (pedido.Evolucao.Id != atual.Id || pedido.Evolucao.Versao != atual.Versao)
                 throw new ConflitoClinicoTablet("O atendimento mudou em outro acesso. Seu texto continua na tela; confira a versão atual antes de salvar.");
             var p = pedido.Evolucao;
-            ValidarTextos(20_000, p.QueixaPrincipal, p.HistoriaDoencaAtual, p.ExameFisico, p.HipoteseDiagnostica,
-                p.Conduta, p.TextoEvolucao, p.Orientacoes, p.PlanoTerapeutico);
-            ValidarTextos(30, p.CidSessao);
+            ValidarTextos(20_000, p.HistoriaDoencaAtual, p.ExameFisico, p.Conduta, p.TextoEvolucao);
+            ValidarTextos(1000,p.QueixaPrincipal,p.HipoteseDiagnostica,p.PlanoTerapeutico);
+            ValidarTextos(2000,p.Orientacoes);
+            ValidarTextos(20, p.CidSessao);
             if (p.Mapa is {} mapa) {
                 if(mapa.Pontos is null || mapa.Pontos.Length > MapaCorporal.MaximoPontos) throw new InvalidOperationException("Use até 80 pontos no mapa.");
-                ValidarTextos(2000, mapa.Observacoes); foreach(var ponto in mapa.Pontos) {
+                ValidarTextos(1000, mapa.Observacoes); foreach(var ponto in mapa.Pontos) {
                     if(ponto is null) throw new InvalidOperationException("Confira os pontos do mapa.");
-                    ValidarTextos(200, ponto.Nome, ponto.Observacao);
+                    ValidarTextos(40, ponto.Nome);ValidarTextos(200,ponto.Observacao);
                 }
             }
             var dados = new Evolucao {Id = atual.Id, PacienteId = a.PacienteId, ProfissionalId = u.ProfissionalId,
@@ -215,12 +216,13 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
             if (!u.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
             if (a.Status != StatusAgendamento.Agendado || a.FimAtendimentoEm is not null)
                 throw new ConflitoClinicoTablet("O atendimento está concluído. Abra um novo atendimento para emitir.");
-            ValidarTextos(20_000, pedido.Texto, pedido.Observacoes);
+            ValidarTextos(20_000, pedido.Texto);
+            ValidarTextos(pedido.Tipo=="infusao"?2000:1000,pedido.Observacoes);
             if (string.IsNullOrWhiteSpace(pedido.Texto)) throw new InvalidOperationException("Escreva o conteúdo da prescrição.");
             var e = await EvolucaoAtual(a.Id, ct);
             if (pedido.Tipo == "infusao")
             {
-                ValidarTextos(120, pedido.Diluente, pedido.Volume, pedido.TempoInfusao);
+                ValidarTextos(120, pedido.Diluente);ValidarTextos(60,pedido.Volume,pedido.TempoInfusao);
                 var p = await prescricoes.CriarAsync(a.PacienteId, u.ProfissionalId, a.Id, e?.Id, Operador(u), ct);
                 await prescricoes.SalvarRascunhoAsync(p.Id, null, pedido.Observacoes, [new ItemPrescricaoInterna {
                     Descricao = pedido.Texto, Diluente = pedido.Diluente, Volume = pedido.Volume,
@@ -234,7 +236,7 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
                 ProfissionalId = u.ProfissionalId, AgendamentoId = a.Id, EvolucaoId = e?.Id,
                 Data = Hoje, Tipo = tipo, Corpo = pedido.Texto, Observacoes = pedido.Observacoes,
                 DiasAfastamento = tipo == TipoDocumentoClinico.Atestado ? pedido.DiasAfastamento : null,
-                Itens = tipo == TipoDocumentoClinico.PedidoExame ? [new ItemDocumento {Descricao=pedido.Texto}] : []}, Operador(u), ct);
+                Itens = tipo == TipoDocumentoClinico.PedidoExame ? [new ItemDocumento {Descricao="Solicitação conforme texto acima."}] : []}, Operador(u), ct);
             return new(doc.Id, "documento", doc.Numero);
         }, ct);
 
@@ -255,11 +257,11 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
     public Task<ResultadoModeloMapaTablet> SalvarModeloMapaAsync(SessaoTablet s, int id, SalvarModeloMapaTablet pedido, CancellationToken ct)
         => Escrever<ResultadoModeloMapaTablet>(s,id,pedido.Idempotencia,pedido,async(u,a)=>
         {
-            ValidarTextos(120,pedido.Nome);
+            ValidarTextos(100,pedido.Nome);
             if(pedido.Mapa?.Pontos is not {} pontos || pontos.Length is <1 or >80 || pontos.Any(p=>p is null))
                 throw new InvalidOperationException("Marque entre 1 e 80 pontos antes de guardar o modelo.");
-            ValidarTextos(2000,pedido.Mapa.Observacoes);
-            foreach(var p in pontos) ValidarTextos(200,p.Nome,p.Observacao);
+            ValidarTextos(1000,pedido.Mapa.Observacoes);
+            foreach(var p in pontos) {ValidarTextos(40,p.Nome);ValidarTextos(200,p.Observacao);}
             // Sem opção de tornar dados deste paciente globais pela fronteira web.
             var modelo=await new MapaCorporalService(repo).SalvarComoProtocoloAsync(a.PacienteId,pedido.Nome,
                 pontos.Select((p,i)=>new PontoMapa {Face=p.Face,X=p.X,Y=p.Y,Nome=p.Nome,Tecnica=p.Tecnica,Observacao=p.Observacao,Ordem=i+1}).ToArray(),
