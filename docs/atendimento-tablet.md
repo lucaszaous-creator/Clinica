@@ -36,6 +36,8 @@ de infusão nem assinatura em nome de outro profissional.
 - Cookies HttpOnly/Secure/SameSite Strict em produção; antiforgery em todos os
   POSTs; HTTPS, CSP restritiva, no-store, no-referrer, limites de corpo e requisições.
 - Sem Analytics, logs de conteúdo clínico, armazenamento local ou modo offline.
+  PDFs são renderizados dentro do diálogo protegido com PDF.js local, sem
+  abrir uma aba avulsa. Fechar, sair ou trocar o acesso destrói o visualizador.
   Rascunhos ficam apenas na memória da página até salvar. Entrega ao paciente
   bloqueia o consultório; troca de aba/retorno exige revalidar a sessão.
 - Escritas usam transação serializável e bloqueio por agendamento no PostgreSQL.
@@ -108,5 +110,6 @@ e manutenção do portal de coleta. `clinica-site` testa interface responsiva e 
 com contrato fictício. Os testes não comprovam a integração SafeID em produção
 nem substituem a homologação acompanhada no tablet físico.
 
-Demonstração local: `tools/iniciar-demo-tablet.ps1 -Site <checkout-clinica-site>`;
+Demonstração local: executar `npm ci` no clinica-site e depois
+`tools/iniciar-demo-tablet.ps1 -Site <checkout-clinica-site>` no Clinica;
 `/profissional/`, `medica.demo` / `TabletDemo#2026`. Somente dados fictícios.

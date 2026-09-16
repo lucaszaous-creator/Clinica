@@ -133,7 +133,7 @@ app.Use(async(ctx,next)=>
     ctx.Response.Headers["X-Robots-Tag"]="noindex, nofollow, noarchive";
     ctx.Response.Headers["Referrer-Policy"]="no-referrer";
     ctx.Response.Headers["X-Frame-Options"]="DENY";
-    ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+    ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     ctx.Response.Headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()";
     if(!demo) ctx.Response.Headers["Strict-Transport-Security"]="max-age=31536000";
     if((demo && ctx.Connection.RemoteIpAddress is { } ip && !IPAddress.IsLoopback(ip))
