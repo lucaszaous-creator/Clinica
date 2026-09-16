@@ -15,7 +15,7 @@ namespace Clinica.Assinaturas.Api;
 public sealed class SafeIdTabletService(IConfiguration configuration, AtendimentoTabletService acesso,
     AutorizacoesSafeIdTablet autorizacoes, IClinicaRepositorio repo, ClinicaDbContext db,
     PrescricaoInternaService prescricoes, AssinaturaDeDocumentoClinicoService assinadorDocumento,
-    AssinaturaDePrescricaoService assinadorInfusao)
+    AssinaturaDePrescricaoService assinadorInfusao, ILogger<SafeIdTabletService> logger)
 {
     public bool Habilitado => configuration.GetValue<bool>("Portal:SafeId:Habilitado")
         && !configuration.GetValue<bool>("Portal:Demo");
@@ -93,6 +93,7 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         // o arquivamento, com prazo limitado, e o próximo acesso consulta o PDF.
         using var prazo=new CancellationTokenSource(TimeSpan.FromMinutes(2));
         ct=prazo.Token;
+        var etapa = "transacao";
         try
         {
             await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
@@ -105,30 +106,42 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
             // obsoleta do documento, vínculo ou cadastro do profissional.
             db.ChangeTracker.Clear();
             (u,_)=await acesso.ExigirDocumentoAsync(s,a.Agendamento,a.Tipo,a.Documento,true,ct);
+            etapa = "conferencia";
             if(ContratoTablet.Hash(await Conferir(a.Tipo,a.Documento,a.ConfirmouAlergia,ct)+ContratoTablet.Serializar(Cadastro(null,u.Profissional)))!=a.ConteudoHash)
                 throw new ConflitoClinicoTablet("O documento ou as alergias mudaram. Confira o conteúdo e autorize novamente.");
             using var http=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false}) {Timeout=TimeSpan.FromSeconds(45)};
             var cliente=new ClienteSafeID(http,opcoes);
+            etapa = "token";
             var token=await cliente.TokenPorCodigoAsync(a.Codigo!,a.Pkce,retorno,ct);
             if(!token.Vigente) throw new InvalidOperationException("A autorização SafeID expirou.");
+            etapa = "certificados";
             var certificados=await cliente.CertificadosAsync(token.AccessToken,somenteDaAutorizacao:true,ct);
             var validos=certificados.Where(c=>c.Certificado.Vigente && c.Certificado.Cpf==Cpf.Normalizar(u.Profissional!.Cpf)).ToArray();
             if(validos.Length!=1) throw new InvalidOperationException("O SafeID precisa autorizar um único certificado válido do profissional conectado.");
             var escolhido=validos[0];
+            etapa = "titular";
             TitularDoCertificado.Exigir(escolhido.Certificado,u.Profissional!.Cpf,u.Profissional.Nome);
             var certificado=escolhido.Certificado with {AssinadorRemoto=new AssinadorSafeID(cliente,token.AccessToken,escolhido,"Documento clínico")};
+            etapa = "assinatura-arquivo";
             if(a.Tipo=="infusao") await assinadorInfusao.AssinarPrescricaoAsync(a.Documento,certificado,a.ConfirmouAlergia,u.Id,u.Login,ct);
             else if(a.Tipo=="execucao")await assinadorInfusao.AssinarExecucaoAsync(a.Documento,certificado,u.Id,u.Login,ct);
             else await assinadorDocumento.AssinarAsync(a.Documento,certificado,u.Id,u.Login,ct);
+            etapa = "confirmacao-banco";
             await tx.CommitAsync(ct);
             autorizacoes.Concluir(a,true);
             return new {estado="concluido",a.Documento,a.Tipo};
         }
         catch(ConflitoClinicoTablet) {autorizacoes.Concluir(a,false);throw;}
-        catch
+        catch(Exception ex)
         {
             autorizacoes.Concluir(a,false);
-            throw new InvalidOperationException("A assinatura não foi confirmada. Confira o documento no histórico antes de iniciar outra autorização.");
+            var falha = FalhaSafeIdTablet.Classificar(ex);
+            // Nunca passar a exceção ao logger: mensagens do PSC podem conter tokens,
+            // CPF ou conteúdo da resposta. Só códigos e nomes de métodos controlados.
+            logger.LogWarning("SafeID tablet: referencia={Referencia} etapa={Etapa} codigo={Codigo} origem={Origem}",
+                a.Id, etapa, falha.Codigo, falha.Origem);
+            throw new InvalidOperationException("A assinatura não foi confirmada. Confira o documento no histórico antes de iniciar outra autorização. "
+                + $"Referência: {a.Id:N}. Código: {falha.Codigo}.");
         }
     }
 }
