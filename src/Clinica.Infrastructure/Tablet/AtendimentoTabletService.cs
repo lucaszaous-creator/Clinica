@@ -102,11 +102,12 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
                 TemMapa = db.MapasCorporais.Any(m => m.EvolucaoId == x.Id)}).ToListAsync(ct);
         var docs = await db.DocumentosClinicos.AsNoTracking().Where(d => d.PacienteId == a.PacienteId && d.CanceladoEm == null)
             .OrderByDescending(d => d.Id).Take(30).Select(d => new {d.Id, d.Numero, Tipo = d.Tipo.ToString(), d.Titulo,
-                d.Corpo, d.Data, d.AgendamentoId, d.AssinadoEm, Proprio = d.ProfissionalId == u.ProfissionalId}).ToListAsync(ct);
+                d.Corpo, d.Observacoes, d.DiasAfastamento, d.Data, d.AgendamentoId, d.AssinadoEm, Proprio = d.ProfissionalId == u.ProfissionalId,
+                Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.Detalhe,i.Quantidade})}).ToListAsync(ct);
         var infusoes = await db.PrescricoesInternas.AsNoTracking().Where(p => p.PacienteId == a.PacienteId && p.CanceladaEm == null)
             .OrderByDescending(p => p.Id).Take(20).Select(p => new {p.Id, p.Numero, p.Indicacao, p.Observacoes, p.Data,
                 p.AgendamentoId, Situacao = p.Situacao.ToString(), p.AssinadaEm, Proprio = p.ProfissionalId == u.ProfissionalId,
-                Itens = p.Itens.OrderBy(i => i.Ordem).Select(i => new {i.Descricao, i.Diluente, i.Volume, i.TempoInfusao})}).ToListAsync(ct);
+                Itens = p.Itens.OrderBy(i => i.Ordem).Select(i => new {i.Descricao,i.Dose,Via=i.Via.ToString(),i.HoraPrevista,i.SeNecessario,i.Observacoes,i.Diluente,i.Volume,i.TempoInfusao,i.SuspensoEm,i.MotivoSuspensao})}).ToListAsync(ct);
         var modelos = await db.ModelosEvolucao.AsNoTracking().Where(m => m.Ativo && (m.ProfissionalId == null || m.ProfissionalId == u.ProfissionalId))
             .OrderBy(m => m.Nome).Take(80).Select(m => new {m.Id, m.Nome, m.QueixaPrincipal, m.HistoriaDoencaAtual,
                 m.ExameFisico, m.HipoteseDiagnostica, m.CidSessao, m.Conduta, m.TextoEvolucao, m.Orientacoes, m.PlanoTerapeutico}).ToListAsync(ct);
@@ -223,10 +224,11 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
             if (pedido.Tipo == "infusao")
             {
                 ValidarTextos(120, pedido.Diluente);ValidarTextos(60,pedido.Volume,pedido.TempoInfusao);
+                if (!Enum.IsDefined(pedido.Via)) throw new InvalidOperationException("Escolha uma via de administração válida.");
                 var p = await prescricoes.CriarAsync(a.PacienteId, u.ProfissionalId, a.Id, e?.Id, Operador(u), ct);
                 await prescricoes.SalvarRascunhoAsync(p.Id, null, pedido.Observacoes, [new ItemPrescricaoInterna {
                     Descricao = pedido.Texto, Diluente = pedido.Diluente, Volume = pedido.Volume,
-                    TempoInfusao = pedido.TempoInfusao, Via = ViaAdministracao.Endovenosa}], Operador(u), pedido.AssinaturaEnfermagem, ct);
+                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct);
                 await Auditar(u, a.PacienteId, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
                 return new(p.Id, "infusao", p.Numero);
             }

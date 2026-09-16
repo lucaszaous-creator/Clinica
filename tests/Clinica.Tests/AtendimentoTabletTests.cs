@@ -122,6 +122,29 @@ public sealed class AtendimentoTabletTests : IDisposable
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>svc.EmitirAsync(sessao,horario.Id,new(Guid.NewGuid(),"receita","Texto"),default));
         Assert.Empty(await db.DocumentosClinicos.ToListAsync());
     }
+    [Fact] public async Task Copia_expoe_posologia_e_preserva_via_sem_transformar_em_endovenosa()
+    {
+        await Preparar();
+        await svc.EmitirAsync(sessao,horario.Id,new(Guid.NewGuid(),"receita","Corpo fictício"),default);
+        var receita=await db.DocumentosClinicos.Include(d=>d.Itens).SingleAsync();
+        receita.Itens.Add(new ItemDocumento {Descricao="Item fictício",Detalhe="Posologia original",Quantidade="2 unidades"});
+        await svc.EmitirAsync(sessao,horario.Id,new(Guid.NewGuid(),"infusao","Item de teste",Via:ViaAdministracao.Subcutanea),default);
+        var item=await db.ItensPrescricaoInterna.SingleAsync();
+        Assert.Equal(ViaAdministracao.Subcutanea,item.Via);
+        item.Dose="Dose de teste";item.HoraPrevista=new(10,30);item.SeNecessario=true;item.Observacoes="Cuidado original";
+        item.SuspensoEm=DateTime.Now;item.MotivoSuspensao="Suspensão de teste";await db.SaveChangesAsync();
+        var json=JsonSerializer.SerializeToElement(await svc.AbrirAsync(sessao,horario.Id,default),ContratoTablet.Json);
+        var linha=json.GetProperty("documentos")[0].GetProperty("itens")[0];
+        Assert.Equal("Posologia original",linha.GetProperty("detalhe").GetString());
+        Assert.Equal("2 unidades",linha.GetProperty("quantidade").GetString());
+        var infusao=json.GetProperty("infusoes")[0].GetProperty("itens")[0];
+        Assert.Equal("Subcutanea",infusao.GetProperty("via").GetString());Assert.True(infusao.GetProperty("seNecessario").GetBoolean());
+        Assert.Equal("Dose de teste",infusao.GetProperty("dose").GetString());
+        Assert.Equal("10:30:00",infusao.GetProperty("horaPrevista").GetString());
+        Assert.Equal("Cuidado original",infusao.GetProperty("observacoes").GetString());
+        Assert.Equal("Suspensão de teste",infusao.GetProperty("motivoSuspensao").GetString());
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.EmitirAsync(sessao,horario.Id,new(Guid.NewGuid(),"infusao","Texto",Via:(ViaAdministracao)99),default));
+    }
     [Fact] public async Task Mapa_e_documento_de_outro_paciente_nao_sao_acessiveis()
     {
         await Preparar();var e=new Evolucao {PacienteId=outro.PacienteId,ProfissionalId=outro.ProfissionalId,Data=svc.Hoje,TextoEvolucao="Restrito"};

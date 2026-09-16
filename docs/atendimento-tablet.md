@@ -14,6 +14,11 @@ institucional não recebe prontuários nem hospeda esta API.
    Os pontos e observações são gravados junto da evolução, na mesma transação.
 4. **Prescrições e documentos**: receita, pedido de exame, atestado ou infusão em
    texto livre. Infusão começa com SF 0,9% e 1h, editáveis pelo profissional.
+   Cópias preservam posologia, quantidade e orientações dos registros antigos.
+   A via é explícita; campos vazios de uma cópia não recebem padrões silenciosos.
+   Itens suspensos aparecem no histórico, mas são excluídos da cópia com aviso.
+   Vários itens ativos são transcritos no texto livre, com via conforme texto;
+   o profissional revisa antes de emitir a nova folha.
 5. Conferir PDF e autorizar assinatura SafeID. O retorno pede confirmação explícita.
 6. **Concluir atendimento** salva evolução/mapa e usa o fechamento clínico existente:
    vincula evolução, atendimento e guias, grava fim e marca a sessão realizada.
