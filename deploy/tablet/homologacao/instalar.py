@@ -103,6 +103,7 @@ for privilege, tables in [('SELECT',leitura),('INSERT',inserir),('UPDATE',atuali
     commands.append(f'GRANT {privilege} ON '+','.join('"'+t+'"' for t in tables)+f' TO "{ROLE}";')
 commands.append(f'GRANT UPDATE ("UltimoAcessoEm","TentativasFalhas","BloqueadoAte") ON "Usuarios" TO "{ROLE}";')
 commands.append(f'GRANT SELECT ("Id") ON "Auditoria" TO "{ROLE}";') # INSERT RETURNING do EF, sem leitura do conteúdo de auditoria.
+commands.append(f'GRANT UPDATE ("Categoria") ON "Pacientes" TO "{ROLE}";') # Categoria recalculada pelo núcleo ao concluir e gerar guias.
 sql(DB,'\n'.join(commands))
 for table in inserir:
     sequence = sql(DB,f"SELECT pg_get_serial_sequence('\"{table}\"','Id');") if table not in ('EtapasFechamentoSessao','ViasAssinadasPaciente') else ''
