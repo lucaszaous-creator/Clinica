@@ -70,6 +70,8 @@ except KeyError:
     run(['useradd','--system','--home-dir','/var/lib/clinica-posto-hml','--shell','/usr/sbin/nologin',ROLE])
 if not sql('postgres',f"SELECT 1 FROM pg_roles WHERE rolname='{ROLE}';"):
     sql('postgres',f'CREATE ROLE "{ROLE}" LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;')
+assert sql('postgres',f"SELECT count(*) FROM pg_roles WHERE rolname='{ROLE}' AND rolcanlogin AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolinherit OR rolreplication OR rolbypassrls);") == '1'
+assert sql('postgres',f"SELECT count(*) FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='{ROLE}');") == '0'
 if not sql('postgres',f"SELECT 1 FROM pg_database WHERE datname='{DB}';"):
     sql('postgres',f'CREATE DATABASE "{DB}" OWNER postgres;')
 marker = CONF/'base-preparada.json'
@@ -133,7 +135,7 @@ for unit in ('clinica-safeid-hml.service','clinica-posto-hml.service'):
 run(['systemctl','daemon-reload'])
 run(['systemctl','enable','--now','clinica-posto-hml.service'])
 for _ in range(30):
-    health=subprocess.run(['curl','--silent','--fail','--unix-socket','/run/clinica-posto-hml/portal.sock','http://localhost/health'],capture_output=True,text=True)
+    health=subprocess.run(['curl','--silent','--fail','--unix-socket','/run/clinica-posto-hml/portal.sock','--header','X-Forwarded-Proto: https','http://localhost/health'],capture_output=True,text=True)
     if health.returncode==0:break
     time.sleep(1)
 assert health.returncode==0
