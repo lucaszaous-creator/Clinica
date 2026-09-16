@@ -52,3 +52,35 @@ O relatório não contém credenciais. Reexecução aceita somente o mesmo pacot
   do serviço, sem downloads nem `ExtraStore` ou confiança personalizada.
 - Reconhecer a cadeia é uma etapa da validação. A assinatura completa precisa
   terminar com PDF assinado conferido e arquivado, usando autorização do titular.
+
+## Homologação e aplicação em produção — 16/09/2026
+
+Horários de Brasília (UTC−3). O responsável confirmou o sucesso da assinatura
+na homologação, e a via de prescrição interna de paciente fictício foi aberta
+no visualizador do portal com a identificação da assinatura Safeweb RFB v5,
+datada de 19h52. Não foi realizado um ensaio adicional de validação externa do PDF.
+
+Após autorização expressa, o mesmo pacote foi instalado em produção. Às
+20h03min31s, somente `clinica-tablet.service` foi reiniciado. O relatório
+`/home/clinica-admin/tablet-stage/cadeia-producao.json` confirmou:
+
+- Três autoridades públicas adicionadas ao perfil `clinica-tablet`.
+- Cadeia reconhecida pelo repositório padrão do serviço; segunda conferência
+  somente de leitura concluída, sem adicionar certificados.
+- Serviço saudável e homologação preservada.
+- SHA-256 do pacote:
+  `ba31cd5dbbc8cee6d564aeeba210a02987cccdedb4c73062c7096de9afe62ed3`.
+
+O release de produção permaneceu `tablet-release-970b553cb536-55d0727d86b8`.
+PostgreSQL 16, pgweb, túnel do site, proxies SafeID, SSH, Fail2ban e homologação
+mantiveram PIDs e horários de início. Não houve migration, alteração de dados
+clínicos, troca de credenciais ou mudança na confiança global do Linux.
+
+Conferência pública às 20h04: saúde e consultório de produção HTTP 200, agenda
+e fila de infusões anônimas HTTP 401, saúde da homologação e site institucional
+HTTP 200. HTTPS, `no-store`, CSP, HSTS e bloqueio de enquadramento conferidos.
+
+A correção de infraestrutura está aplicada. **Uma assinatura real em produção
+ainda precisa ser conferida pelo titular**; a assinatura observada nesta sessão
+pertence à homologação. Este registro não declara validação de outras cadeias,
+certificados ou de todos os tipos de documento.
