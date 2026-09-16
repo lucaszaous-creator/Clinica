@@ -24,7 +24,13 @@ assert hashlib.sha256(pacote.read_bytes()).hexdigest() == sys.argv[2]
 assert CONF.joinpath('safeid.env').stat().st_mode & 0o777 == 0o600
 
 def run(args, **kw):
-    return subprocess.run(args, check=True, capture_output=True, text=True, **kw).stdout.strip()
+    result = subprocess.run(args, capture_output=True, text=True, **kw)
+    if result.returncode:
+        diagnostic = CONF/'ultima-falha.log'
+        with os.fdopen(os.open(diagnostic,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600),'w') as file:
+            file.write(result.stdout+'\n'+result.stderr)
+        raise RuntimeError('Etapa interrompida; diagnóstico disponível apenas ao administrador em '+str(diagnostic))
+    return result.stdout.strip()
 
 def sql(database, text):
     return run(['runuser','-u','postgres','--','psql','-p','45432','-d',database,'-XAt','-v','ON_ERROR_STOP=1'], input=text)
@@ -98,7 +104,7 @@ for privilege, tables in [('SELECT',leitura),('INSERT',inserir),('UPDATE',atuali
 commands.append(f'GRANT UPDATE ("UltimoAcessoEm","TentativasFalhas","BloqueadoAte") ON "Usuarios" TO "{ROLE}";')
 sql(DB,'\n'.join(commands))
 for table in inserir:
-    sequence = sql(DB,f"SELECT pg_get_serial_sequence('\"{table}\"','Id');") if table != 'EtapasFechamentoSessao' else ''
+    sequence = sql(DB,f"SELECT pg_get_serial_sequence('\"{table}\"','Id');") if table not in ('EtapasFechamentoSessao','ViasAssinadasPaciente') else ''
     if sequence:
         sql(DB,f'GRANT USAGE, SELECT ON SEQUENCE {sequence} TO "{ROLE}";')
 # Falhar se o papel dedicado possuir qualquer leitura/escrita em tabela da produção.
