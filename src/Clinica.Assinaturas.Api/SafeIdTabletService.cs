@@ -80,6 +80,11 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         if(a.Situacao=="concluido") return new {estado="concluido",a.Documento,a.Tipo};
         var (opcoes,retorno)=Configuracao();
         a=autorizacoes.Obter(id,s.Id,consumir:true);
+        // Depois da confirmação explícita, perder a conexão do tablet não deve
+        // descartar uma assinatura que o provedor já consumiu. O servidor conclui
+        // o arquivamento, com prazo limitado, e o próximo acesso consulta o PDF.
+        using var prazo=new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        ct=prazo.Token;
         try
         {
             await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
