@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Application.Tablet;
+using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using Clinica.Infrastructure.Tablet;
 using Microsoft.AspNetCore.Antiforgery;
@@ -54,7 +55,19 @@ builder.Services.AddScoped<AssinaturaDoPacienteService>();
 builder.Services.AddScoped<DocumentosClinicosPdfService>();
 builder.Services.AddScoped<ParametrosService>();
 builder.Services.AddScoped<PortalTabletService>();
-var opcoes=new OpcoesTablet(demo ? [1,2] : modelos);
+var atendimentoHabilitado=demo || builder.Configuration.GetValue<bool>("Portal:AtendimentoHabilitado");
+var opcoes=new OpcoesTablet(demo ? [1,2] : modelos,atendimentoHabilitado);
+builder.Services.AddScoped<AtendimentoTabletService>();
+builder.Services.AddScoped<AtendimentoService>();
+builder.Services.AddScoped<AgendaService>();
+builder.Services.AddScoped<PrescricaoService>();
+builder.Services.AddScoped<PrescricaoInternaService>();
+builder.Services.AddScoped<PrescricaoInternaPdfService>();
+builder.Services.AddScoped<Clinica.Application.Assinatura.AssinaturaDigitalService>();
+builder.Services.AddScoped<AssinaturaDeDocumentoClinicoService>();
+builder.Services.AddScoped<AssinaturaDePrescricaoService>();
+builder.Services.AddSingleton<AutorizacoesSafeIdTablet>();
+builder.Services.AddScoped<SafeIdTabletService>();
 builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<FinalizadorTablet>();
@@ -102,6 +115,16 @@ string Dispositivo(HttpContext ctx)
 async Task<Clinica.Domain.Entities.SessaoTablet> Sessao(HttpContext ctx,PortalTabletService svc,bool equipe)
     => await svc.AutorizarAsync(ctx.Request.Cookies[cookieSessao],Dispositivo(ctx),equipe,ctx.RequestAborted);
 
+int? EscopoColeta(SessaoTablet s) => s.Usuario!.Perfil==PerfilAcesso.Profissional
+    ? s.Usuario.ProfissionalId ?? throw new UnauthorizedAccessException() : null;
+async Task ConferirPacienteColeta(HttpContext ctx,SessaoTablet s,int paciente)
+{
+    if(EscopoColeta(s) is {} profissional && !await ctx.RequestServices.GetRequiredService<ClinicaDbContext>()
+        .Agendamentos.AnyAsync(a=>a.PacienteId==paciente && a.ProfissionalId==profissional
+            && (a.Status==StatusAgendamento.Agendado || a.Status==StatusAgendamento.Realizado),ctx.RequestAborted))
+        throw new RecursoClinicoIndisponivel();
+}
+
 app.UseForwardedHeaders();
 app.Use(async(ctx,next)=>
 {
@@ -121,13 +144,16 @@ app.Use(async(ctx,next)=>
             await ctx.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(ctx);
         await next();
     }
-    catch(Exception e) when(e is UnauthorizedAccessException or AcessoTabletBloqueado or InvalidOperationException
+    catch(Exception e) when(e is UnauthorizedAccessException or RecursoClinicoIndisponivel or ConflitoClinicoTablet or AcessoTabletBloqueado or InvalidOperationException
         or DbUpdateException or AntiforgeryValidationException or FormatException)
     {
         ctx.Response.StatusCode=e switch {UnauthorizedAccessException=>401,AcessoTabletBloqueado=>403,
+            RecursoClinicoIndisponivel=>404,ConflitoClinicoTablet=>409,
             AntiforgeryValidationException=>400,DbUpdateException=>409,_=>400};
         await ctx.Response.WriteAsJsonAsync(new {erro=e switch {
             UnauthorizedAccessException=>"Entre com uma conta autorizada neste tablet.",
+            RecursoClinicoIndisponivel=>"Registro indisponível para este acesso.",
+            ConflitoClinicoTablet=>e.Message,
             AcessoTabletBloqueado=>"O tablet está em modo paciente. A equipe precisa entrar novamente.",
             AntiforgeryValidationException=>"A proteção da página expirou. Atualize antes de continuar.",
             DbUpdateException=>"A operação mudou em outro acesso. Atualize para conferir antes de repetir.",
@@ -149,7 +175,9 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
         // Referência de contexto, sem expor token/cookie: permite preservar a página
         // ao voltar de outra aba, mas descartar conteúdo após troca de acesso.
         return Results.Ok(new {csrf=token,modo=s.Modo,demo,operadora=s.Modo=="equipe" ? s.Usuario!.Nome : null,
-            expiraEm=s.ExpiraEm,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id)});
+            expiraEm=s.ExpiraEm,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id),
+            atendimento=atendimentoHabilitado && s.Modo=="equipe" && PoliticaAtendimentoTablet.PodeAtender(s.Usuario!),
+            coleta=s.Modo=="equipe" && PortalTabletService.PodeColher(s.Usuario!)});
     }
     catch(UnauthorizedAccessException) {return Results.Ok(new {csrf=token,modo="entrada",demo});}
 });
@@ -157,7 +185,7 @@ app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService ace
 {
     if(pedido.Login?.Length is not (>=3 and <=80) || pedido.Senha?.Length is not (>0 and <=200)) throw new UnauthorizedAccessException();
     var resultado=await acesso.AutenticarAsync(pedido.Login,pedido.Senha,ct:ctx.RequestAborted);
-    if(!resultado.Sucesso || resultado.Usuario is not { } u || !PortalTabletService.PodeColher(u)) throw new UnauthorizedAccessException();
+    if(!resultado.Sucesso || resultado.Usuario is not { } u || !svc.PodeEntrar(u)) throw new UnauthorizedAccessException();
     string dispositivo;
     try {dispositivo=Dispositivo(ctx);}
     catch(UnauthorizedAccessException)
@@ -181,13 +209,13 @@ app.MapPost("/api/sair",async(HttpContext ctx,PortalTabletService svc,ClinicaDbC
     return Results.NoContent();
 });
 app.MapGet("/api/dia",async(HttpContext ctx,PortalTabletService svc)=>
-{await Sessao(ctx,svc,true); return Results.Ok(await svc.DiaAsync(ctx.RequestAborted));});
+{var s=await Sessao(ctx,svc,true); return Results.Ok(await svc.DiaAsync(ctx.RequestAborted,EscopoColeta(s)));});
 app.MapGet("/api/pacientes",async(HttpContext ctx,PortalTabletService svc,string? q)=>
-{await Sessao(ctx,svc,true); return Results.Ok(await svc.BuscarAsync(q,ctx.RequestAborted));});
+{var s=await Sessao(ctx,svc,true); return Results.Ok(await svc.BuscarAsync(q,ctx.RequestAborted,EscopoColeta(s)));});
 app.MapGet("/api/pacientes/{id:int}",async(HttpContext ctx,PortalTabletService svc,int id)=>
-{var s=await Sessao(ctx,svc,true); return Results.Ok(await svc.PacienteAsync(id,s.Usuario!.Login,ctx.RequestAborted));});
+{var s=await Sessao(ctx,svc,true); await ConferirPacienteColeta(ctx,s,id); return Results.Ok(await svc.PacienteAsync(id,s.Usuario!.Login,ctx.RequestAborted));});
 app.MapPost("/api/preparar",async(HttpContext ctx,PortalTabletService svc,PrepararTablet pedido)=>
-{var s=await Sessao(ctx,svc,true); await svc.PrepararAsync(s,pedido,ctx.RequestAborted); return Results.Ok(new {modo="paciente"});});
+{var s=await Sessao(ctx,svc,true); await ConferirPacienteColeta(ctx,s,pedido.PacienteId); await svc.PrepararAsync(s,pedido,ctx.RequestAborted); return Results.Ok(new {modo="paciente"});});
 app.MapGet("/api/coletas",async(HttpContext ctx,PortalTabletService svc)=>
 {var s=await Sessao(ctx,svc,false); return Results.Ok(await svc.ColetasAsync(s,ctx.RequestAborted));});
 app.MapPost("/api/coletas/{id:guid}/assinar",async(HttpContext ctx,PortalTabletService svc,Guid id,EnviarRubrica pedido)=>
@@ -195,9 +223,14 @@ app.MapPost("/api/coletas/{id:guid}/assinar",async(HttpContext ctx,PortalTabletS
 app.MapPost("/api/encerrar",async(HttpContext ctx,PortalTabletService svc,Encerrar pedido)=>
 {var s=await Sessao(ctx,svc,false); await svc.EncerrarAsync(s,pedido.Recusa,pedido.Motivo,ctx.RequestAborted); return Results.NoContent();});
 app.MapGet("/api/documentos/{id:int}/via",async(HttpContext ctx,PortalTabletService svc,int id)=>
-{var s=await Sessao(ctx,svc,true); return Results.File(await svc.AbrirViaAsync(id,s.Usuario!.Login,ctx.RequestAborted),"application/pdf",$"termo-{id}-assinado.pdf");});
+{var s=await Sessao(ctx,svc,true); var p=await ctx.RequestServices.GetRequiredService<ClinicaDbContext>().DocumentosClinicos
+    .Where(d=>d.Id==id).Select(d=>(int?)d.PacienteId).SingleOrDefaultAsync(ctx.RequestAborted) ?? throw new RecursoClinicoIndisponivel();
+ await ConferirPacienteColeta(ctx,s,p); return Results.File(await svc.AbrirViaAsync(id,s.Usuario!.Login,ctx.RequestAborted),"application/pdf",$"termo-{id}-assinado.pdf");});
 app.MapPost("/api/coletas/{id:guid}/retomar",async(HttpContext ctx,PortalTabletService svc,Guid id)=>
-{var s=await Sessao(ctx,svc,true); await svc.RetomarAsync(id,s.Usuario!.Login,ctx.RequestAborted); return Results.Accepted();});
+{var s=await Sessao(ctx,svc,true); var p=await ctx.RequestServices.GetRequiredService<ClinicaDbContext>().ColetasTablet
+    .Where(c=>c.Id==id).Select(c=>(int?)c.PacienteId).SingleOrDefaultAsync(ctx.RequestAborted) ?? throw new RecursoClinicoIndisponivel();
+ await ConferirPacienteColeta(ctx,s,p); await svc.RetomarAsync(id,s.Usuario!.Login,ctx.RequestAborted); return Results.Accepted();});
+if(atendimentoHabilitado) RotasAtendimentoTablet.Mapear(app,(ctx,svc)=>Sessao(ctx,svc,false));
 app.MapGet("/health",()=>Results.Ok(new {status="ok",contrato=1}));
 var interfaceDir=Path.GetFullPath(builder.Configuration["Portal:Interface"] ?? Path.Combine(app.Environment.ContentRootPath,"wwwroot"));
 if(!Directory.Exists(interfaceDir)) throw new InvalidOperationException("Configure Portal:Interface com o artefato portal do clinica-site.");

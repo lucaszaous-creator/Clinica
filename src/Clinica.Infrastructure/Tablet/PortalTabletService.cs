@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Clinica.Infrastructure.Tablet;
 
-public sealed record OpcoesTablet(int[] Modelos);
+public sealed record OpcoesTablet(int[] Modelos, bool AtendimentoHabilitado = false);
 public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio repo,
     DocumentoClinicoService documentos, AssinaturaDoPacienteService assinaturas,
     DocumentosClinicosPdfService pdf, ParametrosService parametros, OpcoesTablet opcoes, TimeProvider tempo)
@@ -23,7 +23,7 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
 
     public async Task<(string Token, SessaoTablet Sessao)> EntrarAsync(UsuarioSistema u, string dispositivo, string? anterior, CancellationToken ct)
     {
-        if (!PodeColher(u)) throw new UnauthorizedAccessException();
+        if (!PodeEntrar(u)) throw new UnauthorizedAccessException();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         if (anterior is not null && await db.SessoesTablet.FindAsync([ContratoTablet.Hash(anterior)], ct) is { } velha)
         {
@@ -32,7 +32,8 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         }
         var token = Token();
         var sessao = new SessaoTablet { Id=ContratoTablet.Hash(token), UsuarioId=u.Id,
-            CredencialVersao=ContratoTablet.Hash(u.SenhaHash), Dispositivo=dispositivo, ExpiraEm=Agora+7_200_000 };
+            CredencialVersao=ContratoTablet.Hash(u.SenhaHash), Dispositivo=dispositivo, ExpiraEm=Agora+7_200_000,
+            AtividadeClinicaEm=Agora };
         db.SessoesTablet.Add(sessao);
         await Auditar("TabletEntrada", null, Operador(u), "Acesso ao portal de coleta", ct);
         await db.SaveChangesAsync(ct);
@@ -43,22 +44,26 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public static bool PodeColher(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
         && u.Pode(Permissao.ColherAssinaturaPaciente) && u.Pode(Permissao.VerAgenda);
 
+    public bool PodeEntrar(UsuarioSistema u) => PodeColher(u)
+        || (opcoes.AtendimentoHabilitado && PoliticaAtendimentoTablet.PodeAtender(u));
+
     public async Task<SessaoTablet> AutorizarAsync(string? token, string dispositivo, bool equipe, CancellationToken ct)
     {
         if (token?.Length != 64) throw new UnauthorizedAccessException();
         var id = ContratoTablet.Hash(token);
         var s = await db.SessoesTablet.Include(x=>x.Usuario).SingleOrDefaultAsync(x=>x.Id==id,ct);
         if (s?.Usuario is not { } u || s.ExpiraEm<=Agora || s.Modo=="revogada" || s.Dispositivo!=dispositivo
-            || !PodeColher(u) || u.Travado(DateTime.Now) || s.CredencialVersao!=ContratoTablet.Hash(u.SenhaHash))
+            || !PodeEntrar(u) || u.Travado(DateTime.Now) || s.CredencialVersao!=ContratoTablet.Hash(u.SenhaHash))
             throw new UnauthorizedAccessException();
         if (equipe && s.Modo!="equipe") throw new AcessoTabletBloqueado();
+        if (equipe && !PodeColher(u)) throw new UnauthorizedAccessException();
         return s;
     }
 
-    public async Task<object> DiaAsync(CancellationToken ct)
+    public async Task<object> DiaAsync(CancellationToken ct, int? profissionalId = null)
     {
         var de=Hoje.ToDateTime(TimeOnly.MinValue); var ate=de.AddDays(1);
-        var agenda=await db.Agendamentos.AsNoTracking().Where(a=>a.DataHora>=de && a.DataHora<ate
+        var agenda=await db.Agendamentos.AsNoTracking().Where(a=>(profissionalId==null || a.ProfissionalId==profissionalId) && a.DataHora>=de && a.DataHora<ate
             && a.Status!=StatusAgendamento.Cancelado && a.Status!=StatusAgendamento.Faltou)
             .OrderBy(a=>a.DataHora).Take(300).Select(a=>new {
                 a.Id,a.PacienteId,Nome=a.Paciente!.Nome,Nascimento=a.Paciente.DataNascimento,
@@ -68,11 +73,13 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             a.Id,a.PacienteId,a.Nome,a.Nascimento,a.Horario,a.Procedimento,Termos=termos[a.PacienteId] }) };
     }
 
-    public async Task<object> BuscarAsync(string? busca, CancellationToken ct)
+    public async Task<object> BuscarAsync(string? busca, CancellationToken ct, int? profissionalId = null)
     {
         var q=busca?.Trim();
         if (q?.Length is not (>=3 and <=80)) return Array.Empty<object>();
-        var pacientes=await db.Pacientes.AsNoTracking().Where(p=>p.Nome.ToLower().Contains(q.ToLower()))
+        var pacientes=await db.Pacientes.AsNoTracking().Where(p=>p.Nome.ToLower().Contains(q.ToLower())
+            && (profissionalId==null || db.Agendamentos.Any(a=>a.PacienteId==p.Id && a.ProfissionalId==profissionalId
+                && (a.Status==StatusAgendamento.Agendado || a.Status==StatusAgendamento.Realizado))))
             .OrderBy(p=>p.Nome).Take(20).Select(p=>new {p.Id,p.Nome,Nascimento=p.DataNascimento}).ToListAsync(ct);
         var termos=await SituacoesAsync(pacientes.Select(p=>p.Id).ToArray(),ct);
         return pacientes.Select(p=>new {p.Id,p.Nome,p.Nascimento,Termos=termos[p.Id]});

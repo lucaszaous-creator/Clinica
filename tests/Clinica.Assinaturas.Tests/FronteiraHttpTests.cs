@@ -52,7 +52,7 @@ public sealed class FronteiraHttpTests
         {
             var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
             Assert.All(await db.ColetasTablet.ToListAsync(),c=>Assert.Equal("encerrado",c.Estado));
-            var u=await db.Usuarios.SingleAsync();u.Ativo=false;await db.SaveChangesAsync();
+            var u=await db.Usuarios.SingleAsync(u=>u.Login=="demo");u.Ativo=false;await db.SaveChangesAsync();
         }
         Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/dia")).StatusCode);
         using var resposta=await client.GetAsync("/");Assert.Contains("no-store",resposta.Headers.CacheControl!.ToString());

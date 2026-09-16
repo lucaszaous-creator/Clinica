@@ -11,6 +11,7 @@ public sealed class SessaoTablet
     public string Dispositivo { get; set; } = "";
     public string Modo { get; set; } = "equipe";
     public long ExpiraEm { get; set; } // Unix milliseconds, UTC
+    public long? AtividadeClinicaEm { get; set; }
     public Guid Versao { get; set; } = Guid.NewGuid();
 }
 

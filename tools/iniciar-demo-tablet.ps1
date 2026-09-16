@@ -18,6 +18,7 @@ try {
     $env:Portal__Interface = $interfaceTablet
     $env:Portal__BancoDemo = Join-Path $pastaTablet ('tablet-demo-' + [Guid]::NewGuid().ToString('N') + '.db')
     Write-Host 'Demonstração fictícia: http://127.0.0.1:18120 — demo / TabletDemo#2026'
+    Write-Host 'Consultório: http://127.0.0.1:18120/profissional/ — medica.demo / TabletDemo#2026'
     & dotnet run --project (Join-Path $raizTablet 'src/Clinica.Assinaturas.Api') --no-launch-profile
     if ($LASTEXITCODE -ne 0) { throw 'A demonstração não iniciou.' }
 } finally {
