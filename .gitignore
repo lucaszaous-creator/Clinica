@@ -34,3 +34,6 @@ ui_kits/*/tools/capturas/
 
 # Ferramentas locais de desenvolvimento
 .tools/
+
+__pycache__/
+*.pyc
