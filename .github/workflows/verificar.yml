@@ -66,6 +66,11 @@ jobs:
       - name: Testar fronteira HTTP do tablet
         run: dotnet test tests/Clinica.Assinaturas.Tests/Clinica.Assinaturas.Tests.csproj -c Release
 
+      - name: Conferir preparação isolada e proxy SafeID
+        run: |
+          dotnet build deploy/tablet/homologacao/PrepararHomologacao.csproj -c Release
+          python3 deploy/tablet/homologacao/test_proxy.py
+
       - name: Compilar a web de leitura
         run: dotnet build src/Clinica.Web/Clinica.Web.csproj -c Release --nologo
 

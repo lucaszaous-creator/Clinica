@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Application.Assinatura;
 using Clinica.Application.Servicos;
 using Clinica.Application.Tablet;
@@ -15,7 +16,7 @@ internal static class RotasAtendimentoTablet
     {
         var grupo = app.MapGroup("/api/clinico");
         grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc)=>
-        {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted);return Results.Ok(new {nome=u.Nome});});
+        {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {nome=u.Nome,atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),modalidades=Enum.GetValues<ModalidadeAtendimento>().Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
         grupo.MapGet("/dia", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, DateOnly? data)
             => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
@@ -33,18 +34,18 @@ internal static class RotasAtendimentoTablet
             AssinaturaDePrescricaoService infusao,int id,string tipo,int documento) =>
         {
             var (u,a)=await svc.ExigirDocumentoAsync(await sessao(c,portal),id,tipo,documento,false,c.RequestAborted);
-            db.Auditoria.Add(new EventoAuditoria {Operador=u.Login,PacienteId=a.PacienteId,
+            db.Auditoria.Add(new EventoAuditoria {Operador=u.Login,PacienteId=a,
                 Acao="TabletClinicoPdf",Detalhe="Consulta de via clínica"});
             await db.SaveChangesAsync(c.RequestAborted);
-            if(tipo=="infusao")
+            if(tipo is "infusao" or "execucao")
             {
-                var folha=await infusao.FolhaAsync(documento,FolhaPrescricao.Prescricao,c.RequestAborted);
+                var folha=await infusao.FolhaAsync(documento,tipo=="execucao"?FolhaPrescricao.RegistroExecucao:FolhaPrescricao.Prescricao,c.RequestAborted);
                 return Results.File(folha.Pdf,"application/pdf",$"infusao-{documento}.pdf");
             }
             return Results.File(await pdf.GerarAsync(documento,await parametros.ObterPrestadorAsync(c.RequestAborted),c.RequestAborted),"application/pdf",$"documento-{documento}.pdf");
         });
         grupo.MapGet("/safeid",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService acesso,SafeIdTabletService svc)=>
-        {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted);return Results.Ok(new {habilitado=svc.Habilitado});});
+        {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {habilitado=svc.Habilitado});});
         grupo.MapPost("/atendimentos/{id:int}/{tipo}/{documento:int}/safeid", async(HttpContext c,PortalTabletService portal,
             SafeIdTabletService svc,int id,string tipo,int documento,PedidoSafeIdTablet pedido)
             => Results.Ok(await svc.IniciarAsync(await sessao(c,portal),id,tipo,documento,pedido.ConfirmouAlergia,c.RequestAborted)));
@@ -58,10 +59,10 @@ internal static class RotasAtendimentoTablet
         grupo.MapGet("/safeid/{id:guid}", async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc,
             AutorizacoesSafeIdTablet autorizacoes,Guid id) =>
         {
-            var s=await sessao(c,portal); await svc.AutorizarAsync(s,c.RequestAborted);
+            var s=await sessao(c,portal); await svc.AutorizarAsync(s,c.RequestAborted,Permissao.VerProntuario);
             var a=autorizacoes.Obter(id,s.Id);
-            await svc.ExigirDocumentoAsync(s,a.Agendamento,a.Tipo,a.Documento,true,c.RequestAborted);
-            return Results.Ok(new {a.Id,a.Agendamento,a.Documento,a.Tipo,a.Situacao});
+            var (_,paciente)=await svc.ExigirDocumentoAsync(s,a.Agendamento,a.Tipo,a.Documento,true,c.RequestAborted);
+            return Results.Ok(new {a.Id,a.Agendamento,a.Documento,a.Tipo,a.Situacao,PacienteId=paciente});
         });
         grupo.MapPost("/safeid/{id:guid}/concluir",async(HttpContext c,PortalTabletService portal,SafeIdTabletService svc,Guid id)
             => Results.Ok(await svc.ConcluirAsync(await sessao(c,portal),id,c.RequestAborted)));

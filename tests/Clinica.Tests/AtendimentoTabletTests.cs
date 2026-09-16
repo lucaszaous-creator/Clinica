@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Clinica.Tests;
 
-public sealed class AtendimentoTabletTests : IDisposable
+public sealed partial class AtendimentoTabletTests : IDisposable
 {
     private readonly SqliteConnection connection=new("Data Source=:memory:");
     private readonly ClinicaDbContext db;

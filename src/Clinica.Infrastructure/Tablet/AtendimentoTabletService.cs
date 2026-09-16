@@ -19,13 +19,13 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
         TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime);
     private static string Operador(UsuarioSistema u) => u.Login;
 
-    public async Task<UsuarioSistema> AutorizarAsync(SessaoTablet sessao, CancellationToken ct)
+    public async Task<UsuarioSistema> AutorizarAsync(SessaoTablet sessao, CancellationToken ct, Permissao? permissao = null)
     {
         // Releitura: revogação, troca de senha, permissão e vínculo têm efeito imediato.
         var s = await db.SessoesTablet.AsNoTracking().Include(x => x.Usuario).ThenInclude(u => u!.Profissional)
             .SingleOrDefaultAsync(x => x.Id == sessao.Id, ct);
         if (s?.Usuario is not {} u || s.Modo != "equipe" || s.ExpiraEm <= Agora
-            || !PoliticaAtendimentoTablet.PodeAtender(u) || u.Profissional?.Ativo != true
+            || !(permissao is {} requerida ? PoliticaAtendimentoTablet.PodeUsarPosto(u) && u.Pode(requerida) : PoliticaAtendimentoTablet.PodeAtender(u)) || u.Profissional?.Ativo != true
             || u.Travado(DateTime.Now) || s.CredencialVersao != ContratoTablet.Hash(u.SenhaHash))
             throw new UnauthorizedAccessException();
         if (s.AtividadeClinicaEm is {} ultima && Agora - ultima > 900_000)
@@ -217,34 +217,53 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
             if (!u.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
             if (a.Status != StatusAgendamento.Agendado || a.FimAtendimentoEm is not null)
                 throw new ConflitoClinicoTablet("O atendimento está concluído. Abra um novo atendimento para emitir.");
+            var e = await EvolucaoAtual(a.Id, ct);
+            return await EmitirConteudoAsync(u,a.PacienteId,a.Id,e?.Id,pedido,ct);
+        }, ct);
+
+    internal async Task<ResultadoDocumentoTablet> EmitirConteudoAsync(UsuarioSistema u,int paciente,int? agendamento,int? evolucao,EmitirDocumentoTablet pedido,CancellationToken ct)
+    {
             ValidarTextos(20_000, pedido.Texto);
             ValidarTextos(pedido.Tipo=="infusao"?2000:1000,pedido.Observacoes);
             if (string.IsNullOrWhiteSpace(pedido.Texto)) throw new InvalidOperationException("Escreva o conteúdo da prescrição.");
-            var e = await EvolucaoAtual(a.Id, ct);
             if (pedido.Tipo == "infusao")
             {
                 ValidarTextos(120, pedido.Diluente);ValidarTextos(60,pedido.Volume,pedido.TempoInfusao);
                 if (!Enum.IsDefined(pedido.Via)) throw new InvalidOperationException("Escolha uma via de administração válida.");
-                var p = await prescricoes.CriarAsync(a.PacienteId, u.ProfissionalId, a.Id, e?.Id, Operador(u), ct);
+                var p = await prescricoes.CriarAsync(paciente, u.ProfissionalId, agendamento, evolucao, Operador(u), ct);
                 await prescricoes.SalvarRascunhoAsync(p.Id, null, pedido.Observacoes, [new ItemPrescricaoInterna {
                     Descricao = pedido.Texto, Diluente = pedido.Diluente, Volume = pedido.Volume,
                     TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct);
-                await Auditar(u, a.PacienteId, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
+                await Auditar(u, paciente, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
                 return new(p.Id, "infusao", p.Numero);
             }
             var tipo = pedido.Tipo switch {"receita" => TipoDocumentoClinico.Receita, "exame" => TipoDocumentoClinico.PedidoExame,
-                "atestado" => TipoDocumentoClinico.Atestado, _ => throw new InvalidOperationException("Escolha um tipo de documento disponível.")};
-            var doc = await documentos.EmitirAsync(new DocumentoClinico {PacienteId = a.PacienteId,
-                ProfissionalId = u.ProfissionalId, AgendamentoId = a.Id, EvolucaoId = e?.Id,
+                "atestado" => TipoDocumentoClinico.Atestado, "comparecimento" => TipoDocumentoClinico.Comparecimento,
+                "relatorio" => TipoDocumentoClinico.RelatorioEvolucao, "anamnese" => TipoDocumentoClinico.Anamnese, _ => throw new InvalidOperationException("Escolha um tipo de documento disponível.")};
+            var doc = await documentos.EmitirAsync(new DocumentoClinico {PacienteId = paciente,
+                ProfissionalId = u.ProfissionalId, AgendamentoId = agendamento, EvolucaoId = evolucao,
                 Data = Hoje, Tipo = tipo, Corpo = pedido.Texto, Observacoes = pedido.Observacoes,
                 DiasAfastamento = tipo == TipoDocumentoClinico.Atestado ? pedido.DiasAfastamento : null,
                 Itens = tipo == TipoDocumentoClinico.PedidoExame ? [new ItemDocumento {Descricao="Solicitação conforme texto acima."}] : []}, Operador(u), ct);
             return new(doc.Id, "documento", doc.Numero);
-        }, ct);
+    }
 
-    public async Task<(UsuarioSistema Usuario, Agendamento Agendamento)> ExigirDocumentoAsync(SessaoTablet s,
+    public async Task<(UsuarioSistema Usuario, int PacienteId)> ExigirDocumentoAsync(SessaoTablet s,
         int agendamento, string tipo, int documento, bool assinar, CancellationToken ct)
     {
+        if(agendamento==0)
+        {
+            var profissional=await AutorizarAsync(s,ct,tipo=="execucao"?Permissao.ChecarPrescricao:Permissao.VerProntuario);
+            if(assinar && tipo!="execucao" && !profissional.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
+            int? paciente=tipo is "infusao" or "execucao"
+                ? await db.PrescricoesInternas.Where(p=>p.Id==documento && p.CanceladaEm==null
+                    && (tipo!="execucao" || p.Situacao==SituacaoPrescricao.Assinada || p.Situacao==SituacaoPrescricao.Encerrada)
+                    && (!assinar || tipo=="execucao" || p.ProfissionalId==profissional.ProfissionalId)).Select(p=>(int?)p.PacienteId).SingleOrDefaultAsync(ct)
+                : tipo=="documento" ? await db.DocumentosClinicos.Where(d=>d.Id==documento && d.CanceladoEm==null
+                    && (!assinar || d.ProfissionalId==profissional.ProfissionalId&&(d.Tipo==TipoDocumentoClinico.Receita||d.Tipo==TipoDocumentoClinico.Atestado||d.Tipo==TipoDocumentoClinico.PedidoExame||d.Tipo==TipoDocumentoClinico.Comparecimento||d.Tipo==TipoDocumentoClinico.RelatorioEvolucao||d.Tipo==TipoDocumentoClinico.Anamnese))).Select(d=>(int?)d.PacienteId).SingleOrDefaultAsync(ct) : null;
+            if(paciente is null) throw new RecursoClinicoIndisponivel();
+            return(profissional,paciente.Value);
+        }
         var u = await AutorizarAsync(s, ct); var a = await Horario(u, agendamento, ct);
         if (assinar && !u.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
         var existe = tipo == "infusao"
@@ -252,9 +271,9 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
                 && p.CanceladaEm == null && (!assinar || (p.ProfissionalId == u.ProfissionalId && p.AgendamentoId == a.Id)), ct)
             : tipo == "documento" && await db.DocumentosClinicos.AnyAsync(d => d.Id == documento && d.PacienteId == a.PacienteId
                 && d.CanceladoEm == null && (!assinar || (d.ProfissionalId == u.ProfissionalId && d.AgendamentoId == a.Id
-                    && (d.Tipo == TipoDocumentoClinico.Receita || d.Tipo == TipoDocumentoClinico.Atestado || d.Tipo == TipoDocumentoClinico.PedidoExame))), ct);
+                    && (d.Tipo == TipoDocumentoClinico.Receita || d.Tipo == TipoDocumentoClinico.Atestado || d.Tipo == TipoDocumentoClinico.PedidoExame || d.Tipo == TipoDocumentoClinico.Comparecimento || d.Tipo == TipoDocumentoClinico.RelatorioEvolucao || d.Tipo == TipoDocumentoClinico.Anamnese))), ct);
         if (!existe) throw new RecursoClinicoIndisponivel();
-        return (u, a);
+        return (u, a.PacienteId);
     }
     public Task<ResultadoModeloMapaTablet> SalvarModeloMapaAsync(SessaoTablet s, int id, SalvarModeloMapaTablet pedido, CancellationToken ct)
         => Escrever<ResultadoModeloMapaTablet>(s,id,pedido.Idempotencia,pedido,async(u,a)=>

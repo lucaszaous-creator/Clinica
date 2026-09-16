@@ -37,10 +37,26 @@ public sealed class ClinicoHttpTests
         try
         {
             Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/clinico/dia")).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/posto/infusoes")).StatusCode);
             await Login("demo");Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/clinico/dia")).StatusCode);
             await Login("medica.demo");
             var horarios=(await Get("/api/clinico/dia"))["horarios"]!.AsArray();Assert.Equal(2,horarios.Count);
             var id=(int)horarios[0]!["id"]!;var paciente=(int)horarios[0]!["pacienteId"]!;
+            var ficha=await Get($"/api/posto/pacientes/{paciente}");
+            Assert.Equal(paciente,(int)ficha["paciente"]!["id"]!);
+            client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
+            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync("/api/posto/pacientes/buscar",new {busca="Marina"})).StatusCode);
+            client.DefaultRequestHeaders.Add("X-CSRF-TOKEN",(string?)(await Get("/api/sessao"))["csrf"]);
+            var avulso=new {idempotencia=Guid.NewGuid(),tipo="relatorio",texto="Relatório fictício fora do atendimento"};
+            var emissao=await client.PostAsJsonAsync($"/api/posto/pacientes/{paciente}/documentos",avulso);
+            Assert.Equal(HttpStatusCode.OK,emissao.StatusCode);var avulsoId=(int)JsonNode.Parse(await emissao.Content.ReadAsStringAsync())!["id"]!;
+            Assert.Equal(HttpStatusCode.OK,(await client.GetAsync($"/api/clinico/atendimentos/0/documento/{avulsoId}/pdf")).StatusCode);
+            await Login("enfermagem.demo");
+            var capacidades=await Get("/api/clinico/acesso");Assert.True((bool)capacidades["enfermagem"]!);Assert.False((bool)capacidades["atender"]!);
+            Assert.Equal(HttpStatusCode.OK,(await client.GetAsync($"/api/posto/pacientes/{paciente}")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/posto/infusoes")).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized,(await client.PostAsJsonAsync($"/api/posto/pacientes/{paciente}/documentos",avulso)).StatusCode);
+            await Login("medica.demo");
             int restrito,pacienteRestrito;
             using(var scope=factory.Services.CreateScope())
             {

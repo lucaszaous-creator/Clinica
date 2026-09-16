@@ -25,19 +25,44 @@ institucional não recebe prontuários nem hospeda esta API.
    Repetir o mesmo envio devolve o mesmo recibo. Não inventa chegada nem início.
 
 Salvar evolução e concluir são ações diferentes. Documentos não assinados são
-identificados como tal. A tela não oferece baixa financeira, checagem da execução
-de infusão nem assinatura em nome de outro profissional.
+identificados como tal. Baixa financeira e assinatura em nome de outra pessoa não
+fazem parte do posto.
+
+### Pacientes, ficha e enfermagem
+
+- **Pacientes** busca por nome ou documento e abre cadastro, anamnese, problemas,
+  alergias, medidas, sessões, evoluções, campos personalizados, mapas, exames,
+  avaliações, documentos, registros de enfermagem e anexos. Histórico paginado;
+  PDFs arquivados no banco abrem no visualizador protegido. Arquivos externos e
+  anexos que não são PDF continuam disponíveis no desktop.
+- **Atender agora** retoma uma única sessão aberta hoje do mesmo profissional.
+  Duas sessões exigem escolha na agenda. Sem sessão, cria encaixe e registra
+  início; não conclui atendimento nem afirma que um procedimento foi executado.
+- **Emitir documento** na ficha funciona fora da agenda, sem criar sessão ou guia.
+  Inclui receita, exame, atestado, comparecimento, relatório, anamnese e infusão.
+- **Infusões** mostra prescrições assinadas pendentes e execuções encerradas que
+  aguardam assinatura. Enfermagem registra situação e horário explícitos, confere
+  alergias, justifica não execução e retifica com motivo mantendo o original.
+  Encerrar exige todos os itens obrigatórios checados; assinatura eletrônica é
+  outra etapa. O nome e o conselho são obtidos do profissional conectado.
 
 ## Fronteira de segurança
 
-- Toda leitura/escrita clínica exige vínculo ao profissional do agendamento e as
-  permissões VerAgenda, VerProntuario e EditarProntuario. Prescrever e concluir
+- A agenda médica e a edição de evolução exigem vínculo ao profissional do
+  agendamento e VerAgenda, VerProntuario e EditarProntuario. Prescrever e concluir
   exigem também Prescrever e LancarAtendimento, respectivamente.
+- A ficha transversal exige VerFichaPaciente, VerProntuario, vínculo profissional
+  ativo e capacidade clínica (atendimento ou ChecarPrescricao). Recepção e
+  faturista não ganham acesso por terem login. Enfermagem consulta a ficha e
+  executa infusões com ChecarPrescricao; não recebe Prescrever/EditarProntuario.
+  Documento avulso só pode ser assinado pelo próprio prescritor.
 - Usuário, vínculo ativo, bloqueio, versão de senha e modo equipe são relidos a
   cada requisição. Quinze minutos de inatividade exigem login; limite absoluto de
   duas horas. O navegador renova a atividade somente durante uso visível.
-- O cliente não escolhe PacienteId, ProfissionalId ou Operador nas gravações.
-  Mapa histórico e PDF são conferidos contra o paciente do agendamento autorizado.
+- Nas gravações dentro da agenda, paciente e autor vêm do horário autorizado.
+  Fora dela, o paciente escolhido é conferido no banco e a autoria sempre vem da
+  sessão. Mapas/anexos são conferidos contra o paciente solicitado; PDFs exigem
+  permissões clínicas atuais e o vínculo de autoria para assinatura.
 - Cookies HttpOnly/Secure/SameSite Strict em produção; antiforgery em todos os
   POSTs; HTTPS, CSP restritiva, no-store, no-referrer, limites de corpo e requisições.
 - Sem Analytics, logs de conteúdo clínico, armazenamento local ou modo offline.
@@ -60,7 +85,8 @@ assinatura existentes, sem modificar o núcleo congelado. A chave privada fica
 no provedor; apenas o hash do conteúdo coberto sai para assinatura.
 
 State aleatório, PKCE e código ficam no servidor por até cinco minutos. Uma
-autorização ativa por sessão e uma assinatura por autorização. O callback GET
+autorização ativa por sessão e um ato de assinatura por autorização. A execução da enfermagem usa sessão de
+assinatura de cinco minutos para as duas vias produzidas pelo núcleo. O callback GET
 não assina: a operação exige a sessão original, CSRF e POST. Antes de assinar,
 reconfere permissões, documento, cadastro, prestador, alergias na infusão e CPF
 do certificado. Conteúdo alterado exige nova autorização. Reinício do serviço
@@ -69,7 +95,8 @@ descarta autorizações pendentes; documentos persistidos permanecem no prontuá
 Pré-requisitos de homologação/produção:
 
 1. Aplicação SafeID com callback HTTPS exato cadastrado:
-   `https://portal.clinicasemdormacae.com.br/safeid/retorno`.
+   `https://portal.clinicasemdormacae.com.br/safeid/retorno` ou, exclusivamente na
+   homologação, `https://homologacao.clinicasemdormacae.com.br/safeid/retorno`.
 2. Client ID/secret no arquivo protegido do serviço, nunca no site ou Git.
 3. Saída TLS para os hosts oficiais do ambiente escolhido, por proxy local com
    allowlist. A unit atual permite somente localhost; preservar essa restrição.
@@ -82,7 +109,7 @@ Pré-requisitos de homologação/produção:
 ## Implantação controlada
 
 - Restaurar backup em homologação e aplicar a migration aditiva
-  `20260916173014_AtendimentoClinicoTablet` com identidade de migração separada.
+  `20260916193849_PostoClinicoTablet` (inclui a anterior do atendimento) com identidade de migração separada.
   Não iniciar o código novo antes da coluna AtividadeClinicaEm existir.
 - Empacotar backend com `tools/empacotar-tablet.ps1` e frontend com
   `ferramentas/empacotar-portal.py`; registrar ambos os commits.
@@ -118,3 +145,24 @@ nem substituem a homologação acompanhada no tablet físico.
 Demonstração local: executar `npm ci` no clinica-site e depois
 `tools/iniciar-demo-tablet.ps1 -Site <checkout-clinica-site>` no Clinica;
 `/profissional/`, `medica.demo` / `TabletDemo#2026`. Somente dados fictícios.
+
+## Homologação isolada na VPS
+
+`deploy/tablet/homologacao/instalar.py PACOTE SHA256` verifica manifesto e instala
+somente em `/opt/clinica-posto-hml`, banco `clinica_posto_hml_20260916`, usuário
+`clinica-posto-hml`, socket `/run/clinica-posto-hml/portal.sock` e units próprias.
+O runtime não é dono do banco, não migra schema e não tem privilégios nas tabelas
+de produção. A ferramenta administrativa migra banco novo, importa somente
+acessos/profissionais clínicos ativos e dados do prestador e cria pacientes fictícios.
+A origem usa conexão somente leitura. Nenhum paciente da origem é consultado.
+
+O código de cadastro do tablet fica apenas em `/etc/clinica-posto-hml/portal.env`
+(root 0600). Credenciais SafeID ficam no `safeid.env` ao lado, também root 0600.
+O backend mantém bloqueio de saída externa e acessa o SafeID por CONNECT local
+com dois hosts exatos permitidos, porta 443 e TLS de ponta a ponta. Sem log de
+requisições, código OAuth ou documentos. SafeID começa desativado até cadastrar
+o callback e conferir as credenciais. O titular participa do ensaio de assinatura.
+
+A rota Cloudflare nova aponta somente para o socket da homologação. A instalação
+verifica que o release e os PIDs do portal/túnel de produção permanecem iguais.
+Não fazer downgrade da migration com recibos avulsos já gravados.

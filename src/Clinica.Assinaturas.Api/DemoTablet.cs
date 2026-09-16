@@ -35,6 +35,11 @@ internal static class DemoTablet
         var medica = await scope.ServiceProvider.GetRequiredService<AcessoService>().CriarAsync("Dra. Ana Martins",
             "medica.demo","TabletDemo#2026",PerfilAcesso.Profissional);
         medica.ProfissionalId=profissional.Id; medica.DeveTrocarSenha=false;
+        var enfermeira=new Profissional {Nome="Enfermeira — demonstração",RegistroConselho="COREN-RJ 000000",Ativo=true};
+        db.Profissionais.Add(enfermeira);await db.SaveChangesAsync();
+        var enfermagem=await scope.ServiceProvider.GetRequiredService<AcessoService>().CriarAsync("Enfermeira — demonstração",
+            "enfermagem.demo","TabletDemo#2026",PerfilAcesso.Enfermagem);
+        enfermagem.ProfissionalId=enfermeira.Id;enfermagem.DeveTrocarSenha=false;
         var hoje=DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow,"America/Sao_Paulo").DateTime);
         var nomes=new[]{"Marina Oliveira — fictícia","Carlos Santos — fictício","Paciente de outro profissional — fictício"};
         for(var i=0;i<nomes.Length;i++)

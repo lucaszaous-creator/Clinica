@@ -1,4 +1,5 @@
 using Clinica.Domain.Entities;
+using Clinica.Domain;
 
 namespace Clinica.Application.Tablet;
 
@@ -7,9 +8,19 @@ public sealed record ResultadoModeloMapaTablet(int Id);
 
 public static class PoliticaAtendimentoTablet
 {
+    public static bool PodeUsarPosto(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
+        && u.ProfissionalId is > 0 && u.Pode(Permissao.VerFichaPaciente | Permissao.VerProntuario)
+        && (PodeAtender(u) || u.Pode(Permissao.ChecarPrescricao));
     public static bool PodeAtender(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
         && u.ProfissionalId is > 0 && u.Pode(Permissao.VerAgenda | Permissao.VerProntuario | Permissao.EditarProntuario);
 }
+
+public sealed record IniciarAvulsoTablet(Guid Idempotencia, ModalidadeAtendimento Modalidade, string? Motivo = null);
+public sealed record ResultadoAvulsoTablet(int AgendamentoId, bool Existente);
+public sealed record ChecarInfusaoTablet(Guid Idempotencia, int ItemId, string Versao, SituacaoChecagem Situacao,
+    TimeOnly Hora, string? Justificativa = null, string? AlergiaObservada = null, bool ConfirmouAlergia = false, string? MotivoRetificacao = null);
+public sealed record EncerrarInfusaoTablet(Guid Idempotencia, string Versao);
+public sealed record ResultadoEnfermagemTablet(int Id, string Situacao);
 
 public sealed class RecursoClinicoIndisponivel : Exception;
 public sealed class ConflitoClinicoTablet(string mensagem) : Exception(mensagem);

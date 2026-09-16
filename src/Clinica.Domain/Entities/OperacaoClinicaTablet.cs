@@ -5,7 +5,8 @@ public sealed class OperacaoClinicaTablet
 {
     public Guid Id { get; set; }
     public int UsuarioId { get; set; }
-    public int AgendamentoId { get; set; }
+    public int? AgendamentoId { get; set; }
+    public int? PacienteId { get; set; }
     public string PedidoHash { get; set; } = "";
     public string ResultadoJson { get; set; } = "";
     public long CriadaEm { get; set; }

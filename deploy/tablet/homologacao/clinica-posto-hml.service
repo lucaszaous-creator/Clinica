@@ -1,0 +1,41 @@
+[Unit]
+Description=Posto clinico de homologacao - dados ficticios
+After=network.target postgresql.service clinica-safeid-hml.service
+Requires=clinica-safeid-hml.service
+
+[Service]
+User=clinica-posto-hml
+Group=clinica-tablet-proxy
+WorkingDirectory=/opt/clinica-posto-hml/current/app
+ExecStart=/opt/clinica-posto-hml/current/app/Clinica.Assinaturas.Api
+EnvironmentFile=/etc/clinica-posto-hml/portal.env
+EnvironmentFile=/etc/clinica-posto-hml/safeid.env
+Restart=on-failure
+RestartSec=15
+StateDirectory=clinica-posto-hml
+StateDirectoryMode=0700
+RuntimeDirectory=clinica-posto-hml
+RuntimeDirectoryMode=0750
+UMask=0007
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+InaccessiblePaths=-/etc/clinica-tablet -/opt/clinica-tablet -/var/lib/clinica-tablet -/run/clinica-tablet -/etc/clinica-site -/var/lib/clinica-site
+CPUQuota=50%
+MemoryHigh=320M
+MemoryMax=448M
+TasksMax=96
+
+[Install]
+WantedBy=multi-user.target
