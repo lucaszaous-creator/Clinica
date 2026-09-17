@@ -53,10 +53,12 @@ public static class AjusteJanela
     /// </summary>
     public static void Ajustar(Window janela)
     {
+        var util = SystemParameters.WorkArea;
+        janela.MinWidth = Math.Min(janela.MinWidth, util.Width);
+        janela.MinHeight = Math.Min(janela.MinHeight, util.Height);
+
         // Maximizada ou minimizada, quem manda no tamanho é o Windows.
         if (janela.WindowState != WindowState.Normal) return;
-
-        var util = SystemParameters.WorkArea;
 
         // A moldura (barra de título e bordas) não entra em ActualWidth/ActualHeight, mas
         // ocupa tela. Sem descontá-la, uma janela "do tamanho da área útil" ainda vaza.

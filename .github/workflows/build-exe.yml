@@ -62,6 +62,9 @@ jobs:
       - name: Testes (regras de faturamento)
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
+      - name: Conferir janelas responsivas com dados fictícios
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release
+
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj

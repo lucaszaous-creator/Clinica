@@ -4,7 +4,7 @@
         xmlns:modulos="clr-namespace:Clinica.Desktop.Shell.Modulos"
         xmlns:shell="clr-namespace:Clinica.Desktop.Shell"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="{Binding Titulo}" Height="690" Width="1280" MinHeight="560" MinWidth="960"
+        Title="{Binding Titulo}" Height="690" Width="1280" MinHeight="480" MinWidth="880"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Fundo}"
         FontFamily="Segoe UI"
@@ -58,35 +58,28 @@
         </Style>
 
 
-        <Style x:Key="CategoriaSuperior" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="AutomationProperties.Name" Value="{Binding Nome}" />
-            <Setter Property="Template"><Setter.Value>
-                <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="fundo" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}" /></Trigger>
-                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}" /><Setter TargetName="fundo" Property="BorderBrush" Value="{StaticResource Brush.Acento}" /></Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Acento}" /><Setter Property="FontWeight" Value="SemiBold" /><Setter TargetName="fundo" Property="BorderBrush" Value="{StaticResource Brush.Acento}" /></Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value></Setter>
-        </Style>
-        <Style x:Key="TelaSuperior" TargetType="Button" BasedOn="{StaticResource BotaoFantasma}">
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Margin" Value="0,3,4,3" />
-            <Setter Property="MinHeight" Value="34" />
+        <!-- Menu nativo: mouse, toque, Alt/setas e leitor de tela usam a mesma navegação. -->
+        <Style x:Key="TelaSuperior" TargetType="MenuItem">
+            <Setter Property="Header" Value="{Binding Rotulo}" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinHeight" Value="36" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Rotulo}" />
+            <EventSetter Event="Click" Handler="AoEscolherTela" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding EstaAtivo}" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
-                    <Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
                     <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+        <Style x:Key="CategoriaSuperior" TargetType="MenuItem">
+            <Setter Property="Header" Value="{Binding Nome}" />
+            <Setter Property="ItemsSource" Value="{Binding Itens}" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TelaSuperior}" />
+            <Setter Property="Padding" Value="6,10" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Nome}" />
+            <EventSetter Event="MouseEnter" Handler="AoPassarPelaCategoria" />
         </Style>
     </Window.Resources>
 
@@ -98,54 +91,69 @@
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
 
-                <DockPanel Margin="16,0,24,0">
+                <Grid Margin="12,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png" Width="72" Height="28" Margin="0,0,12,0"
+                           VerticalAlignment="Center" AutomationProperties.Name="Clínica SemDor" />
+                    <Menu x:Name="Categorias" Grid.Column="1" ItemsSource="{Binding Grupos}"
+                          ItemContainerStyle="{StaticResource CategoriaSuperior}" Background="Transparent"
+                          VerticalAlignment="Center" KeyboardNavigation.TabNavigation="Once"
+                          AutomationProperties.Name="Navegação principal" />
+                    <Grid Grid.Column="2" VerticalAlignment="Center" Margin="8,0" MinWidth="80" MaxWidth="320">
+                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
+                                 ctrl:Ajudantes.Placeholder="Pesquisar"
+                                 Text="{Binding TextoPesquisa, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding NavegarResultadoCommand}" />
+                                <KeyBinding Key="Escape" Command="{Binding FecharPesquisaCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
 
-                    <Image DockPanel.Dock="Left" Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
-                           Width="100" Height="28" Margin="0,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="Clínica SemDor" />
-
-                    <!-- Quem está usando: a ação registrada na auditoria é dele — e por
-                         isso trocar de pessoa precisa de porta AQUI. No balcão duas
-                         pessoas dividem a máquina; sem esta saída a segunda seguiria
-                         trabalhando com o login da primeira, e a trilha assinaria o nome
-                         errado. O nome fica ao lado do botão, e não dentro dele, porque
-                         quem passa o olho quer LER quem está conectado, não descobrir
-                         clicando. -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
-                                VerticalAlignment="Center" Margin="16,0,0,0">
-                        <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="28"
-                                     VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <TextBlock Text="{Binding UsuarioRotulo}" MaxWidth="170" ToolTip="{Binding UsuarioRotulo}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Texto.Primario}"
-                                   FontSize="{StaticResource Fonte.Tabela}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" />
-                        <!-- Texto, e não ícone: "trocar usuário" não tem glifo que se leia
-                             sozinho, e o custo de errar aqui é alguém não achar a saída. É
-                             o mesmo rótulo do faturamento — dois nomes para o mesmo ato
-                             fariam parecer que fazem coisas diferentes. -->
-                        <!-- A metade voluntária da troca de senha (parcela 69): o reset
-                             pela direção sempre existiu; quem desconfiava que alguém viu a
-                             própria senha não tinha por onde trocá-la sozinho. -->
-                        <Button Content="Minha senha"
-                                Command="{Binding TrocarMinhaSenhaCommand}"
-                                Style="{StaticResource BotaoSecundario}"
-                                VerticalAlignment="Center" Margin="12,0,0,0"
-                                Padding="10,4" FontSize="{StaticResource Fonte.Legenda}"
-                                ToolTip="Trocar a sua senha — pede a senha atual" />
-                        <Button Content="Trocar usuário"
-                                Command="{Binding TrocarUsuarioCommand}"
-                                Style="{StaticResource BotaoSecundario}"
-                                VerticalAlignment="Center" Margin="8,0,0,0"
-                                Padding="10,4" FontSize="{StaticResource Fonte.Legenda}"
-                                ToolTip="Fecha e reabre o sistema na tela de entrada" />
-                    </StackPanel>
-
-                    <!-- ===== Sino de notificações (a Topbar do mockup, completa) =====
-                         O número é REAL: avisos do snackbar desde a última olhada. O
-                         snackbar some em 4 segundos por desenho, e quem estava olhando o
-                         paciente perdia o "salvo" — ou o ERRO — para sempre; o sino é a
-                         segunda via, desta sessão. Sino sem número verdadeiro seria o
-                         botão que não faz nada da parcela 41 vestido de enfeite. -->
-                    <Grid DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Popup IsOpen="{Binding PesquisaAberta}" PlacementTarget="{Binding ElementName=PesquisaGlobal}"
+                               Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                               HorizontalOffset="0" VerticalOffset="4">
+                            <Border Background="{StaticResource Brush.Superficie}"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}" Padding="4"
+                                    MinWidth="{Binding ActualWidth, ElementName=PesquisaGlobal}">
+                                <ItemsControl ItemsSource="{Binding ResultadosPesquisa}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type shell:ResultadoPesquisa}">
+                                            <Button Style="{StaticResource ItemSidebar}"
+                                                    Command="{Binding DataContext.NavegarResultadoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Item.Glifo}"
+                                                               FontFamily="{StaticResource FonteIcones}"
+                                                               FontSize="{StaticResource Fonte.Corpo}" Width="22"
+                                                               VerticalAlignment="Center"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock Text="{Binding Rotulo}" VerticalAlignment="Center"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <!-- "Caixa › Fechamento": sem o caminho, quem procurou
+                                                         uma tela que virou aba clica e não entende por que
+                                                         o título mudou. -->
+                                                    <TextBlock Text="{Binding Caminho, StringFormat=' — em {0}'}"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <Grid Grid.Column="3" VerticalAlignment="Center" Margin="0">
                         <Button x:Name="Sino" Style="{StaticResource BotaoIcone}"
                                 Command="{Binding AbrirAvisosCommand}"
                                 ToolTip="Notificações — os últimos avisos desta sessão"
@@ -218,7 +226,7 @@
                                                                     </Style>
                                                                 </TextBlock.Style>
                                                             </TextBlock>
-                                                            <TextBlock DockPanel.Dock="Right" Text="{Binding HoraTexto}"
+                                                            <TextBlock Grid.Column="3" Text="{Binding HoraTexto}"
                                                                        TextTrimming="CharacterEllipsis"
                                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
                                                                        FontSize="{StaticResource Fonte.Legenda}"
@@ -238,86 +246,32 @@
                     </Grid>
 
 
-                    <!-- Pesquisa global: paleta de seções. Enter vai na primeira.
-                         Ela ficou MAIS importante depois do rail: é a rota direta para
-                         quem já sabe o nome da tela e não quer escolher categoria. -->
-                    <Grid MaxWidth="320" VerticalAlignment="Center"
-                          Margin="16,0,0,0">
-                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
-                                 ctrl:Ajudantes.Placeholder="Ir para… (Ctrl+F)"
-                                 Text="{Binding TextoPesquisa, UpdateSourceTrigger=PropertyChanged}">
-                            <TextBox.InputBindings>
-                                <KeyBinding Key="Enter" Command="{Binding NavegarResultadoCommand}" />
-                                <KeyBinding Key="Escape" Command="{Binding FecharPesquisaCommand}" />
-                            </TextBox.InputBindings>
-                        </TextBox>
 
-                        <Popup IsOpen="{Binding PesquisaAberta}" PlacementTarget="{Binding ElementName=PesquisaGlobal}"
-                               Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
-                               HorizontalOffset="0" VerticalOffset="4">
-                            <Border Background="{StaticResource Brush.Superficie}"
-                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                                    CornerRadius="{StaticResource Raio.Medio}" Padding="4"
-                                    MinWidth="{Binding ActualWidth, ElementName=PesquisaGlobal}">
-                                <ItemsControl ItemsSource="{Binding ResultadosPesquisa}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type shell:ResultadoPesquisa}">
-                                            <Button Style="{StaticResource ItemSidebar}"
-                                                    Command="{Binding DataContext.NavegarResultadoCommand,
-                                                              RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Item.Glifo}"
-                                                               FontFamily="{StaticResource FonteIcones}"
-                                                               FontSize="{StaticResource Fonte.Corpo}" Width="22"
-                                                               VerticalAlignment="Center"
-                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                    <TextBlock Text="{Binding Rotulo}" VerticalAlignment="Center"
-                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                    <!-- "Caixa › Fechamento": sem o caminho, quem procurou
-                                                         uma tela que virou aba clica e não entende por que
-                                                         o título mudou. -->
-                                                    <TextBlock Text="{Binding Caminho, StringFormat=' — em {0}'}"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </Border>
-                        </Popup>
-                    </Grid>
-
-                </DockPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Menu Background="Transparent" VerticalAlignment="Center" AutomationProperties.Name="Conta conectada">
+                            <MenuItem Padding="6,8" ToolTip="{Binding UsuarioRotulo}" AutomationProperties.Name="{Binding UsuarioRotulo}">
+                                <MenuItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="24" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding UsuarioRotulo}" MaxWidth="80" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock Text=" ▾" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </MenuItem.Header>
+                                <MenuItem Header="Minha senha" Command="{Binding TrocarMinhaSenhaCommand}" Padding="12,8" />
+                            </MenuItem>
+                        </Menu>
+                        <Button Content="Trocar usuário" Command="{Binding TrocarUsuarioCommand}"
+                                Style="{StaticResource BotaoSecundario}" Padding="8,4" FontSize="{StaticResource Fonte.Legenda}"
+                                Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </Border>
 
 
-            <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="16,0">
-                <StackPanel>
-                    <ListBox x:Name="Categorias" ItemsSource="{Binding Grupos}" SelectedItem="{Binding GrupoSelecionado}"
-                             ItemContainerStyle="{StaticResource CategoriaSuperior}" Background="Transparent" BorderThickness="0" Padding="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                             KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Grupos de telas">
-                        <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                        <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Nome}" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
-                    </ListBox>
-                    <ItemsControl ItemsSource="{Binding GrupoSelecionado.Itens}" AutomationProperties.Name="Telas do grupo selecionado">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate><DataTemplate>
-                            <Button Style="{StaticResource TelaSuperior}" Command="{Binding DataContext.NavegarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}" ToolTip="{Binding Rotulo}">
-                                <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" />
-                            </Button>
-                        </DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
+
 
             <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->
-            <ContentControl Content="{Binding TelaAtual}" />
+            <ContentControl x:Name="AreaDeTrabalho" Content="{Binding TelaAtual}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </DockPanel>
 
         <!-- ===== Snackbar (sobreposto, centro inferior) =====

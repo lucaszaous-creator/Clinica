@@ -83,7 +83,7 @@
             <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
             <Setter Property="Padding" Value="10,8,12,8" />
             <Setter Property="Margin" Value="0,0,10,8" />
-            <Setter Property="MinWidth" Value="150" />
+            <Setter Property="MinWidth" Value="125" />
         </Style>
         <Style x:Key="KpiDiaIcone" TargetType="Border">
             <Setter Property="Width" Value="28" />
@@ -171,17 +171,35 @@
              resumo, em WrapPanel numa coluna estrela — largura FINITA, dobra de verdade
              (checagem 32). -->
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                <TextBlock Text="Agenda do dia" Style="{StaticResource H1}" Margin="0,0,0,10" />
-
-                <!-- O placar do dia envelhece com o relógio, como a espera das linhas.
-                     WrapPanel dentro da coluna estrela: largura FINITA, dobra de verdade. -->
-                <WrapPanel>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <TextBlock Text="Agenda do dia" Style="{StaticResource H1}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="◀" AutomationProperties.Name="Dia anterior" Command="{Binding DiaAnteriorCommand}"
+                            Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                    <Border Background="{StaticResource Brush.Superficie}"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            Padding="16,8" Margin="8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
+                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource Brush.Texto.Primario}"
+                                       VerticalAlignment="Center" />
+                            <!-- "hoje" ao lado da data (set/2026): quem navega três dias para
+                                 a frente e volta precisa de um sinal de que voltou. -->
+                            <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
+                                    Visibility="{Binding EhHoje,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="hoje" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Button Content="▶" AutomationProperties.Name="Próximo dia" Command="{Binding ProximoDiaCommand}" Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                    <Button Content="Hoje" Command="{Binding HojeCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="70" />
+                    <Button Content="Atualizar" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                </StackPanel>
+                <WrapPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,180,0">
                     <Border Style="{StaticResource KpiDia}">
                         <DockPanel>
                             <Border Style="{StaticResource KpiDiaIcone}"
@@ -232,9 +250,13 @@
                         </DockPanel>
                     </Border>
                 </WrapPanel>
-
-                <!-- Só aparece com DOIS ou mais profissionais no dia — chip único é ruído. -->
-                <ItemsControl ItemsSource="{Binding Profissionais}" Margin="0,2,0,0"
+                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
+                        IsEnabled="{Binding PodeMarcar}"
+                        HorizontalAlignment="Right" MinWidth="160" Padding="16,8"
+                        Grid.Row="1" Grid.Column="1" Margin="0,8,0,8" VerticalAlignment="Center"
+                        ToolTipService.ShowOnDisabled="True"
+                        ToolTip="Marcar um horário neste dia. Exige a permissão Editar agenda." />
+                <ItemsControl ItemsSource="{Binding Profissionais}" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,2,0,0"
                               HorizontalAlignment="Left"
                               Visibility="{Binding TemFiltroProfissional,
                                            Converter={StaticResource BoolParaVisibilidade}}">
@@ -253,48 +275,6 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="◀" AutomationProperties.Name="Dia anterior" Command="{Binding DiaAnteriorCommand}"
-                            Style="{StaticResource BotaoSecundario}" MinWidth="40" />
-                    <Border Background="{StaticResource Brush.Superficie}"
-                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                            CornerRadius="{StaticResource Raio.Medio}"
-                            Padding="16,8" Margin="8,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
-                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource Brush.Texto.Primario}"
-                                       VerticalAlignment="Center" />
-                            <!-- "hoje" ao lado da data (set/2026): quem navega três dias para
-                                 a frente e volta precisa de um sinal de que voltou. -->
-                            <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
-                                    Visibility="{Binding EhHoje,
-                                                 Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock Text="hoje" />
-                            </Border>
-                        </StackPanel>
-                    </Border>
-                    <Button Content="▶" AutomationProperties.Name="Próximo dia" Command="{Binding ProximoDiaCommand}"
-                            Style="{StaticResource BotaoSecundario}" MinWidth="40" />
-                    <Button Content="Hoje" Command="{Binding HojeCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="70" />
-                    <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                </StackPanel>
-
-                <!-- O "+ adicionar" da agenda do Smart Clinic: abre o Marcar com o dia (e o
-                     profissional do filtro) preenchidos. IsEnabled explica; o Exigir do
-                     comando impede. -->
-                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
-                        IsEnabled="{Binding PodeMarcar}"
-                        HorizontalAlignment="Right" MinWidth="160" Padding="16,8"
-                        Margin="0,10,0,0"
-                        ToolTipService.ShowOnDisabled="True"
-                        ToolTip="Marcar um horário neste dia. Exige a permissão Editar agenda." />
-            </StackPanel>
         </Grid>
 
         <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
@@ -325,7 +305,7 @@
                      célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
                      `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
                      guarda o piso de densidade para as linhas que couberem numa linha só. -->
-                <DataGrid ItemsSource="{Binding Linhas}"
+                <DataGrid x:Name="TabelaAgenda" ItemsSource="{Binding Linhas}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
@@ -383,7 +363,7 @@
                         <!-- HORÁRIO com o término ("14:00–14:30") e o ✓ da rodada de
                              confirmação ao lado: sem ✓ = não confirmou ou não foi avisado;
                              a dica da linha diz qual dos dois. -->
-                        <DataGridTemplateColumn Header="HORÁRIO" Width="130">
+                        <DataGridTemplateColumn Header="HORÁRIO" Width="110" MinWidth="110">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -405,7 +385,7 @@
                         <!-- PACIENTE: o nome grande, a linha de contexto (modalidade ·
                              convênio · pacote N/M) e os SELOS — no máximo três, por ordem
                              fixa (`SelosDaFila`): o que impede, o que cobra agora, o estado. -->
-                        <DataGridTemplateColumn Header="PACIENTE" Width="2*" MinWidth="210">
+                        <DataGridTemplateColumn x:Name="ColunaPaciente" Header="PACIENTE / ATENDIMENTO" Width="*" MinWidth="240">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <!-- O avatar à esquerda (foto quando há; iniciais na cor da
@@ -430,6 +410,10 @@
                                         </DockPanel>
                                         <TextBlock Text="{Binding ContextoDaLista}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" />
+                                        <StackPanel Margin="0,3,0,0" Visibility="{Binding ModoCompacto, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}">
+                                            <TextBlock Text="{Binding Profissional, StringFormat='Profissional: {0}'}" TextWrapping="Wrap" Style="{StaticResource CelulaSuave}" />
+                                            <TextBlock Text="{Binding Sala, StringFormat='Sala: {0}'}" TextWrapping="Wrap" Style="{StaticResource CelulaSuave}" Visibility="{Binding Sala, Converter={StaticResource TextoParaVisibilidade}, FallbackValue=Collapsed}" />
+                                        </StackPanel>
                                         <!-- O recado do balcão: só quando há — linha vazia em toda
                                              linha desalinharia a tabela inteira. -->
                                         <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
@@ -469,7 +453,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- PROFISSIONAL e a sala — o "compromisso" do print. -->
-                        <DataGridTemplateColumn Header="PROFISSIONAL" Width="*" MinWidth="120">
+                        <DataGridTemplateColumn x:Name="ColunaProfissional" Header="PROFISSIONAL" Width="180" MinWidth="180">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -492,7 +476,7 @@
                         <!-- STATUS: a etapa em uma palavra, e a hora do fato embaixo. As
                              cores são as das raias de antes (e as do Meu dia): dois
                              leitores da mesma agenda, um vocabulário. -->
-                        <DataGridTemplateColumn Header="STATUS" Width="160">
+                        <DataGridTemplateColumn Header="STATUS" Width="140" MinWidth="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -509,7 +493,7 @@
                                                 <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Border>
-                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
+                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
                                                    Visibility="{Binding StatusDetalhe,
                                                                 Converter={StaticResource TextoParaVisibilidade},
@@ -564,7 +548,7 @@
                              "Entrou", "Concluir", "Debitar pacote"), que a linha já sabe
                              qual é — e o "⋯" com o resto. `CanUserSort=False`: cabeçalho
                              vazio que responde ao clique é alvo morto. -->
-                        <DataGridTemplateColumn Header="" Width="Auto" CanUserSort="False">
+                        <DataGridTemplateColumn Header="AÇÕES" Width="248" MinWidth="248" CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center"

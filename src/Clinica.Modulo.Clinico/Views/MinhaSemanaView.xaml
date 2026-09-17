@@ -238,9 +238,9 @@
              vazio tem tamanho, a sessão longa cobre as faixas dela, cancelado fica
              marcado sem cobrir nada, e férias/feriado escrevem o motivo no vão. -->
         <Grid>
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
-                <DockPanel MinWidth="1100">
+                <DockPanel>
                     <DockPanel DockPanel.Dock="Top">
                         <Border DockPanel.Dock="Left" Width="{StaticResource LarguraRegua}" />
                         <ItemsControl ItemsSource="{Binding Cabecalhos}"

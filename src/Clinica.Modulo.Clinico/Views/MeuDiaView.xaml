@@ -181,7 +181,7 @@
                      célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
                      `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
                      guarda o piso de densidade para as linhas que couberem numa linha só. -->
-                <DataGrid ItemsSource="{Binding Sessoes}"
+                <DataGrid x:Name="TabelaMeuDia" ItemsSource="{Binding Sessoes}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
@@ -224,7 +224,7 @@
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <!-- A hora em negrito, como a lista do balcão: é a âncora da leitura. -->
-                        <DataGridTemplateColumn Header="HORÁRIO" Width="110">
+                        <DataGridTemplateColumn Header="HORÁRIO" Width="110" MinWidth="110">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Hora}" FontWeight="SemiBold"
@@ -234,7 +234,7 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <DataGridTemplateColumn Header="PACIENTE" Width="*">
+                        <DataGridTemplateColumn x:Name="ColunaPaciente" Header="PACIENTE" Width="*" MinWidth="200">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <DockPanel Margin="0,6,8,6">
@@ -251,13 +251,13 @@
                                                 <TextBlock Text="Encaixe" />
                                             </Border>
                                             <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextWrapping="Wrap" />
                                         </DockPanel>
-                                        <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0"
+                                        <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" />
                                         <!-- O recado do balcão: só quando há — linha vazia em toda
                                              linha desalinharia a tabela inteira. -->
-                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
+                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" FontStyle="Italic"
                                                    ToolTip="Recado escrito pela recepção neste horário"
                                                    Visibility="{Binding Observacoes,
@@ -272,7 +272,7 @@
                         <!-- STATUS: a etapa em uma palavra, e a hora do fato embaixo. As
                              cores são as das raias de antes (e as da fila do balcão): dois
                              leitores da mesma agenda, um vocabulário. -->
-                        <DataGridTemplateColumn Header="STATUS" Width="200">
+                        <DataGridTemplateColumn Header="STATUS" Width="160" MinWidth="160">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -287,7 +287,7 @@
                                                 <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Border>
-                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
+                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
                                                    Visibility="{Binding StatusDetalhe,
                                                                 Converter={StaticResource TextoParaVisibilidade},
@@ -335,7 +335,7 @@
 
                         <!-- PRONTUÁRIO: a coluna do print. "Pendente" em âmbar é o assunto do
                              módulo — a sessão que aconteceu e ninguém escreveu. -->
-                        <DataGridTemplateColumn Header="PRONTUÁRIO" Width="120">
+                        <DataGridTemplateColumn Header="PRONTUÁRIO" Width="110" MinWidth="110">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock x:Name="prontuario" Text="{Binding Prontuario}"
@@ -355,7 +355,7 @@
                         <!-- AÇÕES: uma principal (Atender) e as de fila só na etapa em que
                              servem. `CanUserSort=False`: cabeçalho vazio que responde ao
                              clique é alvo morto. -->
-                        <DataGridTemplateColumn Header="" Width="Auto" CanUserSort="False">
+                        <DataGridTemplateColumn Header="AÇÕES" Width="140" MinWidth="140" CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center"

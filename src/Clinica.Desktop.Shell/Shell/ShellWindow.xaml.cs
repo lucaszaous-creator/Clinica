@@ -1,11 +1,28 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
 
 namespace Clinica.Desktop.Shell;
 
-/// <summary>Janela da suíte com abas superiores sempre visíveis e área de conteúdo.</summary>
+/// <summary>Janela da suíte com navegação no cabeçalho e área de trabalho integral.</summary>
 public partial class ShellWindow : Window
 {
+    private void AoPassarPelaCategoria(object sender, MouseEventArgs e)
+    {
+        if (sender is MenuItem categoria && categoria.HasItems)
+            categoria.IsSubmenuOpen = true;
+    }
+
+    private void AoEscolherTela(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: Modulos.ItemMenuModulo item } && DataContext is ShellViewModel vm
+            && vm.NavegarCommand.CanExecute(item))
+        {
+            vm.NavegarCommand.Execute(item);
+            e.Handled = true;
+        }
+    }
+
     public ShellWindow()
     {
         InitializeComponent();

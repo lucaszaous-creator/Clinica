@@ -140,6 +140,7 @@ public partial class App : System.Windows.Application
         window.DataContext = _host.Services.GetRequiredService<MainViewModel>();
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
+        window.WindowState = WindowState.Maximized;
         window.Show();
 
         // Backup local diário em segundo plano (plano B se o banco na nuvem sumir).

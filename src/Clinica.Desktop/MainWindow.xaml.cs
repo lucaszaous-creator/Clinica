@@ -1,10 +1,27 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
 
 namespace Clinica.Desktop;
 
 public partial class MainWindow : Window
 {
+    private void AoPassarPelaCategoria(object sender, MouseEventArgs e)
+    {
+        if (sender is MenuItem categoria && categoria.HasItems)
+            categoria.IsSubmenuOpen = true;
+    }
+
+    private void AoEscolherTela(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: ViewModels.ItemMenu item } && DataContext is ViewModels.MainViewModel vm
+            && vm.NavegarCommand.CanExecute(item.Secao))
+        {
+            vm.NavegarCommand.Execute(item.Secao);
+            e.Handled = true;
+        }
+    }
+
     public MainWindow()
     {
         InitializeComponent();
@@ -38,6 +55,8 @@ public partial class MainWindow : Window
     // restante da tela aparecia como faixas/margens PRETAS.
     private void AjustarParaTela(object sender, RoutedEventArgs e)
     {
+        MinWidth = Math.Min(MinWidth, SystemParameters.WorkArea.Width);
+        MinHeight = Math.Min(MinHeight, SystemParameters.WorkArea.Height);
         if (WindowState != WindowState.Normal)
             return; // maximizada: o Windows cuida do tamanho
 
