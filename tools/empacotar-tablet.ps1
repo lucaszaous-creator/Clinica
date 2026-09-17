@@ -17,13 +17,21 @@ Push-Location $raizTablet
 try {
     & dotnet publish src/Clinica.Assinaturas.Api -c Release -r linux-x64 --self-contained true -o (Join-Path $saidaTablet 'app')
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar API.' }
-    & $efTablet migrations script 20260910120000_AssinaturaRemotaGuardadaAntesDaConferencia 20260915102346_ColetaDeTermosNoTablet --idempotent --project src/Clinica.Infrastructure --startup-project src/Clinica.Infrastructure -o (Join-Path $saidaTablet 'migracao-tablet.sql')
+    & $efTablet migrations script 20260910120000_AssinaturaRemotaGuardadaAntesDaConferencia 20260916193849_PostoClinicoTablet --idempotent --project src/Clinica.Infrastructure --startup-project src/Clinica.Infrastructure -o (Join-Path $saidaTablet 'migracao-tablet.sql')
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar SQL; pacote incompleto.' }
     & python (Join-Path $siteTablet 'ferramentas/empacotar-portal.py')
     if ($LASTEXITCODE -ne 0) { throw 'Falha ao empacotar interface.' }
     Copy-Item -LiteralPath (Join-Path $siteTablet 'artifacts/portal-release') -Destination (Join-Path $saidaTablet 'portal') -Recurse
-    Copy-Item -LiteralPath (Join-Path $raizTablet 'deploy/tablet') -Destination (Join-Path $saidaTablet 'configuracao') -Recurse
+    $configRaizTablet = Join-Path $raizTablet 'deploy/tablet'
+    foreach ($configTablet in (Get-ChildItem -LiteralPath $configRaizTablet -File -Recurse | Where-Object { $_.FullName -notmatch '[\\/](bin|obj|__pycache__)[\\/]' })) {
+        $destinoConfigTablet = Join-Path (Join-Path $saidaTablet 'configuracao') $configTablet.FullName.Substring($configRaizTablet.Length+1)
+        New-Item -ItemType Directory -Path (Split-Path -Parent $destinoConfigTablet) -Force | Out-Null
+        Copy-Item -LiteralPath $configTablet.FullName -Destination $destinoConfigTablet
+    }
+    & dotnet publish deploy/tablet/homologacao/PrepararHomologacao.csproj -c Release -r linux-x64 --self-contained true -o (Join-Path $saidaTablet 'preparar')
+    if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar ferramenta de homologação.' }
     Copy-Item -LiteralPath (Join-Path $raizTablet 'docs/operacao-termos-tablet.md') -Destination $saidaTablet
+    Copy-Item -LiteralPath (Join-Path $raizTablet 'docs/atendimento-tablet.md') -Destination $saidaTablet
     $hashesTablet = [ordered]@{}
     foreach ($arquivoTablet in (Get-ChildItem -LiteralPath $saidaTablet -File -Recurse | Sort-Object FullName)) {
         $relativoTablet = $arquivoTablet.FullName.Substring($saidaTablet.Length+1).Replace('\','/')

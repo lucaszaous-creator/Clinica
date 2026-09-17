@@ -5,6 +5,8 @@ $interfaceTablet = Join-Path (Resolve-Path -LiteralPath $Site).Path 'portal'
 if (!(Test-Path -LiteralPath (Join-Path $interfaceTablet 'index.html'))) { throw 'Checkout clinica-site sem portal/index.html.' }
 & python (Join-Path (Split-Path $interfaceTablet -Parent) 'ferramentas/preparar-marca-portal.py')
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar a marca original do site.' }
+& python (Join-Path (Split-Path $interfaceTablet -Parent) 'ferramentas/preparar-pdf-portal.py')
+if ($LASTEXITCODE -ne 0) { throw 'Execute npm ci no clinica-site para preparar o visualizador de PDF.' }
 $pastaTablet = Join-Path $raizTablet 'artifacts'
 New-Item -ItemType Directory -Path $pastaTablet -Force | Out-Null
 $variaveisTablet = @('ConnectionStrings__Clinica','ASPNETCORE_ENVIRONMENT','Portal__Demo','Portal__Interface','Portal__BancoDemo')
@@ -18,6 +20,7 @@ try {
     $env:Portal__Interface = $interfaceTablet
     $env:Portal__BancoDemo = Join-Path $pastaTablet ('tablet-demo-' + [Guid]::NewGuid().ToString('N') + '.db')
     Write-Host 'Demonstração fictícia: http://127.0.0.1:18120 — demo / TabletDemo#2026'
+    Write-Host 'Consultório: http://127.0.0.1:18120/profissional/ — medica.demo / TabletDemo#2026'
     & dotnet run --project (Join-Path $raizTablet 'src/Clinica.Assinaturas.Api') --no-launch-profile
     if ($LASTEXITCODE -ne 0) { throw 'A demonstração não iniciou.' }
 } finally {

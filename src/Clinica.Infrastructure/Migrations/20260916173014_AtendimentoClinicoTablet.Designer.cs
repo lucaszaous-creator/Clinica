@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916173014_AtendimentoClinicoTablet")]
+    partial class AtendimentoClinicoTablet
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3297,14 +3300,11 @@ namespace Clinica.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("AgendamentoId")
+                    b.Property<int>("AgendamentoId")
                         .HasColumnType("integer");
 
                     b.Property<long>("CriadaEm")
                         .HasColumnType("bigint");
-
-                    b.Property<int?>("PacienteId")
-                        .HasColumnType("integer");
 
                     b.Property<string>("PedidoHash")
                         .IsRequired()
@@ -3321,8 +3321,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AgendamentoId");
-
-                    b.HasIndex("PacienteId");
 
                     b.HasIndex("UsuarioId", "AgendamentoId");
 
@@ -5634,12 +5632,8 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasOne("Clinica.Domain.Entities.Agendamento", null)
                         .WithMany()
                         .HasForeignKey("AgendamentoId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Clinica.Domain.Entities.Paciente", null)
-                        .WithMany()
-                        .HasForeignKey("PacienteId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
                         .WithMany()

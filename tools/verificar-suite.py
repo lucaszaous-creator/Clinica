@@ -847,7 +847,23 @@ TIPO_PUBLICO = re.compile(
 
 NAMESPACE_ARQUIVO = re.compile(r"^namespace\s+([\w.]+)\s*;", re.M)
 
-_tipos: dict[tuple[str, str, str], set[str]] = {}
+_tipos: dict[tuple[str, str, str], list[tuple[str, bool]]] = {}
+
+
+def _colisao_tipo(declaracoes: list[tuple[str, bool]]) -> bool:
+    # Todas as partes precisam declarar partial, inclusive em arquivos distintos.
+    return len(declaracoes) > 1 and not all(parcial for _, parcial in declaracoes)
+
+
+for _declaracoes, _esperado in (
+    ([("a.cs", False)], False),
+    ([("a.cs", True), ("b.cs", True)], False),
+    ([("a.cs", True), ("b.cs", False)], True),
+    ([("a.cs", False), ("b.cs", False)], True),
+    ([("a.cs", False), ("a.cs", False)], True),
+):
+    if _colisao_tipo(_declaracoes) != _esperado:
+        erros.append("verificar-suite: regressão na detecção de tipos públicos duplicados")
 
 for arq in RAIZ.joinpath("src").rglob("*.cs"):
     if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
@@ -863,12 +879,12 @@ for arq in RAIZ.joinpath("src").rglob("*.cs"):
     projeto = relativo.parts[0]
 
     for m in TIPO_PUBLICO.finditer(texto):
-        _tipos.setdefault((projeto, ns.group(1), m.group(1)), set()).add(rel(arq))
+        parcial = bool(re.search(r"\bpartial\b", m.group(0)))
+        _tipos.setdefault((projeto, ns.group(1), m.group(1)), []).append((rel(arq), parcial))
 
-for (projeto, ns, tipo), arquivos in sorted(_tipos.items()):
-    # `partial` legítimo repete o tipo no MESMO arquivo (XAML + code-behind não entram
-    # aqui, que é só .cs); dois arquivos distintos é colisão.
-    if len(arquivos) > 1:
+for (projeto, ns, tipo), declaracoes in sorted(_tipos.items()):
+    if _colisao_tipo(declaracoes):
+        arquivos = {arquivo for arquivo, _ in declaracoes}
         erros.append(
             f"{projeto}: o tipo público '{ns}.{tipo}' está declarado em "
             f"{' e '.join(sorted(arquivos))} — CS0101 no build")

@@ -12,6 +12,11 @@ namespace Clinica.Assinaturas.Tests;
 
 public sealed class FronteiraHttpTests
 {
+    // UTC já está no dia seguinte; a clínica ainda está em 16/09 às 21:30.
+    private sealed class RelogioNoturno : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026,9,17,0,30,0,TimeSpan.Zero);
+    }
     [Fact]
     public async Task Csrf_sessao_restrita_reentrada_e_revogacao_valem_no_http()
     {
@@ -32,7 +37,8 @@ public sealed class FronteiraHttpTests
         Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/entrar",new{login="demo",senha="TabletDemo#2026"})).StatusCode);
         var contexto=(await Get("/api/sessao")).GetProperty("contexto").GetString();
         Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
-        var dia=await Get("/api/dia");var id=dia.GetProperty("pacientes")[0].GetProperty("pacienteId").GetInt32();
+        var dia=await Get("/api/dia");
+        var id=dia.GetProperty("pacientes").EnumerateArray().Single(p=>p.GetProperty("nome").GetString()=="Paciente fictício 1").GetProperty("pacienteId").GetInt32();
         var preparar=new{pacienteId=id,modelos=new[]{1,2},nascimento="1980-01-15",identidadeConferida="Documento fictício conferido"};
         Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync("/api/preparar",preparar)).StatusCode);
         Assert.Equal(contexto,(await Get("/api/sessao")).GetProperty("contexto").GetString());
@@ -52,7 +58,7 @@ public sealed class FronteiraHttpTests
         {
             var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
             Assert.All(await db.ColetasTablet.ToListAsync(),c=>Assert.Equal("encerrado",c.Estado));
-            var u=await db.Usuarios.SingleAsync();u.Ativo=false;await db.SaveChangesAsync();
+            var u=await db.Usuarios.SingleAsync(u=>u.Login=="demo");u.Ativo=false;await db.SaveChangesAsync();
         }
         Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/dia")).StatusCode);
         using var resposta=await client.GetAsync("/");Assert.Contains("no-store",resposta.Headers.CacheControl!.ToString());
@@ -61,5 +67,30 @@ public sealed class FronteiraHttpTests
         // Pasta única com somente dados fictícios. A fábrica fecha o SQLite antes da limpeza.
         await factory.DisposeAsync();Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         Directory.Delete(pasta,true);
+    }
+
+    [Fact]
+    public async Task Demonstracao_usa_o_mesmo_dia_brasileiro_para_coleta_e_consultorio()
+    {
+        var pasta=Path.Combine(Path.GetTempPath(),"clinica-demo-noturna-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(pasta);
+        await using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(b=> {
+            b.UseEnvironment("Development");b.UseSetting("Portal:Demo","true");
+            b.UseSetting("ConnectionStrings:Clinica","");b.UseSetting("Portal:Interface",pasta);
+            b.UseSetting("Portal:BancoDemo",Path.Combine(pasta,"demo.db"));
+            b.ConfigureServices(s=>s.AddSingleton<TimeProvider>(new RelogioNoturno()));
+        });
+        try {
+            // Inicializa o seed sem autenticar: cookies usam o relógio do cliente real.
+            using var client=factory.CreateClient();
+            using var scope=factory.Services.CreateScope();
+            var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            var horarios=await db.Agendamentos.Select(a=>a.DataHora).ToListAsync();
+            Assert.Equal(5,horarios.Count);
+            Assert.All(horarios,h=>Assert.Equal(new DateOnly(2026,9,16),DateOnly.FromDateTime(h)));
+        } finally {
+            await factory.DisposeAsync();Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(pasta,true);
+        }
     }
 }

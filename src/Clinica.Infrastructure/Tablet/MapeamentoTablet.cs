@@ -7,6 +7,16 @@ internal static class MapeamentoTablet
 {
     public static void Aplicar(ModelBuilder b)
     {
+        b.Entity<OperacaoClinicaTablet>(e =>
+        {
+            e.ToTable("OperacoesClinicasTablet");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.PedidoHash).HasMaxLength(64);
+            e.HasIndex(x => new {x.UsuarioId, x.AgendamentoId});
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Paciente>().WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+        });
         b.Entity<SessaoTablet>(e =>
         {
             e.ToTable("SessoesTablet");
