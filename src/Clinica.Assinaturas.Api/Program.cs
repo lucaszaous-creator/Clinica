@@ -145,6 +145,13 @@ app.Use(async(ctx,next)=>
     {
         if(ctx.Request.Path.StartsWithSegments("/api") && HttpMethods.IsPost(ctx.Request.Method))
             await ctx.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(ctx);
+        if(HttpMethods.IsPost(ctx.Request.Method) && System.Text.RegularExpressions.Regex.IsMatch(
+            ctx.Request.Path.Value??"",@"^/api/posto/pacientes/[0-9]+/anexos$"))
+        {
+            // Apenas a rota autenticada de anexos recebe o limite maior (5 MiB em base64).
+            var limite=ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+            if(limite is {IsReadOnly:false})limite.MaxRequestBodySize=7_100_000;
+        }
         await next();
     }
     catch(Exception e) when(e is UnauthorizedAccessException or RecursoClinicoIndisponivel or ConflitoClinicoTablet or AcessoTabletBloqueado or InvalidOperationException

@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Clinica.Infrastructure.Tablet;
 
 /// <summary>Fronteira web: identidade, vínculo e permissão antecedem toda leitura/escrita.</summary>
-public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaRepositorio repo,
+public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClinicaRepositorio repo,
     ProntuarioService prontuario, AgendaService agenda, DocumentoClinicoService documentos,
     PrescricaoInternaService prescricoes, PrescricaoService conferencia, TimeProvider tempo)
 {
@@ -60,7 +60,7 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
                 a.Id, a.PacienteId, Nome = a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento,
                 a.DataHora, a.ModalidadeCodigo, Modalidade = a.ModalidadePrevista.ToString(),
                 a.ChegadaEm, a.InicioAtendimentoEm, a.FimAtendimentoEm,
-                Finalizado = a.Status == StatusAgendamento.Realizado,
+                Finalizado = a.FimAtendimentoEm != null,
                 TemEvolucao = db.Evolucoes.Any(e => e.AgendamentoId == a.Id && e.CanceladaEm == null)
             }).ToListAsync(ct);
         return new { Data = data, Profissional = u.Profissional!.Nome, PodePrescrever = u.Pode(Permissao.Prescrever), Horarios = horarios };
@@ -106,7 +106,7 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
                 Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.Detalhe,i.Quantidade})}).ToListAsync(ct);
         var infusoes = await db.PrescricoesInternas.AsNoTracking().Where(p => p.PacienteId == a.PacienteId && p.CanceladaEm == null)
             .OrderByDescending(p => p.Id).Take(20).Select(p => new {p.Id, p.Numero, p.Indicacao, p.Observacoes, p.Data,
-                p.AgendamentoId, Situacao = p.Situacao.ToString(), p.AssinadaEm, Proprio = p.ProfissionalId == u.ProfissionalId,
+                p.AgendamentoId, Situacao = p.Situacao.ToString(), p.AssinadaEm, Proprio = p.ProfissionalId == u.ProfissionalId,Assinaturas=p.Assinaturas.Select(a=>new {Papel=a.Papel.ToString(),a.NomeAssinante,a.RegistroConselho,a.AssinadoEm,PrescricaoArquivada=a.ArquivoId!=null,RegistroArquivado=a.ArquivoRegistroId!=null}),
                 Itens = p.Itens.OrderBy(i => i.Ordem).Select(i => new {i.Descricao,i.Dose,Via=i.Via.ToString(),i.HoraPrevista,i.SeNecessario,i.Observacoes,i.Diluente,i.Volume,i.TempoInfusao,i.SuspensoEm,i.MotivoSuspensao})}).ToListAsync(ct);
         var modelos = await db.ModelosEvolucao.AsNoTracking().Where(m => m.Ativo && (m.ProfissionalId == null || m.ProfissionalId == u.ProfissionalId))
             .OrderBy(m => m.Nome).Take(80).Select(m => new {m.Id, m.Nome, m.QueixaPrincipal, m.HistoriaDoencaAtual,
@@ -118,8 +118,9 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
         await db.SaveChangesAsync(ct);
         var alertas = await conferencia.ContextoAsync(a.PacienteId, ct);
         return new {Agendamento = new {a.Id, a.DataHora, a.PacienteId, a.AtendimentoId, a.InicioAtendimentoEm,
-                Finalizado = a.Status == StatusAgendamento.Realizado, a.FimAtendimentoEm},
+                Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm},
             Paciente = new {a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento},
+            Faturamento = await ResumoFaturamentoAsync(a, ct),
             Profissional = u.Profissional!.Nome, PodePrescrever = u.Pode(Permissao.Prescrever), PodeConcluir = u.Pode(Permissao.LancarAtendimento),
             Silhueta = new {Largura=SilhuetaCorporal.Largura, Altura=SilhuetaCorporal.Altura,
                 Coluna = new {X=SilhuetaCorporal.ColunaX, Topo=SilhuetaCorporal.ColunaTopo, Base=SilhuetaCorporal.ColunaBase},
@@ -171,7 +172,7 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
             if(pedido.Evolucao is null) throw new InvalidOperationException("Informe a evolução.");
             if(pedido.Finalizar && !u.Pode(Permissao.LancarAtendimento)) throw new UnauthorizedAccessException();
             var anterior = await EvolucaoAtual(id, ct);
-            if (a.Status != StatusAgendamento.Agendado || a.FimAtendimentoEm is not null)
+            if (a.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado) || a.FimAtendimentoEm is not null)
                 throw new ConflitoClinicoTablet("Este atendimento já foi concluído. Confira o histórico.");
             if (anterior is not null && anterior.ProfissionalId != u.ProfissionalId) throw new RecursoClinicoIndisponivel();
             var atual = Fotografar(anterior, anterior is null ? null : await Mapa(anterior.Id, ct));
@@ -215,7 +216,7 @@ public sealed class AtendimentoTabletService(ClinicaDbContext db, IClinicaReposi
         => Escrever<ResultadoDocumentoTablet>(s, id, pedido.Idempotencia, pedido, async (u, a) =>
         {
             if (!u.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
-            if (a.Status != StatusAgendamento.Agendado || a.FimAtendimentoEm is not null)
+            if (a.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado) || a.FimAtendimentoEm is not null)
                 throw new ConflitoClinicoTablet("O atendimento está concluído. Abra um novo atendimento para emitir.");
             var e = await EvolucaoAtual(a.Id, ct);
             return await EmitirConteudoAsync(u,a.PacienteId,a.Id,e?.Id,pedido,ct);

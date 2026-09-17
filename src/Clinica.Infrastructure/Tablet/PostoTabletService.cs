@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Clinica.Infrastructure.Tablet;
 
 /// <summary>Ficha e atos fora da agenda; acesso clínico explícito e auditado, sem direitos administrativos.</summary>
-public sealed class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio repo, AtendimentoTabletService acesso,
+public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio repo, AtendimentoTabletService acesso,
     AgendaService agenda, PrescricaoService conferencia, ChecagemPrescricaoService checagem)
 {
     private const Permissao Leitura = Permissao.VerFichaPaciente | Permissao.VerProntuario;
@@ -30,7 +30,7 @@ public sealed class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio 
         var inicio=data.ToDateTime(TimeOnly.MinValue);var fim=inicio.AddDays(1);
         var horarios=await db.Agendamentos.AsNoTracking().Where(a=>a.DataHora>=inicio&&a.DataHora<fim&&(a.Status==StatusAgendamento.Agendado||a.Status==StatusAgendamento.Realizado))
             .OrderBy(a=>a.DataHora).Take(300).Select(a=>new {a.Id,a.PacienteId,Nome=a.Paciente!.Nome,Nascimento=a.Paciente.DataNascimento,a.DataHora,Modalidade=a.ModalidadePrevista.ToString(),
-                a.ChegadaEm,a.InicioAtendimentoEm,a.FimAtendimentoEm,Finalizado=a.Status==StatusAgendamento.Realizado}).ToListAsync(ct);
+                a.ChegadaEm,a.InicioAtendimentoEm,a.FimAtendimentoEm,Finalizado=a.FimAtendimentoEm!=null}).ToListAsync(ct);
         return new {Data=data,Profissional=u.Profissional!.Nome,Horarios=horarios};
     }
     public async Task<object> MapaAsync(SessaoTablet s,int paciente,int evolucao,CancellationToken ct)
@@ -74,16 +74,16 @@ public sealed class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio 
             .Select(d=>new {d.Id,d.Numero,Tipo=d.Tipo.ToString(),d.Titulo,d.Corpo,d.Observacoes,d.DiasAfastamento,d.Data,d.AssinadoEm,d.PacienteAssinadoEm,d.AgendamentoId,Proprio=d.ProfissionalId==u.ProfissionalId,
                 Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.Detalhe,i.Quantidade})}).ToListAsync(ct);
         var infusoes=await db.PrescricoesInternas.AsNoTracking().Where(x=>x.PacienteId==id&&x.CanceladaEm==null).OrderByDescending(x=>x.Id).Skip(skip).Take(26)
-            .Select(x=>new {x.Id,x.Numero,x.Data,Situacao=x.Situacao.ToString(),x.AssinadaEm,x.EncerradaEm,x.Indicacao,x.Observacoes,x.AgendamentoId,Proprio=x.ProfissionalId==u.ProfissionalId,
+            .Select(x=>new {x.Id,x.Numero,x.Data,Situacao=x.Situacao.ToString(),x.AssinadaEm,x.EncerradaEm,x.Indicacao,x.Observacoes,x.AgendamentoId,Proprio=x.ProfissionalId==u.ProfissionalId,Assinaturas=x.Assinaturas.Select(a=>new {Papel=a.Papel.ToString(),a.NomeAssinante,a.RegistroConselho,a.AssinadoEm,PrescricaoArquivada=a.ArquivoId!=null,RegistroArquivado=a.ArquivoRegistroId!=null}),
                 Itens=x.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.Dose,Via=i.Via.ToString(),i.Diluente,i.Volume,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.SuspensoEm,i.MotivoSuspensao})}).ToListAsync(ct);
         var medidas=await db.MedidasClinicas.AsNoTracking().Where(m=>m.PacienteId==id&&m.CanceladaEm==null).OrderByDescending(m=>m.Data).ThenByDescending(m=>m.Id).Skip(skip).Take(26)
-            .Select(m=>new {m.Id,m.Data,m.TipoNome,m.Valor,m.ValorSecundario,m.Unidade,m.Observacoes}).ToListAsync(ct);
+            .Select(m=>new {m.Id,m.Data,m.TipoNome,m.Valor,m.ValorSecundario,m.Unidade,m.Observacoes,Versao=VersaoMedida(m)}).ToListAsync(ct);
         var anexos=await db.AnexosPaciente.AsNoTracking().Where(a=>a.PacienteId==id&&a.CanceladoEm==null).OrderByDescending(a=>a.Id).Skip(skip).Take(26)
             .Select(a=>new {a.Id,a.Data,a.Titulo,a.NomeArquivo,a.TipoConteudo,a.Tamanho,a.Observacoes,Disponivel=a.Arquivo!=null}).ToListAsync(ct);
         var problemas=await db.ProblemasPaciente.AsNoTracking().Where(x=>x.PacienteId==id).OrderByDescending(x=>x.Id).Take(100)
-            .Select(x=>new {x.Id,Tipo=x.Natureza.ToString(),x.Descricao,Situacao=x.Situacao.ToString(),x.Cid,x.Observacoes,x.Inicio,x.Fim}).ToListAsync(ct);
+            .ToListAsync(ct);
         var enfermagem=await db.EvolucoesEnfermagem.AsNoTracking().Include(e=>e.Diagnosticos).Include(e=>e.Cuidados).ThenInclude(c=>c.Checagens).AsSplitQuery().Where(e=>e.PacienteId==id).OrderByDescending(e=>e.Id).Skip(skip).Take(26).ToListAsync(ct);
-        var anamnese=await db.Anamneses.AsNoTracking().Where(a=>a.PacienteId==id).Select(a=>new {a.AntecedentesPessoais,a.AntecedentesFamiliares,a.HabitosDeVida,a.HistoriaObstetrica,a.RevisaoDeSistemas,a.Observacoes,a.AtualizadaEm,a.CriadaEm}).SingleOrDefaultAsync(ct);
+        var anamnese=await db.Anamneses.AsNoTracking().Where(a=>a.PacienteId==id).SingleOrDefaultAsync(ct);
         var exames=await db.ResultadosExame.AsNoTracking().Where(x=>x.PacienteId==id&&x.CanceladoEm==null).OrderByDescending(x=>x.Data).ThenByDescending(x=>x.Id).Skip(skip).Take(26)
             .Select(x=>new {x.Id,x.Data,x.Nome,x.Valor,x.Unidade,x.Referencia,x.Laboratorio,x.Observacoes,x.ArquivoNome,x.ArquivoTipoConteudo}).ToListAsync(ct);
         var avaliacoes=await db.AvaliacoesClinicas.AsNoTracking().Where(x=>x.PacienteId==id&&x.CanceladaEm==null).OrderByDescending(x=>x.Data).ThenByDescending(x=>x.Id).Skip(skip).Take(26)
@@ -94,7 +94,7 @@ public sealed class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio 
         return new {Paciente=new {p.Id,p.Nome,p.Documento,p.DataNascimento,p.Telefone,p.Email,p.Endereco,p.Carteirinha,p.ValidadeCarteirinha,p.ConvenioNome,Sexo=p.Sexo.ToString(),p.Observacoes},
             PodeAtender=PoliticaAtendimentoTablet.PodeAtender(u),PodePrescrever=u.Pode(Permissao.Prescrever),PodeExecutar=u.Pode(Permissao.ChecarPrescricao),Pagina=pagina,
             Mais=sessoes.Count>25||evolucoes.Count>25||exames.Count>25||avaliacoes.Count>25||documentos.Count>25||infusoes.Count>25||medidas.Count>25||anexos.Count>25||enfermagem.Count>25,
-            Anamnese=anamnese,Exames=exames.Take(25),Avaliacoes=avaliacoes.Take(25),Campos=campos,Sessoes=sessoes.Take(25),Evolucoes=evolucoes.Take(25),Documentos=documentos.Take(25),Infusoes=infusoes.Take(25),Medidas=medidas.Take(25),Anexos=anexos.Take(25),Problemas=problemas,
+            Anamnese=DadosAnamnese(anamnese),VersaoAnamnese=Hash(DadosAnamnese(anamnese)),PodeEditarFicha=u.Pode(Permissao.EditarProntuario),PodeAnexar=PodeAnexar(u),PodeRegistrarEnfermagem=u.Pode(Permissao.RegistrarEvolucaoEnfermagem),TiposMedida=MedidaClinicaService.Registraveis.Select(t=>new {t.Codigo,t.Nome,t.Unidade,t.Minimo,t.Maximo,t.RotuloSegundoValor}),Exames=exames.Take(25),Avaliacoes=avaliacoes.Take(25),Campos=campos,Sessoes=sessoes.Take(25),Evolucoes=evolucoes.Take(25),Documentos=documentos.Take(25),Infusoes=infusoes.Take(25),Medidas=medidas.Take(25),Anexos=anexos.Take(25),Problemas=problemas.Select(x=>new {x.Id,Tipo=x.Natureza.ToString(),x.Descricao,Situacao=x.Situacao.ToString(),x.Cid,x.Observacoes,x.Inicio,x.Fim,Versao=Hash(DadosProblema(x))}),
             Enfermagem=enfermagem.Take(25).Select(e=>new {e.Id,e.Data,e.Texto,e.AutorNome,e.AutorConselho,e.Hora,e.Historico,e.ExameFisico,e.Avaliacao,e.Intercorrencia,e.PressaoSistolica,e.PressaoDiastolica,e.FrequenciaCardiaca,e.FrequenciaRespiratoria,e.Temperatura,e.SaturacaoOxigenio,e.Dor,e.RetificaEvolucaoId,e.MotivoRetificacao,e.CanceladaEm,e.MotivoCancelamento,e.AcessoLocal,e.AcessoCalibre,e.AcessoPuncionadoEm,Diagnosticos=e.Diagnosticos.OrderBy(d=>d.Ordem).Select(d=>new {d.Codigo,d.Titulo,d.RelacionadoA,d.EvidenciadoPor,d.ResultadoEsperado}),Cuidados=e.Cuidados.OrderBy(c=>c.Ordem).Select(c=>new {c.Codigo,c.Descricao,c.Frequencia,c.SeNecessario,Checagens=c.Checagens.OrderBy(x=>x.Id).Select(x=>new {x.Id,x.Data,x.HoraRealizacao,Situacao=x.Situacao.ToString(),x.Justificativa,x.Observacao,x.ExecutanteNome,x.ExecutanteConselho,x.RetificaChecagemId,x.MotivoRetificacao})})})};
     }
 
@@ -134,9 +134,9 @@ public sealed class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio 
         await Autorizar(s,ct,Permissao.ChecarPrescricao);
         if(pagina is <0 or >10000)throw new InvalidOperationException("Página inválida.");
         var folhas=await db.PrescricoesInternas.AsNoTracking().Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
-            .Where(p=>p.CanceladaEm==null&&(p.Situacao==SituacaoPrescricao.Assinada||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao&&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante)))
+            .Where(p=>p.CanceladaEm==null&&(p.Situacao==SituacaoPrescricao.Assinada||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao&&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null)))
             .OrderBy(p=>p.Data).ThenBy(p=>p.Id).Skip(pagina*50).Take(51).ToListAsync(ct);
-        return new {Pagina=pagina,Mais=folhas.Count>50,Itens=folhas.Take(50).Select(p=>new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,Situacao=p.Situacao.ToString(),p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao})};
+        return new {Pagina=pagina,Mais=folhas.Count>50,Itens=folhas.Take(50).Select(p=>new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,Situacao=p.Situacao.ToString(),p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao,RegistroSemAssinatura=p.AssinaturaDaExecucao is {} a&&a.ArquivoRegistroId is null})};
     }
     public static string Versao(PrescricaoInterna p)=>ContratoTablet.Hash(ContratoTablet.Serializar(new {p.Id,p.Situacao,p.AtualizadoEm,p.EncerradaEm,
         Itens=p.Itens.OrderBy(i=>i.Id).Select(i=>new {i.Id,i.Descricao,i.Dose,i.Via,i.Diluente,i.Volume,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.SuspensoEm,i.MotivoSuspensao,Checagens=i.Checagens.OrderBy(c=>c.Id).Select(c=>new {c.Id,c.Situacao,Hora=c.HoraRealizacao,c.Justificativa,c.RetificaChecagemId})})}));
@@ -146,7 +146,7 @@ public sealed class PostoTabletService(ClinicaDbContext db, IClinicaRepositorio 
         var p=await repo.ObterPrescricaoInternaAsync(id,ct)??throw new RecursoClinicoIndisponivel();
         if(p.CanceladaEm!=null||p.Situacao==SituacaoPrescricao.Rascunho)throw new RecursoClinicoIndisponivel();
         var alertas=await conferencia.ContextoAsync(p.PacienteId,ct);await Auditar(u,p.PacienteId,"TabletInfusaoConsultada",ct);await db.SaveChangesAsync(ct);
-        return new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,p.Indicacao,p.Observacoes,Situacao=p.Situacao.ToString(),Versao=Versao(p),p.ExecucaoCompleta,p.ExigeAssinaturaEletronicaDaExecucao,ExecucaoAssinadaEletronicamente=p.AssinaturaDaExecucao!=null,
+        return new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,p.Indicacao,p.Observacoes,Situacao=p.Situacao.ToString(),Versao=Versao(p),p.ExecucaoCompleta,p.ExigeAssinaturaEletronicaDaExecucao,ExecucaoAssinadaEletronicamente=p.AssinaturaDaExecucao!=null,Assinaturas=p.Assinaturas.Select(a=>new {Papel=a.Papel.ToString(),a.NomeAssinante,a.RegistroConselho,a.AssinadoEm,PrescricaoArquivada=a.ArquivoId!=null,RegistroArquivado=a.ArquivoRegistroId!=null}),
             Alergias=alertas.Alergias.Select(a=>a.Descricao),Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Id,i.Descricao,i.Dose,Via=i.Via.ToString(),i.Diluente,i.Volume,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.SuspensoEm,i.MotivoSuspensao,
                 Situacao=i.Situacao.ToString(),Checagem=i.ChecagemVigente is {} c?new {c.Id,Situacao=c.Situacao.ToString(),Hora=c.HoraRealizacao,c.Justificativa,c.ExecutanteNome,c.ExecutanteConselho}:null})};
     }
