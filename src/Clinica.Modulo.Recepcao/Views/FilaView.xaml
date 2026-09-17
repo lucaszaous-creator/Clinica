@@ -493,7 +493,7 @@
                                                 <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Border>
-                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}"
+                                        <TextBlock x:Name="detalhe" Text="{Binding StatusDetalhe}" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" Margin="0,3,0,0"
                                                    Visibility="{Binding StatusDetalhe,
                                                                 Converter={StaticResource TextoParaVisibilidade},

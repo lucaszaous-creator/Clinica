@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using Clinica.Clinico.ViewModels;
 
@@ -19,9 +20,21 @@ namespace Clinica.Clinico.Views;
 /// </summary>
 public partial class MeuDiaView : UserControl
 {
+    private void AjustarColunas()
+    {
+        // As ações têm espaço desde a primeira carga, antes de a tabela medir os
+        // botões trazidos pela consulta. O restante pertence ao nome e contexto.
+        if (TabelaMeuDia.ActualWidth > 0)
+            ColunaPaciente.Width = new DataGridLength(Math.Max(200,
+                TabelaMeuDia.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12
+                - 110 - 160 - 110 - 140));
+    }
+
     public MeuDiaView()
     {
         InitializeComponent();
+        TabelaMeuDia.SizeChanged += (_, _) => AjustarColunas();
+        Loaded += (_, _) => AjustarColunas();
 
         Loaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as MeuDiaViewModel)?.AoSairDeCena();

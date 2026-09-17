@@ -64,7 +64,7 @@ static class Program
                     {
                         var sv = Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault();
                         if (sv != null && sv.ScrollableWidth > 0.01) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
-                        if (grade.Name == "TabelaAgenda")
+                        if (grade.Name is "TabelaAgenda" or "TabelaMeuDia")
                         {
                             var ocupada = grade.Columns.Where(c => c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth);
                             if (ocupada < grade.ActualWidth - 30) { falhas++; Console.WriteLine($"ESPAÇO PERDIDO {nome}: {ocupada}/{grade.ActualWidth}"); }
