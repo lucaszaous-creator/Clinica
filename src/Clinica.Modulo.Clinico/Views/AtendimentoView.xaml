@@ -172,7 +172,7 @@
                                 Command="{Binding SalvarCommand}"
                                 IsEnabled="{Binding PodeEditarProntuario}">
                             <Button.Style>
-                                <Style TargetType="Button">
+                                <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
                                     <Setter Property="Visibility" Value="Visible" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding DataContext.EmAtendimento,

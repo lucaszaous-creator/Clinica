@@ -124,6 +124,10 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 
+    /// <summary>Sessões paginadas, sem textos clínicos ou bytes de documentos.</summary>
+    Task<IReadOnlyList<Modelos.SessaoNaFichaPaciente>> SessoesNaFichaAsync(
+        int pacienteId, int pular, int limite, CancellationToken ct = default);
+
     /// <summary>
     /// Os horários de UM paciente num dia (parcela 66). Existe separado do histórico
     /// completo acima porque a pergunta do balcão é sobre HOJE, e carregar quarenta

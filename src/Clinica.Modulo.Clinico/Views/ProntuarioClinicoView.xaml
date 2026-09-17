@@ -10,32 +10,17 @@
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
+        <Button DockPanel.Dock="Top" Content="Atualizar histórico" HorizontalAlignment="Right"
+                Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,8" />
 
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                     Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
                 <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
             </Border>
 
-            <!-- ============ UMA SUPERFÍCIE, DUAS REGIÕES ============
-                 (mockup 01 — a segunda foto que a direção mandou). Eram TRÊS regiões
-                 empilhadas: a lista de problemas, a linha do tempo da enfermagem e as
-                 sessões — e a lista de sessões, que é o ASSUNTO da tela, começava depois
-                 de duas delas.
-
-                 A pergunta da regra de leiaute é "quantas perguntas esta tela responde?".
-                 Respondia quatro. Agora responde UMA — o que já aconteceu com este
-                 paciente —, e a lista de problemas mudou de casa: ela é atributo da
-                 PESSOA e mora na seção Paciente, ao lado da ficha.
-
-                 ⚠️ A busca subiu para o TOPO, que é onde se procura, e as sessões passaram
-                 a ser o conteúdo que PREENCHE. A linha do tempo das outras naturezas fica
-                 ancorada embaixo, com teto: ela é contexto, não o assunto. -->
             <Border Style="{StaticResource Card}">
                 <DockPanel>
 
-                    <!-- ============ BUSCA ============
-                         A pergunta de quem abre esta tela — e ela filtra as SESSÕES, que é
-                         o que tem texto para procurar. -->
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBox Style="{StaticResource CampoPesquisa}"
                                  Text="{Binding TermoSessao, UpdateSourceTrigger=PropertyChanged}"
@@ -45,32 +30,8 @@
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" />
                     </StackPanel>
 
-                    <!-- ============ ENFERMAGEM, INFUSÕES E O RESTO ============
-                         O mesmo componente da ficha e da tela da Enfermagem, com os chips
-                         contados. Ancorado EMBAIXO e com teto: é contexto do que a lista de
-                         cima mostra.
-
-                         ⚠️ A lista de SESSÕES acima NÃO foi substituída por ele, e é
-                         decisão: ela tem busca no texto, contagem de anexos, marca de
-                         correção e os botões da linha. Fundir as duas listas numa só, como
-                         o mockup desenhou, tiraria essas quatro capacidades — e os ids são
-                         POR TABELA, então um "cancelar" na linha errada cancelaria o
-                         registro de outra pessoa, sem estourar nada. A tela funde a VISTA
-                         (uma superfície, uma rolagem); as listas continuam separadas. -->
-                    <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-                        <Separator DockPanel.Dock="Top" Margin="0,0,0,12"
-                                   Background="{StaticResource Brush.Borda}" />
-                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                            <TextBlock Text="Enfermagem e infusões" Style="{StaticResource H3}"
-                                       Margin="0" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       Text="O que foi observado e o que foi administrado na sala — sinais vitais, intercorrências e a execução de cada folha." />
-                        </StackPanel>
-
-                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
-                                                      MinHeight="150" MaxHeight="260" />
-                    </DockPanel>
-
+                <TabControl Background="Transparent" BorderThickness="0">
+                    <TabItem Header="Evoluções médicas">
                 <Grid>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Sessoes}">
@@ -121,17 +82,7 @@
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                                                <!-- ABRIR A SESSÃO por inteiro (set/2026).
-                                                     A linha mostra quatro campos truncados e a
-                                                     sessão tem doze; a janela do shell traz o
-                                                     resto e o botão de IMPRIMIR a ficha do dia,
-                                                     que é o papel que o paciente leva embora.
 
-                                                     A impressão fica LÁ, e não aqui: emitir é
-                                                     fato numerado que não se apaga, e um botão
-                                                     de emitir na linha faria sair um documento
-                                                     sem a pessoa ter visto o que estava
-                                                     imprimindo. -->
                                                 <Button Content="Abrir sessão" MinWidth="110"
                                                         Margin="0,0,0,6"
                                                         Style="{StaticResource BotaoAcaoGrid}"
@@ -147,8 +98,7 @@
                                                         <Style TargetType="Button"
                                                                BasedOn="{StaticResource BotaoAcaoGridSecundario}">
                                                             <Style.Triggers>
-                                                                <!-- Sessão COM anexo se destaca: é ela
-                                                                     que tem o laudo que voltou. -->
+
                                                                 <DataTrigger Binding="{Binding TemAnexos}" Value="True">
                                                                     <Setter Property="FontWeight" Value="SemiBold" />
                                                                 </DataTrigger>
@@ -157,10 +107,6 @@
                                                     </Button.Style>
                                                 </Button>
 
-                                                <!-- Histórico de correções (parcela 52). O botão
-                                                     SÓ aparece na sessão que foi corrigida: aceso
-                                                     em todas, ele diria "nada a ver aqui" quarenta
-                                                     vezes e ninguém o leria na que importa. -->
                                                 <Button Content="{Binding CorrecoesTexto}" MinWidth="110"
                                                         Margin="0,6,0,0" FontWeight="SemiBold"
                                                         Style="{StaticResource BotaoAcaoGridSecundario}"
@@ -184,6 +130,11 @@
                                        Titulo="Nenhuma sessão encontrada"
                                        Descricao="Ou este paciente ainda não tem sessão escrita, ou a busca não achou o termo digitado — o texto acima da lista diz qual dos dois." />
                 </Grid>
+                    </TabItem>
+                    <TabItem Header="Enfermagem e infusões">
+                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
+                    </TabItem>
+                </TabControl>
                 </DockPanel>
             </Border>
     </DockPanel>

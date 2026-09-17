@@ -189,25 +189,10 @@
                         </Border>
                     </Grid>
 
-                    <!-- ==================== EM QUE PÉ ESTÁ A SESSÃO ====================
-                         Docado à DIREITA e declarado ANTES do miolo: no DockPanel quem é
-                         declarado depois é quem sobra com o resto, e é o miolo (a
-                         identidade) que tem de ceder — nunca a pílula, que tem largura
-                         conhecida.
-
-                         ⚠️ E é por isso que esta ponta tem ORÇAMENTO DE LARGURA. Um
-                         `StackPanel` horizontal dá a cada filho a largura que ele PEDE e
-                         nunca dobra a linha (a lição da parcela 58): sem teto na pílula, a
-                         frase longa do horário que ainda não começou ("Horário de 09:00 — o
-                         paciente ainda não entrou na sala") somada aos dois botões comeria
-                         a faixa inteira, e quem some é o NOME DO PACIENTE. Com 260 px o
-                         pior caso — um botão de etapa, o "Trocar paciente" e a pílula —
-                         fica em ~515 px: cabe com folga a 1366 (a tela do balcão) e, na
-                         janela mínima de 960, o nome apenas encurta com reticências em vez
-                         de desaparecer. Os dois botões de etapa nunca aparecem juntos
-                         (`PodeIniciar` e `PodeReabrir` são estados opostos do horário). -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
-                                VerticalAlignment="Center" Margin="14,0,0,0">
+                    <!-- Ações com largura limitada: o nome e o estado continuam legíveis
+                         em janelas menores, quebrando linha quando necessário. -->
+                    <Grid DockPanel.Dock="Right" Width="320" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <WrapPanel>
 
                         <Button Content="Iniciar atendimento" Padding="4,0" Margin="0,0,12,0"
                                 VerticalAlignment="Center"
@@ -255,7 +240,7 @@
                              regra 1 do design system). É um degrau acima do fundo, que é o
                              que o desenho pede. -->
                         <Border ctrl:Ajudantes.Pilula="True" Padding="14,5"
-                                MaxWidth="260" VerticalAlignment="Center"
+                                MaxWidth="310" VerticalAlignment="Center"
                                 Visibility="{Binding TemSessao, Converter={StaticResource BoolParaVisibilidade}}">
                             <Border.Style>
                                 <Style TargetType="Border">
@@ -270,17 +255,17 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <StackPanel Orientation="Horizontal">
+                            <DockPanel>
                                 <!-- O ponto só acende com a consulta correndo: ele é o
                                      sinal de "está andando", não um marcador de pílula. -->
-                                <Ellipse Width="7" Height="7" Margin="0,0,9,0"
+                                <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,9,0"
                                          VerticalAlignment="Center"
                                          Fill="{StaticResource Brush.Sucesso}"
                                          Visibility="{Binding EmAtendimento,
                                                       Converter={StaticResource BoolParaVisibilidade}}" />
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding SituacaoSessao}"
-                                               TextTrimming="CharacterEllipsis"
+                                               TextWrapping="Wrap"
                                                FontWeight="SemiBold"
                                                FontSize="{StaticResource Fonte.Legenda}">
                                         <TextBlock.Style>
@@ -303,9 +288,10 @@
                                                Visibility="{Binding Cronometro,
                                                             Converter={StaticResource TextoParaVisibilidade}}" />
                                 </StackPanel>
-                            </StackPanel>
+                            </DockPanel>
                         </Border>
-                    </StackPanel>
+                    </WrapPanel>
+                    </Grid>
 
                     <!-- ==================== QUEM É, E O QUE MUDA A CONDUTA ====================
                          O filho que PREENCHE, então ele recebe largura FINITA e os
@@ -315,7 +301,7 @@
                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                         <WrapPanel>
                             <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}"
-                                       Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
+                                       Margin="0,0,10,0" TextWrapping="Wrap" />
                             <!-- "45 anos · feminino · Amil · paciente desde 26/03/2022 · 18
                                  sessões". Montada no modelo, que sabe PULAR o que não existe
                                  — e que desde set/2026 escreve "idade a conferir" quando a
@@ -519,7 +505,7 @@
                 </TabItem>
                 <!-- Ficha e problemas · Anamnese numa seção só (set/2026). O DataContext
                      é herdado: a view lê Capa e Anamnese. -->
-                <TabItem Header="Paciente">
+                <TabItem Header="Ficha do paciente">
                     <views:PacienteView />
                 </TabItem>
                 <TabItem Header="Histórico">
@@ -529,7 +515,7 @@
                     <views:AnexosPacienteView DataContext="{Binding Anexos}" />
                 </TabItem>
                 <TabItem Header="Prescrições e documentos">
-                    <views:PrescricoesClinicasView DataContext="{Binding Prescricoes}" />
+                    <views:DocumentosPacienteView />
                 </TabItem>
                 <!-- Dor, medidas e avaliações numa seção só (parcela 95). O DataContext
                      é herdado: a view lê Dor/Medidas/Avaliacoes e SubAbaAcompanhamento. -->

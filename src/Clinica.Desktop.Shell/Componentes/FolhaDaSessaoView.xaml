@@ -28,6 +28,7 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <DockPanel>
 
             <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
@@ -40,85 +41,37 @@
                         ToolTip="Preenche os campos vazios com a sessão escolhida; sem seleção, usa a última" />
             </WrapPanel>
 
-            <!-- A TIRA: o que a sessão tem de NÚMERO, numa linha só. A data, o
-                 par da EVA e a data do retorno — os quatro campos que não são
-                 texto e que alimentam a curva da dor e o painel da direção. -->
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+            <!-- Campos e ferramentas quebram linha dentro da largura disponível. -->
+            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                <StackPanel Margin="0,0,16,8">
                     <TextBlock Text="Data da sessão" Style="{StaticResource Rotulo}" />
                     <DatePicker SelectedDate="{Binding Data}" Width="140" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                <StackPanel Margin="0,0,16,8">
                     <TextBlock Text="EVA antes" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding EscalaEva}" Width="84"
-                              SelectedItem="{Binding EvaAntes}" />
+                    <ComboBox ItemsSource="{Binding EscalaEva}" Width="84" SelectedItem="{Binding EvaAntes}" />
                 </StackPanel>
-                <StackPanel Grid.Column="2" Margin="0,0,16,0">
+                <StackPanel Margin="0,0,16,8">
                     <TextBlock Text="EVA depois" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding EscalaEva}" Width="84"
-                              SelectedItem="{Binding EvaDepois}" />
+                    <ComboBox ItemsSource="{Binding EscalaEva}" Width="84" SelectedItem="{Binding EvaDepois}" />
                 </StackPanel>
-
-                <!-- A DATA do retorno subiu para a tira (o mockup 01): ela é
-                     lida ANTES de o paciente sair da sala, e estava enterrada
-                     na quarta aba. O porquê continua no detalhe — é texto.
-                     ⚠️ Não marca horário nenhum: quem marca é a recepção, com o
-                     paciente na frente. Materializar a sugestão como
-                     agendamento é o cartão fantasma que a parcela 58 arrancou
-                     do 2º código. -->
-                <StackPanel Grid.Column="3" Margin="0,0,16,0">
+                <StackPanel Margin="0,0,16,8">
                     <TextBlock Text="Retorno sugerido" Style="{StaticResource Rotulo}" />
                     <DatePicker SelectedDate="{Binding RetornoSugeridoEm}" Width="140"
-                                ToolTip="A data que ESTA consulta sugere para a próxima. Não marca horário — quem marca é a recepção." />
+                                ToolTip="Data sugerida para o retorno. O agendamento é feito pela recepção." />
                 </StackPanel>
-                <!-- As FERRAMENTAS da sessão (set/2026): na ponta direita da tira,
-                     na coluna que estava vazia, e na altura dos campos (a regra da
-                     parcela 41). Eram uma barra própria de 50 px acima das abas.
-                     Só AÇÕES aqui — navegação é do rail (parcela 79). A porta
-                     AVULSA do termo (parcela 66, 3ª rodada) some quando há
-                     pendência: a linha de aviso já traz o botão. -->
-                <StackPanel Grid.Column="4" Orientation="Horizontal"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                    <!-- O SLOT da porta: o que só ela tem. No Consultório são o "Colher
-                     termo…" e o "Emitir documento"; na janela do Prontuário, nada. O
-                     conteúdo herda o DataContext, então os bindings dele continuam
-                     resolvendo contra o ViewModel da porta. -->
-                <ContentPresenter VerticalAlignment="Bottom"
-                                  Content="{Binding Ferramentas,
-                                            RelativeSource={RelativeSource AncestorType=comp:FolhaDaSessaoView}}" />
-                    <!-- ⚠️ "Emitir documento" NÃO mora aqui, e isso é correção (set/2026, a
-                         foto que a direção mandou). Ele estava nos DOIS lugares: neste
-                         corpo COMPARTILHADO e no slot `Ferramentas` do Consultório — dois
-                         botões idênticos lado a lado na tela de quem atende.
-                         E o daqui era pior que um duplicado: `EmitirDocumentoCommand` e
-                         `PodeEmitirDocumento` só existem em `AtendimentoViewModel`, não na
-                         base. Na OUTRA porta (a janela "Nova sessão" do Prontuário, que usa
-                         `EscreverSessaoViewModel`) os dois bindings não resolviam — comando
-                         nulo e `IsEnabled` caindo no padrão `true` —, então ali ele era um
-                         BOTÃO ACESO QUE NÃO FAZIA NADA: o defeito da parcela 41, que o
-                         cliente pegou em produção, sobrevivendo dentro do componente que a
-                         extração criou. O comentário do slot logo acima já dizia, por
-                         escrito, que emitir documento é do Consultório; era o código que o
-                         contradizia. -->
-                    <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding AbrirMapaCommand}" MinWidth="120" Margin="8,0,0,0"
-                            IsEnabled="{Binding TemPaciente}" />
-                    <!-- Os roteiros — e, desde set/2026, "repetir a última sessão"
-                         como a primeira opção lá dentro. -->
-                    <Button Content="Modelos…" Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding AbrirModelosCommand}" Margin="8,0,0,0" MinWidth="100"
-                            ToolTip="Repetir a última sessão, começar de um roteiro guardado, ou guardar esta sessão como modelo"
-                            IsEnabled="{Binding TemPaciente}" />
-                </StackPanel>
-            </Grid>
+            </WrapPanel>
+            <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                <ContentPresenter VerticalAlignment="Center" Margin="0,0,8,8"
+                    Content="{Binding Ferramentas, RelativeSource={RelativeSource AncestorType=comp:FolhaDaSessaoView}}" />
+                <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding AbrirMapaCommand}" MinWidth="120" Margin="0,0,8,8"
+                        IsEnabled="{Binding TemPaciente}" />
+                <Button Content="Modelos…" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding AbrirModelosCommand}" Margin="0,0,8,8" MinWidth="100"
+                        ToolTip="Reutilizar uma sessão, aplicar um modelo ou guardar esta sessão como modelo"
+                        IsEnabled="{Binding TemPaciente}" />
+            </WrapPanel>
 
             <!-- ===== A LINHA DE CONTEXTO =====
              Vem da PORTA (`Contexto`), porque cada uma sabe de coisas diferentes: no
@@ -230,4 +183,5 @@
                          ToolTip="Escreva a sessão como você escreveria no papel. É esta a evolução que entra no prontuário, na ficha impressa e na busca." />
             </DockPanel>
         </DockPanel>
+    </ScrollViewer>
 </UserControl>

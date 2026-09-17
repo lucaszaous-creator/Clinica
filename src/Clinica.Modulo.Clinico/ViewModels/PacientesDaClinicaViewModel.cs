@@ -263,6 +263,10 @@ public sealed partial class PacientesDaClinicaViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private Task VerFichaAsync(LinhaPacienteClinico? linha)
+        => AbrirNaSecaoAsync(linha, ModuloClinico.ChavePaciente);
+
+    [RelayCommand]
     private Task VerDorAsync(LinhaPacienteClinico? linha)
         => AbrirNaSecaoAsync(linha, ModuloClinico.ChaveEvolucaoDor);
 

@@ -10,17 +10,6 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
-    <!-- ============================================================
-         DOIS CONTEÚDOS ALTERNATIVOS, nunca sobrepostos: ou a tela é a BUSCA (ela abre
-         pela sidebar sem ninguém em foco), ou é o trabalho sobre o paciente escolhido.
-
-         Antes, sem paciente, ela mostrava o cabeçalho com o nome vazio, o botão de nova
-         prescrição APAGADO e a busca espremida numa coluna de 320 px no canto — a tela
-         mostrando o que se faz DEPOIS de escolher, antes de haver quem escolher.
-
-         ⚠️ Diferente da irmã (Prescrições), esta tela NUNCA é seção da tela do paciente:
-         ela é item de menu e só. A condição aqui é o `SemPaciente` puro.
-         ============================================================ -->
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="24,20,24,24"
                       Visibility="{Binding EscolhendoPaciente,
@@ -31,17 +20,22 @@
                                       Convite="Comece digitando o nome ou o CPF. Quem você chamou da fila já entra escolhido." />
         </ScrollViewer>
 
-    <DockPanel Margin="24,20,24,24"
+    <DockPanel
                Visibility="{Binding TrabalhandoNoPaciente,
                             Converter={StaticResource BoolParaVisibilidade}}">
-
+        <DockPanel.Style><Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="24,20,24,24" />
+            <Style.Triggers><DataTrigger Binding="{Binding MostrarCabecalho}" Value="False">
+                <Setter Property="Margin" Value="0,4,0,0" />
+            </DataTrigger></Style.Triggers>
+        </Style></DockPanel.Style>
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+            <StackPanel Grid.Column="0" Margin="0,0,16,0" Visibility="{Binding MostrarCabecalho, Converter={StaticResource BoolParaVisibilidade}}">
                 <TextBlock Text="Prescrição de infusão" Style="{StaticResource H1}" Margin="0,0,0,2" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
                            MaxWidth="820" HorizontalAlignment="Left"
@@ -55,7 +49,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                <StackPanel Width="320" HorizontalAlignment="Right">
+                <StackPanel Width="320" HorizontalAlignment="Right" Visibility="{Binding MostrarCabecalho, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBox Style="{StaticResource CampoPesquisa}"
                              Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                              ctrl:Ajudantes.Placeholder="Buscar outro paciente" />

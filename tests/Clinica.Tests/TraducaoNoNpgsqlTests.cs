@@ -36,6 +36,15 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Sessoes_da_ficha_traduzem_com_paginacao_sem_textos_do_prontuario()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaSessoesNaFicha(42, 25, 26).ToQueryString();
+        sql.Should().Contain("LIMIT").And.Contain("OFFSET").And.Contain("AgendamentoId")
+            .And.Contain("CanceladaEm").And.NotContain("TextoEvolucao").And.NotContain("Conteudo");
+    }
+
+    [Fact]
     public void Historico_de_mapas_filtra_no_banco_e_nao_carrega_texto_clinico()
     {
         using var db = Postgres();
