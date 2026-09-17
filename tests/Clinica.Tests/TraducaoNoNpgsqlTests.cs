@@ -36,6 +36,15 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Conferencia_de_enfermagem_traduz_vinculo_e_retificacoes_no_postgres()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaEnfermagemVigenteNoHorario(42).ToQueryString();
+        sql.Should().Contain("AgendamentoId").And.Contain("CanceladaEm")
+            .And.Contain("NOT EXISTS").And.Contain("RetificaEvolucaoId").And.NotContain("LIMIT");
+    }
+
+    [Fact]
     public void Sessoes_da_ficha_traduzem_com_paginacao_sem_textos_do_prontuario()
     {
         using var db = Postgres();

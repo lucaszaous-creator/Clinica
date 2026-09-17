@@ -135,6 +135,9 @@
                     <!-- A 2ª assinatura (14/08/2026). Só aparece na folha encerrada que a
                          pede e ainda não a tem: botão apagado permanente para o caso que
                          não existe seria a caixinha morta da parcela 49. -->
+                    <Button Content="Validar e assinar como médico" Margin="8,0,0,0"
+                            Visibility="{Binding PodeValidarMedico, Converter={StaticResource BoolParaVisibilidade}}"
+                            Command="{Binding ValidarMedicoCommand}" />
                     <Button Content="Assinar execução" Margin="8,0,0,0" MinWidth="160"
                             VerticalAlignment="Center"
                             IsEnabled="{Binding PodeAssinarExecucao}"

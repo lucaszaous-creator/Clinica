@@ -1,0 +1,41 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.InfusaoExternaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Registrar infusão realizada" Width="820" Height="680" MinWidth="580" MinHeight="420"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+    <DockPanel Margin="20">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Paciente}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" />
+            <TextBlock Text="Registre a infusão já realizada com orientação médica fora do sistema. Sua assinatura registra a execução; a validação fica pendente para o médico responsável."
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" Margin="0,0,0,8" />
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Content="Cancelar" IsCancel="True" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
+                <Button Content="Salvar registro e revisar assinatura" Command="{Binding SalvarCommand}" />
+            </WrapPanel>
+        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="{Binding Alertas}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                <WrapPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Data da execução" /><DatePicker SelectedDate="{Binding Data}" Width="150" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Hora" /><TextBox Text="{Binding Hora}" Width="90" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Diluente" /><TextBox Text="{Binding Diluente}" Width="150" MaxLength="120" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Volume" /><TextBox Text="{Binding Volume}" Width="100" MaxLength="60" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Tempo" /><TextBox Text="{Binding Tempo}" Width="90" MaxLength="60" /></StackPanel>
+                </WrapPanel>
+                <TextBlock Text="Sessão do paciente" />
+                <ComboBox ItemsSource="{Binding Sessoes}" SelectedItem="{Binding Sessao}" DisplayMemberPath="Rotulo" Margin="0,4,0,12" />
+                <TextBlock Text="Médico responsável pela orientação" />
+                <ComboBox ItemsSource="{Binding Medicos}" SelectedItem="{Binding Medico}" DisplayMemberPath="Rotulo" Margin="0,4,0,12" />
+                <TextBlock Text="Orientação recebida fora do sistema" />
+                <TextBox Text="{Binding Orientacao, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="75" MaxLength="2000" Margin="0,4,0,12" />
+                <TextBlock Text="Infusão realizada — texto livre" />
+                <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="140" MaxLength="20000" Margin="0,4,0,12" />
+                <CheckBox Content="Conferi os alertas de alergia deste paciente" IsChecked="{Binding ConfirmouAlergia}" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

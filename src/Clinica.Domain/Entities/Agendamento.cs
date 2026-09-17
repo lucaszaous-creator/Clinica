@@ -219,6 +219,11 @@ public class Agendamento
     /// </summary>
     public DateTime? FimAtendimentoEm { get; set; }
 
+    /// <summary>Resposta explícita do médico ao concluir; nulo identifica sessões anteriores à confirmação.</summary>
+    public bool? HouveAtendimentoEnfermagem { get; set; }
+    public DateTime? EnfermagemConferidaEm { get; set; }
+    public int? EnfermagemConferidaPorUsuarioId { get; set; }
+
     /// <summary>
     /// O profissional terminou e o balcão ainda não fechou a sessão. É o que acende o selo
     /// no cartão da fila e o que o põe na frente dos irmãos: quem já saiu da sala é o

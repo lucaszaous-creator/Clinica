@@ -48,6 +48,11 @@
                        Style="{StaticResource Rotulo}" />
             <WrapPanel Margin="0,4,0,0">
                 <StackPanel Margin="0,0,18,6">
+                    <TextBlock Text="Data do atendimento" Style="{StaticResource TextoSuave}" />
+                    <DatePicker SelectedDate="{Binding DataDoAtendimento}" Width="145"
+                                ToolTip="Data real do atendimento. A data em que você está registrando também será preservada." />
+                </StackPanel>
+                <StackPanel Margin="0,0,18,6">
                     <TextBlock Text="Hora do fato" Style="{StaticResource TextoSuave}" />
                     <TextBox Width="80"
                              Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"

@@ -964,6 +964,9 @@ public interface IClinicaRepositorio
     Task<EvolucaoEnfermagem?> ObterEvolucaoEnfermagemAsync(
         int id, CancellationToken ct = default);
 
+    Task<bool> TemEvolucaoEnfermagemVigenteNoHorarioAsync(int agendamentoId, CancellationToken ct = default);
+    Task<bool> EvolucaoEnfermagemFoiRetificadaAsync(int evolucaoId, CancellationToken ct = default);
+
     /// <summary>As evoluções escritas durante uma folha de infusão, em ordem de hora.</summary>
     Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaPrescricaoAsync(
         int prescricaoId, CancellationToken ct = default);

@@ -25,9 +25,9 @@ public sealed partial class PostoTabletService
             .OrderBy(d=>d.Id).Skip(pagina*50).Take(51)
             .Select(d=>new {d.Id,d.PacienteId,Paciente=d.Paciente!.Nome,d.Data,d.Numero,Tipo=d.Tipo.ToString()}).ToListAsync(ct);
         var infusoes=await db.PrescricoesInternas.AsNoTracking()
-            .Where(p=>podePrescrever&&p.ProfissionalId==u.ProfissionalId&&p.CanceladaEm==null&&p.Situacao==SituacaoPrescricao.Rascunho)
+            .Where(p=>podePrescrever&&p.ProfissionalId==u.ProfissionalId&&p.CanceladaEm==null&&(p.Situacao==SituacaoPrescricao.Rascunho||(p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada)))
             .OrderBy(p=>p.Id).Skip(pagina*50).Take(51)
-            .Select(p=>new {p.Id,p.PacienteId,Paciente=p.Paciente!.Nome,p.Data,p.Numero}).ToListAsync(ct);
+            .Select(p=>new {p.Id,p.PacienteId,Paciente=p.Paciente!.Nome,p.Data,p.Numero,Situacao=p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada?"AguardaMedico":p.Situacao.ToString()}).ToListAsync(ct);
         var recepcao=await db.Agendamentos.AsNoTracking()
             .Where(a=>PoliticaAtendimentoTablet.PodeAtender(u)&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim
                 &&a.FimAtendimentoEm!=null&&a.Atendimento!=null&&a.Atendimento.EstornadoEm==null

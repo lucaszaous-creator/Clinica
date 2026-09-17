@@ -20,13 +20,9 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChavePainel = ChavesSuite.PainelRecepcao;
     public const string ChaveAgenda = ChavesSuite.AgendaRecepcao;
     public const string ChaveFila = "fila";
-    public const string ChaveNovoAtendimento = "novo-atendimento";
 
     /// <summary>
-    /// A aba "Marcar" do item "Atendimento" (set/2026). A criação de horário mora no Novo
-    /// atendimento desde a parcela 70; o que era um rádio QUANDO no meio do formulário
-    /// virou duas abas — Lançar (o paciente está aqui) e Marcar (dia e horário) —, cada
-    /// uma só com os campos do seu modo. A agenda navega para ESTA chave.
+    /// Entrada da recepção para marcar dia e horário. A conclusão clínica fica com o médico.
     /// </summary>
     public const string ChaveMarcarHorario = "marcar-horario";
     public const string ChaveConsultas = "consultas";
@@ -230,26 +226,14 @@ public sealed class ModuloRecepcao : IModuloApp
                 new AbaMenu("Em tratamento", ChavesSuite.ConsultorioPacientes)
             ]
         },
-        // Novo atendimento e Consultas vieram do app de FATURAMENTO na parcela 46.
-        //
-        // Nenhum dos dois era feature nova: os dois existiam, no posto errado. Lançar
-        // atendimento AVULSO (quem chegou sem horário) e renovar a consulta do convênio
-        // são atos que se fazem com o PACIENTE NA FRENTE, e moravam na máquina de quem
-        // não recebe ninguém.
-        //
-        // Os dois viraram abas do mesmo item porque são o mesmo ato visto em dois tempos:
-        // lançar a sessão de hoje e cuidar da consulta que a autoriza.
+        // Marcação, retornos e conferência administrativa sem lançamento clínico direto.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoAtendimento, Rotulo = "Lan\u00E7ar e marcar", Glifo = "\uEB51", Icone = "prancheta",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento,
-            // "Lançar" e "Marcar" são o MESMO ViewModel com o modo fixado (set/2026, "quanto
-            // mais simples, melhor"): a pergunta QUANDO saiu do meio do formulário e virou
-            // a escolha da aba. A aba Marcar só aparece para quem tem `EditarAgenda` (o
-            // `Requer` do item dela) — é a metade visível da guarda do Salvar.
+            Chave = ChaveGrupoAtendimento, Rotulo = "Marcar", Glifo = "\uE787", Icone = "cal",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.EditarAgenda,
+            // O formulário é aberto somente no modo de marcação, com EditarAgenda.
             Abas =
             [
-                new AbaMenu("Lan\u00E7ar", ChaveNovoAtendimento),
                 new AbaMenu("Marcar", ChaveMarcarHorario),
                 new AbaMenu("Retornos a marcar", ChaveRetornosAMarcar),
                 new AbaMenu("Lan\u00E7amentos", ChaveLancamentos),
@@ -382,11 +366,6 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChavePrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF", Icone = "etiqueta",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
-        new ItemMenuModulo
-        {
-            Chave = ChaveNovoAtendimento, Rotulo = "Lan\u00E7ar atendimento", Glifo = "\uEB51", Icone = "prancheta",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
-        },
         // A aba Marcar. Item declarado pela checagem 28 (toda `AbaMenu` aponta para item
         // de algum m\u00F3dulo); quem o esconde da sidebar \u00E9 o PAI. `EditarAgenda`, e n\u00E3o
         // `LancarAtendimento`: marcar hor\u00E1rio \u00E9 mexer na agenda \u2014 com a chave "guia no
@@ -484,7 +463,6 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
         ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
-        ChaveNovoAtendimento => NovoAtendimento(servicos, marcar: false),
         ChaveMarcarHorario => NovoAtendimento(servicos, marcar: true),
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
         ChaveLancamentos => new LancamentosView

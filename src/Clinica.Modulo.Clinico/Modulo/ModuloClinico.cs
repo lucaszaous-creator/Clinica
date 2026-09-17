@@ -336,7 +336,7 @@ public sealed class ModuloClinico : IModuloApp
         // o médico, que não tem nenhum dos dois, o item simplesmente não existe.
         new ItemMenuModulo
         {
-            Chave = ChaveGrupoEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E", Icone = "coracao",
+            Chave = ChaveGrupoEnfermagem, Rotulo = "Infusões e enfermagem", Glifo = "\uE95E", Icone = "coracao",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerAgenda,
             Abas =
             [
@@ -347,7 +347,7 @@ public sealed class ModuloClinico : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5", Icone = "gota",
-            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.ChecarPrescricao
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.VerProntuario
         },
 
         // A tela da ENFERMAGEM: TODOS os pacientes cadastrados e a evolução de cada

@@ -33,8 +33,17 @@ public sealed partial class PostoTabletService
                     new(anterior.Historico,anterior.ExameFisico,anterior.Avaliacao),
                     new(anterior.AcessoLocal,anterior.AcessoCalibre,anterior.AcessoPuncionadoEm),ct);
             } else e=await servico.RegistrarAsync(paciente,p.Data,p.Hora,p.Texto,autor,intercorrencia:p.Intercorrencia,
-                sinais:p.Sinais,alergiaObservada:p.AlergiaObservada,ct:ct);
+                sinais:p.Sinais,alergiaObservada:p.AlergiaObservada,agendamentoId:p.AgendamentoId,ct:ct);
             return new ResultadoFichaTablet(e.Id);
+        },ct);
+
+    public Task<ResultadoFichaTablet> VincularEnfermagemAsync(SessaoTablet s, int paciente, int evolucao,
+        VinculoEnfermagemTablet p, CancellationToken ct)
+        => Escrever(s,paciente,p.Idempotencia,new {evolucao,p},"TabletVinculoEnfermagem",Permissao.RegistrarEvolucaoEnfermagem,async u=> {
+            var e=await repo.ObterEvolucaoEnfermagemAsync(evolucao,ct)??throw new RecursoClinicoIndisponivel();
+            if(e.PacienteId!=paciente)throw new RecursoClinicoIndisponivel();
+            await new EvolucaoEnfermagemService(repo).VincularSessaoAsync(evolucao,p.AgendamentoId,u.Id,p.Motivo,ct);
+            return new ResultadoFichaTablet(evolucao);
         },ct);
     public Task<ResultadoFichaTablet> CriarModeloAsync(SessaoTablet s,int paciente,NovoModeloDocumentoTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,p,"TabletModeloDocumento",Permissao.Prescrever,async u=> {

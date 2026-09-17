@@ -158,6 +158,20 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
 
     public bool PodeAbrirFolha => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
 
+    [RelayCommand]
+    private async Task RegistrarInfusaoAsync()
+    {
+        try {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada");
+            if (PacienteId == 0) throw new InvalidOperationException("Escolha um paciente antes de registrar a infusão.");
+            var vm = new InfusaoExternaViewModel(_escopos, PacienteId, Paciente, _foco.AgendamentoId);
+            var janela = new InfusaoExternaWindow(vm) { Owner = JanelaDona.Atual() };
+            if (janela.ShowDialog() != true || vm.PrescricaoId is not { } id) return;
+            new FolhaExecucaoWindow(new FolhaExecucaoViewModel(_escopos, _dialogo, id)) { Owner = JanelaDona.Atual() }.ShowDialog();
+            await CarregarAsync();
+        } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
     /// <summary>
     /// A seção é do lado Y, e quem não escreve por ele vê a passagem em modo LEITURA — o
     /// que é legítimo e é o XY: o médico precisa ler a pressão que a técnica aferiu.
@@ -185,6 +199,7 @@ public sealed partial class AtendimentoEnfermagemViewModel : ObservableObject
             pacienteId: foco.PacienteId ?? 0,
             paciente: foco.Nome,
             agendamentoId: foco.AgendamentoId);
+        Passagem.DataDoAtendimento = foco.DataDoHorario?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
 
         Plano = new PlanoDeCuidadosViewModel(escopos, dialogo);
 

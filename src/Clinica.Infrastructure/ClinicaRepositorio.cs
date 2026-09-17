@@ -1848,8 +1848,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         // administrar o que não está mandado.
         q = incluirEncerradas
             ? q.Where(p => p.Situacao == SituacaoPrescricao.Assinada
-                        || p.Situacao == SituacaoPrescricao.Encerrada)
-            : q.Where(p => p.Situacao == SituacaoPrescricao.Assinada);
+                        || p.Situacao == SituacaoPrescricao.Encerrada || (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada))
+            : q.Where(p => p.Situacao == SituacaoPrescricao.Assinada || (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada));
 
         if (profissionalId is int pid)
             q = q.Where(p => p.ProfissionalId == pid);
@@ -1868,7 +1868,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
-            .Where(p => p.Situacao == SituacaoPrescricao.Encerrada
+            .Where(p => (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada) || p.Situacao == SituacaoPrescricao.Encerrada
                         && p.ExigeAssinaturaEletronicaDaExecucao
                         && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante));
 
@@ -1970,6 +1970,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(e => e.Data).ThenByDescending(e => e.Hora).ThenByDescending(e => e.Id)
             .Take(limite)
             .ToListAsync(ct);
+
+    public Task<bool> TemEvolucaoEnfermagemVigenteNoHorarioAsync(int agendamentoId, CancellationToken ct = default)
+        => ConsultaEnfermagemVigenteNoHorario(agendamentoId).AnyAsync(ct);
+
+    public IQueryable<EvolucaoEnfermagem> ConsultaEnfermagemVigenteNoHorario(int agendamentoId)
+        => _db.EvolucoesEnfermagem.Where(e => e.AgendamentoId == agendamentoId && e.CanceladaEm == null
+            && !_db.EvolucoesEnfermagem.Any(r => r.RetificaEvolucaoId == e.Id));
+
+    public Task<bool> EvolucaoEnfermagemFoiRetificadaAsync(int evolucaoId, CancellationToken ct = default)
+        => _db.EvolucoesEnfermagem.AnyAsync(e => e.RetificaEvolucaoId == evolucaoId, ct);
 
     public async Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default)
     {

@@ -36,20 +36,21 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         if(tipo=="execucao")
         {
             var p=await repo.ObterPrescricaoInternaAsync(id,ct)??throw new RecursoClinicoIndisponivel();
-            if(!p.AguardaAssinaturaDaExecucao || !p.ExecucaoCompleta || p.AssinaturaDoPrescritor?.ArquivoId is null)
+            if(!p.AguardaAssinaturaDaExecucao || !p.ExecucaoCompleta || !p.OrigemEnfermagem && p.AssinaturaDoPrescritor?.ArquivoId is null)
                 throw new InvalidOperationException("Encerre a execução e confira a via assinada pelo prescritor antes de assinar.");
-            return ContratoTablet.Hash(ContratoTablet.Serializar(new {Versao=PostoTabletService.Versao(p),Cadastro=Cadastro(p.Paciente,p.Profissional),Prestador=prestador,p.AssinaturaDoPrescritor.ArquivoId}));
+            return ContratoTablet.Hash(ContratoTablet.Serializar(new {Versao=PostoTabletService.Versao(p),Cadastro=Cadastro(p.Paciente,p.Profissional),Prestador=prestador,ArquivoId=p.AssinaturaDoPrescritor?.ArquivoId,p.OrigemEnfermagem,p.OrientacaoExterna}));
         }
         if(tipo=="infusao")
         {
             var p=await repo.ObterPrescricaoInternaAsync(id,ct) ?? throw new RecursoClinicoIndisponivel();
-            if(!p.PodeEditar || p.Itens.Count==0) throw new InvalidOperationException("A infusão precisa estar preenchida e em rascunho.");
+            if((!p.PodeEditar && !(p.OrigemEnfermagem && p.AguardaValidacaoMedica && p.AssinaturaDaExecucao?.ArquivoId!=null)) || p.Itens.Count==0)
+                throw new InvalidOperationException("Confira o rascunho ou a execução assinada pela enfermagem antes de validar.");
             var alerta=await prescricoes.ConferirParaAssinaturaAsync(id,ct);
             if(alerta.ExigeConfirmacao && !confirmou) throw new InvalidOperationException("Confira as alergias e confirme a revisão antes de assinar.");
             // Fotografia sem ids de navegação: qualquer mudança relevante invalida a autorização.
             return ContratoTablet.Hash(ContratoTablet.Serializar(new {p.PacienteId,p.ProfissionalId,p.AgendamentoId,p.Data,p.Hora,
                 Cadastro=Cadastro(p.Paciente,p.Profissional),Prestador=prestador,
-                p.Numero,p.Indicacao,p.Observacoes,p.ExigeAssinaturaEletronicaDaExecucao,
+                p.Numero,p.Indicacao,p.Observacoes,p.ExigeAssinaturaEletronicaDaExecucao,p.OrigemEnfermagem,p.OrientacaoExterna,ArquivoExecucao=p.AssinaturaDaExecucao?.ArquivoId,
                 Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Ordem,i.Descricao,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes}),
                 Alergias=alerta.Alergias.Select(a=>new {a.Id,a.Descricao,a.AtualizadoEm})}));
         }

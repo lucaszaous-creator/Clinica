@@ -163,6 +163,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
     /// <summary>Estado da 2ª assinatura, por extenso — vazio esconde a linha.</summary>
     [ObservableProperty] private string? _situacaoAssinaturaExecucao;
+    [ObservableProperty] private bool _origemEnfermagem;
+    [ObservableProperty] private bool _podeValidarMedico;
 
     /// <summary>Hora sugerida para a próxima checagem. Sugestão — o campo é de quem executou.</summary>
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH\\:mm");
@@ -271,11 +273,17 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             }
 
             Numero = prescricao.Numero;
+            OrigemEnfermagem = prescricao.OrigemEnfermagem;
+            PodeValidarMedico = prescricao.AguardaValidacaoMedica
+                && prescricao.AssinaturaDaExecucao is not null
+                && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId
+                && SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
+                && SessaoUsuario.Atual.Pode(Permissao.Prescrever);
             _pacienteId = prescricao.PacienteId;
             Paciente = prescricao.Paciente?.Nome ?? "—";
-            Cabecalho = $"{RotulosEnum.De(prescricao.Situacao)} · "
+            Cabecalho = $"{(prescricao.AguardaValidacaoMedica ? "Aguarda validação médica" : RotulosEnum.De(prescricao.Situacao))} · "
                       + $"{prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm} · "
-                      + $"prescrita por {prescricao.Profissional?.Nome ?? "—"}";
+                      + $"{(prescricao.OrigemEnfermagem ? "médico responsável" : "prescrita por")} {prescricao.Profissional?.Nome ?? "—"}";
             Resumo = $"{prescricao.Realizados} realizados · {prescricao.NaoRealizados} não "
                    + $"realizados · {prescricao.Pendentes} aguardando";
 
@@ -537,7 +545,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // padrão do PSC a segunda selagem seria recusada sempre.
             var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos,
-                assinaturasDoAto: 2);
+                assinaturasDoAto: OrigemEnfermagem ? 1 : 2);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 
@@ -561,7 +569,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // Falhar ao selar o registro não desfaz a assinatura da prescrição — mas ficar
             // calado faria a enfermeira imprimir uma folha de execução sem carimbo achando
             // que ela está selada.
-            Mensagem = registroSelado
+            Mensagem = OrigemEnfermagem ? "Execução assinada. Aguarda a validação do médico responsável. A situação do atendimento não foi alterada."
+                : registroSelado
                 ? "Execução assinada. A PRESCRIÇÃO passa a sair com as duas assinaturas, e "
                   + "o REGISTRO DE EXECUÇÃO — a folha que mostra o que foi feito — saiu "
                   + "selado com o seu certificado."
@@ -584,6 +593,26 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         => System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>()
                .FirstOrDefault(w => w.IsActive)
            ?? System.Windows.Application.Current?.MainWindow;
+
+    [RelayCommand]
+    private async Task ValidarMedicoAsync()
+    {
+        try {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "validar a infusão");
+            if (!PodeValidarMedico) throw new InvalidOperationException("Esta validação está pendente para o médico responsável, após a assinatura da enfermagem.");
+            using var scope = _escopos.CreateScope();
+            var conferencia = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().ConferirParaAssinaturaAsync(_prescricaoId);
+            var confirmou = conferencia.ExigeConfirmacao && _dialogo.Confirmar("Revisar alergias", "Há alerta de alergia relacionado à infusão registrada. Confirma que revisou o caso antes de assinar?");
+            if (conferencia.ExigeConfirmacao && !confirmou) return;
+            var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
+            if (certificado is null) return;
+            await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().AssinarPrescricaoAsync(
+                _prescricaoId, certificado, confirmou, SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
+            await CarregarAsync();
+            Mensagem = "Infusão validada pelo médico. O PDF com as duas assinaturas está arquivado no paciente.";
+            MensagemEhErro = false;
+        } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
 
     /// <summary>
     /// Imprime a folha de PRESCRIÇÃO — a via que a enfermagem confere e assina à caneta.

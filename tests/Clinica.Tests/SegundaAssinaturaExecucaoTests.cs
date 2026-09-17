@@ -29,7 +29,7 @@ namespace Clinica.Tests;
 /// signatário. O motor congelado (AssinaturaDigitalService, SafeID) é reusado tal e qual;
 /// estes testes provam a ORQUESTRAÇÃO em volta dele.
 /// </summary>
-public class SegundaAssinaturaExecucaoTests : IDisposable
+public partial class SegundaAssinaturaExecucaoTests : IDisposable
 {
     private readonly SqliteConnection _conn;
     private readonly ClinicaDbContext _db;

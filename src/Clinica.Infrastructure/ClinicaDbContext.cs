@@ -358,6 +358,7 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.ChamadoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.FimAtendimentoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.EnfermagemConferidaEm).HasColumnType("timestamp without time zone");
             e.Ignore(a => a.AtendimentoEncerrado);
             e.HasOne(a => a.Profissional).WithMany()
                 .HasForeignKey(a => a.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
@@ -1114,6 +1115,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CodigoVerificacao).IsRequired().HasMaxLength(20);
             e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Indicacao).HasMaxLength(500);
+            e.Property(x => x.OrientacaoExterna).HasMaxLength(2000);
             e.Property(x => x.Observacoes).HasMaxLength(2000);
             e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
             e.Property(x => x.CriadoPor).HasMaxLength(80);

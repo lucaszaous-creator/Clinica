@@ -88,6 +88,8 @@ public class EvolucaoEnfermagemService
         AcessoVenoso? acesso = null,
         CancellationToken ct = default)
     {
+        if (agendamentoId is { } horarioId)
+            await ConferirSessaoAsync(pacienteId, horarioId, ct);
         var evolucao = Montar(
             pacienteId, data, hora, texto, autor,
             prescricaoInternaId, agendamentoId, intercorrencia, sinais, acesso);
@@ -228,6 +230,43 @@ public class EvolucaoEnfermagemService
     }
 
     // ---- Apoio ----
+
+    /// <summary>Associa registro avulso à sessão original, mesmo concluída, sem reabrir nem refaturar.</summary>
+    public async Task VincularSessaoAsync(int evolucaoId, int agendamentoId, int usuarioId,
+        string motivo, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Length > 500)
+            throw new InvalidOperationException("Informe o motivo do vínculo, com até 500 caracteres.");
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);
+        if (usuario is null || !usuario.Ativo || !usuario.Pode(Permissao.RegistrarEvolucaoEnfermagem))
+            throw new UnauthorizedAccessException("Seu acesso não permite vincular evolução de enfermagem.");
+        var evolucao = await _repo.ObterEvolucaoEnfermagemAsync(evolucaoId, ct)
+            ?? throw new InvalidOperationException("Evolução de enfermagem não encontrada.");
+        if (evolucao.Cancelada || evolucao.AutorUsuarioId != usuario.Id && usuario.Perfil != PerfilAcesso.Gerente)
+            throw new UnauthorizedAccessException("Somente o autor ou a direção pode vincular este registro ativo.");
+        if (await _repo.EvolucaoEnfermagemFoiRetificadaAsync(evolucao.Id, ct))
+            throw new InvalidOperationException("Este registro foi retificado. Vincule a evolução vigente.");
+        if (evolucao.AgendamentoId == agendamentoId) return;
+        if (evolucao.AgendamentoId is not null)
+            throw new InvalidOperationException("A evolução já está vinculada a outra sessão. Preserve o vínculo original e registre a correção no prontuário.");
+        await ConferirSessaoAsync(evolucao.PacienteId, agendamentoId, ct);
+        evolucao.AgendamentoId = agendamentoId;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria {
+            PacienteId = evolucao.PacienteId, Operador = usuario.Login, Acao = "EvolucaoEnfermagemVinculada",
+            Detalhe = $"Evolução {evolucao.Id} vinculada à sessão {agendamentoId}. Data do fato {evolucao.Data:dd/MM/yyyy}; registro original {evolucao.RegistradoEm:O}. Motivo: {motivo.Trim()}"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    private async Task ConferirSessaoAsync(int pacienteId, int agendamentoId, CancellationToken ct)
+    {
+        var horario = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException("Sessão não encontrada.");
+        if (horario.PacienteId != pacienteId)
+            throw new InvalidOperationException("A sessão pertence a outro paciente.");
+        if (horario.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado))
+            throw new InvalidOperationException("Escolha uma sessão em atendimento ou concluída; horários cancelados, substituídos ou com falta não recebem evolução.");
+    }
 
     /// <summary>
     /// Copia as etapas do Processo de Enfermagem para o registro.

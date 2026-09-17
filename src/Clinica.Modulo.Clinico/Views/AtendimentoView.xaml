@@ -105,7 +105,7 @@
                                 Command="{Binding ImprimirFichaCommand}"
                                 IsEnabled="{Binding PodeImprimirFicha}"
                                 ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
-                        <Button Content="Salvar" Margin="8,0,0,0" MinWidth="120"
+                        <Button Content="Salvar evolução" Margin="8,0,0,0" MinWidth="120"
                                 Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding SalvarCommand}"
                                 IsEnabled="{Binding PodeEditarProntuario}"
@@ -113,7 +113,7 @@
                                 Visibility="{Binding DataContext.EmAtendimento,
                                              RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
                                              Converter={StaticResource BoolParaVisibilidade}}" />
-                        <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
+                        <Button Content="Salvar evolução" Margin="8,0,0,0" MinWidth="150"
                                 Command="{Binding SalvarCommand}"
                                 IsEnabled="{Binding PodeEditarProntuario}">
                             <Button.Style>

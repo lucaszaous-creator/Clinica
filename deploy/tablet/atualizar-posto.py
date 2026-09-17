@@ -1,4 +1,4 @@
-"""Atualização sem migração: valida pacote, salva backup e recua o serviço se falhar.
+"""Atualização do posto: valida pacote, salva backup e recua o serviço se falhar.
 
 Uso: python3 atualizar-posto.py hml|producao pacote.tar.gz sha256 release-anterior
 O relatório de homologação do MESMO pacote é obrigatório antes da produção.
@@ -72,7 +72,13 @@ with tarfile.open(pacote) as tar:
         path = pathlib.PurePosixPath(m.name)
         assert not path.is_absolute() and '..' not in path.parts and (m.isfile() or m.isdir())
     manifest = json.loads(tar.extractfile(nome+'/manifesto.json').read().decode('utf-8-sig'))
-    assert manifest['contrato']==2 and manifest['migracao_nova'] is False
+    assert manifest['contrato'] in (2,3)
+    migracao = manifest['migracao_nova']
+    assert migracao is False or (manifest['contrato']==3 and migracao=='20260917185911_EnfermagemVinculadaEValidacaoInfusao')
+    if migracao:
+        ultima=sql('SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY "MigrationId" DESC LIMIT 1')
+        assert ultima in ('20260917133639_TravaOpcionalDaAgenda',migracao),'Base mudou; conferir antes de migrar'
+        assert 'migracao-enfermagem.sql' in manifest['arquivos']
     assert nome==f"tablet-continuidade-{manifest['backend'][:12]}-{manifest['interface'][:12]}"
     assert {m.name[len(nome)+1:] for m in membros if m.isfile()} == set(manifest['arquivos']) | {'manifesto.json'}
     for rel,digest in manifest['arquivos'].items():
@@ -132,6 +138,9 @@ for tabela in inserir:
                 conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(role)};')
                 revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(role)};')
 for tabela in ('Anamneses','MedidasClinicas','ProblemasPaciente'):grant('UPDATE',tabela)
+if migracao and sql(f"SELECT has_column_privilege('{role}','\"EvolucoesEnfermagem\"','AgendamentoId','UPDATE')")!='t':
+    conceder.append(f'GRANT UPDATE ("AgendamentoId") ON "EvolucoesEnfermagem" TO {ident(role)};')
+    revogar.append(f'REVOKE UPDATE ("AgendamentoId") ON "EvolucoesEnfermagem" FROM {ident(role)};')
 for coluna in ('AtendimentoId','CodigoFaturamentoId','Tipo','Status'):
     if sql(f"SELECT has_column_privilege('{role}','\"Lancamentos\"','{coluna}','SELECT')")!='t':
         conceder.append(f'GRANT SELECT ({ident(coluna)}) ON "Lancamentos" TO {ident(role)};')
@@ -141,6 +150,12 @@ privado(backup/'permissoes-recuar.sql','\n'.join(revogar))
 privado(backup/'release-anterior.txt',anterior)
 aplicado=False;mudou=False
 try:
+    if migracao:
+        # Migration aditiva e idempotente. O recuo preserva as colunas e todos os registros.
+        schema=(release/'migracao-enfermagem.sql').read_text(encoding='utf-8-sig')
+        assert migracao in schema and 'DROP ' not in schema.upper() and 'DELETE ' not in schema.upper()
+        sql("SET lock_timeout='5s'; SET statement_timeout='60s';\n"+schema)
+        assert sql(f'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId"=\'{migracao}\'')=='1'
     sql('BEGIN;\n'+'\n'.join(conceder)+'\nCOMMIT;');aplicado=True
     link=base/'current-novo'
     assert not link.exists() and not link.is_symlink()
@@ -152,7 +167,7 @@ try:
     assert (conf/'portal.env').read_bytes()==config
     assert {s:status(s) for s in protegidos}==antes
     relatorio={'ambiente':ambiente,'sha256':sha,'release':str(release),'anterior':anterior,'backup':str(backup),
-        'saudavel':True,'servicos_preservados':True,'migracao_nova':False,'concessoes':len(conceder)}
+        'saudavel':True,'servicos_preservados':True,'migracao_nova':migracao,'concessoes':len(conceder)}
     destino=stage/(nome+('-hml.json' if ambiente=='hml' else '-producao.json'))
     privado(destino,json.dumps(relatorio,ensure_ascii=False,indent=2))
     usuario=pwd.getpwnam('clinica-admin');os.chown(destino,usuario.pw_uid,usuario.pw_gid)

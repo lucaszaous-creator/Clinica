@@ -144,6 +144,8 @@ public sealed class LinhaEvolucaoEnfermagem
 
     /// <summary>Vigente é o que se pode corrigir ou cancelar — o resto é histórico.</summary>
     public bool Vigente => !Cancelada && !Substituida;
+    public int? AgendamentoId { get; init; }
+    public bool PodeVincular => Vigente && AgendamentoId is null;
 
     /// <summary>Destaque só no que está valendo: intercorrência já corrigida é histórico.</summary>
     public bool EmDestaque => Intercorrencia && Vigente;
@@ -163,6 +165,7 @@ public sealed class LinhaEvolucaoEnfermagem
         return new LinhaEvolucaoEnfermagem
         {
             Id = e.Id,
+            AgendamentoId = e.AgendamentoId,
             Hora = e.Hora.ToString("HH\\:mm"),
             Data = mostrarData ? e.Data.ToString("dd/MM/yyyy") : string.Empty,
             Texto = e.Texto,
@@ -357,6 +360,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// passagem solta — e o selo "DESTA SESSÃO" da linha do tempo nunca acenderia ali.
     /// </summary>
     private int? _agendamentoId;
+    [ObservableProperty] private DateTime? _dataDoAtendimento = DateTime.Today;
 
     /// <summary>O número da folha de infusão, guardado para a frase do contexto poder ser
     /// remontada quando o horário chega depois do construtor.</summary>
@@ -694,7 +698,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// <summary>Está corrigindo um registro anterior — o rótulo do botão muda e o motivo é pedido.</summary>
     [ObservableProperty] private bool _corrigindo;
 
-    [ObservableProperty] private string _rotuloDoBotao = "Registrar";
+    [ObservableProperty] private string _rotuloDoBotao = "Salvar sessão";
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeRegistrar =>
@@ -887,7 +891,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             using (var scope = _escopos.CreateScope())
             {
                 var servico = scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>();
-                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                var hoje = DateOnly.FromDateTime(DataDoAtendimento
+                    ?? throw new InvalidOperationException("Informe a data em que ocorreu o atendimento de enfermagem."));
 
                 if (Corrigindo && _retificando is { } alvo)
                     // ⚠️ A data é a DO FATO (_dataCorrigida), nunca `hoje`: a técnica que
@@ -912,7 +917,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             Mensagem = alergia
                 ? "Registrado. A alergia entrou na lista de problemas do paciente e vai "
                   + "alertar na próxima prescrição."
-                : "Registrado no prontuário do paciente.";
+                : "Evolução de enfermagem salva. A situação do atendimento e as guias foram preservadas. A conclusão é feita pelo médico.";
             MensagemEhErro = false;
 
             // Depois da frase, de propósito: o hospedeiro recarrega e só escreve mensagem
@@ -926,6 +931,35 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
+    }
+
+    [RelayCommand]
+    private async Task VincularSessaoAsync(LinhaEvolucaoEnfermagem? linha)
+    {
+        if (linha is null || !linha.PodeVincular) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.RegistrarEvolucaoEnfermagem, "vincular a evolução de enfermagem");
+            using var scope = _escopos.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var registro = await repo.ObterEvolucaoEnfermagemAsync(linha.Id)
+                ?? throw new InvalidOperationException("Registro não encontrado.");
+            if (registro.PacienteId != _pacienteId) throw new InvalidOperationException("O registro pertence a outro paciente.");
+            var sessoes = await repo.AgendamentosDoPacienteNoDiaAsync(_pacienteId, registro.Data);
+            if (!sessoes.Any(a => a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado))
+                throw new InvalidOperationException("Não há sessão elegível no dia deste registro. Confira a data do atendimento original.");
+            var escolha = new EscolherSessaoEnfermagemWindow(Paciente, sessoes) { Owner = JanelaDona.Atual() };
+            if (escolha.ShowDialog() != true || escolha.Escolhida is not { } id) return;
+            var motivo = _dialogo.PerguntarTexto("Vincular à sessão original", "Informe por que esta evolução foi registrada fora da sessão. O conteúdo, a autoria e as datas serão preservados.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+            await scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>()
+                .VincularSessaoAsync(linha.Id, id, SessaoUsuario.Atual.UsuarioId, motivo);
+            await CarregarAsync();
+            Mensagem = "Evolução vinculada à sessão original. A conclusão e as guias foram preservadas.";
+            MensagemEhErro = false;
+            Gravou?.Invoke();
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
 
     /// <summary>
@@ -1115,7 +1149,7 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         _retificando = null;
         _dataCorrigida = null;
         Corrigindo = false;
-        RotuloDoBotao = "Registrar";
+        RotuloDoBotao = "Salvar sessão";
         Texto = string.Empty;
         Intercorrencia = false;
         AlergiaObservada = string.Empty;

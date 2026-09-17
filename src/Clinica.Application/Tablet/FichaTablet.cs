@@ -19,7 +19,10 @@ public sealed record ResultadoFichaTablet(int Id);
 public sealed record ResultadoExameTablet(Guid Idempotencia,DateOnly Data,string Nome,string Valor,
     string? Unidade,string? Referencia,string? Laboratorio,string? Observacoes);
 public sealed record RegistroEnfermagemTablet(Guid Idempotencia,DateOnly Data,TimeOnly Hora,string Texto,
-    bool Intercorrencia,SinaisVitais? Sinais,string? AlergiaObservada,int? RetificaId=null,string? Motivo=null);
+    bool Intercorrencia,SinaisVitais? Sinais,string? AlergiaObservada,int? RetificaId=null,string? Motivo=null,
+    int? AgendamentoId=null);
+public sealed record VinculoEnfermagemTablet(Guid Idempotencia, int AgendamentoId, string Motivo);
+public sealed record InfusaoExternaTablet(Guid Idempotencia, RegistroInfusaoExterna Dados);
 public sealed record NovoModeloDocumentoTablet(Guid Idempotencia,string Nome,TipoDocumentoClinico Tipo,string Texto);
 public sealed record RascunhoTablet(Guid Idempotencia, string Versao, string Motivo, string? Corpo,
     string? Observacoes, int? DiasAfastamento, string? Indicacao, bool AssinaturaEnfermagem,
