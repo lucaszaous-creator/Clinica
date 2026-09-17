@@ -46,10 +46,11 @@ Releases necessários: Clínico, Recepção, Financeiro, Faturamento e Gerente G
 
 ## Verificações
 
-- 2.656 testes de domínio/aplicação/infraestrutura em SQLite e 9 de fronteira HTTP passaram.
-- 12 casos da agenda protegida, incluindo três cenários que executam somente em PostgreSQL:
-  concorrência direta, gravação por cliente antigo e rollback sem atendimentos/guias órfãos.
-  A execução real desses três deve ser conferida no job `testes-postgres` do CI.
+- 2.658 testes de domínio/aplicação/infraestrutura em SQLite e 9 de fronteira HTTP passaram.
+- 14 casos da agenda protegida, incluindo cinco cenários que executam somente em PostgreSQL:
+  concorrência direta, gravação por cliente antigo, rollback sem atendimentos/guias órfãos,
+  jornada alterada durante a reserva e acesso do portal sem UPDATE em Profissionais.
+  A execução real desses cinco deve ser conferida no job `testes-postgres` do CI.
 - Build Windows da solução: zero erros. Verificação estática, espelho de tokens e compilação
   sombra dos dez projetos WPF passaram.
 - Renderização WPF com dados fictícios em 1024×680 e 1366×768; comandos, seleção de grupos,

@@ -222,5 +222,60 @@ public sealed class AgendaProtegidaTests : IDisposable
         (await _db.Agendamentos.CountAsync()).Should().Be(1);
     }
 
+    [Fact]
+    public async Task Postgres_PortalReservaSemPermissaoDeAlterarProfissionais()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        await Configurar(true);
+        // Identificador gerado aqui com GUID hexadecimal; nao recebe texto externo.
+#pragma warning disable EF1002
+        var papel = "agenda_teste_" + Guid.NewGuid().ToString("N");
+        await _db.Database.ExecuteSqlRawAsync($"CREATE ROLE {papel} NOLOGIN");
+        try
+        {
+            await _db.Database.ExecuteSqlRawAsync($"""
+                GRANT USAGE ON SCHEMA public TO {papel};
+                GRANT SELECT ON "Profissionais", "Agendamentos", "BloqueiosAgenda" TO {papel};
+                GRANT INSERT ON "Agendamentos" TO {papel};
+                GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO {papel};
+                """);
+            await using var portal = Contexto();
+            await using var tx = await portal.Database.BeginTransactionAsync();
+            await portal.Database.ExecuteSqlRawAsync($"SET LOCAL ROLE {papel}");
+            portal.Add(new Agendamento { PacienteId = _paciente.Id, ProfissionalId = _prof.Id,
+                DataHora = Segunda, DuracaoMinutos = 60, Status = StatusAgendamento.Agendado });
+            await portal.SaveChangesAsync();
+            await tx.CommitAsync();
+            (await _db.Agendamentos.CountAsync()).Should().Be(1);
+        }
+        finally
+        {
+            await _db.Database.ExecuteSqlRawAsync($"DROP OWNED BY {papel}; DROP ROLE {papel}");
+        }
+    }
+
+#pragma warning restore EF1002
+
+    [Fact]
+    public async Task Postgres_MudancaDaJornadaSerializaComReservaConcorrente()
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        await using var configuracao = Contexto();
+        await using var tx = await configuracao.Database.BeginTransactionAsync();
+        var prof = await configuracao.Profissionais.SingleAsync();
+        prof.AgendaProtegida = true;
+        prof.AtendeDas = new(9, 0); prof.AtendeAte = new(10, 0);
+        await configuracao.SaveChangesAsync();
+        await using var reserva = Contexto();
+        reserva.Add(new Agendamento { PacienteId = _paciente.Id, ProfissionalId = _prof.Id,
+            DataHora = Segunda.AddHours(2), Status = StatusAgendamento.Agendado });
+        var gravar = new ClinicaRepositorio(reserva).SalvarAsync();
+        (await Task.WhenAny(gravar, Task.Delay(250))).Should().NotBe(gravar);
+        await tx.CommitAsync();
+        var tentar = async () => await gravar.WaitAsync(TimeSpan.FromSeconds(15));
+        await tentar.Should().ThrowAsync<InvalidOperationException>().WithMessage("*fora da jornada*");
+        (await _db.Agendamentos.CountAsync()).Should().Be(0);
+    }
+
     public void Dispose() { _db.Dispose(); _conn.Dispose(); }
 }

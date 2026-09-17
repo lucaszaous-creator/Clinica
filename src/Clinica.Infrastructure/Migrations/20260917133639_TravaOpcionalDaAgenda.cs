@@ -43,7 +43,7 @@ namespace Clinica.Infrastructure.Migrations
                     -- O SELECT posterior ao lock usa o estado já confirmado pelo outro posto.
                     PERFORM pg_advisory_xact_lock(17206, NEW."ProfissionalId");
                     SELECT p.* INTO profissional FROM "Profissionais" p
-                        WHERE p."Id" = NEW."ProfissionalId" FOR SHARE;
+                        WHERE p."Id" = NEW."ProfissionalId";
                     IF NOT FOUND OR NOT profissional."AgendaProtegida" THEN RETURN NEW; END IF;
                     fim := NEW."DataHora" + make_interval(mins => COALESCE(
                         NEW."DuracaoMinutos", profissional."DuracaoPadraoMinutos", 30));
@@ -74,6 +74,18 @@ namespace Clinica.Infrastructure.Migrations
                     RETURN NEW;
                 END;
                 $$;
+                -- A edição da jornada participa da mesma fila de reservas. O portal
+                -- só precisa ler Profissionais: FOR SHARE exigiria UPDATE nessa tabela.
+                CREATE FUNCTION clinica_serializar_jornada() RETURNS trigger
+                LANGUAGE plpgsql AS $$
+                BEGIN
+                    PERFORM pg_advisory_xact_lock(17206, NEW."Id");
+                    RETURN NEW;
+                END;
+                $$;
+                CREATE TRIGGER "TR_Jornada_Profissional"
+                    BEFORE UPDATE OF "AgendaProtegida", "DiasDeAtendimento", "AtendeDas", "AtendeAte", "DuracaoPadraoMinutos"
+                    ON "Profissionais" FOR EACH ROW EXECUTE FUNCTION clinica_serializar_jornada();
                 CREATE TRIGGER "TR_Agenda_Protegida" BEFORE INSERT OR UPDATE ON "Agendamentos"
                     FOR EACH ROW EXECUTE FUNCTION clinica_validar_agenda_protegida();
                 """);
@@ -83,6 +95,8 @@ namespace Clinica.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
+                DROP TRIGGER "TR_Jornada_Profissional" ON "Profissionais";
+                DROP FUNCTION clinica_serializar_jornada();
                 DROP TRIGGER "TR_Agenda_Protegida" ON "Agendamentos";
                 DROP FUNCTION clinica_validar_agenda_protegida();
                 """);

@@ -4035,6 +4035,10 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do XAML e o binding morto é silencioso —, e a conferência é `grep` do membro no tipo
   base.
 
+- **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
+  exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
+  conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.
+
 - **Navegação superior permanente nos cinco aplicativos (17/09/2026, pedido da cliente).**
   Substitui a sidebar e o modo imersivo anteriores. Grupos aparecem como abas no topo,
   com as telas do grupo na linha seguinte e quebra de linha em notebooks. Não recolher,
