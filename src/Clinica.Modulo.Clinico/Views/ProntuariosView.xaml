@@ -12,13 +12,9 @@
     <DockPanel Margin="24,20,24,24">
 
         <!-- Cabeçalho do mockup: título + subtítulo, e as duas ações à direita. -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
 
-            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+            <StackPanel Margin="0,0,16,0">
                 <TextBlock Text="Prontuários" Style="{StaticResource H1}" Margin="0,0,0,2" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
                            Text="Evoluções e anamneses dos seus atendimentos — e as sessões que ainda estão sem registro." />
@@ -29,7 +25,7 @@
                                         Converter={StaticResource TextoParaVisibilidade}}" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <WrapPanel Margin="0,10,0,0">
                 <!-- Liga o recorte "só o que falta assinar" — o número vem da carga. -->
                 <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,0"
                               IsChecked="{Binding SoAssinaturasPendentes}"
@@ -45,8 +41,8 @@
                         <TextBlock Text="Novo prontuário" />
                     </StackPanel>
                 </Button>
-            </StackPanel>
-        </Grid>
+            </WrapPanel>
+        </StackPanel>
 
         <!-- Quem decide se aparece é o TEXTO; quem decide a cor é a GRAVIDADE (parcela 62). -->
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"
@@ -67,12 +63,12 @@
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="420" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
                      Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                     ctrl:Ajudantes.Placeholder="Buscar por paciente…" />
+                     AutomationProperties.Name="Buscar prontuários por paciente" ctrl:Ajudantes.Placeholder="Buscar por paciente…" />
             <TextBlock Grid.Column="1" Text="{Binding Resumo}"
                        Style="{StaticResource TextoSuave}"
                        FontSize="{StaticResource Fonte.Legenda}" Margin="12,0,0,0"
@@ -90,12 +86,12 @@
                             CornerRadius="12,12,0,0" Padding="16,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="1.2*" />
-                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="94" />
                                 <ColumnDefinition Width="1*" />
-                                <ColumnDefinition Width="100" />
-                                <ColumnDefinition Width="130" />
-                                <ColumnDefinition Width="230" />
+                                <ColumnDefinition Width="94" />
+                                <ColumnDefinition Width="118" />
+                                <ColumnDefinition Width="110" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Paciente" Style="{StaticResource Rotulo}" Margin="0" />
                             <TextBlock Grid.Column="1" Text="Data" Style="{StaticResource Rotulo}" Margin="0" />
@@ -114,21 +110,21 @@
                                             BorderThickness="0,0,0,1">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="1.2*" />
-                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="94" />
                                                 <ColumnDefinition Width="1*" />
-                                                <ColumnDefinition Width="100" />
-                                                <ColumnDefinition Width="130" />
-                                                <ColumnDefinition Width="230" />
+                                                <ColumnDefinition Width="94" />
+                                                <ColumnDefinition Width="118" />
+                                                <ColumnDefinition Width="110" />
                                             </Grid.ColumnDefinitions>
 
-                                            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                            <DockPanel Grid.Column="0"
                                                         VerticalAlignment="Center" Margin="0,0,12,0">
-                                                <ctrl:Avatar Tamanho="28" Nome="{Binding Paciente}"
+                                                <ctrl:Avatar DockPanel.Dock="Left" Tamanho="28" Nome="{Binding Paciente}"
                                                              VerticalAlignment="Center" Margin="0,0,10,0" />
                                                 <StackPanel VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                     <!-- Na lista da CLÍNICA inteira cada linha diz de quem
                                                          é (a regra do posto — parcela 39): misturar os
                                                          registros de todos sem autoria não se lê. -->
@@ -141,7 +137,7 @@
                                                                                 Converter={StaticResource TextoParaVisibilidade}}" />
                                                     </Border>
                                                 </StackPanel>
-                                            </StackPanel>
+                                            </DockPanel>
 
                                             <TextBlock Grid.Column="1" VerticalAlignment="Center"
                                                        Style="{StaticResource CelulaSuave}"
@@ -151,7 +147,7 @@
                                                        Margin="0,0,12,0"
                                                        Text="{Binding Detalhe}"
                                                        ToolTip="{Binding Detalhe}"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextWrapping="Wrap" />
 
                                             <TextBlock Grid.Column="3" VerticalAlignment="Center"
                                                        Style="{StaticResource CelulaSuave}"
@@ -165,32 +161,32 @@
                                                         Visibility="{Binding TomAviso,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="{Binding SituacaoRotulo}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                 </Border>
                                                 <Border Style="{StaticResource Badge.Sucesso}"
                                                         HorizontalAlignment="Left"
                                                         Visibility="{Binding TomSucesso,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="{Binding SituacaoRotulo}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                 </Border>
                                                 <Border Style="{StaticResource Badge.Info}"
                                                         HorizontalAlignment="Left"
                                                         Visibility="{Binding TomInfo,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="{Binding SituacaoRotulo}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                 </Border>
                                                 <Border Style="{StaticResource Badge.Erro}"
                                                         HorizontalAlignment="Left"
                                                         Visibility="{Binding TomErro,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="{Binding SituacaoRotulo}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                 </Border>
                                             </StackPanel>
 
-                                            <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                            <StackPanel Grid.Column="5"
                                                         HorizontalAlignment="Right" VerticalAlignment="Center">
                                                 <Button Content="Escrever" Margin="0,0,6,0"
                                                         Style="{StaticResource BotaoAcaoGrid}"

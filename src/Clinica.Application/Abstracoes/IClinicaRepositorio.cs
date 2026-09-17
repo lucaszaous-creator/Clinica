@@ -336,6 +336,8 @@ public interface IClinicaRepositorio
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
+    Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+
     /// <summary>
     /// Os horários de UM profissional num período (set/2026), com o profissional carregado —
     /// é dele que sai a duração efetiva de quem não informou duração. Alimenta a busca de

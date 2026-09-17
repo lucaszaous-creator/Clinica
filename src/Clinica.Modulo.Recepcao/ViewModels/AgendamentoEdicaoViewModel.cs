@@ -44,7 +44,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     public ObservableCollection<AvisoDeChoque> Conflitos { get; } = [];
 
     /// <summary>A frase acima da lista de avisos — mora na Application, não no XAML.</summary>
-    public string CabecalhoDosAvisos => AvisosDeChoque.Cabecalho;
+    public string CabecalhoDosAvisos => AvisosDeChoque.CabecalhoPara(Conflitos);
 
     /// <summary>
     /// Carteirinha, cota e consentimento do paciente escolhido — conferidos AQUI, na hora
@@ -396,6 +396,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
 
         Conflitos.Clear();
         OnPropertyChanged(nameof(TemConflito));
+        OnPropertyChanged(nameof(CabecalhoDosAvisos));
 
         if (!TentarMontarDataHora(out var dataHora)) return;
 
@@ -424,6 +425,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         {
             if (geracao == _geracaoConflitos)
                 OnPropertyChanged(nameof(TemConflito));
+        OnPropertyChanged(nameof(CabecalhoDosAvisos));
         }
     }
 

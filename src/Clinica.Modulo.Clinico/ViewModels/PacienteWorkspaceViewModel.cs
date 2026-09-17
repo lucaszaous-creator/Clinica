@@ -157,6 +157,48 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     public PrescricaoInfusaoViewModel Infusoes { get; }
     [ObservableProperty] private int _subAbaDocumentos;
 
+    [RelayCommand]
+    private void EmitirDocumentos()
+    {
+        if (SemPaciente) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "abrir documentos do atendimento");
+            new ConsultaContextualWindow($"Documentos — {Paciente}",
+                new Views.EmissoesNoAtendimentoView { DataContext = Atendimento }, "Voltar ao atendimento")
+                { Width = 760 }.ShowDialog();
+        }
+        catch (Exception ex) { _dialogo.Aviso("Documentos do atendimento", ex.Message); }
+    }
+
+    [RelayCommand]
+    private async Task ConsultarFichaAsync()
+    {
+        if (SemPaciente) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar a ficha clínica");
+            await Capa.CarregarAsync();
+            new ConsultaContextualWindow($"Ficha — {Paciente}",
+                new Views.PacienteView { DataContext = this }, "Voltar ao atendimento").ShowDialog();
+        }
+        catch (Exception ex) { _dialogo.Aviso("Ficha do paciente", ex.Message); }
+    }
+
+    [RelayCommand]
+    private async Task ConsultarExamesAsync()
+    {
+        if (SemPaciente) return;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar exames e anexos");
+            await Anexos.CarregarAsync();
+            new ConsultaContextualWindow($"Exames e anexos — {Paciente}",
+                new Views.AnexosPacienteView { DataContext = Anexos }, "Voltar ao atendimento").ShowDialog();
+        }
+        catch (Exception ex) { _dialogo.Aviso("Exames e anexos", ex.Message); }
+    }
+
     /// <summary>Exames e laudos do PACIENTE, não da sessão. Ver a ViewModel.</summary>
     public AnexosPacienteViewModel Anexos { get; }
 

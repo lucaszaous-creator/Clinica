@@ -53,6 +53,111 @@
     </UserControl.Resources>
 
     <DockPanel Margin="0,4,0,0">
+            <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <!-- A MENSAGEM mora AQUI, no lugar da dica, e não numa faixa no topo
+                         (parcela 79): quem mais a escreve é o Salvar, que está ao lado — e
+                         a faixa lá em cima aparecia longe do clique e empurrava o
+                         formulário (a lição da parcela 65: ninguém tenta três vezes se a
+                         mensagem chegou). Quem decide se APARECE é o texto; quem decide a
+                         COR é a gravidade (parcela 62). Quando presente, ela cobre a dica —
+                         mesmo lugar, fundo opaco. -->
+                    <Grid Grid.Row="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   Text="{Binding DicaRodape}" />
+                        <Border Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                             FallbackValue=Collapsed}">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                        </Border>
+                    </Grid>
+                    <!-- ===== O FIM DA SESSÃO NUM LUGAR SÓ (set/2026, "uma folha, dois lados") =====
+                         Imprimir · Salvar · Finalizar. O Finalizar morava na barra verde do
+                         casco, a 200 px de distância do Salvar — dois lugares para terminar
+                         a mesma sessão. Ele continua sendo o comando do WORKSPACE (grava a
+                         sessão, encerra o horário e conclui — a ordem da parcela 95), e é
+                         achado pelo ancestral: esta seção não tem cópia dele.
+                         "Repetir última conduta" foi para dentro de Modelos… — uma barra só,
+                         e só ação nela (parcela 79). UM primário: o Finalizar quando há
+                         atendimento em curso; o Salvar quando não há — são dois Salvar
+                         com visibilidades opostas porque `Style` não se troca por gatilho. -->
+                    <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,8,0,0">
+                        <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA
+                             DATA desta sessão — sem o recorte, um paciente de quarenta
+                             sessões recebia quarenta. -->
+                        <Button Content="Imprimir a sessão" MinWidth="150"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding ImprimirFichaCommand}"
+                                IsEnabled="{Binding PodeImprimirFicha}"
+                                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
+                        <Button Content="Salvar" Margin="8,0,0,0" MinWidth="120"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding SalvarCommand}"
+                                IsEnabled="{Binding PodeEditarProntuario}"
+                                ToolTip="Grava a sessão no prontuário e continua. Finalizar também grava."
+                                Visibility="{Binding DataContext.EmAtendimento,
+                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                        <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
+                                Command="{Binding SalvarCommand}"
+                                IsEnabled="{Binding PodeEditarProntuario}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.EmAtendimento,
+                                                               RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                                                     Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="{Binding DataContext.RotuloFinalizarSessao, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}" Margin="8,0,0,0" MinWidth="190"
+                                Command="{Binding DataContext.FinalizarSessaoCommand,
+                                          RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                                IsEnabled="{Binding DataContext.PodeConcluirComAcesso,
+                                            RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                                ToolTip="Salva a sessão, encerra o horário e gera a guia. O que segue no balcão é o dinheiro: pacote, insumo e caixa."
+                                Visibility="{Binding DataContext.PodeFinalizarSessao,
+                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
+                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                    </WrapPanel>
+
+                </Grid>
+            </Border>
+
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+        <DockPanel>
+
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button Content="Consultar ficha" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,4"
+                    Command="{Binding DataContext.ConsultarFichaCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                    ToolTip="Dados, sessões e anamnese. Ao fechar, você volta ao texto em edição." />
+            <Button Content="Exames e anexos" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,4"
+                    Command="{Binding DataContext.ConsultarExamesCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                    ToolTip="Consultar exames e anexar resultados sem sair do atendimento." />
+            <Button Content="Receitas, documentos e infusão" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,4"
+                    Command="{Binding DataContext.EmitirDocumentosCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                    ToolTip="Emitir para este paciente e voltar à evolução em edição." />
+        </WrapPanel>
 
             <!-- ============ AVISOS: UMA superfície, uma LINHA por aviso ============
                  (parcela 79 — o print do cliente). Eram faixas `Alerta*` empilhadas, cada
@@ -108,96 +213,6 @@
 
                  Fora do scroll: o Salvar não some quando a folha fica longa. UM primário
                  na tela — o resto é secundário, senão nada é primário. -->
-            <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <!-- A MENSAGEM mora AQUI, no lugar da dica, e não numa faixa no topo
-                         (parcela 79): quem mais a escreve é o Salvar, que está ao lado — e
-                         a faixa lá em cima aparecia longe do clique e empurrava o
-                         formulário (a lição da parcela 65: ninguém tenta três vezes se a
-                         mensagem chegou). Quem decide se APARECE é o texto; quem decide a
-                         COR é a gravidade (parcela 62). Quando presente, ela cobre a dica —
-                         mesmo lugar, fundo opaco. -->
-                    <Grid Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
-                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   Text="{Binding DicaRodape}" />
-                        <Border Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                                             FallbackValue=Collapsed}">
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                        </Border>
-                    </Grid>
-                    <!-- ===== O FIM DA SESSÃO NUM LUGAR SÓ (set/2026, "uma folha, dois lados") =====
-                         Imprimir · Salvar · Finalizar. O Finalizar morava na barra verde do
-                         casco, a 200 px de distância do Salvar — dois lugares para terminar
-                         a mesma sessão. Ele continua sendo o comando do WORKSPACE (grava a
-                         sessão, encerra o horário e conclui — a ordem da parcela 95), e é
-                         achado pelo ancestral: esta seção não tem cópia dele.
-                         "Repetir última conduta" foi para dentro de Modelos… — uma barra só,
-                         e só ação nela (parcela 79). UM primário: o Finalizar quando há
-                         atendimento em curso; o Salvar quando não há — são dois Salvar
-                         com visibilidades opostas porque `Style` não se troca por gatilho. -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA
-                             DATA desta sessão — sem o recorte, um paciente de quarenta
-                             sessões recebia quarenta. -->
-                        <Button Content="Imprimir a sessão" MinWidth="150"
-                                Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding ImprimirFichaCommand}"
-                                IsEnabled="{Binding PodeImprimirFicha}"
-                                ToolTip="Emite o papel desta sessão, com a marca da clínica e o código de conferência, e abre o PDF. Ele fica na lista de documentos do paciente." />
-                        <Button Content="Salvar" Margin="8,0,0,0" MinWidth="120"
-                                Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding SalvarCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}"
-                                ToolTip="Grava a sessão no prontuário e continua. Finalizar também grava."
-                                Visibility="{Binding DataContext.EmAtendimento,
-                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
-                        <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
-                                Command="{Binding SalvarCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding DataContext.EmAtendimento,
-                                                               RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
-                                                     Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="{Binding DataContext.RotuloFinalizarSessao, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}" Margin="8,0,0,0" MinWidth="190"
-                                Command="{Binding DataContext.FinalizarSessaoCommand,
-                                          RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
-                                IsEnabled="{Binding DataContext.PodeConcluirComAcesso,
-                                            RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
-                                ToolTip="Salva a sessão, encerra o horário e gera a guia. O que segue no balcão é o dinheiro: pacote, insumo e caixa."
-                                Visibility="{Binding DataContext.PodeFinalizarSessao,
-                                             RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}},
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
-                    </StackPanel>
-
-                </Grid>
-            </Border>
-
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12"
                         Visibility="{Binding TemRegistrosParaVincular, Converter={StaticResource BoolParaVisibilidade}}">
                 <TextBlock Text="Há registros deste dia sem vínculo. Confira o histórico e selecione o registro desta sessão."
@@ -274,30 +289,12 @@
                      `FolhaDaSessaoViewModel`, e é isso que fez a extração não tocar em
                      nenhum binding desta tela.
                      ============================================================ -->
-                <!-- ============================================================
-                     A FOLHA À ESQUERDA, O QUE SE ENTREGA À DIREITA (set/2026, tela 1 do
-                     mockup aprovado "documentos nas quatro telas").
-
-                     ⚠️ A coluna é PERMANENTE, e isso contraria a régua do README ("o que a
-                     pessoa FAZ de vez em quando é botão, não painel aberto") de propósito:
-                     aqui o papel não é o que se faz de vez em quando — é o que a consulta
-                     ENTREGA. Até esta parcela, emitir era sair do atendimento, achar a
-                     tela de documentos, escolher o paciente de novo e voltar, para um ato
-                     que acontece com o paciente ainda na maca.
-
-                     ⚠️ Os 340 px cabem porque a tela do paciente roda em modo IMERSIVO (a
-                     sidebar e a barra de cima recolhem): em 1366 sobram ~1000 px para a
-                     folha depois dela. Sem o modo imersivo esta coluna não caberia, e é
-                     por isso que ela existe AQUI e não na janela "Nova sessão" do
-                     Prontuário, que é modal e estreita.
-                     ============================================================ -->
+                <!-- A evolução ocupa a largura inteira. Emissões abrem sobre o atendimento,
+                     com o mesmo paciente e sem recriar o editor ou descartar seu rascunho. -->
                 <Grid Margin="0,12,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="420" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Style="{StaticResource Card}">
+
+                <Border Style="{StaticResource Card}">
                     <comp:FolhaDaSessaoView Contexto="{Binding LinhaDeContexto}">
                         <comp:FolhaDaSessaoView.Ferramentas>
                             <StackPanel Orientation="Horizontal">
@@ -333,173 +330,8 @@
                     </comp:FolhaDaSessaoView>
                 </Border>
 
-                <!-- ==================== ENTREGAR AGORA ==================== -->
-                <Border Grid.Column="1" Width="340" Margin="12,0,0,0"
-                        Style="{StaticResource Card}"
-                        Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-                    <DockPanel>
 
-                        <TextBlock DockPanel.Dock="Top" Text="ENTREGAR AGORA"
-                                   Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
-                        <Button DockPanel.Dock="Top" Content="Prescrever infusão" Margin="0,0,0,10"
-                                Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding PrescreverInfusaoCommand}"
-                                IsEnabled="{Binding PodePrescreverInfusao}" />
 
-                        <!-- O que JÁ SAIU no dia desta sessão, ancorado embaixo: a
-                             pergunta dele ("eu já dei a receita para ela?") só aparece
-                             depois de a primeira ter saído, e a região inteira SOME
-                             enquanto não saiu nada — cartão vazio dizendo "nenhum
-                             documento hoje" ocuparia a coluna para não informar nada. -->
-                        <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0"
-                                    Visibility="{Binding TemFolhasDeHoje,
-                                                 Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="JÁ SAIU HOJE" Style="{StaticResource Rotulo}"
-                                       Margin="0,0,0,6" />
-                            <!-- Teto e rolagem por dentro: a lista cresce com o DIA, e num
-                                 DockPanel o filho ancorado leva a altura que pede — o que
-                                 sobra (ou não sobra) é para os cartões, que são o assunto
-                                 da coluna. Teto pede a roda de volta para a página (a
-                                 lição da parcela 90): as duas metades andam juntas. -->
-                            <ScrollViewer MaxHeight="132" VerticalScrollBarVisibility="Auto"
-                                          ctrl:Ajudantes.RodaDaPagina="True">
-                            <ItemsControl ItemsSource="{Binding SaiuHoje}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:FolhaDeHoje}">
-                                        <Grid Margin="0,0,0,6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Style="{StaticResource TextoSuave}"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           TextTrimming="CharacterEllipsis">
-                                                    <Run Text="{Binding Numero, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Detalhe, Mode=OneWay}" />
-                                                </TextBlock>
-                                            </StackPanel>
-
-                                            <!-- Segunda via do CANCELADO não existe: o
-                                                 papel foi desdito, e reimprimi-lo é
-                                                 entregar de novo o que a clínica anulou. -->
-                                            <Button Grid.Column="1" Content="2ª via" MinWidth="64"
-                                                    VerticalAlignment="Center" Margin="8,0,0,0"
-                                                    Command="{Binding DataContext.SegundaViaCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <Button.Style>
-                                                    <Style TargetType="Button"
-                                                           BasedOn="{StaticResource BotaoAcaoGridSecundario}">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Cancelado}" Value="True">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            </ScrollViewer>
-                        </StackPanel>
-
-                        <!-- A pasta clínica inteira é a OUTRA aba: repetir aqui os
-                             quarenta papéis do paciente daria duas respostas para a mesma
-                             pergunta (parcela 37). -->
-                        <TextBlock DockPanel.Dock="Bottom" Margin="0,10,0,0"
-                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="Todos os papéis dele estão na seção Prescrições e documentos." />
-
-                        <!-- Os cartões. Cada um diz O QUE JÁ VEM PREENCHIDO — e a frase é
-                             de acento quando aquilo foi COPIADO da sessão, cinza quando o
-                             papel abre em branco: as duas coisas são resposta, e cartão
-                             mudo faria a pessoa clicar para descobrir. -->
-                        <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                      ctrl:Ajudantes.RodaDaPagina="True">
-                        <ItemsControl ItemsSource="{Binding Entregar}" VerticalAlignment="Top">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type md:FolhaParaEntregar}">
-                                    <Border Margin="0,0,0,6" Padding="11,8" CornerRadius="6"
-                                            Background="{StaticResource Brush.Superficie}"
-                                            BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="3" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- O traço à esquerda repete a decisão da
-                                                 frase: acento quando o papel herdou algo,
-                                                 apagado quando ele abre em branco. -->
-                                            <Border Grid.Column="0" CornerRadius="2" Margin="-6,-2,9,-2">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background"
-                                                                Value="{StaticResource Brush.Borda}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding VemDaSessao}" Value="True">
-                                                                <Setter Property="Background"
-                                                                        Value="{StaticResource Brush.Acento}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
-
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Heranca}" TextWrapping="Wrap"
-                                                           FontSize="{StaticResource Fonte.Legenda}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock"
-                                                               BasedOn="{StaticResource TextoSuave}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding VemDaSessao}" Value="True">
-                                                                    <Setter Property="Foreground"
-                                                                            Value="{StaticResource Brush.Acento}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-
-                                                <!-- O que falta, quando falta. A metade
-                                                     que EXPLICA: botão apagado sem frase
-                                                     vira "o sistema travou" (parcela 41). -->
-                                                <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Visibility="{Binding Pendencia,
-                                                                        Converter={StaticResource TextoParaVisibilidade},
-                                                                        FallbackValue=Collapsed}" />
-                                            </StackPanel>
-
-                                            <Button Grid.Column="2" Content="Emitir" MinWidth="70"
-                                                    VerticalAlignment="Center" Margin="9,0,0,0"
-                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    IsEnabled="{Binding PodeEmitir}"
-                                                    Command="{Binding DataContext.EntregarFolhaCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
                 </Grid>
             </TabItem>
 
@@ -524,7 +356,7 @@
                              ÚLTIMO filho, e sobre a REGIÃO cujo vazio ela explica: a LISTA,
                              nunca a aba inteira (parcelas 50, 58 e 79). -->
                         <Grid Grid.IsSharedSizeScope="True">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" ctrl:Ajudantes.RodaDaPagina="True">
                                 <ItemsControl ItemsSource="{Binding Anteriores}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -628,6 +460,8 @@
                 </Border>
             </TabItem>
         </TabControl>
+        </DockPanel>
+        </ScrollViewer>
     </DockPanel>
 
 </UserControl>

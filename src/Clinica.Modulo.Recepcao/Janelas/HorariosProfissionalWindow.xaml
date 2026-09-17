@@ -1,0 +1,42 @@
+<Window x:Class="Clinica.Recepcao.Janelas.HorariosProfissionalWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Horários e travas" Width="720" Height="630" MinWidth="560" MinHeight="450"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}">
+    <DockPanel Margin="24">
+        <TextBlock DockPanel.Dock="Top" Text="Horários e travas" Style="{StaticResource DialogoTitulo}" />
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <Button DockPanel.Dock="Right" Content="Salvar configuração" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeSalvar}" Margin="8,0,0,0" />
+            <Button DockPanel.Dock="Right" Content="Fechar" IsCancel="True" Style="{StaticResource BotaoSecundario}" />
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Margin="0,0,12,0" AutomationProperties.LiveSetting="Polite">
+                <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                    <Style.Triggers><DataTrigger Binding="{Binding MensagemEhErro}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Erro}" /></DataTrigger></Style.Triggers>
+                </Style></TextBlock.Style>
+            </TextBlock>
+        </DockPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}">
+                <TextBlock Text="Configure a agenda de cada profissional. A alteração vale em todos os computadores." TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,0,0,16" />
+                <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Atualizar lista" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                    <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}" DisplayMemberPath="Nome" AutomationProperties.Name="Profissional para configurar a agenda" />
+                </DockPanel>
+                <CheckBox Content="Ativar trava para este profissional" IsChecked="{Binding AgendaProtegida}" Margin="0,20,0,4" />
+                <TextBlock Text="A trava impede dois atendimentos simultâneos deste profissional, marcação fora da jornada e nos períodos bloqueados. Encaixe também respeita a trava." TextWrapping="Wrap" Style="{StaticResource TextoSuave}" />
+                <TextBlock Text="Dias de atendimento" Style="{StaticResource Rotulo}" Margin="0,20,0,8" />
+                <ItemsControl ItemsSource="{Binding Dias}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Nome}" IsChecked="{Binding Selecionado}" Margin="0,0,18,8" /></DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="Nenhum dia selecionado = todos os dias." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                <WrapPanel Margin="0,16,0,0">
+                    <StackPanel Margin="0,0,16,12" Width="140"><TextBlock Text="Das (HH:mm)" Style="{StaticResource Rotulo}" /><TextBox Text="{Binding Das}" AutomationProperties.Name="Início do expediente" MaxLength="5" /></StackPanel>
+                    <StackPanel Margin="0,0,16,12" Width="140"><TextBlock Text="Até (HH:mm)" Style="{StaticResource Rotulo}" /><TextBox Text="{Binding Ate}" AutomationProperties.Name="Fim do expediente" MaxLength="5" /></StackPanel>
+                </WrapPanel>
+                <TextBlock Text="Das e Até vazios = sem limite de expediente. A duração de cada atendimento também é considerada ao verificar conflitos." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                <TextBlock Text="Consultas já marcadas continuam na agenda. Confira e remarque eventuais conflitos anteriores com os pacientes." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,16,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

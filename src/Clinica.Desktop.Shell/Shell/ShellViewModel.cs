@@ -23,7 +23,7 @@ namespace Clinica.Desktop.Shell;
 public sealed record ResultadoPesquisa(ItemMenuModulo Item, int Aba, string Rotulo, string? Caminho);
 
 /// <summary>
-/// Navegação do shell: monta a sidebar a partir dos módulos carregados e troca a
+/// Navegação do shell: monta a navegação a partir dos módulos carregados e troca a
 /// tela ativa. Equivale ao MainViewModel do faturamento, mas sem conhecer nenhuma
 /// tela — quem resolve a View é o próprio módulo (<see cref="IModuloApp.CriarTela"/>).
 /// </summary>
@@ -42,6 +42,7 @@ public sealed partial class ShellViewModel : ObservableObject
     public string Titulo { get; }
 
     public IReadOnlyList<GrupoMenuModulo> Grupos { get; }
+    [ObservableProperty] private GrupoMenuModulo? _grupoSelecionado;
 
     /// <summary>Todos os itens, em ordem — usado para achar o item por chave.</summary>
     public ObservableCollection<ItemMenuModulo> Itens { get; } = [];
@@ -61,53 +62,6 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Data de hoje na barra superior — a mesma referência de todas as telas.</summary>
     public string DataHoje { get; } = DateTime.Today.ToString("ddd, dd/MM/yyyy");
-
-    // ===== Sidebar fixa do design system (era o rail + painel da parcela 55) =====
-
-    /// <summary>
-    /// Sidebar recolhida (240 ↔ 56px, só ícones). A pedido do cliente a suíte voltou à
-    /// sidebar FIXA do mockup — grupos em caixa alta, item com ícone e rótulo, ativo com
-    /// fundo azul-suave e barra de 3px — no lugar do rail com painel por categoria. O
-    /// custo conhecido ficou documentado onde a lista é montada: no Gerente Geral a
-    /// lista completa é mais alta que a janela e ROLA; a busca global (Ctrl+F) continua
-    /// sendo a rota direta de quem já sabe o nome da tela.
-    /// </summary>
-    [ObservableProperty]
-    private bool _menuRecolhido;
-
-    /// <summary>
-    /// Modo IMERSIVO: a sidebar e a barra de cima somem, e o app inteiro é a tela aberta
-    /// (set/2026, o mockup <c>docs/mockups/atendimento-sem-barras-cinco.html</c>, modelo 3,
-    /// aprovado pela direção — "some toda barra vertical, inclusive a tira de ícones do
-    /// shell"). Hoje só a tela do paciente o pede, por <c>ItemMenuModulo.Imersivo</c>.
-    ///
-    /// ⚠️ <b>Quem some é a <c>Visibility</c>, nunca a <c>Width</c>.</b> A sidebar já anima
-    /// a largura no Ctrl+B, e animação VENCE valor local e de estilo: um terceiro estado
-    /// escrito na mesma propriedade brigaria com o Storyboard, e o desfecho só apareceria
-    /// na tela montada. <c>Visibility</c> é ortogonal à animação, e a coluna
-    /// <c>Width="Auto"</c> da raiz encolhe para zero sozinha quando o filho está
-    /// <c>Collapsed</c>.
-    ///
-    /// ⚠️ <b>Quem desliga é a NAVEGAÇÃO</b> (<see cref="Navegar(ItemMenuModulo?, int)"/>),
-    /// que relê a marca a cada destino: sair da tela do paciente devolve as barras sem
-    /// ninguém precisar lembrar. Ctrl+B e Ctrl+F também as devolvem — sem isso os dois
-    /// atalhos ficariam mudos justamente na tela em que a pessoa passa o dia.
-    /// </summary>
-    [ObservableProperty]
-    private bool _imersivo;
-
-    /// <summary>
-    /// Entrar no modo imersivo FECHA o que estava sobreposto — o pop-up do sino e a
-    /// paleta da pesquisa. Os dois são ancorados em botões da barra de cima, que acaba
-    /// de sumir: ficariam flutuando sobre a tela do paciente sem âncora e sem o botão
-    /// que os fecha. Sair do modo não reabre nada — ninguém pediu de novo.
-    /// </summary>
-    partial void OnImersivoChanged(bool value)
-    {
-        if (!value) return;
-        AvisosAbertos = false;
-        PesquisaAberta = false;
-    }
 
     // ===== Pesquisa global =====
 
@@ -149,7 +103,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // Sem sessão (teste, ou app aberto por um caminho que não passa pelo login) o
         // menu aparece inteiro: filtrar por uma permissão que ninguém tem esconderia
-        // tudo, e sidebar vazia parece defeito, não segurança.
+        // tudo, e navegação vazia parece defeito, não segurança.
         var sessao = servicos.GetService<SessaoUsuario>();
         UsuarioRotulo = sessao?.Rotulo ?? Environment.UserName;
 
@@ -165,7 +119,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 // Dois módulos podem publicar a MESMA chave quando a tela subiu para o
                 // shell e pertence aos dois (a Sala de infusão, parcela 48: a enfermagem
                 // alcança pela Recepção, o profissional pelo Consultório). No Gerente, que
-                // carrega todos, isso duplicaria a linha na sidebar — e item repetido faz
+                // carrega todos, isso duplicaria a linha na navegação — e item repetido faz
                 // a pessoa achar que são telas diferentes e clicar nas duas para descobrir
                 // que não são. Vence o PRIMEIRO módulo carregado, que é a ordem do dia de
                 // trabalho.
@@ -180,7 +134,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // agrupar por módulo daria cabeçalhos que explicam a arquitetura em vez do
         // trabalho. A ordem dos grupos é a do enum; dentro do grupo, a ordem em que os
         // módulos foram carregados — que já é a ordem do dia de trabalho.
-        // `Itens` guarda TUDO o que é navegável; a sidebar mostra só o que não é oculto.
+        // `Itens` guarda TUDO o que é navegável; a navegação mostra só o que não é oculto.
         // A separação é o que permite uma tela ser destino de NavegacaoSuite sem ocupar
         // linha no menu — ver ItemMenuModulo.Oculto.
         //
@@ -265,14 +219,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>
     /// Navega por CHAVE, atendendo <see cref="NavegacaoSuite"/>. Devolve false quando o
-    /// destino não está na sidebar desta pessoa — módulo não carregado neste executável,
+    /// destino não está na navegação desta pessoa — módulo não carregado neste executável,
     /// ou permissão que ela não tem.
     ///
     /// ⚠️ A chave de uma tela que virou SUB-ABA continua valendo, e é isto que a faz
     /// valer: procura-se primeiro um item que a contenha, e abre-se o item pai já na aba
     /// certa. Sem este caminho, consolidar telas em abas quebraria toda a navegação entre
     /// módulos — o painel da direção leva ao "fechamento-caixa" por chave, e essa chave
-    /// deixou de ser um item da sidebar para virar a 2ª aba de "Caixa".
+    /// deixou de ser um item da navegação para virar a 2ª aba de "Caixa".
     /// </summary>
     private bool IrPara(string chave, bool apenasConferir)
     {
@@ -302,41 +256,18 @@ public sealed partial class ShellViewModel : ObservableObject
     public void Navegar(ItemMenuModulo? item, int abaInicial)
     {
         if (item is null) return;
-
-        // O modo imersivo é do DESTINO, e por isso é relido a cada navegação: ir para
-        // qualquer item comum devolve a sidebar e a barra de cima sozinho. Guardá-lo como
-        // estado de quem entrou obrigaria toda saída a lembrar de desligá-lo — e a que
-        // esquecesse deixaria o app sem menu, sem sintoma nenhum.
-        //
-        // ⚠️ Fica ANTES do atalho de "mesmo item, só troca de aba": quem devolveu as
-        // barras com Ctrl+B e clicou de novo no mesmo destino está pedindo aquela tela de
-        // volta, e sair pelo atalho deixaria o modo pela metade.
-        Imersivo = item.Imersivo;
+        GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(item)) ?? GrupoSelecionado;
 
         // Clicar de novo no item já aberto só troca de aba — remontar a tela do zero
         // jogaria fora o que a pessoa tivesse digitado nas outras abas.
-        if (ReferenceEquals(_itemAtual, item) && TelaAtual is TelaComAbas jaAberta)
+        if (ReferenceEquals(_itemAtual, item) && TelaAtual is not null)
         {
-            jaAberta.Selecionar(abaInicial);
+            if (TelaAtual is TelaComAbas jaAberta) jaAberta.Selecionar(abaInicial);
             return;
         }
 
         _itemAtual = item;
         foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
-
-        // O acordeão (set/2026): o grupo do destino abre e os outros fecham — é isso que
-        // faz a sidebar do Gerente caber na janela. Só quando o destino É linha de
-        // algum grupo: navegar para uma tela OCULTA (a do paciente em foco, aberta pelo
-        // "Atender") não pode fechar tudo e deixar a sidebar sem um item à vista, então
-        // ali os grupos ficam como estavam.
-        if (Grupos.Any(g => g.Itens.Contains(item)))
-        {
-            foreach (var g in Grupos)
-            {
-                g.TemAtivo = g.Itens.Contains(item);
-                g.Aberto = g.TemAtivo;
-            }
-        }
 
         var tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
@@ -409,28 +340,6 @@ public sealed partial class ShellViewModel : ObservableObject
         if (AvisosAbertos) Snackbar?.MarcarLidos();
     }
 
-    // ===== Sidebar =====
-
-    /// <summary>
-    /// Ctrl+B: recolhe a sidebar para 56px (só ícones) ou a expande de volta.
-    ///
-    /// ⚠️ No modo IMERSIVO ele faz outra coisa — DEVOLVE as barras —, e não é
-    /// preciosismo: ali a sidebar está <c>Collapsed</c>, então alternar os 240↔56px não
-    /// mudaria nada na tela e o atalho ficaria mudo (o botão que não faz nada da parcela
-    /// 41, vestido de teclado). O segundo Ctrl+B, com as barras de volta, alterna como
-    /// sempre.
-    /// </summary>
-    [RelayCommand]
-    private void AlternarMenu()
-    {
-        if (Imersivo)
-        {
-            Imersivo = false;
-            return;
-        }
-        MenuRecolhido = !MenuRecolhido;
-    }
-
     /// <summary>
     /// Esc: fecha o que estiver sobreposto à tela — o pop-up do sino e a paleta da
     /// pesquisa. Sem destino, não faz nada (Esc que "faz algo" invisível confunde).
@@ -444,7 +353,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>
     /// Pesquisa global: paleta de seções. Digitar e dar Enter navega para a primeira —
-    /// num app de 15 telas, achar pelo nome é mais rápido do que caçar na sidebar,
+    /// num app de 15 telas, achar pelo nome é mais rápido do que caçar na navegação,
     /// sobretudo com ela recolhida.
     ///
     /// Só seções, de propósito: buscar paciente daqui exigiria o shell saber qual tela
@@ -473,7 +382,7 @@ public sealed partial class ShellViewModel : ObservableObject
             }
 
             // ⚠️ A busca tem de enxergar DENTRO das abas. Ao consolidar 46 itens em 23
-            // (parcela 55), "Fechamento de caixa" deixou de ser linha da sidebar e virou a
+            // (parcela 55), "Fechamento de caixa" deixou de ser linha da navegação e virou a
             // 2ª aba de "Caixa" — e uma consolidação que tira telas da busca troca um
             // problema de rolagem por um problema pior, o de não achar mais o que se
             // achava. O resultado diz o caminho ("Caixa › Fechamento"), senão a pessoa

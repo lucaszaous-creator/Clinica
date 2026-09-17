@@ -1524,6 +1524,18 @@ public sealed partial class FilaViewModel : ObservableObject
     /// Falha NÃO passa calada nem vira "tudo certo": vira o terceiro estado escrito.
     /// </summary>
     [RelayCommand]
+    private async Task AbrirFichaAsync(CartaoFila? cartao)
+        => await ExecutarAsync(cartao, async c =>
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente");
+            var vm = new PacientesViewModel(_escopos, _snackbar, _dialogo)
+                { MostrandoFicha = true, MostrarVoltar = false };
+            await vm.Ficha.AbrirAsync(c.PacienteId);
+            new ConsultaContextualWindow($"Ficha — {c.Paciente}",
+                new Views.PacientesView { DataContext = vm }, "Voltar à fila do dia").ShowDialog();
+        }, "ficha do paciente");
+
+    [RelayCommand]
     private async Task ConferirElegibilidadeAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {

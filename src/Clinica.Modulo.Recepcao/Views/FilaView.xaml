@@ -257,7 +257,7 @@
 
             <StackPanel Grid.Column="1" HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="◀" Command="{Binding DiaAnteriorCommand}"
+                    <Button Content="◀" AutomationProperties.Name="Dia anterior" Command="{Binding DiaAnteriorCommand}"
                             Style="{StaticResource BotaoSecundario}" MinWidth="40" />
                     <Border Background="{StaticResource Brush.Superficie}"
                             BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
@@ -277,7 +277,7 @@
                             </Border>
                         </StackPanel>
                     </Border>
-                    <Button Content="▶" Command="{Binding ProximoDiaCommand}"
+                    <Button Content="▶" AutomationProperties.Name="Próximo dia" Command="{Binding ProximoDiaCommand}"
                             Style="{StaticResource BotaoSecundario}" MinWidth="40" />
                     <Button Content="Hoje" Command="{Binding HojeCommand}"
                             Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="70" />
@@ -405,7 +405,7 @@
                         <!-- PACIENTE: o nome grande, a linha de contexto (modalidade ·
                              convênio · pacote N/M) e os SELOS — no máximo três, por ordem
                              fixa (`SelosDaFila`): o que impede, o que cobra agora, o estado. -->
-                        <DataGridTemplateColumn Header="PACIENTE" Width="*">
+                        <DataGridTemplateColumn Header="PACIENTE" Width="2*" MinWidth="210">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <!-- O avatar à esquerda (foto quando há; iniciais na cor da
@@ -426,13 +426,13 @@
                                                 <TextBlock Text="Encaixe" />
                                             </Border>
                                             <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextWrapping="Wrap" />
                                         </DockPanel>
-                                        <TextBlock Text="{Binding ContextoDaLista}" Margin="0,2,0,0"
+                                        <TextBlock Text="{Binding ContextoDaLista}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" />
                                         <!-- O recado do balcão: só quando há — linha vazia em toda
                                              linha desalinharia a tabela inteira. -->
-                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
+                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" FontStyle="Italic"
                                                    ToolTip="Recado escrito pela recepção neste horário"
                                                    Visibility="{Binding Observacoes,
@@ -469,11 +469,11 @@
                         </DataGridTemplateColumn>
 
                         <!-- PROFISSIONAL e a sala — o "compromisso" do print. -->
-                        <DataGridTemplateColumn Header="PROFISSIONAL" Width="170">
+                        <DataGridTemplateColumn Header="PROFISSIONAL" Width="*" MinWidth="120">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Profissional}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Profissional}" TextWrapping="Wrap" />
                                         <!-- Só quando HÁ sala. Elemento amarrado a texto
                                              opcional leva `Visibility`: a clínica não usa
                                              salas, e "sala —" saía em toda linha. -->
@@ -492,7 +492,7 @@
                         <!-- STATUS: a etapa em uma palavra, e a hora do fato embaixo. As
                              cores são as das raias de antes (e as do Meu dia): dois
                              leitores da mesma agenda, um vocabulário. -->
-                        <DataGridTemplateColumn Header="STATUS" Width="220">
+                        <DataGridTemplateColumn Header="STATUS" Width="160">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
@@ -625,7 +625,7 @@
                                              quem tem `ColherAssinaturaPaciente` — e agora a porta
                                              para a grade, que é leitura. Quem decide item a item
                                              é o próprio menu. -->
-                                        <Button Content="⋯" Width="34"
+                                        <Button Content="⋯" Width="40" AutomationProperties.Name="Mais ações do paciente"
                                                 Style="{StaticResource BotaoAcaoGridSecundario}"
                                                 ToolTip="Termo do procedimento, fechar sessão, voltar etapa, falta, cancelamento e a grade"
                                                 Click="AoAbrirMenuDaLinha" />

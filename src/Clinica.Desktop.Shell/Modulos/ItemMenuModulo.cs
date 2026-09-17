@@ -1,6 +1,5 @@
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 
 namespace Clinica.Desktop.Shell.Modulos;
 
@@ -204,46 +203,11 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public IReadOnlyList<AbaMenu> Abas { get; init; } = [];
 
-    /// <summary>
-    /// Enquanto esta tela está aberta, o app é ELA: o shell recolhe a sidebar e a barra
-    /// de cima (set/2026, o mockup <c>docs/mockups/atendimento-sem-barras-cinco.html</c>,
-    /// modelo 3, aprovado pela direção — "some toda barra vertical, inclusive a tira de
-    /// ícones do shell").
-    ///
-    /// ⚠️ <b>Item imersivo declara as PORTAS DE SAÍDA dentro da própria tela</b>, porque
-    /// as do shell somem junto: a do paciente tem o "← Meu dia" e o "Trocar paciente" no
-    /// cabeçalho, e o estado vazio dela tem o "Ir para Pacientes" (o cabeçalho colapsa
-    /// quando não há ninguém escolhido). Tela imersiva sem saída própria é a pessoa
-    /// trancada no app — o oposto do que o desenho quer.
-    ///
-    /// ⚠️ Quem DESLIGA o modo é a navegação: <c>ShellViewModel.Navegar</c> lê esta marca
-    /// a cada destino, então ir para qualquer outro item devolve as duas barras sozinho.
-    /// Ctrl+B e Ctrl+F também as devolvem — atalho que não faz nada numa tela é o defeito
-    /// da parcela 41 vestido de teclado.
-    /// </summary>
-    public bool Imersivo { get; init; }
-
     [ObservableProperty]
     private bool _estaAtivo;
 }
 
-/// <summary>
-/// Um GRUPO da sidebar — e, desde set/2026, um grupo que ABRE E FECHA.
-///
-/// Por que ele abre e fecha: o Gerente Geral carrega os quatro módulos e a sidebar fixa
-/// de 240 px lista 25 itens em cinco grupos — ~1290 px de menu para 658 px de janela, com
-/// FINANCEIRO e INTELIGÊNCIA abaixo da dobra (medido no mockup
-/// <c>docs/mockups/sidebar-tres-desenhos.html</c>, desenho A, aprovado pela direção). Com
-/// um grupo aberto por vez a lista cabe em qualquer app sem rolar, e o cabeçalho
-/// fechado diz quantos itens tem — é a pista que dispensa abrir para lembrar onde mora
-/// "Estoque".
-///
-/// A regra de quem abre: NAVEGAR abre o grupo do destino e fecha os outros (o
-/// acordeão); CLICAR no cabeçalho só alterna aquele grupo, sem mexer nos vizinhos — quem
-/// abriu FINANCEIRO para olhar não quer que GESTÃO se feche por isso. Com a sidebar
-/// RECOLHIDA (Ctrl+B) todos os itens aparecem como ícone, como sempre: 56 px não têm
-/// onde escrever um cabeçalho, e cabeçalho que não se lê não se clica.
-/// </summary>
+/// <summary>Grupo de abas da navegação superior. A seleção não troca a tela aberta.</summary>
 public sealed partial class GrupoMenuModulo : ObservableObject
 {
     public GrupoMenuModulo(GrupoSidebar grupo, IReadOnlyList<ItemMenuModulo> itens)
@@ -261,21 +225,4 @@ public sealed partial class GrupoMenuModulo : ObservableObject
     public string Glifo { get; }
     public IReadOnlyList<ItemMenuModulo> Itens { get; }
 
-    /// <summary>Quantos itens o grupo tem — o cabeçalho FECHADO escreve este número.</summary>
-    public int Quantidade => Itens.Count;
-
-    /// <summary>O corpo do grupo está à vista. Quem decide é <c>ShellViewModel.Navegar</c> e o clique no cabeçalho.</summary>
-    [ObservableProperty]
-    private bool _aberto;
-
-    /// <summary>
-    /// O item ativo mora aqui. Serve ao cabeçalho FECHADO: quem fechou o grupo da tela
-    /// aberta precisa continuar vendo, na cor do ativo, em que parte do sistema está.
-    /// </summary>
-    [ObservableProperty]
-    private bool _temAtivo;
-
-    /// <summary>Clique no cabeçalho: alterna SÓ este grupo.</summary>
-    [RelayCommand]
-    private void Alternar() => Aberto = !Aberto;
 }

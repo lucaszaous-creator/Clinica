@@ -70,6 +70,8 @@ public partial class FilaView : UserControl
             if (menu.Items.Count > 0 && menu.Items[^1] is not Separator) menu.Items.Add(new Separator());
         }
 
+        Acrescentar("Ficha do paciente…", vm.AbrirFichaCommand, vm.PodeVerFicha);
+
         // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o SELO da
         // linha diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
         // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).

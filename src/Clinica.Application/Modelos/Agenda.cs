@@ -23,7 +23,7 @@ public enum RecursoAgenda
 
     /// <summary>
     /// Fora da jornada declarada do profissional (set/2026). Não há outro paciente do
-    /// outro lado — como o bloqueio —, e o encaixe passa por cima, como no bloqueio.
+    /// outro lado. Uma trava ativa também se aplica ao encaixe.
     /// </summary>
     Expediente
 }
@@ -42,7 +42,8 @@ public sealed record ConflitoAgenda(
     int AgendamentoId,
     string Descricao,
     DateTime Inicio,
-    DateTime Fim);
+    DateTime Fim,
+    bool ImpedeMarcar = false);
 
 /// <summary>Quanto um profissional tem na agenda de um dia.</summary>
 public sealed record OcupacaoProfissional(

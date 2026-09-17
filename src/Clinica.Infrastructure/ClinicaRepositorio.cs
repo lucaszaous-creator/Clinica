@@ -14,6 +14,15 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public ClinicaRepositorio(ClinicaDbContext db) => _db = db;
 
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(
+        DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional).Include(a => a.Paciente).Include(a => a.Sala)
+            .Where(a => (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)
+                && a.DataHora < fim
+                && a.DataHora.AddMinutes(a.DuracaoMinutos ?? (a.Profissional == null ? null : a.Profissional.DuracaoPadraoMinutos) ?? Agendamento.DuracaoPadraoMinutos) > inicio)
+            .ToListAsync(ct);
+
     public async Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
         Func<Task<int>> executar, CancellationToken ct = default)
     {
@@ -3278,6 +3287,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         }
         catch (DbUpdateException ex) when (Traduzir(ex) is { } amigavel)
         {
+            // A transação foi desfeita. Uma série pode continuar no mesmo contexto:
+            // não deixe o horário recusado (nem suas guias) pendente para o próximo Save.
+            if (ex.GetBaseException() is Npgsql.PostgresException { ConstraintName: "CK_Agenda_Protegida" })
+                _db.ChangeTracker.Clear();
             throw new InvalidOperationException(amigavel, ex);
         }
     }
@@ -3300,6 +3313,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
         if (ex.GetBaseException() is Npgsql.PostgresException pg)
         {
+            if (pg.ConstraintName == "CK_Agenda_Protegida")
+                return pg.MessageText;
             if (pg.SqlState == "23505")                      // unique_violation
                 return MensagensDeErro.Duplicidade(pg.ConstraintName);
 

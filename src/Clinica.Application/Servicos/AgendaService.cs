@@ -108,10 +108,7 @@ public sealed class AgendaService
                 "Escolha quem vai atender. Sem profissional o horário não aparece na agenda "
                 + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
 
-        // ⚠️ NENHUM CHOQUE RECUSA — a agenda AVISA e registra (set/2026, decisão da
-        // direção). Ver a nota inteira em <see cref="ConflitosAsync"/>: quem lê o choque
-        // é a TELA, a cada tecla, e quem decide é quem está no balcão com o paciente na
-        // frente. Aqui não há conferência nenhuma, de propósito.
+        await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct);
 
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         var ag = new Agendamento
@@ -221,14 +218,11 @@ public sealed class AgendaService
         if (novaDuracao is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
 
-        // ⚠️ REMARCAR NÃO CONFERE CHOQUE — nada mais recusa por sobreposição (set/2026,
-        // decisão da direção; ver <see cref="ConflitosAsync"/>). O que aqui existia era a
-        // conferência condicional que a clínica derrubou por outro caminho, duas semanas
-        // antes: corrigir a especialidade de um horário devolvia *"Dr. … já atende SUELLI
-        // às 14:01. Escolha outro horário ou marque como encaixe"* com o médico ainda não
-        // tendo atendido ninguém — o encaixe era a sessão que de fato aconteceu, e a única
-        // forma de obedecer seria cancelá-la. A regra nova torna aquele corredor sem saída
-        // impossível de existir por construção, em vez de por condição.
+        // Corrigir observações de um horário existente não invalida fatos antigos.
+        // Mudança de intervalo/recurso ou reativação precisa respeitar a trava vigente.
+        if (dataHora != ag.DataHora || novoProfissional != ag.ProfissionalId || novaSala != ag.SalaId
+            || novaDuracao != ag.DuracaoMinutos || !ag.OcupaAgenda)
+            await GarantirHorarioPermitidoAsync(dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId, ag.Id, ct);
 
         ag.ProfissionalId = novoProfissional;
         ag.SalaId = novaSala;
@@ -363,37 +357,8 @@ public sealed class AgendaService
     // ==================== Agenda multiprofissional ====================
 
     /// <summary>
-    /// Choques de um horário candidato, por recurso: o profissional já está ocupado, a
-    /// sala já está tomada, o próprio paciente já tem hora marcada nesse intervalo, a
-    /// agenda está fechada (feriado, férias, folga) ou a hora está fora da jornada
-    /// declarada de quem atende.
-    ///
-    /// ⛔ <b>ESTA LEITURA NÃO IMPEDE NADA, e desde set/2026 nenhuma outra impede.</b>
-    /// A direção decidiu que a agenda AVISA e REGISTRA: o horário continua livre para
-    /// marcar mesmo com outro paciente ali. O pedido da clínica foi literal — *"horário
-    /// na agenda livre, não precisa dar choque/bloqueio porque já tem paciente naquele
-    /// mesmo horário"* — e ele descreve como a casa trabalha: na acupuntura o profissional
-    /// deixa o paciente na maca com as agulhas e atende outro, então "o profissional está
-    /// ocupado" nunca foi verdade aqui. O que existia era um <c>GarantirSemChoqueAsync</c>
-    /// que lançava, e a única saída dele era marcar como ENCAIXE — um campo que passou a
-    /// ser preenchido para contornar a recusa em vez de descrever o fato.
-    ///
-    /// ⚠️ O que se ganhou em fluidez se paga em ATENÇÃO, e é por isso que esta leitura
-    /// continua existindo e ficou mais importante, não menos: sem ela, marcar em cima do
-    /// feriado passaria a depender da memória de quem está no balcão. As duas telas de
-    /// marcação a chamam A CADA TECLA (hora, duração, profissional, sala) e escrevem o
-    /// resultado ao lado do botão — <b>é o único lugar onde a clínica ainda vê que há
-    /// alguém naquele horário</b>. Tela de marcação nova nasce chamando isto.
-    ///
-    /// ⚠️ A recusa que FICOU é outra e não é choque: marcar sem dizer <b>quem vai
-    /// atender</b> (parcela 95) continua recusado, porque horário sem dono não aparece na
-    /// agenda de ninguém nem entra no repasse — não é um horário disputado, é um horário
-    /// que o fluxo inteiro não alcança.
-    ///
-    /// Compara por INTERVALO, não por igualdade de horário: marcar 14h30 sobre uma
-    /// sessão de 30 min que começou às 14h é o mesmo choque, e a comparação antiga
-    /// (<see cref="ConflitoAsync"/>, preservada para o faturamento) não pegava.
-    /// A sala só acusa choque quando passa da capacidade dela.
+    /// Conflitos e impedimentos do candidato. A trava é opcional por profissional e
+    /// compartilhada entre postos; encaixe não ignora uma trava ativa.
     /// </summary>
     public async Task<IReadOnlyList<ConflitoAgenda>> ConflitosAsync(
         DateTime dataHora, int? duracaoMinutos = null,
@@ -405,7 +370,7 @@ public sealed class AgendaService
         var fim = dataHora.AddMinutes(
             duracaoMinutos ?? profissional?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos);
 
-        var doDia = (await DoDiaAsync(DateOnly.FromDateTime(dataHora), ct))
+        var doDia = (await _repo.AgendamentosQueSobrepoemAsync(dataHora, fim, ct))
             .Where(a => a.Id != ignorarAgendamentoId && a.OcupaAgenda && a.ColideCom(dataHora, fim))
             .ToList();
 
@@ -450,19 +415,29 @@ public sealed class AgendaService
             .Select(b => new ConflitoAgenda(
                 RecursoAgenda.Bloqueio, b.Id, b.Descricao, b.Inicio, b.Fim)));
 
-        // FORA DO EXPEDIENTE (set/2026): a jornada declarada do profissional. Até aqui quem
-        // atende terça e quinta era marcável nos outros cinco dias, e a única saída era um
-        // bloqueio semanal repetido à mão. É a regra do bloqueio aplicada à rotina: recusa
-        // com a frase que diz quando ele atende, e o ENCAIXE passa — quem assume atender
-        // fora da hora assume por escrito, como no feriado. Sem jornada declarada, nada
-        // muda: `DentroDoExpediente` responde sim para tudo.
+        // A jornada gera aviso ou impedimento conforme a trava do profissional.
         if (profissional is { JornadaDeclarada: true } && !profissional.DentroDoExpediente(dataHora, fim))
             conflitos.Add(new ConflitoAgenda(
                 RecursoAgenda.Expediente, 0,
                 $"{profissional.Rotulo} não atende neste horário — atende {profissional.DescricaoJornada}.",
                 dataHora, fim));
 
-        return conflitos;
+        return conflitos.Select(c => c with
+        {
+            ImpedeMarcar = profissional?.AgendaProtegida == true
+                && c.Recurso is RecursoAgenda.Profissional or RecursoAgenda.Bloqueio or RecursoAgenda.Expediente
+        }).ToList();
+    }
+
+    private async Task GarantirHorarioPermitidoAsync(DateTime inicio, int? duracao, int? profissional,
+        int? sala, int paciente, int? ignorar, CancellationToken ct)
+    {
+        if (profissional is null || (await _repo.ObterProfissionalAsync(profissional.Value, ct))?.AgendaProtegida != true)
+            return;
+        var impedimentos = (await ConflitosAsync(inicio, duracao, profissional, sala, paciente, ignorar, ct))
+            .Where(c => c.ImpedeMarcar).Select(c => c.Descricao).Distinct().ToArray();
+        if (impedimentos.Length > 0)
+            throw new InvalidOperationException("Agenda protegida. Escolha outro horário. " + string.Join(" ", impedimentos));
     }
 
     /// <summary>
