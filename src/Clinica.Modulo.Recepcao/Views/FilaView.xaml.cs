@@ -25,9 +25,33 @@ namespace Clinica.Recepcao.Views;
 /// </summary>
 public partial class FilaView : UserControl
 {
+    private static readonly DependencyPropertyKey ModoCompactoPropertyKey =
+        DependencyProperty.RegisterReadOnly(nameof(ModoCompacto), typeof(bool), typeof(FilaView), new PropertyMetadata(false));
+    public static readonly DependencyProperty ModoCompactoProperty = ModoCompactoPropertyKey.DependencyProperty;
+    public bool ModoCompacto => (bool)GetValue(ModoCompactoProperty);
+
+    // Em notebook o profissional acompanha o paciente na mesma célula. O dado continua
+    // visível e a largura recuperada evita nomes espremidos e ações fora da tabela.
+    private void AjustarColunas()
+    {
+        var compacto = ActualWidth < 1100;
+        SetValue(ModoCompactoPropertyKey, compacto);
+        ColunaProfissional.Visibility = compacto ? Visibility.Collapsed : Visibility.Visible;
+        // Ao ocultar uma coluna o DataGrid pode conservar a distribuição estrela da
+        // largura anterior. Repartir a largura útil evita células encolhidas e vazio à
+        // direita durante a mudança de monitor/tamanho. A barra vertical fica reservada.
+        if (TabelaAgenda.ActualWidth > 0)
+            ColunaPaciente.Width = new DataGridLength(Math.Max(240,
+                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 4
+                - 110 - 140 - 248 - (compacto ? 0 : 180)));
+    }
+
     public FilaView()
     {
         InitializeComponent();
+        SizeChanged += (_, _) => AjustarColunas();
+        TabelaAgenda.SizeChanged += (_, _) => AjustarColunas();
+        Loaded += (_, _) => AjustarColunas();
 
         Loaded += (_, _) => (DataContext as FilaViewModel)?.AoEntrarEmCena();
         Unloaded += (_, _) => (DataContext as FilaViewModel)?.AoSairDeCena();

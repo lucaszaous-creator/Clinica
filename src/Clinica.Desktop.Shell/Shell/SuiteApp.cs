@@ -159,7 +159,8 @@ public static class SuiteApp
 
         var janela = new ShellWindow
         {
-            DataContext = new ShellViewModel(titulo, modulos, host.Services)
+            DataContext = new ShellViewModel(titulo, modulos, host.Services),
+            WindowState = WindowState.Maximized
         };
         app.MainWindow = janela;
         janela.Show();

@@ -6,7 +6,7 @@
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
         Title="Clínica SemDor — Faturamento" Height="680" Width="1280"
         Icon="/Assets/Marca/icone.png"
-        MinHeight="560" MinWidth="960"
+        MinHeight="480" MinWidth="880"
         WindowStartupLocation="CenterScreen" FontFamily="Segoe UI"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         Background="{StaticResource Brush.Fundo}">
@@ -58,37 +58,30 @@
             <views:AcessosView />
         </DataTemplate>
 
-        <!-- Grupos e telas permanecem visíveis no topo. -->
+        <!-- Categorias junto da pesquisa; páginas aparecem ao passar o mouse ou usar o teclado. -->
 
-        <Style x:Key="CategoriaSuperior" TargetType="ListBoxItem">
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="AutomationProperties.Name" Value="{Binding Nome}" />
-            <Setter Property="Template"><Setter.Value>
-                <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="fundo" Background="Transparent" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}" /></Trigger>
-                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="fundo" Property="Background" Value="{StaticResource Brush.Acento.Suave}" /><Setter TargetName="fundo" Property="BorderBrush" Value="{StaticResource Brush.Acento}" /></Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Acento}" /><Setter Property="FontWeight" Value="SemiBold" /><Setter TargetName="fundo" Property="BorderBrush" Value="{StaticResource Brush.Acento}" /></Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value></Setter>
-        </Style>
-        <Style x:Key="TelaSuperior" TargetType="Button" BasedOn="{StaticResource BotaoFantasma}">
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Margin" Value="0,3,4,3" />
-            <Setter Property="MinHeight" Value="34" />
+        <!-- Menu nativo: mouse, toque, Alt/setas e leitor de tela usam a mesma navegação. -->
+        <Style x:Key="TelaSuperior" TargetType="MenuItem">
+            <Setter Property="Header" Value="{Binding Rotulo}" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinHeight" Value="36" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Rotulo}" />
+            <EventSetter Event="Click" Handler="AoEscolherTela" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding EstaAtivo}" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
-                    <Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
                     <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+        <Style x:Key="CategoriaSuperior" TargetType="MenuItem">
+            <Setter Property="Header" Value="{Binding Nome}" />
+            <Setter Property="ItemsSource" Value="{Binding Itens}" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TelaSuperior}" />
+            <Setter Property="Padding" Value="6,10" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Nome}" />
+            <EventSetter Event="MouseEnter" Handler="AoPassarPelaCategoria" />
         </Style>
     </Window.Resources>
 
@@ -104,48 +97,25 @@
             <!-- Topbar -->
             <Border Grid.Row="0" Height="56" Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
-                <DockPanel Margin="16,0">
-                    <Image DockPanel.Dock="Left" Source="/Assets/Marca/logo-cor.png" Width="100" Height="28" Margin="0,0,16,0"
-                           VerticalAlignment="Center" AutomationProperties.Name="Clínica SemDor" ToolTip="{Binding VersaoApp}" />
-
-                    <!-- Ações à direita -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Grid>
-                            <Button Style="{StaticResource BotaoIcone}" Content="&#xEA8F;"
-                                    Command="{Binding NavegarCommand}"
-                                    CommandParameter="{x:Static vm:Secao.Pendencias}"
-                                    ToolTip="Pendências" AutomationProperties.Name="Notificações de pendências" />
-                            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Margin="0,4,0,0" IsHitTestVisible="False">
-                                <Border.Style>
-                                    <Style TargetType="Border" BasedOn="{StaticResource BadgeContador}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding PendenciasBadge}" Value="0">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Text="{Binding PendenciasBadge}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </Border>
-                        </Grid>
-                        <Button Style="{StaticResource BotaoIcone}" Content="&#xE713;"
-                                Command="{Binding NavegarCommand}"
-                                CommandParameter="{x:Static vm:Secao.Parametros}"
-                                ToolTip="Configurações" AutomationProperties.Name="Configurações"
-                                Margin="4,0,0,0" />
-                        <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="28" Margin="12,0,8,0" ToolTip="{Binding UsuarioRotulo}" />
-                        <TextBlock Text="{Binding UsuarioRotulo}" MaxWidth="150" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip="{Binding UsuarioRotulo}" />
-                        <Button Content="Minha senha" Command="{Binding TrocarMinhaSenhaCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" Padding="10,4" VerticalAlignment="Center" />
-                        <Button Content="Trocar usuário" Command="{Binding TrocarUsuarioCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" Padding="10,4" VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <!-- Pesquisa global -->
-                    <Grid VerticalAlignment="Center" Margin="8,0" HorizontalAlignment="Left" MaxWidth="360">
+                <Grid Margin="12,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Source="/Assets/Marca/logo-cor.png" Width="72" Height="28" Margin="0,0,12,0"
+                           VerticalAlignment="Center" AutomationProperties.Name="Clínica SemDor" />
+                    <Menu x:Name="Categorias" Grid.Column="1" ItemsSource="{Binding Grupos}"
+                          ItemContainerStyle="{StaticResource CategoriaSuperior}" Background="Transparent"
+                          VerticalAlignment="Center" KeyboardNavigation.TabNavigation="Once"
+                          AutomationProperties.Name="Navegação principal" />
+                    <Grid Grid.Column="2" VerticalAlignment="Center" Margin="8,0" MinWidth="80" MaxWidth="320">
                         <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
-                                 ctrl:Ajudantes.Placeholder="Pesquisar seção ou paciente…  (Ctrl+F)"
+                                 ctrl:Ajudantes.Placeholder="Pesquisar"
                                  Text="{Binding TextoPesquisaGlobal, UpdateSourceTrigger=PropertyChanged}"
-                                 MinWidth="160">
+                                 MinWidth="100">
                             <TextBox.InputBindings>
                                 <KeyBinding Key="Return" Command="{Binding NavegarResultadoCommand}" />
                                 <KeyBinding Key="Escape" Command="{Binding FecharPesquisaCommand}" />
@@ -198,7 +168,49 @@
                             </Border>
                         </Popup>
                     </Grid>
-                </DockPanel>
+<StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">                        <Grid>
+                            <Button Style="{StaticResource BotaoIcone}" Content="&#xEA8F;"
+                                    Command="{Binding NavegarCommand}"
+                                    CommandParameter="{x:Static vm:Secao.Pendencias}"
+                                    ToolTip="Pendências" AutomationProperties.Name="Notificações de pendências" />
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,4,0,0" IsHitTestVisible="False">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource BadgeContador}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PendenciasBadge}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding PendenciasBadge}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </Border>
+                        </Grid>
+                        <Button Style="{StaticResource BotaoIcone}" Content="&#xE713;"
+                                Command="{Binding NavegarCommand}"
+                                CommandParameter="{x:Static vm:Secao.Parametros}"
+                                ToolTip="Configurações" AutomationProperties.Name="Configurações"
+                                Margin="4,0,0,0" />
+</StackPanel>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                        <Menu Background="Transparent" VerticalAlignment="Center" AutomationProperties.Name="Conta conectada">
+                            <MenuItem Padding="6,8" ToolTip="{Binding UsuarioRotulo}" AutomationProperties.Name="{Binding UsuarioRotulo}">
+                                <MenuItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="24" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding UsuarioRotulo}" MaxWidth="80" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <TextBlock Text=" ▾" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </MenuItem.Header>
+                                <MenuItem Header="Minha senha" Command="{Binding TrocarMinhaSenhaCommand}" Padding="12,8" />
+                            </MenuItem>
+                        </Menu>
+                        <Button Content="Trocar usuário" Command="{Binding TrocarUsuarioCommand}"
+                                Style="{StaticResource BotaoSecundario}" Padding="8,4" FontSize="{StaticResource Fonte.Legenda}"
+                                Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <StackPanel Grid.Row="1">
@@ -207,30 +219,11 @@
                         Visibility="{Binding AtualizacaoDisponivel, Converter={StaticResource BoolParaVisibilidade}}"
                         ToolTip="Aplicar a atualização baixada e reiniciar o sistema" />
 
-            <Border  Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="16,0">
-                <StackPanel>
-                    <ListBox x:Name="Categorias" ItemsSource="{Binding Grupos}" SelectedItem="{Binding GrupoSelecionado}"
-                             ItemContainerStyle="{StaticResource CategoriaSuperior}" Background="Transparent" BorderThickness="0" Padding="0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                             KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Grupos de telas">
-                        <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                        <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Nome}" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
-                    </ListBox>
-                    <ItemsControl ItemsSource="{Binding GrupoSelecionado.Itens}" AutomationProperties.Name="Telas do grupo selecionado">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate><DataTemplate>
-                            <Button Style="{StaticResource TelaSuperior}" Command="{Binding DataContext.NavegarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding Secao}" ToolTip="{Binding Rotulo}">
-                                <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" />
-                            </Button>
-                        </DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
+
             </StackPanel>
 
             <!-- Tela atual -->
-            <ContentControl Grid.Row="2" Content="{Binding CurrentViewModel}" />
+            <ContentControl x:Name="AreaDeTrabalho" Grid.Row="2" Content="{Binding CurrentViewModel}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </Grid>
 
         <!-- ===== Snackbar (sobreposto, centro inferior) ===== -->

@@ -251,13 +251,13 @@
                                                 <TextBlock Text="Encaixe" />
                                             </Border>
                                             <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextWrapping="Wrap" />
                                         </DockPanel>
-                                        <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0"
+                                        <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" />
                                         <!-- O recado do balcão: só quando há — linha vazia em toda
                                              linha desalinharia a tabela inteira. -->
-                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
+                                        <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
                                                    Style="{StaticResource CelulaSuave}" FontStyle="Italic"
                                                    ToolTip="Recado escrito pela recepção neste horário"
                                                    Visibility="{Binding Observacoes,

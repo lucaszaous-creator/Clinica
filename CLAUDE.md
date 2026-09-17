@@ -4039,14 +4039,16 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
   conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.
 
-- **Navegação superior permanente nos cinco aplicativos (17/09/2026, pedido da cliente).**
-  Substitui a sidebar e o modo imersivo anteriores. Grupos aparecem como abas no topo,
-  com as telas do grupo na linha seguinte e quebra de linha em notebooks. Não recolher,
-  esconder nem colocar as opções atrás de um botão de menu. Ctrl+B foca os grupos;
-  Ctrl+F continua focando a pesquisa. Escolher um grupo não recria a tela em edição.
-  Preservar o filtro de permissões, os destinos ocultos e as subabas compostas.
-  Conferir a janela montada: largura ganha não compensa formulário sem altura; o editor
-  clínico rola como uma folha, mantendo Salvar e Finalizar acessíveis no rodapé.
+- **Navegação superior e largura útil nos cinco aplicativos (17/09/2026, correção da cliente).**
+  Categorias ficam na MESMA barra da pesquisa. Subpáginas abrem em menu ao passar o
+  mouse, clicar ou usar o teclado; não há sidebar nem duas réguas permanentes. Ctrl+B
+  foca os grupos e Ctrl+F a pesquisa. Abrir o menu não recria a tela em edição.
+  Preservar permissões, destinos ocultos e abas compostas. O conteúdo ocupa a área útil
+  inteira. Um WrapPanel numa coluna Auto ainda pode receber largura infinita: régua de
+  documentos deve ocupar uma linha de largura finita. Conferir janelas COMPLETAS com
+  dados fictícios, tabelas preenchidas e redimensionamento; não só telas isoladas ou
+  placeholders. A soma das colunas deve reservar também a barra de rolagem vertical.
+  Botões visíveis no visual tree ainda podem estar cortados pelo viewport da tabela.
 
 - **O PAPEL SAI DA SESSÃO SEM SAIR DA SESSÃO — e o documento nascia AVULSO** (set/2026;
   mockup "documentos nas quatro telas" aprovado ANTES de uma linha de WPF, depois de cinco
