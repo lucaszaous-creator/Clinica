@@ -1,5 +1,6 @@
 using Clinica.Application.Servicos;
 using Clinica.Application.Tablet;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
