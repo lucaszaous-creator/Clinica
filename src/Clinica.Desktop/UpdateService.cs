@@ -29,7 +29,7 @@ public static class UpdateService
         {
             try
             {
-                var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+                var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
                 return mgr.IsInstalled ? mgr.CurrentVersion?.ToString() : null;
             }
             catch (Exception ex)
@@ -51,7 +51,7 @@ public static class UpdateService
     {
         try
         {
-            var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+            var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
 
             if (!mgr.IsInstalled)
                 return false;
@@ -99,7 +99,7 @@ public static class UpdateService
 
         try
         {
-            var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+            var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
 
             if (!mgr.IsInstalled)
                 return null;

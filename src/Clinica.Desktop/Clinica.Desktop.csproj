@@ -44,6 +44,9 @@
 
   <!-- Marca (logo SemDor): empacotada como Resource para uso via pack URI na UI. -->
   <ItemGroup>
+    <Compile Include="../Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="Assets\Marca\*.png" />
   </ItemGroup>
 

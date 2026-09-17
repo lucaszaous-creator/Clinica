@@ -124,7 +124,8 @@ public sealed class ProntuarioService
             destino.AtualizadoEm = DateTime.Now;
         }
 
-        destino.ProfissionalId = dados.ProfissionalId;
+        // Abrir/concluir como gerente sem vínculo clínico não apaga o responsável original.
+        destino.ProfissionalId = dados.ProfissionalId ?? destino.ProfissionalId;
 
         // O VÍNCULO COM O HORÁRIO NÃO SE APAGA POR OMISSÃO. Nulo aqui quer dizer "o
         // chamador não sabe", nunca "desligue" — e há tela que edita a evolução sem
