@@ -101,6 +101,7 @@ public sealed partial class AtendimentoTabletTests
         await Preparar();usuario.Perfil=PerfilAcesso.Enfermagem;
         usuario.PermissoesExtras=Permissao.EditarProntuario|Permissao.LancarAtendimento;await db.SaveChangesAsync();
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>new AgendaService(repo,new(repo)).ExigirConclusaoClinicaAsync(horario.Id,usuario.Id));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>Posto.IniciarAsync(sessao,horario.PacienteId,new(Guid.NewGuid(),ModalidadeAtendimento.Consulta),default));
         Assert.Null(horario.FimAtendimentoEm);Assert.Empty(await db.Atendimentos.ToListAsync());
     }
 

@@ -115,6 +115,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
     public Task<ResultadoAvulsoTablet> IniciarAsync(SessaoTablet s,int paciente,IniciarAvulsoTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,p,"TabletAtendimentoAvulso",Permissao.EditarProntuario|Permissao.LancarAtendimento,async u=>
         {
+            if(!PoliticaAtendimentoTablet.PodeAtender(u))throw new UnauthorizedAccessException("Seu perfil registra enfermagem, sem criar atendimento médico.");
             if(!Enum.IsDefined(p.Modalidade)||p.Motivo?.Length>1000)throw new InvalidOperationException("Confira modalidade e observações.");
             var inicio=acesso.Hoje.ToDateTime(TimeOnly.MinValue);var fim=inicio.AddDays(1);
             var existentes=await db.Agendamentos.Where(a=>a.PacienteId==paciente&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim&&a.Status==StatusAgendamento.Agendado).Take(2).ToListAsync(ct);
