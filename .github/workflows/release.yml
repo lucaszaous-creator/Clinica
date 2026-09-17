@@ -197,3 +197,11 @@ jobs:
           if ($canal -ne "win") { $args += @("--channel", $canal) }
           & vpk @args
           if ($LASTEXITCODE -ne 0) { throw "vpk upload falhou" }
+
+  # A entrega aos clientes antigos faz parte da própria release. Assim a publicação
+  # não fica verde antes de os cinco canais estarem disponíveis para descoberta.
+  sincronizar-canais:
+    needs: release
+    uses: ./.github/workflows/sincronizar-atualizacoes.yml
+    permissions:
+      contents: write
