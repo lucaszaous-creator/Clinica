@@ -55,6 +55,9 @@ public class Profissional
     /// </summary>
     public int? DuracaoPadraoMinutos { get; set; }
 
+    /// <summary>Trava compartilhada: impede sobreposição, bloqueios e marcação fora da jornada.</summary>
+    public bool AgendaProtegida { get; set; }
+
     // ==================== Jornada: dias e horário de atendimento (set/2026) ====================
     //
     // Até aqui o cadastro só tinha a duração padrão e o "ativo": quem atende terça e quinta

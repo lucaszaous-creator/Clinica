@@ -23,17 +23,11 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.4*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <TabControl Background="Transparent" BorderThickness="0">
 
             <!-- ============ Profissionais ============ -->
-            <Border Grid.Column="0" Style="{StaticResource Card}">
+            <TabItem Header="Profissionais">
+<Border Style="{StaticResource Card}">
                 <!-- O Grid hospeda a SOBREPOSIÇÃO: o estado vazio explica o vazio DESTA coluna,
                      não o da página (a lição das parcelas 58 e 64). -->
                 <Grid>
@@ -102,9 +96,11 @@
                                    Descricao="Quem já tem histórico não se exclui — desative em vez de apagar." />
                 </Grid>
             </Border>
+            </TabItem>
 
             <!-- ============ Salas ============ -->
-            <Border Grid.Column="2" Style="{StaticResource Card}">
+            <TabItem Header="Salas">
+<Border Style="{StaticResource Card}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Text="Salas" Style="{StaticResource H3}" Margin="0"
@@ -171,9 +167,11 @@
                     </ScrollViewer>
                 </DockPanel>
             </Border>
+            </TabItem>
 
             <!-- ============ Agenda fechada ============ -->
-            <Border Grid.Column="4" Style="{StaticResource Card}">
+            <TabItem Header="Bloqueios">
+<Border Style="{StaticResource Card}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
                         <StackPanel VerticalAlignment="Center">
@@ -283,7 +281,8 @@
                     </ScrollViewer>
                 </DockPanel>
             </Border>
-        </Grid>
+            </TabItem>
+        </TabControl>
     </DockPanel>
     </Grid>
 </UserControl>

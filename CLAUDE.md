@@ -4035,46 +4035,18 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   do XAML e o binding morto é silencioso —, e a conferência é `grep` do membro no tipo
   base.
 
-- **ENQUANTO O PACIENTE ESTÁ ABERTO, O APP É A TELA DELE — o modo imersivo** (set/2026;
-  o mockup `docs/mockups/atendimento-sem-barras-cinco.html` diz, na capa e no fecho, que
-  "some toda barra vertical — **inclusive a tira de ícones do shell**", e a direção
-  respondeu **"Quero igual ao mockup!"** à entrega que tinha deixado a sidebar de pé). A
-  tela do paciente recolhe a **sidebar** e a **barra de cima** do shell; a de título do
-  Windows continua, como no desenho.
-  ⚠️ **Quem some é a `Visibility`, NUNCA a `Width`.** A sidebar já anima a largura no
-  Ctrl+B, e **animação vence valor local e de estilo**: um terceiro estado escrito na
-  mesma propriedade brigaria com o `Storyboard`, e o desfecho só apareceria na tela
-  montada — a categoria que nenhuma rede local alcança. `Visibility` é ortogonal à
-  animação, e a coluna `Width="Auto"` da raiz encolhe para zero sozinha com o filho
-  `Collapsed`.
-  ⚠️ **O modo é do DESTINO, não de quem entrou** (`ItemMenuModulo.Imersivo`, relido em
-  `ShellViewModel.Navegar`): ir para qualquer outro item devolve as barras sozinho.
-  Guardá-lo como estado obrigaria TODA saída a lembrar de desligá-lo, e a que esquecesse
-  deixaria o app sem menu — sem sintoma nenhum. E a marca está nas **OITO** chaves que
-  caem na mesma tela (`CriarTela`), não só na que a fila usa: marcar uma daria duas caras
-  para a mesma tela conforme o botão que se clicou.
-  ⚠️ **TELA IMERSIVA DECLARA AS PORTAS DE SAÍDA DENTRO DELA, e elas se CONFEREM.** Com o
-  shell recolhido, o "← Meu dia / Pacientes", o "Trocar paciente" e o "Ir para Pacientes"
-  do estado vazio são o caminho de volta. E `NavegacaoSuite.Ir` **devolve false em
-  silêncio** quando a chave não está na lista: "Meu dia" exige `VerAgenda`, que a direção
-  pode ter tirado de alguém em Acessos sem tirar o `VerProntuario` que abriu o prontuário
-  — essa pessoa clicaria no único botão de saída e nada aconteceria. O `Voltar` passou a
-  perguntar com `Existe` e a cair em "Pacientes", que exige o **mesmo bit desta tela**, e
-  o RÓTULO sai da MESMA função do destino. **Antes de esconder a navegação do shell,
-  liste as saídas da tela e prove que cada uma é alcançável por quem chegou ali.**
-  ⚠️ **Atalho que deixa de funcionar numa tela é a parcela 41 vestido de teclado.** Ctrl+B
-  passou a DEVOLVER as barras (alternar 240↔56 numa sidebar `Collapsed` não muda nada), e
-  Ctrl+F devolve a barra de cima antes de focar — `Focus()` sobre elemento `Collapsed`
-  responde false e não faz nada, calado. E o foco espera uma passagem de leiaute
-  (`DispatcherPriority.Loaded`): elemento recém-visível ainda não foi medido e recusa o
-  foco no mesmo instante, do mesmo jeito silencioso.
-  ⚠️ **Entrar no modo FECHA as sobreposições** (o pop-up do sino e a paleta da pesquisa):
-  as duas são ancoradas em botões da barra que acabou de sumir, e ficariam flutuando
-  sobre a tela do paciente sem âncora e sem o botão que as fecha.
-  **O que NÃO foi portado ao faturamento, e é decisão**: `Clinica.Desktop` tem a sidebar
-  dele, não tem `ItemMenuModulo` e não tem a tela do paciente — a regra 4 do design system
-  vale para componente e correção compartilhados, não para comportamento de navegação de
-  um shell que o outro app não possui.
+- **Triggers usados pelo portal devem funcionar com seu papel restrito.** `SELECT FOR SHARE`
+  exige UPDATE na tabela consultada; serializar agenda/jornada por advisory lock evita
+  conceder ao portal permissao de editar profissionais. Testar com papel sem UPDATE.
+
+- **Navegação superior permanente nos cinco aplicativos (17/09/2026, pedido da cliente).**
+  Substitui a sidebar e o modo imersivo anteriores. Grupos aparecem como abas no topo,
+  com as telas do grupo na linha seguinte e quebra de linha em notebooks. Não recolher,
+  esconder nem colocar as opções atrás de um botão de menu. Ctrl+B foca os grupos;
+  Ctrl+F continua focando a pesquisa. Escolher um grupo não recria a tela em edição.
+  Preservar o filtro de permissões, os destinos ocultos e as subabas compostas.
+  Conferir a janela montada: largura ganha não compensa formulário sem altura; o editor
+  clínico rola como uma folha, mantendo Salvar e Finalizar acessíveis no rodapé.
 
 - **O PAPEL SAI DA SESSÃO SEM SAIR DA SESSÃO — e o documento nascia AVULSO** (set/2026;
   mockup "documentos nas quatro telas" aprovado ANTES de uma linha de WPF, depois de cinco

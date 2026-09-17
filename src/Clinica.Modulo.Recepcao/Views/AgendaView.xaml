@@ -335,7 +335,7 @@
             <!-- Os controles quebram para a linha de baixo em vez de saírem pela direita:
                  são nove, e num monitor de 1366 px eles não cabem numa linha só. -->
             <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button Content="◀" Command="{Binding DiaAnteriorCommand}"
+                <Button Content="◀" AutomationProperties.Name="Dia anterior" Command="{Binding DiaAnteriorCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40"
                         VerticalAlignment="Center" Margin="0,0,0,4" />
                 <Border Background="{StaticResource Brush.Superficie}"
@@ -348,7 +348,7 @@
                                VerticalAlignment="Center" TextWrapping="Wrap"
                                HorizontalAlignment="Left" />
                 </Border>
-                <Button Content="▶" Command="{Binding ProximoDiaCommand}"
+                <Button Content="▶" AutomationProperties.Name="Próximo dia" Command="{Binding ProximoDiaCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40"
                         VerticalAlignment="Center" Margin="0,0,0,4" />
                 <Button Content="Hoje" Command="{Binding HojeCommand}"
@@ -416,6 +416,8 @@
                         IsEnabled="{Binding PodeEditarAgenda}"
                         ToolTip="Férias, feriado ou folga: a agenda passa a recusar marcação no período. Quem já estava marcado continua — e a janela diz quem é."
                         Command="{Binding FecharAgendaCommand}" />
+                <Button Content="Horários e travas" Command="{Binding ConfigurarHorariosCommand}"
+                        IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,4" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
                         IsEnabled="{Binding PodeEditarAgenda}"
                         VerticalAlignment="Center" Margin="8,0,0,4" />

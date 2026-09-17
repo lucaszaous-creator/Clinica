@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>
-/// Shell de navegação: sidebar recolhível agrupada em módulos, breadcrumb,
+/// Shell de navegação: abas superiores agrupadas, breadcrumb,
 /// pesquisa global (command palette de seções), contador de pendências e snackbar.
 /// </summary>
 public partial class MainViewModel : ObservableObject
@@ -24,9 +24,6 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private Secao _secaoAtual = Secao.Pendencias;
-
-    [ObservableProperty]
-    private bool _menuRecolhido;
 
     [ObservableProperty]
     private string _breadcrumbModulo = "Painel";
@@ -45,7 +42,7 @@ public partial class MainViewModel : ObservableObject
     private bool _pesquisaAberta;
 
     /// <summary>
-    /// Quem está logado, no rodapé da sidebar ("Ana Souza · Faturista"). Não é enfeite:
+    /// Quem está logado, no cabeçalho ("Ana Souza · Faturista"). Não é enfeite:
     /// no balcão duas pessoas dividem a máquina, e quem assume o posto precisa ver de
     /// relance que a sessão ainda é da colega — senão a baixa dela vai para a auditoria
     /// no nome errado, que é o defeito que o login veio corrigir.
@@ -56,12 +53,13 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<ItemMenu> ResultadosPesquisa { get; } = [];
 
     public IReadOnlyList<GrupoMenu> Grupos { get; }
+    [ObservableProperty] private GrupoMenu? _grupoSelecionado;
 
     private readonly List<ItemMenu> _itens;
 
     public SnackbarService Snackbar { get; }
 
-    /// <summary>Versão exibida no rodapé da sidebar: a instalada (Velopack) ou a do assembly com aviso de build portátil.</summary>
+    /// <summary>Versão exibida no cabeçalho: a instalada (Velopack) ou a do assembly com aviso de build portátil.</summary>
     public string VersaoApp { get; } = UpdateService.VersaoInstalada is { } v
         ? $"v{v}"
         : $"v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?"} (portátil — sem auto-update)";
@@ -71,7 +69,7 @@ public partial class MainViewModel : ObservableObject
         _sp = sp;
         Snackbar = snackbar;
 
-        // A sidebar é filtrada pela permissão de quem entrou (parcela 45). Guardar a lista
+        // A navegação é filtrada pela permissão de quem entrou (parcela 45). Guardar a lista
         // COMPLETA e esconder só na tela não serviria: `_itens` também alimenta a pesquisa
         // global, e um resultado de busca que abre uma tela proibida é exatamente a porta
         // que a permissão veio fechar.
@@ -93,7 +91,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Todos os itens da sidebar, com a permissão que cada um pede. O corte segue o ATO e
+    /// Todos os itens da navegação, com a permissão que cada um pede. O corte segue o ATO e
     /// não a tela: lançar atendimento CRIA guias e configurar muda a regra para todo mundo,
     /// e por isso os dois têm bit próprio; o resto do faturamento é leitura.
     /// </summary>
@@ -127,9 +125,6 @@ public partial class MainViewModel : ObservableObject
         new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes",
                        Requer = Permissao.ConfigurarFaturamento },
     ];
-
-    [RelayCommand]
-    private void AlternarMenu() => MenuRecolhido = !MenuRecolhido;
 
     // ===== Atalhos globais (roteados para a tela ativa via IAtalhosDeTela) =====
 
@@ -249,7 +244,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Navegar(Secao secao)
     {
-        // Segunda barreira da navegação: a sidebar já não mostra o item, mas o ATALHO de
+        // Segunda barreira da navegação: a navegação já não mostra o item, mas o ATALHO de
         // teclado chega por outro caminho (Ctrl+N vai direto para "Novo atendimento").
         // Sem isto, esconder o item seria enfeite.
         //
@@ -289,6 +284,7 @@ public partial class MainViewModel : ObservableObject
         var ativo = _itens.FirstOrDefault(i => i.Secao == secao);
         if (ativo is not null)
         {
+            GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(ativo));
             BreadcrumbModulo = ativo.Grupo;
             BreadcrumbTela = ativo.Rotulo;
         }

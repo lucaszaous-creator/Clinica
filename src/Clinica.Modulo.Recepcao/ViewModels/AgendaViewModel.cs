@@ -201,29 +201,13 @@ public sealed class CelulaAgenda
 
     public bool Expediente => ForaDoExpediente is not null;
 
-    /// <summary>
-    /// O vão VAZIO convida a marcar — e agora convida também no feriado e fora do
-    /// expediente (set/2026): o pedido da clínica foi *"horário na agenda livre, não
-    /// precisa dar choque/bloqueio"*, e o serviço deixou de recusar. O que sobrou aqui é a
-    /// única restrição que nunca foi choque: <b>o passado</b>. Marcar para trás continua
-    /// sendo quase sempre engano de clique, e quem precisa de verdade digita a data no
-    /// formulário — o clique na grade é atalho, não é a porta.
-    /// </summary>
-    public bool PodeMarcar => Livre && !NoPassado;
+    public bool AgendaProtegida { get; init; }
 
-    /// <summary>
-    /// Marcar MAIS UM sobre um vão que já tem paciente — o "+" pequeno no canto, que só
-    /// existe quando a célula está ocupada.
-    ///
-    /// É a metade visível do pedido da clínica: na acupuntura o profissional deixa o
-    /// paciente na maca com as agulhas e atende outro, então o horário com um cartão
-    /// dentro continua sendo horário livre. Sem este botão, tirar a recusa do serviço
-    /// resolveria metade — a recepcionista veria o vão tomado e nem tentaria.
-    ///
-    /// A CONTINUAÇÃO (a meia hora coberta por uma sessão de uma hora) entra: o horário das
-    /// 14h30 dentro da sessão das 14h é exatamente o caso da segunda maca.
-    /// </summary>
-    public bool PodeSobrepor => !Livre && !NoPassado;
+    /// <summary>O vão permite marcar se não houver impedimento na agenda protegida.</summary>
+    public bool PodeMarcar => Livre && !NoPassado && !(AgendaProtegida && (Bloqueada || Expediente));
+
+    /// <summary>A sobreposição continua disponível somente quando a trava do profissional está desligada.</summary>
+    public bool PodeSobrepor => !Livre && !NoPassado && !AgendaProtegida;
 
     /// <summary>
     /// A dica do "+" — "Marcar neste horário", e o MOTIVO do fechamento quando há um.
@@ -1114,7 +1098,8 @@ public sealed partial class AgendaViewModel : ObservableObject
                     Continuacao = coberta,
                     NoPassado = quando < agora,
                     Bloqueio = BloqueioDe(quando, coluna.ProfissionalId, coluna.SalaId),
-                    ForaDoExpediente = ExpedienteDe(coluna.Profissional, quando)
+                    ForaDoExpediente = ExpedienteDe(coluna.Profissional, quando),
+                    AgendaProtegida = coluna.Profissional?.AgendaProtegida == true
                 });
             }
 
@@ -1527,6 +1512,19 @@ public sealed partial class AgendaViewModel : ObservableObject
             _snackbar.Sucesso("Agenda fechada no período.");
 
         await CarregarAsync();
+    }
+
+    [RelayCommand]
+    private async Task ConfigurarHorariosAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "configurar horários e travas");
+            var vm = new HorariosProfissionalViewModel(_escopos);
+            new Janelas.HorariosProfissionalWindow(vm) { Owner = Dono() }.ShowDialog();
+            if (vm.Alterou) await CarregarAsync();
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
 
     /// <summary>

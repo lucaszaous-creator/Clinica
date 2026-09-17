@@ -103,7 +103,7 @@
             </Grid>
             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                        FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
-                       Text="Em branco = qualquer dia e horário, como sempre foi. Preenchida, a agenda pinta o que está fora, recusa a marcação (o encaixe continua passando) e a ocupação passa a ser medida contra estas horas." />
+                       Text="Em branco = qualquer dia e horário, como sempre foi. Para impedir marcações fora da jornada, ative a trava em Agenda → Horários e travas. A trava também vale para encaixes." />
         </StackPanel>
 
         <Grid Margin="0,12,0,0">

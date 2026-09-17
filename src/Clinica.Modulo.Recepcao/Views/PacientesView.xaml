@@ -164,6 +164,7 @@
             <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
                 <Button Content="&#xE72B;  Voltar para a lista" HorizontalAlignment="Left"
                         Margin="0,0,0,10" Padding="0"
+                        Visibility="{Binding DataContext.MostrarVoltar, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}"
                         Style="{StaticResource BotaoFantasma}"
                         Command="{Binding DataContext.VoltarCommand,
                                   RelativeSource={RelativeSource AncestorType=UserControl}}" />
@@ -184,7 +185,7 @@
 
                         <!-- Contexto em LINHA, não em faixa: convênio, documento e
                              nascimento são o que se confere com o paciente na frente. -->
-                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0" TextWrapping="Wrap">
                             <Run Text="{Binding Convenio, Mode=OneWay}" />
                             <Run Text=" · " />
                             <Run Text="{Binding Carteirinha, Mode=OneWay}" />
@@ -209,7 +210,7 @@
                 <!-- Os números do paciente numa RÉGUA horizontal à esquerda. Em
                      `UniformGrid` de largura inteira eles viram cinco traços perdidos com
                      meio metro de branco entre si — é a regra de KPI do README. -->
-                <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <WrapPanel Margin="0,14,0,0">
                     <StackPanel Margin="0,0,28,0">
                         <TextBlock Text="SESSÕES" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
@@ -232,7 +233,7 @@
                         <TextBlock Text="CANCELAMENTOS" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Text="{Binding Cancelamentos}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
-                </StackPanel>
+                </WrapPanel>
             </StackPanel>
 
             <!-- Os dois avisos são CONDICIONAIS (somem quando não há o que dizer), então

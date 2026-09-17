@@ -2,9 +2,9 @@ namespace Clinica.Application.Modelos;
 
 /// <summary>
 /// Um aviso do horário escolhido, como as telas de marcação o escrevem: o texto e se ele
-/// é GRAVE. Nenhum impede marcar — ver <see cref="AvisosDeChoque"/>.
+/// é GRAVE, e se a trava opcional do profissional impede marcar.
 /// </summary>
-public sealed record AvisoDeChoque(string Texto, bool Grave);
+public sealed record AvisoDeChoque(string Texto, bool Grave, bool ImpedeMarcar = false);
 
 /// <summary>
 /// O VOCABULÁRIO dos avisos do horário — o que as duas telas de marcação escrevem quando
@@ -15,18 +15,8 @@ public sealed record AvisoDeChoque(string Texto, bool Grave);
 /// frase copiada — e duas redações divergem na primeira correção. E o que a tela AFIRMA
 /// precisa morar onde o <c>dotnet test</c> alcança.
 ///
-/// ⛔ <b>Nenhum destes avisos impede marcar</b> (set/2026 — ver
-/// <c>AgendaService.ConflitosAsync</c>). Foi por isso que o sufixo "(aviso — não impede
-/// marcar)", que só o choque do próprio paciente carregava, saiu de todas as linhas e
-/// virou UMA frase acima da lista (<see cref="Cabecalho"/>): repetido em quatro linhas
-/// ele é o ruído que faz ninguém ler a quarta.
-///
-/// ⚠️ <b>A gravidade continua existindo, e é a metade que sustenta a decisão de não
-/// impedir.</b> "O profissional já atende alguém às 14h" é a rotina da casa — na
-/// acupuntura o paciente fica na maca com as agulhas enquanto outro é atendido. "A clínica
-/// está fechada neste dia" é outra coisa: não há ninguém para atender, e quem marcar ali
-/// marcou para um dia em que a porta não abre. Pintar as duas da mesma cor treinaria a
-/// recepção a ignorar as duas — que é exatamente o que a recusa fazia pelo avesso.
+/// A trava é opcional por profissional. O cabeçalho diferencia avisos de impedimentos;
+/// encaixe não ignora uma trava ativa.
 /// </summary>
 public static class AvisosDeChoque
 {
@@ -35,6 +25,9 @@ public static class AvisosDeChoque
     /// o botão "Marcar" habilitado ao lado é uma tela que se contradiz — e a recepcionista
     /// que já levou a recusa antiga fica procurando o que fazer para o aviso sumir.
     /// </summary>
+    public static string CabecalhoPara(IEnumerable<AvisoDeChoque> avisos) => avisos.Any(a => a.ImpedeMarcar)
+        ? "Agenda protegida — escolha outro horário para resolver os impedimentos:" : Cabecalho;
+
     public const string Cabecalho = "Avisos deste horário — nenhum impede marcar:";
 
     /// <summary>
@@ -55,7 +48,7 @@ public static class AvisosDeChoque
     /// </summary>
     public static IReadOnlyList<AvisoDeChoque> Montar(IEnumerable<ConflitoAgenda> conflitos)
         => conflitos
-            .Select(c => new AvisoDeChoque(c.Descricao, EhGrave(c.Recurso)))
+            .Select(c => new AvisoDeChoque(c.Descricao, c.ImpedeMarcar || EhGrave(c.Recurso), c.ImpedeMarcar))
             .Distinct()
             .OrderByDescending(a => a.Grave)
             .ToList();

@@ -353,7 +353,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     public ObservableCollection<AvisoDeChoque> ConflitosMarcacao { get; } = new();
 
     /// <summary>A frase acima da lista de avisos — mora na Application, não no XAML.</summary>
-    public string CabecalhoDosAvisos => AvisosDeChoque.Cabecalho;
+    public string CabecalhoDosAvisos => AvisosDeChoque.CabecalhoPara(ConflitosMarcacao);
 
     public bool TemConflitoMarcacao => ConflitosMarcacao.Count > 0;
 
@@ -826,6 +826,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         ConflitosMarcacao.Clear();
         OnPropertyChanged(nameof(TemConflitoMarcacao));
+        OnPropertyChanged(nameof(CabecalhoDosAvisos));
 
         if (!MarcarParaDepois) { ComoEncaixe = false; return; }
         if (!TimeOnly.TryParse(Hora, out var hora)) return;
@@ -849,12 +850,14 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         {
             if (geracao != _geracaoConflitos) return;
             LogSuite.Registrar("Novo atendimento — conflitos da agenda não puderam ser conferidos", ex);
+            ConflitosMarcacao.Add(new AvisoDeChoque("Não foi possível conferir a disponibilidade. Ao salvar, a agenda será verificada novamente.", true));
         }
         finally
         {
             if (geracao == _geracaoConflitos)
             {
                 OnPropertyChanged(nameof(TemConflitoMarcacao));
+                OnPropertyChanged(nameof(CabecalhoDosAvisos));
                 // O choque sumiu (outra hora, outro dia): a caixinha "como encaixe" some
                 // da tela, e não pode ficar ARMADA invisível — marcaria um encaixe que
                 // ninguém pediu.

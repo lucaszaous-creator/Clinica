@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Clinico.Views.AtendimentoEnfermagemView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:Clinica.Clinico.Views"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell">
 
@@ -47,6 +48,15 @@
     </UserControl.Resources>
 
     <DockPanel>
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button Content="Consultar ficha" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,4"
+                    Command="{Binding DataContext.ConsultarFichaCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                    ToolTip="Dados, sessões e anamnese. Ao fechar, você volta ao texto em edição." />
+            <Button Content="Exames e anexos" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,4"
+                    Command="{Binding DataContext.ConsultarExamesCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
+                    ToolTip="Consultar exames e anexar resultados sem sair do atendimento." />
+        </WrapPanel>
+
 
         <!-- ===================== AÇÕES DA SEÇÃO =====================
              Só AÇÕES aqui: navegação é do rail, e a identidade do paciente é do crachá
@@ -55,7 +65,7 @@
              ⚠️ As duas primeiras só EXISTEM quando há o que fazer. Botão que não existe
              não gasta tela para dizer que não há nada — e um botão permanentemente
              apagado é a caixinha morta que a parcela 49 tirou da tela de Taxas. -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+        <WrapPanel DockPanel.Dock="Top" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,0,0,12">
 
             <Button Content="{Binding FolhaDeHoje}" MinWidth="180" Margin="0,0,8,0"
@@ -76,7 +86,7 @@
                                  FallbackValue=Collapsed}"
                     Command="{Binding ColherTermoCommand}" />
 
-        </StackPanel>
+        </WrapPanel>
 
         <!-- ===================== AVISOS =====================
              UMA superfície, uma LINHA por aviso, e a região inteira SOME quando não há

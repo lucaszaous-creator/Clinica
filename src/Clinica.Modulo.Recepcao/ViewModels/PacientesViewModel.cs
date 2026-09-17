@@ -40,6 +40,7 @@ public sealed partial class PacientesViewModel : ObservableObject
     public SeletorPacienteViewModel Seletor { get; }
 
     public FichaPacienteViewModel Ficha { get; }
+    public bool MostrarVoltar { get; init; } = true;
 
     [ObservableProperty] private string _resumo = string.Empty;
 

@@ -65,6 +65,7 @@
              ⚠️ E o vão entre as seções é o Padding da RAIZ, não uma margem do sublinhado:
              assim o traço mede exatamente o rótulo, e não o rótulo mais o vão. -->
         <Style x:Key="ItemSecaoClinica" TargetType="ListBoxItem">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Rotulo}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -87,6 +88,10 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="raiz" Property="TextElement.Foreground"
                                         Value="{StaticResource Brush.Texto.Primario}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="raiz" Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
+                                <Setter TargetName="traco" Property="Background" Value="{StaticResource Brush.Acento}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="raiz" Property="TextElement.Foreground"

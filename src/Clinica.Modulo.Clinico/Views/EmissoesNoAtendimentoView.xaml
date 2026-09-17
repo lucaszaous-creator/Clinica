@@ -1,0 +1,177 @@
+<UserControl x:Class="Clinica.Clinico.Views.EmissoesNoAtendimentoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:vm="clr-namespace:Clinica.Clinico.ViewModels"
+             xmlns:md="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+                <Border
+                        Style="{StaticResource Card}"
+                        Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                    <DockPanel>
+
+                        <TextBlock DockPanel.Dock="Top" Text="ENTREGAR AGORA"
+                                   Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                        <Button DockPanel.Dock="Top" Content="Prescrever infusão" Margin="0,0,0,10"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding PrescreverInfusaoCommand}"
+                                IsEnabled="{Binding PodePrescreverInfusao}" />
+
+                        <!-- O que JÁ SAIU no dia desta sessão, ancorado embaixo: a
+                             pergunta dele ("eu já dei a receita para ela?") só aparece
+                             depois de a primeira ter saído, e a região inteira SOME
+                             enquanto não saiu nada — cartão vazio dizendo "nenhum
+                             documento hoje" ocuparia a coluna para não informar nada. -->
+                        <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0"
+                                    Visibility="{Binding TemFolhasDeHoje,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="JÁ SAIU HOJE" Style="{StaticResource Rotulo}"
+                                       Margin="0,0,0,6" />
+                            <!-- Teto e rolagem por dentro: a lista cresce com o DIA, e num
+                                 DockPanel o filho ancorado leva a altura que pede — o que
+                                 sobra (ou não sobra) é para os cartões, que são o assunto
+                                 da coluna. Teto pede a roda de volta para a página (a
+                                 lição da parcela 90): as duas metades andam juntas. -->
+                            <ScrollViewer MaxHeight="132" VerticalScrollBarVisibility="Auto"
+                                          ctrl:Ajudantes.RodaDaPagina="True">
+                            <ItemsControl ItemsSource="{Binding SaiuHoje}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:FolhaDeHoje}">
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           TextWrapping="Wrap">
+                                                    <Run Text="{Binding Numero, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Detalhe, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <!-- Segunda via do CANCELADO não existe: o
+                                                 papel foi desdito, e reimprimi-lo é
+                                                 entregar de novo o que a clínica anulou. -->
+                                            <Button Grid.Column="1" Content="2ª via" MinWidth="64"
+                                                    VerticalAlignment="Center" Margin="8,0,0,0"
+                                                    Command="{Binding DataContext.SegundaViaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button"
+                                                           BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Cancelado}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+
+                        <!-- A pasta clínica inteira é a OUTRA aba: repetir aqui os
+                             quarenta papéis do paciente daria duas respostas para a mesma
+                             pergunta (parcela 37). -->
+                        <TextBlock DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Todos os papéis dele estão na seção Prescrições e documentos." />
+
+                        <!-- Os cartões. Cada um diz O QUE JÁ VEM PREENCHIDO — e a frase é
+                             de acento quando aquilo foi COPIADO da sessão, cinza quando o
+                             papel abre em branco: as duas coisas são resposta, e cartão
+                             mudo faria a pessoa clicar para descobrir. -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      ctrl:Ajudantes.RodaDaPagina="True">
+                        <ItemsControl ItemsSource="{Binding Entregar}" VerticalAlignment="Top">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type md:FolhaParaEntregar}">
+                                    <Border Margin="0,0,0,6" Padding="11,8" CornerRadius="6"
+                                            Background="{StaticResource Brush.Superficie}"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- O traço à esquerda repete a decisão da
+                                                 frase: acento quando o papel herdou algo,
+                                                 apagado quando ele abre em branco. -->
+                                            <Border Grid.Column="0" CornerRadius="2" Margin="-6,-2,9,-2">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background"
+                                                                Value="{StaticResource Brush.Borda}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding VemDaSessao}" Value="True">
+                                                                <Setter Property="Background"
+                                                                        Value="{StaticResource Brush.Acento}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Heranca}" TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock"
+                                                               BasedOn="{StaticResource TextoSuave}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding VemDaSessao}" Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Acento}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                                <!-- O que falta, quando falta. A metade
+                                                     que EXPLICA: botão apagado sem frase
+                                                     vira "o sistema travou" (parcela 41). -->
+                                                <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Visibility="{Binding Pendencia,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
+                                            </StackPanel>
+
+                                            <Button Grid.Column="2" Content="Emitir" MinWidth="70"
+                                                    VerticalAlignment="Center" Margin="9,0,0,0"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    IsEnabled="{Binding PodeEmitir}"
+                                                    Command="{Binding DataContext.EntregarFolhaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+</UserControl>
