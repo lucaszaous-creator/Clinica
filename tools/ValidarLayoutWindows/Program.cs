@@ -63,7 +63,7 @@ static class Program
                     foreach (var grade in Descendentes(win).OfType<DataGrid>())
                     {
                         var sv = Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault();
-                        if (sv != null && sv.ScrollableWidth > 1) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
+                        if (sv != null && sv.ScrollableWidth > 0.01) { falhas++; Console.WriteLine($"COLUNAS {nome} excedente={sv.ScrollableWidth:0}"); }
                         if (grade.Name == "TabelaAgenda")
                         {
                             var ocupada = grade.Columns.Where(c => c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth);

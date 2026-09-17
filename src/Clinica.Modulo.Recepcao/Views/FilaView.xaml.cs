@@ -42,7 +42,7 @@ public partial class FilaView : UserControl
         // direita durante a mudança de monitor/tamanho. A barra vertical fica reservada.
         if (TabelaAgenda.ActualWidth > 0)
             ColunaPaciente.Width = new DataGridLength(Math.Max(240,
-                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 4
+                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12
                 - 110 - 140 - 248 - (compacto ? 0 : 180)));
     }
 
