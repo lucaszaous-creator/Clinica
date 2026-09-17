@@ -14,6 +14,8 @@ internal static class DemoTablet
         var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
         await db.Database.EnsureCreatedAsync();
         if(await db.Usuarios.AnyAsync()) return;
+        var hoje=DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow(),"America/Sao_Paulo").DateTime);
         await scope.ServiceProvider.GetRequiredService<AcessoService>().CriarAsync("Enfermagem — demonstração",
             "demo","TabletDemo#2026",PerfilAcesso.Gerente);
         var tcle=ModelosTermoBsv.Consentimento(); tcle.Id=1;
@@ -25,7 +27,7 @@ internal static class DemoTablet
         {
             var p=new Paciente {Nome=$"Paciente fictício {i}",DataNascimento=new DateOnly(1980,1,15),Convenio=Convenio.UnimedPadrao};
             db.Pacientes.Add(p);
-            db.Agendamentos.Add(new Agendamento {Paciente=p,DataHora=DateTime.Today.AddHours(8+i),ModalidadePrevista=ModalidadeAtendimento.BsvApenas});
+            db.Agendamentos.Add(new Agendamento {Paciente=p,DataHora=hoje.ToDateTime(new TimeOnly(8+i,0)),ModalidadePrevista=ModalidadeAtendimento.BsvApenas});
         }
         await db.SaveChangesAsync();
         var profissional = new Profissional {Nome="Dra. Ana Martins — demonstração",NomeCurto="Dra. Ana Martins",
@@ -40,7 +42,6 @@ internal static class DemoTablet
         var enfermagem=await scope.ServiceProvider.GetRequiredService<AcessoService>().CriarAsync("Enfermeira — demonstração",
             "enfermagem.demo","TabletDemo#2026",PerfilAcesso.Enfermagem);
         enfermagem.ProfissionalId=enfermeira.Id;enfermagem.DeveTrocarSenha=false;
-        var hoje=DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow,"America/Sao_Paulo").DateTime);
         var nomes=new[]{"Marina Oliveira — fictícia","Carlos Santos — fictício","Paciente de outro profissional — fictício"};
         for(var i=0;i<nomes.Length;i++)
         {

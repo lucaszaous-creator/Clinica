@@ -61,7 +61,7 @@ Não há migration nova, alteração de senha, mudança no túnel ou privilégio
 | Anexos | Formato/limite, acesso por paciente, no-store e arquivo >1 MB | Abrir arquivo fictício na homologação |
 | Interface | Navegador, acessibilidade, 320/820/1180 px e fonte 200% | Uso assistido em tablet da clínica |
 
-As evidências locais incluem 116 testes de domínio/portal/PDF e oito HTTP,
+As evidências locais incluem 116 testes de domínio/portal/PDF e nove HTTP,
 além dos três percursos de interface. Isso não comprova recebimento financeiro
 nem substitui a aprovação dos titulares das assinaturas reais.
 
