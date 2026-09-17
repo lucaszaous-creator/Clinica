@@ -619,7 +619,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     {
         if (!PodeConcluirComAcesso)
         {
-            Avisar("Somente o responsável clínico pode finalizar. A enfermagem salva sua evolução sem encerrar o atendimento.", erro: true);
+            Avisar("O médico responsável ou o Gerente Geral pode finalizar. A enfermagem salva sua evolução sem encerrar o atendimento.", erro: true);
             return;
         }
         if (_foco.AgendamentoId is not { } id || !PodeFinalizarSessao)

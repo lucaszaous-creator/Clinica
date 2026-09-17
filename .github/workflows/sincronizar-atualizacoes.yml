@@ -1,0 +1,28 @@
+name: Manter canais de atualização compatíveis
+on:
+  workflow_run:
+    workflows: ['Release (instalador + auto-update)']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: canais-de-atualizacao
+  cancel-in-progress: false
+jobs:
+  sincronizar:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Publicar índices e pacotes para clientes antigos
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/sincronizar-atualizacoes.py

@@ -411,6 +411,18 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
 
     root_ns = raiz.findtext(".//RootNamespace") or nome
 
+    # Arquivos compartilhados por Link vivem fora do diretório coberto pelo glob.
+    vinculados = []
+    for item in raiz.iter("Compile"):
+        inc = item.get("Include", "").replace("\\", "/")
+        if not inc or "*" in inc or not (item.get("Link") or item.find("Link") is not None):
+            continue
+        alvo = (original.parent / inc).resolve()
+        if not alvo.is_relative_to(original.parent.resolve()):
+            if not alvo.is_relative_to(RAIZ.resolve()) or not alvo.is_file():
+                raise ValueError(f"Compile vinculado inválido: {alvo}")
+            vinculados.append(ET.tostring(ET.Element("Compile", {"Include": str(alvo)}), encoding="unicode"))
+
     dlls = "\n".join(
         f'    <Reference Include="{p.stem}"><HintPath>{p}</HintPath></Reference>'
         for p in sorted(refs.glob("*.dll"))
@@ -440,6 +452,7 @@ def montar_csproj(nome: str, original: Path, refs: Path, gerados: Path) -> str:
     <Compile Include="{RAIZ}/src/{nome}/**/*.cs"
              Exclude="{RAIZ}/src/{nome}/obj/**;{RAIZ}/src/{nome}/bin/**" />
     <Compile Include="{gerados}/*.g.cs" />
+{chr(10).join(vinculados)}
   </ItemGroup>
 
   <ItemGroup>

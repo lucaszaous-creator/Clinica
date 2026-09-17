@@ -164,6 +164,7 @@ public static class SuiteApp
         };
         app.MainWindow = janela;
         janela.Show();
+        AtualizadorSuite.IniciarVerificacaoPeriodica();
 
         // A janela principal existe: fechar o app volta a ser fechar a janela. Sem isto
         // o processo ficaria vivo depois de a clínica fechar a janela.

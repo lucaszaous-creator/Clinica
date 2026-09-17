@@ -80,6 +80,28 @@ static class Program
             }
         }
         win.Close();
+        // Regressão de produção: a direção não precisa de cadastro como médico para
+        // concluir uma sessão já escrita. Exercita a view real, inclusive o binding.
+        usuario.ProfissionalId = null; usuario.Profissional = null;
+        await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        var posto = new PacienteWorkspaceViewModel(sp, sp.GetRequiredService<PacienteEmFoco>(), ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento));
+        var janela = new Window { Content = new PacienteWorkspaceView { DataContext = posto },
+            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual,
+            Left = -30000, Top = -30000, Width = 1366, Height = 700 };
+        janela.Show();
+        for (int i = 0; i < 30 && !posto.TemSessao; i++) await Task.Delay(100);
+        foreach (var largura in new[] { 1366, 1024 })
+        {
+            janela.Width = largura; janela.UpdateLayout(); await Task.Delay(200); janela.UpdateLayout();
+            var concluir = Descendentes(janela).OfType<Button>().Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
+            var ponto = concluir.TranslatePoint(new Point(), janela);
+            if (!posto.PodeFinalizarSessao || !concluir.IsVisible || !concluir.IsEnabled || ponto.X < 0 ||
+                ponto.X + concluir.ActualWidth > janela.ActualWidth || ponto.Y + concluir.ActualHeight > janela.ActualHeight)
+                throw new Exception("Gerente sem vínculo médico perdeu a ação visível de salvar e finalizar.");
+            Foto(janela, "gerente-finalizar-" + largura);
+            Console.WriteLine("GERENTE SEM VÍNCULO: Salvar e finalizar visível e habilitado em " + largura);
+        }
+        janela.Close();
     }
     static IEnumerable<DependencyObject> Descendentes(DependencyObject o) { for (int i = 0; i < VisualTreeHelper.GetChildrenCount(o); i++) { var c = VisualTreeHelper.GetChild(o, i); yield return c; foreach (var d in Descendentes(c)) yield return d; } }
     static void Foto(Window w, string nome) { var raiz = (FrameworkElement)w.Content; var bmp = new RenderTargetBitmap((int)raiz.ActualWidth, (int)raiz.ActualHeight, 96, 96, PixelFormats.Pbgra32); bmp.Render(raiz); var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bmp)); using var f = File.Create(Saida + "/" + nome + ".png"); png.Save(f); }

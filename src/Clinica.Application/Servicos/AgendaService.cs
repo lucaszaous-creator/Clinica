@@ -995,7 +995,7 @@ public sealed class AgendaService
             ag.EnfermagemConferidaEm = DateTime.Now;
             ag.EnfermagemConferidaPorUsuarioId = responsavel;
             await AuditarFilaAsync(ag, operador, "EnfermagemConferidaNaConclusao",
-                houveEnfermagem == true ? "Médico confirmou enfermagem com evolução vinculada." : "Médico declarou que não houve atendimento de enfermagem.", ct);
+                houveEnfermagem == true ? "Operador confirmou enfermagem com evolução vinculada." : "Operador declarou que não houve atendimento de enfermagem.", ct);
         }
 
         // Finalizar é a confirmação clínica explícita. A sessão pode ter sido escrita
@@ -1008,11 +1008,12 @@ public sealed class AgendaService
     public async Task ExigirConclusaoClinicaAsync(int agendamentoId, int usuarioId, CancellationToken ct = default)
     {
         var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);
-        if (usuario is null || !usuario.Ativo || usuario.Profissional?.Ativo != true
+        if (usuario is null || !usuario.Ativo
+            || (usuario.Perfil != PerfilAcesso.Gerente && usuario.Profissional?.Ativo != true)
             || !ConclusaoClinica.Permitida(usuario.Perfil, usuario.Efetivas, usuario.ProfissionalId))
-            throw new UnauthorizedAccessException("Seu acesso permite salvar a evolução de enfermagem, mas não finalizar o atendimento médico.");
+            throw new UnauthorizedAccessException("Seu perfil não permite concluir este atendimento. A enfermagem registra a evolução sem finalizar; o médico responsável ou o Gerente Geral conclui a sessão.");
         var horario = await ObterParaFilaAsync(agendamentoId, ct);
-        if (horario.ProfissionalId != usuario.ProfissionalId)
+        if (usuario.Perfil != PerfilAcesso.Gerente && horario.ProfissionalId != usuario.ProfissionalId)
             throw new UnauthorizedAccessException("A conclusão deve ser feita pelo profissional responsável por este atendimento.");
     }
 

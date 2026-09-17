@@ -1,6 +1,5 @@
 using Clinica.Desktop.Shell.Configuracao;
 using Velopack;
-using Velopack.Sources;
 
 namespace Clinica.Desktop.Shell;
 
@@ -13,15 +12,16 @@ namespace Clinica.Desktop.Shell;
 /// enxerga o <c>releases.&lt;canal&gt;.json</c> dele. O faturamento continua no canal
 /// padrão (<c>win</c>) — é o que preserva as instalações que já existem.
 ///
-/// Aqui só existe a atualização NA ABERTURA (baixa e reinicia já atualizado). O ciclo
-/// periódico com aviso ao usuário é do faturamento, que tem snackbar e rodapé para
-/// mostrá-lo; quando o faturamento virar módulo (Fase 4), os dois se juntam.
+/// Downloads demorados continuam em segundo plano e são aplicados ao fechar.
+/// A verificação periódica recebe releases publicadas com o sistema já aberto.
 ///
 /// Nunca lança: falha de rede não pode impedir o app de abrir.
 /// </summary>
 public static class AtualizadorSuite
 {
-    private const string RepoUrl = "https://github.com/lucaszaous-creator/Clinica";
+    private static readonly SemaphoreSlim Exclusao = new(1, 1);
+    private static int _agendada;
+    private static Task? _ciclo;
 
     /// <summary>Versão instalada (ex.: "1.0.9"), ou nulo no exe portátil/dev.</summary>
     public static string? VersaoInstalada
@@ -30,7 +30,7 @@ public static class AtualizadorSuite
         {
             try
             {
-                var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+                var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
                 return mgr.IsInstalled ? mgr.CurrentVersion?.ToString() : null;
             }
             catch (Exception ex)
@@ -50,17 +50,16 @@ public static class AtualizadorSuite
     {
         try
         {
-            var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+            var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
 
             // Exe portátil (artefato do CI): o Velopack se considera não instalado.
             if (!mgr.IsInstalled)
                 return false;
 
-            var baixar = ChecarEBaixarAsync(mgr);
-            if (await Task.WhenAny(baixar, Task.Delay(limite)) != baixar)
-                return false; // demorou demais: abre na versão atual
-
-            var novidade = await baixar;
+            var novidade = await Clinica.Atualizacao.DownloadComPrazo.AguardarAsync(
+                ChecarEBaixarAsync(mgr), limite,
+                pronta => Agendar(mgr, pronta),
+                ex => LogSuite.Registrar("Atualização — download após abertura falhou", ex));
             if (novidade is null)
                 return false;
 
@@ -78,11 +77,41 @@ public static class AtualizadorSuite
 
     private static async Task<UpdateInfo?> ChecarEBaixarAsync(UpdateManager mgr)
     {
-        var novidade = await mgr.CheckForUpdatesAsync();
-        if (novidade is null)
-            return null;
+        await Exclusao.WaitAsync();
+        try
+        {
+            if (Volatile.Read(ref _agendada) != 0) return null;
+            var novidade = await mgr.CheckForUpdatesAsync();
+            if (novidade is null) return null;
+            await mgr.DownloadUpdatesAsync(novidade);
+            return novidade;
+        }
+        finally { Exclusao.Release(); }
+    }
 
-        await mgr.DownloadUpdatesAsync(novidade);
-        return novidade;
+    private static void Agendar(UpdateManager mgr, UpdateInfo pronta)
+    {
+        if (Interlocked.CompareExchange(ref _agendada, 1, 0) != 0) return;
+        try { mgr.WaitExitThenApplyUpdates(pronta); }
+        catch { Volatile.Write(ref _agendada, 0); throw; }
+    }
+
+    public static void IniciarVerificacaoPeriodica()
+        => _ciclo ??= VerificarPeriodicamenteAsync();
+
+    private static async Task VerificarPeriodicamenteAsync()
+    {
+        // Sem reinício automático durante o atendimento. Aplicação somente ao sair.
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(30));
+        while (Volatile.Read(ref _agendada) == 0 && await timer.WaitForNextTickAsync())
+        {
+            try
+            {
+                var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
+                if (!mgr.IsInstalled) return;
+                if (await ChecarEBaixarAsync(mgr) is { } pronta) Agendar(mgr, pronta);
+            }
+            catch (Exception ex) { LogSuite.Registrar("Atualização — verificação em segundo plano falhou", ex); }
+        }
     }
 }
