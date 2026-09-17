@@ -67,7 +67,7 @@ with tarfile.open(pacote) as tar:
     nome = raizes.pop()
     assert re.fullmatch('tablet-continuidade-[a-f0-9]{12}-[a-f0-9]{12}',nome)
     release = base / 'releases' / nome
-    assert not release.exists()
+    assert not release.is_symlink()
     for m in membros:
         path = pathlib.PurePosixPath(m.name)
         assert not path.is_absolute() and '..' not in path.parts and (m.isfile() or m.isdir())
@@ -82,7 +82,17 @@ with tarfile.open(pacote) as tar:
         assert aceite['saudavel'] and aceite['sha256']==sha
         teste=json.loads((stage/(nome+'-aceite-hml.json')).read_text())
         assert teste['aprovado'] and teste['sha256']==sha
-    tar.extractall(base/'releases') # todos os membros e hashes foram conferidos acima
+    if release.exists():
+        # Uma interrupção anterior aos grants pode deixar a extração pronta.
+        # Reutilizar somente a cópia integral e idêntica do pacote aprovado.
+        existentes = list(release.rglob('*'))
+        assert not any(p.is_symlink() for p in existentes)
+        assert {p.relative_to(release).as_posix() for p in existentes if p.is_file()} == set(manifest['arquivos']) | {'manifesto.json'}
+        assert json.loads((release/'manifesto.json').read_text(encoding='utf-8-sig')) == manifest
+        for rel,digest in manifest['arquivos'].items():
+            assert hashlib.sha256((release/rel).read_bytes()).hexdigest()==digest
+    else:
+        tar.extractall(base/'releases') # todos os membros e hashes foram conferidos acima
 
 for f in [release,*release.rglob('*')]:
     os.chown(f,0,0)
@@ -113,7 +123,9 @@ inserir='Anamneses VersoesAnamnese MedidasClinicas AnexosPaciente ArquivosAnexoP
 grant('SELECT','VersoesAnamnese')
 for tabela in inserir:
     grant('INSERT',tabela)
-    sequence=sql(f"SELECT pg_get_serial_sequence('\"{tabela}\"','Id')")
+    # Tabelas 1:1, como ArquivosAnexoPaciente, usam a chave do registro pai.
+    # Consultar apenas colunas existentes evita erro em tabelas sem Id próprio.
+    sequence=sql(f"SELECT COALESCE(pg_get_serial_sequence('\"{tabela}\"',attname),'') FROM pg_attribute WHERE attrelid='\"{tabela}\"'::regclass AND attname='Id' AND NOT attisdropped")
     if sequence:
         for priv in ('USAGE','SELECT'):
             if sql(f"SELECT has_sequence_privilege('{role}','{sequence}','{priv}')")!='t':
