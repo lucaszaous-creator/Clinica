@@ -9,10 +9,16 @@ internal static class RotasPostoTablet
     internal static void Mapear(WebApplication app, Func<HttpContext,PortalTabletService,Task<SessaoTablet>> sessao)
     {
         var g=app.MapGroup("/api/posto");
+        g.MapGet("/pacientes/{id:int}/enfermagem/contexto",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,DateOnly data)
+            =>Results.Ok(await svc.ContextoEnfermagemAsync(await sessao(c,portal),id,data,c.RequestAborted)));
+        g.MapPost("/pacientes/{id:int}/infusoes-externas",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,InfusaoExternaTablet p)
+            =>Results.Ok(await svc.RegistrarInfusaoExternaAsync(await sessao(c,portal),id,p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/exames",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,ResultadoExameTablet p)
             =>Results.Ok(await svc.RegistrarExameAsync(await sessao(c,portal),id,p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/enfermagem",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,RegistroEnfermagemTablet p)
             =>Results.Ok(await svc.RegistrarEnfermagemAsync(await sessao(c,portal),id,p,c.RequestAborted)));
+        g.MapPost("/pacientes/{id:int}/enfermagem/{evolucao:int}/vincular",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,int evolucao,VinculoEnfermagemTablet p)
+            =>Results.Ok(await svc.VincularEnfermagemAsync(await sessao(c,portal),id,evolucao,p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/modelos-documento",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,NovoModeloDocumentoTablet p)
             =>Results.Ok(await svc.CriarModeloAsync(await sessao(c,portal),id,p,c.RequestAborted)));
         g.MapGet("/pendencias",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int? pagina)

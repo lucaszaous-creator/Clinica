@@ -43,6 +43,10 @@
             </StackPanel>
         </Grid>
 
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Button Content="Registrar infusão com orientação externa" Command="{Binding RegistrarInfusaoCommand}"
+                    Visibility="{Binding PodeRegistrarEnfermagem, Converter={StaticResource BoolParaVisibilidade}}" />
+        </WrapPanel>
         <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
              visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"

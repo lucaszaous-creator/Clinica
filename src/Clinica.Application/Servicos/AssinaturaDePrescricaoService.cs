@@ -73,6 +73,9 @@ public sealed class AssinaturaDePrescricaoService
         TitularDoCertificado.Exigir(
             certificado, prescricao.Profissional?.Cpf, prescricao.Profissional?.Nome);
 
+        if (prescricao.OrigemEnfermagem)
+            return await ValidarInfusaoExternaAsync(prescricao, certificado, confirmouAlergia, usuarioId, operador, ct);
+
         var pdf = await _pdfs.GerarPrescricaoAsync(
             prescricaoId, await PrestadorAsync(ct), paraAssinaturaEletronica: true, ct);
 
@@ -141,6 +144,20 @@ public sealed class AssinaturaDePrescricaoService
                 + "— e assinar sem conferir provaria só que alguém com algum token assinou.");
 
         TitularDoCertificado.Exigir(certificado, executante.Cpf, executante.Nome);
+
+        if (prescricao.OrigemEnfermagem)
+        {
+            if (!usuario.Ativo || !usuario.Pode(Permissao.ChecarPrescricao)
+                || prescricao.RegistradaPorUsuarioId != usuario.Id || !prescricao.AguardaAssinaturaDaExecucao)
+                throw new UnauthorizedAccessException("A assinatura da execução deve ser feita pela enfermagem que registrou esta infusão.");
+            var documento = await _pdfs.GerarPrescricaoAsync(prescricaoId, await PrestadorAsync(ct), true, ct);
+            var selado = await SelarAsync(documento, certificado, $"Execução registrada {prescricao.Numero}",
+                executante.Nome, executante.RegistroConselho, ct, duasAssinaturas: true, areaExecucao: true);
+            var salvo = await GuardarAsync(selado.Pdf, $"{prescricao.Numero.Replace('/', '-')} execucao assinada.pdf", ct);
+            var assinaturaExecucao = Montar(certificado, selado, salvo, usuario.Id, executante.Nome, executante.RegistroConselho);
+            assinaturaExecucao.ArquivoRegistroId = salvo.Id;
+            return await _prescricoes.AssinarExecucaoAsync(prescricaoId, assinaturaExecucao, operador, ct);
+        }
 
         // Os bytes que a MÉDICA assinou — nunca uma folha regerada. É sobre eles que a
         // assinatura dela foi calculada, e é sobre eles que a da enfermagem se apoia.
@@ -264,7 +281,9 @@ public sealed class AssinaturaDePrescricaoService
         //
         // O Registro de execução continua montado NA HORA: ele muda a cada item checado, e
         // congelá-lo mostraria um estado que já passou.
-        var assinatura = ehPrescricao
+        var assinatura = prescricao.OrigemEnfermagem
+            ? prescricao.AssinaturaDoPrescritor ?? prescricao.AssinaturaDaExecucao
+            : ehPrescricao
             ? prescricao.AssinaturaDaExecucao ?? prescricao.AssinaturaDoPrescritor
             : prescricao.AssinaturaDaExecucao;
 
@@ -297,17 +316,44 @@ public sealed class AssinaturaDePrescricaoService
         return new FolhaAssinada(pdf, nome, assinatura, null);
     }
 
+    private async Task<ResultadoAssinaturaPrescricao> ValidarInfusaoExternaAsync(PrescricaoInterna p,
+        CertificadoAssinatura certificado, bool confirmouAlergia, int? usuarioId, string? operador, CancellationToken ct)
+    {
+        var usuario = usuarioId is { } id ? await _repo.ObterUsuarioAsync(id, ct) : null;
+        if (usuario is null || !usuario.Ativo || usuario.Perfil == PerfilAcesso.Enfermagem
+            || !usuario.Pode(Permissao.Prescrever) || usuario.ProfissionalId != p.ProfissionalId)
+            throw new UnauthorizedAccessException("Somente o médico responsável pode validar esta infusão.");
+        if (!p.AguardaValidacaoMedica || p.AssinaturaDoPrescritor is not null
+            || p.AssinaturaDaExecucao?.ArquivoId is not { } arquivoId)
+            throw new InvalidOperationException("Confira a assinatura da enfermagem e a pendência de validação médica.");
+        var conferencia = await _prescricoes.ConferirParaAssinaturaAsync(p.Id, ct);
+        if (conferencia.ExigeConfirmacao && !confirmouAlergia)
+            throw new InvalidOperationException("Confira e confirme o alerta de alergia antes de assinar.");
+        var original = await _repo.ObterArquivoAssinadoAsync(arquivoId, ct)
+            ?? throw new InvalidOperationException("O arquivo assinado pela enfermagem não foi encontrado.");
+        var assinado = await _assinador.AnexarAssinaturaAsync(original.Conteudo, certificado,
+            new PedidoAssinatura(Motivo: $"Validação médica da infusão {p.Numero} registrada pela enfermagem",
+                NomeExibido: p.Profissional!.Nome, RegistroConselho: p.Profissional.RegistroConselho,
+                Area: PrescricaoInternaPdfService.AreaDaAssinatura(ContarPaginas(original.Conteudo), true),
+                CarimbadoraDeTempo: await _parametros.ObterCarimbadoraDeTempoAsync(ct)),
+            nomeCampo: "AssinaturaSolicitante");
+        var arquivo = await GuardarAsync(assinado.Pdf, $"{p.Numero.Replace('/', '-')} validada.pdf", ct);
+        var assinatura = Montar(certificado, assinado, arquivo, usuario.Id, p.Profissional.Nome, p.Profissional.RegistroConselho);
+        assinatura.ArquivoRegistroId = arquivo.Id;
+        return await _prescricoes.AssinarAsync(p.Id, assinatura, confirmouAlergia, operador, ct);
+    }
+
     // ---- Apoio ----
 
     private async Task<ResultadoAssinatura> SelarAsync(
         byte[] pdf, CertificadoAssinatura certificado, string motivo,
         string nomeExibido, string? registroConselho, CancellationToken ct,
-        bool duasAssinaturas = false)
+        bool duasAssinaturas = false, bool areaExecucao = false)
     {
         // A largura do carimbo depende de a folha reservar UM ou DOIS espaços — é a mesma
         // conta do rodapé, e desencontrá-las faz um carimbo cobrir o outro.
-        var area = PrescricaoInternaPdfService.AreaDaAssinatura(
-            ContarPaginas(pdf), duasAssinaturas);
+        var area = areaExecucao ? PrescricaoInternaPdfService.AreaDaSegundaAssinatura(ContarPaginas(pdf))
+            : PrescricaoInternaPdfService.AreaDaAssinatura(ContarPaginas(pdf), duasAssinaturas);
 
         return await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: motivo,

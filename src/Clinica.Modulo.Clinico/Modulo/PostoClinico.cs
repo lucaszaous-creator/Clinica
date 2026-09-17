@@ -44,7 +44,7 @@ public static class PostoClinico
     /// inteira</b>.
     /// </summary>
     public static int? ProfissionalDaLista()
-        => PerfisAcesso.ProfissionalDaListaDoPosto(
+        => SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem ? null : PerfisAcesso.ProfissionalDaListaDoPosto(
             SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
 
     /// <summary>
@@ -74,7 +74,7 @@ public static class PostoClinico
     /// seções de leitura): o que muda é a seção que abre.
     /// </summary>
     public static string ChaveDoAtendimento()
-        => PerfisAcesso.EscreveComoEnfermagem(SessaoUsuario.Atual.Efetivas)
+        => (SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem || PerfisAcesso.EscreveComoEnfermagem(SessaoUsuario.Atual.Efetivas))
             ? ModuloClinico.ChaveAtendimentoEnfermagem
             : ModuloClinico.ChaveAtendimento;
 }

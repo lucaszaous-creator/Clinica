@@ -86,7 +86,9 @@ public sealed class ClinicoHttpTests
             var pdf=await client.GetAsync($"/api/clinico/atendimentos/{id}/documento/{doc["id"]}/pdf");
             Assert.Equal(HttpStatusCode.OK,pdf.StatusCode);Assert.Equal("application/pdf",pdf.Content.Headers.ContentType!.MediaType);
             Assert.Contains("no-store",pdf.Headers.CacheControl!.ToString());
-            var encerrar=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true};
+            var semConferencia=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true};
+            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",semConferencia)).StatusCode);
+            var encerrar=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false};
             var encerrado=await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",encerrar);Assert.Equal(HttpStatusCode.OK,encerrado.StatusCode);
             var fim=JsonNode.Parse(await encerrado.Content.ReadAsStringAsync())!;Assert.True((bool)fim["finalizado"]!);Assert.True((int)fim["guias"]!>0);
             Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",encerrar)).StatusCode);

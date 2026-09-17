@@ -221,6 +221,10 @@ public class PrescricaoInterna
 
     public SituacaoPrescricao Situacao { get; set; } = SituacaoPrescricao.Rascunho;
 
+    public bool OrigemEnfermagem { get; set; }
+    public string? OrientacaoExterna { get; set; }
+    public int? RegistradaPorUsuarioId { get; set; }
+
     /// <summary>Indicação/motivo — o que se está tratando com esta infusão.</summary>
     public string? Indicacao { get; set; }
 
@@ -287,7 +291,8 @@ public class PrescricaoInterna
     // ---- Leituras derivadas ----
 
     public bool EstaAssinada
-        => Situacao is SituacaoPrescricao.Assinada or SituacaoPrescricao.Encerrada;
+        => (Situacao is SituacaoPrescricao.Assinada or SituacaoPrescricao.Encerrada)
+            && (!OrigemEnfermagem || AssinadaEm is not null);
 
     public bool Cancelada => Situacao == SituacaoPrescricao.Cancelada;
 
@@ -298,6 +303,10 @@ public class PrescricaoInterna
     public bool PodeChecar => Situacao == SituacaoPrescricao.Assinada;
 
     /// <summary>Só rascunho se edita. Depois de assinada, corrige-se suspendendo e prescrevendo.</summary>
+    // Usa um estado já reconhecido pelas versões instaladas. A pendência médica é independente da execução encerrada.
+    public bool AguardaValidacaoMedica => OrigemEnfermagem && AssinadaEm is null && Situacao == SituacaoPrescricao.Encerrada;
+    public string SituacaoParaExibicao => AguardaValidacaoMedica ? "AguardaMedico" : Situacao.ToString();
+
     public bool PodeEditar => Situacao == SituacaoPrescricao.Rascunho;
 
     /// <summary>

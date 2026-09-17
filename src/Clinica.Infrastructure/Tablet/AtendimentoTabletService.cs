@@ -106,7 +106,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.Detalhe,i.Quantidade})}).ToListAsync(ct);
         var infusoes = await db.PrescricoesInternas.AsNoTracking().Where(p => p.PacienteId == a.PacienteId && p.CanceladaEm == null)
             .OrderByDescending(p => p.Id).Take(20).Select(p => new {p.Id, p.Numero, p.Indicacao, p.Observacoes, p.Data,
-                p.AgendamentoId, Situacao = p.Situacao.ToString(), p.AssinadaEm, Proprio = p.ProfissionalId == u.ProfissionalId,Assinaturas=p.Assinaturas.Select(a=>new {Papel=a.Papel.ToString(),a.NomeAssinante,a.RegistroConselho,a.AssinadoEm,PrescricaoArquivada=a.ArquivoId!=null,RegistroArquivado=a.ArquivoRegistroId!=null}),
+                p.AgendamentoId, p.OrigemEnfermagem, p.OrientacaoExterna, Situacao = p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada?"AguardaMedico":p.Situacao.ToString(), p.AssinadaEm, Proprio = p.ProfissionalId == u.ProfissionalId,Assinaturas=p.Assinaturas.Select(a=>new {Papel=a.Papel.ToString(),a.NomeAssinante,a.RegistroConselho,a.AssinadoEm,PrescricaoArquivada=a.ArquivoId!=null,RegistroArquivado=a.ArquivoRegistroId!=null}),
                 Itens = p.Itens.OrderBy(i => i.Ordem).Select(i => new {i.Descricao,i.Dose,Via=i.Via.ToString(),i.HoraPrevista,i.SeNecessario,i.Observacoes,i.Diluente,i.Volume,i.TempoInfusao,i.SuspensoEm,i.MotivoSuspensao})}).ToListAsync(ct);
         var modelos = await db.ModelosEvolucao.AsNoTracking().Where(m => m.Ativo && (m.ProfissionalId == null || m.ProfissionalId == u.ProfissionalId))
             .OrderBy(m => m.Nome).Take(80).Select(m => new {m.Id, m.Nome, m.QueixaPrincipal, m.HistoriaDoencaAtual,
@@ -170,7 +170,10 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         => Escrever(s, id, pedido.Idempotencia, pedido, async (u, a) =>
         {
             if(pedido.Evolucao is null) throw new InvalidOperationException("Informe a evolução.");
-            if(pedido.Finalizar && !u.Pode(Permissao.LancarAtendimento)) throw new UnauthorizedAccessException();
+            if(pedido.Finalizar) {
+                await agenda.ExigirConclusaoClinicaAsync(id, u.Id, ct);
+                await agenda.ConferirEnfermagemParaConclusaoAsync(id, pedido.HouveEnfermagem, ct);
+            }
             var anterior = await EvolucaoAtual(id, ct);
             if (a.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado) || a.FimAtendimentoEm is not null)
                 throw new ConflitoClinicoTablet("Este atendimento já foi concluído. Confira o histórico.");
@@ -204,7 +207,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             int guias = 0; string[] avisos = [];
             if (pedido.Finalizar)
             {
-                var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct);
+                var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id, pedido.HouveEnfermagem);
                 guias = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
                 avisos = fim.Avisos.ToArray();
             }
@@ -258,7 +261,8 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             if(assinar && tipo!="execucao" && !profissional.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
             int? paciente=tipo is "infusao" or "execucao"
                 ? await db.PrescricoesInternas.Where(p=>p.Id==documento && p.CanceladaEm==null
-                    && (tipo!="execucao" || p.Situacao==SituacaoPrescricao.Assinada || p.Situacao==SituacaoPrescricao.Encerrada)
+                    && (tipo!="execucao" || p.Situacao==SituacaoPrescricao.Assinada || p.Situacao==SituacaoPrescricao.Encerrada || (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada))
+                    && (!assinar || tipo!="execucao" || !p.OrigemEnfermagem || p.RegistradaPorUsuarioId==profissional.Id)
                     && (!assinar || tipo=="execucao" || p.ProfissionalId==profissional.ProfissionalId)).Select(p=>(int?)p.PacienteId).SingleOrDefaultAsync(ct)
                 : tipo=="documento" ? await db.DocumentosClinicos.Where(d=>d.Id==documento && d.CanceladoEm==null
                     && (!assinar || d.ProfissionalId==profissional.ProfissionalId&&(d.Tipo==TipoDocumentoClinico.Receita||d.Tipo==TipoDocumentoClinico.Atestado||d.Tipo==TipoDocumentoClinico.PedidoExame||d.Tipo==TipoDocumentoClinico.Comparecimento||d.Tipo==TipoDocumentoClinico.RelatorioEvolucao||d.Tipo==TipoDocumentoClinico.Anamnese))).Select(d=>(int?)d.PacienteId).SingleOrDefaultAsync(ct) : null;

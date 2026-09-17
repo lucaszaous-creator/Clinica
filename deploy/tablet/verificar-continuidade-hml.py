@@ -67,7 +67,7 @@ post(rpath+'/cancelar',versao=r['versao'],motivo='Encerramento do teste fictíci
 iniciado=post(path+'/atender',modalidade=0,motivo=texto)
 horario=iniciado['agendamentoId'];apath=f'/clinico/atendimentos/{horario}'
 aberto=api(apath);e=aberto['evolucao'];e['textoEvolucao']=texto
-salvo=post(apath+'/salvar',evolucao=e,finalizar=True)
+salvo=post(apath+'/salvar',evolucao=e,finalizar=True,houveEnfermagem=False)
 assert salvo['finalizado'] and salvo['atendimentoId'] and salvo['guias']>0
 aberto=api(apath);assert aberto['faturamento']['atendimentoId']==salvo['atendimentoId']
 assert aberto['faturamento']['guias'] and aberto['faturamento']['conclusaoClinica']

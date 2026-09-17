@@ -102,7 +102,7 @@ public sealed partial class AtendimentoTabletTests : IDisposable
     }
     [Fact] public async Task Finalizacao_amarra_evolucao_atendimento_e_guias_sem_duplicar()
     {
-        await Preparar();var p=(await Pedido()) with {Finalizar=true};
+        await Preparar();var p=(await Pedido()) with {Finalizar=true,HouveEnfermagem=false};
         var result=await svc.SalvarAsync(sessao,horario.Id,p,default);
         Assert.True(result.Finalizado);Assert.True(result.Guias>0);Assert.Equal(StatusAgendamento.Realizado,horario.Status);
         Assert.NotNull(horario.FimAtendimentoEm);Assert.Equal(horario.AtendimentoId,(await db.Evolucoes.SingleAsync()).AtendimentoId);

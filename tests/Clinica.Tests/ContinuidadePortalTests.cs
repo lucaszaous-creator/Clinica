@@ -13,7 +13,7 @@ public sealed partial class AtendimentoTabletTests
 {
     [Fact] public async Task Estado_da_recepcao_reflete_pacote_e_conta_a_receber_sem_expor_valores()
     {
-        await Preparar();await svc.SalvarAsync(sessao,horario.Id,(await Pedido()) with {Finalizar=true},default);
+        await Preparar();await svc.SalvarAsync(sessao,horario.Id,(await Pedido()) with {Finalizar=true,HouveEnfermagem=false},default);
         db.Lancamentos.Add(new() {AtendimentoId=horario.AtendimentoId,PacienteId=horario.PacienteId,
             Tipo=TipoLancamento.Entrada,Status=StatusLancamento.Previsto,Valor=123.45m,Data=svc.Hoje,Descricao="Teste fictício"});
         await db.SaveChangesAsync();
@@ -66,13 +66,13 @@ public sealed partial class AtendimentoTabletTests
         Assert.NotNull(id);Assert.Null(horario.FimAtendimentoEm);
         var r=Json(await svc.AbrirAsync(sessao,horario.Id,default));
         Assert.False(r.GetProperty("agendamento").GetProperty("finalizado").GetBoolean());
-        await svc.SalvarAsync(sessao,horario.Id,(await Pedido()) with {Finalizar=true},default);
+        await svc.SalvarAsync(sessao,horario.Id,(await Pedido()) with {Finalizar=true,HouveEnfermagem=false},default);
         Assert.Equal(id,horario.AtendimentoId);Assert.Equal(quantidade,await db.Codigos.CountAsync());
         Assert.NotNull(horario.FimAtendimentoEm);
     }
     [Fact] public async Task Protocolo_e_guias_permanecem_ao_reabrir_e_refletem_baixa_no_sistema()
     {
-        await Preparar();var salvo=await svc.SalvarAsync(sessao,horario.Id,(await Pedido()) with {Finalizar=true},default);
+        await Preparar();var salvo=await svc.SalvarAsync(sessao,horario.Id,(await Pedido()) with {Finalizar=true,HouveEnfermagem=false},default);
         var codigo=await db.Codigos.FirstAsync();codigo.DarBaixa(svc.Hoje,"GUIA-FICTICIA-123",usuario.Login,null);await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
         var f=Json(await svc.AbrirAsync(sessao,horario.Id,default)).GetProperty("faturamento");

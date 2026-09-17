@@ -972,8 +972,11 @@ public sealed class AgendaService
     /// </summary>
     /// <summary>Conclui a sessão e registra seu fim no mesmo commit das guias. Aceita retomada.</summary>
     public async Task<ResultadoLancamento> ConcluirAtendimentoClinicoAsync(
-        int agendamentoId, string operador, CancellationToken ct = default)
+        int agendamentoId, string operador, CancellationToken ct = default, int? usuarioId = null,
+        bool? houveEnfermagem = null)
     {
+        if (usuarioId is { } autor)
+            await ExigirConclusaoClinicaAsync(agendamentoId, autor, ct);
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
         if (ag.Status == StatusAgendamento.Realizado && ag.FimAtendimentoEm is not null
             && ag.AtendimentoId is { } existente)
@@ -985,10 +988,43 @@ public sealed class AgendaService
             throw new InvalidOperationException("Este horário está realizado, mas não tem atendimento vinculado. "
                 + "Confira o lançamento original antes de concluir; não crie outro atendimento.");
 
+        if (usuarioId is { } responsavel)
+        {
+            await ConferirEnfermagemParaConclusaoAsync(agendamentoId, houveEnfermagem, ct);
+            ag.HouveAtendimentoEnfermagem = houveEnfermagem;
+            ag.EnfermagemConferidaEm = DateTime.Now;
+            ag.EnfermagemConferidaPorUsuarioId = responsavel;
+            await AuditarFilaAsync(ag, operador, "EnfermagemConferidaNaConclusao",
+                houveEnfermagem == true ? "Médico confirmou enfermagem com evolução vinculada." : "Médico declarou que não houve atendimento de enfermagem.", ct);
+        }
+
         // Finalizar é a confirmação clínica explícita. A sessão pode ter sido escrita
         // sem usar o cronômetro; não inventar um horário de início para permitir o fim.
 
         return await ConfirmarNucleoAsync(ag, operador, ct, encerrarClinico: true);
+    }
+
+    /// <summary>Relê o acesso antes de gravar, inclusive quando a permissão mudou com a tela aberta.</summary>
+    public async Task ExigirConclusaoClinicaAsync(int agendamentoId, int usuarioId, CancellationToken ct = default)
+    {
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);
+        if (usuario is null || !usuario.Ativo || usuario.Profissional?.Ativo != true
+            || !ConclusaoClinica.Permitida(usuario.Perfil, usuario.Efetivas, usuario.ProfissionalId))
+            throw new UnauthorizedAccessException("Seu acesso permite salvar a evolução de enfermagem, mas não finalizar o atendimento médico.");
+        var horario = await ObterParaFilaAsync(agendamentoId, ct);
+        if (horario.ProfissionalId != usuario.ProfissionalId)
+            throw new UnauthorizedAccessException("A conclusão deve ser feita pelo profissional responsável por este atendimento.");
+    }
+
+    public async Task ConferirEnfermagemParaConclusaoAsync(int agendamentoId, bool? houveEnfermagem, CancellationToken ct = default)
+    {
+        if (houveEnfermagem is null)
+            throw new InvalidOperationException("Antes de finalizar, informe se houve atendimento de enfermagem nesta sessão.");
+        var temEvolucao = await _repo.TemEvolucaoEnfermagemVigenteNoHorarioAsync(agendamentoId, ct);
+        if (houveEnfermagem == false && temEvolucao)
+            throw new InvalidOperationException("Há evolução de enfermagem vinculada a esta sessão. Confira o registro e informe que houve atendimento de enfermagem.");
+        if (houveEnfermagem == true && !temEvolucao)
+            throw new InvalidOperationException("A enfermagem precisa salvar e vincular sua evolução a esta sessão antes de o médico finalizar. O atendimento continua aberto.");
     }
 
     private async Task<ResultadoLancamento> ConfirmarNucleoAsync(

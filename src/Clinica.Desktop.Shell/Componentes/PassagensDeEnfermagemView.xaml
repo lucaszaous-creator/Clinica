@@ -138,6 +138,11 @@
                                     <!-- Os comandos moram no VM da LISTA (o ItemsControl), não
                                          na janela nem na página: é o que deixa este XAML
                                          servir às três portas sem saber quem o hospeda. -->
+                                    <Button Content="Vincular à sessão" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0"
+                                            Visibility="{Binding PodeVincular, Converter={StaticResource BoolParaVisibilidade}}"
+                                            IsEnabled="{Binding DataContext.PodeRegistrar, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            Command="{Binding DataContext.VincularSessaoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
                                     <Button Content="Corrigir" Style="{StaticResource BotaoAcaoGridSecundario}"
                                             ToolTip="Grava um registro novo apontando para este, com o motivo. O original fica no prontuário, marcado."
                                             IsEnabled="{Binding DataContext.PodeRegistrar,

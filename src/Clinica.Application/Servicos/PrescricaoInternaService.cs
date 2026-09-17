@@ -40,7 +40,7 @@ public sealed record ResultadoAssinaturaPrescricao(
 /// - <b>Cancelar não apaga.</b> A folha pode ter sido impressa e estar na sala; a linha
 ///   fica, com motivo, como a NC do faturamento.
 /// </summary>
-public sealed class PrescricaoInternaService
+public sealed partial class PrescricaoInternaService
 {
     private readonly IClinicaRepositorio _repo;
     private readonly PrescricaoService _conferencia;
@@ -215,8 +215,11 @@ public sealed class PrescricaoInternaService
         if (prescricao.Cancelada)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} foi cancelada.");
 
-        if (prescricao.EstaAssinada)
+        if (prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} já está assinada.");
+
+        if (prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is null)
+            throw new InvalidOperationException("A enfermagem precisa assinar o registro da execução antes da validação médica.");
 
         if (prescricao.Itens.Count == 0)
             throw new InvalidOperationException(
@@ -240,7 +243,7 @@ public sealed class PrescricaoInternaService
         assinatura.Papel = PapelAssinatura.Prescritor;
         prescricao.Assinaturas.Add(assinatura);
 
-        prescricao.Situacao = SituacaoPrescricao.Assinada;
+        prescricao.Situacao = prescricao.OrigemEnfermagem ? SituacaoPrescricao.Encerrada : SituacaoPrescricao.Assinada;
         prescricao.AssinadaEm = assinatura.AssinadoEm;
         prescricao.AtualizadoEm = DateTime.Now;
         prescricao.AtualizadoPor = operador;

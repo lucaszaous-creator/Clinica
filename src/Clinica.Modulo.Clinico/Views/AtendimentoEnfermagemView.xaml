@@ -49,6 +49,9 @@
 
     <DockPanel>
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button Content="Registrar infusão" Command="{Binding RegistrarInfusaoCommand}" Margin="0,0,8,4"
+                    Visibility="{Binding PodeRegistrar, Converter={StaticResource BoolParaVisibilidade}}"
+                    ToolTip="Registra infusão realizada com orientação externa e encaminha a validação ao médico responsável." />
             <Button Content="Consultar ficha" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,4"
                     Command="{Binding DataContext.ConsultarFichaCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
                     ToolTip="Dados, sessões e anamnese. Ao fechar, você volta ao texto em edição." />
@@ -296,7 +299,7 @@
                 <Button Content="{Binding Passagem.RotuloDoBotao}" Margin="8,0,0,0" MinWidth="180"
                         VerticalAlignment="Center"
                         IsEnabled="{Binding PodeRegistrar}"
-                        ToolTip="Grava a passagem no prontuário do paciente, com a sua identificação e o registro no conselho."
+                        ToolTip="Salva a evolução de enfermagem com sua identificação. O médico conclui o atendimento e gera as guias."
                         Command="{Binding Passagem.RegistrarCommand}" />
             </StackPanel>
         </Grid>

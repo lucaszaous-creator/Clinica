@@ -155,7 +155,7 @@ public sealed class PrescricaoInternaPdfService
             {
                 Moldura(page);
 
-                Cabecalho(page, prestador, "Prescrição de execução interna", prescricao,
+                Cabecalho(page, prestador, prescricao.OrigemEnfermagem ? "Infusão — registro com orientação externa" : "Prescrição de execução interna", prescricao,
                     prescricao.Cancelada ? "CANCELADA" : null);
 
                 page.Content().PaddingVertical(12).Column(col =>
@@ -171,10 +171,18 @@ public sealed class PrescricaoInternaPdfService
                     IdentificacaoDoPaciente(col, prescricao);
                     BlocoDeAlergias(col, alergias);
 
+                    if (prescricao.OrigemEnfermagem)
+                    {
+                        Campo(col, "Orientação médica informada pela enfermagem", prescricao.OrientacaoExterna ?? "—");
+                        Campo(col, "Responsabilidade", "A enfermagem assina a execução no campo à direita. O médico responsável assina a solicitação/validação no campo à esquerda, com a data real de cada assinatura.");
+                        Campo(col, "Registro", $"Execução informada: {prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH:mm}. Registro no sistema: {prescricao.CriadoEm:dd/MM/yyyy HH:mm}.");
+                    }
+
                     if (!string.IsNullOrWhiteSpace(prescricao.Indicacao))
                         Campo(col, "Indicação", prescricao.Indicacao!);
 
                     TabelaDaPrescricao(col, itens);
+                    if (prescricao.OrigemEnfermagem) TabelaDaExecucao(col, itens);
 
                     if (!string.IsNullOrWhiteSpace(prescricao.Observacoes))
                         Campo(col, "Orientações gerais", prescricao.Observacoes!);
@@ -183,7 +191,7 @@ public sealed class PrescricaoInternaPdfService
                 Rodape(page, prescricao, assinatura,
                     nomeLinha: prescricao.Profissional?.Nome ?? "Profissional responsável",
                     registroLinha: prescricao.Profissional?.RegistroConselho,
-                    papel: "Prescritor",
+                    papel: prescricao.OrigemEnfermagem ? "Solicitante / validação médica" : "Prescritor",
                     paraAssinaturaEletronica: paraAssinaturaEletronica);
             });
         }).GeneratePdf();

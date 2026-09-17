@@ -12,6 +12,7 @@ public static class PoliticaAtendimentoTablet
         && u.ProfissionalId is > 0 && u.Pode(Permissao.VerFichaPaciente | Permissao.VerProntuario)
         && (PodeAtender(u) || u.Pode(Permissao.ChecarPrescricao));
     public static bool PodeAtender(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
+        && u.Perfil is PerfilAcesso.Profissional or PerfilAcesso.Gerente
         && u.ProfissionalId is > 0 && u.Pode(Permissao.VerAgenda | Permissao.VerProntuario | Permissao.EditarProntuario);
 }
 
@@ -32,7 +33,8 @@ public sealed record EvolucaoClinicaTablet(int Id, string Versao, string? Queixa
     string? HistoriaDoencaAtual, string? ExameFisico, string? HipoteseDiagnostica, string? CidSessao,
     string? Conduta, string? TextoEvolucao, string? Orientacoes, string? PlanoTerapeutico,
     int? EvaAntes, int? EvaDepois, MapaClinicoTablet? Mapa);
-public sealed record SalvarAtendimentoTablet(Guid Idempotencia, EvolucaoClinicaTablet Evolucao, bool Finalizar = false);
+public sealed record SalvarAtendimentoTablet(Guid Idempotencia, EvolucaoClinicaTablet Evolucao, bool Finalizar = false,
+    bool? HouveEnfermagem = null);
 public sealed record EmitirDocumentoTablet(Guid Idempotencia, string Tipo, string Texto,
     string? Observacoes = null, int? DiasAfastamento = null, string? Diluente = "SF 0,9%",
     string? Volume = null, string? TempoInfusao = "1h", bool AssinaturaEnfermagem = true,

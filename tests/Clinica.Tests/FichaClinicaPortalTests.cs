@@ -24,7 +24,7 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal("Evolução salva", salva.EvolucaoTexto);
         Assert.NotEqual("Sessão concluída", salva.Situacao);
 
-        var finalizar = (await Pedido("Registro feito no portal")) with { Finalizar = true };
+        var finalizar = (await Pedido("Registro feito no portal")) with { Finalizar = true, HouveEnfermagem = false };
         await svc.SalvarAsync(sessao, horario.Id, finalizar, default);
         await svc.SalvarAsync(sessao, horario.Id, finalizar, default);
         var concluida = Assert.Single(await leitor.SessoesNaFichaAsync(horario.PacienteId, 0, 26));
