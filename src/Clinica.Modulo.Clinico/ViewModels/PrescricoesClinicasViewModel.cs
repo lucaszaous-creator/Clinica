@@ -131,6 +131,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// mestre-detalhe que este desenho existe para acabar.
     /// </summary>
     public bool MostrarCabecalho { get; set; } = true;
+    public Action? AbrirInfusaoNoPaciente { get; set; }
 
     public ObservableCollection<LinhaDocumentoClinico> Documentos { get; } = [];
 
@@ -422,7 +423,11 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// por isso que a parcela 42 recusou enfiá-la no catálogo de folhas.
     /// </summary>
     [RelayCommand]
-    private void IrParaInfusao() => NavegacaoSuite.Ir(ChavesSuite.ConsultorioPrescricaoInfusao);
+    private void IrParaInfusao()
+    {
+        if (AbrirInfusaoNoPaciente is { } abrir) abrir();
+        else NavegacaoSuite.Ir(ChavesSuite.ConsultorioPrescricaoInfusao);
+    }
 
     /// <summary>
     /// A tela de prescrição de infusão existe NESTE executável.
@@ -432,7 +437,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// da conciliação).
     /// </summary>
     public bool TemPrescricaoDeInfusao
-        => NavegacaoSuite.Existe(ChavesSuite.ConsultorioPrescricaoInfusao);
+        => AbrirInfusaoNoPaciente is not null || NavegacaoSuite.Existe(ChavesSuite.ConsultorioPrescricaoInfusao);
 
     // ==================== Os SEIS atos: no shell, não aqui ====================
     //

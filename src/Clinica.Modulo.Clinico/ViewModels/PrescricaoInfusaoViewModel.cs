@@ -92,6 +92,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     public SeletorPacienteViewModel Seletor { get; }
+    public bool MostrarCabecalho { get; set; } = true;
 
     public ObservableCollection<LinhaPrescricaoInterna> Prescricoes { get; } = [];
 
@@ -106,20 +107,8 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
 
     public bool TemPaciente => !SemPaciente;
 
-    /// <summary>
-    /// A tela é a BUSCA (set/2026 — pedido da direção: a busca de paciente como tela
-    /// inicial, no desenho do Novo atendimento).
-    ///
-    /// Ela abre pela sidebar SEM ninguém em foco, e até aqui isso significava um cabeçalho
-    /// com o nome vazio, quatro botões APAGADOS e um campo de busca de 320 px espremido no
-    /// canto direito — a tela mostrando o que se faz DEPOIS de escolher, antes de haver
-    /// quem escolher.
-    ///
-    /// ⚠️ Diferente da irmã (<c>PrescricoesClinicasViewModel</c>), esta tela NUNCA é
-    /// seção da tela do paciente — ela é item de menu e só. Por isso a condição é o
-    /// <see cref="SemPaciente"/> puro, sem o `MostrarCabecalho` que lá existe.
-    /// </summary>
-    public bool EscolhendoPaciente => SemPaciente;
+    /// <summary>Na porta avulsa, pede paciente; dentro da ficha, usa o paciente já aberto.</summary>
+    public bool EscolhendoPaciente => MostrarCabecalho && SemPaciente;
 
     /// <summary>O par invertido — o projeto não tem conversor de booleano invertido.</summary>
     public bool TrabalhandoNoPaciente => !EscolhendoPaciente;
@@ -155,7 +144,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         Seletor = new SeletorPacienteViewModel(escopos) { SemBuscaInicial = true };
         Seletor.SelecaoMudou += paciente =>
         {
-            if (paciente is null) return;
+            if (paciente is null || !MostrarCabecalho) return;
 
             _foco.Definir(paciente.Id, paciente.Nome);
             _pacienteId = paciente.Id;

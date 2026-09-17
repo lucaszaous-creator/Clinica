@@ -154,6 +154,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// escolhe o paciente ali, como sempre fez.
     /// </summary>
     public PrescricoesClinicasViewModel Prescricoes { get; }
+    public PrescricaoInfusaoViewModel Infusoes { get; }
+    [ObservableProperty] private int _subAbaDocumentos;
 
     /// <summary>Exames e laudos do PACIENTE, não da sessão. Ver a ViewModel.</summary>
     public AnexosPacienteViewModel Anexos { get; }
@@ -301,6 +303,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         // crachá, uma vez, e o seletor de busca dela trocaria o paciente do posto por
         // baixo desta tela — o mestre-detalhe que o workspace existe para acabar.
         Prescricoes.MostrarCabecalho = false;
+        Prescricoes.AbrirInfusaoNoPaciente = () => SubAbaDocumentos = 1;
+        Infusoes = servicos.GetRequiredService<PrescricaoInfusaoViewModel>();
+        Infusoes.MostrarCabecalho = false;
         Anexos = servicos.GetRequiredService<AnexosPacienteViewModel>();
         Dor = servicos.GetRequiredService<EvolucaoDorViewModel>();
         Medidas = servicos.GetRequiredService<MedidasViewModel>();
@@ -371,6 +376,13 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// <summary>Abre a carteira para escolher outra pessoa.</summary>
     [RelayCommand]
     private void TrocarPaciente() => NavegacaoSuite.Ir(ModuloClinico.ChavePacientesDaClinica);
+
+    [RelayCommand]
+    public async Task AtualizarDocumentosAsync()
+    {
+        await Prescricoes.CarregarAsync();
+        await Infusoes.CarregarAsync();
+    }
 
     /// <summary>
     /// Lê o crachá clínico. Falhar aqui NÃO derruba a tela: o prontuário abre com o nome,

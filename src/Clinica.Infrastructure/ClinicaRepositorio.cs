@@ -361,6 +361,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(a => a.DataHora)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.SessaoNaFichaPaciente>> SessoesNaFichaAsync(
+        int pacienteId, int pular, int limite, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(pular);
+        if (limite is < 1 or > 101) throw new ArgumentOutOfRangeException(nameof(limite));
+        return await ConsultaSessoesNaFicha(pacienteId, pular, limite).ToListAsync(ct);
+    }
+
+    internal IQueryable<SessaoNaFichaPaciente> ConsultaSessoesNaFicha(int pacienteId, int pular, int limite)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId)
+            .OrderByDescending(a => a.DataHora).ThenByDescending(a => a.Id)
+            .Skip(pular).Take(limite)
+            .Select(a => new Clinica.Application.Modelos.SessaoNaFichaPaciente(
+                a.Id, a.DataHora, a.Profissional == null ? null : a.Profissional.Nome,
+                a.ModalidadePrevista, a.ModalidadeCodigo, a.EspecialidadeConsultaCodigo,
+                a.Status, a.InicioAtendimentoEm, a.FimAtendimentoEm, a.AtendimentoId,
+                a.Atendimento == null ? null : a.Atendimento.Numero,
+                a.Atendimento == null ? null : a.Atendimento.RealizadoEm,
+                a.Atendimento == null ? null : a.Atendimento.EstornadoEm,
+                _db.Evolucoes.Where(e => e.PacienteId == pacienteId && e.AgendamentoId == a.Id
+                    && e.CanceladaEm == null).OrderByDescending(e => e.Id).Select(e => (int?)e.Id).FirstOrDefault(),
+                a.Atendimento == null ? 0 : a.Atendimento.Codigos.Count));
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoDiaAsync(
         int pacienteId, DateOnly dia, CancellationToken ct = default)
     {

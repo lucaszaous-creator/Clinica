@@ -466,7 +466,7 @@ public sealed class ModuloClinico : IModuloApp
         // "Anamnese" foi uma linha própria até set/2026; virou a segunda aba de
         // "Paciente" (PacienteView) — é escrita uma vez por pessoa, e "quem é esta
         // pessoa" é a pergunta daquela seção. O rail ficou com sete (cada lado vê seis).
-        "Paciente",
+        "Ficha do paciente",
         "Histórico",
         "Exames e anexos",
         "Prescrições e documentos",
@@ -561,6 +561,7 @@ public sealed class ModuloClinico : IModuloApp
     {
         var nome = chave switch
         {
+            ChavePaciente => "Ficha do paciente",
             ChaveAtendimentoEnfermagem => "Atendimento de enfermagem",
             ChaveProntuario => "Histórico",
             ChaveExamesDoPaciente => "Exames e anexos",

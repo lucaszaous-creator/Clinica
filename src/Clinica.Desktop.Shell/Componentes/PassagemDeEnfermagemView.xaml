@@ -30,6 +30,7 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <DockPanel>
 
         <!-- ==================== A TIRA ====================
@@ -128,4 +129,5 @@
                      ToolTip="Escreva a passagem como você escreveria no papel: o que o paciente relatou, o que você observou e o que fez." />
         </DockPanel>
     </DockPanel>
+    </ScrollViewer>
 </UserControl>

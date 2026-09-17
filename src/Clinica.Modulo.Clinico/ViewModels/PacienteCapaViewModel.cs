@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Desktop.Controls;
@@ -8,6 +9,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +92,23 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     private readonly PacienteEmFoco _foco;
 
     public ObservableCollection<LinhaProblema> Problemas { get; } = [];
+    public ObservableCollection<SessaoNaFichaPaciente> Sessoes { get; } = [];
+    private const int TamanhoPagina = 25;
+    private int _paginaSessoes;
+    private int _geracaoSessoes;
+    [ObservableProperty] private bool _carregandoSessoes;
+    [ObservableProperty] private bool _sessoesNaoVerificadas;
+    [ObservableProperty] private bool _temMaisSessoes;
+    [ObservableProperty] private string _resumoSessoes = string.Empty;
+    [ObservableProperty] private string _atualizacaoFicha = string.Empty;
+    public bool PodePaginaAnterior => _paginaSessoes > 0 && !CarregandoSessoes;
+    public bool PodeProximaPagina => TemMaisSessoes && !CarregandoSessoes;
+    partial void OnCarregandoSessoesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PodePaginaAnterior));
+        OnPropertyChanged(nameof(PodeProximaPagina));
+    }
+    partial void OnTemMaisSessoesChanged(bool value) => OnPropertyChanged(nameof(PodeProximaPagina));
 
     /// <summary>Mostrar também o que foi resolvido e descartado na lista de problemas.</summary>
     [ObservableProperty] private bool _incluirProblemasEncerrados;
@@ -102,6 +121,11 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     [ObservableProperty] private string _nascimento = "—";
     [ObservableProperty] private string _documento = "—";
     [ObservableProperty] private string _telefone = "—";
+    [ObservableProperty] private string _email = "—";
+    [ObservableProperty] private string _endereco = "—";
+    [ObservableProperty] private string _sexo = "—";
+    [ObservableProperty] private string _modalidade = "—";
+    [ObservableProperty] private string _observacoesCadastro = "—";
     [ObservableProperty] private string _convenio = "—";
     [ObservableProperty] private string _carteirinha = "—";
     [ObservableProperty] private string _validadeCarteirinha = "—";
@@ -176,6 +200,17 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     public async Task CarregarAsync()
     {
         var geracao = ++_geracaoCarga;
+        var pacienteId = PacienteId;
+        ++_geracaoSessoes;
+        Sessoes.Clear();
+        CarregandoSessoes = false;
+        TemMaisSessoes = false;
+        SessoesNaoVerificadas = false;
+        ResumoSessoes = string.Empty;
+        Mensagem = null;
+        MensagemEhErro = false;
+        LimparFicha();
+        AtualizacaoFicha = string.Empty;
 
         SemPaciente = PacienteId == 0;
         Problemas.Clear();
@@ -183,6 +218,8 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
         if (SemPaciente)
         {
+            Carregando = false;
+            NaoVerificado = false;
             ResumoProblemas = string.Empty;
             LimparFicha();
             return;
@@ -190,6 +227,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
         Carregando = true;
         NaoVerificado = false;
+        AtualizacaoFicha = "Atualizando ficha…";
 
         try
         {
@@ -199,22 +237,32 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
             // conformidade). A lista de problemas é dado de SAÚDE, e a LGPD alcança a
             // leitura. Não bloqueia nem derruba a tela: o serviço engole a falha com
             // rastro.
-            if (_acessoRegistradoDe != PacienteId && PodeVerProntuario)
+            if (_acessoRegistradoDe != pacienteId && PodeVerProntuario)
             {
-                _acessoRegistradoDe = PacienteId;
                 await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
-                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                    .RegistrarAsync(pacienteId, SessaoUsuario.Atual.Operador,
                         OrigemAcessoProntuario.ProntuarioClinico);
+                if (geracao != _geracaoCarga) return;
+                _acessoRegistradoDe = pacienteId;
             }
 
-            await CarregarFichaAsync(scope.ServiceProvider, geracao);
-            await CarregarProblemasAsync(scope.ServiceProvider, geracao);
+            await CarregarFichaAsync(scope.ServiceProvider, pacienteId, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarProblemasAsync(scope.ServiceProvider, pacienteId, geracao);
+            if (geracao != _geracaoCarga) return;
+            _paginaSessoes = 0;
+            await CarregarSessoesAsync();
+            if (geracao != _geracaoCarga) return;
+            AtualizacaoFicha = NaoVerificado || SessoesNaoVerificadas
+                ? "Atualização incompleta. Tente atualizar novamente."
+                : $"Ficha atualizada às {DateTime.Now:HH:mm}";
         }
         catch (Exception ex)
         {
             if (geracao != _geracaoCarga) return;
             Clinica.Application.Diagnostico.Registrar("Consultório — capa do paciente", ex);
             NaoVerificado = true;
+            AtualizacaoFicha = "Não foi possível atualizar a ficha. Tente novamente.";
         }
         finally
         {
@@ -225,6 +273,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     private void LimparFicha()
     {
         Nascimento = Documento = Telefone = "—";
+        Email = Endereco = Sexo = Modalidade = ObservacoesCadastro = "—";
         Convenio = Carteirinha = ValidadeCarteirinha = EmTratamento = "—";
     }
 
@@ -232,7 +281,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     /// A ficha CADASTRAL, em leitura. Falha sozinha: a lista de problemas não pode deixar
     /// de abrir porque o cadastro não respondeu.
     /// </summary>
-    private async Task CarregarFichaAsync(IServiceProvider servicos, int geracao)
+    private async Task CarregarFichaAsync(IServiceProvider servicos, int pacienteId, int geracao)
     {
         LimparFicha();
         if (!PodeVerFicha) return;
@@ -242,10 +291,10 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         // que está desenhada duas linhas acima, na mesma tela — e a que ninguém lembraria
         // de ajustar seria esta.
         var consultorio = servicos.GetRequiredService<ConsultorioService>();
-        var cabecalho = await consultorio.CabecalhoAsync(PacienteId);
+        var cabecalho = await consultorio.CabecalhoAsync(pacienteId);
 
         var repo = servicos.GetRequiredService<IClinicaRepositorio>();
-        var p = await repo.ObterPacienteAsync(PacienteId);
+        var p = await repo.ObterPacienteAsync(pacienteId);
 
         if (geracao != _geracaoCarga) return;
 
@@ -269,6 +318,11 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
             // "123456789". Quem resolve isso é `Paciente.DocumentoFormatado`.
             Documento = Ou(p.DocumentoFormatado, "não informado");
             Telefone = Ou(p.TelefoneFormatado, "não informado");
+            Email = Ou(p.Email, "não informado");
+            Endereco = Ou(p.Endereco, "não informado");
+            Sexo = RotulosEnum.De(p.Sexo);
+            Modalidade = CatalogoModalidades.Nome(p.ModalidadePreferidaCodigo, p.ModalidadePreferida);
+            ObservacoesCadastro = Ou(p.Observacoes, "Nenhuma observação de cadastro.");
             Convenio = p.ConvenioNome;
             Carteirinha = Ou(p.Carteirinha, "não informada");
             ValidadeCarteirinha = p.ValidadeCarteirinha is { } val
@@ -294,13 +348,14 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
     /// A lista de problemas falha SOZINHA: o prontuário não pode deixar de abrir porque
     /// uma consulta quebrou. É a mesma regra dos blocos do painel da direção.
     /// </summary>
-    private async Task CarregarProblemasAsync(IServiceProvider servicos, int geracao)
+    private async Task CarregarProblemasAsync(IServiceProvider servicos, int pacienteId, int geracao)
     {
+        if (!PodeVerProntuario) return;
         try
         {
             var servico = servicos.GetRequiredService<ProblemaPacienteService>();
             var lista = await servico.DoPacienteAsync(
-                PacienteId, somenteAtivos: !IncluirProblemasEncerrados);
+                pacienteId, somenteAtivos: !IncluirProblemasEncerrados);
 
             // Chegou tarde: outra carga já está no ar, e a lista é dela.
             if (geracao != _geracaoCarga) return;
@@ -325,6 +380,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
             // Terceiro estado, dito no lugar onde o profissional olha: lista vazia por
             // falha não pode se parecer com "este paciente não tem alergia nenhuma".
+            NaoVerificado = true;
             ResumoProblemas = "Não foi possível ler a lista de problemas deste paciente — "
                               + "ela está vazia por falha de leitura, não porque não haja nada.";
         }
@@ -332,6 +388,62 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
     [RelayCommand]
     private Task NovoProblemaAsync() => AbrirProblemaAsync(null);
+
+    [RelayCommand]
+    public async Task CarregarSessoesAsync()
+    {
+        var geracao = ++_geracaoSessoes;
+        var pacienteId = PacienteId;
+        var pagina = _paginaSessoes;
+        Sessoes.Clear();
+        TemMaisSessoes = false;
+        SessoesNaoVerificadas = false;
+        if (pacienteId == 0 || !PodeVerProntuario)
+        {
+            CarregandoSessoes = false;
+            ResumoSessoes = "Escolha um paciente com acesso ao prontuário.";
+            return;
+        }
+        CarregandoSessoes = true;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var linhas = await scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                .SessoesNaFichaAsync(pacienteId, pagina * TamanhoPagina, TamanhoPagina + 1);
+            if (geracao != _geracaoSessoes || pacienteId != PacienteId) return;
+            foreach (var linha in linhas.Take(TamanhoPagina)) Sessoes.Add(linha);
+            TemMaisSessoes = linhas.Count > TamanhoPagina;
+            ResumoSessoes = $"Página {pagina + 1} · {Sessoes.Count} sessão(ões) da agenda. "
+                + "Registros fora da agenda estão em Histórico.";
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoSessoes) return;
+            SessoesNaoVerificadas = true;
+            ResumoSessoes = "Não foi possível consultar as sessões. Atualize para tentar novamente.";
+            Clinica.Application.Diagnostico.Registrar("Consultório — sessões da ficha", ex);
+        }
+        finally
+        {
+            if (geracao == _geracaoSessoes) CarregandoSessoes = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task PaginaAnteriorAsync()
+    {
+        if (!PodePaginaAnterior) return;
+        --_paginaSessoes;
+        await CarregarSessoesAsync();
+    }
+
+    [RelayCommand]
+    private async Task ProximaPaginaAsync()
+    {
+        if (!PodeProximaPagina) return;
+        ++_paginaSessoes;
+        await CarregarSessoesAsync();
+    }
 
     [RelayCommand]
     private Task EditarProblemaAsync(LinhaProblema? linha)

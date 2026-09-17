@@ -11,17 +11,18 @@
     <DockPanel Margin="24">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
-            <StackPanel>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                 <TextBlock Text="Pacientes" Style="{StaticResource H1}" Margin="0,0,0,4" />
                 <!-- ⚠️ "Meus pacientes" morreu com a premissa (parcela 88, 3ª rodada): não
                      existe "meu paciente", todos atendem todos. O subtítulo diz o que a
                      lista É e o que a busca alcança, porque são coisas diferentes — sem
                      termo, quem já veio; com termo, o cadastro inteiro. -->
                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                           Text="Quem a clínica vem atendendo, do mais recente ao mais antigo, com a leitura da dor ao lado. Busque para alcançar o cadastro inteiro — inclusive quem ainda não veio." />
+                           Text="Busque um paciente para abrir a ficha ou atender, mesmo sem horário na agenda." />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                <CheckBox Content="Só quem sumiu" IsChecked="{Binding SomenteSumidos}"
+            <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <CheckBox Content="Sem retorno há mais de 45 dias" IsChecked="{Binding SomenteSumidos}"
                           VerticalAlignment="Center" Margin="0,0,12,0" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}" />
             </StackPanel>
@@ -56,8 +57,8 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="150" />
-                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="110" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
@@ -72,7 +73,7 @@
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Nome}" TextTrimming="CharacterEllipsis"
+                                                <TextBlock Text="{Binding Nome}" TextWrapping="Wrap"
                                                            VerticalAlignment="Center"
                                                            Foreground="{StaticResource Brush.Texto.Primario}" />
                                                 <Border Grid.Column="1" Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
@@ -108,15 +109,9 @@
 
                                         <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
-                                            <Button Content="Dor" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    Margin="0,0,6,0"
-                                                    Command="{Binding DataContext.VerDorCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Escalas" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    Margin="0,0,6,0"
-                                                    Command="{Binding DataContext.VerAvaliacoesCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            <Button Content="Ficha" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Margin="0,0,6,0" ToolTip="Dados, sessões, guias e prontuário deste paciente"
+                                                    Command="{Binding DataContext.VerFichaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Atender" Style="{StaticResource BotaoAcaoGrid}"
                                                     Command="{Binding DataContext.AtenderCommand,

@@ -271,11 +271,11 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
             // tela precisa refletir isso.
             await CarregarAsync();
 
-            if (concluiu) _snackbar.Sucesso("Termo do procedimento resolvido.");
+            if (concluiu) _snackbar?.Sucesso("Termo do procedimento resolvido.");
         }
         catch (Exception ex)
         {
-            _snackbar.Erro($"Não foi possível abrir o termo: {ex.Message}");
+            _snackbar?.Erro($"Não foi possível abrir o termo: {ex.Message}");
             Clinica.Application.Diagnostico.Registrar("Consultório — coleta do termo", ex);
         }
     }
