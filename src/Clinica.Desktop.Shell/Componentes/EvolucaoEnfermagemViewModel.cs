@@ -361,6 +361,32 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     /// </summary>
     private int? _agendamentoId;
     [ObservableProperty] private DateTime? _dataDoAtendimento = DateTime.Today;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(PodeRegistrarNova))] private bool _sessaoBsvDisponivel;
+    [ObservableProperty] private string? _avisoModalidadeEnfermagem;
+    private int _geracaoModalidade;
+    partial void OnDataDoAtendimentoChanged(DateTime? value) => _ = VerificarModalidadeAsync();
+
+    private async Task VerificarModalidadeAsync()
+    {
+        var geracao = ++_geracaoModalidade;
+        SessaoBsvDisponivel = false;
+        if (_pacienteId == 0) return;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var data = DateOnly.FromDateTime(DataDoAtendimento ?? throw new InvalidOperationException("Informe a data da sessão BSV."));
+            await scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>().ResolverSessaoBsvAsync(_pacienteId, data, _agendamentoId);
+            if (geracao != _geracaoModalidade) return;
+            SessaoBsvDisponivel = true;
+            AvisoModalidadeEnfermagem = null;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoModalidade) return;
+            AvisoModalidadeEnfermagem = ex.Message;
+            Diagnostico.Registrar("Conferência da sessão BSV para enfermagem", ex);
+        }
+    }
 
     /// <summary>O número da folha de infusão, guardado para a frase do contexto poder ser
     /// remontada quando o horário chega depois do construtor.</summary>
@@ -696,13 +722,14 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
     }
 
     /// <summary>Está corrigindo um registro anterior — o rótulo do botão muda e o motivo é pedido.</summary>
-    [ObservableProperty] private bool _corrigindo;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(PodeRegistrarNova))] private bool _corrigindo;
 
     [ObservableProperty] private string _rotuloDoBotao = "Salvar sessão";
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeRegistrar =>
         SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
+    public bool PodeRegistrarNova => PodeRegistrar && (Corrigindo || SessaoBsvDisponivel);
 
     /// <summary>
     /// O compositor está vazio — nada foi digitado desta passagem.
@@ -815,6 +842,8 @@ public partial class EvolucaoEnfermagemViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<EvolucaoEnfermagemService>();
+
+            await VerificarModalidadeAsync();
 
             // Dentro de uma folha, a lista é a DAQUELA sessão; solta, é a do paciente.
             var lista = _prescricaoId is { } id

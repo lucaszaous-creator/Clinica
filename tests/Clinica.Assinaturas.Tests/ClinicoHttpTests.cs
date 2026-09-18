@@ -63,10 +63,15 @@ public sealed class ClinicoHttpTests
                 var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
                 var outro=await db.Agendamentos.SingleAsync(a=>a.Profissional!=null&&a.Profissional.Nome.StartsWith("Dr. Bruno"));
                 restrito=outro.Id;pacienteRestrito=outro.PacienteId;
+                var bsv=await db.Agendamentos.SingleAsync(a=>a.Id==id);
+                bsv.ModalidadePrevista=ModalidadeAtendimento.BsvApenas;
+                bsv.ModalidadeCodigo=nameof(ModalidadeAtendimento.BsvApenas);
+                await db.SaveChangesAsync();
             }
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/clinico/atendimentos/{restrito}")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/pacientes/{pacienteRestrito}")).StatusCode);
             var p=await Get($"/api/clinico/atendimentos/{id}");Assert.Equal(12,p["silhueta"]!["formas"]!.AsArray().Count);
+            Assert.True((bool)p["exigeConferenciaEnfermagem"]!);
             var evolucao=p["evolucao"]!.DeepClone();evolucao["textoEvolucao"]="Texto fictício <script>alert(1)</script>\nSegunda linha";
             var salvar=new JsonObject {["idempotencia"]=Guid.NewGuid().ToString(),["evolucao"]=evolucao,["finalizar"]=false};
             client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");

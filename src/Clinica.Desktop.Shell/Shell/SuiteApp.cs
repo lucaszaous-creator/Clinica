@@ -165,6 +165,13 @@ public static class SuiteApp
         app.MainWindow = janela;
         janela.Show();
         AtualizadorSuite.IniciarVerificacaoPeriodica();
+        var conclusaoCancelamento = new CancellationTokenSource();
+        janela.Closed += (_, _) => conclusaoCancelamento.Cancel();
+        _ = Task.Run(() => Clinica.Infrastructure.ConclusaoAutomaticaService.AcompanharAsync(
+            host.Services.GetRequiredService<IServiceScopeFactory>(), conclusaoCancelamento.Token,
+            SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente ? quantidade =>
+                host.Services.GetRequiredService<Clinica.Desktop.Controls.ISnackbarService>().Info(
+                    $"Há {quantidade} sessão(ões) com prazo vencido ainda pendente(s). Confira os motivos em Configurações → Enfermagem e conclusão das sessões.") : null));
 
         // A janela principal existe: fechar o app volta a ser fechar a janela. Sem isto
         // o processo ficaria vivo depois de a clínica fechar a janela.

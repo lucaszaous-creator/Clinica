@@ -988,7 +988,7 @@ public sealed class AgendaService
             throw new InvalidOperationException("Este horário está realizado, mas não tem atendimento vinculado. "
                 + "Confira o lançamento original antes de concluir; não crie outro atendimento.");
 
-        if (usuarioId is { } responsavel)
+        if (usuarioId is { } responsavel && await ExigeConferenciaEnfermagemAsync(agendamentoId, ct))
         {
             await ConferirEnfermagemParaConclusaoAsync(agendamentoId, houveEnfermagem, ct);
             ag.HouveAtendimentoEnfermagem = houveEnfermagem;
@@ -1019,6 +1019,7 @@ public sealed class AgendaService
 
     public async Task ConferirEnfermagemParaConclusaoAsync(int agendamentoId, bool? houveEnfermagem, CancellationToken ct = default)
     {
+        if (!await ExigeConferenciaEnfermagemAsync(agendamentoId, ct)) return;
         if (houveEnfermagem is null)
             throw new InvalidOperationException("Antes de finalizar, informe se houve atendimento de enfermagem nesta sessão.");
         var temEvolucao = await _repo.TemEvolucaoEnfermagemVigenteNoHorarioAsync(agendamentoId, ct);
@@ -1027,6 +1028,10 @@ public sealed class AgendaService
         if (houveEnfermagem == true && !temEvolucao)
             throw new InvalidOperationException("A enfermagem precisa salvar e vincular sua evolução a esta sessão antes de o médico finalizar. O atendimento continua aberto.");
     }
+
+    public async Task<bool> ExigeConferenciaEnfermagemAsync(int agendamentoId, CancellationToken ct = default)
+        => (await new PoliticaConclusaoService(_repo).ObterAsync(ct))
+            .ExigeEnfermagem(await ObterParaFilaAsync(agendamentoId, ct));
 
     private async Task<ResultadoLancamento> ConfirmarNucleoAsync(
         Agendamento ag, string? operador, CancellationToken ct,

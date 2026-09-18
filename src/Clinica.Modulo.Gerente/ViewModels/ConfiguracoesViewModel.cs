@@ -286,6 +286,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             DiasInatividadeRecall = (await p.ObterDiasInatividadeRecallAsync()).ToString();
             CarimbadoraDeTempo = (await p.ObterCarimbadoraDeTempoAsync())?.ToString();
             GuiaNoAgendamento = _guiaNoAgendamentoGravada = await p.GuiaNoAgendamentoAsync();
+            await CarregarConclusaoAsync();
 
             // A variável de ambiente VENCE o banco (caminho de teste). Quando ela está em
             // vigor, esta tela passa a mostrar o que o ambiente manda e avisa que é assim —
@@ -1151,5 +1152,59 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     {
         Mensagem = mensagem;
         MensagemEhErro = true;
+    }
+
+    public ObservableCollection<ModalidadeEnfermagemOpcao> ModalidadesEnfermagem { get; } = [];
+    public ObservableCollection<PendenciaConclusao> PendenciasConclusao { get; } = [];
+    [ObservableProperty] private bool _conclusaoAutomatica;
+    [ObservableProperty] private string _prazoConclusaoHoras = "24";
+    [ObservableProperty] private string _resumoPendenciasConclusao = "";
+
+    private async Task CarregarConclusaoAsync()
+    {
+        using var scope = _escopos.CreateScope();
+        var regra = await scope.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().ObterAsync();
+        var catalogo = await scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
+        ModalidadesEnfermagem.Clear();
+        foreach (var m in catalogo.Where(m => EvolucaoEnfermagemService.PermiteEvolucao(m.Base)))
+            ModalidadesEnfermagem.Add(new() { Codigo = m.Codigo, Nome = m.Nome + (m.Ativo ? "" : " (inativa)"),
+                Selecionada = regra.ModalidadesEnfermagem.Contains(m.Codigo, StringComparer.OrdinalIgnoreCase) });
+        ConclusaoAutomatica = regra.Automatica;
+        PrazoConclusaoHoras = regra.Horas.ToString();
+        await AtualizarPendenciasConclusaoAsync();
+    }
+
+    [RelayCommand]
+    private async Task SalvarConclusaoAsync() => await ExecutarAsync(async _ =>
+    {
+        if (!int.TryParse(PrazoConclusaoHoras, out var horas))
+            throw new InvalidOperationException("Informe o prazo em horas inteiras, de 1 a 720.");
+        using var scope = _escopos.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().SalvarAsync(
+            ModalidadesEnfermagem.Where(m => m.Selecionada).Select(m => m.Codigo).ToArray(),
+            ConclusaoAutomatica, horas, SessaoUsuario.Atual.UsuarioId);
+        return "Regras de enfermagem e conclusão salvas para toda a clínica.";
+    });
+
+    [RelayCommand]
+    private async Task AtualizarPendenciasConclusaoAsync()
+    {
+        try
+        {
+            if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+            {
+                PendenciasConclusao.Clear();
+                ResumoPendenciasConclusao = "É necessário acesso ao prontuário para consultar as sessões pendentes.";
+                return;
+            }
+            using var scope = _escopos.CreateScope();
+            var pendencias = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>()
+                .PendenciasAsync(ConclusaoAutomaticaService.Agora);
+            PendenciasConclusao.Clear();
+            foreach (var p in pendencias) PendenciasConclusao.Add(p);
+            ResumoPendenciasConclusao = pendencias.Count == 0 ? "Nenhuma sessão com prazo vencido pendente de conclusão."
+                : $"{pendencias.Count} sessão(ões) com prazo vencido. Confira os impedimentos abaixo (até 100 por vez).";
+        }
+        catch (Exception ex) { Erro("Não foi possível conferir as sessões pendentes: " + ex.Message); }
     }
 }

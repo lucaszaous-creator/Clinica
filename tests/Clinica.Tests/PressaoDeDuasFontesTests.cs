@@ -67,6 +67,7 @@ public class PressaoDeDuasFontesTests : IDisposable
         };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
+        await SessaoBsvTeste.CriarAsync(_db, p.Id, Dia);
         return p.Id;
     }
 

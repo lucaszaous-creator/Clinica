@@ -34,9 +34,9 @@ public sealed partial class AtendimentoTabletTests
     }
     [Fact] public async Task Enfermagem_registra_sinais_e_retifica_sem_apagar_anterior_e_transcreve_exame()
     {
-        await Preparar();await Enfermeira();
+        await PrepararBSV();await Enfermeira();
         var data=DateOnly.FromDateTime(DateTime.Today);var hora=TimeOnly.FromDateTime(DateTime.Now);
-        var p=new RegistroEnfermagemTablet(Guid.NewGuid(),data,hora,"Observação fictícia",false,new(120,80),null);
+        var p=new RegistroEnfermagemTablet(Guid.NewGuid(),data,hora,"Observação fictícia",false,new(120,80),null,AgendamentoId:horario.Id);
         var original=await Posto.RegistrarEnfermagemAsync(sessao,horario.PacienteId,p,default);
         Assert.Equal(original,await Posto.RegistrarEnfermagemAsync(sessao,horario.PacienteId,p,default));
         var r=await Posto.RegistrarEnfermagemAsync(sessao,horario.PacienteId,p with {Idempotencia=Guid.NewGuid(),Texto="Observação corrigida",RetificaId=original.Id,Motivo="Correção de teste"},default);

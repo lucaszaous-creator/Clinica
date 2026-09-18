@@ -7,11 +7,8 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// A EVOLUÇÃO DE ENFERMAGEM (parcela 71) — o registro de quem executa.
 ///
-/// A clínica disse que <b>todo paciente passa pela enfermagem</b>, e é isso que decide a
-/// forma deste serviço: o dono é o PACIENTE, e a folha de infusão é procedência opcional.
-/// Amarrar o registro à folha deixaria sem lugar o curativo, a sala de observação, a
-/// triagem — e a reação que aparece meia hora depois de a folha ter sido encerrada, que é
-/// justamente a que mais importa.
+/// A evolução de enfermagem é exclusiva de sessões BSV. A execução de infusões
+/// continua independente desta restrição; seus registros usam o serviço de checagem.
 ///
 /// As regras vêm inteiras do <see cref="ChecagemPrescricaoService"/>, e não por preguiça:
 /// é o mesmo ato de enfermagem, com o mesmo peso, e duas definições da mesma regra divergem
@@ -88,11 +85,11 @@ public class EvolucaoEnfermagemService
         AcessoVenoso? acesso = null,
         CancellationToken ct = default)
     {
-        if (agendamentoId is { } horarioId)
-            await ConferirSessaoAsync(pacienteId, horarioId, ct);
         var evolucao = Montar(
             pacienteId, data, hora, texto, autor,
             prescricaoInternaId, agendamentoId, intercorrencia, sinais, acesso);
+
+        evolucao.AgendamentoId = await ResolverSessaoBsvAsync(pacienteId, data, agendamentoId, ct);
 
         AplicarProcesso(evolucao, processo);
 
@@ -264,8 +261,30 @@ public class EvolucaoEnfermagemService
             ?? throw new InvalidOperationException("Sessão não encontrada.");
         if (horario.PacienteId != pacienteId)
             throw new InvalidOperationException("A sessão pertence a outro paciente.");
+        if (!PermiteEvolucao(horario.ModalidadePrevista))
+            throw new InvalidOperationException("A evolução de enfermagem é permitida somente em BSV e BSV com acupuntura. Infusões continuam disponíveis na área de execução.");
         if (horario.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado))
             throw new InvalidOperationException("Escolha uma sessão em atendimento ou concluída; horários cancelados, substituídos ou com falta não recebem evolução.");
+    }
+
+    public static bool PermiteEvolucao(ModalidadeAtendimento modalidade)
+        => modalidade is ModalidadeAtendimento.BsvApenas or ModalidadeAtendimento.BsvComAcupuntura;
+
+    public async Task<int> ResolverSessaoBsvAsync(int pacienteId, DateOnly data, int? agendamentoId, CancellationToken ct = default)
+    {
+        if (agendamentoId is { } id)
+        {
+            await ConferirSessaoAsync(pacienteId, id, ct);
+            return id;
+        }
+        var sessoes = (await _repo.AgendamentosDoPacienteNoDiaAsync(pacienteId, data, ct))
+            .Where(a => PermiteEvolucao(a.ModalidadePrevista) && a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+            .ToArray();
+        if (sessoes.Length != 1)
+            throw new InvalidOperationException(sessoes.Length == 0
+                ? "Não há sessão BSV para este paciente na data informada. A evolução de enfermagem é exclusiva de BSV; confira a sessão antes de registrar."
+                : "Há mais de uma sessão BSV nesta data. Abra a sessão correta pela agenda para registrar a evolução de enfermagem.");
+        return sessoes[0].Id;
     }
 
     /// <summary>

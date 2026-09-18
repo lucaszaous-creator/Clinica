@@ -273,6 +273,7 @@ public class ConferenciaNaExecucaoTests : IDisposable
         _db.Pacientes.Add(paciente);
         await _db.SaveChangesAsync();
 
+        await SessaoBsvTeste.CriarAsync(_db, paciente.Id, DateOnly.FromDateTime(MeioDia));
         var e = await _evolucoes.RegistrarAsync(
             paciente.Id, DateOnly.FromDateTime(MeioDia), new TimeOnly(9, 0),
             "Curativo trocado.", Tecnica);

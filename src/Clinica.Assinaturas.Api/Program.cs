@@ -74,6 +74,7 @@ builder.Services.AddScoped<SafeIdTabletService>();
 builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<FinalizadorTablet>();
+builder.Services.AddHostedService<ConclusaoAutomaticaWorker>();
 var protecao=builder.Services.AddDataProtection().SetApplicationName("Clinica.Assinaturas.Tablet.v1");
 var chaves=builder.Configuration["Portal:DiretorioChaves"];
 if(!demo && string.IsNullOrWhiteSpace(chaves)) throw new InvalidOperationException("Configure o diretório protegido e persistente das chaves do portal.");

@@ -11,7 +11,7 @@ public sealed partial class AtendimentoTabletTests
 {
     [Fact] public async Task Enfermagem_do_portal_grava_na_sessao_do_medico_sem_finalizar()
     {
-        await Preparar();await Enfermeira();
+        await PrepararBSV();await Enfermeira();
         var pedido=new RegistroEnfermagemTablet(Guid.NewGuid(),svc.Hoje,new(8,0),"Observação fictícia",false,null,null,AgendamentoId:horario.Id);
         await Posto.RegistrarEnfermagemAsync(sessao,horario.PacienteId,pedido,default);
         await Posto.RegistrarEnfermagemAsync(sessao,horario.PacienteId,pedido,default);
@@ -23,7 +23,7 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Enfermagem_nao_vincula_registro_a_paciente_diferente()
     {
-        await Preparar();await Enfermeira();
+        await PrepararBSV();await Enfermeira();
         var pedido=new RegistroEnfermagemTablet(Guid.NewGuid(),svc.Hoje,new(8,0),"Observação fictícia",false,null,null,AgendamentoId:outro.Id);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>Posto.RegistrarEnfermagemAsync(sessao,horario.PacienteId,pedido,default));
         Assert.Empty(await db.EvolucoesEnfermagem.ToListAsync());
@@ -46,7 +46,7 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Registro_substituido_nao_recebe_vinculo_tardio()
     {
-        await Preparar();await Enfermeira();var e=await Enfermagem(null);e.AutorUsuarioId=usuario.Id;
+        await PrepararBSV();await Enfermeira();var e=await Enfermagem(null);e.AutorUsuarioId=usuario.Id;
         var novo=await Enfermagem(null);novo.RetificaEvolucaoId=e.Id;await db.SaveChangesAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(()=>new EvolucaoEnfermagemService(repo).VincularSessaoAsync(e.Id,horario.Id,usuario.Id,"Vínculo tardio"));
         Assert.Null(e.AgendamentoId);
@@ -55,10 +55,36 @@ public sealed partial class AtendimentoTabletTests
     [Theory][InlineData(null)][InlineData(true)]
     public async Task Conclusao_sem_resposta_ou_sem_enfermagem_vinculada_nao_grava_guias(bool? resposta)
     {
-        await Preparar();var p=(await Pedido()) with {Finalizar=true,HouveEnfermagem=resposta};
+        await PrepararBSV();var p=(await Pedido()) with {Finalizar=true,HouveEnfermagem=resposta};
         await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.SalvarAsync(sessao,horario.Id,p,default));
         Assert.Null(horario.FimAtendimentoEm);Assert.Empty(await db.Atendimentos.ToListAsync());
         Assert.Empty(await db.Evolucoes.ToListAsync());
+    }
+
+    private async Task PrepararBSV() { await Preparar(); horario.ModalidadePrevista = ModalidadeAtendimento.BsvApenas; await db.SaveChangesAsync(); }
+
+    [Theory][InlineData(ModalidadeAtendimento.Consulta)][InlineData(ModalidadeAtendimento.AcupunturaSimples)][InlineData(ModalidadeAtendimento.AcupunturaComEletro)]
+    public async Task Enfermagem_nao_evolui_ou_vincula_em_modalidades_sem_BSV(ModalidadeAtendimento modalidade)
+    {
+        await Preparar(); await Enfermeira(); horario.ModalidadePrevista = modalidade; await db.SaveChangesAsync();
+        var pedido = new RegistroEnfermagemTablet(Guid.NewGuid(), svc.Hoje, new(8,0), "Observação fictícia", false, null, null, AgendamentoId: horario.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId, pedido, default));
+        Assert.Empty(await db.EvolucoesEnfermagem.ToListAsync());
+        db.ChangeTracker.Clear();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new EvolucaoEnfermagemService(repo).ResolverSessaoBsvAsync(horario.PacienteId, svc.Hoje, null));
+        var legado = await Enfermagem(null); legado.AutorUsuarioId = usuario.Id; await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new EvolucaoEnfermagemService(repo).VincularSessaoAsync(legado.Id, horario.Id, usuario.Id, "Correção"));
+        Assert.Null(legado.AgendamentoId);
+    }
+
+    [Fact] public async Task Enfermagem_avulsa_exige_BSV_inequivoco_na_data()
+    {
+        await PrepararBSV(); await Enfermeira();
+        var pedido = new RegistroEnfermagemTablet(Guid.NewGuid(), svc.Hoje, new(8,0), "Observação fictícia", false, null, null);
+        var resultado = await Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId, pedido, default);
+        Assert.Equal(horario.Id, (await db.EvolucoesEnfermagem.SingleAsync(e => e.Id == resultado.Id)).AgendamentoId);
+        await SessaoBsvTeste.CriarAsync(db, horario.PacienteId, svc.Hoje);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId, pedido with { Idempotencia = Guid.NewGuid() }, default));
     }
 
     private async Task<EvolucaoEnfermagem> Enfermagem(int? vinculo)
@@ -70,14 +96,14 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Evolucao_avulsa_ou_de_outra_sessao_nao_libera_conclusao()
     {
-        await Preparar();await Enfermagem(null);await Enfermagem(outro.Id);
+        await PrepararBSV();await Enfermagem(null);await Enfermagem(outro.Id);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>new AgendaService(repo,new(repo)).ConferirEnfermagemParaConclusaoAsync(horario.Id,true));
         Assert.Null(horario.FimAtendimentoEm);
     }
 
     [Fact] public async Task Evolucao_vigente_libera_e_resposta_fica_auditada_sem_duplicar()
     {
-        await Preparar();await Enfermagem(horario.Id);
+        await PrepararBSV();await Enfermagem(horario.Id);
         var p=(await Pedido()) with {Finalizar=true,HouveEnfermagem=true};
         await svc.SalvarAsync(sessao,horario.Id,p,default);await svc.SalvarAsync(sessao,horario.Id,p,default);
         Assert.True(horario.HouveAtendimentoEnfermagem);Assert.Equal(usuario.Id,horario.EnfermagemConferidaPorUsuarioId);
@@ -86,20 +112,20 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Cancelada_ou_substituida_nao_conta_como_evolucao_vigente()
     {
-        await Preparar();var original=await Enfermagem(horario.Id);var retificada=await Enfermagem(horario.Id);
+        await PrepararBSV();var original=await Enfermagem(horario.Id);var retificada=await Enfermagem(horario.Id);
         retificada.RetificaEvolucaoId=original.Id;retificada.CanceladaEm=DateTime.Now;await db.SaveChangesAsync();
         Assert.False(await repo.TemEvolucaoEnfermagemVigenteNoHorarioAsync(horario.Id));
     }
 
     [Fact] public async Task Resposta_nao_nao_pode_contradizer_enfermagem_vigente()
     {
-        await Preparar();await Enfermagem(horario.Id);
+        await PrepararBSV();await Enfermagem(horario.Id);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>new AgendaService(repo,new(repo)).ConferirEnfermagemParaConclusaoAsync(horario.Id,false));
     }
 
     [Fact] public async Task Perfil_enfermagem_com_permissoes_extras_nao_finaliza_medico()
     {
-        await Preparar();usuario.Perfil=PerfilAcesso.Enfermagem;
+        await PrepararBSV();usuario.Perfil=PerfilAcesso.Enfermagem;
         usuario.PermissoesExtras=Permissao.EditarProntuario|Permissao.LancarAtendimento;await db.SaveChangesAsync();
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>new AgendaService(repo,new(repo)).ExigirConclusaoClinicaAsync(horario.Id,usuario.Id));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>Posto.IniciarAsync(sessao,horario.PacienteId,new(Guid.NewGuid(),ModalidadeAtendimento.Consulta),default));
@@ -108,7 +134,7 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Vinculo_tardio_preserva_fechamento_guias_e_datas_originais()
     {
-        await Preparar();var p=(await Pedido()) with {Finalizar=true,HouveEnfermagem=false};
+        await PrepararBSV();var p=(await Pedido()) with {Finalizar=true,HouveEnfermagem=false};
         await svc.SalvarAsync(sessao,horario.Id,p,default);
         var fim=horario.FimAtendimentoEm;var atendimento=horario.AtendimentoId;
         var guias=await db.Codigos.Select(g=>g.Id).ToArrayAsync();
