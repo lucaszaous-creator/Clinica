@@ -121,6 +121,9 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm},
             Paciente = new {a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento},
             Faturamento = await ResumoFaturamentoAsync(a, ct),
+            ExigeConferenciaEnfermagem = await agenda.ExigeConferenciaEnfermagemAsync(a.Id, ct),
+            PendenciaConclusao = (await new ConclusaoAutomaticaService(db, repo, agenda, new(repo))
+                .PendenciasAsync(ConclusaoAutomaticaService.Agora, a.Id, ct)).FirstOrDefault()?.Motivo,
             Profissional = u.Profissional!.Nome, PodePrescrever = u.Pode(Permissao.Prescrever), PodeConcluir = u.Pode(Permissao.LancarAtendimento),
             Silhueta = new {Largura=SilhuetaCorporal.Largura, Altura=SilhuetaCorporal.Altura,
                 Coluna = new {X=SilhuetaCorporal.ColunaX, Topo=SilhuetaCorporal.ColunaTopo, Base=SilhuetaCorporal.ColunaBase},

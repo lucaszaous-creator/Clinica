@@ -485,6 +485,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             var repo = escopo.ServiceProvider
                 .GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
             _horario = await repo.ObterAgendamentoAsync(id);
+            AvisoConclusaoAutomatica = (await escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ConclusaoAutomaticaService>()
+                .PendenciasAsync(Clinica.Infrastructure.ConclusaoAutomaticaService.Agora, id)).FirstOrDefault()?.Motivo;
             DescreverSessao();
         }
         catch (Exception ex)
@@ -504,6 +506,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// ("durou 24 min") e um timer batendo a cada 15 s para reescrever a mesma coisa é
     /// trabalho sem leitor.
     /// </summary>
+    [ObservableProperty] private string? _avisoConclusaoAutomatica;
+
     public bool PodeFinalizarSessao => PodeConcluirComAcesso && (_horario is { Status: StatusAgendamento.Agendado }
         or { Status: StatusAgendamento.Realizado, AtendimentoId: not null, FimAtendimentoEm: null });
     public bool PodeConcluirComAcesso => PodeMoverFila && ConclusaoClinica.Permitida(
@@ -659,12 +663,17 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         var gravou = false;
         try
         {
+            bool? houveEnfermagem = null;
+            using var regraEscopo = _escopos.CreateScope();
+            if (await regraEscopo.ServiceProvider.GetRequiredService<AgendaService>().ExigeConferenciaEnfermagemAsync(id))
+            {
             var resposta = System.Windows.MessageBox.Show(JanelaDona.Atual(),
                 "Houve atendimento de enfermagem nesta sessão?\n\nSim: exige uma evolução de enfermagem vinculada antes de concluir.\nNão: registra que não houve enfermagem.\nCancelar: mantém o atendimento aberto.",
                 "Conferir enfermagem antes de finalizar", System.Windows.MessageBoxButton.YesNoCancel,
                 System.Windows.MessageBoxImage.Question, System.Windows.MessageBoxResult.Cancel);
             if (resposta is not (System.Windows.MessageBoxResult.Yes or System.Windows.MessageBoxResult.No)) return;
-            var houveEnfermagem = resposta == System.Windows.MessageBoxResult.Yes;
+            houveEnfermagem = resposta == System.Windows.MessageBoxResult.Yes;
+            }
 
             using (var autorizacao = _escopos.CreateScope())
             {

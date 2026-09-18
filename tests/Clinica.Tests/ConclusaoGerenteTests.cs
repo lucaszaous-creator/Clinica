@@ -10,7 +10,7 @@ public sealed partial class AtendimentoTabletTests
     [Fact]
     public async Task Gerente_sem_profissional_conclui_sessao_escrita_preservando_medico_e_guias()
     {
-        await Preparar();
+        await PrepararBSV();
         await svc.SalvarAsync(sessao, horario.Id, await Pedido(), default);
         var evolucao = await db.Evolucoes.SingleAsync();
         var medico = evolucao.ProfissionalId;
@@ -38,7 +38,7 @@ public sealed partial class AtendimentoTabletTests
     [Fact]
     public async Task Salvar_como_gerente_sem_vinculo_nao_apaga_profissional_da_evolucao()
     {
-        await Preparar();
+        await PrepararBSV();
         await svc.SalvarAsync(sessao, horario.Id, await Pedido(), default);
         var original = await db.Evolucoes.SingleAsync();
         var medico = original.ProfissionalId;
@@ -54,7 +54,7 @@ public sealed partial class AtendimentoTabletTests
     [Fact]
     public async Task Gerente_desativado_nao_conclui_e_medico_nao_conclui_atendimento_de_outro()
     {
-        await Preparar();
+        await PrepararBSV();
         var agenda = new AgendaService(repo, new(repo));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => agenda.ExigirConclusaoClinicaAsync(outro.Id, usuario.Id));
         usuario.Perfil=PerfilAcesso.Gerente; usuario.Ativo=false; await db.SaveChangesAsync();

@@ -469,6 +469,10 @@
                 </DockPanel>
             </Border>
 
+            <Border DockPanel.Dock="Top" Margin="24,12,24,0" Style="{StaticResource AlertaInfo}"
+                    Visibility="{Binding AvisoConclusaoAutomatica, Converter={StaticResource TextoParaVisibilidade}}">
+                <TextBlock Text="{Binding AvisoConclusaoAutomatica}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            </Border>
             <Border DockPanel.Dock="Top" Margin="24,12,24,0"
                     Visibility="{Binding MensagemSessao, Converter={StaticResource TextoParaVisibilidade},
                                  FallbackValue=Collapsed}">

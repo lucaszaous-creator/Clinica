@@ -42,6 +42,43 @@
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel IsEnabled="{Binding PodeEditar}">
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="Enfermagem e conclusão das sessões" Style="{StaticResource H3}" />
+                        <TextBlock Text="Perguntar sobre atendimento de enfermagem ao finalizar estas modalidades:" TextWrapping="Wrap" Margin="0,12,0,8" />
+                        <ItemsControl ItemsSource="{Binding ModalidadesEnfermagem}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <CheckBox Content="{Binding Nome}" IsChecked="{Binding Selecionada}" Margin="0,4,20,4" />
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <CheckBox Content="Concluir automaticamente sessões com evolução médica salva" IsChecked="{Binding ConclusaoAutomatica}" Margin="0,16,0,8" />
+                        <WrapPanel>
+                            <TextBlock Text="Prazo em horas após a última gravação:" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <TextBox Text="{Binding PrazoConclusaoHoras, UpdateSourceTrigger=PropertyChanged}" Width="80" MaxLength="3" AutomationProperties.Name="Prazo para conclusão automática em horas" />
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,12"
+                            Text="Exemplo: 24 horas após a última gravação da evolução médica. Vale para evoluções gravadas após ativar a regra. Nas modalidades marcadas, a falta de evolução de enfermagem mantém a sessão pendente, com aviso. As guias são geradas uma única vez. O sistema não assina documentos nem confirma pagamentos. A conclusão precisa de conexão com o banco; para funcionar com os computadores desligados, o serviço de conclusão deve estar ativo no servidor." />
+                        <Button Content="Salvar regras de conclusão" Command="{Binding SalvarConclusaoCommand}" HorizontalAlignment="Left" />
+                        <Separator Margin="0,16" />
+                        <TextBlock Text="Sessões que precisam de atenção" Style="{StaticResource H3}" />
+                        <TextBlock Text="{Binding ResumoPendenciasConclusao}" TextWrapping="Wrap" Margin="0,8" />
+                        <Button Content="Atualizar pendências" Command="{Binding AtualizarPendenciasConclusaoCommand}" HorizontalAlignment="Left" Style="{StaticResource BotaoSecundario}" />
+                        <ItemsControl ItemsSource="{Binding PendenciasConclusao}" Margin="0,12,0,0">
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Profissional}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" />
+                                        <TextBlock Text="{Binding AgendamentoId, StringFormat=Sessão {0}}" />
+                                        <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
 
                 <!-- ===== Clínica / prestador ===== -->
                 <Border Style="{StaticResource Card}">
