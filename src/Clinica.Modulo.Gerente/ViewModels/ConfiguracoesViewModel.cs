@@ -1156,7 +1156,10 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
 
     public ObservableCollection<ModalidadeEnfermagemOpcao> ModalidadesEnfermagem { get; } = [];
     public ObservableCollection<PendenciaConclusao> PendenciasConclusao { get; } = [];
-    [ObservableProperty] private bool _conclusaoAutomatica;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SituacaoConclusaoAutomatica))] private bool _conclusaoAutomatica;
+    public string SituacaoConclusaoAutomatica => ConclusaoAutomatica
+        ? "Conclusão automática ativa. Altere o prazo e salve para atualizar a regra."
+        : "Configuração pendente: defina o prazo e salve as regras para ativar a conclusão automática.";
     [ObservableProperty] private string _prazoConclusaoHoras = "24";
     [ObservableProperty] private string _resumoPendenciasConclusao = "";
 
@@ -1182,8 +1185,9 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         using var scope = _escopos.CreateScope();
         await scope.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().SalvarAsync(
             ModalidadesEnfermagem.Where(m => m.Selecionada).Select(m => m.Codigo).ToArray(),
-            ConclusaoAutomatica, horas, SessaoUsuario.Atual.UsuarioId);
-        return "Regras de enfermagem e conclusão salvas para toda a clínica.";
+            true, horas, SessaoUsuario.Atual.UsuarioId);
+        ConclusaoAutomatica = true;
+        return $"Conclusão automática ativa: {horas} horas após salvar a sessão. Pendências de enfermagem continuam bloqueando a conclusão.";
     });
 
     [RelayCommand]

@@ -487,6 +487,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             _horario = await repo.ObterAgendamentoAsync(id);
             AvisoConclusaoAutomatica = (await escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ConclusaoAutomaticaService>()
                 .PendenciasAsync(Clinica.Infrastructure.ConclusaoAutomaticaService.Agora, id)).FirstOrDefault()?.Motivo;
+            if (_horario?.FimAtendimentoEm is null)
+                AvisoConclusaoAutomatica ??= (await escopo.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().ObterAsync()).OrientacaoAoSalvar;
             DescreverSessao();
         }
         catch (Exception ex)
