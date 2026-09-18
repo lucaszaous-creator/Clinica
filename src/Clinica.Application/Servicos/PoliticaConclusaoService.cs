@@ -9,6 +9,9 @@ public sealed record PoliticaConclusao(string[] ModalidadesEnfermagem, bool Auto
     int Horas = 24, DateTime? AtivadaEm = null)
 {
     public static PoliticaConclusao Padrao => new([nameof(ModalidadeAtendimento.BsvApenas), nameof(ModalidadeAtendimento.BsvComAcupuntura)]);
+    public string OrientacaoAoSalvar => Automatica
+        ? $"Salvar sessão guarda a evolução. Conclusão e guias automáticas após {Horas} hora(s) da última gravação médica, quando não houver pendências."
+        : "Salvar sessão guarda a evolução. O gerente precisa configurar o prazo de conclusão automática; até lá, a sessão permanecerá aberta, sem novas guias.";
     public bool ExigeEnfermagem(Agendamento horario) => EvolucaoEnfermagemService.PermiteEvolucao(horario.ModalidadePrevista) && ModalidadesEnfermagem.Contains(
         string.IsNullOrWhiteSpace(horario.ModalidadeCodigo) ? horario.ModalidadePrevista.ToString() : horario.ModalidadeCodigo,
         StringComparer.OrdinalIgnoreCase);

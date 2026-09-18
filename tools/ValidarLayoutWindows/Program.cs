@@ -93,13 +93,16 @@ static class Program
         foreach (var largura in new[] { 1366, 1024 })
         {
             janela.Width = largura; janela.UpdateLayout(); await Task.Delay(200); janela.UpdateLayout();
-            var concluir = Descendentes(janela).OfType<Button>().Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
+            var botoes = Descendentes(janela).OfType<Button>().ToArray();
+            if (botoes.Any(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand)))
+                throw new Exception("A tela ainda oferece conclusão manual.");
+            var concluir = botoes.Single(b => b.Content?.ToString() == "Salvar sessão");
             var ponto = concluir.TranslatePoint(new Point(), janela);
-            if (!posto.PodeFinalizarSessao || !concluir.IsVisible || !concluir.IsEnabled || ponto.X < 0 ||
+            if (!concluir.IsVisible || !concluir.IsEnabled || ponto.X < 0 ||
                 ponto.X + concluir.ActualWidth > janela.ActualWidth || ponto.Y + concluir.ActualHeight > janela.ActualHeight)
-                throw new Exception("Gerente sem vínculo médico perdeu a ação visível de salvar e finalizar.");
+                throw new Exception("Gerente sem vínculo médico perdeu a ação visível de salvar sessão.");
             Foto(janela, "gerente-finalizar-" + largura);
-            Console.WriteLine("GERENTE SEM VÍNCULO: Salvar e finalizar visível e habilitado em " + largura);
+            Console.WriteLine("GERENTE SEM VÍNCULO: Salvar sessão visível e habilitado em " + largura);
         }
         janela.Close();
     }

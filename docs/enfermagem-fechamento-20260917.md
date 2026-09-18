@@ -6,11 +6,10 @@
 - A enfermagem atende pacientes dos médicos sem trocar o responsável médico.
 - **Salvar sessão**, na enfermagem, grava a evolução e o vínculo. Não conclui
   o atendimento e não cria guias.
-- **Salvar e finalizar**, no médico, pergunta se houve enfermagem. A resposta
-  não vem preenchida. “Sim” exige evolução vigente da sessão exata; registros
-  cancelados, substituídos ou de outra sessão não liberam o fechamento.
-- A conclusão registra resposta, autor e horário e conserva o fluxo idempotente
-  de atendimento e guias. Só o profissional responsável pode concluir.
+- **Salvar sessão**, no médico, grava a evolução. A conclusão e as guias são
+  processadas automaticamente após o prazo configurado pelo gerente.
+- Nas modalidades BSV configuradas, falta de evolução de enfermagem vigente
+  vinculada mantém a sessão pendente com aviso. Não há finalização manual na tela.
 - Uma evolução avulsa pode ser vinculada depois à sessão original, inclusive já
   concluída. Exige autor ou direção, permissão, mesmo paciente e justificativa.
   O vínculo não reabre a sessão, não muda datas anteriores e não refatura.

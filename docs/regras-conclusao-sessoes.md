@@ -2,8 +2,10 @@
 
 Em **Gerente Geral → Configurações → Enfermagem e conclusão das sessões**, a direção escolhe:
 
-- As modalidades BSV que perguntam se houve enfermagem na conclusão manual. O padrão é BSV e BSV com acupuntura. A seleção é global, inclusive para o portal atualizado. Outras modalidades não permitem nova evolução de enfermagem; infusões continuam permitidas.
-- Se haverá conclusão automática e o prazo inteiro de 1 a 720 horas. A opção vem desligada, com sugestão de 24 horas.
+- As modalidades BSV que exigem evolução de enfermagem antes da conclusão automática. O padrão é BSV e BSV com acupuntura. A seleção é global, inclusive para o portal atualizado. Outras modalidades não permitem nova evolução de enfermagem; infusões continuam permitidas.
+- O prazo inteiro de 1 a 720 horas, com sugestão de 24 horas. Salvar as regras ativa a conclusão automática. Enquanto o gerente não configurar, a tela informa que as sessões permanecerão abertas.
+
+No computador e no portal, o médico usa somente **Salvar sessão**. Não há botão de finalizar nem pergunta Sim/Não nessa tela. Salvar não gera guias imediatamente. A enfermagem também salva sua evolução sem concluir o atendimento; o relógio é baseado na gravação médica.
 
 O prazo começa na última gravação da evolução médica, somente para registros gravados após ativar a regra. Desligar e reativar cria uma nova data de ativação. Alterar o prazo enquanto habilitado mantém a data de ativação. Registros antigos não são encerrados em lote por simplesmente habilitar a opção.
 
