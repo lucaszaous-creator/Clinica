@@ -63,6 +63,8 @@ builder.Services.AddScoped<PostoTabletService>();
 builder.Services.AddScoped<ChecagemPrescricaoService>();
 builder.Services.AddScoped<AtendimentoService>();
 builder.Services.AddScoped<AgendaService>();
+builder.Services.AddScoped<PoliticaConclusaoService>();
+builder.Services.AddScoped<ConclusaoAutomaticaService>();
 builder.Services.AddScoped<PrescricaoService>();
 builder.Services.AddScoped<PrescricaoInternaService>();
 builder.Services.AddScoped<PrescricaoInternaPdfService>();
