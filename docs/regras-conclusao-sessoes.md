@@ -2,10 +2,12 @@
 
 Em **Gerente Geral → Configurações → Enfermagem e conclusão das sessões**, a direção escolhe:
 
-- As modalidades que perguntam se houve enfermagem na conclusão manual. O padrão é BSV e BSV com acupuntura. A seleção é global, inclusive para o portal atualizado.
+- As modalidades BSV que perguntam se houve enfermagem na conclusão manual. O padrão é BSV e BSV com acupuntura. A seleção é global, inclusive para o portal atualizado. Outras modalidades não permitem nova evolução de enfermagem; infusões continuam permitidas.
 - Se haverá conclusão automática e o prazo inteiro de 1 a 720 horas. A opção vem desligada, com sugestão de 24 horas.
 
 O prazo começa na última gravação da evolução médica, somente para registros gravados após ativar a regra. Desligar e reativar cria uma nova data de ativação. Alterar o prazo enquanto habilitado mantém a data de ativação. Registros antigos não são encerrados em lote por simplesmente habilitar a opção.
+
+Toda nova evolução de enfermagem precisa de sessão BSV. Fora da agenda, o sistema só associa automaticamente quando há exatamente uma sessão BSV válida do paciente na data informada; se houver zero ou mais de uma, pede a sessão correta. O portal oferece apenas sessões BSV para evolução/vínculo, inclusive concluídas para registro tardio. Retificações de registros históricos preservam seu vínculo e a trilha original. A lista de sessões para infusões permanece disponível para todas as modalidades.
 
 Nas modalidades selecionadas, **o automático mantém a sessão aberta se faltar evolução de enfermagem vigente vinculada ao mesmo agendamento**. Registros avulsos, cancelados ou substituídos não liberam. O profissional vê o motivo no atendimento; o Gerente tem uma lista de pendências e lembrete no sino, no máximo uma vez por hora enquanto a quantidade permanecer igual. A lista mostra até 100 pendências mais antigas; a execução percorre todos os candidatos em lotes.
 

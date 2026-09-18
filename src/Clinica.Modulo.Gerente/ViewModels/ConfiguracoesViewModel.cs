@@ -1166,7 +1166,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         var regra = await scope.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().ObterAsync();
         var catalogo = await scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>().ListarAsync();
         ModalidadesEnfermagem.Clear();
-        foreach (var m in catalogo)
+        foreach (var m in catalogo.Where(m => EvolucaoEnfermagemService.PermiteEvolucao(m.Base)))
             ModalidadesEnfermagem.Add(new() { Codigo = m.Codigo, Nome = m.Nome + (m.Ativo ? "" : " (inativa)"),
                 Selecionada = regra.ModalidadesEnfermagem.Contains(m.Codigo, StringComparer.OrdinalIgnoreCase) });
         ConclusaoAutomatica = regra.Automatica;
@@ -1191,6 +1191,12 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     {
         try
         {
+            if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+            {
+                PendenciasConclusao.Clear();
+                ResumoPendenciasConclusao = "É necessário acesso ao prontuário para consultar as sessões pendentes.";
+                return;
+            }
             using var scope = _escopos.CreateScope();
             var pendencias = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>()
                 .PendenciasAsync(ConclusaoAutomaticaService.Agora);

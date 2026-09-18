@@ -54,6 +54,7 @@ public class FichaDoAtendimentoTests : IDisposable
         var p = new Paciente { Nome = "Maria de Teste", Convenio = Convenio.UnimedIntercambio };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
+        await SessaoBsvTeste.CriarAsync(_db, p.Id, Dia, Dia.AddDays(-30), new DateOnly(2026, 7, 15));
         return p.Id;
     }
 

@@ -48,6 +48,7 @@ public class EvolucaoEnfermagemTests : IDisposable
         var p = new Paciente { Nome = "Maria de Teste", Convenio = Convenio.UnimedIntercambio };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
+        await SessaoBsvTeste.CriarAsync(_db, p.Id, Hoje, Hoje.AddDays(-1));
         return p.Id;
     }
 

@@ -52,6 +52,7 @@ public class RetornoEncaminhamentoEAcessoTests : IDisposable
         var p = new Paciente { Nome = "Marisa Silva", Convenio = Convenio.UnimedIntercambio };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
+        await SessaoBsvTeste.CriarAsync(_db, p.Id, Dia);
         return p.Id;
     }
 

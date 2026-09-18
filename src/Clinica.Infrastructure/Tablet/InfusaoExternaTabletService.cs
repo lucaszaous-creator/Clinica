@@ -14,7 +14,8 @@ public sealed partial class PostoTabletService
         var medicos = await new PrescricaoInternaService(repo,conferencia).MedicosParaValidacaoAsync(ct);
         await Auditar(u,paciente,"TabletContextoEnfermagemConsultado",ct);await db.SaveChangesAsync(ct);
         return new { Sessoes = sessoes.Where(a=>a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
-                .Select(a=>new {a.Id,a.DataHora,a.ProfissionalId,Profissional=a.Profissional?.Nome,a.FimAtendimentoEm}),
+                .Select(a=>new {a.Id,a.DataHora,a.ProfissionalId,Profissional=a.Profissional?.Nome,a.FimAtendimentoEm,
+                    PermiteEvolucaoEnfermagem=EvolucaoEnfermagemService.PermiteEvolucao(a.ModalidadePrevista)}),
             Medicos = medicos.Where(p=>p.Id!=u.ProfissionalId).Select(p=>new {p.Id,p.Nome}) };
     }
 

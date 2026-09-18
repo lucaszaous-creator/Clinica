@@ -9,7 +9,7 @@ public sealed record PoliticaConclusao(string[] ModalidadesEnfermagem, bool Auto
     int Horas = 24, DateTime? AtivadaEm = null)
 {
     public static PoliticaConclusao Padrao => new([nameof(ModalidadeAtendimento.BsvApenas), nameof(ModalidadeAtendimento.BsvComAcupuntura)]);
-    public bool ExigeEnfermagem(Agendamento horario) => ModalidadesEnfermagem.Contains(
+    public bool ExigeEnfermagem(Agendamento horario) => EvolucaoEnfermagemService.PermiteEvolucao(horario.ModalidadePrevista) && ModalidadesEnfermagem.Contains(
         string.IsNullOrWhiteSpace(horario.ModalidadeCodigo) ? horario.ModalidadePrevista.ToString() : horario.ModalidadeCodigo,
         StringComparer.OrdinalIgnoreCase);
 }
@@ -34,8 +34,8 @@ public sealed class PoliticaConclusaoService(IClinicaRepositorio repo)
             throw new UnauthorizedAccessException("Somente o Gerente Geral pode configurar a conclusão clínica.");
         if (horas is < 1 or > 720) throw new InvalidOperationException("Informe um prazo entre 1 e 720 horas.");
         var catalogo = await new ModalidadeCatalogoService(repo).ListarAsync(ct);
-        if (modalidades is null || modalidades.Any(c => !catalogo.Any(m => m.Codigo == c)))
-            throw new InvalidOperationException("Selecione modalidades cadastradas.");
+        if (modalidades is null || modalidades.Any(c => !catalogo.Any(m => m.Codigo == c && EvolucaoEnfermagemService.PermiteEvolucao(m.Base))))
+            throw new InvalidOperationException("Selecione modalidades BSV cadastradas. A evolução de enfermagem é exclusiva de BSV.");
         var anterior = await ObterAsync(ct);
         var agora = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTimeOffset.UtcNow, "America/Sao_Paulo").DateTime;
         var regra = new PoliticaConclusao(modalidades.Distinct().Order().ToArray(), automatica, horas,

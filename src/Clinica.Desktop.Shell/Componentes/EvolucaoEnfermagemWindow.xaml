@@ -28,6 +28,8 @@
     </Window.Resources>
 
     <DockPanel Margin="24">
+        <TextBlock DockPanel.Dock="Top" Text="{Binding AvisoModalidadeEnfermagem}" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Visibility="{Binding AvisoModalidadeEnfermagem, Converter={StaticResource TextoParaVisibilidade}}" />
 
         <!-- Identidade em LINHA de texto, nunca faixa: faixa permanente vira moldura, e
              esta janela tem uma pergunta só. O CONTEXTO (a que a passagem fica ligada)
@@ -81,7 +83,7 @@
                         Style="{StaticResource BotaoSecundario}" />
                 <Button Content="{Binding RotuloDoBotao}" Margin="8,0,0,0" MinWidth="160"
                         VerticalAlignment="Center"
-                        IsEnabled="{Binding PodeRegistrar}"
+                        IsEnabled="{Binding PodeRegistrarNova}"
                         ToolTip="Grava no prontuário do paciente, com a sua identificação e o registro no conselho."
                         Command="{Binding RegistrarCommand}" />
             </StackPanel>

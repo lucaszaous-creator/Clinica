@@ -31,7 +31,7 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Infusao_externa_no_portal_e_idempotente_e_nao_gera_guia()
     {
-        await PrepararBSV();await Enfermeira();
+        await Preparar();await Enfermeira();
         db.Usuarios.Add(new UsuarioSistema {Nome="Médico B",Login="medico.b",Perfil=PerfilAcesso.Profissional,ProfissionalId=outro.ProfissionalId});await db.SaveChangesAsync();
         var pedido=new InfusaoExternaTablet(Guid.NewGuid(),new(horario.PacienteId,outro.ProfissionalId!.Value,null,svc.Hoje,new(8,0),"Execução fictícia","Orientação médica externa fictícia"));
         var a=await Posto.RegistrarInfusaoExternaAsync(sessao,horario.PacienteId,pedido,default);
@@ -62,6 +62,30 @@ public sealed partial class AtendimentoTabletTests
     }
 
     private async Task PrepararBSV() { await Preparar(); horario.ModalidadePrevista = ModalidadeAtendimento.BsvApenas; await db.SaveChangesAsync(); }
+
+    [Theory][InlineData(ModalidadeAtendimento.Consulta)][InlineData(ModalidadeAtendimento.AcupunturaSimples)][InlineData(ModalidadeAtendimento.AcupunturaComEletro)]
+    public async Task Enfermagem_nao_evolui_ou_vincula_em_modalidades_sem_BSV(ModalidadeAtendimento modalidade)
+    {
+        await Preparar(); await Enfermeira(); horario.ModalidadePrevista = modalidade; await db.SaveChangesAsync();
+        var pedido = new RegistroEnfermagemTablet(Guid.NewGuid(), svc.Hoje, new(8,0), "Observação fictícia", false, null, null, AgendamentoId: horario.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId, pedido, default));
+        Assert.Empty(await db.EvolucoesEnfermagem.ToListAsync());
+        db.ChangeTracker.Clear();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new EvolucaoEnfermagemService(repo).ResolverSessaoBsvAsync(horario.PacienteId, svc.Hoje, null));
+        var legado = await Enfermagem(null); legado.AutorUsuarioId = usuario.Id; await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new EvolucaoEnfermagemService(repo).VincularSessaoAsync(legado.Id, horario.Id, usuario.Id, "Correção"));
+        Assert.Null(legado.AgendamentoId);
+    }
+
+    [Fact] public async Task Enfermagem_avulsa_exige_BSV_inequivoco_na_data()
+    {
+        await PrepararBSV(); await Enfermeira();
+        var pedido = new RegistroEnfermagemTablet(Guid.NewGuid(), svc.Hoje, new(8,0), "Observação fictícia", false, null, null);
+        var resultado = await Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId, pedido, default);
+        Assert.Equal(horario.Id, (await db.EvolucoesEnfermagem.SingleAsync(e => e.Id == resultado.Id)).AgendamentoId);
+        await SessaoBsvTeste.CriarAsync(db, horario.PacienteId, svc.Hoje);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId, pedido with { Idempotencia = Guid.NewGuid() }, default));
+    }
 
     private async Task<EvolucaoEnfermagem> Enfermagem(int? vinculo)
     {

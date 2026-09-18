@@ -187,6 +187,7 @@ public class ConformidadeProntuarioTests : IDisposable
     {
         var pacienteId = await CriarPacienteAsync("Só Enfermagem");
 
+        await SessaoBsvTeste.CriarAsync(_db, pacienteId, Dia);
         await new Clinica.Application.Servicos.EvolucaoEnfermagemService(_repo).RegistrarAsync(
             pacienteId, Dia, new TimeOnly(9, 0), "Curativo trocado.",
             new Clinica.Application.Servicos.IdentificacaoExecutante(

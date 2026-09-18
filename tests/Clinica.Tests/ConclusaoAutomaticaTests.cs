@@ -42,9 +42,10 @@ public sealed partial class AtendimentoTabletTests
         usuario.Perfil = PerfilAcesso.Gerente; await db.SaveChangesAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => p.SalvarAsync([], true, 0, usuario.Id));
         await Assert.ThrowsAsync<InvalidOperationException>(() => p.SalvarAsync(["inexistente"], true, 24, usuario.Id));
-        await p.SalvarAsync([nameof(ModalidadeAtendimento.Consulta)], true, 24, usuario.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => p.SalvarAsync([nameof(ModalidadeAtendimento.Consulta)], true, 24, usuario.Id));
+        await p.SalvarAsync([nameof(ModalidadeAtendimento.BsvComAcupuntura)], true, 24, usuario.Id);
         var salvo = await p.ObterAsync(); Assert.True(salvo.Automatica); Assert.NotNull(salvo.AtivadaEm);
-        Assert.True(salvo.ExigeEnfermagem(new() { ModalidadePrevista = ModalidadeAtendimento.Consulta }));
+        Assert.True(salvo.ExigeEnfermagem(new() { ModalidadePrevista = ModalidadeAtendimento.BsvComAcupuntura }));
         Assert.False(salvo.ExigeEnfermagem(new() { ModalidadePrevista = ModalidadeAtendimento.BsvApenas }));
         await p.SalvarAsync([], true, 48, usuario.Id); Assert.Equal(salvo.AtivadaEm, (await p.ObterAsync()).AtivadaEm);
         await p.SalvarAsync([], false, 48, usuario.Id); Assert.Null((await p.ObterAsync()).AtivadaEm);
@@ -129,6 +130,7 @@ public sealed partial class AtendimentoTabletTests
                     .ConcluirSeVencidoAsync(horario.Id, agora); }
             catch (Npgsql.PostgresException ex) when (ex.SqlState == "40001") { /* Reavaliada no próximo ciclo. */ }
             catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: "40001" }) { }
+            catch (InvalidOperationException ex) when (ex.GetBaseException() is Npgsql.PostgresException { SqlState: "40001" }) { }
         }
         await Task.WhenAll(Tentar(), Tentar());
         db.ChangeTracker.Clear();

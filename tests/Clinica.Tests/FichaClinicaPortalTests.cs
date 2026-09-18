@@ -72,14 +72,14 @@ public sealed partial class AtendimentoTabletTests
     [Fact]
     public async Task Documentos_e_enfermagem_do_portal_estao_nos_leitores_desktop()
     {
-        await Preparar();
+        await PrepararBSV();
         var documento = await Posto.EmitirAsync(sessao, horario.PacienteId,
             new(Guid.NewGuid(), "receita", "Texto fictício para integração"), default);
         await Enfermeira();
         var observado = DateTime.Now.AddMinutes(-1);
         var enfermagem = await Posto.RegistrarEnfermagemAsync(sessao, horario.PacienteId,
             new RegistroEnfermagemTablet(Guid.NewGuid(), DateOnly.FromDateTime(observado), TimeOnly.FromDateTime(observado),
-                "Observação fictícia da enfermagem", false, new(120, 80), null), default);
+                "Observação fictícia da enfermagem", false, new(120, 80), null, AgendamentoId: horario.Id), default);
 
         using var leitura = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(connection).Options);
         var leitor = new ClinicaRepositorio(leitura);

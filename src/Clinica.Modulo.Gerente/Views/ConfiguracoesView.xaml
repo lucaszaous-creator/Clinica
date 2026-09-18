@@ -70,8 +70,8 @@
                                     <StackPanel>
                                         <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding Profissional}" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" />
-                                        <TextBlock Text="{Binding AgendamentoId, StringFormat=Sessão {0}}" />
+                                        <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding AgendamentoId, StringFormat=Sessão {0}}" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </Border>

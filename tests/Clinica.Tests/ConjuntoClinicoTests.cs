@@ -192,6 +192,7 @@ public class ConjuntoClinicoTests : IDisposable
             carregada.Itens.Single().Id, SituacaoChecagem.Realizado,
             new TimeOnly(9, 30), Tecnica);
 
+        await SessaoBsvTeste.CriarAsync(_db, paciente.Id, Dia);
         // 9. Evolução de enfermagem
         await new EvolucaoEnfermagemService(_repo, () => MeioDia).RegistrarAsync(
             paciente.Id, Dia, new TimeOnly(9, 45),
