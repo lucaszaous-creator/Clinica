@@ -973,8 +973,11 @@ public sealed class AgendaService
     /// <summary>Conclui a sessão e registra seu fim no mesmo commit das guias. Aceita retomada.</summary>
     public async Task<ResultadoLancamento> ConcluirAtendimentoClinicoAsync(
         int agendamentoId, string operador, CancellationToken ct = default, int? usuarioId = null,
-        bool? houveEnfermagem = null)
+        bool? houveEnfermagem = null, bool permitirEnfermagemPosterior = false,
+        bool reprocessarPresenca = true)
     {
+        if (permitirEnfermagemPosterior && usuarioId is null)
+            throw new UnauthorizedAccessException("Identifique o médico responsável ou o Gerente Geral.");
         if (usuarioId is { } autor)
             await ExigirConclusaoClinicaAsync(agendamentoId, autor, ct);
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
@@ -988,7 +991,12 @@ public sealed class AgendaService
             throw new InvalidOperationException("Este horário está realizado, mas não tem atendimento vinculado. "
                 + "Confira o lançamento original antes de concluir; não crie outro atendimento.");
 
-        if (usuarioId is { } responsavel && await ExigeConferenciaEnfermagemAsync(agendamentoId, ct))
+        if (permitirEnfermagemPosterior && await ExigeConferenciaEnfermagemAsync(agendamentoId, ct)
+            && !await _repo.TemEvolucaoEnfermagemVigenteNoHorarioAsync(agendamentoId, ct))
+            await AuditarFilaAsync(ag, operador, "EnfermagemPendenteNaConclusao",
+                "Conclusão solicitada com evolução de enfermagem ainda não vinculada. Registro posterior permitido na sessão original; o resultado da conclusão é registrado separadamente.", ct);
+
+        if (!permitirEnfermagemPosterior && usuarioId is { } responsavel && await ExigeConferenciaEnfermagemAsync(agendamentoId, ct))
         {
             await ConferirEnfermagemParaConclusaoAsync(agendamentoId, houveEnfermagem, ct);
             ag.HouveAtendimentoEnfermagem = houveEnfermagem;
@@ -1001,7 +1009,8 @@ public sealed class AgendaService
         // Finalizar é a confirmação clínica explícita. A sessão pode ter sido escrita
         // sem usar o cronômetro; não inventar um horário de início para permitir o fim.
 
-        return await ConfirmarNucleoAsync(ag, operador, ct, encerrarClinico: true);
+        return await ConfirmarNucleoAsync(ag, operador, ct, encerrarClinico: true,
+            reprocessarPresenca: reprocessarPresenca);
     }
 
     /// <summary>Relê o acesso antes de gravar, inclusive quando a permissão mudou com a tela aberta.</summary>
@@ -1029,13 +1038,19 @@ public sealed class AgendaService
             throw new InvalidOperationException("A enfermagem precisa salvar e vincular sua evolução a esta sessão antes de o médico finalizar. O atendimento continua aberto.");
     }
 
+    public async Task<string?> PendenciaEnfermagemAsync(int agendamentoId, CancellationToken ct = default)
+        => await ExigeConferenciaEnfermagemAsync(agendamentoId, ct)
+            && !await _repo.TemEvolucaoEnfermagemVigenteNoHorarioAsync(agendamentoId, ct)
+            ? "Evolução de enfermagem pendente. Registre na sessão BSV original; não é necessário gerar outra guia."
+            : null;
+
     public async Task<bool> ExigeConferenciaEnfermagemAsync(int agendamentoId, CancellationToken ct = default)
         => (await new PoliticaConclusaoService(_repo).ObterAsync(ct))
             .ExigeEnfermagem(await ObterParaFilaAsync(agendamentoId, ct));
 
     private async Task<ResultadoLancamento> ConfirmarNucleoAsync(
         Agendamento ag, string? operador, CancellationToken ct,
-        bool confirmarPresenca = true, bool encerrarClinico = false)
+        bool confirmarPresenca = true, bool encerrarClinico = false, bool reprocessarPresenca = true)
     {
         List<string> avisos;
         Atendimento atendimento;
@@ -1097,7 +1112,9 @@ public sealed class AgendaService
             atendimento.RealizadoEm ??= DateTime.Now;
 
             // Efeitos de PRESENÇA que entram no mesmo commit (NCs reabertas)…
-            avisos.AddRange(await _atendimentos.PrepararPresencaAsync(atendimento, ct));
+            // Recuperar uma sessão histórica não significa que o paciente voltou hoje.
+            if (reprocessarPresenca)
+                avisos.AddRange(await _atendimentos.PrepararPresencaAsync(atendimento, ct));
 
             // …e a trilha do ato que gera as guias (item 5 da fila da parcela 69), idem.
             await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
@@ -1138,7 +1155,7 @@ public sealed class AgendaService
         }
 
         // Renovação da consulta: gravação própria, falha vira aviso (nunca desfaz).
-        if (confirmarPresenca)
+        if (confirmarPresenca && reprocessarPresenca)
             avisos.AddRange(await _atendimentos.ConcluirPresencaAsync(atendimento, ct));
 
         return new ResultadoLancamento(atendimento, avisos);

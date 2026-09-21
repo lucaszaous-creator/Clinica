@@ -94,17 +94,30 @@ static class Program
         {
             janela.Width = largura; janela.UpdateLayout(); await Task.Delay(200); janela.UpdateLayout();
             var botoes = Descendentes(janela).OfType<Button>().ToArray();
-            if (botoes.Any(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand)))
-                throw new Exception("A tela ainda oferece conclusão manual.");
-            var concluir = botoes.Single(b => b.Content?.ToString() == "Salvar sessão");
+            var concluir = botoes.Single(b => ReferenceEquals(b.Command, posto.FinalizarSessaoCommand));
             var ponto = concluir.TranslatePoint(new Point(), janela);
             if (!concluir.IsVisible || !concluir.IsEnabled || ponto.X < 0 ||
                 ponto.X + concluir.ActualWidth > janela.ActualWidth || ponto.Y + concluir.ActualHeight > janela.ActualHeight)
                 throw new Exception("Gerente sem vínculo médico perdeu a ação visível de salvar sessão.");
             Foto(janela, "gerente-finalizar-" + largura);
-            Console.WriteLine("GERENTE SEM VÍNCULO: Salvar sessão visível e habilitado em " + largura);
+            Console.WriteLine("GERENTE SEM VÍNCULO: Concluir sessão visível e habilitado em " + largura);
         }
         janela.Close();
+        usuario.Perfil = PerfilAcesso.Enfermagem; usuario.ProfissionalId = prof.Id; usuario.Profissional = prof;
+        var bsv = await db.Agendamentos.FirstAsync(); bsv.ModalidadePrevista = ModalidadeAtendimento.BsvComAcupuntura;
+        await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        var fila = sp.GetRequiredService<SessoesEnfermagemViewModel>();
+        var janelaEnfermagem = new Window { Content = new SessoesEnfermagemView { DataContext = fila },
+            ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual,
+            Left = -30000, Top = -30000, Width = 1366, Height = 768 };
+        janelaEnfermagem.Show(); await fila.CarregarAsync();
+        foreach (var largura in new[] { 1366, 1024 })
+        {
+            janelaEnfermagem.Width = largura; janelaEnfermagem.UpdateLayout(); await Task.Delay(200);
+            if (fila.Sessoes.Count != 1) throw new Exception("A fila BSV não carregou a sessão fictícia.");
+            Foto(janelaEnfermagem, "sessoes-enfermagem-" + largura);
+        }
+        janelaEnfermagem.Close();
     }
     static IEnumerable<DependencyObject> Descendentes(DependencyObject o) { for (int i = 0; i < VisualTreeHelper.GetChildrenCount(o); i++) { var c = VisualTreeHelper.GetChild(o, i); yield return c; foreach (var d in Descendentes(c)) yield return d; } }
     static void Foto(Window w, string nome) { var raiz = (FrameworkElement)w.Content; var bmp = new RenderTargetBitmap((int)raiz.ActualWidth, (int)raiz.ActualHeight, 96, 96, PixelFormats.Pbgra32); bmp.Render(raiz); var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bmp)); using var f = File.Create(Saida + "/" + nome + ".png"); png.Save(f); }

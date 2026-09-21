@@ -1,6 +1,7 @@
 using Clinica.Application.Tablet;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure.Tablet;
+using Clinica.Infrastructure;
 
 namespace Clinica.Assinaturas.Api;
 
@@ -9,6 +10,8 @@ internal static class RotasPostoTablet
     internal static void Mapear(WebApplication app, Func<HttpContext,PortalTabletService,Task<SessaoTablet>> sessao)
     {
         var g=app.MapGroup("/api/posto");
+        g.MapPost("/enfermagem/sessoes/buscar",async(HttpContext c,PortalTabletService portal,PostoTabletService svc, FiltroSessoesEnfermagem filtro)
+            =>Results.Ok(await svc.SessoesEnfermagemAsync(await sessao(c,portal),filtro,c.RequestAborted)));
         g.MapGet("/pacientes/{id:int}/enfermagem/contexto",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,DateOnly data)
             =>Results.Ok(await svc.ContextoEnfermagemAsync(await sessao(c,portal),id,data,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/infusoes-externas",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,InfusaoExternaTablet p)

@@ -123,7 +123,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             Faturamento = await ResumoFaturamentoAsync(a, ct),
             ExigeConferenciaEnfermagem = await agenda.ExigeConferenciaEnfermagemAsync(a.Id, ct),
             OrientacaoConclusao = (await new PoliticaConclusaoService(repo).ObterAsync(ct)).OrientacaoAoSalvar,
-            PendenciaConclusao = (await new ConclusaoAutomaticaService(db, repo, agenda, new(repo))
+            PendenciaConclusao = await agenda.PendenciaEnfermagemAsync(a.Id, ct) ?? (await new ConclusaoAutomaticaService(db, repo, agenda, new(repo))
                 .PendenciasAsync(ConclusaoAutomaticaService.Agora, a.Id, ct)).FirstOrDefault()?.Motivo,
             Profissional = u.Profissional!.Nome, PodePrescrever = u.Pode(Permissao.Prescrever), PodeConcluir = u.Pode(Permissao.LancarAtendimento),
             Silhueta = new {Largura=SilhuetaCorporal.Largura, Altura=SilhuetaCorporal.Altura,
@@ -174,9 +174,9 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         => Escrever(s, id, pedido.Idempotencia, pedido, async (u, a) =>
         {
             if(pedido.Evolucao is null) throw new InvalidOperationException("Informe a evolução.");
-            if(pedido.Finalizar) {
+            if(pedido.Finalizar || pedido.ConcluirAoSalvar) {
                 await agenda.ExigirConclusaoClinicaAsync(id, u.Id, ct);
-                await agenda.ConferirEnfermagemParaConclusaoAsync(id, pedido.HouveEnfermagem, ct);
+                if (!pedido.ConcluirAoSalvar) await agenda.ConferirEnfermagemParaConclusaoAsync(id, pedido.HouveEnfermagem, ct);
             }
             var anterior = await EvolucaoAtual(id, ct);
             if (a.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado) || a.FimAtendimentoEm is not null)
@@ -209,14 +209,14 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 Observacoes = p.Mapa.Observacoes, Pontos = p.Mapa.Pontos.Select((p, i) => new PontoMapa {
                     Face = p.Face, X = p.X, Y = p.Y, Nome = p.Nome, Tecnica = p.Tecnica, Observacao = p.Observacao, Ordem = i + 1}).ToList()});
             int guias = 0; string[] avisos = [];
-            if (pedido.Finalizar)
+            if (pedido.Finalizar || pedido.ConcluirAoSalvar)
             {
-                var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id, pedido.HouveEnfermagem);
+                var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id, pedido.HouveEnfermagem, permitirEnfermagemPosterior: pedido.ConcluirAoSalvar);
                 guias = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
                 avisos = fim.Avisos.ToArray();
             }
             return new ResultadoGravacaoTablet(salvo.Id, Fotografar(salvo, await Mapa(salvo.Id, ct)).Versao,
-                pedido.Finalizar, a.AtendimentoId, guias, avisos);
+                pedido.Finalizar || pedido.ConcluirAoSalvar, a.AtendimentoId, guias, avisos);
         }, ct);
 
     public Task<ResultadoDocumentoTablet> EmitirAsync(SessaoTablet s, int id, EmitirDocumentoTablet pedido, CancellationToken ct)

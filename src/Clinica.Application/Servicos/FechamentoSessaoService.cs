@@ -280,12 +280,12 @@ public sealed class FechamentoSessaoService
     public async Task<RegistroAtendimento> RegistrarAtendimentoAsync(
         int agendamentoId, string? operador = null, DateOnly? hoje = null,
         CancellationToken ct = default, bool concluirClinico = false, int? usuarioClinicoId = null,
-        bool? houveEnfermagem = null)
+        bool? houveEnfermagem = null, bool permitirEnfermagemPosterior = false)
     {
         var proposta = await PrepararAsync(agendamentoId, hoje, ct);
         if (concluirClinico)
         {
-            var clinico = await _agenda.ConcluirAtendimentoClinicoAsync(agendamentoId, operador ?? "?", ct, usuarioClinicoId, houveEnfermagem);
+            var clinico = await _agenda.ConcluirAtendimentoClinicoAsync(agendamentoId, operador ?? "?", ct, usuarioClinicoId, houveEnfermagem, permitirEnfermagemPosterior);
             return new RegistroAtendimento(clinico.Atendimento, proposta, clinico.Avisos, false);
         }
         var (atendimento, recados, jaExistia) =

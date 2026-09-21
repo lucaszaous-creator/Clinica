@@ -89,6 +89,7 @@ public sealed class ModuloClinico : IModuloApp
     /// porque literal à mão dos dois lados sempre compila e some em silêncio.
     /// </summary>
     public const string ChaveEnfermagem = ChavesSuite.Enfermagem;
+    public const string ChaveSessoesEnfermagem = "consultorio-sessoes-enfermagem";
 
     /// <summary>
     /// A produtividade do profissional, na tela dele. <c>ProdutividadeProfissional</c> e
@@ -230,6 +231,12 @@ public sealed class ModuloClinico : IModuloApp
     /// </summary>
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        new ItemMenuModulo
+        {
+            Chave = ChaveSessoesEnfermagem, Rotulo = "Sessões de enfermagem", Glifo = "\uE95E", Icone = "coracao",
+            Grupo = GrupoSidebar.Atendimento, Requer = Permissao.RegistrarEvolucaoEnfermagem,
+            PerfilExclusivo = PerfilAcesso.Enfermagem
+        },
         // A abertura do Clinica.Clinico.exe é este item — e ele NÃO declara `Inicial`.
         //
         // Parece descuido, e não é. `Inicial` marca a abertura do APP, e o shell escolhe o
@@ -584,6 +591,8 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddSingleton<PacienteEmFoco>();
 
         servicos.AddTransient<MeuDiaViewModel>();
+        servicos.AddTransient<SessoesEnfermagemViewModel>();
+        servicos.AddTransient<Clinica.Infrastructure.SessoesEnfermagemService>();
         servicos.AddTransient<RegistrosPendentesViewModel>();
         servicos.AddTransient<MinhaSemanaViewModel>();
         servicos.AddTransient<PrescricoesClinicasViewModel>();
@@ -612,6 +621,7 @@ public sealed class ModuloClinico : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
+        ChaveSessoesEnfermagem => new SessoesEnfermagemView { DataContext = servicos.GetRequiredService<SessoesEnfermagemViewModel>() },
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
         ChavePacientesDaClinica => new PacientesDaClinicaView { DataContext = servicos.GetRequiredService<PacientesDaClinicaViewModel>() },
         ChaveProntuarios => new ProntuariosView { DataContext = servicos.GetRequiredService<ProntuariosViewModel>() },

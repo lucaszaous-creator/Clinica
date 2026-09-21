@@ -14,6 +14,11 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
     AgendaService agenda, PrescricaoService conferencia, ChecagemPrescricaoService checagem)
 {
     private const Permissao Leitura = Permissao.VerFichaPaciente | Permissao.VerProntuario;
+    public async Task<SessoesEnfermagemPagina> SessoesEnfermagemAsync(SessaoTablet s, FiltroSessoesEnfermagem filtro, CancellationToken ct)
+    {
+        var u = await Autorizar(s, ct, Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda);
+        return await new SessoesEnfermagemService(db).ListarAsync(u.Id, filtro, acesso.Hoje, ct);
+    }
     private async Task<UsuarioSistema> Autorizar(SessaoTablet s, CancellationToken ct, Permissao adicional=Permissao.Nenhuma)
         => await acesso.AutorizarAsync(s,ct,Leitura|adicional);
     private Task Auditar(UsuarioSistema u,int paciente,string acao,CancellationToken ct)
