@@ -1,4 +1,7 @@
 using Clinica.Application.Tablet;
+using Clinica.Application.Servicos;
+using Clinica.Application.Modelos;
+using System.Text.Json;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -110,5 +113,47 @@ public sealed partial class AtendimentoTabletTests
         var pedido = Observacoes() with { Observacoes = [new(new(8, 0), texto, false, AlergiaObservada: alergia, NegaAlergia: true)] };
         await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, pedido, default));
         Assert.Empty(await db.EvolucoesEnfermagem.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Alergia_e_horarios_acompanham_a_ficha_e_o_documento_exportado(bool nega)
+    {
+        await PrepararBSV(); await Enfermeira();
+        usuario.Nome = "Enfermagem demonstrativa";
+        usuario.Profissional!.Nome = usuario.Nome;
+        usuario.Profissional.RegistroConselho = "COREN - DEMONSTRAÇÃO";
+        horario.Paciente!.Nome = "Paciente demonstrativo — SEM VALIDADE CLÍNICA";
+        horario.Paciente.DataNascimento = new(1980, 3, 12);
+        await db.SaveChangesAsync();
+        var pedido = new ObservacoesEnfermagemTablet(Guid.NewGuid(), svc.Hoje, horario.Id,
+            [new(new(8, 0), "Primeira observação: registro fictício de demonstração.", false,
+                AlergiaObservada: nega ? null : "Alergia fictícia informada — exemplo sem valor clínico", NegaAlergia: nega),
+             new(new(8, 30), "Segunda observação: acompanhamento fictício no mesmo atendimento.", false),
+             new(new(9, 0), "Terceira observação: intercorrência fictícia registrada para demonstrar o fluxo.", true)]);
+        await Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, pedido, default);
+        var documentos = new DocumentoClinicoService(repo, new(repo), new(repo));
+        var documento = await documentos.EmitirRelatorioEvolucaoAsync(horario.PacienteId,
+            inicio: svc.Hoje, fim: svc.Hoje, operador: usuario.Login);
+        var esperado = nega ? "Alergia: NEGA." : "Alergia observada: Alergia fictícia informada";
+        Assert.Contains(documento.Itens, i => i.Detalhe!.Contains(esperado));
+        Assert.Equal(3, documento.Itens.Count);
+        Assert.Contains(documento.Itens, i => i.Descricao.Contains("08:30"));
+        Assert.Contains(documento.Itens, i => i.Detalhe!.Contains("INTERCORRÊNCIA registrada"));
+        Assert.Equal(nega ? 0 : 1, await db.ProblemasPaciente.CountAsync());
+        var ficha = Json(await Posto.FichaAsync(sessao, horario.PacienteId, 0, default));
+        Assert.Contains(ficha.GetProperty("enfermagem").EnumerateArray(), e => e.GetProperty("texto").GetString()!.Contains(esperado));
+        // Exportação opt-in para demonstração visual, somente com esta base fictícia.
+        if (Environment.GetEnvironmentVariable("CLINICA_PREVIA_ENFERMAGEM") is { Length: > 0 } pasta)
+        {
+            Directory.CreateDirectory(pasta);
+            var nome = nega ? "nega" : "alergia";
+            var pdf = await new DocumentosClinicosPdfService(repo).GerarAsync(documento.Id,
+                new DadosPrestador { NomeFantasia = "Clínica SemDor — DEMONSTRAÇÃO", Cnpj = "00.000.000/0000-00" });
+            await File.WriteAllBytesAsync(Path.Combine(pasta, "sessao-enfermagem-" + nome + ".pdf"), pdf);
+            await File.WriteAllTextAsync(Path.Combine(pasta, "ficha-" + nome + ".json"), ficha.ToString());
+            await File.WriteAllTextAsync(Path.Combine(pasta, "pedido-" + nome + ".json"), JsonSerializer.Serialize(pedido, ContratoTablet.Json));
+        }
     }
 }

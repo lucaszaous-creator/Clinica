@@ -29,7 +29,10 @@ public sealed partial class PostoTabletService
                         throw new InvalidOperationException("Preencha a evolução da observação.");
                     // A negativa pertence à observação, nunca à lista de alergias ativas.
                     // Fica visível também no desktop e PDF, sem apagar alertas anteriores.
-                    var texto = item.NegaAlergia ? item.Texto.TrimEnd() + "\n\nAlergia: NEGA." : item.Texto;
+                    var texto = item.NegaAlergia ? item.Texto.TrimEnd() + "\n\nAlergia: NEGA."
+                        : !string.IsNullOrWhiteSpace(item.AlergiaObservada)
+                            ? item.Texto.TrimEnd() + "\n\nAlergia observada: " + item.AlergiaObservada.Trim()
+                            : item.Texto;
                     Textos(4000, texto);
                     var e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, texto, autor,
                         agendamentoId: p.AgendamentoId, intercorrencia: item.Intercorrencia,
