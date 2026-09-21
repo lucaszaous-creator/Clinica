@@ -82,11 +82,16 @@ public sealed partial class PostoTabletService
         },ct);
     public Task<ResultadoFichaTablet> CriarModeloAsync(SessaoTablet s,int paciente,NovoModeloDocumentoTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,p,"TabletModeloDocumento",Permissao.Prescrever,async u=> {
-            Textos(120,p.Nome);Textos(20000,p.Texto);
+            Textos(100,p.Nome);Textos(20000,p.Texto);Textos(250000,p.CorpoFormatado);
             if(!TiposEditaveis.Contains(p.Tipo))throw new InvalidOperationException("Escolha um tipo de documento disponível.");
-            if(string.IsNullOrWhiteSpace(p.Nome)||await db.ModelosDocumento.AnyAsync(m=>m.Tipo==p.Tipo&&m.Nome.ToLower()==p.Nome.Trim().ToLower(),ct))
+            if(string.IsNullOrWhiteSpace(p.Nome)||await db.ModelosDocumento.AnyAsync(m=>m.Id!=p.Id&&m.Tipo==p.Tipo&&m.Nome.ToLower()==p.Nome.Trim().ToLower(),ct))
                 throw new InvalidOperationException("Dê um nome novo ao modelo. Os modelos existentes são preservados.");
-            var m=await Documentos.SalvarModeloAsync(new() {Nome=p.Nome,Tipo=p.Tipo,Corpo=p.Texto,Ativo=true},u.Login,ct);
+            if(p.Id!=0) {
+                var anterior=await repo.ObterModeloDocumentoAsync(p.Id,ct)??throw new RecursoClinicoIndisponivel();
+                ConferirVersao(p.Versao??"",VersaoModelo(anterior));
+            }
+            var m=await Documentos.SalvarModeloAsync(new() {Id=p.Id,Nome=p.Nome,Tipo=p.Tipo,Corpo=p.Texto,
+                CorpoFormatado=p.CorpoFormatado,ParaInfusao=p.ParaInfusao,ConfiguracaoInfusao=p.ConfiguracaoInfusao,Ativo=true},u.Login,ct,substituirPorNome:false);
             return new ResultadoFichaTablet(m.Id);
         },ct);
 }

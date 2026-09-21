@@ -179,13 +179,13 @@ public sealed class PrescricaoInternaPdfService
                     }
 
                     if (!string.IsNullOrWhiteSpace(prescricao.Indicacao))
-                        Campo(col, "Indicação", prescricao.Indicacao!);
+                        Campo(col, "Indicação", prescricao.Indicacao!,prescricao.IndicacaoFormatada);
 
                     TabelaDaPrescricao(col, itens);
                     if (prescricao.OrigemEnfermagem) TabelaDaExecucao(col, itens);
 
                     if (!string.IsNullOrWhiteSpace(prescricao.Observacoes))
-                        Campo(col, "Orientações gerais", prescricao.Observacoes!);
+                        Campo(col, "Orientações gerais", prescricao.Observacoes!,prescricao.ObservacoesFormatadas);
                 });
 
                 Rodape(page, prescricao, assinatura,
@@ -468,15 +468,13 @@ public sealed class PrescricaoInternaPdfService
                     var preparo = PreparoDoItem(item);
                     if (preparo.Length > 0)
                         c.Item().Text(preparo).FontSize(8.5f).SemiBold().FontColor(TextoSecundario);
-                    c.Item().Text(item.Descricao).FontSize(9.5f)
-                        .FontColor(apagado ? TextoSecundario : TextoPrimario)
-                        .Strikethrough(apagado);
+                    c.Item().DefaultTextStyle(t=>t.FontColor(apagado ? TextoSecundario : TextoPrimario).Strikethrough(apagado)).TextoClinico(item.Descricao,item.DescricaoFormatada);
 
                     if (item.SeNecessario)
                         c.Item().Text("se necessário (SOS)").FontSize(8).FontColor(AmareloForte);
 
                     if (!string.IsNullOrWhiteSpace(item.Observacoes))
-                        c.Item().Text(item.Observacoes!).FontSize(8).FontColor(TextoSecundario);
+                        c.Item().TextoClinico(item.Observacoes,item.ObservacoesFormatadas);
 
                     if (apagado)
                         c.Item().Text($"SUSPENSO — {item.MotivoSuspensao}")
@@ -564,8 +562,8 @@ public sealed class PrescricaoInternaPdfService
                     var preparo = PreparoDoItem(item);
                     if (preparo.Length > 0)
                         c.Item().Text(preparo).FontSize(8.5f).SemiBold().FontColor(TextoSecundario);
-                    c.Item().Text(item.Descricao).FontSize(9.5f)
-                        .Strikethrough(item.Suspenso);
+                    c.Item().DefaultTextStyle(t=>t.Strikethrough(item.Suspenso))
+                        .TextoClinico(item.Descricao,item.DescricaoFormatada);
                     if (item.SeNecessario)
                         c.Item().Text("se necessário (SOS)").FontSize(8).FontColor(AmareloForte);
                     if (item.Suspenso)
@@ -1168,11 +1166,11 @@ public sealed class PrescricaoInternaPdfService
                .Select(i => i.ChecagemVigente?.ExecutanteConselho)
                .FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
 
-    private static void Campo(ColumnDescriptor col, string rotulo, string texto)
+    private static void Campo(ColumnDescriptor col, string rotulo, string texto,string? formato=null)
         => col.Item().Column(c =>
         {
             c.Item().Text(rotulo).Bold().FontSize(8.5f).FontColor(TextoSecundario);
-            c.Item().PaddingTop(2).Text(texto).FontSize(10);
+            c.Item().PaddingTop(2).TextoClinico(texto,formato);
         });
 
     private static void Faixa(

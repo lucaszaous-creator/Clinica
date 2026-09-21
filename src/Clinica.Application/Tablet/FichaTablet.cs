@@ -28,9 +28,11 @@ public sealed record ObservacoesEnfermagemTablet(Guid Idempotencia, DateOnly Dat
     ObservacaoEnfermagemTablet[] Observacoes);
 public sealed record ResultadoObservacoesEnfermagemTablet(int[] Ids);
 public sealed record InfusaoExternaTablet(Guid Idempotencia, RegistroInfusaoExterna Dados);
-public sealed record NovoModeloDocumentoTablet(Guid Idempotencia,string Nome,TipoDocumentoClinico Tipo,string Texto);
+public sealed record NovoModeloDocumentoTablet(Guid Idempotencia,string Nome,TipoDocumentoClinico Tipo,string Texto,
+    string? CorpoFormatado=null,int Id=0,string? Versao=null,bool ParaInfusao=false,string? ConfiguracaoInfusao=null);
 public sealed record RascunhoTablet(Guid Idempotencia, string Versao, string Motivo, string? Corpo,
     string? Observacoes, int? DiasAfastamento, string? Indicacao, bool AssinaturaEnfermagem,
-    ItemInfusaoTablet[]? Itens);
+    ItemInfusaoTablet[]? Itens,string? CorpoFormatado=null,string? ObservacoesFormatadas=null,string? IndicacaoFormatada=null);
 public sealed record ItemInfusaoTablet(string Descricao, string? Dose, string? Diluente, string? Volume,
-    ViaAdministracao Via, string? TempoInfusao, TimeOnly? HoraPrevista, bool SeNecessario, string? Observacoes);
+    ViaAdministracao Via, string? TempoInfusao, TimeOnly? HoraPrevista, bool SeNecessario, string? Observacoes,
+    string? DescricaoFormatada=null,string? ObservacoesFormatadas=null);

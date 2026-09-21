@@ -174,92 +174,38 @@
                     <TextBlock Text="{Binding EnderecoDaReceita}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" />
                 </StackPanel>
 
-                <StackPanel Margin="0,16,0,0"
-                            Visibility="{Binding TemSugestoes, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="Sugestões da clínica" Style="{StaticResource H3}" />
-                    <TextBlock Text="Marque para acrescentar ao texto. Edite ou remova os trechos no campo Prescrição."
-                               Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
-                    <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" ctrl:Ajudantes.RodaDaPagina="True">
-                    <ItemsControl ItemsSource="{Binding Sugestoes}" Margin="0,8,0,0">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{Binding Selecionada}" Margin="0,4"
-                                          ToolTip="{Binding Texto}" AutomationProperties.Name="{Binding Nome}">
-                                    <TextBlock Text="{Binding Nome}" TextWrapping="Wrap" />
-                                </CheckBox>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    </ScrollViewer>
-                </StackPanel>
-
+                <Border Style="{StaticResource Card}" Margin="0,16,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Buscar um modelo" Style="{StaticResource H3}" />
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <ctrl:BuscaModeloClinico Modelos="{Binding Modelos}" Selecionado="{Binding ModeloSelecionado}" />
+                            <Button Grid.Column="1" Content="Usar modelo" Command="{Binding AplicarModeloCommand}" VerticalAlignment="Top" Margin="8,0,0,0" MinHeight="38" Style="{StaticResource BotaoSecundario}" />
+                        </Grid>
+                        <Expander Header="Prévia do modelo" Margin="0,4">
+                            <TextBlock Text="{Binding PreviaModelo}" TextWrapping="Wrap" MaxHeight="150" />
+                        </Expander>
+                    </StackPanel>
+                </Border>
                 <!-- ===== Texto ===== -->
                 <TextBlock Text="{Binding RotuloCorpo}" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
-                <TextBox Text="{Binding Corpo, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="240"
-                         AutomationProperties.Name="{Binding RotuloCorpo}"
-                         VerticalContentAlignment="Top"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                <ctrl:EditorTextoClinico Texto="{Binding Corpo, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding CorpoFormatado, UpdateSourceTrigger=PropertyChanged}" MinHeight="240"
+                         AutomationProperties.Name="{Binding RotuloCorpo}"  />
                 <TextBlock Text="Escreva ou cole o receituário completo, incluindo o modo de usar. O texto pode ser editado livremente."
                            Margin="0,6,0,0" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                            Visibility="{Binding ReceitaLivre, Converter={StaticResource BoolParaVisibilidade}}" />
 
-                <!-- ===== Modelos ===== -->
-                <Expander Header="Guardar e gerenciar sugestões e modelos" Margin="0,12,0,0">
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Modelos" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
-                                   Text="O modelo nasce de um documento que você acabou de escrever. Guardar com um nome já usado corrige o modelo em vez de criar um gêmeo." />
-
-                        <!-- Botão AO LADO DE CAMPO usa a altura do campo (36), nunca
-                             BotaoPequeno (26): a Grid estica o botão baixo até a altura da
-                             linha e ele sai com o padding errado — é o "fora do esquadro"
-                             que dava para ver a olho nu. BotaoPequeno é para linha densa
-                             de tabela, não para barra de formulário. -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ComboBox Grid.Column="0" ItemsSource="{Binding Modelos}"
-                                      SelectedItem="{Binding ModeloSelecionado}"
-                                      DisplayMemberPath="Nome" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
-                                    VerticalAlignment="Center" MinWidth="88"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding AplicarModeloCommand}" />
-                            <!-- Modelo é rascunho de apoio, não registro do que aconteceu:
-                                 apaga-se mesmo. O documento emitido com ele não muda —
-                                 a emissão copia o conteúdo.
-                                 Deixou de ser vermelho SÓLIDO: ação destrutiva que fica
-                                 gritando ao lado de um seletor rouba a atenção do que a
-                                 pessoa veio fazer. Quem protege é a confirmação. -->
-                            <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
-                                    VerticalAlignment="Center" MinWidth="88"
-                                    Style="{StaticResource BotaoSecundarioPerigo}"
-                                    Command="{Binding ExcluirModeloCommand}" />
-                        </Grid>
-
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="CampoNomeModelo" Grid.Column="0" MaxLength="100"
-                                     VerticalAlignment="Center"
-                                     ctrl:Ajudantes.Placeholder="Nome do modelo" />
-                            <Button Grid.Column="1" Content="Guardar como modelo" Margin="8,0,0,0"
-                                    VerticalAlignment="Center"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding SalvarComoModeloCommand}"
-                                    CommandParameter="{Binding Text, ElementName=CampoNomeModelo}" />
-                        </Grid>
+                <Expander Header="Salvar ou atualizar modelo" Margin="0,12,0,0">
+                    <StackPanel Margin="0,10">
+                        <TextBlock Text="Nome do novo modelo" Style="{StaticResource Rotulo}" />
+                        <TextBox x:Name="CampoNomeModelo" MaxLength="100" AutomationProperties.Name="Nome do novo modelo" />
+                        <WrapPanel Margin="0,8">
+                            <Button Content="Salvar novo modelo" Command="{Binding SalvarComoModeloCommand}" CommandParameter="{Binding Text, ElementName=CampoNomeModelo}" Margin="0,0,8,0" />
+                            <Button Content="Atualizar selecionado" Command="{Binding AtualizarModeloCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
+                            <Button Content="Excluir selecionado" Command="{Binding ExcluirModeloCommand}" Style="{StaticResource BotaoSecundarioPerigo}" />
+                        </WrapPanel>
                     </StackPanel>
-                </Border>
                 </Expander>
-
                 <TextBlock Text="Título impresso (opcional)" Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
                 <TextBox Text="{Binding Titulo}" MaxLength="200" />
 
@@ -292,12 +238,12 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
-                                            <TextBox Grid.Column="0" Text="{Binding Descricao}" MaxLength="300"
-                                                     VerticalAlignment="Center" />
+                                            <ctrl:EditorTextoClinico Texto="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding DescricaoFormatada, UpdateSourceTrigger=PropertyChanged}" Grid.Column="0"
+                                                     VerticalAlignment="Center"  />
                                             <TextBox Grid.Column="2" Text="{Binding Quantidade}" MaxLength="60"
                                                      VerticalAlignment="Center" />
-                                            <TextBox Grid.Column="4" Text="{Binding Detalhe}" MaxLength="1000"
-                                                     VerticalAlignment="Center" />
+                                            <ctrl:EditorTextoClinico Texto="{Binding Detalhe, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding DetalheFormatado, UpdateSourceTrigger=PropertyChanged}" Grid.Column="4"
+                                                     VerticalAlignment="Center"  />
 
                                             <!-- Um "Remover" vermelho sólido por linha faz a
                                                  receita inteira parecer um formulário de erro.
@@ -463,8 +409,7 @@
 
                 <TextBlock Text="Observações (impressas no rodapé do documento)"
                            Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
-                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="60"
-                         TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="1000" />
+                <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}" Height="60"  />
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

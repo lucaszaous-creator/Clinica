@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
 
@@ -133,7 +134,8 @@ public sealed partial class PrescricaoInternaService
         int prescricaoId, string? indicacao, string? observacoes,
         IReadOnlyList<ItemPrescricaoInterna> itens,
         string? operador = null,
-        bool? exigeAssinaturaEletronicaDaExecucao = null, CancellationToken ct = default)
+        bool? exigeAssinaturaEletronicaDaExecucao = null, CancellationToken ct = default,
+        string? indicacaoFormatada = null, string? observacoesFormatadas = null)
     {
         var prescricao = await Exigir(prescricaoId, ct);
 
@@ -143,7 +145,9 @@ public sealed partial class PrescricaoInternaService
                 + "corrigir, suspenda o item e prescreva outro — é o que deixa rastro dos dois.");
 
         prescricao.Indicacao = Limpar(indicacao);
+        prescricao.IndicacaoFormatada = TextoFormatado.Normalizar(prescricao.Indicacao, indicacaoFormatada ?? prescricao.IndicacaoFormatada);
         prescricao.Observacoes = Limpar(observacoes);
+        prescricao.ObservacoesFormatadas = TextoFormatado.Normalizar(prescricao.Observacoes, observacoesFormatadas ?? prescricao.ObservacoesFormatadas);
 
         // Nulo = quem chamou não mexe no campo. É o que impede um chamador antigo de
         // DESMARCAR a 2ª assinatura por não conhecer o parâmetro novo.
@@ -163,6 +167,7 @@ public sealed partial class PrescricaoInternaService
             {
                 Ordem = ordem++,
                 Descricao = entrada.Descricao.Trim(),
+                DescricaoFormatada = TextoFormatado.Normalizar(entrada.Descricao.Trim(), entrada.DescricaoFormatada),
                 Dose = Limpar(entrada.Dose),
                 Diluente = Limpar(entrada.Diluente),
                 Volume = Limpar(entrada.Volume),
@@ -170,7 +175,8 @@ public sealed partial class PrescricaoInternaService
                 TempoInfusao = Limpar(entrada.TempoInfusao),
                 HoraPrevista = entrada.HoraPrevista,
                 SeNecessario = entrada.SeNecessario,
-                Observacoes = Limpar(entrada.Observacoes)
+                Observacoes = Limpar(entrada.Observacoes),
+                ObservacoesFormatadas = TextoFormatado.Normalizar(Limpar(entrada.Observacoes), entrada.ObservacoesFormatadas)
             });
         }
 

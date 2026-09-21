@@ -5,6 +5,18 @@ namespace Clinica.Domain;
 /// <summary>Converte modelos da clínica em texto editável, sem interpretar medicamentos.</summary>
 public static class TextoReceituario
 {
+    public static (string Texto, string? Formato) ConteudoDoModelo(ModeloDocumento modelo)
+    {
+        var partes = new List<(string?, string?)> { (modelo.Corpo, modelo.CorpoFormatado) };
+        foreach (var item in modelo.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id))
+        {
+            var linha = TextoFormatado.Juntar([(item.Descricao, item.DescricaoFormatada),
+                (item.Quantidade, null), (item.Detalhe, item.DetalheFormatado)], "\n");
+            partes.Add(linha);
+        }
+        return TextoFormatado.Juntar(partes);
+    }
+
     public static string DoModelo(ModeloDocumento modelo)
     {
         var partes = new List<string>();

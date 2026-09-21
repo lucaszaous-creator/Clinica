@@ -21,6 +21,7 @@ namespace Clinica.Clinico.ViewModels;
 public sealed partial class LinhaItemPrescricao : ObservableObject
 {
     [ObservableProperty] private string _descricao = string.Empty;
+    [ObservableProperty] private string? _descricaoFormatada;
     [ObservableProperty] private string? _dose;
     [ObservableProperty] private string? _diluente = "SF 0,9%";
     [ObservableProperty] private string? _volume;
@@ -29,10 +30,11 @@ public sealed partial class LinhaItemPrescricao : ObservableObject
     [ObservableProperty] private string? _horaPrevista;
     [ObservableProperty] private bool _seNecessario;
     [ObservableProperty] private string? _observacoes;
+    [ObservableProperty] private string? _observacoesFormatadas;
 
     public static LinhaItemPrescricao De(ItemPrescricaoInterna item) => new()
     {
-        Descricao = item.Descricao,
+        Descricao = item.Descricao, DescricaoFormatada = item.DescricaoFormatada,
         Dose = item.Dose,
         Diluente = item.Diluente,
         Volume = item.Volume,
@@ -40,12 +42,12 @@ public sealed partial class LinhaItemPrescricao : ObservableObject
         TempoInfusao = item.TempoInfusao,
         HoraPrevista = item.HoraPrevista?.ToString("HH\\:mm"),
         SeNecessario = item.SeNecessario,
-        Observacoes = item.Observacoes
+        Observacoes = item.Observacoes, ObservacoesFormatadas = item.ObservacoesFormatadas
     };
 
     public ItemPrescricaoInterna Para() => new()
     {
-        Descricao = Descricao,
+        Descricao = Descricao, DescricaoFormatada = DescricaoFormatada,
         Dose = Dose,
         Diluente = Diluente,
         Volume = Volume,
@@ -55,7 +57,7 @@ public sealed partial class LinhaItemPrescricao : ObservableObject
         // trava o salvamento: vira "sem horário previsto", que é o que ela significa.
         HoraPrevista = TimeOnly.TryParse(HoraPrevista, out var hora) ? hora : null,
         SeNecessario = SeNecessario,
-        Observacoes = Observacoes
+        Observacoes = Observacoes, ObservacoesFormatadas = ObservacoesFormatadas
     };
 }
 
@@ -98,7 +100,9 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string _numero = "(será numerada ao salvar)";
     [ObservableProperty] private string? _indicacao;
+    [ObservableProperty] private string? _indicacaoFormatada;
     [ObservableProperty] private string? _observacoes;
+    [ObservableProperty] private string? _observacoesFormatadas;
 
     /// <summary>
     /// O campo de 2ª assinatura (decisão da direção, 14/08/2026): marcado, a enfermagem
@@ -172,6 +176,55 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         if (_prescricaoId == 0) AcrescentarItem();
 
         _ = PrepararAsync();
+        _ = CarregarModelosAsync();
+    }
+
+    public ObservableCollection<ModeloDocumento> Modelos {get;}=[];
+    [ObservableProperty] private ModeloDocumento? _modeloSelecionado;
+    public string PreviaModelo => ModeloSelecionado?.Corpo??"Escolha um modelo para conferir o conteúdo.";
+    partial void OnModeloSelecionadoChanged(ModeloDocumento? value)=>OnPropertyChanged(nameof(PreviaModelo));
+    private async Task CarregarModelosAsync() {
+        try {
+            using var scope=_escopos.CreateScope();
+            var modelos=await scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ModelosAsync();
+            Modelos.Clear();foreach(var m in modelos.Where(m=>m.Ativo&&m.ParaInfusao))Modelos.Add(m);
+        } catch(Exception ex){Mensagem="Não foi possível carregar os modelos: "+ex.Message;MensagemEhErro=true;}
+    }
+    [RelayCommand]
+    private void AplicarModelo() {
+        if(Ocupado||ModeloSelecionado is not {} m||!Exigir(Permissao.Prescrever,"usar modelos"))return;
+        try {
+            var modelo=ModeloInfusao.Ler(m.ConfiguracaoInfusao);
+            if(Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))||!string.IsNullOrWhiteSpace(Indicacao)||!string.IsNullOrWhiteSpace(Observacoes))
+                if(!_dialogo.ConfirmarPerigo("Usar modelo","Substituir a prescrição que está em edição pelo modelo escolhido?"))return;
+            Indicacao=modelo.Indicacao;IndicacaoFormatada=modelo.IndicacaoFormatada;
+            Observacoes=modelo.Observacoes;ObservacoesFormatadas=modelo.ObservacoesFormatadas;
+            Itens.Clear();foreach(var item in modelo.Itens)Itens.Add(LinhaItemPrescricao.De(ModeloInfusao.Para(item)));
+            Mensagem="Modelo aplicado. Revise a prescrição antes de salvar.";MensagemEhErro=false;
+        }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;}
+    }
+    [RelayCommand]
+    private Task SalvarComoModeloAsync(string? nome)=>GuardarModeloAsync(nome,0);
+    [RelayCommand]
+    private async Task AtualizarModeloAsync() {
+        if(ModeloSelecionado is not {} m||Ocupado)return;
+        if(!_dialogo.ConfirmarPerigo("Atualizar modelo",$"Substituir o conteúdo de {m.Nome} para toda a clínica?"))return;
+        await GuardarModeloAsync(m.Nome,m.Id);
+    }
+    private async Task GuardarModeloAsync(string? nome,int id) {
+        if(Ocupado||!Exigir(Permissao.Prescrever,"salvar modelos"))return;
+        try {
+            Ocupado=true;
+            var itens=Itens.Where(i=>!string.IsNullOrWhiteSpace(i.Descricao)).Select(i=>i.Para()).ToArray();
+            var config=new ModeloInfusao(Indicacao,Observacoes,itens.Select(ModeloInfusao.De).ToArray(),IndicacaoFormatada,ObservacoesFormatadas).Guardar();
+            var texto=TextoFormatado.Juntar(itens.Select(i=>((string?)i.Descricao,i.DescricaoFormatada)));
+            using var scope=_escopos.CreateScope();
+            var salvo=await scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>().SalvarModeloAsync(new() {
+                Id=id,Nome=nome??"",Tipo=TipoDocumentoClinico.Receita,ParaInfusao=true,ConfiguracaoInfusao=config,Corpo=texto.Texto,CorpoFormatado=texto.Formato,Ativo=true
+            },SessaoUsuario.Atual.Operador,substituirPorNome:false);
+            await CarregarModelosAsync();ModeloSelecionado=Modelos.Single(m=>m.Id==salvo.Id);
+            Mensagem="Modelo salvo e disponível na busca.";MensagemEhErro=false;
+        }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;}finally{Ocupado=false;}
     }
 
     partial void OnOcupadoChanged(bool value) => OnPropertyChanged(nameof(PodeAssinar));
@@ -218,8 +271,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
             if (prescricao.Itens.Count > 0)
             {
-                Indicacao = prescricao.Indicacao;
-                Observacoes = prescricao.Observacoes;
+                Indicacao = prescricao.Indicacao; IndicacaoFormatada = prescricao.IndicacaoFormatada;
+                Observacoes = prescricao.Observacoes; ObservacoesFormatadas = prescricao.ObservacoesFormatadas;
 
                 Itens.Clear();
                 foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem))
@@ -415,7 +468,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             var salva = await servico.SalvarRascunhoAsync(
                 _prescricaoId, Indicacao, Observacoes, itens,
                 SessaoUsuario.Atual.Operador,
-                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao);
+                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas);
 
             Mensagem = null;
             MensagemEhErro = false;
