@@ -490,7 +490,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                 ?? (await escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ConclusaoAutomaticaService>()
                 .PendenciasAsync(Clinica.Infrastructure.ConclusaoAutomaticaService.Agora, id)).FirstOrDefault()?.Motivo;
             if (_horario?.FimAtendimentoEm is null)
-                AvisoConclusaoAutomatica ??= (await escopo.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().ObterAsync()).OrientacaoAoSalvar;
+                AvisoConclusaoAutomatica ??= SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+                    ? "Use Concluir sessão para encerrar o atendimento já registrado e gerar as guias. Se editou a evolução, salve antes."
+                    : (await escopo.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().ObterAsync()).OrientacaoAoSalvar;
             DescreverSessao();
         }
         catch (Exception ex)
