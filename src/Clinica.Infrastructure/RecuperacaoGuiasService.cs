@@ -124,7 +124,8 @@ public sealed class RecuperacaoGuiasService(ClinicaDbContext db, IClinicaReposit
         var geraGuia = CatalogoConvenios.GeraGuia(a.Paciente!.ConvenioCodigo);
         if (e!.AgendamentoId == null) await new ProntuarioService(repo).VincularAoHorarioAsync(e.Id, a.Id, operador, ct);
         if (a.AtendimentoId != null && geraGuia) await atendimentos.RecuperarGuiasAusentesAsync(a, operador, ct);
-        var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, operador, ct, u.Id, permitirEnfermagemPosterior: true);
+        var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, operador, ct, u.Id,
+            permitirEnfermagemPosterior: true, reprocessarPresenca: false);
         var quantidade = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
         if (quantidade == 0 && geraGuia) throw new InvalidOperationException("Nenhuma guia aplicável: confira convênio e modalidade. Recuperação revertida.");
         await repo.RegistrarAuditoriaAsync(new EventoAuditoria { Operador = operador, PacienteId = a.PacienteId,

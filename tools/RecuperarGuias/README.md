@@ -16,6 +16,8 @@ de faturamento; não registra pagamento, baixa ou autorização do convênio.
 - Uma evolução avulsa só pode ser vinculada se houver um único horário no dia, do mesmo médico.
 - Pendência de enfermagem não impede as guias; permanece para registro posterior na sessão original.
 - Não altera atendimentos estornados, cancelamentos, faltas, horários futuros ou guias existentes.
+  A recuperação não simula um novo retorno do paciente: preserva não conformidades,
+  inclusive de outras sessões, e não dispara renovação de consulta por presença.
   Não gera guias com convênio a definir; conclui particulares sem inventar guias de convênio.
   Vínculos ambíguos ficam no relatório. Código não aplicável em convênio que gera guia exige revisão.
 - Revalida cada sessão numa transação serializável, com a mesma trava do portal/worker.

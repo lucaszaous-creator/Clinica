@@ -87,6 +87,26 @@ public sealed class RecuperacaoGuiasTests : IDisposable
         Assert.Equal(estados, await db.Codigos.OrderBy(c => c.Id).Select(c => c.Status).ToArrayAsync());
     }
 
+    [Fact] public async Task Recuperacao_historica_preserva_nao_conformidades_sem_simular_novo_retorno()
+    {
+        var (a, _) = await Preparar();
+        await agenda.ConfirmarPresencaAsync(a.Id);
+        foreach (var c in await db.Codigos.ToListAsync())
+            c.MarcarNaoConformidade("Pendência original de faturamento");
+        await db.SaveChangesAsync();
+        var antes = await db.Codigos.AsNoTracking().OrderBy(c => c.Id)
+            .Select(c => new { c.Id, c.Status, c.NaoConformidadeJustificativa, c.NaoConformidadeEm }).ToArrayAsync();
+        var p = await Previa();
+        Assert.True(p.PodeRecuperar, p.Situacao);
+        var resultado = await svc.RecuperarAsync(gerente.Id, new(p.Id, p.Versao));
+        Assert.True(resultado.Sucesso); Assert.Equal(0, resultado.Guias);
+        db.ChangeTracker.Clear();
+        Assert.Equal(antes, await db.Codigos.AsNoTracking().OrderBy(c => c.Id)
+            .Select(c => new { c.Id, c.Status, c.NaoConformidadeJustificativa, c.NaoConformidadeEm }).ToArrayAsync());
+        Assert.False(await db.Auditoria.AnyAsync(x => x.Acao == "NaoConformidadeReaberta"));
+        Assert.NotNull((await db.Agendamentos.SingleAsync()).FimAtendimentoEm);
+    }
+
     [Fact] public async Task Particular_conclui_sem_inventar_guia_de_convenio()
     {
         var (a, _) = await Preparar(); a.Paciente!.ConvenioCodigo = ConvenioCadastro.CodigoParticular;
