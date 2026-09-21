@@ -1,15 +1,20 @@
 using Clinica.Application.Servicos;
 using Clinica.Application.Tablet;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 namespace Clinica.Tests;
 public sealed partial class AtendimentoTabletTests
 {
-    [Fact]
-    public async Task Salvar_medico_gera_guia_agora_e_enfermagem_registra_depois_sem_duplicar()
+    [Theory]
+    [InlineData(ModalidadeAtendimento.BsvApenas)]
+    [InlineData(ModalidadeAtendimento.BsvComAcupuntura)]
+    public async Task Salvar_medico_gera_guia_agora_e_enfermagem_registra_depois_sem_duplicar(ModalidadeAtendimento modalidade)
     {
         await PrepararBSV();
+        horario.ModalidadePrevista = modalidade;
+        await db.SaveChangesAsync();
         var pedido = (await Pedido()) with { ConcluirAoSalvar = true };
         var salvo = await svc.SalvarAsync(sessao, horario.Id, pedido, default);
         Assert.True(salvo.Finalizado);

@@ -6,6 +6,10 @@ Execute na raiz do repositório:
 dotnet run --project tools/ValidarLayoutWindows
 ```
 
+Use `--retornos` para conferir somente “Retornos a marcar”, com dados fictícios,
+nos perfis Recepção e Gerente, em 880, 1024, 1366 e 1920 pixels. A verificação
+exige os botões Marcar horário e WhatsApp visíveis, sem cortes ou rolagem horizontal.
+
 `--completo` percorre todas as telas e subabas publicadas pelos quatro módulos que usam o shell.
 O faturamento tem janela e recursos próprios e precisa de conferência separada.
 

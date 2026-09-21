@@ -86,7 +86,8 @@ public sealed class AcessoService
         int? profissionalId = null,
         string? operador = null,
         bool deveTrocarSenha = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool ativo = true)
     {
         if (string.IsNullOrWhiteSpace(nome))
             throw new ArgumentException("Informe o nome do usuário.", nameof(nome));
@@ -115,12 +116,13 @@ public sealed class AcessoService
             SenhaSalt = sal,
             Perfil = perfil,
             ProfissionalId = profissionalId,
+            Ativo = ativo,
             DeveTrocarSenha = deveTrocarSenha
         };
 
         await _repo.AdicionarUsuarioAsync(usuario, ct);
         await AuditarAsync("UsuarioCriado",
-            $"{usuario.Nome} ({usuario.Login}) — perfil {PerfisAcesso.Rotular(perfil)}", operador, ct);
+            $"{usuario.Nome} ({usuario.Login}) — perfil {PerfisAcesso.Rotular(perfil)}, {(ativo ? "ativo" : "inativo")}", operador, ct);
         await _repo.SalvarAsync(ct);
         return usuario;
     }
