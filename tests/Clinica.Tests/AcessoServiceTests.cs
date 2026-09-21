@@ -223,6 +223,30 @@ public class AcessoServiceTests : IDisposable
         usuario.Login.Should().Be("ana");
         usuario.Perfil.Should().Be(PerfilAcesso.Recepcao);
         usuario.SenhaHash.Should().NotBeNullOrWhiteSpace();
+        usuario.Ativo.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(PerfilAcesso.Profissional, false)]
+    [InlineData(PerfilAcesso.Enfermagem, false)]
+    [InlineData(PerfilAcesso.Profissional, true)]
+    [InlineData(PerfilAcesso.Enfermagem, true)]
+    public async Task Criar_RespeitaEstadoAtivoEControlaLogin(PerfilAcesso perfil, bool ativo)
+    {
+        var usuario = await _acesso.CriarAsync(
+            "Acesso clínico", "acesso.clinico", "segredo123", perfil, ativo: ativo);
+
+        // Releitura do banco, sem depender do objeto devolvido pelo cadastro.
+        _db.ChangeTracker.Clear();
+        var salvo = await _acesso.ObterAsync(usuario.Id);
+        salvo!.Ativo.Should().Be(ativo);
+        salvo.Perfil.Should().Be(perfil);
+        salvo.Efetivas.Should().Be(PerfisAcesso.Padrao(perfil));
+        var login = await _acesso.AutenticarAsync("acesso.clinico", "segredo123");
+        login.Sucesso.Should().Be(ativo);
+        var eventos = await _repo.EventosAuditoriaAsync();
+        eventos.Should().Contain(e => e.Acao == "UsuarioCriado"
+            && e.Detalhe != null && e.Detalhe.EndsWith(ativo ? ", ativo" : ", inativo"));
     }
 
     [Fact]

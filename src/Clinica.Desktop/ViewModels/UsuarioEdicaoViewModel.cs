@@ -375,7 +375,7 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
             else
             {
                 var novo = await acesso.CriarAsync(
-                    Nome, Login, Senha, Perfil, Profissional?.Id, _sessao.Operador, DeveTrocarSenha);
+                    Nome, Login, Senha, Perfil, Profissional?.Id, _sessao.Operador, DeveTrocarSenha, ativo: Ativo);
 
                 if (extras != Permissao.Nenhuma || negadas != Permissao.Nenhuma)
                     await acesso.AtualizarAsync(
