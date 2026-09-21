@@ -244,13 +244,33 @@ public sealed class AtendimentoService
         return new AtendimentoMontado(atendimento, resultado.Avisos);
     }
 
+    /// <summary>Recupera somente um conjunto inteiramente ausente; nunca substitui códigos existentes.</summary>
+    public async Task<int> RecuperarGuiasAusentesAsync(Agendamento ag, string operador, CancellationToken ct = default)
+    {
+        var atendimento = await _repo.ObterAtendimentoAsync(ag.AtendimentoId
+            ?? throw new InvalidOperationException("Confira o atendimento original."), ct)
+            ?? throw new InvalidOperationException("Atendimento original não encontrado.");
+        if (atendimento.Codigos.Count != 0) return 0;
+        if (atendimento.EstornadoEm != null || atendimento.PacienteId != ag.PacienteId
+            || atendimento.Data != DateOnly.FromDateTime(ag.DataHora) || atendimento.Modalidade != ag.ModalidadePrevista)
+            throw new InvalidOperationException("Confira os dados do atendimento original antes de recuperar guias.");
+        var paciente = await _repo.ObterPacienteAsync(ag.PacienteId, ct)
+            ?? throw new InvalidOperationException("Paciente não encontrado.");
+        if (paciente.ConvenioADefinir) throw new ConvenioNaoDefinidoException(paciente.Id, paciente.Nome);
+        var resultado = await GerarPelaRegraAsync(paciente, atendimento, ag.PrimeiroCodigo, ct);
+        if (!resultado.Codigos.Any(c => c.Status != StatusCodigo.NaoAplicavel))
+            throw new InvalidOperationException("Esta sessão não possui guias aplicáveis pela regra do convênio.");
+        atendimento.Categoria = resultado.Categoria;
+        atendimento.Codigos.AddRange(resultado.Codigos);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria { Operador = operador, PacienteId = ag.PacienteId,
+            Acao = "GuiasAusentesRecuperadas", Detalhe = $"Sessão {ag.Id}; atendimento original {atendimento.Id}; {resultado.Codigos.Count} códigos recuperados sem substituir guias." }, ct);
+        await _repo.SalvarAsync(ct);
+        return resultado.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
+    }
+
     /// <summary>
-    /// O miolo do MOTOR para um atendimento de verdade: resolve o contexto do convênio,
-    /// roda a regra e aplica o Particular. Extraído (parcela 70) porque agora são DOIS
-    /// chamadores — a montagem e a REGERAÇÃO por mudança de modalidade — e duas cópias
-    /// do contexto divergiriam na primeira correção.
-    /// Os códigos do PRÓPRIO atendimento saem do histórico do mês: numa regeração eles
-    /// já estão gravados, e contá-los faria a regra enxergar o dobro de sessões.
+    /// Motor comum à criação, correção de modalidade e recuperação das guias ausentes.
+    /// Os códigos do próprio atendimento saem do histórico para não contar a sessão duas vezes.
     /// </summary>
     private async Task<ResultadoFaturamento> GerarPelaRegraAsync(
         Paciente paciente, Atendimento atendimento, TipoCodigo? primeiroCodigo, CancellationToken ct)
