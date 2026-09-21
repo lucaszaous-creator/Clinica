@@ -537,6 +537,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // É a regra da parcela 62 aplicada aqui: entre o Clear() e o último Add não
             // pode haver await. O FilaViewModel, o quadro irmão do balcão, já fazia assim.
             var linhas = doDia.Sessoes
+                .Where(s => SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
+                    || EvolucaoEnfermagemService.PermiteEvolucao(s.ModalidadeFamilia))
                 .OrderBy(x => x.DataHora).ThenBy(x => x.AgendamentoId)
                 .Select(LinhaSessao.De)
                 .ToList();
@@ -690,7 +692,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         // A ENTRADA NA SALA, antes de abrir a tela. Só quando há o que carimbar: o
         // horário é de HOJE (a fila corre só hoje — abrir a sessão de ontem pela dívida
         // de prontuário não pode mover fila nenhuma), está em aberto e ainda não começou.
-        if (linha.EhHoje && linha.Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado)
+        if (SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem && linha.EhHoje && linha.Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado)
             await CarimbarEntradaAsync(linha);
 
         _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,

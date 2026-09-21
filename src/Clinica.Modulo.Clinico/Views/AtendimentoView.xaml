@@ -86,7 +86,7 @@
                             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                         </Border>
                     </Grid>
-                    <!-- Salvar sessão registra a evolução; a conclusão pertence ao serviço por prazo. -->
+                    <!-- Salvar sessão médica registra a evolução e conclui com as guias aplicáveis. -->
                     <WrapPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,8,0,0">
                         <!-- A FICHA que o paciente leva embora (parcela 78), recortada NA
                              DATA desta sessão — sem o recorte, um paciente de quarenta
@@ -99,7 +99,7 @@
                         <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
                                 Command="{Binding SalvarCommand}"
                                 IsEnabled="{Binding PodeEditarProntuario}"
-                                ToolTip="Salva a evolução. A conclusão e as guias são processadas automaticamente após o prazo configurado, quando não houver pendências." />
+                                ToolTip="Salva a evolução. Para o médico, conclui a sessão e gera as guias aplicáveis imediatamente. A enfermagem pode registrar depois na mesma sessão." />
                     </WrapPanel>
 
                 </Grid>

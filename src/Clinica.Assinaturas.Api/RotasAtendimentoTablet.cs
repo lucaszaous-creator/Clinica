@@ -16,7 +16,7 @@ internal static class RotasAtendimentoTablet
     {
         var grupo = app.MapGroup("/api/clinico");
         grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc)=>
-        {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {nome=u.Nome,atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),modalidades=Enum.GetValues<ModalidadeAtendimento>().Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
+        {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),modalidades=Enum.GetValues<ModalidadeAtendimento>().Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
         grupo.MapGet("/dia", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, DateOnly? data)
             => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)

@@ -643,7 +643,7 @@ public static class PerfisAcesso
     public static string Rotular(PerfilAcesso perfil) => perfil switch
     {
         PerfilAcesso.Recepcao => "Recepção",
-        PerfilAcesso.Profissional => "Profissional",
+        PerfilAcesso.Profissional => "Médico",
         PerfilAcesso.Financeiro => "Financeiro",
         PerfilAcesso.Faturista => "Faturista",
         PerfilAcesso.Enfermagem => "Enfermagem",

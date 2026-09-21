@@ -1,0 +1,51 @@
+<UserControl x:Class="Clinica.Clinico.Views.SessoesEnfermagemView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Background="{StaticResource Brush.Fundo}">
+ <UserControl.Resources>
+  <Style x:Key="TextoCelula" TargetType="TextBlock">
+   <Setter Property="TextWrapping" Value="Wrap" />
+   <Setter Property="VerticalAlignment" Value="Center" />
+   <Setter Property="Margin" Value="0,8" />
+  </Style>
+ </UserControl.Resources>
+ <DockPanel Margin="24,20">
+  <StackPanel DockPanel.Dock="Top">
+   <TextBlock Text="Sessões de enfermagem" FontSize="24" FontWeight="SemiBold" />
+   <TextBlock Text="BSV e BSV + acupuntura · Registre a evolução na sessão original, mesmo após a conclusão médica."
+    Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,12" />
+   <WrapPanel>
+    <StackPanel Width="220" Margin="0,0,12,10"><Label Content="Paciente" Target="{Binding ElementName=Paciente}"/><TextBox x:Name="Paciente" Text="{Binding Paciente, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+    <StackPanel Width="180" Margin="0,0,12,10"><Label Content="Médico responsável" Target="{Binding ElementName=Medico}"/><TextBox x:Name="Medico" Text="{Binding Medico, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+    <StackPanel Width="140" Margin="0,0,12,10"><Label Content="De (opcional)" Target="{Binding ElementName=Inicio}"/><DatePicker x:Name="Inicio" SelectedDate="{Binding Inicio}" /></StackPanel>
+    <StackPanel Width="140" Margin="0,0,12,10"><Label Content="Até (opcional)" Target="{Binding ElementName=Fim}"/><DatePicker x:Name="Fim" SelectedDate="{Binding Fim}" /></StackPanel>
+    <StackPanel Width="240" Margin="0,0,12,10"><Label Content="Situação" Target="{Binding ElementName=Situacao}"/><ComboBox x:Name="Situacao" ItemsSource="{Binding Situacoes}" SelectedValue="{Binding Situacao}" SelectedValuePath="Codigo" DisplayMemberPath="Nome" /></StackPanel>
+    <Button Content="Filtrar / atualizar" Command="{Binding FiltrarCommand}" VerticalAlignment="Bottom" Margin="0,0,8,10" />
+    <Button Style="{StaticResource BotaoSecundario}" Content="Limpar filtros" Command="{Binding LimparCommand}" VerticalAlignment="Bottom" Margin="0,0,0,10" />
+   </WrapPanel>
+  </StackPanel>
+  <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+   <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+    <Button Style="{StaticResource BotaoSecundario}" Content="Anterior" Command="{Binding AnteriorCommand}" Margin="0,0,8,0" />
+    <Button Style="{StaticResource BotaoSecundario}" Content="Próxima" Command="{Binding ProximaCommand}" IsEnabled="{Binding Mais}" />
+   </StackPanel>
+   <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" />
+  </DockPanel>
+  <DataGrid ItemsSource="{Binding Sessoes}" AutoGenerateColumns="False" IsReadOnly="True"
+   RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="64" CanUserAddRows="False" EnableRowVirtualization="True" HeadersVisibility="Column"
+   ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto">
+   <DataGrid.Columns>
+    <DataGridTemplateColumn Header="Ação" Width="120"><DataGridTemplateColumn.CellTemplate><DataTemplate>
+     <Button Content="Abrir" ToolTip="Abrir sessão de enfermagem" Style="{StaticResource BotaoAcaoGrid}" Command="{Binding DataContext.AbrirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="3" />
+    </DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+    <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Data / hora" Binding="{Binding DataHora, StringFormat=dd/MM/yyyy HH:mm}" Width="145" />
+    <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Paciente" Binding="{Binding Paciente}" Width="2*" MinWidth="160" />
+    <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Médico" Binding="{Binding Medico}" Width="*" MinWidth="120" />
+    <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Modalidade" Binding="{Binding ModalidadeTexto}" Width="145" />
+    <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Enfermagem" Binding="{Binding Situacao}" Width="160" />
+    <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Atendimento médico" Binding="{Binding Atendimento}" Width="*" MinWidth="160" />
+   </DataGrid.Columns>
+  </DataGrid>
+ </DockPanel>
+</UserControl>

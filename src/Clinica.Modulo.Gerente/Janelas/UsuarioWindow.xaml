@@ -52,6 +52,8 @@
                 <TextBlock Text="Perfil" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Perfis}" SelectedItem="{Binding PerfilSelecionado}"
                           DisplayMemberPath="Rotulo" />
+                <TextBlock Text="Médico: atendimento e prescrições. Enfermagem: evoluções BSV / BSV + acupuntura e infusões."
+                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" />
             </StackPanel>
 
             <StackPanel Grid.Column="2">

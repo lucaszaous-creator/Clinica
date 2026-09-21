@@ -420,7 +420,8 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     [ObservableProperty] private bool _mensagemEhErro;
 
     /// <summary>Metade VISÍVEL da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
+        && SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     public bool TemPaciente => !SemPaciente;
 
@@ -670,6 +671,7 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
     {
         try
         {
+            if (!PodeEditarProntuario) throw new UnauthorizedAccessException("Use Atendimento de enfermagem para registrar sua evolução BSV.");
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
             if (PacienteId == 0)
@@ -677,6 +679,10 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            if (AgendamentoDaSessao is { } agendaId && SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional)
+                await scope.ServiceProvider.GetRequiredService<AgendaService>()
+                    .ExigirConclusaoClinicaAsync(agendaId, SessaoUsuario.Atual.UsuarioId);
 
             var salva = await prontuario.SalvarAsync(new Evolucao
             {
@@ -736,7 +742,29 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
                 : _snackbar is null ? "Sessão registrada no prontuário." : null;
             MensagemEhErro = false;
 
+            if (salva.AgendamentoId is { } horario && SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional)
+            {
+                try
+                {
+                    var fim = await scope.ServiceProvider.GetRequiredService<AgendaService>()
+                        .ConcluirAtendimentoClinicoAsync(horario, SessaoUsuario.Atual.Operador,
+                            usuarioId: SessaoUsuario.Atual.UsuarioId, permitirEnfermagemPosterior: true);
+                    var quantidade = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
+                    Mensagem = $"Sessão salva e concluída; {quantidade} guia(s) aplicável(is)."
+                        + " A enfermagem pode registrar depois na mesma sessão."
+                        + (fim.Avisos.Count > 0 ? " " + string.Join(" · ", fim.Avisos) : "");
+                }
+                catch (Exception ex)
+                {
+                    Diagnostico.Registrar("Evolução salva; conclusão e guias pendentes", ex);
+                    Mensagem = "A evolução foi salva, mas a conclusão e as guias ficaram pendentes: " + ex.Message;
+                    MensagemEhErro = true;
+                    return false;
+                }
+            }
+            var mensagemGravada = Mensagem;
             await DepoisDeSalvarAsync();
+            Mensagem ??= mensagemGravada;
             return true;
         }
         catch (Exception ex)

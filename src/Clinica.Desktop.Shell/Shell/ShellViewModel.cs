@@ -114,7 +114,8 @@ public sealed partial class ShellViewModel : ObservableObject
         foreach (var modulo in _modulos)
         {
             // Pode() já libera quando não há sessão autenticada — a regra mora nela.
-            foreach (var item in modulo.Itens.Where(i => sessao?.Pode(i.Requer) != false))
+            foreach (var item in modulo.Itens.Where(i => sessao?.Pode(i.Requer) != false
+                && (i.PerfilExclusivo is null || sessao?.Perfil == i.PerfilExclusivo)))
             {
                 // Dois módulos podem publicar a MESMA chave quando a tela subiu para o
                 // shell e pertence aos dois (a Sala de infusão, parcela 48: a enfermagem

@@ -34,7 +34,7 @@ public sealed record EvolucaoClinicaTablet(int Id, string Versao, string? Queixa
     string? Conduta, string? TextoEvolucao, string? Orientacoes, string? PlanoTerapeutico,
     int? EvaAntes, int? EvaDepois, MapaClinicoTablet? Mapa);
 public sealed record SalvarAtendimentoTablet(Guid Idempotencia, EvolucaoClinicaTablet Evolucao, bool Finalizar = false,
-    bool? HouveEnfermagem = null);
+    bool? HouveEnfermagem = null, bool ConcluirAoSalvar = false);
 public sealed record EmitirDocumentoTablet(Guid Idempotencia, string Tipo, string Texto,
     string? Observacoes = null, int? DiasAfastamento = null, string? Diluente = "SF 0,9%",
     string? Volume = null, string? TempoInfusao = "1h", bool AssinaturaEnfermagem = true,

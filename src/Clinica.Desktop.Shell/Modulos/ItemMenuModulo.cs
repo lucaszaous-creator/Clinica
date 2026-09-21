@@ -154,6 +154,9 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public Permissao Requer { get; init; } = Permissao.Nenhuma;
 
+    /// <summary>Quando informado, publica esta tela apenas para o perfil indicado.</summary>
+    public PerfilAcesso? PerfilExclusivo { get; init; }
+
     /// <summary>
     /// Este item é a tela de ABERTURA do app, quando visível (parcela 22).
     ///

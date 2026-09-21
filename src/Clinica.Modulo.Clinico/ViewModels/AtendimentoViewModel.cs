@@ -749,7 +749,17 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     protected override string ContextoDoLog => "Consultório";
 
     /// <summary>Depois de gravar, a tela relê tudo — inclusive as anteriores e a curva da dor.</summary>
-    protected override Task DepoisDeSalvarAsync() => CarregarAsync();
+    protected override async Task DepoisDeSalvarAsync()
+    {
+        if (_foco.AgendamentoId is { } id)
+        {
+            using var scope = _escopos.CreateScope();
+            var horario = await scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>().ObterAgendamentoAsync(id);
+            if (horario is not null)
+                _foco.Definir(PacienteId, _foco.Nome, id, horario.AtendimentoId, _foco.DataDoHorario);
+        }
+        await CarregarAsync();
+    }
 
     /// <summary>
     /// A modalidade do horário chamado: é ela que decide quais campos personalizados

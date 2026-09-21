@@ -316,6 +316,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         // alcançar; aqui só se aplica. O índice da seção sai do MESMO mapa que a
         // navegação usa (`AbaDe`), e não de um rótulo escrito à mão.
         var (medico, enfermagem) = PerfisAcesso.SecoesDeEscritaDoPosto(SessaoUsuario.Atual.Efetivas);
+        if (SessaoUsuario.Atual.Perfil == PerfilAcesso.Enfermagem) medico = false;
         var secaoMedico = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimento);
         var secaoEnfermagem = ModuloClinico.AbaDe(ModuloClinico.ChaveAtendimentoEnfermagem);
         Secoes = ModuloClinico.RailDoPaciente()
@@ -485,7 +486,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             var repo = escopo.ServiceProvider
                 .GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
             _horario = await repo.ObterAgendamentoAsync(id);
-            AvisoConclusaoAutomatica = (await escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ConclusaoAutomaticaService>()
+            AvisoConclusaoAutomatica = await escopo.ServiceProvider.GetRequiredService<AgendaService>().PendenciaEnfermagemAsync(id)
+                ?? (await escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ConclusaoAutomaticaService>()
                 .PendenciasAsync(Clinica.Infrastructure.ConclusaoAutomaticaService.Agora, id)).FirstOrDefault()?.Motivo;
             if (_horario?.FimAtendimentoEm is null)
                 AvisoConclusaoAutomatica ??= (await escopo.ServiceProvider.GetRequiredService<PoliticaConclusaoService>().ObterAsync()).OrientacaoAoSalvar;
@@ -510,6 +512,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string? _avisoConclusaoAutomatica;
 
+    public bool MostrarConcluirGerente => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente && PodeFinalizarSessao;
     public bool PodeFinalizarSessao => PodeConcluirComAcesso && (_horario is { Status: StatusAgendamento.Agendado }
         or { Status: StatusAgendamento.Realizado, AtendimentoId: not null, FimAtendimentoEm: null });
     public bool PodeConcluirComAcesso => PodeMoverFila && ConclusaoClinica.Permitida(
@@ -528,6 +531,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
         SessaoEncerrada = _horario.FimAtendimentoEm is not null;
         OnPropertyChanged(nameof(PodeFinalizarSessao));
+        OnPropertyChanged(nameof(MostrarConcluirGerente));
         OnPropertyChanged(nameof(RotuloFinalizarSessao));
         SessaoConcluida = _horario.Status == StatusAgendamento.Realizado && SessaoEncerrada;
         EmAtendimento = _horario.InicioAtendimentoEm is not null && !SessaoEncerrada
@@ -634,6 +638,12 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             return;
         }
 
+        if (SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+            && !_dialogo.Confirmar("Concluir a sessão registrada?",
+                "A conclusão usa a evolução já salva e gera as guias aplicáveis. "
+                + "Se você editou o texto, volte e use Salvar sessão antes de concluir. "
+                + "A enfermagem poderá registrar depois na mesma sessão.")) return;
+
         // ⚠️ A PASSAGEM DE ENFERMAGEM AINDA NÃO REGISTRADA (parcela 88).
         //
         // Ela não é gravada por este botão, e é de propósito: a evolução de enfermagem é
@@ -665,25 +675,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         var gravou = false;
         try
         {
-            bool? houveEnfermagem = null;
-            using var regraEscopo = _escopos.CreateScope();
-            if (await regraEscopo.ServiceProvider.GetRequiredService<AgendaService>().ExigeConferenciaEnfermagemAsync(id))
-            {
-            var resposta = System.Windows.MessageBox.Show(JanelaDona.Atual(),
-                "Houve atendimento de enfermagem nesta sessão?\n\nSim: exige uma evolução de enfermagem vinculada antes de concluir.\nNão: registra que não houve enfermagem.\nCancelar: mantém o atendimento aberto.",
-                "Conferir enfermagem antes de finalizar", System.Windows.MessageBoxButton.YesNoCancel,
-                System.Windows.MessageBoxImage.Question, System.Windows.MessageBoxResult.Cancel);
-            if (resposta is not (System.Windows.MessageBoxResult.Yes or System.Windows.MessageBoxResult.No)) return;
-            houveEnfermagem = resposta == System.Windows.MessageBoxResult.Yes;
-            }
-
             using (var autorizacao = _escopos.CreateScope())
-            {
                 await autorizacao.ServiceProvider.GetRequiredService<AgendaService>()
                     .ExigirConclusaoClinicaAsync(id, SessaoUsuario.Atual.UsuarioId);
-                await autorizacao.ServiceProvider.GetRequiredService<AgendaService>()
-                    .ConferirEnfermagemParaConclusaoAsync(id, houveEnfermagem);
-            }
 
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "finalizar o atendimento");
@@ -704,7 +698,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
             // e o mapa de fora com razão — eles são medida, não registro do que aconteceu),
             // mas usá-la aqui descartava em silêncio a sessão de acupuntura mais comum da
             // casa: EVA antes 8, depois 3, seis pontos no mapa e nenhuma linha de texto.
-            if ((Atendimento.TemAlgoParaGravar || Atendimento.EvolucaoId != 0) && !await Atendimento.TentarSalvarAsync())
+            if (SessaoUsuario.Atual.Perfil != PerfilAcesso.Gerente
+                && (Atendimento.TemAlgoParaGravar || Atendimento.EvolucaoId != 0) && !await Atendimento.TentarSalvarAsync())
             {
                 Avisar("A sessão não pôde ser salva, então o atendimento NÃO foi encerrado. "
                        + "A mensagem do erro está na aba Atendimento.", erro: true);
@@ -747,7 +742,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                 var fechamento = escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
                 registro = await fechamento.RegistrarAtendimentoAsync(
                     id, SessaoUsuario.Atual.Operador, concluirClinico: true,
-                    usuarioClinicoId: SessaoUsuario.Atual.UsuarioId, houveEnfermagem: houveEnfermagem);
+                    usuarioClinicoId: SessaoUsuario.Atual.UsuarioId, permitirEnfermagemPosterior: true);
             }
 
             // O posto passa a saber o atendimento que acabou de nascer: a próxima gravação
