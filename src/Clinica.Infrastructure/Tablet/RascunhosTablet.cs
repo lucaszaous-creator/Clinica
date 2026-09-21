@@ -11,9 +11,9 @@ public sealed partial class PostoTabletService
     private PrescricaoInternaService Prescricoes => new(repo,conferencia);
     private static readonly TipoDocumentoClinico[] TiposEditaveis = [TipoDocumentoClinico.Receita,TipoDocumentoClinico.Atestado,
         TipoDocumentoClinico.PedidoExame,TipoDocumentoClinico.Comparecimento,TipoDocumentoClinico.RelatorioEvolucao,TipoDocumentoClinico.Anamnese];
-    private static string VersaoDocumento(DocumentoClinico d) => Hash(new {d.Id,d.Numero,d.Corpo,d.Observacoes,d.DiasAfastamento,
+    private static string VersaoDocumento(DocumentoClinico d) => Hash(new {d.Id,d.Numero,d.Corpo,d.CorpoFormatado,d.Observacoes,d.ObservacoesFormatadas,d.DiasAfastamento,
         d.AssinadoEm,d.PacienteAssinadoEm,d.CanceladoEm,d.Titulo,d.Cid,d.CidAutorizado,d.PeriodoInicio,d.PeriodoFim,d.HoraChegada,d.HoraSaida,
-        Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Id,i.Ordem,i.Descricao,i.Detalhe,i.Quantidade,i.Desenho,i.Codigo})});
+        Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Id,i.Ordem,i.Descricao,i.DescricaoFormatada,i.Detalhe,i.DetalheFormatado,i.Quantidade,i.Desenho,i.Codigo})});
     private async Task<DocumentoClinico> RascunhoDocumento(UsuarioSistema u,int paciente,int id,CancellationToken ct)
     {
         var d=await repo.ObterDocumentoAsync(id,ct)??throw new RecursoClinicoIndisponivel();
@@ -36,12 +36,12 @@ public sealed partial class PostoTabletService
         object resultado;
         if(tipo=="infusao") {
             var p=await RascunhoInfusao(u,paciente,id,ct);
-            resultado=new {p.Id,p.Numero,Tipo=tipo,Versao=Versao(p),p.Indicacao,p.Observacoes,AssinaturaEnfermagem=p.ExigeAssinaturaEletronicaDaExecucao,
-                Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemInfusaoTablet(i.Descricao,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes))};
+            resultado=new {p.Id,p.Numero,Tipo=tipo,Versao=Versao(p),p.Indicacao,p.IndicacaoFormatada,p.Observacoes,p.ObservacoesFormatadas,AssinaturaEnfermagem=p.ExigeAssinaturaEletronicaDaExecucao,
+                Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemInfusaoTablet(i.Descricao,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.DescricaoFormatada,i.ObservacoesFormatadas))};
         } else if(tipo=="documento") {
             var d=await RascunhoDocumento(u,paciente,id,ct);
-            resultado=new {d.Id,d.Numero,Tipo=tipo,Versao=VersaoDocumento(d),d.Corpo,d.Observacoes,d.DiasAfastamento,
-                TipoDocumento=d.Tipo.ToString(),Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Descricao,i.Detalhe,i.Quantidade})};
+            resultado=new {d.Id,d.Numero,Tipo=tipo,Versao=VersaoDocumento(d),d.Corpo,d.CorpoFormatado,d.Observacoes,d.ObservacoesFormatadas,d.DiasAfastamento,
+                TipoDocumento=d.Tipo.ToString(),Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Descricao,i.DescricaoFormatada,i.Detalhe,i.DetalheFormatado,i.Quantidade})};
         } else throw new RecursoClinicoIndisponivel();
         await Auditar(u,paciente,"TabletRascunhoConsultado",ct);await db.SaveChangesAsync(ct);return resultado;
     }
@@ -58,8 +58,8 @@ public sealed partial class PostoTabletService
                 }
                 var nova=await Prescricoes.CriarAsync(paciente,u.ProfissionalId,anterior.AgendamentoId,anterior.EvolucaoId,u.Login,ct);
                 await Prescricoes.SalvarRascunhoAsync(nova.Id,p.Indicacao,p.Observacoes,p.Itens.Select(i=>new ItemPrescricaoInterna {
-                    Descricao=i.Descricao,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,
-                    HoraPrevista=i.HoraPrevista,SeNecessario=i.SeNecessario,Observacoes=i.Observacoes}).ToArray(),u.Login,p.AssinaturaEnfermagem,ct);
+                    Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,
+                    HoraPrevista=i.HoraPrevista,SeNecessario=i.SeNecessario,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray(),u.Login,p.AssinaturaEnfermagem,ct,p.IndicacaoFormatada,p.ObservacoesFormatadas);
                 await Prescricoes.CancelarAsync(id,$"Substituída pela prescrição {nova.Numero}: {p.Motivo}",u.Login,ct);
                 return new ResultadoDocumentoTablet(nova.Id,tipo,nova.Numero);
             }
@@ -68,9 +68,9 @@ public sealed partial class PostoTabletService
             // Reemissão preserva os campos estruturados; a via anterior continua no histórico.
             var novo=await Documentos.EmitirAsync(new() {PacienteId=paciente,ProfissionalId=u.ProfissionalId,
                 AgendamentoId=d.AgendamentoId,EvolucaoId=d.EvolucaoId,ModeloOrigemId=d.ModeloOrigemId,Tipo=d.Tipo,Data=d.Data,
-                Titulo=d.Titulo,Corpo=p.Corpo,Observacoes=p.Observacoes,DiasAfastamento=d.Tipo==TipoDocumentoClinico.Atestado?p.DiasAfastamento:d.DiasAfastamento,
+                Titulo=d.Titulo,Corpo=p.Corpo,CorpoFormatado=p.CorpoFormatado,Observacoes=p.Observacoes,ObservacoesFormatadas=p.ObservacoesFormatadas,DiasAfastamento=d.Tipo==TipoDocumentoClinico.Atestado?p.DiasAfastamento:d.DiasAfastamento,
                 Cid=d.Cid,CidAutorizado=d.CidAutorizado,PeriodoInicio=d.PeriodoInicio,PeriodoFim=d.PeriodoFim,HoraChegada=d.HoraChegada,HoraSaida=d.HoraSaida,
-                Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemDocumento {Descricao=i.Descricao,Detalhe=i.Detalhe,Quantidade=i.Quantidade,Desenho=i.Desenho,Codigo=i.Codigo}).ToList()},u.Login,ct);
+                Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemDocumento {Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Detalhe=i.Detalhe,DetalheFormatado=i.DetalheFormatado,Quantidade=i.Quantidade,Desenho=i.Desenho,Codigo=i.Codigo}).ToList()},u.Login,ct);
             await Documentos.CancelarAsync(id,$"Substituído pelo documento {novo.Numero}: {p.Motivo}",u.Login,ct);
             return new ResultadoDocumentoTablet(novo.Id,tipo,novo.Numero);
         },ct);
@@ -82,10 +82,11 @@ public sealed partial class PostoTabletService
             else throw new RecursoClinicoIndisponivel();
             return new ResultadoFichaTablet(id);
         },ct);
+    private static string VersaoModelo(ModeloDocumento m) => Hash(new {m.Id,m.Nome,m.Tipo,m.Corpo,m.CorpoFormatado,m.AtualizadoEm,m.ParaInfusao,m.ConfiguracaoInfusao,Itens=m.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Descricao,i.Detalhe,i.Quantidade,i.DescricaoFormatada,i.DetalheFormatado})});
     public async Task<object> ModelosDocumentoAsync(SessaoTablet s,CancellationToken ct)
     {
         await Autorizar(s,ct,Permissao.Prescrever);
-        return (await Documentos.ModelosAsync(ct:ct)).Where(m=>m.Ativo&&TiposEditaveis.Contains(m.Tipo)).Take(200)
-            .Select(m=>new {m.Id,m.Nome,Tipo=m.Tipo.ToString(),m.Corpo,m.Titulo,Itens=m.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Descricao,i.Detalhe,i.Quantidade})});
+        return (await Documentos.ModelosAsync(ct:ct)).Where(m=>m.Ativo&&TiposEditaveis.Contains(m.Tipo))
+            .Select(m=>new {m.Id,m.Nome,Tipo=m.Tipo.ToString(),m.Corpo,m.CorpoFormatado,m.Titulo,m.ParaInfusao,m.ConfiguracaoInfusao,Versao=VersaoModelo(m),Itens=m.Itens.OrderBy(i=>i.Ordem).Select(i=>new{i.Descricao,i.DescricaoFormatada,i.Detalhe,i.DetalheFormatado,i.Quantidade})});
     }
 }

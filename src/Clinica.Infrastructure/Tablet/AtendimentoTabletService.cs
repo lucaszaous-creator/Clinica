@@ -102,12 +102,12 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 TemMapa = db.MapasCorporais.Any(m => m.EvolucaoId == x.Id)}).ToListAsync(ct);
         var docs = await db.DocumentosClinicos.AsNoTracking().Where(d => d.PacienteId == a.PacienteId && d.CanceladoEm == null)
             .OrderByDescending(d => d.Id).Take(30).Select(d => new {d.Id, d.Numero, Tipo = d.Tipo.ToString(), d.Titulo,
-                d.Corpo, d.Observacoes, d.DiasAfastamento, d.Data, d.AgendamentoId, d.AssinadoEm, Proprio = d.ProfissionalId == u.ProfissionalId,
-                Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.Detalhe,i.Quantidade})}).ToListAsync(ct);
+                d.Corpo,d.CorpoFormatado, d.Observacoes,d.ObservacoesFormatadas, d.DiasAfastamento, d.Data, d.AgendamentoId, d.AssinadoEm, Proprio = d.ProfissionalId == u.ProfissionalId,
+                Itens=d.Itens.OrderBy(i=>i.Ordem).Select(i=>new {i.Descricao,i.DescricaoFormatada,i.Detalhe,i.DetalheFormatado,i.Quantidade})}).ToListAsync(ct);
         var infusoes = await db.PrescricoesInternas.AsNoTracking().Where(p => p.PacienteId == a.PacienteId && p.CanceladaEm == null)
-            .OrderByDescending(p => p.Id).Take(20).Select(p => new {p.Id, p.Numero, p.Indicacao, p.Observacoes, p.Data,
+            .OrderByDescending(p => p.Id).Take(20).Select(p => new {p.Id, p.Numero, p.Indicacao,p.IndicacaoFormatada, p.Observacoes,p.ObservacoesFormatadas, p.Data,
                 p.AgendamentoId, p.OrigemEnfermagem, p.OrientacaoExterna, Situacao = p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada?"AguardaMedico":p.Situacao.ToString(), p.AssinadaEm, Proprio = p.ProfissionalId == u.ProfissionalId,Assinaturas=p.Assinaturas.Select(a=>new {Papel=a.Papel.ToString(),a.NomeAssinante,a.RegistroConselho,a.AssinadoEm,PrescricaoArquivada=a.ArquivoId!=null,RegistroArquivado=a.ArquivoRegistroId!=null}),
-                Itens = p.Itens.OrderBy(i => i.Ordem).Select(i => new {i.Descricao,i.Dose,Via=i.Via.ToString(),i.HoraPrevista,i.SeNecessario,i.Observacoes,i.Diluente,i.Volume,i.TempoInfusao,i.SuspensoEm,i.MotivoSuspensao})}).ToListAsync(ct);
+                Itens = p.Itens.OrderBy(i => i.Ordem).Select(i => new {i.Descricao,i.DescricaoFormatada,i.Dose,Via=i.Via.ToString(),i.HoraPrevista,i.SeNecessario,i.Observacoes,i.ObservacoesFormatadas,i.Diluente,i.Volume,i.TempoInfusao,i.SuspensoEm,i.MotivoSuspensao})}).ToListAsync(ct);
         var modelos = await db.ModelosEvolucao.AsNoTracking().Where(m => m.Ativo && (m.ProfissionalId == null || m.ProfissionalId == u.ProfissionalId))
             .OrderBy(m => m.Nome).Take(80).Select(m => new {m.Id, m.Nome, m.QueixaPrincipal, m.HistoriaDoencaAtual,
                 m.ExameFisico, m.HipoteseDiagnostica, m.CidSessao, m.Conduta, m.TextoEvolucao, m.Orientacoes, m.PlanoTerapeutico}).ToListAsync(ct);
@@ -238,10 +238,11 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             {
                 ValidarTextos(120, pedido.Diluente);ValidarTextos(60,pedido.Volume,pedido.TempoInfusao);
                 if (!Enum.IsDefined(pedido.Via)) throw new InvalidOperationException("Escolha uma via de administração válida.");
+                if(pedido.Itens is { } itensModelo) new Clinica.Domain.ModeloInfusao(pedido.Indicacao,pedido.Observacoes,itensModelo.Select(i=>new Clinica.Domain.ItemModeloInfusao(i.Descricao,i.DescricaoFormatada,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.SeNecessario,i.Observacoes,i.ObservacoesFormatadas)).ToArray()).Guardar();
                 var p = await prescricoes.CriarAsync(paciente, u.ProfissionalId, agendamento, evolucao, Operador(u), ct);
-                await prescricoes.SalvarRascunhoAsync(p.Id, null, pedido.Observacoes, [new ItemPrescricaoInterna {
-                    Descricao = pedido.Texto, Diluente = pedido.Diluente, Volume = pedido.Volume,
-                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct);
+                await prescricoes.SalvarRascunhoAsync(p.Id, pedido.Indicacao, pedido.Observacoes, pedido.Itens is {Length:>0} ? pedido.Itens.Select(i=>new ItemPrescricaoInterna {Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,SeNecessario=i.SeNecessario,HoraPrevista=i.HoraPrevista,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray() : [new ItemPrescricaoInterna {
+                    Descricao = pedido.Texto, DescricaoFormatada=pedido.CorpoFormatado, Diluente = pedido.Diluente, Volume = pedido.Volume,
+                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct,pedido.IndicacaoFormatada,pedido.ObservacoesFormatadas);
                 await Auditar(u, paciente, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
                 return new(p.Id, "infusao", p.Numero);
             }
@@ -250,7 +251,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 "relatorio" => TipoDocumentoClinico.RelatorioEvolucao, "anamnese" => TipoDocumentoClinico.Anamnese, _ => throw new InvalidOperationException("Escolha um tipo de documento disponível.")};
             var doc = await documentos.EmitirAsync(new DocumentoClinico {PacienteId = paciente,
                 ProfissionalId = u.ProfissionalId, AgendamentoId = agendamento, EvolucaoId = evolucao,
-                Data = Hoje, Tipo = tipo, Corpo = pedido.Texto, Observacoes = pedido.Observacoes,
+                Data = Hoje, Tipo = tipo, Corpo = pedido.Texto, CorpoFormatado=pedido.CorpoFormatado, Observacoes = pedido.Observacoes,ObservacoesFormatadas=pedido.ObservacoesFormatadas,
                 DiasAfastamento = tipo == TipoDocumentoClinico.Atestado ? pedido.DiasAfastamento : null,
                 Itens = tipo == TipoDocumentoClinico.PedidoExame ? [new ItemDocumento {Descricao="Solicitação conforme texto acima."}] : []}, Operador(u), ct);
             return new(doc.Id, "documento", doc.Numero);

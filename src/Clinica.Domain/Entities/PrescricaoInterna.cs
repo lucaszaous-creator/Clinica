@@ -227,9 +227,11 @@ public class PrescricaoInterna
 
     /// <summary>Indicação/motivo — o que se está tratando com esta infusão.</summary>
     public string? Indicacao { get; set; }
+    public string? IndicacaoFormatada { get; set; }
 
     /// <summary>Orientações gerais que valem para a folha inteira (jejum, acesso, monitorização).</summary>
     public string? Observacoes { get; set; }
+    public string? ObservacoesFormatadas { get; set; }
 
     /// <summary>
     /// O "campo de 2ª assinatura" (decisão da direção, 14/08/2026): marcado, a enfermagem
@@ -381,6 +383,7 @@ public class ItemPrescricaoInterna
 
     /// <summary>O fármaco, como o prescritor escreve ("Dipirona sódica 500mg/mL").</summary>
     public string Descricao { get; set; } = string.Empty;
+    public string? DescricaoFormatada { get; set; }
 
     /// <summary>A dose ("1 g", "2 ampolas", "40 mg").</summary>
     public string? Dose { get; set; }
@@ -410,6 +413,7 @@ public class ItemPrescricaoInterna
 
     /// <summary>Cuidado específico ("infundir em acesso exclusivo", "monitorar PA").</summary>
     public string? Observacoes { get; set; }
+    public string? ObservacoesFormatadas { get; set; }
 
     /// <summary>
     /// Quando o prescritor tirou o item. Suspender é o caminho de correção de uma folha já

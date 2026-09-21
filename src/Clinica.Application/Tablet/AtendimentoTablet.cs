@@ -38,6 +38,7 @@ public sealed record SalvarAtendimentoTablet(Guid Idempotencia, EvolucaoClinicaT
 public sealed record EmitirDocumentoTablet(Guid Idempotencia, string Tipo, string Texto,
     string? Observacoes = null, int? DiasAfastamento = null, string? Diluente = "SF 0,9%",
     string? Volume = null, string? TempoInfusao = "1h", bool AssinaturaEnfermagem = true,
-    ViaAdministracao Via = ViaAdministracao.Endovenosa);
+    ViaAdministracao Via = ViaAdministracao.Endovenosa,string? CorpoFormatado=null,
+    string? ObservacoesFormatadas=null,ItemInfusaoTablet[]? Itens=null,string? Indicacao=null,string? IndicacaoFormatada=null);
 public sealed record ResultadoGravacaoTablet(int EvolucaoId, string Versao, bool Finalizado, int? AtendimentoId, int Guias, string[] Avisos);
 public sealed record ResultadoDocumentoTablet(int Id, string Tipo, string Numero);

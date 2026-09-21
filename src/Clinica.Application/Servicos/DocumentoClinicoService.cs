@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Prontuario;
@@ -121,7 +122,9 @@ public sealed class DocumentoClinicoService
             Data = data,
             Titulo = Limpar(dados.Titulo),
             Corpo = Limpar(dados.Corpo),
+            CorpoFormatado = TextoFormatado.Normalizar(Limpar(dados.Corpo), dados.CorpoFormatado),
             Observacoes = Limpar(dados.Observacoes),
+            ObservacoesFormatadas = TextoFormatado.Normalizar(Limpar(dados.Observacoes), dados.ObservacoesFormatadas),
             DiasAfastamento = dados.DiasAfastamento,
             Cid = Limpar(dados.Cid),
             CidAutorizado = dados.CidAutorizado,
@@ -139,7 +142,9 @@ public sealed class DocumentoClinicoService
             {
                 Ordem = ordem++,
                 Descricao = i.Descricao.Trim(),
+                DescricaoFormatada = TextoFormatado.Normalizar(i.Descricao.Trim(), i.DescricaoFormatada),
                 Detalhe = Limpar(i.Detalhe),
+                DetalheFormatado = TextoFormatado.Normalizar(Limpar(i.Detalhe), i.DetalheFormatado),
                 Quantidade = Limpar(i.Quantidade),
                 // ⚠️ A CÓPIA É CAMPO A CAMPO, e o que não estiver nesta lista é DESCARTADO
                 // em silêncio — o lugar 3 da auditoria de linha, aqui na emissão. Ela já
@@ -603,13 +608,14 @@ public sealed class DocumentoClinicoService
             Data = DateOnly.FromDateTime(DateTime.Today),
             Titulo = modelo.Titulo,
             Corpo = modelo.Corpo,
+            CorpoFormatado = modelo.CorpoFormatado,
             Itens = modelo.Itens
                 .OrderBy(i => i.Ordem)
                 .Select(i => new ItemDocumento
                 {
                     Ordem = i.Ordem,
-                    Descricao = i.Descricao,
-                    Detalhe = i.Detalhe,
+                    Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada,
+                    Detalhe = i.Detalhe, DetalheFormatado = i.DetalheFormatado,
                     Quantidade = null // a resposta é do paciente, e ele ainda não respondeu
                 })
                 .ToList()
@@ -630,12 +636,15 @@ public sealed class DocumentoClinicoService
     /// modelo, não criando um gêmeo.
     /// </summary>
     public async Task<ModeloDocumento> SalvarModeloAsync(
-        ModeloDocumento dados, string? operador = null, CancellationToken ct = default)
+        ModeloDocumento dados, string? operador = null, CancellationToken ct = default,
+        bool substituirPorNome = true)
     {
         if (string.IsNullOrWhiteSpace(dados.Nome))
             throw new InvalidOperationException("Dê um nome ao modelo.");
 
         var nome = dados.Nome.Trim();
+        if (nome.Length > 100) throw new InvalidOperationException("Use no máximo 100 caracteres no nome do modelo.");
+        if (dados.ParaInfusao) ModeloInfusao.Ler(dados.ConfiguracaoInfusao);
         var itens = dados.Itens
             .Where(i => !string.IsNullOrWhiteSpace(i.Descricao))
             .ToList();
@@ -648,6 +657,11 @@ public sealed class DocumentoClinicoService
             ? await _repo.ObterModeloDocumentoAsync(dados.Id, ct)
             : await _repo.ObterModeloDocumentoPorNomeAsync(dados.Tipo, nome, ct);
 
+        if (dados.Id != 0 && modelo is null) throw new InvalidOperationException("O modelo não está mais disponível. Atualize a lista.");
+        if (modelo is not null && dados.Id == 0 && !substituirPorNome)
+            throw new InvalidOperationException("Já existe um modelo com esse nome. Selecione-o e use Atualizar modelo, ou escolha outro nome.");
+        if (modelo is not null && (modelo.Tipo != dados.Tipo || modelo.ParaInfusao != dados.ParaInfusao))
+            throw new InvalidOperationException("Use um nome diferente para este tipo de modelo.");
         var novo = modelo is null;
         if (modelo is null)
         {
@@ -669,6 +683,9 @@ public sealed class DocumentoClinicoService
         modelo.Nome = nome;
         modelo.Titulo = Limpar(dados.Titulo);
         modelo.Corpo = Limpar(dados.Corpo);
+        modelo.CorpoFormatado = TextoFormatado.Normalizar(modelo.Corpo, dados.CorpoFormatado);
+        modelo.ParaInfusao = dados.ParaInfusao;
+        modelo.ConfiguracaoInfusao = dados.ParaInfusao ? dados.ConfiguracaoInfusao : null;
         modelo.Ativo = dados.Ativo;
         modelo.Ordem = dados.Ordem;
 
@@ -678,7 +695,9 @@ public sealed class DocumentoClinicoService
             {
                 Ordem = ordem++,
                 Descricao = i.Descricao.Trim(),
+                DescricaoFormatada = TextoFormatado.Normalizar(i.Descricao.Trim(), i.DescricaoFormatada),
                 Detalhe = Limpar(i.Detalhe),
+                DetalheFormatado = TextoFormatado.Normalizar(Limpar(i.Detalhe), i.DetalheFormatado),
                 Quantidade = Limpar(i.Quantidade)
             });
 
@@ -704,8 +723,8 @@ public sealed class DocumentoClinicoService
     private async Task ValidarAsync(
         DocumentoClinico dados, IReadOnlyList<ItemDocumento> itens, CancellationToken ct)
     {
-        if (TipoDocumentoInfo.ExigeItens(dados.Tipo) && itens.Count == 0)
-            throw new InvalidOperationException("Diga ao menos um exame no pedido.");
+        if (TipoDocumentoInfo.ExigeItens(dados.Tipo) && itens.Count == 0 && string.IsNullOrWhiteSpace(dados.Corpo))
+            throw new InvalidOperationException("Escreva os exames solicitados no texto ou inclua uma linha no pedido.");
 
         if (dados.Tipo == TipoDocumentoClinico.Receita
             && itens.Count == 0 && string.IsNullOrWhiteSpace(dados.Corpo))

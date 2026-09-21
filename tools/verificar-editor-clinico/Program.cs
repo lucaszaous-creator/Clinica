@@ -89,6 +89,19 @@ static class Program
         Exigir(vm.Corpo == antes, "Desmarcar apagou conteúdo.");
         var window = new DocumentoWindow(vm);
         await Desenhar(window, "receituario.png", 860, 680);
+        // Exercita o controle real e reabre o modelo por um novo escopo do banco.
+        var editor=Descendentes<EditorTextoClinico>((DependencyObject)window.Content).First();
+        editor.Texto="Texto em negrito e itálico";
+        editor.Formato=TextoFormatado.Guardar([new("Texto em "),new("negrito",true),new(" e "),new("itálico",false,true)]);
+        await Task.Delay(50);
+        var rico=Descendentes<RichTextBox>(editor).Single();
+        Exigir(new System.Windows.Documents.TextRange(rico.Document.ContentStart,rico.Document.ContentEnd).Text.Trim()==editor.Texto,"Editor perdeu o texto.");
+        rico.SelectAll();System.Windows.Documents.EditingCommands.ToggleBold.Execute(null,rico);
+        Exigir(TextoFormatado.Ler(editor.Texto,editor.Formato).Any(t=>t.Negrito),"Negrito não foi serializado.");
+        vm.Corpo=editor.Texto;vm.CorpoFormatado=editor.Formato;
+        await vm.SalvarComoModeloCommand.ExecuteAsync("Modelo formatado de teste");
+        Exigir(vm.ModeloSelecionado?.CorpoFormatado==vm.CorpoFormatado,"Modelo não foi recarregado com a formatação.");
+        vm.Corpo=antes;vm.CorpoFormatado=null;
         await vm.EmitirCommand.ExecuteAsync(null);
         Exigir(dialogo.Perguntas == 1 && vm.DocumentoEmitidoId == 0, "Cancelar endereço emitiu documento.");
         Exigir(vm.Corpo == antes, "Cancelar endereço perdeu texto.");

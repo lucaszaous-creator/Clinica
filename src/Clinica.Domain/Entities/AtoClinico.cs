@@ -387,7 +387,11 @@ public class DocumentoClinico
     /// <summary>Corpo do documento: o texto que vai impresso acima da lista de itens.</summary>
     public string? Corpo { get; set; }
 
+    /// <summary>Estilos vinculados ao texto; o conteúdo legível permanece em Corpo.</summary>
+    public string? CorpoFormatado { get; set; }
+
     public string? Observacoes { get; set; }
+    public string? ObservacoesFormatadas { get; set; }
 
     // ---- Atestado ----
 
@@ -792,9 +796,11 @@ public class ItemDocumento
 
     /// <summary>A linha em si: o medicamento, o exame, a data da sessão, a pergunta.</summary>
     public string Descricao { get; set; } = string.Empty;
+    public string? DescricaoFormatada { get; set; }
 
     /// <summary>O que a acompanha: posologia, indicação clínica, resposta, evolução.</summary>
     public string? Detalhe { get; set; }
+    public string? DetalheFormatado { get; set; }
 
     /// <summary>Quantidade, quando faz sentido ("1 caixa", "2 frascos").</summary>
     public string? Quantidade { get; set; }
@@ -848,7 +854,13 @@ public class ModeloDocumento
 
     public string? Corpo { get; set; }
 
+    /// <summary>Estilos vinculados ao texto; o conteúdo legível permanece em Corpo.</summary>
+    public string? CorpoFormatado { get; set; }
+
     public bool Ativo { get; set; } = true;
+
+    public bool ParaInfusao { get; set; }
+    public string? ConfiguracaoInfusao { get; set; }
 
     public int Ordem { get; set; }
 
@@ -872,8 +884,10 @@ public class ItemModelo
     public int Ordem { get; set; }
 
     public string Descricao { get; set; } = string.Empty;
+    public string? DescricaoFormatada { get; set; }
 
     public string? Detalhe { get; set; }
+    public string? DetalheFormatado { get; set; }
 
     public string? Quantidade { get; set; }
 }

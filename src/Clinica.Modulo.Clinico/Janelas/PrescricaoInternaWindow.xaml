@@ -108,9 +108,26 @@
             <StackPanel>
 
                 <StackPanel Margin="0,0,0,12">
+                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                        <StackPanel IsEnabled="{Binding PodePrescrever}">
+                            <TextBlock Text="Modelos de infusão" Style="{StaticResource H3}" />
+                            <ctrl:BuscaModeloClinico Modelos="{Binding Modelos}" Selecionado="{Binding ModeloSelecionado}" />
+                            <Expander Header="Prévia"><TextBlock Text="{Binding PreviaModelo}" TextWrapping="Wrap" MaxHeight="150" /></Expander>
+                            <Button Content="Usar modelo selecionado" Command="{Binding AplicarModeloCommand}" HorizontalAlignment="Left" Margin="0,8" />
+                            <Expander Header="Salvar ou atualizar modelo">
+                                <StackPanel>
+                                    <TextBlock Text="Nome do novo modelo" Style="{StaticResource Rotulo}" />
+                                    <TextBox x:Name="NomeModelo" MaxLength="100" AutomationProperties.Name="Nome do novo modelo" />
+                                    <WrapPanel Margin="0,8">
+                                        <Button Content="Salvar novo modelo" Command="{Binding SalvarComoModeloCommand}" CommandParameter="{Binding Text, ElementName=NomeModelo}" Margin="0,0,8,0" />
+                                        <Button Content="Atualizar selecionado" Command="{Binding AtualizarModeloCommand}" Style="{StaticResource BotaoSecundario}" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+                    </Border>
                     <TextBlock Text="Indicação" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding Indicacao, UpdateSourceTrigger=PropertyChanged}"
-                             TextWrapping="Wrap" />
+                    <ctrl:EditorTextoClinico Texto="{Binding Indicacao, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding IndicacaoFormatada, UpdateSourceTrigger=PropertyChanged}"  />
                 </StackPanel>
 
                 <TextBlock Text="Prescrição" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
@@ -135,10 +152,7 @@
 
                                         <StackPanel Grid.Column="0" Margin="0,0,10,0">
                                             <TextBlock Text="Prescrição livre" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
-                                                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="110"
-                                                     VerticalContentAlignment="Top"
-                                                     VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Prescrição livre da infusão" />
+                                            <ctrl:EditorTextoClinico Texto="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding DescricaoFormatada, UpdateSourceTrigger=PropertyChanged}" MinHeight="110" AutomationProperties.Name="Prescrição livre da infusão"  />
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Margin="0,0,10,0">
@@ -205,8 +219,7 @@
 
                                         <StackPanel Grid.Column="0" Margin="0,0,10,0">
                                             <TextBlock Text="Cuidados" Style="{StaticResource Rotulo}" />
-                                            <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}"
-                                                     TextWrapping="Wrap" />
+                                            <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}"  />
                                         </StackPanel>
 
                                         <CheckBox Grid.Column="1" Content="Se necessário (SOS)"
@@ -221,8 +234,7 @@
 
                 <StackPanel Margin="0,4,0,0">
                     <TextBlock Text="Orientações gerais" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}"
-                             TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60" />
+                    <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}" MinHeight="60"  />
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

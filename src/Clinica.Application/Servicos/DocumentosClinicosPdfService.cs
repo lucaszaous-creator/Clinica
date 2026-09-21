@@ -294,8 +294,10 @@ public sealed class DocumentosClinicosPdfService
                         col.Item().Text("Prescrição").Bold().FontSize(11).FontColor(AzulEscuro);
                         // Um único bloco preserva linhas em branco e permite que o texto
                         // livre continue nas páginas seguintes, sem uma tabela vazia.
-                        col.Item().Text(documento.Corpo ?? string.Empty).FontSize(10.5f).LineHeight(1.3f);
+                        col.Item().TextoClinico(documento.Corpo,documento.CorpoFormatado);
                     }
+                    else if (!string.IsNullOrWhiteSpace(documento.CorpoFormatado))
+                        col.Item().TextoClinico(documento.Corpo,documento.CorpoFormatado);
                     else if (!string.IsNullOrWhiteSpace(documento.Corpo))
                         Paragrafos(col, documento.Corpo!,
                             // O TERMO é o único documento cujo corpo é um texto LONGO — dez,
@@ -313,7 +315,7 @@ public sealed class DocumentosClinicosPdfService
                             break;
 
                         case TipoDocumentoClinico.PedidoExame:
-                            ListaPrescrita(col, itens, "Exames solicitados");
+                            if(itens.Count>0) ListaPrescrita(col, itens, "Exames solicitados");
                             break;
 
                         case TipoDocumentoClinico.Atestado:
@@ -353,7 +355,7 @@ public sealed class DocumentosClinicosPdfService
                         col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(10).Text(t =>
                         {
                             t.Span("Observações  ").Bold().FontSize(8.5f).FontColor(TextoSecundario);
-                            t.Span(documento.Observacoes!).FontSize(9.5f);
+                            TextoFormatadoPdf.Trechos(t,documento.Observacoes,documento.ObservacoesFormatadas,9.5f);
                         });
 
 
@@ -564,7 +566,7 @@ public sealed class DocumentosClinicosPdfService
                     r.RelativeItem().Text(t =>
                     {
                         t.Span($"{numero}.  ").SemiBold().FontSize(10.5f).FontColor(TextoSecundario);
-                        t.Span(item.Descricao).SemiBold().FontSize(10.5f);
+                        TextoFormatadoPdf.Trechos(t,item.Descricao,item.DescricaoFormatada,10.5f);
                     });
 
                     if (!string.IsNullOrWhiteSpace(item.Quantidade))
@@ -574,7 +576,7 @@ public sealed class DocumentosClinicosPdfService
 
                 if (!string.IsNullOrWhiteSpace(item.Detalhe))
                     c.Item().PaddingLeft(18).PaddingTop(2)
-                        .Text(item.Detalhe!).FontSize(9.5f).FontColor(TextoSecundario);
+                        .TextoClinico(item.Detalhe,item.DetalheFormatado);
             });
         }
     }

@@ -16,8 +16,10 @@ namespace Clinica.Desktop.Shell.Componentes;
 public sealed partial class LinhaItemDocumento : ObservableObject
 {
     [ObservableProperty] private string _descricao = string.Empty;
+    [ObservableProperty] private string? _descricaoFormatada;
     [ObservableProperty] private string? _quantidade;
     [ObservableProperty] private string? _detalhe;
+    [ObservableProperty] private string? _detalheFormatado;
 }
 
 /// <summary>
@@ -260,7 +262,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private string? _titulo;
     [ObservableProperty] private string? _corpo;
+    [ObservableProperty] private string? _corpoFormatado;
     [ObservableProperty] private string? _observacoes;
+    [ObservableProperty] private string? _observacoesFormatadas;
 
     [ObservableProperty] private string? _diasAfastamentoTexto;
     [ObservableProperty] private string? _cid;
@@ -612,6 +616,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         }
     }
 
+    private int _cargaModelos;
     private async Task CarregarModelosAsync()
     {
         try
@@ -621,12 +626,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             // Entre o Clear() e o último Add não pode haver await (parcela 62): a
             // segunda carga limparia o que a primeira ainda está preenchendo.
+            var carga=++_cargaModelos;
             var tipo = TipoSelecionado;
             var modelos = await documentos.ModelosAsync(tipo);
-            if (tipo != TipoSelecionado) return;
+            if (tipo != TipoSelecionado || carga!=_cargaModelos) return;
             Modelos.Clear();
             Sugestoes.Clear();
-            foreach (var m in modelos)
+            foreach (var m in modelos.Where(m=>m.Ativo&&!m.ParaInfusao))
             {
                 Modelos.Add(m);
                 var texto = TextoReceituario.DoModelo(m);
@@ -653,28 +659,43 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         if (Itens.Count == 0) Itens.Add(new LinhaItemDocumento());
     }
 
+    public string PreviaModelo => ModeloSelecionado is {} m ? TextoReceituario.DoModelo(m) : "Escolha um modelo para conferir o conteúdo.";
+    partial void OnModeloSelecionadoChanged(ModeloDocumento? value) => OnPropertyChanged(nameof(PreviaModelo));
+    [RelayCommand]
+    private async Task AtualizarModeloAsync() {
+        if(ModeloSelecionado is not {} m || !PodeEditar)return;
+        using var scope=_escopos.CreateScope();
+        if(!scope.ServiceProvider.GetRequiredService<IDialogoService>().ConfirmarPerigo("Atualizar modelo",$"Substituir o conteúdo do modelo {m.Nome}? A alteração será usada por toda a clínica."))return;
+        await GuardarModeloAsync(m.Nome,m.Id);
+    }
     /// <summary>Traz texto e linhas do modelo escolhido, substituindo o que estiver na tela.</summary>
     [RelayCommand]
     private void AplicarModelo()
     {
         if (ModeloSelecionado is not { } modelo) return;
 
-        if (ReceitaLivre)
-        {
-            AcrescentarSugestao(TextoReceituario.DoModelo(modelo));
-            return;
+        if(!PodeEditar)return;
+        if (ReceitaLivre) {
+            var conteudo=TextoReceituario.ConteudoDoModelo(modelo);
+            var combinado=TextoFormatado.Juntar([(Corpo,CorpoFormatado),conteudo]);
+            Corpo=combinado.Texto;CorpoFormatado=combinado.Formato;
+            Informar($"Modelo {modelo.Nome} acrescentado. Revise antes de emitir.");return;
         }
-
+        if(!string.IsNullOrWhiteSpace(Corpo)||Itens.Any(i=>!string.IsNullOrWhiteSpace(i.Descricao))) {
+            using var scope=_escopos.CreateScope();
+            if(!scope.ServiceProvider.GetRequiredService<IDialogoService>().ConfirmarPerigo("Usar modelo","Substituir o texto e as linhas que estão neste rascunho?"))return;
+        }
         Titulo = modelo.Titulo;
         Corpo = modelo.Corpo;
+        CorpoFormatado = modelo.CorpoFormatado;
 
         Itens.Clear();
         foreach (var i in modelo.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id))
             Itens.Add(new LinhaItemDocumento
             {
-                Descricao = i.Descricao,
+                Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada,
                 Quantidade = i.Quantidade,
-                Detalhe = i.Detalhe
+                Detalhe = i.Detalhe, DetalheFormatado = i.DetalheFormatado
             });
 
         if (Itens.Count == 0) Itens.Add(new LinhaItemDocumento());
@@ -693,8 +714,11 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     /// vezes com o mesmo nome está corrigindo o modelo, não criando um gêmeo.
     /// </summary>
     [RelayCommand]
-    private async Task SalvarComoModeloAsync(string? nome)
+    private Task SalvarComoModeloAsync(string? nome) => GuardarModeloAsync(nome,0);
+
+    private async Task GuardarModeloAsync(string? nome,int id)
     {
+        if(!PodeEditar)return;
         if (string.IsNullOrWhiteSpace(nome))
         {
             Erro("Dê um nome ao modelo antes de guardá-lo.");
@@ -713,22 +737,23 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             var modelo = new ModeloDocumento
             {
-                Tipo = TipoSelecionado,
+                Id=id,Tipo = TipoSelecionado,
                 Nome = nome!,
                 Titulo = Titulo,
-                Corpo = Corpo
+                Corpo = Corpo, CorpoFormatado = CorpoFormatado
             };
 
             foreach (var i in Itens.Where(i => MostraItens && !string.IsNullOrWhiteSpace(i.Descricao)))
                 modelo.Itens.Add(new ItemModelo
                 {
-                    Descricao = i.Descricao,
+                    Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada,
                     Quantidade = i.Quantidade,
-                    Detalhe = i.Detalhe
+                    Detalhe = i.Detalhe, DetalheFormatado = i.DetalheFormatado
                 });
 
-            await documentos.SalvarModeloAsync(modelo, SessaoUsuario.Atual.Operador);
+            var salvo=await documentos.SalvarModeloAsync(modelo, SessaoUsuario.Atual.Operador,substituirPorNome:false);
             await CarregarModelosAsync();
+            ModeloSelecionado=Modelos.Single(m=>m.Id==salvo.Id);
             Informar($"Modelo \"{modelo.Nome}\" guardado.");
         }
         catch (Exception ex)
@@ -973,7 +998,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Paciente = _paciente,
             ProfissionalId = Profissional?.Id,
             Profissional = Profissional,
-            Corpo = Corpo,
+            Corpo = Corpo, CorpoFormatado = CorpoFormatado,
             Data = DateOnly.FromDateTime(Data)
         };
 
@@ -981,9 +1006,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             foreach (var i in Itens.Where(i => !string.IsNullOrWhiteSpace(i.Descricao)))
                 documento.Itens.Add(new ItemDocumento
                 {
-                    Descricao = i.Descricao,
+                    Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada,
                     Quantidade = i.Quantidade,
-                    Detalhe = i.Detalhe
+                    Detalhe = i.Detalhe, DetalheFormatado = i.DetalheFormatado
                 });
 
         return documento;
@@ -1008,17 +1033,17 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             Data = DateOnly.FromDateTime(Data),
             Titulo = Titulo,
-            Corpo = Corpo,
-            Observacoes = Observacoes
+            Corpo = Corpo, CorpoFormatado = CorpoFormatado,
+            Observacoes = Observacoes, ObservacoesFormatadas = ObservacoesFormatadas
         };
 
         if (MostraItens)
             foreach (var i in Itens.Where(i => !string.IsNullOrWhiteSpace(i.Descricao)))
                 documento.Itens.Add(new ItemDocumento
                 {
-                    Descricao = i.Descricao,
+                    Descricao = i.Descricao, DescricaoFormatada = i.DescricaoFormatada,
                     Quantidade = i.Quantidade,
-                    Detalhe = i.Detalhe
+                    Detalhe = i.Detalhe, DetalheFormatado = i.DetalheFormatado
                 });
 
         if (MostraAtestado)
