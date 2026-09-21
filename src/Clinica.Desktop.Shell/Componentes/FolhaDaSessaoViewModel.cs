@@ -680,10 +680,6 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
 
-            if (AgendamentoDaSessao is { } agendaId && SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional)
-                await scope.ServiceProvider.GetRequiredService<AgendaService>()
-                    .ExigirConclusaoClinicaAsync(agendaId, SessaoUsuario.Atual.UsuarioId);
-
             var salva = await prontuario.SalvarAsync(new Evolucao
             {
                 Id = EvolucaoId,
