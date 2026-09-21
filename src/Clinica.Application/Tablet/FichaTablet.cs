@@ -23,7 +23,7 @@ public sealed record RegistroEnfermagemTablet(Guid Idempotencia,DateOnly Data,Ti
     int? AgendamentoId=null);
 public sealed record VinculoEnfermagemTablet(Guid Idempotencia, int AgendamentoId, string Motivo);
 public sealed record ObservacaoEnfermagemTablet(TimeOnly Hora, string Texto, bool Intercorrencia,
-    SinaisVitais? Sinais = null, string? AlergiaObservada = null);
+    SinaisVitais? Sinais = null, string? AlergiaObservada = null, bool NegaAlergia = false);
 public sealed record ObservacoesEnfermagemTablet(Guid Idempotencia, DateOnly Data, int AgendamentoId,
     ObservacaoEnfermagemTablet[] Observacoes);
 public sealed record ResultadoObservacoesEnfermagemTablet(int[] Ids);

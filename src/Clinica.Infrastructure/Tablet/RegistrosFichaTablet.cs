@@ -23,7 +23,15 @@ public sealed partial class PostoTabletService
                 {
                     if (item is null) throw new InvalidOperationException("Confira as observações preenchidas.");
                     Textos(4000, item.Texto); Textos(300, item.AlergiaObservada);
-                    var e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, item.Texto, autor,
+                    if (item.NegaAlergia && !string.IsNullOrWhiteSpace(item.AlergiaObservada))
+                        throw new InvalidOperationException("Escolha Nega ou descreva a alergia; não informe as duas opções na mesma observação.");
+                    if (string.IsNullOrWhiteSpace(item.Texto))
+                        throw new InvalidOperationException("Preencha a evolução da observação.");
+                    // A negativa pertence à observação, nunca à lista de alergias ativas.
+                    // Fica visível também no desktop e PDF, sem apagar alertas anteriores.
+                    var texto = item.NegaAlergia ? item.Texto.TrimEnd() + "\n\nAlergia: NEGA." : item.Texto;
+                    Textos(4000, texto);
+                    var e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, texto, autor,
                         agendamentoId: p.AgendamentoId, intercorrencia: item.Intercorrencia,
                         sinais: item.Sinais, alergiaObservada: item.AlergiaObservada, ct: ct);
                     ids.Add(e.Id);

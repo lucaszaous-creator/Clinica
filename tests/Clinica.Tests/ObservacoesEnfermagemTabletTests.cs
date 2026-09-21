@@ -85,4 +85,30 @@ public sealed partial class AtendimentoTabletTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, pedido, default));
         Assert.Empty(await db.EvolucoesEnfermagem.ToListAsync());
     }
+
+    [Fact]
+    public async Task Nega_alergia_fica_na_evolucao_sem_criar_ou_apagar_alergias()
+    {
+        await PrepararBSV(); await Enfermeira();
+        var alergia = new ProblemaPaciente { PacienteId = horario.PacienteId, Natureza = NaturezaProblema.Alergia, Descricao = "Alergia anterior fictícia" };
+        db.ProblemasPaciente.Add(alergia); await db.SaveChangesAsync();
+        var pedido = Observacoes() with { Observacoes = [new(new(8, 0), "Observação fictícia", false, NegaAlergia: true)] };
+        await Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, pedido, default);
+        Assert.Equal("Observação fictícia\n\nAlergia: NEGA.", (await db.EvolucoesEnfermagem.SingleAsync()).Texto);
+        db.ChangeTracker.Clear();
+        var preservada = await db.ProblemasPaciente.SingleAsync();
+        Assert.Equal(alergia.Id, preservada.Id); Assert.Equal(alergia.Descricao, preservada.Descricao);
+        Assert.Equal(SituacaoProblema.Ativo, preservada.Situacao);
+    }
+
+    [Theory]
+    [InlineData("Alergia fictícia", "Observação")]
+    [InlineData(null, "")]
+    public async Task Nega_nao_aceita_alergia_simultanea_nem_substitui_evolucao(string? alergia, string texto)
+    {
+        await PrepararBSV(); await Enfermeira();
+        var pedido = Observacoes() with { Observacoes = [new(new(8, 0), texto, false, AlergiaObservada: alergia, NegaAlergia: true)] };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, pedido, default));
+        Assert.Empty(await db.EvolucoesEnfermagem.ToListAsync());
+    }
 }
