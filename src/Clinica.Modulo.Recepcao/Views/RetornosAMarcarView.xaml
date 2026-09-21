@@ -74,58 +74,9 @@
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
                           CanUserSortColumns="True" SelectionMode="Single"
-                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36">
+                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="56" FrozenColumnCount="1" CanUserReorderColumns="False" ScrollViewer.HorizontalScrollBarVisibility="Auto">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="RETORNO" Width="150" SortMemberPath="RetornoEm">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
-                                        <TextBlock Text="{Binding RetornoEm, StringFormat='dd/MM/yyyy'}"
-                                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock x:Name="situacao" Text="{Binding Situacao}"
-                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                    <DataTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding Atrasado}" Value="True">
-                                            <Setter TargetName="situacao" Property="Foreground"
-                                                    Value="{StaticResource Brush.Aviso}" />
-                                            <Setter TargetName="situacao" Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </DataTemplate.Triggers>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="PACIENTE" Width="*" SortMemberPath="Paciente">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
-                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Telefone, TargetNullValue='sem telefone no cadastro'}"
-                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="SESSÃO / QUEM PEDIU" Width="1.2*" SortMemberPath="Sessao">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6">
-                                        <TextBlock TextTrimming="CharacterEllipsis">
-                                            <Run Text="{Binding Sessao, Mode=OneWay, StringFormat='dd/MM/yyyy'}" />
-                                            <Run Text=" · " />
-                                            <Run Text="{Binding Profissional, Mode=OneWay}" />
-                                        </TextBlock>
-                                        <!-- O motivo só vem na linha para quem tem VerProntuario:
-                                             a ViewModel o tira antes de publicar. -->
-                                        <TextBlock Text="{Binding Nota}"
-                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0"
-                                                   Visibility="{Binding TemNota, Converter={StaticResource BoolParaVisibilidade}}" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="" Width="Auto" CanUserSort="False">
+                        <DataGridTemplateColumn Header="AÇÕES" Width="250" CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" Margin="8,0">
@@ -149,6 +100,56 @@
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="RETORNO" Width="150" SortMemberPath="RetornoEm">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6">
+                                        <TextBlock Text="{Binding RetornoEm, StringFormat='dd/MM/yyyy'}"
+                                                   FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock x:Name="situacao" Text="{Binding Situacao}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding Atrasado}" Value="True">
+                                            <Setter TargetName="situacao" Property="Foreground"
+                                                    Value="{StaticResource Brush.Aviso}" />
+                                            <Setter TargetName="situacao" Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="PACIENTE" Width="*" SortMemberPath="Paciente">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6">
+                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Telefone, TargetNullValue='sem telefone no cadastro'}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="SESSÃO / QUEM PEDIU" Width="1.2*" SortMemberPath="Sessao">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,6,8,6">
+                                        <TextBlock TextWrapping="Wrap">
+                                            <Run Text="{Binding Sessao, Mode=OneWay, StringFormat='dd/MM/yyyy'}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Profissional, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <!-- O motivo só vem na linha para quem tem VerProntuario:
+                                             a ViewModel o tira antes de publicar. -->
+                                        <TextBlock Text="{Binding Nota}"
+                                                   Style="{StaticResource CelulaSuave}" Margin="0,2,0,0"
+                                                   Visibility="{Binding TemNota, Converter={StaticResource BoolParaVisibilidade}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>

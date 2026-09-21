@@ -7,6 +7,30 @@ namespace Clinica.Infrastructure.Tablet;
 
 public sealed partial class PostoTabletService
 {
+    public Task<ResultadoObservacoesEnfermagemTablet> RegistrarObservacoesEnfermagemAsync(
+        SessaoTablet s, int paciente, ObservacoesEnfermagemTablet p, CancellationToken ct)
+        => Escrever(s, paciente, p.Idempotencia, p, "TabletObservacoesEnfermagem",
+            Permissao.RegistrarEvolucaoEnfermagem, async u => {
+                if (p.AgendamentoId <= 0 || p.Observacoes is not { Length: >= 1 and <= 20 })
+                    throw new InvalidOperationException("Escolha a sessão e informe de 1 a 20 observações por envio.");
+                var autor = new IdentificacaoExecutante(u.Id, u.Nome, u.Profissional!.RegistroConselho);
+                autor.Exigir("registrar as observações de enfermagem");
+                var servico = new EvolucaoEnfermagemService(repo);
+                var ids = new List<int>();
+                // Escrever mantém todos os registros e o recibo na mesma transação.
+                // Se qualquer observação falhar, nenhuma é persistida.
+                foreach (var item in p.Observacoes)
+                {
+                    if (item is null) throw new InvalidOperationException("Confira as observações preenchidas.");
+                    Textos(4000, item.Texto); Textos(300, item.AlergiaObservada);
+                    var e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, item.Texto, autor,
+                        agendamentoId: p.AgendamentoId, intercorrencia: item.Intercorrencia,
+                        sinais: item.Sinais, alergiaObservada: item.AlergiaObservada, ct: ct);
+                    ids.Add(e.Id);
+                }
+                return new ResultadoObservacoesEnfermagemTablet(ids.ToArray());
+            }, ct);
+
     public Task<ResultadoFichaTablet> RegistrarExameAsync(SessaoTablet s,int paciente,ResultadoExameTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,p,"TabletResultadoExame",Permissao.Nenhuma,async u=> {
             if(!PodeAnexar(u))throw new UnauthorizedAccessException();

@@ -25,10 +25,11 @@ static class Program
     static string Saida = "artifacts/layout-windows";
     static int falhas;
     static bool completo;
+    static bool somenteRetornos;
     [STAThread]
     static int Main(string[] args)
     {
-        completo = args.Contains("--completo"); Directory.CreateDirectory(Saida);
+        completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
         int code = 0; app.Dispatcher.BeginInvoke(async () => { try { await Executar(); if (falhas > 0) throw new Exception($"{falhas} cortes encontrados. Consulte artifacts/layout-windows."); Console.WriteLine("TELAS CONFERIDAS"); } catch (Exception e) { Console.WriteLine(e); code = 1; } finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); } }); app.Run(); return code;
@@ -41,6 +42,7 @@ static class Program
         using var sp = services.BuildServiceProvider(); using var scope = sp.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>(); db.Database.EnsureCreated();
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
         var usuario = new UsuarioSistema { Nome = prof.Nome, Login = "qa", Perfil = PerfilAcesso.Gerente, ProfissionalId = prof.Id, Profissional = prof }; db.Add(usuario); await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        if (somenteRetornos) { await ValidarRetornos(sp, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
         sp.GetRequiredService<PacienteEmFoco>().Definir(pac.Id, pac.Nome, 1, null, DateOnly.FromDateTime(DateTime.Today));
         var vm = new ShellViewModel("Gerente", modulos, sp); var win = new ShellWindow { DataContext = vm, ShowInTaskbar = false, ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 960, Height = 600 }; win.Show();
@@ -118,6 +120,42 @@ static class Program
             Foto(janelaEnfermagem, "sessoes-enfermagem-" + largura);
         }
         janelaEnfermagem.Close();
+    }
+    static async Task ValidarRetornos(ServiceProvider sp, UsuarioSistema usuario)
+    {
+        foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Gerente })
+        {
+            usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+            var vm = sp.GetRequiredService<Clinica.Recepcao.ViewModels.RetornosAMarcarViewModel>();
+            vm.Resumo = "12 retornos a marcar · dados fictícios para conferir o layout";
+            for (var i = 0; i < 12; i++) vm.Linhas.Add(new(i + 1,
+                "Paciente demonstrativo com nome comprido para conferir a leitura", i == 0 ? null : "22999990000",
+                DateOnly.FromDateTime(DateTime.Today), DateOnly.FromDateTime(DateTime.Today.AddDays(i)), null,
+                1, "Profissional demonstrativo com nome comprido", -i));
+            var janela = new Window { Content = new Clinica.Recepcao.Views.RetornosAMarcarView { DataContext = vm },
+                ShowInTaskbar = false, ShowActivated = false, Left = -30000, Top = -30000, Width = 1366, Height = 680 };
+            janela.Show();
+            foreach (var largura in new[] { 1920, 1366, 1024, 880 })
+            {
+                janela.Width = largura; janela.UpdateLayout(); await Task.Delay(150); janela.UpdateLayout();
+                var grid = Descendentes(janela).OfType<DataGrid>().Single();
+                var scroll = Descendentes(grid).OfType<ScrollViewer>().First();
+                if (scroll.ScrollableWidth > 1) throw new Exception("Retornos exige rolagem horizontal em " + largura);
+                var botoes = Descendentes(grid).OfType<Button>().Where(b => b.IsVisible && b.Content is string t && t is "Marcar horário" or "WhatsApp").ToArray();
+                if (!botoes.Any(b => Equals(b.Content, "Marcar horário")) || !botoes.Any(b => Equals(b.Content, "WhatsApp"))) throw new Exception("Ações de retorno ausentes");
+                foreach (var b in botoes)
+                {
+                    var ponto = b.TranslatePoint(new Point(), janela);
+                    if (ponto.X < 0 || ponto.X + b.ActualWidth > janela.ActualWidth) throw new Exception("Ação fora da tela: " + b.Content);
+                    if (Equals(b.Content, "Marcar horário") && !b.IsEnabled) throw new Exception("Perfil perdeu permissão de marcar");
+                    DependencyObject? pai = b; while (pai is not null && pai is not DataGridCell) pai = VisualTreeHelper.GetParent(pai);
+                    if (pai is DataGridCell celula && b.TranslatePoint(new Point(), celula).X + b.ActualWidth > celula.ActualWidth + 1) throw new Exception("Botão cortado: " + b.Content);
+                }
+                Foto(janela, $"retornos-{perfil}-{largura}");
+                Console.WriteLine($"RETORNOS {perfil} {largura}: ações visíveis, sem rolagem horizontal");
+            }
+            janela.Close();
+        }
     }
     static IEnumerable<DependencyObject> Descendentes(DependencyObject o) { for (int i = 0; i < VisualTreeHelper.GetChildrenCount(o); i++) { var c = VisualTreeHelper.GetChild(o, i); yield return c; foreach (var d in Descendentes(c)) yield return d; } }
     static void Foto(Window w, string nome) { var raiz = (FrameworkElement)w.Content; var bmp = new RenderTargetBitmap((int)raiz.ActualWidth, (int)raiz.ActualHeight, 96, 96, PixelFormats.Pbgra32); bmp.Render(raiz); var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bmp)); using var f = File.Create(Saida + "/" + nome + ".png"); png.Save(f); }
