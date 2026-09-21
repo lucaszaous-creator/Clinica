@@ -65,7 +65,11 @@ public sealed class RecuperacaoGuiasTests : IDisposable
     {
         var (a, _) = await Preparar();
         var primeiro = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, gerente.Login, usuarioId: gerente.Id, permitirEnfermagemPosterior: true);
-        var id = primeiro.Atendimento.Id; var fim = a.FimAtendimentoEm;
+        var id = primeiro.Atendimento.Id;
+        // Compare o valor persistido: PostgreSQL armazena microssegundos, enquanto
+        // DateTime.Now em memória pode conter frações de 100 ns.
+        var fim = await db.Agendamentos.AsNoTracking().Where(x => x.Id == a.Id)
+            .Select(x => x.FimAtendimentoEm).SingleAsync();
         db.Codigos.RemoveRange(await db.Codigos.ToListAsync()); await db.SaveChangesAsync(); db.ChangeTracker.Clear();
         var p = await Previa(); Assert.True(p.PodeRecuperar, p.Situacao);
         Assert.True((await svc.RecuperarAsync(gerente.Id, new(p.Id, p.Versao))).Guias > 0);
