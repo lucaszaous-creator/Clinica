@@ -21,6 +21,7 @@ public sealed partial class SessoesEnfermagemViewModel(IServiceScopeFactory esco
     [ObservableProperty] private string _situacao = "DiaEPendentes";
     [ObservableProperty] private string _mensagem = "";
     [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private bool _mais;
     [ObservableProperty] private int _pagina;
     private int geracao;
@@ -42,9 +43,10 @@ public sealed partial class SessoesEnfermagemViewModel(IServiceScopeFactory esco
             if (carga != geracao) return;
             Sessoes.Clear(); foreach (var item in resultado.Itens) Sessoes.Add(item);
             Mais = resultado.Mais;
+            NaoVerificado = false;
             Mensagem = Sessoes.Count == 0 ? "Nenhuma sessão encontrada com estes filtros." : $"Página {Pagina + 1} · {Sessoes.Count} sessões";
         }
-        catch (Exception ex) { if (carga == geracao) { Sessoes.Clear(); Mais = false; Mensagem = "Não foi possível consultar as sessões: " + ex.Message; } }
+        catch (Exception ex) { if (carga == geracao) { Sessoes.Clear(); Mais = false; NaoVerificado = true; Mensagem = "Não foi possível consultar as sessões: " + ex.Message; } }
         finally { if (carga == geracao) Carregando = false; }
     }
     [RelayCommand] private void Abrir(SessaoEnfermagemItem? item)

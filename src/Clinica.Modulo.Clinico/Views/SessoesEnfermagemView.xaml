@@ -2,6 +2,7 @@
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:sys="clr-namespace:System;assembly=System.Runtime"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
  Background="{StaticResource Brush.Fundo}">
  <UserControl.Resources>
   <Style x:Key="TextoCelula" TargetType="TextBlock">
@@ -12,7 +13,7 @@
  </UserControl.Resources>
  <DockPanel Margin="24,20">
   <StackPanel DockPanel.Dock="Top">
-   <TextBlock Text="Sessões de enfermagem" FontSize="24" FontWeight="SemiBold" />
+   <TextBlock Text="Sessões de enfermagem" FontSize="{StaticResource Fonte.H1}" FontWeight="SemiBold" />
    <TextBlock Text="BSV e BSV + acupuntura · Registre a evolução na sessão original, mesmo após a conclusão médica."
     Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,12" />
    <WrapPanel>
@@ -32,6 +33,7 @@
    </StackPanel>
    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" />
   </DockPanel>
+  <Grid>
   <DataGrid ItemsSource="{Binding Sessoes}" AutoGenerateColumns="False" IsReadOnly="True"
    RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="64" CanUserAddRows="False" EnableRowVirtualization="True" HeadersVisibility="Column"
    ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -47,5 +49,10 @@
     <DataGridTextColumn ElementStyle="{StaticResource TextoCelula}" Header="Atendimento médico" Binding="{Binding Atendimento}" Width="*" MinWidth="160" />
    </DataGrid.Columns>
   </DataGrid>
+  <ctrl:EstadoDaTela Itens="{Binding Sessoes}" Carregando="{Binding Carregando}"
+   NaoVerificado="{Binding NaoVerificado}" Glifo="&#xE95E;"
+   TextoCarregando="Consultando sessões de enfermagem…" Titulo="Nenhuma sessão encontrada"
+   Descricao="{Binding Mensagem}" />
+  </Grid>
  </DockPanel>
 </UserControl>
