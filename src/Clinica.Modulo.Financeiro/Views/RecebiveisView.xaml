@@ -11,12 +11,17 @@
     <DockPanel Margin="24">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Recebíveis de cartão" Style="{StaticResource H1}" Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                           Text="O que a maquininha ainda deve depositar — e o que ela deveria ter depositado e não depositou. Dinheiro de cartão que não caiu não aparece em nenhum outro lugar do sistema." />
+                           Text="Previsão e conferência dos créditos de cada contrato, já descontadas as taxas." />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"
                         VerticalAlignment="Center">
                 <TextBlock Text="Horizonte" Style="{StaticResource Rotulo}"
                            VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -117,16 +122,19 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
 
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-                    <StackPanel Orientation="Horizontal" IsEnabled="{Binding PodeEditar}">
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,10" IsEnabled="{Binding PodeEditar}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Caiu em" Style="{StaticResource Rotulo}"
                                    VerticalAlignment="Center" Margin="0,0,6,0" />
                         <DatePicker SelectedDate="{Binding DataCredito}" Width="150" />
-                        <TextBlock Style="{StaticResource TextoSuave}" VerticalAlignment="Center"
-                                   Margin="10,0,0,0" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="A data do extrato, não a de hoje: conferir na segunda um depósito que caiu na sexta viraria três dias de atraso que não houve." />
                     </StackPanel>
+                    <TextBlock Grid.Column="1" Style="{StaticResource TextoSuave}" VerticalAlignment="Center"
+                               Margin="10,0,0,0" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"
+                               Text="Informe a data em que o crédito entrou na conta, conforme o extrato." />
                 </Grid>
 
                 <TextBlock TextWrapping="Wrap" MaxWidth="820" DockPanel.Dock="Top"
