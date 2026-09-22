@@ -1616,6 +1616,9 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<LancamentoFinanceiro>(e =>
         {
+            e.HasIndex(x => x.GrupoObrigacao);
+            e.Property(x => x.ValorOriginalObrigacao).HasPrecision(14, 2);
+            e.HasOne(x => x.OrigemDesdobramento).WithMany().HasForeignKey(x => x.OrigemDesdobramentoId).OnDelete(DeleteBehavior.Restrict);
             e.Property(x => x.Contraparte).HasMaxLength(200);
             e.Property(x => x.DocumentoReferencia).HasMaxLength(100);
             e.Property(x => x.PedidoParcelamento).HasMaxLength(64);

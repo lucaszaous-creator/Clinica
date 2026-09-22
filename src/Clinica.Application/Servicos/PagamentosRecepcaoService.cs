@@ -11,7 +11,8 @@ public sealed class PagamentosRecepcaoService(IClinicaRepositorio repo, TaxaServ
 
     public Task<LancamentoFinanceiro> ReceberAsync(int pacienteId, int lancamentoId, decimal valorConferido,
         DateOnly data, FormaPagamento forma, string? operador = null,
-        string? adquirente = null, string? bandeira = null, int parcelas = 1, CancellationToken ct = default)
+        string? adquirente = null, string? bandeira = null, int parcelas = 1, CancellationToken ct = default,
+        decimal? valorRecebido = null, DateOnly? vencimentoSaldo = null)
         => repo.ExecutarGestaoAtomicaAsync(async () =>
         {
             if (!Enum.IsDefined(forma) || forma == FormaPagamento.Convenio)
@@ -29,6 +30,8 @@ public sealed class PagamentosRecepcaoService(IClinicaRepositorio repo, TaxaServ
                 throw new InvalidOperationException("Esta cobrança já foi recebida ou cancelada. Atualize a lista antes de continuar.");
             if (valorConferido != l.Valor)
                 throw new InvalidOperationException("O valor foi alterado. Confira o total atualizado da cobrança antes de receber.");
+            if (valorRecebido is { } parcial)
+                await new ContasService(repo).PrepararBaixaParcialAsync(l, parcial, vencimentoSaldo, operador, ct);
             var d = await taxas.CalcularPagamentoPacienteAsync(l.Valor, data, forma, adquirente, bandeira, parcelas, ct);
             if (d.Total > l.Valor)
                 throw new InvalidOperationException("As deduções superam o valor do recebimento.");

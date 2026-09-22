@@ -369,6 +369,14 @@ public sealed partial class CaixaViewModel : ObservableObject
     /// motivo, que o serviço exige.
     /// </summary>
     [RelayCommand]
+    private async Task HistoricoAsync(LinhaCaixa? linha)
+    {
+        if (linha is null) return;
+        try { await HistoricoObrigacao.MostrarAsync(_escopos, _dialogo, linha.Id); }
+        catch (Exception ex) { _snackbar.Erro(ex.Message); }
+    }
+
+    [RelayCommand]
     private async Task CancelarAsync(LinhaCaixa? linha)
     {
         if (linha is null) return;
@@ -377,7 +385,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar lançamento",
-            $"Por que \"{linha.Descricao}\" está sendo cancelado? O lançamento sai dos totais mas continua no histórico.");
+            $"Por que \"{linha.Descricao}\" está sendo cancelado? O lançamento sai dos totais mas continua no histórico. Pagamentos ligados a uma baixa parcial devolvem o valor à obrigação em aberto. O recibo vigente também será cancelado.");
         if (string.IsNullOrWhiteSpace(motivo)) return;
 
         try

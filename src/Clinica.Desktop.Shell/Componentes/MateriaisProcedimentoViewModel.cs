@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Desktop.Controls;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
@@ -56,7 +57,7 @@ public sealed partial class MateriaisProcedimentoViewModel : ObservableObject
             var materiais = new List<MaterialConsumidoProcedimento>();
             foreach (var item in _todos.Where(i => !string.IsNullOrWhiteSpace(i.Quantidade)))
             {
-                if (!decimal.TryParse(item.Quantidade, out var quantidade) || quantidade <= 0 || decimal.Round(quantidade, 3) != quantidade)
+                if (!Valores.TentarLerNumeroExato(item.Quantidade, out var quantidade) || quantidade <= 0 || decimal.Round(quantidade, 3) != quantidade)
                     throw new InvalidOperationException($"{item.Nome}: informe quantidade positiva com até três casas decimais, ou deixe em branco.");
                 materiais.Add(new(item.ItemId, quantidade, item.Lote));
             }

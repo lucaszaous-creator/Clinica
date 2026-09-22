@@ -273,6 +273,14 @@ public sealed partial class ContasViewModel : ObservableObject
     /// de sempre — a conta e o lançamento são a mesma coisa, vista pela data que interessa.
     /// </summary>
     [RelayCommand]
+    private async Task HistoricoAsync(LinhaConta? linha)
+    {
+        if (linha is null) return;
+        try { await HistoricoObrigacao.MostrarAsync(_escopos, _dialogo, linha.LancamentoId); }
+        catch (Exception ex) { _snackbar.Erro(ex.Message); }
+    }
+
+    [RelayCommand]
     private async Task BaixarAsync(LinhaConta? linha)
     {
         if (linha is null) return;
@@ -288,7 +296,7 @@ public sealed partial class ContasViewModel : ObservableObject
             var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
             if (new Janelas.BaixarLancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
 
-            _snackbar.Sucesso(linha.EhSaida ? "Conta paga." : "Conta recebida.");
+            _snackbar.Sucesso("Baixa registrada. Eventual saldo restante continua em aberto.");
             await CarregarAsync();
         }
         catch (Exception ex)

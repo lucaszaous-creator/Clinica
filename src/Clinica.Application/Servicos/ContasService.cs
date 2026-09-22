@@ -54,7 +54,7 @@ public sealed record ResumoContas(
 /// com índice único no banco. Dois postos abrindo o app na mesma manhã não podem criar
 /// o aluguel de agosto duas vezes.
 /// </summary>
-public sealed class ContasService
+public sealed partial class ContasService
 {
     private readonly IClinicaRepositorio _repo;
 
@@ -137,8 +137,8 @@ public sealed class ContasService
             throw new ArgumentException("Informe valor positivo em reais e centavos, dentro do limite permitido.", nameof(valor));
         if (!Enum.IsDefined(tipo) || formaPagamento is { } forma && !Enum.IsDefined(forma))
             throw new ArgumentException("Tipo de conta ou forma de pagamento inválidos.");
-        if (descricao.Trim().Length > 200 || contraparte?.Trim().Length > 200 || documentoReferencia?.Trim().Length > 100 || observacoes?.Length > 1000)
-            throw new ArgumentException("Descrição/contraparte: até 200 caracteres; documento: até 100; observações: até 1.000.");
+        if (descricao.Trim().Length > 200 || contraparte?.Trim().Length > 200 || documentoReferencia?.Trim().Length > 100 || observacoes?.Length > 500)
+            throw new ArgumentException("Descrição/contraparte: até 200 caracteres; documento: até 100; observações: até 500.");
 
         var conta = new LancamentoFinanceiro
         {

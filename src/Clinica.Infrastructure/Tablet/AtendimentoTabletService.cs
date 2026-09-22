@@ -176,6 +176,8 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             if(pedido.Evolucao is null) throw new InvalidOperationException("Informe a evolução.");
             if(pedido.Finalizar || pedido.ConcluirAoSalvar) {
                 await agenda.ExigirConclusaoClinicaAsync(id, u.Id, ct);
+                if (pedido.Consumo is null && (a.AtendimentoId is not { } atendimento || await repo.ConferenciaConsumoAsync(atendimento, ct) is null))
+                    throw new InvalidOperationException("Confira os materiais utilizados ou declare que não houve consumo antes de concluir. Atualize o portal se a pergunta não aparecer.");
                 if (!pedido.ConcluirAoSalvar) await agenda.ConferirEnfermagemParaConclusaoAsync(id, pedido.HouveEnfermagem, ct);
             }
             var anterior = await EvolucaoAtual(id, ct);
@@ -211,7 +213,10 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             int guias = 0; string[] avisos = [];
             if (pedido.Finalizar || pedido.ConcluirAoSalvar)
             {
-                var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id, pedido.HouveEnfermagem, permitirEnfermagemPosterior: pedido.ConcluirAoSalvar);
+                var fim = pedido.Consumo is { } consumo
+                    ? await agenda.ConcluirComConsumoAsync(a.Id, Operador(u), u.Id, consumo,
+                        permitirEnfermagemPosterior: pedido.ConcluirAoSalvar, ct: ct, houveEnfermagem: pedido.HouveEnfermagem)
+                    : await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id, pedido.HouveEnfermagem, permitirEnfermagemPosterior: pedido.ConcluirAoSalvar);
                 guias = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
                 avisos = fim.Avisos.ToArray();
             }

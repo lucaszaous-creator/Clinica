@@ -22,7 +22,7 @@ public sealed partial class AtendimentoTabletTests
     public async Task Observacoes_preservam_horarios_autoria_vinculo_e_guias_sem_duplicacao(ModalidadeAtendimento modalidade)
     {
         await PrepararBSV(); horario.ModalidadePrevista = modalidade; await db.SaveChangesAsync();
-        await svc.SalvarAsync(sessao, horario.Id, (await Pedido()) with { ConcluirAoSalvar = true }, default);
+        await svc.SalvarAsync(sessao, horario.Id, (await Pedido()) with { ConcluirAoSalvar = true, Consumo = new([], true) }, default);
         var fim = horario.FimAtendimentoEm;
         var guias = await db.Codigos.Select(g => g.Id).ToArrayAsync();
         await Enfermeira();

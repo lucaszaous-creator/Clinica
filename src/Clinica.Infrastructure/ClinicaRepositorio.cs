@@ -3139,6 +3139,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarConferenciaConsumoAsync(ConferenciaConsumoProcedimento conferencia, CancellationToken ct = default)
         => await _db.Set<ConferenciaConsumoProcedimento>().AddAsync(conferencia, ct);
 
+    internal IQueryable<LancamentoFinanceiro> ConsultaLancamentosDaObrigacao(Guid grupo)
+        => _db.Set<LancamentoFinanceiro>().AsNoTracking().Where(l => l.GrupoObrigacao == grupo).OrderBy(l => l.Id);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDaObrigacaoAsync(Guid grupo, CancellationToken ct = default)
+        => await ConsultaLancamentosDaObrigacao(grupo).ToListAsync(ct);
+
     internal IQueryable<LancamentoFinanceiro> ConsultaContasDoParcelamento(Guid grupo)
         => _db.Set<LancamentoFinanceiro>().AsNoTracking().Where(l => l.GrupoParcelamento == grupo)
             .OrderBy(l => l.NumeroParcelaConta);

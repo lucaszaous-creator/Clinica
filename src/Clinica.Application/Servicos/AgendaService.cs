@@ -1017,11 +1017,11 @@ public sealed class AgendaService
     /// <summary>Conclusão e materiais pertencem à mesma transação; falha na baixa mantém o atendimento aberto.</summary>
     public Task<ResultadoLancamento> ConcluirComConsumoAsync(int agendamentoId, string operador,
         int usuarioId, PedidoConsumoProcedimento consumo, bool permitirEnfermagemPosterior = true,
-        CancellationToken ct = default)
+        CancellationToken ct = default, bool? houveEnfermagem = null)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var resultado = await ConcluirAtendimentoClinicoAsync(agendamentoId, operador, ct,
-            usuarioId: usuarioId, permitirEnfermagemPosterior: permitirEnfermagemPosterior);
+            usuarioId: usuarioId, permitirEnfermagemPosterior: permitirEnfermagemPosterior, houveEnfermagem: houveEnfermagem);
         await new EstoqueService(_repo).ConfirmarConsumoProcedimentoAsync(resultado.Atendimento.Id, consumo, operador, ct);
         return resultado;
     }, ct);

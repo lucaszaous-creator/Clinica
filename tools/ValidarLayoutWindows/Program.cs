@@ -219,6 +219,26 @@ static class Program
         materiaisVm.Busca = null;
         var materiaisJanela = new MateriaisProcedimentoWindow(materiaisVm);
         await ConferirJanela(materiaisJanela, "materiais-procedimento", [550, 700]); materiaisJanela.Close();
+        var culturaAnterior = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            foreach (var cultura in new[] { "pt-BR", "en-US" })
+            {
+                System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(cultura);
+                if (!Valores.TentarLerNumeroExato("1,125", out var virgula) || virgula != 1.125m
+                    || !Valores.TentarLerNumeroExato("1.125", out var ponto) || ponto != 1.125m)
+                    throw new Exception("Quantidade fracionada depende da cultura do Windows.");
+            }
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = culturaAnterior; }
+        var contasVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.ContasViewModel>();
+        await contasVm.CarregarCommand.ExecuteAsync(null);
+        var contasJanela = new Window { Content = new Clinica.Financeiro.Views.ContasView { DataContext = contasVm }, Height = 700 };
+        await ConferirJanela(contasJanela, "contas-historico", [960, 1366]); contasJanela.Close();
+        var caixaVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.CaixaViewModel>();
+        await caixaVm.CarregarCommand.ExecuteAsync(null);
+        var caixaJanela = new Window { Content = new Clinica.Financeiro.Views.CaixaView { DataContext = caixaVm }, Height = 700 };
+        await ConferirJanela(caixaJanela, "caixa-historico", [960, 1366]); caixaJanela.Close();
         var gerente = sp.GetRequiredService<Clinica.Gerente.ViewModels.PainelDirecaoViewModel>();
         await gerente.CarregarCommand.ExecuteAsync(null);
         var direcao = new Window { Content = new Clinica.Gerente.Views.PainelDirecaoView { DataContext = gerente }, Height = 700 };

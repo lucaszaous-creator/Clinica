@@ -21,6 +21,8 @@ internal static class RotasAtendimentoTablet
             => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
             => Results.Ok(await svc.AbrirAsync(await sessao(c,portal),id,c.RequestAborted)));
+        grupo.MapGet("/atendimentos/{id:int}/materiais", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
+            => Results.Ok(await svc.MateriaisAsync(await sessao(c,portal),id,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}/mapas/{evolucao:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id,int evolucao)
             => Results.Ok(await svc.CopiarMapaAsync(await sessao(c,portal),id,evolucao,c.RequestAborted)));
         grupo.MapPost("/atendimentos/{id:int}/salvar", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id, SalvarAtendimentoTablet pedido)

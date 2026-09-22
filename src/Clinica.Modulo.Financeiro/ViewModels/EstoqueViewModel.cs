@@ -637,15 +637,15 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "editar cadastro do estoque");
 
             decimal minimo = 0m;
-            if (!string.IsNullOrWhiteSpace(Minimo) && !decimal.TryParse(Minimo, out minimo))
+            if (!string.IsNullOrWhiteSpace(Minimo) && !Valores.TentarLerNumeroExato(Minimo, out minimo))
                 throw new InvalidOperationException("O mínimo tem de ser um número.");
 
-            if (!decimal.TryParse(FatorCompra, out var fator))
+            if (!Valores.TentarLerNumeroExato(FatorCompra, out var fator))
                 throw new InvalidOperationException("Informe quantas unidades de consumo há em cada embalagem de compra.");
             decimal? maximo = null;
             if (!string.IsNullOrWhiteSpace(Maximo))
             {
-                if (!decimal.TryParse(Maximo, out var valorMaximo))
+                if (!Valores.TentarLerNumeroExato(Maximo, out var valorMaximo))
                     throw new InvalidOperationException("O máximo deve ser um número.");
                 maximo = valorMaximo;
             }
@@ -753,13 +753,13 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
             Salvando = true;
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "movimentar estoque e registrar compras");
 
-            if (!decimal.TryParse(Quantidade, out var quantidade))
+            if (!Valores.TentarLerNumeroExato(Quantidade, out var quantidade))
                 throw new InvalidOperationException("Informe a quantidade (um número).");
 
             decimal? custo = null;
             if (EhEntrada && !string.IsNullOrWhiteSpace(CustoUnitario))
             {
-                if (!decimal.TryParse(CustoUnitario, out var lido))
+                if (!Valores.TentarLerNumeroExato(CustoUnitario, out var lido))
                     throw new InvalidOperationException("Não entendi o custo: use algo como 12,50.");
                 custo = lido;
             }

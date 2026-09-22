@@ -36,6 +36,14 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Historico_de_obrigacao_traduz_grupo_e_ordem()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaLancamentosDaObrigacao(Guid.NewGuid()).ToQueryString().Should()
+            .Contain("GrupoObrigacao").And.Contain("ORDER BY");
+    }
+
+    [Fact]
     public void Conferencia_de_materiais_traduz_vinculo_com_atendimento()
     {
         using var db = Postgres();

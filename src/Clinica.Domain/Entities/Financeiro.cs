@@ -69,6 +69,11 @@ public class CategoriaFinanceira
 /// </summary>
 public class LancamentoFinanceiro
 {
+    /// <summary>Identidade da obrigação quando desdobrada por baixas parciais.</summary>
+    public Guid? GrupoObrigacao { get; set; }
+    public decimal? ValorOriginalObrigacao { get; set; }
+    public int? OrigemDesdobramentoId { get; set; }
+    public LancamentoFinanceiro? OrigemDesdobramento { get; set; }
     public string? Contraparte { get; set; }
     public string? DocumentoReferencia { get; set; }
     /// <summary>Parcelamento da obrigação; independente das parcelas de depósito do cartão.</summary>

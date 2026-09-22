@@ -1,5 +1,6 @@
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Controls;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,7 +12,9 @@ public sealed partial class BaixarLancamentoViewModel(IServiceScopeFactory escop
 {
     public event Action? Concluido;
     public string Descricao => lancamento.Descricao;
-    public string Valor => lancamento.Valor.ToString("C2");
+    public string Valor => $"Saldo da conta: {lancamento.Valor:C2}";
+    [ObservableProperty] private string _valorPago = lancamento.Valor.ToString("0.00");
+    [ObservableProperty] private DateTime _vencimentoSaldo = (lancamento.DataVencimento ?? DateOnly.FromDateTime(DateTime.Today)).ToDateTime(TimeOnly.MinValue);
     public string Titulo => lancamento.Tipo == TipoLancamento.Entrada ? "Confirmar recebimento" : "Confirmar pagamento";
     public IReadOnlyList<FormaPagamento> Formas { get; } = Enum.GetValues<FormaPagamento>();
     [ObservableProperty] private DateTime _data = DateTime.Today;
@@ -34,11 +37,12 @@ public sealed partial class BaixarLancamentoViewModel(IServiceScopeFactory escop
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "confirmar pagamento ou recebimento");
             if (Forma is not { } forma) throw new InvalidOperationException("Informe a forma de pagamento.");
             if (!int.TryParse(Parcelas, out var parcelas)) throw new InvalidOperationException("Informe o número de parcelas.");
+            if (!Valores.TentarLerNumeroExato(ValorPago, out var valorPago)) throw new InvalidOperationException("Informe o valor efetivamente pago ou recebido.");
             using var scope = escopos.CreateScope();
             await scope.ServiceProvider.GetRequiredService<FinanceiroService>().RealizarAsync(
                 lancamento.Id, DateOnly.FromDateTime(Data), forma, SessaoUsuario.Atual.Operador,
                 adquirente: Adquirente, bandeira: Bandeira, parcelas: forma == FormaPagamento.CartaoCredito ? parcelas : 1,
-                valorConferido: lancamento.Valor);
+                valorConferido: lancamento.Valor, valorPago: valorPago, vencimentoSaldo: DateOnly.FromDateTime(VencimentoSaldo));
             Concluido?.Invoke();
         }
         catch (Exception ex) { Mensagem = ex.Message; }

@@ -49,7 +49,7 @@ public sealed partial class AtendimentoTabletTests : IDisposable
     {
         var json=JsonSerializer.SerializeToElement(await svc.AbrirAsync(sessao,horario.Id,default),ContratoTablet.Json);
         var dto=json.GetProperty("evolucao").Deserialize<EvolucaoClinicaTablet>(ContratoTablet.Json)!;
-        return new(Guid.NewGuid(),dto with {TextoEvolucao=texto});
+        return new(Guid.NewGuid(),dto with {TextoEvolucao=texto}, Consumo: new([], true));
     }
     [Fact] public async Task Agenda_e_modelos_nao_expoem_outro_profissional()
     {

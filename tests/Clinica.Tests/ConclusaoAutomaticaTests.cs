@@ -53,7 +53,7 @@ public sealed partial class AtendimentoTabletTests
 
     [Fact] public async Task Modalidade_nao_configurada_finaliza_sem_pergunta_de_enfermagem()
     {
-        await Preparar(); var p = (await Pedido()) with { Finalizar = true, HouveEnfermagem = null };
+        await Preparar(); var p = (await Pedido()) with { Finalizar = true, HouveEnfermagem = null, Consumo = new([], true) };
         var resultado = await svc.SalvarAsync(sessao, horario.Id, p, default);
         Assert.True(resultado.Finalizado); Assert.True(resultado.Guias > 0);
         Assert.Null(horario.EnfermagemConferidaPorUsuarioId);

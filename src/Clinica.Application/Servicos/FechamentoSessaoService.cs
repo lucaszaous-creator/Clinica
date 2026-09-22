@@ -295,7 +295,7 @@ public sealed class FechamentoSessaoService
                 ? await _agenda.ConcluirAtendimentoClinicoAsync(agendamentoId, operador ?? "?", ct, usuarioClinicoId, houveEnfermagem, permitirEnfermagemPosterior)
                 : await _agenda.ConcluirComConsumoAsync(agendamentoId, operador ?? "?",
                     usuarioClinicoId ?? throw new UnauthorizedAccessException("Identifique o responsável pela conclusão."),
-                    consumoProcedimento, permitirEnfermagemPosterior, ct);
+                    consumoProcedimento, permitirEnfermagemPosterior, ct, houveEnfermagem);
             return new RegistroAtendimento(clinico.Atendimento, proposta, clinico.Avisos, false);
         }
         var (atendimento, recados, jaExistia) =

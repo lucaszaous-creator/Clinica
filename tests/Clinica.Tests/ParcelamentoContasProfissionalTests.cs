@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Clinica.Tests;
 
-public sealed class ParcelamentoContasProfissionalTests : IDisposable
+public sealed partial class ParcelamentoContasProfissionalTests : IDisposable
 {
     private readonly SqliteConnection _conexao = new("DataSource=:memory:");
     private readonly ClinicaDbContext _db;

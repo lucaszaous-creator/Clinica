@@ -69,6 +69,8 @@ public sealed class ClinicoHttpTests
                 await db.SaveChangesAsync();
             }
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/clinico/atendimentos/{restrito}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/clinico/atendimentos/{restrito}/materiais")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK,(await client.GetAsync($"/api/clinico/atendimentos/{id}/materiais")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/pacientes/{pacienteRestrito}")).StatusCode);
             var p=await Get($"/api/clinico/atendimentos/{id}");Assert.Equal(12,p["silhueta"]!["formas"]!.AsArray().Count);
             Assert.True((bool)p["exigeConferenciaEnfermagem"]!);
@@ -93,7 +95,9 @@ public sealed class ClinicoHttpTests
             Assert.Contains("no-store",pdf.Headers.CacheControl!.ToString());
             var semConferencia=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true};
             Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",semConferencia)).StatusCode);
-            var encerrar=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false};
+            var semMateriais=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false};
+            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",semMateriais)).StatusCode);
+            var encerrar=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false,consumo=new {materiais=Array.Empty<object>(),semConsumo=true}};
             var encerrado=await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",encerrar);Assert.Equal(HttpStatusCode.OK,encerrado.StatusCode);
             var fim=JsonNode.Parse(await encerrado.Content.ReadAsStringAsync())!;Assert.True((bool)fim["finalizado"]!);Assert.True((int)fim["guias"]!>0);
             Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",encerrar)).StatusCode);
