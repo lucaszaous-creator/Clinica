@@ -28,6 +28,7 @@ public sealed record ResumoCaixa(
     /// o bruto nunca bate, e era ele que a tela mostrava sozinho até a parcela 9.
     /// </summary>
     public decimal EntradasLiquidas => EntradasRealizadas - TaxasDescontadas - ImpostosRetidos;
+    public decimal SaldoLiquido => EntradasLiquidas - SaidasRealizadas;
 
     /// <summary>Tudo o que foi descontado do bruto no período.</summary>
     public decimal TotalDeducoes => TaxasDescontadas + ImpostosRetidos;
@@ -97,7 +98,7 @@ public sealed class FinanceiroService
     /// Registra uma entrada ou saída. Lançamento já realizado recebe a data de
     /// pagamento automaticamente quando ela não é informada.
     /// </summary>
-    public async Task<LancamentoFinanceiro> LancarAsync(
+    public Task<LancamentoFinanceiro> LancarAsync(
         DateOnly data,
         TipoLancamento tipo,
         string descricao,
@@ -123,15 +124,23 @@ public sealed class FinanceiroService
         // ela só conta o que VENCEU.
         DateOnly? dataVencimento = null,
         CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(descricao))
             throw new ArgumentException("A descrição do lançamento é obrigatória.", nameof(descricao));
         if (valor <= 0)
             throw new ArgumentException("O valor deve ser maior que zero — o sinal vem do tipo.", nameof(valor));
+        if (decimal.Round(valor, 2) != valor)
+            throw new ArgumentException("Informe o valor em reais e centavos.", nameof(valor));
+        if (deducoes is { } negativa && (negativa.ValorTaxa < 0 || negativa.ValorImposto < 0))
+            throw new InvalidOperationException("Taxas e impostos não podem ser negativos.");
         if (deducoes is { } d && d.Total > valor)
             throw new InvalidOperationException(
                 "As deduções não podem passar do valor bruto — isso deixaria a clínica "
                 + "recebendo menos que zero por um atendimento.");
+
+        if (status == StatusLancamento.Realizado)
+            await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(dataPagamento ?? data, formaPagamento, ct);
 
         var lancamento = new LancamentoFinanceiro
         {
@@ -171,12 +180,15 @@ public sealed class FinanceiroService
         await RegistrarAsync("LancamentoCriado",
             $"{tipo} de {valor:C} — {lancamento.Descricao}", lancamento, operador, ct);
         await _repo.SalvarAsync(ct);
+        await new CalendarioCartaoService(_repo).CriarAsync(lancamento, deducoes?.LiquidacaoMensal == true, ct);
         return lancamento;
-    }
+    }, ct);
 
     /// <summary>Marca um lançamento previsto como efetivamente pago/recebido.</summary>
-    public async Task RealizarAsync(int lancamentoId, DateOnly? dataPagamento = null,
-        FormaPagamento? formaPagamento = null, string? operador = null, CancellationToken ct = default)
+    public Task RealizarAsync(int lancamentoId, DateOnly? dataPagamento = null,
+        FormaPagamento? formaPagamento = null, string? operador = null, CancellationToken ct = default,
+        string? adquirente = null, string? bandeira = null, int? parcelas = null, decimal? valorConferido = null)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
             ?? throw new InvalidOperationException($"Lançamento {lancamentoId} não encontrado.");
@@ -185,7 +197,38 @@ public sealed class FinanceiroService
             throw new InvalidOperationException("Lançamento cancelado não pode ser realizado.");
         if (lancamento.Status == StatusLancamento.Realizado)
             throw new InvalidOperationException("Este lançamento já foi realizado.");
+        if (valorConferido is not null && valorConferido != lancamento.Valor)
+            throw new InvalidOperationException("O valor mudou. Atualize a cobrança antes de confirmar o pagamento.");
 
+        var dia = dataPagamento ?? DateOnly.FromDateTime(DateTime.Today);
+        if (dia > DateOnly.FromDateTime(DateTime.Today))
+            throw new InvalidOperationException("Pagamento futuro deve permanecer previsto.");
+        await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(dia, formaPagamento ?? lancamento.FormaPagamento, ct);
+        var forma = formaPagamento ?? lancamento.FormaPagamento;
+        var liquidacaoMensal = false;
+        if (lancamento.Tipo == TipoLancamento.Entrada && TaxaService.ModalidadeDe(forma) is not null)
+        {
+            var d = await new TaxaService(_repo).CalcularPagamentoPacienteAsync(lancamento.Valor, dia, forma!.Value,
+                adquirente ?? lancamento.Adquirente, bandeira ?? lancamento.Bandeira, parcelas ?? lancamento.Parcelas ?? 1, ct);
+            liquidacaoMensal = d.LiquidacaoMensal;
+            lancamento.Adquirente = (adquirente ?? lancamento.Adquirente)?.Trim();
+            lancamento.Bandeira = (bandeira ?? lancamento.Bandeira)?.Trim();
+            lancamento.Parcelas = parcelas ?? lancamento.Parcelas ?? 1;
+            lancamento.ModalidadeCartao = TaxaService.ModalidadeDe(forma, lancamento.Parcelas.Value);
+            lancamento.ValorTaxa = d.ValorTaxa;
+            lancamento.TaxaPercentual = d.TaxaPercentual;
+            lancamento.PrevisaoRecebimento = d.PrevisaoRecebimento;
+        }
+        else if (forma is not null && forma != FormaPagamento.Convenio)
+        {
+            lancamento.ValorTaxa = null;
+            lancamento.TaxaPercentual = null;
+            lancamento.PrevisaoRecebimento = null;
+            lancamento.Adquirente = null;
+            lancamento.Bandeira = null;
+            lancamento.Parcelas = null;
+            lancamento.ModalidadeCartao = null;
+        }
         lancamento.Status = StatusLancamento.Realizado;
         lancamento.DataPagamento = dataPagamento ?? DateOnly.FromDateTime(DateTime.Today);
         if (formaPagamento is not null) lancamento.FormaPagamento = formaPagamento;
@@ -193,14 +236,17 @@ public sealed class FinanceiroService
         await RegistrarAsync("LancamentoRealizado",
             $"{lancamento.Valor:C} — {lancamento.Descricao}", lancamento, operador, ct);
         await _repo.SalvarAsync(ct);
-    }
+        await new CalendarioCartaoService(_repo).CriarAsync(lancamento, liquidacaoMensal, ct);
+        return true;
+    }, ct);
 
     /// <summary>
     /// Cancela um lançamento. Nunca apaga: o registro sai dos totais mas permanece no
     /// histórico, junto com o motivo.
     /// </summary>
-    public async Task CancelarAsync(int lancamentoId, string motivo,
+    public Task CancelarAsync(int lancamentoId, string motivo,
         string? operador = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(motivo))
             throw new ArgumentException("Informe o motivo do cancelamento.", nameof(motivo));
@@ -210,7 +256,12 @@ public sealed class FinanceiroService
 
         if (lancamento.Status == StatusLancamento.Cancelado)
             throw new InvalidOperationException("Este lançamento já está cancelado.");
+        if (lancamento.Conciliado || lancamento.RecebimentoConfirmadoEm is not null
+            || (await _repo.ParcelasCartaoDoLancamentoAsync(lancamento.Id, ct)).Any(p => p.RecebidoEm != null || p.ConciliadoEm != null))
+            throw new InvalidOperationException("Desfaça a conciliação e a confirmação de depósito antes de cancelar o lançamento.");
 
+        if (lancamento.Status == StatusLancamento.Realizado)
+            await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(lancamento.DataPagamento ?? lancamento.Data, lancamento.FormaPagamento, ct);
         lancamento.Status = StatusLancamento.Cancelado;
         lancamento.Observacoes = string.IsNullOrWhiteSpace(lancamento.Observacoes)
             ? $"Cancelado: {motivo}"
@@ -219,7 +270,8 @@ public sealed class FinanceiroService
         await RegistrarAsync("LancamentoCancelado",
             $"{lancamento.Valor:C} — {motivo}", lancamento, operador, ct);
         await _repo.SalvarAsync(ct);
-    }
+        return true;
+    }, ct);
 
     /// <summary>
     /// Lançamentos do período, do mais recente para o mais antigo.

@@ -31,9 +31,9 @@ public class RentabilidadeConvenioTests : IDisposable
     private readonly FinanceiroService _financeiro;
     private readonly AtendimentoService _atendimentos;
 
-    private static readonly DateOnly Dia = new(2026, 9, 10);
-    private static readonly DateOnly Inicio = new(2026, 9, 1);
-    private static readonly DateOnly Fim = new(2026, 9, 30);
+    private static readonly DateOnly Dia = new(2025, 9, 10);
+    private static readonly DateOnly Inicio = new(2025, 9, 1);
+    private static readonly DateOnly Fim = new(2025, 9, 30);
 
     public RentabilidadeConvenioTests()
     {
@@ -297,7 +297,7 @@ public class RentabilidadeConvenioTests : IDisposable
     [Fact]
     public async Task Resumo_PeriodoVazio_NaoQuebra()
     {
-        var r = await _rentabilidade.ResumoAsync(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31));
+        var r = await _rentabilidade.ResumoAsync(new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 31));
 
         r.Guias.Should().Be(0);
         r.Bruto.Should().Be(0m);
@@ -325,12 +325,12 @@ public class RentabilidadeConvenioTests : IDisposable
     {
         // Guia atendida em agosto, recebida em setembro: ela pertence ao balanço de
         // agosto — casar pelo recebimento misturaria meses no mesmo número.
-        var g = await GuiaAsync(Convenio.UnimedPadrao, "Unimed", dia: new DateOnly(2026, 8, 20));
-        await ReceberAsync(g, 100m, pagamento: new DateOnly(2026, 9, 25));
+        var g = await GuiaAsync(Convenio.UnimedPadrao, "Unimed", dia: new DateOnly(2025, 8, 20));
+        await ReceberAsync(g, 100m, pagamento: new DateOnly(2025, 9, 25));
 
         (await _rentabilidade.PorConvenioAsync(Inicio, Fim)).Should().BeEmpty();
         (await _rentabilidade.PorConvenioAsync(
-            new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 31))).Should().ContainSingle();
+            new DateOnly(2025, 8, 1), new DateOnly(2025, 8, 31))).Should().ContainSingle();
     }
 
     public void Dispose()

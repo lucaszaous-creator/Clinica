@@ -169,9 +169,10 @@ public sealed class PacoteService
     /// DIZ isso ("sem lançamento no caixa") em vez de mostrar R$ 0,00 pago com cara de
     /// calote. A tela de venda não oferece o nulo: quem vende decide como recebe.
     /// </summary>
-    public async Task<PacotePaciente> RegistrarVendaAsync(
+    public Task<PacotePaciente> RegistrarVendaAsync(
         PacotePaciente dados, string? operador = null, PagamentoDaVenda? pagamento = null,
         CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var paciente = await _repo.ObterPacienteAsync(dados.PacienteId, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
@@ -213,11 +214,35 @@ public sealed class PacoteService
         // As parcelas são validadas ANTES de qualquer gravação — uma decisão que não
         // fecha (entrada maior que o valor, sem vencimento) recusa a venda inteira.
         var comoPaga = "sem lançamento no caixa";
+        var mensais = new List<LancamentoFinanceiro>();
         if (pagamento is not null)
         {
             var desenho = ParcelasDaVenda.Desenhar(pacote.Valor, pacote.DataCompra, pagamento);
             foreach (var lancamento in ParcelasDaVenda.Montar(pacote, paciente.Nome, pagamento, operador))
+            {
+                if (decimal.Round(lancamento.Valor, 2) != lancamento.Valor)
+                    throw new InvalidOperationException("Informe o valor do pacote em reais e centavos.");
+                if (lancamento.Status == StatusLancamento.Realizado)
+                {
+                    var d = await new TaxaService(_repo).CalcularPagamentoPacienteAsync(lancamento.Valor,
+                        pacote.DataCompra, pagamento.FormaDoPagoAgora!.Value, pagamento.Adquirente,
+                        pagamento.Bandeira, pagamento.ParcelasCartao, ct);
+                    await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(pacote.DataCompra,
+                        lancamento.FormaPagamento, ct);
+                    lancamento.Adquirente = TaxaService.ModalidadeDe(lancamento.FormaPagamento) is null ? null : pagamento.Adquirente?.Trim();
+                    lancamento.Bandeira = TaxaService.ModalidadeDe(lancamento.FormaPagamento) is null ? null : pagamento.Bandeira?.Trim();
+                    lancamento.ModalidadeCartao = TaxaService.ModalidadeDe(lancamento.FormaPagamento, pagamento.ParcelasCartao);
+                    lancamento.Parcelas = lancamento.ModalidadeCartao is null ? null : pagamento.ParcelasCartao;
+                    lancamento.TaxaPercentual = d.TaxaPercentual;
+                    lancamento.ValorTaxa = d.ValorTaxa;
+                    lancamento.AliquotaImposto = d.AliquotaImposto;
+                    lancamento.ValorImposto = d.ValorImposto;
+                    lancamento.DetalheImposto = d.DetalheImposto;
+                    lancamento.PrevisaoRecebimento = d.PrevisaoRecebimento;
+                    if (d.LiquidacaoMensal) mensais.Add(lancamento);
+                }
                 await _repo.AdicionarLancamentoAsync(lancamento, ct);
+            }
             comoPaga = ParcelasDaVenda.Resumir(desenho);
         }
 
@@ -230,8 +255,9 @@ public sealed class PacoteService
         }, ct);
 
         await _repo.SalvarAsync(ct);
+        foreach (var l in mensais) await new CalendarioCartaoService(_repo).CriarAsync(l, true, ct);
         return pacote;
-    }
+    }, ct);
 
     /// <summary>
     /// Cancela a venda. Não apaga: o histórico e os consumos continuam lá.

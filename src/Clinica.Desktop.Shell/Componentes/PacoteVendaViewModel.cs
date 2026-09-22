@@ -67,7 +67,14 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
     /// <summary>À vista: a forma do total. A prazo: a forma da ENTRADA (quando há).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PreviaDasParcelas))]
+    [NotifyPropertyChangedFor(nameof(EhCartao))]
+    [NotifyPropertyChangedFor(nameof(EhCredito))]
     private FormaPagamento? _forma = FormaPagamento.Pix;
+    public bool EhCartao => TaxaService.ModalidadeDe(Forma) is not null;
+    public bool EhCredito => Forma == FormaPagamento.CartaoCredito;
+    [ObservableProperty] private string? _adquirente;
+    [ObservableProperty] private string? _bandeira;
+    [ObservableProperty] private string _parcelasCartao = "1";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PreviaDasParcelas))]
@@ -119,8 +126,12 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
 
     private PagamentoDaVenda MontarPagamento()
     {
+        var parcelasCartao = 1;
+        if (EhCredito && (!int.TryParse(ParcelasCartao, out parcelasCartao) || parcelasCartao is < 1 or > 36))
+            throw new InvalidOperationException("Informe de 1 a 36 parcelas na maquininha.");
         if (AVista)
-            return new PagamentoDaVenda { TudoAgora = true, FormaDoPagoAgora = Forma };
+            return new PagamentoDaVenda { TudoAgora = true, FormaDoPagoAgora = Forma,
+                Adquirente = Adquirente, Bandeira = Bandeira, ParcelasCartao = parcelasCartao };
 
         var entrada = 0m;
         if (!string.IsNullOrWhiteSpace(Entrada) && !Valores.TentarLerDecimal(Entrada, out entrada))
@@ -131,7 +142,8 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
 
         return PagamentoDaVenda.APrazo(
             n, DateOnly.FromDateTime(PrimeiroVencimento), entrada,
-            formaDaEntrada: entrada > 0m ? Forma : null);
+            formaDaEntrada: entrada > 0m ? Forma : null) with
+            { Adquirente = Adquirente, Bandeira = Bandeira, ParcelasCartao = parcelasCartao };
     }
 
     [ObservableProperty] private string _mensagem = string.Empty;

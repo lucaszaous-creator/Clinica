@@ -73,7 +73,7 @@
                             <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE896;" Style="{StaticResource CardKpi.Icone}" Foreground="{StaticResource Brush.Sucesso}" />
-                                <TextBlock Text="ENTROU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                <TextBlock Text="RECEBIDO BRUTO NO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
                             </StackPanel>
                         </DockPanel>
                         <TextBlock Text="{Binding EntradasMes}" Style="{StaticResource CardKpi.Valor}"
@@ -113,7 +113,7 @@
                         </DockPanel>
                         <TextBlock Text="{Binding SaidasMes}" Style="{StaticResource CardKpi.Valor}"
                                    Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="pago e conciliado" Style="{StaticResource CardKpi.Variacao}" />
+                        <TextBlock Text="pagamentos registrados" Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
 
@@ -123,7 +123,7 @@
                             <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
-                                <TextBlock Text="SALDO DO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                                <TextBlock Text="RESULTADO LÍQUIDO DO MÊS" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
                             </StackPanel>
                         </DockPanel>
                         <TextBlock Text="{Binding SaldoMes}" TextWrapping="Wrap" HorizontalAlignment="Left">
@@ -140,7 +140,7 @@
                         <!-- "Variação no período", não "saldo em conta": a clínica nunca
                              cadastrou saldo inicial, e chamar isto de saldo daria um
                              número que não bate com o extrato. -->
-                        <TextBlock Text="entrou menos saiu, realizado"
+                        <TextBlock Text="{Binding DeducoesMes}" TextWrapping="Wrap"
                                    Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>

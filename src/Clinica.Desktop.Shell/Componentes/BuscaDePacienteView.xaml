@@ -4,25 +4,13 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
              x:Name="Raiz">
 
-    <!-- ============================================================
-         A BUSCA DE PACIENTE COMO TELA.
-
-         O DataContext é o `SeletorPacienteViewModel`; os textos são propriedades DESTE
-         controle e por isso os bindings deles vão por ElementName.
-
-         ⚠️ Coluna de 760 px CENTRADA, com largura EXPLÍCITA e sem nenhuma coluna estrela
-         na composição — então não há deserto possível. A tentativa de limitar largura por
-         `HorizontalAlignment="Left"` já foi feita e PIOROU os dois lados de uma vez: com
-         esse alinhamento o WPF arranja o elemento pela largura DESEJADA, a estrela encolhe
-         até o conteúdo, e a tabela ficou estreita E o branco continuou. Largura de
-         conteúdo se faz com medida, nunca com alinhamento.
-         ============================================================ -->
+    <!-- Coluna central com teto de 760 px, que encolhe com a área útil do módulo. -->
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <StackPanel Width="760" HorizontalAlignment="Center" Margin="0,40,0,0">
+    <StackPanel MaxWidth="760" HorizontalAlignment="Stretch" Margin="0,40,0,0">
 
         <TextBlock Text="{Binding Pergunta, ElementName=Raiz}" Style="{StaticResource H1}"
                    Margin="0" TextAlignment="Center" HorizontalAlignment="Center"

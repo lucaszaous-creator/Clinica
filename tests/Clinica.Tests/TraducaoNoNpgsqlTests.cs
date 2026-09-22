@@ -36,6 +36,34 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Agenda_de_cartao_traduz_join_datas_e_exclusao_da_venda_integral()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var dia = new DateOnly(2025, 1, 31);
+        repo.ConsultaParcelasCartao().Where(p => (p.RecebidoEm ?? p.Previsao) >= dia
+            && (p.RecebidoEm ?? p.Previsao) <= dia.AddMonths(1)).ToQueryString().Should()
+            .Contain("JOIN").And.Contain("COALESCE").And.Contain("Status");
+        repo.ConsultaParcelasCartao().Where(p => p.RecebidoEm == null && p.Previsao <= dia)
+            .ToQueryString().Should().Contain("IS NULL").And.Contain("Previsao");
+        repo.ConsultaParcelasCartao().Where(p => p.RecebidoEm >= dia && p.RecebidoEm <= dia)
+            .ToQueryString().Should().Contain("RecebidoEm");
+        repo.ConsultaLancamentosParaConciliacao(dia, dia).ToQueryString().Should().Contain("NOT EXISTS");
+    }
+
+    [Fact]
+    public void Gestao_traduz_data_do_deposito_e_filtro_de_cobrancas_do_paciente()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var dia = new DateOnly(2026, 9, 21);
+        repo.ConsultaLancamentosParaConciliacao(dia, dia).ToQueryString().Should()
+            .Contain("COALESCE").And.Contain("PrevisaoRecebimento").And.Contain("RecebimentoConfirmadoEm");
+        repo.ConsultaCobrancasDoPaciente(42).ToQueryString().Should()
+            .Contain("PacienteId").And.Contain("CodigoFaturamentoId").And.Contain("ORDER BY");
+    }
+
+    [Fact]
     public void Conferencia_de_enfermagem_traduz_vinculo_e_retificacoes_no_postgres()
     {
         using var db = Postgres();

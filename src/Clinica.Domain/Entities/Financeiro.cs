@@ -161,6 +161,9 @@ public class LancamentoFinanceiro
     /// lançamento quando alguém for conferir a conferência.
     /// </summary>
     public string? IdBancario { get; set; }
+    public string? ContaBancariaConciliacao { get; set; }
+    public DateOnly? DataExtrato { get; set; }
+    public DateOnly? RecebimentoAntesDaConciliacao { get; set; }
 
     /// <summary>Já foi visto no extrato do banco.</summary>
     public bool Conciliado => ConciliadoEm is not null;

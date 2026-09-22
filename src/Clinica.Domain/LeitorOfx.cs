@@ -13,6 +13,7 @@ namespace Clinica.Domain;
 /// <param name="Descricao">O <c>MEMO</c> — "PIX RECEBIDO MARIA", "PAGTO ALUGUEL".</param>
 public sealed record LinhaExtrato(string Id, DateOnly Data, decimal Valor, string Descricao)
 {
+    public bool IdentidadeBancariaInformada { get; init; } = true;
     public bool Entrada => Valor > 0;
 
     /// <summary>Quanto se moveu, sem sinal — é o que casa com o valor do lançamento.</summary>
@@ -21,7 +22,10 @@ public sealed record LinhaExtrato(string Id, DateOnly Data, decimal Valor, strin
 
 /// <summary>O extrato inteiro: as linhas e o período que o arquivo cobre.</summary>
 public sealed record Extrato(
-    IReadOnlyList<LinhaExtrato> Linhas, DateOnly? Inicio, DateOnly? Fim, string? Conta);
+    IReadOnlyList<LinhaExtrato> Linhas, DateOnly? Inicio, DateOnly? Fim, string? Conta)
+{
+    public string? IdentificacaoConta { get; init; }
+}
 
 /// <summary>
 /// LEITOR DE OFX (parcela 63) — o extrato que o banco exporta.
@@ -96,14 +100,19 @@ public static class LeitorOfx
                             ?? Campo(corpo, "TRNTYPE")
                             ?? "—";
 
-            linhas.Add(new LinhaExtrato(id, data, valor, descricao));
+            linhas.Add(new LinhaExtrato(id, data, valor, descricao)
+                { IdentidadeBancariaInformada = Campo(corpo, "FITID") is not null });
         }
 
         return new Extrato(
             linhas,
             LerData(Campo(conteudo, "DTSTART")) ?? linhas.MinBy(l => l.Data)?.Data,
             LerData(Campo(conteudo, "DTEND")) ?? linhas.MaxBy(l => l.Data)?.Data,
-            Campo(conteudo, "ACCTID"));
+            Campo(conteudo, "ACCTID"))
+        {
+            IdentificacaoConta = Campo(conteudo, "ACCTID") is { } conta
+                ? $"{Campo(conteudo, "BANKID")}|{Campo(conteudo, "BRANCHID")}|{conta}" : null
+        };
     }
 
     /// <summary>

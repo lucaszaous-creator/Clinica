@@ -14,6 +14,96 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public ClinicaRepositorio(ClinicaDbContext db) => _db = db;
 
+    public Task<DocumentoFinanceiro?> ReciboVigenteDoLancamentoAsync(int lancamentoId, CancellationToken ct = default)
+        => _db.DocumentosFinanceiros.Include(d => d.Itens).Where(d => d.LancamentoFinanceiroId == lancamentoId
+            && d.Tipo == TipoDocumentoFinanceiro.Recibo && d.CanceladoEm == null)
+            .OrderBy(d => d.Id).FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDaTransacaoBancariaAsync(
+        string idBancario, string? conta, CancellationToken ct = default)
+        => await _db.Lancamentos.Where(l => l.IdBancario == idBancario && l.ContaBancariaConciliacao == conta
+            && l.ConciliadoEm != null).ToListAsync(ct);
+
+    public async Task AdicionarParcelaCartaoAsync(ParcelaRecebivelCartao parcela, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.AddAsync(parcela, ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDoLancamentoAsync(int lancamentoId, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => p.LancamentoFinanceiroId == lancamentoId).OrderBy(p => p.Numero).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoPorIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => ids.Contains(p.Id)).ToListAsync(ct);
+
+    public IQueryable<ParcelaRecebivelCartao> ConsultaParcelasCartao()
+        => _db.ParcelasRecebiveisCartao.AsNoTracking().Include(p => p.Lancamento)
+            .Where(p => p.Lancamento.Status == StatusLancamento.Realizado);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoAbertasAsync(DateOnly ate, CancellationToken ct = default)
+        => await ConsultaParcelasCartao().Where(p => p.RecebidoEm == null && p.Previsao <= ate).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoConfirmadasAsync(DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaParcelasCartao().Where(p => p.RecebidoEm >= de && p.RecebidoEm <= ate).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoParaConciliacaoAsync(DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaParcelasCartao().Where(p => (p.RecebidoEm ?? p.Previsao) >= de && (p.RecebidoEm ?? p.Previsao) <= ate).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDaTransacaoAsync(string idBancario, string? conta, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => p.IdBancario == idBancario && p.ContaBancaria == conta && p.ConciliadoEm != null).ToListAsync(ct);
+
+    public async Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default)
+    {
+        // Uma ordem única de trava evita inversões entre compra, caixa e baixa de insumo.
+        // O fechamento da sessão já possui transação: não iniciar outra dentro dela.
+        var propria = _db.Database.CurrentTransaction is null;
+        await using var transacao = propria ? await _db.Database.BeginTransactionAsync(ct) : null;
+        try
+        {
+            if (_db.Database.IsNpgsql())
+                await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(1129072964, 0)", ct);
+            var resultado = await executar();
+            if (transacao is not null) await transacao.CommitAsync(ct);
+            return resultado;
+        }
+        catch
+        {
+            if (transacao is not null)
+            {
+                await transacao.RollbackAsync(CancellationToken.None);
+                _db.ChangeTracker.Clear();
+            }
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosParaConciliacaoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await ConsultaLancamentosParaConciliacao(inicio, fim).ToListAsync(ct);
+
+    public IQueryable<LancamentoFinanceiro> ConsultaLancamentosParaConciliacao(DateOnly inicio, DateOnly fim)
+        => _db.Lancamentos.AsNoTracking().Include(l => l.Paciente)
+            .Where(l => l.Status == StatusLancamento.Realizado && l.FormaPagamento != FormaPagamento.Dinheiro)
+            .Where(l => !_db.ParcelasRecebiveisCartao.Any(p => p.LancamentoFinanceiroId == l.Id))
+            .Where(l => (l.RecebimentoConfirmadoEm ?? l.PrevisaoRecebimento ?? l.DataPagamento ?? l.Data) >= inicio
+                     && (l.RecebimentoConfirmadoEm ?? l.PrevisaoRecebimento ?? l.DataPagamento ?? l.Data) <= fim)
+            ;
+
+    public async Task<bool> IdBancarioUtilizadoAsync(string idBancario, string? conta = null, CancellationToken ct = default)
+        => await _db.Lancamentos.AnyAsync(l => l.IdBancario == idBancario && l.ConciliadoEm != null
+            && (l.ContaBancariaConciliacao == conta || l.ContaBancariaConciliacao == null || conta == null), ct)
+            || await _db.ParcelasRecebiveisCartao.AnyAsync(p => p.IdBancario == idBancario && p.ConciliadoEm != null
+                && (p.ContaBancaria == conta || p.ContaBancaria == null || conta == null), ct);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> CobrancasDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await ConsultaCobrancasDoPaciente(pacienteId).ToListAsync(ct);
+
+    public IQueryable<LancamentoFinanceiro> ConsultaCobrancasDoPaciente(int pacienteId)
+        => _db.Lancamentos.AsNoTracking().Include(l => l.Paciente)
+            .Where(l => l.PacienteId == pacienteId && l.Tipo == TipoLancamento.Entrada
+                     && l.CodigoFaturamentoId == null && l.FormaPagamento != FormaPagamento.Convenio
+                     && l.Status != StatusLancamento.Cancelado)
+            .OrderBy(l => l.Status).ThenByDescending(l => l.Data).ThenByDescending(l => l.Id)
+            ;
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(
         DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos.AsNoTracking()
@@ -38,7 +128,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 .FirstOrDefaultAsync(x => x.AtendimentoId == atendimentoId && x.Etapa == etapa, ct);
             if (recibo is not null)
             {
-                if (recibo.Pedido != pedido)
+                if (recibo.Pedido != pedido && !(etapa == "caixa"
+                    && await PedidoCaixaLegadoEquivalenteAsync(recibo.Pedido, pedido, recibo.ResultadoId, ct)))
                     throw new InvalidOperationException("Esta etapa do fechamento já foi registrada com outros valores. Confira no Financeiro antes de ajustar.");
                 await transacao.CommitAsync(ct);
                 return recibo.ResultadoId;
@@ -62,6 +153,28 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.ChangeTracker.Clear();
             throw;
         }
+    }
+
+    // Uma retomada na versão nova pode informar a data que a versão antiga já havia
+    // gravado sem incluí-la na chave. Aceita somente se TODOS os dados coincidem.
+    private async Task<bool> PedidoCaixaLegadoEquivalenteAsync(string anterior, string atual,
+        int lancamentoId, CancellationToken ct)
+    {
+        if (!anterior.StartsWith('{') || !atual.StartsWith('{')) return false;
+        using var antigo = System.Text.Json.JsonDocument.Parse(anterior);
+        using var novo = System.Text.Json.JsonDocument.Parse(atual);
+        if (antigo.RootElement.TryGetProperty("Base", out _)
+            || !novo.RootElement.TryGetProperty("Base", out var baseNova)
+            || baseNova.GetRawText() != anterior) return false;
+        var l = await _db.Lancamentos.AsNoTracking().SingleOrDefaultAsync(x => x.Id == lancamentoId, ct);
+        if (l is null) return false;
+        var raiz = novo.RootElement;
+        var data = raiz.GetProperty("DataPagamento");
+        if (data.ValueKind != System.Text.Json.JsonValueKind.Null
+            && DateOnly.Parse(data.GetString()!, System.Globalization.CultureInfo.InvariantCulture) != (l.DataPagamento ?? l.Data)) return false;
+        return string.Equals(raiz.GetProperty("Adquirente").GetString()?.Trim(), l.Adquirente, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(raiz.GetProperty("Bandeira").GetString()?.Trim(), l.Bandeira, StringComparison.OrdinalIgnoreCase)
+            && raiz.GetProperty("Parcelas").GetInt32() == (l.Parcelas ?? 1);
     }
 
     public Task<Paciente?> ObterPacienteAsync(int pacienteId, CancellationToken ct = default)
@@ -2442,6 +2555,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         DateOnly ate, CancellationToken ct = default)
         => await _db.Lancamentos.AsNoTracking()
             .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => !_db.ParcelasRecebiveisCartao.Any(p => p.LancamentoFinanceiroId == l.Id))
             .Where(l => l.PrevisaoRecebimento != null && l.PrevisaoRecebimento <= ate)
             .Where(l => l.RecebimentoConfirmadoEm == null)
             .OrderBy(l => l.PrevisaoRecebimento).ThenBy(l => l.Id)
@@ -2451,6 +2565,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         DateOnly de, DateOnly ate, CancellationToken ct = default)
         => await _db.Lancamentos.AsNoTracking()
             .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => !_db.ParcelasRecebiveisCartao.Any(p => p.LancamentoFinanceiroId == l.Id))
             .Where(l => l.RecebimentoConfirmadoEm != null
                         && l.RecebimentoConfirmadoEm >= de
                         && l.RecebimentoConfirmadoEm <= ate)
@@ -2903,8 +3018,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         var q = _db.Lancamentos
             .Include(l => l.Categoria)
             .Include(l => l.Paciente)
-            .Where(l => l.Data >= inicio && l.Data <= fim)
-            .OrderByDescending(l => l.Data).ThenByDescending(l => l.Id);
+            .Where(l => (l.Status == StatusLancamento.Realizado ? l.DataPagamento ?? l.Data : l.Data) >= inicio
+                     && (l.Status == StatusLancamento.Realizado ? l.DataPagamento ?? l.Data : l.Data) <= fim)
+            .OrderByDescending(l => l.Status == StatusLancamento.Realizado ? l.DataPagamento ?? l.Data : l.Data)
+            .ThenByDescending(l => l.Id);
 
         // O corte vai para o SQL: materializar o período inteiro para depois descartar
         // é exatamente o que a convenção do projeto proíbe (o banco é remoto).
@@ -2932,7 +3049,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<Clinica.Application.Modelos.ValorLancamento>>
         ValoresDeLancamentoNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => await _db.Lancamentos.AsNoTracking()
-            .Where(l => l.Data >= inicio && l.Data <= fim)
+            .Where(l => (l.Status == StatusLancamento.Realizado ? l.DataPagamento ?? l.Data : l.Data) >= inicio
+                     && (l.Status == StatusLancamento.Realizado ? l.DataPagamento ?? l.Data : l.Data) <= fim)
             .Select(l => new Clinica.Application.Modelos.ValorLancamento(
                 l.Tipo, l.Status, l.Valor, l.ValorTaxa, l.ValorImposto))
             .ToListAsync(ct);

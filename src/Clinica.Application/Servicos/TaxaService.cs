@@ -24,6 +24,7 @@ public sealed record DeducoesRecebimento(
     /// que o contador faz.
     /// </summary>
     public string? DetalheImposto { get; init; }
+    public bool LiquidacaoMensal { get; init; }
 
     public decimal Total => (ValorTaxa ?? 0m) + (ValorImposto ?? 0m);
 }
@@ -103,6 +104,7 @@ public sealed class TaxaService
         taxa.ParcelasAte = dados.ParcelasAte;
         taxa.Percentual = dados.Percentual;
         taxa.DiasParaReceber = dados.DiasParaReceber;
+        taxa.LiquidacaoMensal = dados.Modalidade == ModalidadeCartao.CreditoParcelado && dados.LiquidacaoMensal;
         taxa.VigenteDe = dados.VigenteDe;
         taxa.VigenteAte = dados.VigenteAte;
         taxa.Ativa = dados.Ativa;
@@ -119,6 +121,27 @@ public sealed class TaxaService
     }
 
     // ==================== Cálculo ====================
+
+    /// <summary>Pagamento informado no balcão: não presume a maquininha, a bandeira ou o prazo.</summary>
+    public async Task<DeducoesRecebimento> CalcularPagamentoPacienteAsync(decimal valor, DateOnly data,
+        FormaPagamento forma, string? adquirente, string? bandeira, int parcelas = 1,
+        CancellationToken ct = default)
+    {
+        if (!Enum.IsDefined(forma) || forma == FormaPagamento.Convenio)
+            throw new InvalidOperationException("Informe como o paciente pagou a sessão.");
+        if (parcelas is < 1 or > 36 || (forma != FormaPagamento.CartaoCredito && parcelas != 1))
+            throw new InvalidOperationException("Informe de 1 a 36 parcelas; parcelamento só se aplica ao cartão de crédito.");
+        if (data > DateOnly.FromDateTime(DateTime.Today))
+            throw new InvalidOperationException("Pagamento futuro deve ficar a receber.");
+        if (ModalidadeDe(forma) is not null && (string.IsNullOrWhiteSpace(adquirente) || string.IsNullOrWhiteSpace(bandeira)))
+            throw new InvalidOperationException("Informe a maquininha e a bandeira usadas no pagamento.");
+        if (adquirente?.Trim().Length > 60 || bandeira?.Trim().Length > 40)
+            throw new InvalidOperationException("Use até 60 caracteres na adquirente e 40 na bandeira.");
+        var deducoes = await CalcularAsync(valor, data, forma, Limpar(adquirente), Limpar(bandeira), parcelas, ct: ct);
+        if (ModalidadeDe(forma) is not null && deducoes.PrevisaoRecebimento is null)
+            throw new InvalidOperationException("Cadastre no Financeiro a taxa e o prazo desta maquininha antes de receber no cartão.");
+        return deducoes;
+    }
 
     /// <summary>
     /// Acha a taxa que vale para esta venda. A mais ESPECÍFICA ganha: uma regra da
@@ -169,6 +192,7 @@ public sealed class TaxaService
         decimal? taxaPercentual = null, valorTaxa = null;
         DateOnly? previsao = null;
         string? procedencia = null;
+        var liquidacaoMensal = false;
 
         // As parcelas ENTRAM aqui: sem elas, crédito em 10x seria tratado como crédito à
         // vista e pegaria a taxa errada — justamente a modalidade mais cara.
@@ -181,6 +205,7 @@ public sealed class TaxaService
                 valorTaxa = Arredondar(valorBruto * taxa.Percentual / 100m);
                 previsao = data.AddDays(taxa.DiasParaReceber);
                 procedencia = taxa.Descricao;
+                liquidacaoMensal = taxa.LiquidacaoMensal;
             }
         }
 
@@ -217,7 +242,8 @@ public sealed class TaxaService
         return new DeducoesRecebimento(
             taxaPercentual, valorTaxa, aliquota, valorImposto, previsao, procedencia)
         {
-            DetalheImposto = detalheImposto
+            DetalheImposto = detalheImposto,
+            LiquidacaoMensal = liquidacaoMensal
         };
     }
 

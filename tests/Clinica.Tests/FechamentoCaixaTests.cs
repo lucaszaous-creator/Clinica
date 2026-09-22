@@ -170,13 +170,14 @@ public class FechamentoCaixaTests : IDisposable
     }
 
     [Fact]
-    public async Task Conferir_GuardaAFOTOEUmLancamentoPosteriorNaoAReescreve()
+    public async Task Conferir_PreservaAFotoEExigeReaberturaParaLancamentoPosterior()
     {
         await EmDinheiroAsync(Hoje, 230m);
         var f = await _fechamento.ConferirAsync(Hoje, 230m);
 
-        // Alguém digita depois um recebimento com a data de hoje.
-        await EmDinheiroAsync(Hoje, 500m);
+        // A gaveta conferida só pode mudar mediante reabertura auditada.
+        await FluentActions.Awaiting(() => EmDinheiroAsync(Hoje, 500m))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage("*Reabra*");
 
         var gravado = await _repo.FechamentoCaixaDoDiaAsync(Hoje);
         // A conferência continua dizendo o que foi contado e contra o quê. Recalcular

@@ -7,6 +7,23 @@ namespace Clinica.Application.Abstracoes;
 /// <summary>Acesso a dados usado pelos serviços. Implementado sobre EF Core na camada de infraestrutura.</summary>
 public interface IClinicaRepositorio
 {
+    Task AdicionarParcelaCartaoAsync(ParcelaRecebivelCartao parcela, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDoLancamentoAsync(int lancamentoId, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoPorIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoAbertasAsync(DateOnly ate, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoConfirmadasAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoParaConciliacaoAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDaTransacaoAsync(string idBancario, string? conta, CancellationToken ct = default);
+    /// <summary>Transação e trava entre estações; chamadas aninhadas participam da mesma transação.</summary>
+    Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default);
+
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosParaConciliacaoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    Task<bool> IdBancarioUtilizadoAsync(string idBancario, string? conta = null, CancellationToken ct = default);
+
+    Task<IReadOnlyList<LancamentoFinanceiro>> CobrancasDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
     Task<Paciente?> ObterPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     /// <summary>Códigos do paciente lançados no mês informado (usado pela rotação de especialidades da Petrobras).</summary>
@@ -1494,6 +1511,11 @@ public interface IClinicaRepositorio
     /// <summary>Documentos financeiros do período, do mais recente ao mais antigo.</summary>
     Task<IReadOnlyList<DocumentoFinanceiro>> DocumentosFinanceirosAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    Task<DocumentoFinanceiro?> ReciboVigenteDoLancamentoAsync(int lancamentoId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDaTransacaoBancariaAsync(
+        string idBancario, string? conta, CancellationToken ct = default);
 
     /// <summary>Próximo sequencial do ano para o tipo (recibo e orçamento não se misturam).</summary>
     Task<int> ProximoNumeroDocumentoFinanceiroAsync(

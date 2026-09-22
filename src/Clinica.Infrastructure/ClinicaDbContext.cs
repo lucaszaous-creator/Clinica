@@ -5,6 +5,7 @@ namespace Clinica.Infrastructure;
 
 public class ClinicaDbContext : DbContext
 {
+    public DbSet<ParcelaRecebivelCartao> ParcelasRecebiveisCartao => Set<ParcelaRecebivelCartao>();
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -1630,6 +1631,7 @@ public class ClinicaDbContext : DbContext
             // Conciliação bancária (parcela 63). O FITID é do banco e não tem tamanho
             // padronizado; 100 cobre com folga o que os bancos brasileiros emitem.
             e.Property(x => x.IdBancario).HasMaxLength(100);
+            e.Property(x => x.ContaBancariaConciliacao).HasMaxLength(200);
             e.Property(x => x.ConciliadoEm).HasColumnType("timestamp without time zone");
 
             // Índice, e não índice ÚNICO: uma transação do extrato pode legitimamente
@@ -1819,6 +1821,22 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Descricao);
         });
 
+        b.Entity<ParcelaRecebivelCartao>(e =>
+        {
+            e.ToTable("ParcelasRecebiveisCartao");
+            e.HasKey(p => p.Id);
+            e.HasOne(p => p.Lancamento).WithMany().HasForeignKey(p => p.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => new { p.LancamentoFinanceiroId, p.Numero }).IsUnique();
+            e.HasIndex(p => p.Previsao);
+            e.HasIndex(p => new { p.ContaBancaria, p.IdBancario });
+            e.Property(p => p.Bruto).HasPrecision(14, 2);
+            e.Property(p => p.Taxa).HasPrecision(14, 2);
+            e.Property(p => p.IdBancario).HasMaxLength(100);
+            e.Property(p => p.ContaBancaria).HasMaxLength(200);
+            e.Property(p => p.ConciliadoEm).HasColumnType("timestamp without time zone");
+            e.Ignore(p => p.Liquido);
+        });
+
         b.Entity<TaxaCartao>(e =>
         {
             e.HasKey(x => x.Id);
@@ -1936,6 +1954,8 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<MovimentoEstoque>(e =>
         {
+            e.HasOne(x => x.LancamentoFinanceiro).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
             e.HasKey(x => x.Id);
             e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
             // Quantidade fracionada existe (ml, g), então não é inteiro.

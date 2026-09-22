@@ -249,12 +249,12 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 {
                     Data = s.Data.ToString("dd/MM/yyyy"),
                     Paciente = string.IsNullOrWhiteSpace(s.Paciente) ? "(paciente não informado)" : s.Paciente!,
-                    Custo = s.Custo.ToString("C"),
+                    Custo = s.Completo ? s.Custo.ToString("C") : $"{s.Custo:C} (parcial)",
                     Itens = s.Itens.Count == 0 ? "—" : string.Join(" · ", s.Itens)
                 });
 
             CustoSessoes = resumo.Sessoes.ToString();
-            CustoTotal = resumo.Total.ToString("C");
+            CustoTotal = resumo.SessoesComCustoIncompleto == 0 ? resumo.Total.ToString("C") : $"{resumo.Total:C} (parcial)";
             // "—" e não "R$ 0,00": período sem baixa por sessão não tem média zero, tem
             // média nenhuma — e uma sessão de graça é justamente o que o número não diz.
             CustoMedio = resumo.MedioPorSessao is { } medio ? medio.ToString("C") : "—";
@@ -263,6 +263,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
             CustoResumo = SemCusto
                 ? "Nenhuma sessão baixou insumo neste período. A baixa por sessão sai do "
                   + "fechamento do atendimento, na Recepção."
+                : resumo.SessoesComCustoIncompleto > 0
+                    ? $"{resumo.SessoesComCustoIncompleto} sessão(ões) com custo incompleto. O total soma apenas os custos conhecidos; média e comparação aguardam custos completos."
                 : $"{resumo.Sessoes} sessão(ões) com insumo · mais cara: "
                   + $"{resumo.MaisCara!.Custo:C} em {resumo.MaisCara.Data:dd/MM/yyyy}.";
         }
@@ -474,8 +476,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
         if (!_dialogo.ConfirmarPerigo("Excluir item",
-                $"Apagar \"{linha.Nome}\" e TODO o histórico de movimentos dele? "
-                + "Item que já se movimentou normalmente deve ser inativado, não apagado.")) return;
+                $"Excluir o cadastro de \"{linha.Nome}\"? "
+                + "Só é possível excluir um item sem movimentos. Para preservar o histórico, inative itens já utilizados.")) return;
 
         try
         {
@@ -559,12 +561,14 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task SalvarAsync()
     {
+        if (Salvando) return;
         Mensagem = string.Empty;
         MensagemEhErro = false;
 
         try
         {
             Salvando = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "editar cadastro do estoque");
 
             decimal minimo = 0m;
             if (!string.IsNullOrWhiteSpace(Minimo) && !decimal.TryParse(Minimo, out minimo))
@@ -610,7 +614,16 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
 
     public string Item { get; }
 
-    public IReadOnlyList<TipoMovimentoEstoque> Tipos { get; } = Enum.GetValues<TipoMovimentoEstoque>();
+    public IReadOnlyList<TipoMovimentoEstoque> Tipos { get; } =
+        [TipoMovimentoEstoque.Entrada, TipoMovimentoEstoque.Saida, TipoMovimentoEstoque.Perda];
+    public IReadOnlyList<FormaPagamento> FormasCompra { get; } = Enum.GetValues<FormaPagamento>()
+        .Where(f => f != FormaPagamento.Convenio).ToArray();
+    [ObservableProperty] private bool _gerarContaCompra;
+    [ObservableProperty] private string? _fornecedor;
+    [ObservableProperty] private DateTime _vencimentoCompra = DateTime.Today;
+    [ObservableProperty] private bool _compraPaga;
+    [ObservableProperty] private FormaPagamento? _formaCompra;
+    public bool PodeSalvar => !Salvando && SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
     [ObservableProperty] private TipoMovimentoEstoque _tipo = TipoMovimentoEstoque.Entrada;
     [ObservableProperty] private string? _quantidade;
@@ -636,17 +649,21 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
         Item = item;
     }
 
+    partial void OnSalvandoChanged(bool value) => OnPropertyChanged(nameof(PodeSalvar));
+
     partial void OnTipoChanged(TipoMovimentoEstoque value) => OnPropertyChanged(nameof(EhEntrada));
 
     [RelayCommand]
     private async Task SalvarAsync()
     {
+        if (Salvando) return;
         Mensagem = string.Empty;
         MensagemEhErro = false;
 
         try
         {
             Salvando = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "movimentar estoque e registrar compras");
 
             if (!decimal.TryParse(Quantidade, out var quantidade))
                 throw new InvalidOperationException("Informe a quantidade (um número).");
@@ -664,8 +681,7 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
                     "Perda sem motivo escrito vira estoque que não bate — diga o que houve.");
 
             using var escopo = _escopos.CreateScope();
-            await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
-                .MovimentarAsync(new MovimentoEstoque
+            var dados = new MovimentoEstoque
             {
                 ItemEstoqueId = _itemId,
                 Tipo = Tipo,
@@ -675,7 +691,13 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
                 Validade = EhEntrada && Validade is { } v ? DateOnly.FromDateTime(v) : null,
                 Lote = Lote,
                 Observacao = Observacao
-            }, SessaoUsuario.Atual.Operador);
+            };
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+            if (EhEntrada && GerarContaCompra)
+                await estoque.ComprarAsync(dados, Fornecedor ?? string.Empty, DateOnly.FromDateTime(VencimentoCompra),
+                    CompraPaga, FormaCompra, SessaoUsuario.Atual.Operador);
+            else
+                await estoque.MovimentarAsync(dados, SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();
         }
@@ -813,6 +835,7 @@ public sealed partial class ExtratoEstoqueViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(m.Lote)) partes.Add($"lote {m.Lote}");
         if (m.Validade is { } v) partes.Add($"validade {v:dd/MM/yyyy}");
         if (m.AtendimentoId is not null) partes.Add("consumo de sessão");
+        if (m.LancamentoFinanceiroId is { } conta) partes.Add($"compra vinculada à conta #{conta}");
         if (m.Tipo == TipoMovimentoEstoque.Ajuste)
             partes.Add(m.AjusteParaCima == true ? "contagem achou a mais" : "contagem achou a menos");
         return partes.Count == 0 ? "—" : string.Join(" · ", partes);

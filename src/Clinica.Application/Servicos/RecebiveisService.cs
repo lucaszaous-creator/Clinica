@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -19,6 +20,7 @@ public sealed record DepositoEsperado(
     int Quantidade,
     IReadOnlyList<int> LancamentoIds)
 {
+    public IReadOnlyList<int> ParcelaIds { get; init; } = [];
     /// <summary>Passou da data e não caiu.</summary>
     public bool Atrasado(DateOnly hoje) => Previsao < hoje;
 }
@@ -40,6 +42,7 @@ public sealed record DepositoConfirmado(
     int Quantidade,
     IReadOnlyList<int> LancamentoIds)
 {
+    public IReadOnlyList<int> ParcelaIds { get; init; } = [];
     /// <summary>Dias entre o prometido e o pago. Negativo = caiu adiantado.</summary>
     public int? DiasDeAtraso => Previsto is { } p ? Creditado.DayNumber - p.DayNumber : null;
 }
@@ -93,30 +96,16 @@ public sealed class RecebiveisService
     public async Task<IReadOnlyList<DepositoEsperado>> EsperadosAsync(
         DateOnly ate, CancellationToken ct = default)
     {
-        var abertos = await _repo.RecebiveisEmAbertoAsync(ate, ct);
-
-        return abertos
-            .Where(l => l.PrevisaoRecebimento is not null)
-            .GroupBy(l => (
-                // Sem adquirente informado o dinheiro continua sendo esperado — só não se
-                // sabe de quem. Agrupar tudo como "não informado" mantém o valor visível
-                // em vez de sumir com ele.
-                Adquirente: string.IsNullOrWhiteSpace(l.Adquirente) ? "(não informado)" : l.Adquirente!,
-                Previsao: l.PrevisaoRecebimento!.Value))
-            .Select(g => new DepositoEsperado(
-                g.Key.Adquirente,
-                g.Key.Previsao,
-                g.Sum(l => l.Valor),
-                g.Sum(l => l.ValorTaxa ?? 0m),
-                // O que cai na conta é o BRUTO menos a taxa da adquirente. O imposto não
-                // entra: ele é recolhido depois, por guia, e descontá-lo aqui faria o
-                // número não bater com o extrato — que é o único uso desta tela.
-                g.Sum(l => l.Valor - (l.ValorTaxa ?? 0m)),
-                g.Count(),
-                g.Select(l => l.Id).ToList()))
-            .OrderBy(d => d.Previsao)
-            .ThenBy(d => d.Adquirente)
-            .ToList();
+        var vendas = await _repo.RecebiveisEmAbertoAsync(ate, ct);
+        var parcelas = await _repo.ParcelasCartaoAbertasAsync(ate, ct);
+        var abertos = vendas.Where(l => l.PrevisaoRecebimento is not null).Select(l => new ItemConciliacao(l))
+            .Concat(parcelas.Select(p => new ItemConciliacao(p.Lancamento, p)));
+        return abertos.GroupBy(i => (Adquirente: Adquirente(i), Previsao: i.Data))
+            .Select(g => new DepositoEsperado(g.Key.Adquirente, g.Key.Previsao,
+                g.Sum(i => i.Valor), g.Sum(i => i.ValorTaxa ?? 0), g.Sum(i => i.ValorBancario),
+                g.Count(), g.Where(i => i.Parcela is null).Select(i => i.Id).ToList())
+                { ParcelaIds = g.Where(i => i.ParcelaId is not null).Select(i => i.ParcelaId!.Value).ToList() })
+            .OrderBy(d => d.Previsao).ThenBy(d => d.Adquirente).ToList();
     }
 
     /// <summary>Depósitos que já passaram da data e não caíram — a única linha que pede ação.</summary>
@@ -147,37 +136,9 @@ public sealed class RecebiveisService
     /// depósito num atraso de três dias — o número ficaria errado justamente na métrica
     /// que a tela existe para medir.
     /// </summary>
-    public async Task<int> ConfirmarAsync(
-        IReadOnlyCollection<int> lancamentoIds,
-        DateOnly dataReal,
-        string? operador = null,
-        CancellationToken ct = default)
-    {
-        if (lancamentoIds.Count == 0) return 0;
-
-        var lancamentos = await _repo.LancamentosPorIdAsync(lancamentoIds, ct);
-        var confirmados = 0;
-
-        foreach (var l in lancamentos)
-        {
-            // Já confirmado não é reconfirmado: a data do primeiro crédito é a que vale, e
-            // sobrescrevê-la numa segunda passada apagaria o atraso que houve.
-            if (!l.RecebivelEmAberto) continue;
-            l.RecebimentoConfirmadoEm = dataReal;
-            confirmados++;
-        }
-
-        if (confirmados == 0) return 0;
-
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Acao = "RecebimentoConfirmado",
-            Detalhe = $"{confirmados} recebimento(s) creditado(s) em {dataReal:dd/MM/yyyy}",
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
-        }, ct);
-        await _repo.SalvarAsync(ct);
-        return confirmados;
-    }
+    public Task<int> ConfirmarAsync(IReadOnlyCollection<int> lancamentoIds, DateOnly dataReal,
+        string? operador = null, CancellationToken ct = default, IReadOnlyCollection<int>? parcelaIds = null)
+        => AlterarConfirmacaoAsync(lancamentoIds, parcelaIds ?? [], dataReal, operador, ct);
 
     /// <summary>
     /// Depósitos que já caíram, agrupados como caíram — por adquirente e dia do crédito.
@@ -190,57 +151,71 @@ public sealed class RecebiveisService
     public async Task<IReadOnlyList<DepositoConfirmado>> ConfirmadosAsync(
         DateOnly de, DateOnly ate, CancellationToken ct = default)
     {
-        var creditados = await _repo.RecebiveisConfirmadosAsync(de, ate, ct);
-
-        return creditados
-            .GroupBy(l => (
-                Adquirente: string.IsNullOrWhiteSpace(l.Adquirente) ? "(não informado)" : l.Adquirente!,
-                Creditado: l.RecebimentoConfirmadoEm!.Value))
-            .Select(g => new DepositoConfirmado(
-                g.Key.Adquirente,
-                g.Key.Creditado,
-                g.Where(l => l.PrevisaoRecebimento is not null)
-                    .Min(l => l.PrevisaoRecebimento),
-                g.Sum(l => l.Valor),
-                g.Sum(l => l.ValorTaxa ?? 0m),
-                g.Sum(l => l.Valor - (l.ValorTaxa ?? 0m)),
-                g.Count(),
-                g.Select(l => l.Id).ToList()))
-            .OrderByDescending(d => d.Creditado)
-            .ThenBy(d => d.Adquirente)
-            .ToList();
+        var vendas = await _repo.RecebiveisConfirmadosAsync(de, ate, ct);
+        var parcelas = await _repo.ParcelasCartaoConfirmadasAsync(de, ate, ct);
+        var creditados = vendas.Select(l => new ItemConciliacao(l))
+            .Concat(parcelas.Select(p => new ItemConciliacao(p.Lancamento, p)));
+        return creditados.GroupBy(i => (Adquirente: Adquirente(i), Creditado: i.Data))
+            .Select(g => new DepositoConfirmado(g.Key.Adquirente, g.Key.Creditado,
+                g.Min(i => i.Parcela is { } p ? p.Previsao : i.Lancamento.PrevisaoRecebimento),
+                g.Sum(i => i.Valor), g.Sum(i => i.ValorTaxa ?? 0), g.Sum(i => i.ValorBancario),
+                g.Count(), g.Where(i => i.Parcela is null).Select(i => i.Id).ToList())
+                { ParcelaIds = g.Where(i => i.ParcelaId is not null).Select(i => i.ParcelaId!.Value).ToList() })
+            .OrderByDescending(d => d.Creditado).ThenBy(d => d.Adquirente).ToList();
     }
 
     /// <summary>
     /// Desfaz a confirmação de um depósito — para quando alguém marcou o dia errado.
     /// Não apaga o lançamento: só devolve o recebível à lista de espera.
     /// </summary>
-    public async Task<int> DesfazerConfirmacaoAsync(
-        IReadOnlyCollection<int> lancamentoIds,
-        string? operador = null,
-        CancellationToken ct = default)
-    {
-        if (lancamentoIds.Count == 0) return 0;
+    public Task<int> DesfazerConfirmacaoAsync(IReadOnlyCollection<int> lancamentoIds,
+        string? operador = null, CancellationToken ct = default, IReadOnlyCollection<int>? parcelaIds = null)
+        => AlterarConfirmacaoAsync(lancamentoIds, parcelaIds ?? [], null, operador, ct);
 
-        var lancamentos = await _repo.LancamentosPorIdAsync(lancamentoIds, ct);
-        var desfeitos = 0;
-
-        foreach (var l in lancamentos)
+    private Task<int> AlterarConfirmacaoAsync(IReadOnlyCollection<int> ids, IReadOnlyCollection<int> parcelaIds,
+        DateOnly? data, string? operador, CancellationToken ct)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
         {
-            if (l.RecebimentoConfirmadoEm is null) continue;
-            l.RecebimentoConfirmadoEm = null;
-            desfeitos++;
-        }
-
-        if (desfeitos == 0) return 0;
-
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Acao = "RecebimentoDesfeito",
-            Detalhe = $"{desfeitos} recebimento(s) devolvido(s) à espera",
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
+            if (data > DateOnly.FromDateTime(DateTime.Today))
+                throw new InvalidOperationException("Não é possível confirmar um depósito futuro.");
+            var vendas = await _repo.LancamentosPorIdAsync(ids, ct);
+            var parcelas = await _repo.ParcelasCartaoPorIdsAsync(parcelaIds, ct);
+            if (vendas.Count != ids.Distinct().Count() || parcelas.Count != parcelaIds.Distinct().Count())
+                throw new InvalidOperationException("Um crédito não foi encontrado. Atualize a lista.");
+            foreach (var l in vendas)
+                if ((await _repo.ParcelasCartaoDoLancamentoAsync(l.Id, ct)).Count > 0)
+                    throw new InvalidOperationException("Confirme cada crédito do contrato mensal pela lista de recebíveis.");
+            if (vendas.Any(l => l.Conciliado) || parcelas.Any(p => p.ConciliadoEm is not null))
+                throw new InvalidOperationException("Desfaça primeiro a conciliação no extrato bancário; o depósito conferido não pode ser alterado isoladamente.");
+            if (parcelas.Any(p => p.Lancamento.Status != StatusLancamento.Realizado))
+                throw new InvalidOperationException("Este pagamento não está realizado. Atualize a lista.");
+            var alterados = 0;
+            foreach (var l in vendas)
+            {
+                if (data is not null ? !l.RecebivelEmAberto : l.RecebimentoConfirmadoEm is null) continue;
+                l.RecebimentoConfirmadoEm = data;
+                alterados++;
+            }
+            foreach (var p in parcelas)
+            {
+                if (data is not null ? p.RecebidoEm is not null : p.RecebidoEm is null) continue;
+                p.RecebidoEm = data;
+                alterados++;
+            }
+            if (alterados == 0) return 0;
+            foreach (var id in parcelas.Select(p => p.LancamentoFinanceiroId).Distinct())
+                await new CalendarioCartaoService(_repo).AtualizarConfirmacaoDaVendaAsync(id, ct);
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Acao = data is null ? "RecebimentoDesfeito" : "RecebimentoConfirmado",
+                Detalhe = data is null ? $"{alterados} crédito(s) devolvido(s) à espera"
+                    : $"{alterados} crédito(s) recebido(s) em {data:dd/MM/yyyy}",
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
+            }, ct);
+            await _repo.SalvarAsync(ct);
+            return alterados;
         }, ct);
-        await _repo.SalvarAsync(ct);
-        return desfeitos;
-    }
+
+    private static string Adquirente(ItemConciliacao i)
+        => string.IsNullOrWhiteSpace(i.Adquirente) ? "(não informado)" : i.Adquirente;
 }

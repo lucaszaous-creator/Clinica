@@ -54,7 +54,8 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
     public ObservableCollection<LinhaInsumoFechamento> Insumos { get; } = [];
     public ObservableCollection<OpcaoCategoriaFechamento> Categorias { get; } = [];
 
-    public IReadOnlyList<FormaPagamento> Formas { get; } = Enum.GetValues<FormaPagamento>();
+    public IReadOnlyList<FormaPagamento> Formas { get; } = Enum.GetValues<FormaPagamento>()
+        .Where(f => f != FormaPagamento.Convenio).ToArray();
 
     [ObservableProperty] private string _paciente = string.Empty;
     [ObservableProperty] private string _data = string.Empty;
@@ -83,7 +84,12 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
 
     [ObservableProperty] private string? _valor;
     [ObservableProperty] private string? _procedenciaDoValor;
-    [ObservableProperty] private FormaPagamento? _forma;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(EhCartao))] private FormaPagamento? _forma;
+    public bool EhCartao => Forma is FormaPagamento.CartaoCredito or FormaPagamento.CartaoDebito;
+    [ObservableProperty] private string? _adquirente;
+    [ObservableProperty] private string? _bandeira;
+    [ObservableProperty] private string _parcelas = "1";
+    [ObservableProperty] private DateTime _dataPagamento = DateTime.Today;
     [ObservableProperty] private OpcaoCategoriaFechamento? _categoria;
 
     /// <summary>
@@ -282,7 +288,7 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
     [RelayCommand]
     private async Task ConfirmarAsync()
     {
-        if (Concluida) return;
+        if (Concluida || Ocupado || Carregando || !PropostaValida) return;
 
         Mensagem = null;
         MensagemEhErro = false;
@@ -305,6 +311,13 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
         }
 
         var insumos = new List<InsumoAConsumir>();
+        var parcelas = 1;
+        if (GerarLancamento && !FicaAReceber && EhCartao &&
+            (!int.TryParse(Parcelas, out parcelas) || parcelas < 1 || parcelas > 36))
+        {
+            Erro("Informe de 1 a 36 parcelas para o cartão.");
+            return;
+        }
         foreach (var linha in Insumos)
         {
             if (!Valores.TentarLerQuantidade(linha.Quantidade, out var quantidade))
@@ -340,7 +353,11 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
                     FicaAReceber: GerarLancamento && FicaAReceber,
                     Vencimento: GerarLancamento && FicaAReceber
                         ? DateOnly.FromDateTime(Vencimento)
-                        : null),
+                        : null,
+                    Adquirente: EhCartao ? Adquirente : null,
+                    Bandeira: EhCartao ? Bandeira : null,
+                    Parcelas: Forma == FormaPagamento.CartaoCredito ? parcelas : 1,
+                    DataPagamento: GerarLancamento && !FicaAReceber ? DateOnly.FromDateTime(DataPagamento) : null),
                 SessaoUsuario.Atual.Operador);
 
             // O atendimento existe a partir daqui, tenha o resto dado certo ou não:

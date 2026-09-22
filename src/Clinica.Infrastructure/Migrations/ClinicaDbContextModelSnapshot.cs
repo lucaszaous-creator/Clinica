@@ -2625,6 +2625,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateTime?>("ConciliadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("ContaBancariaConciliacao")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Convenio")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -2641,6 +2645,9 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("character varying(80)");
 
                     b.Property<DateOnly>("Data")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("DataExtrato")
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("DataPagamento")
@@ -2688,6 +2695,9 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateOnly?>("PrevisaoRecebimento")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("RecebimentoAntesDaConciliacao")
                         .HasColumnType("date");
 
                     b.Property<DateOnly?>("RecebimentoConfirmadoEm")
@@ -3299,6 +3309,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("ItemEstoqueId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("LancamentoFinanceiroId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Lote")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
@@ -3325,6 +3338,8 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AtendimentoId");
+
+                    b.HasIndex("LancamentoFinanceiroId");
 
                     b.HasIndex("PacienteId");
 
@@ -3678,6 +3693,63 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Convenio");
 
                     b.ToTable("Parametros");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ParcelaRecebivelCartao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Bruto")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.Property<DateTime?>("ConciliadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ContaBancaria")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateOnly?>("DataExtrato")
+                        .HasColumnType("date");
+
+                    b.Property<string>("IdBancario")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("LancamentoFinanceiroId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Previsao")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("RecebidoEm")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("RecebimentoAntesDaConciliacao")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Taxa")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("numeric(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Previsao");
+
+                    b.HasIndex("ContaBancaria", "IdBancario");
+
+                    b.HasIndex("LancamentoFinanceiroId", "Numero")
+                        .IsUnique();
+
+                    b.ToTable("ParcelasRecebiveisCartao", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.PontoMapa", b =>
@@ -4524,6 +4596,9 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<int>("DiasParaReceber")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("LiquidacaoMensal")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Modalidade")
                         .IsRequired()
@@ -5678,6 +5753,11 @@ namespace Clinica.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Clinica.Domain.Entities.LancamentoFinanceiro", "LancamentoFinanceiro")
+                        .WithMany()
+                        .HasForeignKey("LancamentoFinanceiroId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
                         .WithMany()
                         .HasForeignKey("PacienteId")
@@ -5686,6 +5766,8 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Atendimento");
 
                     b.Navigation("Item");
+
+                    b.Navigation("LancamentoFinanceiro");
 
                     b.Navigation("Paciente");
                 });
@@ -5754,6 +5836,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Lancamento");
 
                     b.Navigation("Paciente");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ParcelaRecebivelCartao", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.LancamentoFinanceiro", "Lancamento")
+                        .WithMany()
+                        .HasForeignKey("LancamentoFinanceiroId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Lancamento");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.PontoMapa", b =>

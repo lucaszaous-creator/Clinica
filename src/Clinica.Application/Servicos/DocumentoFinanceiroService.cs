@@ -119,9 +119,10 @@ public sealed class DocumentoFinanceiroService
     /// dinheiro entrou, o papel comprova aquele dinheiro — e fica apontando para ele,
     /// para ninguém emitir dois recibos do mesmo pagamento sem perceber.
     /// </summary>
-    public async Task<DocumentoFinanceiro> EmitirReciboDoLancamentoAsync(
+    public Task<DocumentoFinanceiro> EmitirReciboDoLancamentoAsync(
         int lancamentoId, string? destinatario = null, string? operador = null,
         CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
             ?? throw new InvalidOperationException("Lançamento não encontrado.");
@@ -129,8 +130,11 @@ public sealed class DocumentoFinanceiroService
         if (lancamento.Tipo != TipoLancamento.Entrada)
             throw new InvalidOperationException("Só se dá recibo de dinheiro que entrou.");
 
-        if (lancamento.Status == StatusLancamento.Cancelado)
-            throw new InvalidOperationException("Este lançamento está cancelado.");
+        if (lancamento.Status != StatusLancamento.Realizado)
+            throw new InvalidOperationException("Recibo só pode ser emitido após o recebimento do pagamento.");
+
+        var existente = await _repo.ReciboVigenteDoLancamentoAsync(lancamentoId, ct);
+        if (existente is not null) return existente;
 
         return await EmitirAsync(new DocumentoFinanceiro
         {
@@ -151,7 +155,7 @@ public sealed class DocumentoFinanceiroService
                 }
             ]
         }, operador, ct);
-    }
+    }, ct);
 
     /// <summary>Orçamento de um pacote do catálogo — a proposta que o balcão entrega.</summary>
     public async Task<DocumentoFinanceiro> EmitirOrcamentoDoPacoteAsync(

@@ -72,7 +72,8 @@ public sealed class LinhaTaxa
     {
         TaxaId = t.Id,
         Descricao = t.Descricao,
-        Prazo = t.DiasParaReceber == 0 ? "na hora" : $"em {t.DiasParaReceber} dia(s)",
+        Prazo = t.LiquidacaoMensal ? $"mensal · primeiro em {t.DiasParaReceber} dia(s)"
+            : $"integral · em {t.DiasParaReceber} dia(s)",
         Vigencia = (t.VigenteDe, t.VigenteAte) switch
         {
             (null, null) => "sem prazo",
@@ -628,6 +629,7 @@ public sealed partial class TaxaEdicaoViewModel : ObservableObject
 
     [ObservableProperty] private string? _percentual;
     [ObservableProperty] private string? _diasParaReceber = "30";
+    [ObservableProperty] private bool _liquidacaoMensal;
     [ObservableProperty] private string? _parcelasDe;
     [ObservableProperty] private string? _parcelasAte;
     [ObservableProperty] private DateTime? _vigenteDe;
@@ -663,6 +665,7 @@ public sealed partial class TaxaEdicaoViewModel : ObservableObject
             Modalidade = t.Modalidade;
             Percentual = t.Percentual.ToString("0.##");
             DiasParaReceber = t.DiasParaReceber.ToString();
+            LiquidacaoMensal = t.LiquidacaoMensal;
             ParcelasDe = t.ParcelasDe?.ToString();
             ParcelasAte = t.ParcelasAte?.ToString();
             VigenteDe = t.VigenteDe?.ToDateTime(TimeOnly.MinValue);
@@ -721,6 +724,7 @@ public sealed partial class TaxaEdicaoViewModel : ObservableObject
                 Modalidade = Modalidade,
                 Percentual = percentual,
                 DiasParaReceber = dias,
+                LiquidacaoMensal = EhParcelado && LiquidacaoMensal,
                 ParcelasDe = de,
                 ParcelasAte = ate,
                 VigenteDe = VigenteDe is { } vd ? DateOnly.FromDateTime(vd) : null,

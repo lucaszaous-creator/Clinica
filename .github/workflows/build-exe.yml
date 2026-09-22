@@ -65,6 +65,9 @@ jobs:
       - name: Conferir janelas responsivas com dados fictícios
         run: dotnet run --project tools/ValidarLayoutWindows -c Release
 
+      - name: Conferir gestão, pagamentos e estoque no Windows
+        run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --gestao
+
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj

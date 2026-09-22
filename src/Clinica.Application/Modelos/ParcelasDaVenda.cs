@@ -24,6 +24,10 @@ public sealed record PagamentoDaVenda
 {
     /// <summary>Forma do que é pago AGORA: o total (à vista) ou a entrada (a prazo).</summary>
     public FormaPagamento? FormaDoPagoAgora { get; init; }
+    public string? Adquirente { get; init; }
+    public string? Bandeira { get; init; }
+    /// <summary>Parcelamento na maquininha, distinto das cobranças futuras ao paciente.</summary>
+    public int ParcelasCartao { get; init; } = 1;
 
     /// <summary>Tudo pago na compra — um lançamento realizado.</summary>
     public bool TudoAgora { get; init; }

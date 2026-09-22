@@ -228,13 +228,16 @@ public sealed class RetomadaAtendimentoTests : IDisposable
         _db.ItensEstoque.Add(item); await _db.SaveChangesAsync();
         await estoque.EntrarAsync(item.Id, 10, data: Dia);
         var decisao = new DecisaoFechamento(ag.Id, DebitarPacote: false, GerarLancamento: true,
-            Valor: 100, Insumos: [new(item.Id, 2)]);
+            Valor: 100, Forma: FormaPagamento.Pix, Insumos: [new(item.Id, 2)]);
         var primeiro = await Fechamento().ConcluirAsync(decisao);
         var segundo = await Fechamento().ConcluirAsync(decisao with { Valor = 100.00m, Insumos = [new(item.Id, 2.00m)] });
         segundo.Lancamento!.Id.Should().Be(primeiro.Lancamento!.Id);
         segundo.Movimentos.Single().Id.Should().Be(primeiro.Movimentos.Single().Id);
         (await _db.Lancamentos.CountAsync()).Should().Be(1);
         (await _db.MovimentosEstoque.CountAsync(m => m.AtendimentoId != null)).Should().Be(1);
+        var retomadaNova = await Fechamento().ConcluirAsync(decisao with { DataPagamento = Dia });
+        retomadaNova.Lancamento!.Id.Should().Be(primeiro.Lancamento.Id);
+        retomadaNova.Avisos.Should().BeEmpty();
         var alterado = await Fechamento().ConcluirAsync(decisao with { Valor = 150 });
         alterado.Avisos.Should().Contain(a => a.Contains("outros valores"));
         (await _db.Lancamentos.CountAsync()).Should().Be(1);
@@ -255,7 +258,7 @@ public sealed class RetomadaAtendimentoTests : IDisposable
             .Should().ThrowAsync<InvalidOperationException>();
         (await _db.Lancamentos.CountAsync()).Should().Be(0);
         (await _db.EtapasFechamentoSessao.CountAsync()).Should().Be(0);
-        var resultado = await Fechamento().ConcluirAsync(new(ag.Id, GerarLancamento: true, Valor: 10));
+        var resultado = await Fechamento().ConcluirAsync(new(ag.Id, GerarLancamento: true, Valor: 10, Forma: FormaPagamento.Pix));
         resultado.Lancamento.Should().NotBeNull();
     }
 
@@ -267,7 +270,7 @@ public sealed class RetomadaAtendimentoTests : IDisposable
         await _agenda.ConfirmarPresencaAsync(ag.Id);
         await using var dbA = NovoContexto();
         await using var dbB = NovoContexto();
-        var decisao = new DecisaoFechamento(ag.Id, DebitarPacote: false, GerarLancamento: true, Valor: 80);
+        var decisao = new DecisaoFechamento(ag.Id, DebitarPacote: false, GerarLancamento: true, Valor: 80, Forma: FormaPagamento.Pix);
         var resultados = await Task.WhenAll(Fechamento(new(dbA)).ConcluirAsync(decisao),
             Fechamento(new(dbB)).ConcluirAsync(decisao));
         resultados.Should().OnlyContain(r => r.TudoCerto);
@@ -316,7 +319,7 @@ public sealed class RetomadaAtendimentoTests : IDisposable
         var item = new ItemEstoque { Nome = "Insumo", Unidade = "un" };
         _db.ItensEstoque.Add(item); await _db.SaveChangesAsync();
         var decisao = new DecisaoFechamento(ag.Id, DebitarPacote: false, GerarLancamento: true,
-            Valor: 60, Insumos: [new(item.Id, 2)]);
+            Valor: 60, Forma: FormaPagamento.Pix, Insumos: [new(item.Id, 2)]);
         var primeiro = await Fechamento().ConcluirAsync(decisao);
         primeiro.Avisos.Should().ContainSingle();
         primeiro.Lancamento.Should().NotBeNull();

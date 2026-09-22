@@ -166,8 +166,8 @@
                      dinheiro nenhum, e o pacote ficava fora do caixa para sempre. -->
                 <TextBlock Text="Como o paciente paga" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton Content="À vista" IsChecked="{Binding AVista}" GroupName="Pagamento" />
-                    <RadioButton Content="A prazo" IsChecked="{Binding APrazo}" GroupName="Pagamento"
+                    <RadioButton Content="Pagar agora" IsChecked="{Binding AVista}" GroupName="Pagamento" />
+                    <RadioButton Content="Cobrar depois" IsChecked="{Binding APrazo}" GroupName="Pagamento"
                                  Margin="16,0,0,0" />
                 </StackPanel>
 
@@ -211,6 +211,19 @@
                         </Grid>
                     </StackPanel>
                 </Grid>
+
+                <StackPanel Margin="0,10,0,0" Visibility="{Binding EhCartao, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Maquininha / contrato" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
+                    <TextBlock Text="Bandeira" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
+                    <TextBox Text="{Binding Bandeira, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
+                    <StackPanel Visibility="{Binding EhCredito, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="Parcelas na maquininha" Style="{StaticResource Rotulo}" Margin="0,6,0,0" />
+                        <TextBox Text="{Binding ParcelasCartao, UpdateSourceTrigger=PropertyChanged}" MaxLength="2" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Text="Use Pagar agora para o total aprovado no cartão, mesmo parcelado. Cobrar depois cria cobranças futuras ao paciente; os dados do cartão se aplicam somente à entrada." />
+                </StackPanel>
 
                 <!-- A prévia é o MESMO desenho que o serviço grava — nunca promete
                      parcelas diferentes das gravadas. Quando a decisão não fecha, a
