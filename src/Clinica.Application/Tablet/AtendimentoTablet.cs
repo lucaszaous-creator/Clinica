@@ -12,11 +12,12 @@ public static class PoliticaAtendimentoTablet
         && u.ProfissionalId is > 0 && u.Pode(Permissao.VerFichaPaciente | Permissao.VerProntuario)
         && (PodeAtender(u) || u.Pode(Permissao.ChecarPrescricao));
     public static bool PodeAtender(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
-        && u.Perfil is PerfilAcesso.Profissional or PerfilAcesso.Gerente
+        && u.Perfil is PerfilAcesso.Profissional or PerfilAcesso.Psicologia or PerfilAcesso.Gerente
         && u.ProfissionalId is > 0 && u.Pode(Permissao.VerAgenda | Permissao.VerProntuario | Permissao.EditarProntuario);
 }
 
-public sealed record IniciarAvulsoTablet(Guid Idempotencia, ModalidadeAtendimento Modalidade, string? Motivo = null);
+public sealed record IniciarAvulsoTablet(Guid Idempotencia, ModalidadeAtendimento Modalidade,
+    string? Motivo = null, string? EspecialidadeConsultaCodigo = null);
 public sealed record ResultadoAvulsoTablet(int AgendamentoId, bool Existente);
 public sealed record ChecarInfusaoTablet(Guid Idempotencia, int ItemId, string Versao, SituacaoChecagem Situacao,
     TimeOnly Hora, string? Justificativa = null, string? AlergiaObservada = null, bool ConfirmouAlergia = false, string? MotivoRetificacao = null);

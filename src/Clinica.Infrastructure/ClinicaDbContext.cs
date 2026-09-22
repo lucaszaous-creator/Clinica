@@ -394,6 +394,8 @@ public class ClinicaDbContext : DbContext
             // de CPF repetido mora em EquipeService, na escrita, onde ela pode explicar.
             e.HasIndex(p => p.Cpf);
             e.Property(p => p.EspecialidadeCodigo).HasMaxLength(40);
+            e.Property(p => p.HabilitacoesAtendimentoJson).HasColumnType("text");
+            e.Ignore(p => p.HabilitacoesAtendimento);
             e.Property(p => p.Telefone).HasMaxLength(20);
             e.Property(p => p.Email).HasMaxLength(120);
             e.Property(p => p.Cor).HasMaxLength(9);

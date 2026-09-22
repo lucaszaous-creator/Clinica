@@ -35,6 +35,17 @@ public class EquipeServiceTests : IDisposable
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
     }
 
+    [Fact]
+    public async Task Habilitacoes_exigem_sessao_autenticada_de_gerente()
+    {
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _equipe.SalvarProfissionalAsync(new Profissional
+            {
+                Nome = "Profissional", HabilitacoesAtendimentoJson = "[]"
+            }));
+        Assert.Empty(await _db.Profissionais.ToListAsync());
+    }
+
     // ===== O CPF do profissional (parcela 45) =====
     //
     // A coluna existe desde a parcela 42, com três LEITORES — as duas assinaturas e a

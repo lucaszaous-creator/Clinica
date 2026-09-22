@@ -177,7 +177,41 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     partial void OnModalidadeSelecionadaChanged(EntradaModalidade? value)
     {
         if (!ModalidadeConsulta) EspecialidadeSelecionada = null;
+        FiltrarEspecialidades();
         OnPropertyChanged(nameof(ModalidadeConsulta));
+    }
+
+    partial void OnProfissionalChanged(Profissional? value)
+    {
+        FiltrarAtendimentos();
+        OnPropertyChanged(nameof(AvisarHorarioSemProfissional));
+        _ = ConferirConflitosAsync();
+    }
+
+    private void FiltrarAtendimentos()
+    {
+        var codigo = ModalidadeSelecionada?.Codigo;
+        Modalidades.Clear();
+        foreach (var m in CatalogoModalidades.Ativas.Where(m => Profissional is null
+            || (m.Base == ModalidadeAtendimento.Consulta
+                ? CatalogoEspecialidades.Ativas.Any(e => Profissional.Atende(m.Codigo, e.Codigo))
+                : Profissional.Atende(m.Codigo))))
+            Modalidades.Add(m);
+        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == codigo)
+            ?? Modalidades.FirstOrDefault();
+        FiltrarEspecialidades();
+    }
+
+    private void FiltrarEspecialidades()
+    {
+        var codigo = EspecialidadeSelecionada?.Codigo;
+        Especialidades.Clear();
+        foreach (var e in CatalogoEspecialidades.Ativas.Where(e => !ModalidadeConsulta
+            || Profissional is null
+            || Profissional.Atende(ModalidadeSelecionada!.Codigo, e.Codigo)))
+            Especialidades.Add(e);
+        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == codigo)
+            ?? (ModalidadeConsulta && Especialidades.Count == 1 ? Especialidades[0] : null);
     }
 
     private void AoTrocarPaciente(Paciente? paciente)
@@ -305,11 +339,6 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     }
     partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
     partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();
-    partial void OnProfissionalChanged(Profissional? value)
-    {
-        OnPropertyChanged(nameof(AvisarHorarioSemProfissional));
-        _ = ConferirConflitosAsync();
-    }
     partial void OnSalaChanged(Sala? value) => _ = ConferirConflitosAsync();
 
     private async Task CarregarAsync()
@@ -362,12 +391,21 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         Titulo = TituloDaEdicao ?? "Remarcar horário";
         Data = ag.DataHora.Date;
         Hora = ag.DataHora.ToString("HH:mm");
-        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == ag.ModalidadeCodigo)
-                                ?? Modalidades.FirstOrDefault(m => m.Base == ag.ModalidadePrevista)
-                                ?? ModalidadeSelecionada;
-        EspecialidadeSelecionada =
-            Especialidades.FirstOrDefault(e => e.Codigo == ag.EspecialidadeConsultaCodigo);
+        var modalidadeOriginal = Modalidades.FirstOrDefault(m => m.Codigo == ag.ModalidadeCodigo)
+            ?? new EntradaModalidade(ag.ModalidadeCodigo ?? ag.ModalidadePrevista.ToString(),
+                CatalogoModalidades.Nome(ag.ModalidadeCodigo, ag.ModalidadePrevista), ag.ModalidadePrevista, false);
+        var especialidadeOriginal = ag.EspecialidadeConsultaCodigo is { } codigoEspecialidade
+            ? Especialidades.FirstOrDefault(e => e.Codigo == codigoEspecialidade)
+                ?? new EntradaEspecialidade(codigoEspecialidade, CatalogoEspecialidades.Nome(codigoEspecialidade), false)
+            : null;
         Profissional = Profissionais.FirstOrDefault(p => p.Id == ag.ProfissionalId);
+        // Habilitações podem ter sido retiradas após a marcação. A remarcação deve mostrar
+        // o que foi gravado, sem trocar silenciosamente modalidade/especialidade e guia.
+        if (!Modalidades.Any(m => m.Codigo == modalidadeOriginal.Codigo)) Modalidades.Add(modalidadeOriginal);
+        ModalidadeSelecionada = modalidadeOriginal;
+        if (especialidadeOriginal is not null && !Especialidades.Any(e => e.Codigo == especialidadeOriginal.Codigo))
+            Especialidades.Add(especialidadeOriginal);
+        EspecialidadeSelecionada = especialidadeOriginal;
         Sala = Salas.FirstOrDefault(s => s.Id == ag.SalaId);
         Duracao = ag.DuracaoMinutos?.ToString() ?? string.Empty;
         Encaixe = ag.Encaixe;

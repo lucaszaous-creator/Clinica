@@ -248,7 +248,9 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
             Profissionais.Clear();
             Profissionais.Add(new OpcaoProfissional(null, "— nenhum —"));
             foreach (var p in await equipe.ProfissionaisAsync())
-                if (p.Ativo) Profissionais.Add(new OpcaoProfissional(p.Id, p.Nome));
+                if (p.Ativo) Profissionais.Add(new OpcaoProfissional(p.Id,
+                    p.Nome + (p.EspecialidadeCodigo is { } codigo
+                        ? " · " + Clinica.Domain.Regras.CatalogoEspecialidades.Nome(codigo) : "")));
 
             if (_usuarioId is { } id)
             {

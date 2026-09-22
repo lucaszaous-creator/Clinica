@@ -6,6 +6,7 @@ using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Xunit;
 
 namespace Clinica.Tests;
@@ -65,6 +66,68 @@ public class AgendaMultiprofissionalTests : IDisposable
 
     private Task<Sala> CriarSalaAsync(string nome = "Consultório 1", int capacidade = 1)
         => _equipe.SalvarSalaAsync(new Sala { Nome = nome, Capacidade = capacidade });
+
+    [Fact]
+    public async Task Gerente_habilita_duas_especialidades_e_agenda_recusa_as_demais()
+    {
+        var profissional = await CriarProfissionalAsync("Dra. Multiprofissional");
+        profissional.HabilitacoesAtendimentoJson = JsonSerializer.Serialize(new[]
+        {
+            new AtendimentoHabilitado("Consulta", "Ginecologia"),
+            new AtendimentoHabilitado("Consulta", "Geriatria"),
+            new AtendimentoHabilitado("BsvApenas", null)
+        });
+        await _db.SaveChangesAsync();
+        var paciente = await CriarPacienteAsync();
+
+        var ginecologia = await _agenda.AgendarAsync(paciente, Manha,
+            ModalidadeAtendimento.Consulta, null, profissionalId: profissional.Id,
+            especialidadeConsultaCodigo: "Ginecologia");
+        var geriatria = await _agenda.AgendarAsync(paciente, Manha.AddHours(1),
+            ModalidadeAtendimento.Consulta, null, profissionalId: profissional.Id,
+            especialidadeConsultaCodigo: "Geriatria");
+        ginecologia.EspecialidadeConsultaCodigo.Should().Be("Ginecologia");
+        geriatria.EspecialidadeConsultaCodigo.Should().Be("Geriatria");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _agenda.AgendarAsync(
+            paciente, Manha.AddHours(2), ModalidadeAtendimento.Consulta, null,
+            profissionalId: profissional.Id, especialidadeConsultaCodigo: "Psiquiatria"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _agenda.AgendarAsync(
+            paciente, Manha.AddHours(2), ModalidadeAtendimento.BsvComAcupuntura, null,
+            profissionalId: profissional.Id));
+        var bsv = await _agenda.AgendarAsync(paciente, Manha.AddHours(2),
+            ModalidadeAtendimento.BsvApenas, null, profissionalId: profissional.Id);
+        bsv.ModalidadeCodigo.Should().Be("BsvApenas");
+    }
+
+    [Fact]
+    public async Task Remarcar_entre_profissionais_respeita_especialidade_sem_alterar_horario_na_recusa()
+    {
+        var ginecologista = await CriarProfissionalAsync("Ginecologista");
+        var geriatra = await CriarProfissionalAsync("Geriatra");
+        ginecologista.HabilitacoesAtendimentoJson = JsonSerializer.Serialize(new[]
+            { new AtendimentoHabilitado("Consulta", "Ginecologia") });
+        geriatra.HabilitacoesAtendimentoJson = JsonSerializer.Serialize(new[]
+            { new AtendimentoHabilitado("Consulta", "Geriatria") });
+        await _db.SaveChangesAsync();
+        var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
+            ModalidadeAtendimento.Consulta, null, profissionalId: ginecologista.Id,
+            especialidadeConsultaCodigo: "Ginecologia");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _agenda.RemarcarAsync(
+            ag.Id, Manha.AddHours(1), null, modalidadeCodigo: "Consulta",
+            especialidadeConsultaCodigo: "Ginecologia", profissionalId: geriatra.Id,
+            manterRecursos: false));
+        ag.ProfissionalId.Should().Be(ginecologista.Id);
+        ag.DataHora.Should().Be(Manha);
+        ag.EspecialidadeConsultaCodigo.Should().Be("Ginecologia");
+
+        var remarcado = await _agenda.RemarcarAsync(ag.Id, Manha.AddHours(1), null,
+            modalidadeCodigo: "Consulta", especialidadeConsultaCodigo: "Geriatria",
+            profissionalId: geriatra.Id, manterRecursos: false);
+        remarcado.ProfissionalId.Should().Be(geriatra.Id);
+        remarcado.EspecialidadeConsultaCodigo.Should().Be("Geriatria");
+    }
 
     // ===== Choque por recurso =====
 

@@ -122,12 +122,15 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
         {
             if(!PoliticaAtendimentoTablet.PodeAtender(u))throw new UnauthorizedAccessException("Seu perfil registra enfermagem, sem criar atendimento médico.");
             if(!Enum.IsDefined(p.Modalidade)||p.Motivo?.Length>1000)throw new InvalidOperationException("Confira modalidade e observações.");
+            if(u.Perfil==PerfilAcesso.Psicologia&&p.Modalidade!=ModalidadeAtendimento.Consulta)
+                throw new InvalidOperationException("O perfil Psicologia inicia somente consultas de Psicologia.");
             var inicio=acesso.Hoje.ToDateTime(TimeOnly.MinValue);var fim=inicio.AddDays(1);
             var existentes=await db.Agendamentos.Where(a=>a.PacienteId==paciente&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim&&a.Status==StatusAgendamento.Agendado).Take(2).ToListAsync(ct);
             if(existentes.Count>1)throw new ConflitoClinicoTablet("Há mais de uma sessão aberta hoje. Escolha a sessão na agenda para evitar duplicidade.");
             if(existentes.Count==1)return new ResultadoAvulsoTablet(existentes[0].Id,true);
             var agora=TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(acesso.Agora),TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime;
-            var a=await agenda.AgendarAsync(paciente,agora,p.Modalidade,p.Motivo,ct:ct,profissionalId:u.ProfissionalId,encaixe:true,operador:u.Login);
+            var a=await agenda.AgendarAsync(paciente,agora,p.Modalidade,p.Motivo,ct:ct,profissionalId:u.ProfissionalId,encaixe:true,operador:u.Login,
+                especialidadeConsultaCodigo:u.Perfil==PerfilAcesso.Psicologia?"Psicologia":p.EspecialidadeConsultaCodigo);
             await agenda.IniciarAtendimentoAsync(a.Id,u.Login,quando:agora,ct:ct);
             return new ResultadoAvulsoTablet(a.Id,false);
         },ct);

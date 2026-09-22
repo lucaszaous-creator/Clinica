@@ -1,4 +1,9 @@
+using System.Text.Json;
+using Clinica.Domain.Regras;
+
 namespace Clinica.Domain.Entities;
+
+public sealed record AtendimentoHabilitado(string ModalidadeCodigo, string? EspecialidadeCodigo);
 
 /// <summary>
 /// Quem atende na clínica. É a entidade de fundação da parcela 1: sem ela não existe
@@ -38,6 +43,27 @@ public class Profissional
     /// Null quando o profissional não se enquadra em nenhuma das cadastradas.
     /// </summary>
     public string? EspecialidadeCodigo { get; set; }
+
+    /// <summary>Nulo conserva as opções antigas; JSON explícito, inclusive [], é a decisão do gerente.</summary>
+    public string? HabilitacoesAtendimentoJson { get; set; }
+
+    public IReadOnlyList<AtendimentoHabilitado>? HabilitacoesAtendimento
+        => HabilitacoesAtendimentoJson is null ? null
+            : JsonSerializer.Deserialize<List<AtendimentoHabilitado>>(HabilitacoesAtendimentoJson) ?? [];
+
+    public bool Atende(string modalidadeCodigo, string? especialidadeCodigo = null)
+    {
+        var psicologia = string.Equals(EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase);
+        if (psicologia && (CatalogoModalidades.Base(modalidadeCodigo) != ModalidadeAtendimento.Consulta
+            || !string.Equals(especialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase)))
+            return false;
+        var habilitacoes = HabilitacoesAtendimento;
+        if (habilitacoes is null)
+            return true;
+        return habilitacoes.Any(h =>
+            string.Equals(h.ModalidadeCodigo, modalidadeCodigo, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(h.EspecialidadeCodigo, especialidadeCodigo, StringComparison.OrdinalIgnoreCase));
+    }
 
     public string? Telefone { get; set; }
 

@@ -733,6 +733,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         AtualizarOpcoesPrimeiroCodigo();
         if (Modalidade != ModalidadeAtendimento.Consulta)
             EspecialidadeSelecionada = null;
+        FiltrarEspecialidades();
         OnPropertyChanged(nameof(ModalidadeDupla));
         OnPropertyChanged(nameof(ModalidadeConsulta));
 
@@ -799,6 +800,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     partial void OnProfissionalChanged(Profissional? value)
     {
+        CarregarCatalogos();
         OnPropertyChanged(nameof(SemProfissionalEscolhido));
         _ = ConferirConflitosAsync();
     }
@@ -1138,7 +1140,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         var modalidadeAtual = ModalidadeSelecionada?.Codigo;
         Modalidades.Clear();
-        foreach (var m in CatalogoModalidades.Ativas)
+        foreach (var m in CatalogoModalidades.Ativas.Where(m => Profissional is null
+            || (m.Base == ModalidadeAtendimento.Consulta
+                ? CatalogoEspecialidades.Ativas.Any(e => Profissional.Atende(m.Codigo, e.Codigo))
+                : Profissional.Atende(m.Codigo))))
             Modalidades.Add(m);
         ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == modalidadeAtual)
             ?? Modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
@@ -1146,11 +1151,18 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         MontarCartoes();
 
+        FiltrarEspecialidades();
+    }
+
+    private void FiltrarEspecialidades()
+    {
         var especialidadeAtual = EspecialidadeSelecionada?.Codigo;
         Especialidades.Clear();
-        foreach (var e in CatalogoEspecialidades.Ativas)
+        foreach (var e in CatalogoEspecialidades.Ativas.Where(e => !ModalidadeConsulta
+            || Profissional is null || Profissional.Atende(ModalidadeSelecionada!.Codigo, e.Codigo)))
             Especialidades.Add(e);
-        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
+        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual)
+            ?? (ModalidadeConsulta && Especialidades.Count == 1 ? Especialidades[0] : null);
     }
 
     /// <summary>

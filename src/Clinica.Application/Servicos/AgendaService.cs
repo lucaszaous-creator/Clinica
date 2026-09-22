@@ -67,6 +67,26 @@ public sealed class AgendaService
     private async Task<bool> GuiaNaMarcacaoLigadaAsync(CancellationToken ct)
         => _parametros is not null && await _parametros.GuiaNoAgendamentoAsync(ct);
 
+    private async Task<bool> ConsultaDePsicologiaAsync(int? profissionalId, ModalidadeAtendimento modalidade,
+        string? modalidadeCodigo, string? especialidadeCodigo, CancellationToken ct)
+    {
+        if (profissionalId is not { } id) return false;
+        var profissional = await _repo.ObterProfissionalAsync(id, ct);
+        if (profissional is null || !profissional.Ativo)
+            throw new InvalidOperationException("Selecione um profissional ativo para este atendimento.");
+        var psicologia = string.Equals(profissional.EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase);
+        if (psicologia && (modalidade != ModalidadeAtendimento.Consulta || especialidadeCodigo is not null
+            && !string.Equals(especialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Profissional de Psicologia recebe somente consulta de Psicologia; confira a modalidade e a especialidade.");
+        if (profissional.HabilitacoesAtendimento is not null)
+        {
+            if (!profissional.Atende(modalidadeCodigo ?? modalidade.ToString(), psicologia ? "Psicologia" : especialidadeCodigo))
+                throw new InvalidOperationException("Este profissional não está habilitado para a modalidade e especialidade escolhidas. Confira as habilitações com o gerente.");
+            return psicologia;
+        }
+        return psicologia;
+    }
+
     public async Task<Agendamento> AgendarAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
         OrigemAgendamento origem = OrigemAgendamento.Manual, CancellationToken ct = default,
@@ -78,6 +98,13 @@ public sealed class AgendaService
         // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
+
+        if (await ConsultaDePsicologiaAsync(profissionalId, modalidade, modalidadeCodigo,
+            especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString(), ct))
+        {
+            especialidadeConsulta = null;
+            especialidadeConsultaCodigo = "Psicologia";
+        }
 
         if (duracaoMinutos is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
@@ -214,6 +241,10 @@ public sealed class AgendaService
         var novaSala = manterRecursos ? ag.SalaId : salaId;
         var novaDuracao = manterRecursos ? ag.DuracaoMinutos : duracaoMinutos;
         var novoEncaixe = manterRecursos ? ag.Encaixe : encaixe;
+        var psicologia = await ConsultaDePsicologiaAsync(novoProfissional, modalidade,
+            modalidadeCodigo ?? ag.ModalidadeCodigo,
+            modalidadeCodigo is null ? ag.EspecialidadeConsultaCodigo : especialidadeConsultaCodigo, ct);
+        if (psicologia) especialidadeConsultaCodigo = "Psicologia";
 
         if (novaDuracao is { } d && d <= 0)
             throw new InvalidOperationException("A duração do horário precisa ser maior que zero.");
@@ -250,6 +281,11 @@ public sealed class AgendaService
             ag.EspecialidadeConsulta = ehConsulta
                 ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
             ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+        }
+        if (psicologia)
+        {
+            ag.EspecialidadeConsulta = null;
+            ag.EspecialidadeConsultaCodigo = "Psicologia";
         }
         else if (!ehConsulta)
         {
@@ -1179,6 +1215,10 @@ public sealed class AgendaService
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
 
+        if (await ConsultaDePsicologiaAsync(profissionalId, modalidade, modalidadeCodigo,
+            especialidadeConsultaCodigo, ct))
+            especialidadeConsultaCodigo = "Psicologia";
+
         var agora = DateTime.Now;
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         var ag = new Agendamento
@@ -1294,6 +1334,12 @@ public sealed class AgendaService
                 + "Lançar de novo criaria OUTRO jogo de guias; confira na lista de lançados do dia, "
                 + "ou reabra o horário pela agenda (Remarcar) se a sessão é outra.");
 
+        var novaModalidade = modalidadeCodigo is null ? ag.ModalidadePrevista : CatalogoModalidades.Base(modalidadeCodigo);
+        var psicologia = await ConsultaDePsicologiaAsync(profissionalId ?? ag.ProfissionalId,
+            novaModalidade, modalidadeCodigo ?? ag.ModalidadeCodigo,
+            modalidadeCodigo is null ? ag.EspecialidadeConsultaCodigo : especialidadeConsultaCodigo, ct);
+        if (psicologia) especialidadeConsultaCodigo = "Psicologia";
+
         var modalidadeAnterior = ag.ModalidadeCodigo;
         var especialidadeAnterior = ag.EspecialidadeConsultaCodigo;
         var mudouModalidade = false;
@@ -1313,6 +1359,11 @@ public sealed class AgendaService
                               || (ehConsulta && especialidadeConsultaCodigo != especialidadeAnterior);
         }
         if (profissionalId is not null) ag.ProfissionalId = profissionalId;
+        if (psicologia)
+        {
+            ag.EspecialidadeConsulta = null;
+            ag.EspecialidadeConsultaCodigo = "Psicologia";
+        }
         if (salaId is not null) ag.SalaId = salaId;
         if (!string.IsNullOrWhiteSpace(observacoes))
         {

@@ -30,6 +30,14 @@ public sealed record ObservacoesEnfermagemTablet(Guid Idempotencia, DateOnly Dat
 public sealed record ResultadoObservacoesEnfermagemTablet(int[] Ids);
 public sealed record SalvarModeloEnfermagemTablet(Guid Idempotencia, int Id, string? Versao, string Nome, string Texto);
 public sealed record ModeloEnfermagemTablet(int Id, string Nome, string Texto, string Versao);
+public sealed record SalvarModeloEvolucaoTablet(Guid Idempotencia, int Id, string? Versao, string Nome,
+    bool Compartilhado, bool Ativo, string? QueixaPrincipal = null, string? HistoriaDoencaAtual = null,
+    string? ExameFisico = null, string? HipoteseDiagnostica = null, string? CidSessao = null, string? TextoEvolucao = null,
+    string? Conduta = null, string? Orientacoes = null, string? PlanoTerapeutico = null);
+public sealed record ModeloEvolucaoTablet(int Id, string Nome, bool Compartilhado, bool Ativo, string Versao,
+    string? QueixaPrincipal, string? HistoriaDoencaAtual, string? ExameFisico,
+    string? HipoteseDiagnostica, string? CidSessao, string? TextoEvolucao,
+    string? Conduta, string? Orientacoes, string? PlanoTerapeutico);
 public sealed record InfusaoExternaTablet(Guid Idempotencia, RegistroInfusaoExterna Dados);
 public sealed record NovoModeloDocumentoTablet(Guid Idempotencia,string Nome,TipoDocumentoClinico Tipo,string Texto,
     string? CorpoFormatado=null,int Id=0,string? Versao=null,bool ParaInfusao=false,string? ConfiguracaoInfusao=null);

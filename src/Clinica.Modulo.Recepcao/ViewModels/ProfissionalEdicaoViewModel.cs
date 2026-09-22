@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -7,6 +9,15 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.ViewModels;
+
+public sealed partial class OpcaoAtendimentoProfissional : ObservableObject
+{
+    public required string ModalidadeCodigo { get; init; }
+    public required string? EspecialidadeCodigo { get; init; }
+    public required string Rotulo { get; init; }
+    [ObservableProperty] private bool _habilitado;
+    [ObservableProperty] private bool _permitido = true;
+}
 
 /// <summary>
 /// Formulário do profissional. Só o nome é obrigatório — cadastro que exige demais na
@@ -19,6 +30,8 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
     private readonly int? _id;
 
     public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = [];
+    public ObservableCollection<OpcaoAtendimentoProfissional> Atendimentos { get; } = [];
+    public bool PodeConfigurarAtendimentos => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
 
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string? _nomeCurto;
@@ -31,6 +44,16 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string? _cpf;
     [ObservableProperty] private EntradaEspecialidade? _especialidade;
+    partial void OnEspecialidadeChanged(EntradaEspecialidade? value)
+    {
+        var psicologia = string.Equals(value?.Codigo, "Psicologia", StringComparison.OrdinalIgnoreCase);
+        foreach (var opcao in Atendimentos)
+        {
+            opcao.Permitido = !psicologia || CatalogoModalidades.Base(opcao.ModalidadeCodigo) == ModalidadeAtendimento.Consulta
+                && string.Equals(opcao.EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase);
+            if (!opcao.Permitido) opcao.Habilitado = false;
+        }
+    }
     [ObservableProperty] private string? _telefone;
     [ObservableProperty] private string? _email;
     [ObservableProperty] private string? _cor;
@@ -72,6 +95,23 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
             Especialidades.Clear();
             foreach (var e in CatalogoEspecialidades.Ativas) Especialidades.Add(e);
 
+            foreach (var modalidade in CatalogoModalidades.Ativas)
+            {
+                if (modalidade.Base == ModalidadeAtendimento.Consulta)
+                    foreach (var especialidade in Especialidades)
+                        Atendimentos.Add(new OpcaoAtendimentoProfissional
+                        {
+                            ModalidadeCodigo = modalidade.Codigo, EspecialidadeCodigo = especialidade.Codigo,
+                            Rotulo = $"{modalidade.Nome} · {especialidade.Nome}", Habilitado = true
+                        });
+                else
+                    Atendimentos.Add(new OpcaoAtendimentoProfissional
+                    {
+                        ModalidadeCodigo = modalidade.Codigo, EspecialidadeCodigo = null,
+                        Rotulo = modalidade.Nome, Habilitado = true
+                    });
+            }
+
             if (_id is null) return;
 
             using var scope = _escopos.CreateScope();
@@ -85,6 +125,11 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
             RegistroConselho = p.RegistroConselho;
             Cpf = p.Cpf;
             Especialidade = Especialidades.FirstOrDefault(e => e.Codigo == p.EspecialidadeCodigo);
+            if (p.HabilitacoesAtendimento is { } habilitacoes)
+                foreach (var opcao in Atendimentos)
+                    opcao.Habilitado = opcao.Permitido && habilitacoes.Any(h =>
+                        string.Equals(h.ModalidadeCodigo, opcao.ModalidadeCodigo, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(h.EspecialidadeCodigo, opcao.EspecialidadeCodigo, StringComparison.OrdinalIgnoreCase));
             Telefone = p.Telefone;
             Email = p.Email;
             Cor = p.Cor;
@@ -178,6 +223,10 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
                 RegistroConselho = RegistroConselho,
                 Cpf = Cpf,
                 EspecialidadeCodigo = Especialidade?.Codigo,
+                HabilitacoesAtendimentoJson = PodeConfigurarAtendimentos
+                    ? JsonSerializer.Serialize(Atendimentos.Where(a => a.Habilitado)
+                        .Select(a => new AtendimentoHabilitado(a.ModalidadeCodigo, a.EspecialidadeCodigo)))
+                    : null,
                 Telefone = Telefone,
                 Email = Email,
                 Cor = Cor,
@@ -188,7 +237,7 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
                 Ordem = ordem,
                 Ativo = Ativo,
                 Observacoes = Observacoes
-            });
+            }, solicitante: SessaoUsuario.Atual);
 
             Concluido?.Invoke();
         }

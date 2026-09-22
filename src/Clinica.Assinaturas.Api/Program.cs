@@ -121,7 +121,7 @@ string Dispositivo(HttpContext ctx)
 async Task<Clinica.Domain.Entities.SessaoTablet> Sessao(HttpContext ctx,PortalTabletService svc,bool equipe)
     => await svc.AutorizarAsync(ctx.Request.Cookies[cookieSessao],Dispositivo(ctx),equipe,ctx.RequestAborted);
 
-int? EscopoColeta(SessaoTablet s) => s.Usuario!.Perfil==PerfilAcesso.Profissional
+int? EscopoColeta(SessaoTablet s) => s.Usuario!.Perfil is PerfilAcesso.Profissional or PerfilAcesso.Psicologia
     ? s.Usuario.ProfissionalId ?? throw new UnauthorizedAccessException() : null;
 async Task ConferirPacienteColeta(HttpContext ctx,SessaoTablet s,int paciente)
 {

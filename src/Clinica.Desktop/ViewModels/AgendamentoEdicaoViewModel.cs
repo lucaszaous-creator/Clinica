@@ -88,7 +88,33 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     {
         if (Modalidade != ModalidadeAtendimento.Consulta)
             EspecialidadeSelecionada = null;
+        FiltrarEspecialidades();
         OnPropertyChanged(nameof(ModalidadeConsulta));
+    }
+
+    partial void OnProfissionalChanged(Profissional? value)
+    {
+        var codigo = ModalidadeSelecionada?.Codigo;
+        Modalidades.Clear();
+        foreach (var m in CatalogoModalidades.Ativas.Where(m => value is null
+            || (m.Base == ModalidadeAtendimento.Consulta
+                ? CatalogoEspecialidades.Ativas.Any(e => value.Atende(m.Codigo, e.Codigo))
+                : value.Atende(m.Codigo))))
+            Modalidades.Add(m);
+        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == codigo)
+            ?? Modalidades.FirstOrDefault();
+        FiltrarEspecialidades();
+    }
+
+    private void FiltrarEspecialidades()
+    {
+        var codigo = EspecialidadeSelecionada?.Codigo;
+        Especialidades.Clear();
+        foreach (var e in CatalogoEspecialidades.Ativas.Where(e => !ModalidadeConsulta
+            || Profissional is null || Profissional.Atende(ModalidadeSelecionada!.Codigo, e.Codigo)))
+            Especialidades.Add(e);
+        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == codigo)
+            ?? (ModalidadeConsulta && Especialidades.Count == 1 ? Especialidades[0] : null);
     }
 
     // A consulta é conferida contra a data marcada: mudar a data muda a resposta.
@@ -234,13 +260,23 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         Data = ag.DataHora.Date;
         Hora = ag.DataHora.ToString("HH:mm");
         Observacoes = ag.Observacoes;
-        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == ag.ModalidadeCodigo)
-            ?? Modalidades.FirstOrDefault(m => m.Base == ag.ModalidadePrevista)
-            ?? ModalidadeSelecionada;
-        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == ag.EspecialidadeConsultaCodigo);
+        var modalidadeOriginal = Modalidades.FirstOrDefault(m => m.Codigo == ag.ModalidadeCodigo)
+            ?? new EntradaModalidade(ag.ModalidadeCodigo ?? ag.ModalidadePrevista.ToString(),
+                CatalogoModalidades.Nome(ag.ModalidadeCodigo, ag.ModalidadePrevista), ag.ModalidadePrevista, false);
+        var especialidadeOriginal = ag.EspecialidadeConsultaCodigo is { } codigoEspecialidade
+            ? Especialidades.FirstOrDefault(e => e.Codigo == codigoEspecialidade)
+                ?? new EntradaEspecialidade(codigoEspecialidade, CatalogoEspecialidades.Nome(codigoEspecialidade), false)
+            : null;
         // Horário antigo pode não ter dono (marcado antes de o campo existir): aí o combo
         // fica em branco, que é a verdade — e `RemarcarAsync` preserva o que está gravado.
         Profissional = Profissionais.FirstOrDefault(p => p.Id == ag.ProfissionalId);
+        // Uma habilitação revogada não pode converter um horário antigo para a primeira
+        // opção do combo durante a remarcação. O serviço validará o que for salvo.
+        if (!Modalidades.Any(m => m.Codigo == modalidadeOriginal.Codigo)) Modalidades.Add(modalidadeOriginal);
+        ModalidadeSelecionada = modalidadeOriginal;
+        if (especialidadeOriginal is not null && !Especialidades.Any(e => e.Codigo == especialidadeOriginal.Codigo))
+            Especialidades.Add(especialidadeOriginal);
+        EspecialidadeSelecionada = especialidadeOriginal;
     }
 
     [RelayCommand]

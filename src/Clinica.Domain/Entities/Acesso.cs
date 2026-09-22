@@ -361,7 +361,10 @@ public enum PerfilAcesso
     Enfermagem,
 
     /// <summary>Direção: tudo, inclusive criar usuário.</summary>
-    Gerente
+    Gerente,
+
+    /// <summary>Atendimento psicológico com agenda e evolução próprias, sem prescrição médica.</summary>
+    Psicologia
 }
 
 /// <summary>Conjunto padrão de permissões de cada perfil, e o rótulo em português.</summary>
@@ -459,6 +462,12 @@ public static class PerfisAcesso
             Permissao.LancarAtendimento |
             Permissao.ColherAssinaturaPaciente |
             Permissao.Prescrever,
+
+        PerfilAcesso.Psicologia =>
+            Permissao.VerAgenda | Permissao.MovimentarFila |
+            Permissao.VerFichaPaciente | Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.VerDocumentos | Permissao.LancarAtendimento |
+            Permissao.ColherAssinaturaPaciente,
 
         // ===== ENFERMAGEM =====
         // A técnica vê a agenda (para saber quem está na sala), lê o prontuário (alergia
@@ -648,6 +657,7 @@ public static class PerfisAcesso
         PerfilAcesso.Faturista => "Faturista",
         PerfilAcesso.Enfermagem => "Enfermagem",
         PerfilAcesso.Gerente => "Gerente Geral",
+        PerfilAcesso.Psicologia => "Psicóloga(o)",
         _ => perfil.ToString()
     };
 
@@ -895,7 +905,17 @@ public class UsuarioSistema
     /// ajuste no perfil alcançar quem já estava cadastrado.
     /// </summary>
     public Permissao Efetivas
-        => (PerfisAcesso.Padrao(Perfil) | PermissoesExtras) & ~PermissoesNegadas;
+    {
+        get
+        {
+            var efetivas = (PerfisAcesso.Padrao(Perfil) | PermissoesExtras) & ~PermissoesNegadas;
+            // Uma concessão manual não transforma a psicologia em prescritor ou enfermagem.
+            if (Perfil == PerfilAcesso.Psicologia
+                || string.Equals(Profissional?.EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase))
+                efetivas &= ~(Permissao.Prescrever | Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem);
+            return efetivas;
+        }
+    }
 
     /// <summary>Tem a permissão pedida? <see cref="Permissao.Nenhuma"/> é sempre sim (tela livre).</summary>
     public bool Pode(Permissao permissao)
