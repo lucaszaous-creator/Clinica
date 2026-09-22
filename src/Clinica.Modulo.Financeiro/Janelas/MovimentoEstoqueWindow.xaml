@@ -66,6 +66,13 @@
                     Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel>
                     <TextBlock Text="Dados da entrada" Style="{StaticResource H3}" Margin="0" />
+                    <CheckBox Content="Quantidade e custo na embalagem de compra" IsChecked="{Binding EmUnidadeCompra}" Margin="0,8,0,4" />
+                    <TextBlock Text="Marque para usar a unidade e o fator cadastrados no produto. Desmarcado: informe a unidade de consumo."
+                               Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                    <TextBlock Text="Fornecedor / origem" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Fornecedor}" MaxLength="100" />
+                    <TextBlock Text="Documento da entrada (nota, recibo ou referência)" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
+                    <TextBox Text="{Binding DocumentoEntrada}" MaxLength="80" />
 
                     <Grid Margin="0,8,0,0">
                         <Grid.ColumnDefinitions>
@@ -95,7 +102,7 @@
                 </StackPanel>
             </Border>
 
-            <TextBlock Text="Lote de origem (opcional)" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+            <TextBlock Text="Lote de origem (conforme exigência do produto)" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
             <TextBox Text="{Binding Lote}" MaxLength="60" />
             <StackPanel Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}" Margin="0,12,0,0">
                 <CheckBox Content="Registrar também a compra no financeiro" IsChecked="{Binding GerarContaCompra}" />
@@ -112,6 +119,12 @@
                 </StackPanel>
             </StackPanel>
 
+            <StackPanel Visibility="{Binding EhSaida, Converter={StaticResource BoolParaVisibilidade}}" Margin="0,12,0,0">
+                <TextBlock Text="Consumo de rotina — setor de destino" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding SetorDestino}" MaxLength="100" />
+                <TextBlock Text="Ex.: limpeza, recepção ou enfermagem. O produto deve permitir uso de rotina. Materiais de uma sessão são registrados no atendimento."
+                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+            </StackPanel>
             <TextBlock Text="Observação" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <TextBox Text="{Binding Observacao}" AcceptsReturn="True" Height="70"
                      TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="300" />

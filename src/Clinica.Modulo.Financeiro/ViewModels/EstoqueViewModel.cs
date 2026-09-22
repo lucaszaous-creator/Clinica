@@ -16,6 +16,8 @@ public sealed class LinhaEstoque
 {
     public required int Id { get; init; }
     public required string Nome { get; init; }
+    public string Cadastro { get; init; } = string.Empty;
+    public string TextoBusca { get; init; } = string.Empty;
     public required string Saldo { get; init; }
     public required string Minimo { get; init; }
     public required string Custo { get; init; }
@@ -55,6 +57,17 @@ public sealed partial class EstoqueViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaEstoque> Itens { get; } = [];
+    private readonly List<LinhaEstoque> _todosItens = [];
+    [ObservableProperty] private string? _busca;
+    partial void OnBuscaChanged(string? value) => FiltrarItens();
+    private void FiltrarItens()
+    {
+        var termo = Busca?.Trim();
+        Itens.Clear();
+        foreach (var item in _todosItens.Where(i => string.IsNullOrEmpty(termo) ||
+            (i.TextoBusca + " " + i.Cadastro).Contains(termo, StringComparison.CurrentCultureIgnoreCase)))
+            Itens.Add(item);
+    }
     public ObservableCollection<LinhaValidade> Validades { get; } = [];
     public ObservableCollection<LinhaCustoSessao> CustosSessao { get; } = [];
 
@@ -144,18 +157,21 @@ public sealed partial class EstoqueViewModel : ObservableObject
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            Itens.Clear();
+            _todosItens.Clear();
             foreach (var s in saldos)
-                Itens.Add(new LinhaEstoque
+                _todosItens.Add(new LinhaEstoque
                 {
                     Id = s.ItemId,
                     Nome = s.Nome,
+                    TextoBusca = s.TextoBusca,
+                    Cadastro = string.Join(" · ", new[] { s.CodigoInterno, RotulosEnum.De(s.Grupo), RotulosEnum.De(s.Uso), s.LocalArmazenamento }.Where(x => !string.IsNullOrWhiteSpace(x))),
                     Saldo = s.SaldoRotulo,
-                    Minimo = s.EstoqueMinimo > 0 ? $"{s.EstoqueMinimo:0.##} {s.Unidade}" : "—",
+                    Minimo = s.EstoqueMinimo > 0 ? $"{s.EstoqueMinimo:0.###} {s.Unidade}" : "—",
                     Custo = s.CustoMedio is { } custo ? custo.ToString("C") : "—",
                     AbaixoDoMinimo = s.AbaixoDoMinimo,
                     Ativo = s.Ativo
                 });
+            FiltrarItens();
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var validades = await estoque.ValidadesAsync(hoje);
@@ -169,7 +185,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 {
                     Item = v.Nome,
                     Validade = v.Validade.ToString("dd/MM/yyyy"),
-                    Quantidade = $"{v.Quantidade:0.##}",
+                    Quantidade = $"{v.Quantidade:0.###}",
                     Situacao = v.Vencido(hoje)
                         ? "VENCIDO"
                         : $"vence em {v.DiasRestantes(hoje)} dia(s)",
@@ -392,9 +408,26 @@ public sealed partial class EstoqueViewModel : ObservableObject
         try
         {
             using var escopo = _escopos.CreateScope();
-            var movimento = await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
-                .AjustarInventarioAsync(
-                linha.Id, quantidade, motivo, SessaoUsuario.Atual.Operador);
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+            var item = await estoque.ObterItemAsync(linha.Id)
+                ?? throw new InvalidOperationException("Item não encontrado.");
+            string? lote = null;
+            DateOnly? validade = null;
+            if (item.ExigirLote || item.ExigirValidade || item.Grupo == GrupoEstoque.Medicamento)
+            {
+                lote = _dialogo.PerguntarTexto("Lote contado", "Informe o lote responsável pela diferença encontrada. A contagem informada acima continua sendo o total do produto.");
+                if (string.IsNullOrWhiteSpace(lote)) return;
+                if (item.ExigirValidade || item.Grupo == GrupoEstoque.Medicamento)
+                {
+                    var texto = _dialogo.PerguntarTexto("Validade do lote", "Informe a validade do lote contado (dd/mm/aaaa).");
+                    if (string.IsNullOrWhiteSpace(texto)) return;
+                    if (!DateOnly.TryParse(texto, out var diaValidade))
+                        throw new InvalidOperationException("Informe uma data de validade válida.");
+                    validade = diaValidade;
+                }
+            }
+            var movimento = await estoque.AjustarInventarioAsync(
+                linha.Id, quantidade, motivo, SessaoUsuario.Atual.Operador, lote: lote, validade: validade);
 
             if (movimento is null)
             {
@@ -405,8 +438,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
             }
 
             _snackbar.Sucesso(movimento.AjusteParaCima == true
-                ? $"Ajuste para cima: {movimento.Quantidade:0.##} a mais no saldo."
-                : $"Ajuste para baixo: {movimento.Quantidade:0.##} a menos no saldo.");
+                ? $"Ajuste para cima: {movimento.Quantidade:0.###} a mais no saldo."
+                : $"Ajuste para baixo: {movimento.Quantidade:0.###} a menos no saldo.");
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -448,9 +481,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 {
                     s.Nome,
                     s.Unidade,
-                    $"{s.Saldo:0.##}",
-                    $"{s.EstoqueMinimo:0.##}",
-                    $"{Math.Max(s.EstoqueMinimo * 2 - s.Saldo, 0m):0.##}",
+                    $"{s.Saldo:0.###}",
+                    $"{s.EstoqueMinimo:0.###}",
+                    $"{Math.Max((s.EstoqueMaximo ?? s.EstoqueMinimo * 2) - s.Saldo, 0m):0.###}",
                     s.CustoMedio is { } custo ? custo.ToString("C") : "—"
                 }));
 
@@ -519,6 +552,23 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _nome;
     [ObservableProperty] private string? _unidade = "un";
     [ObservableProperty] private string? _minimo;
+    [ObservableProperty] private string? _codigoInterno;
+    [ObservableProperty] private string? _codigoBarras;
+    [ObservableProperty] private string? _fabricante;
+    [ObservableProperty] private string? _apresentacao;
+    [ObservableProperty] private GrupoEstoque _grupo;
+    [ObservableProperty] private UsoEstoque _uso;
+    [ObservableProperty] private bool _exigirLote;
+    [ObservableProperty] private bool _exigirValidade;
+    [ObservableProperty] private string? _unidadeCompra;
+    [ObservableProperty] private string _fatorCompra = "1";
+    [ObservableProperty] private string? _maximo;
+    [ObservableProperty] private string? _localArmazenamento;
+    [ObservableProperty] private string? _observacoes;
+    [ObservableProperty] private bool _carregando;
+    private bool _cargaFalhou;
+    public IReadOnlyList<GrupoEstoque> Grupos { get; } = Enum.GetValues<GrupoEstoque>();
+    public IReadOnlyList<UsoEstoque> Usos { get; } = Enum.GetValues<UsoEstoque>();
     [ObservableProperty] private bool _ativo = true;
 
     [ObservableProperty] private string _mensagem = string.Empty;
@@ -531,7 +581,7 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
     {
         _escopos = escopos;
         _itemId = itemId;
-        if (itemId is not null) _ = CarregarAsync();
+        if (itemId is not null) { Carregando = true; _ = CarregarAsync(); }
     }
 
     private async Task CarregarAsync()
@@ -541,27 +591,43 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
             using var escopo = _escopos.CreateScope();
             var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
 
-            if (await estoque.ObterItemAsync(_itemId!.Value) is not { } item) return;
+            if (await estoque.ObterItemAsync(_itemId!.Value) is not { } item)
+                throw new InvalidOperationException("Item não encontrado. Feche e atualize o estoque.");
+            CodigoInterno = item.CodigoInterno;
+            CodigoBarras = item.CodigoBarras;
+            Fabricante = item.Fabricante;
+            Apresentacao = item.Apresentacao;
+            Grupo = item.Grupo;
+            Uso = item.Uso;
+            ExigirLote = item.ExigirLote;
+            ExigirValidade = item.ExigirValidade;
+            UnidadeCompra = item.UnidadeCompra;
+            FatorCompra = item.FatorCompra.ToString("0.###");
+            Maximo = item.EstoqueMaximo?.ToString("0.###");
+            LocalArmazenamento = item.LocalArmazenamento;
+            Observacoes = item.Observacoes;
 
             Nome = item.Nome;
             Unidade = item.Unidade;
             // Mínimo zero é "sem mínimo": mostrar "0" faria a clínica achar que há um
             // alerta configurado quando não há.
-            Minimo = item.EstoqueMinimo > 0 ? item.EstoqueMinimo.ToString("0.##") : null;
+            Minimo = item.EstoqueMinimo > 0 ? item.EstoqueMinimo.ToString("0.###") : null;
             Ativo = item.Ativo;
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — item de estoque não pôde ser carregado", ex);
+            _cargaFalhou = true;
             Erro(ex.Message);
         }
+        finally { Carregando = false; }
     }
 
     [RelayCommand]
     private async Task SalvarAsync()
     {
-        if (Salvando) return;
+        if (Salvando || Carregando || _cargaFalhou) return;
         Mensagem = string.Empty;
         MensagemEhErro = false;
 
@@ -574,6 +640,15 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(Minimo) && !decimal.TryParse(Minimo, out minimo))
                 throw new InvalidOperationException("O mínimo tem de ser um número.");
 
+            if (!decimal.TryParse(FatorCompra, out var fator))
+                throw new InvalidOperationException("Informe quantas unidades de consumo há em cada embalagem de compra.");
+            decimal? maximo = null;
+            if (!string.IsNullOrWhiteSpace(Maximo))
+            {
+                if (!decimal.TryParse(Maximo, out var valorMaximo))
+                    throw new InvalidOperationException("O máximo deve ser um número.");
+                maximo = valorMaximo;
+            }
             using var escopo = _escopos.CreateScope();
             await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
                 .SalvarItemAsync(new ItemEstoque
@@ -582,6 +657,11 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
                 Nome = Nome ?? string.Empty,
                 Unidade = string.IsNullOrWhiteSpace(Unidade) ? "un" : Unidade!,
                 EstoqueMinimo = minimo,
+                CodigoInterno = CodigoInterno, CodigoBarras = CodigoBarras,
+                Fabricante = Fabricante, Apresentacao = Apresentacao,
+                Grupo = Grupo, Uso = Uso, ExigirLote = ExigirLote, ExigirValidade = ExigirValidade,
+                UnidadeCompra = UnidadeCompra, FatorCompra = fator, EstoqueMaximo = maximo,
+                LocalArmazenamento = LocalArmazenamento, Observacoes = Observacoes,
                 Ativo = Ativo
             }, SessaoUsuario.Atual.Operador);
 
@@ -619,6 +699,10 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
     public IReadOnlyList<FormaPagamento> FormasCompra { get; } = Enum.GetValues<FormaPagamento>()
         .Where(f => f != FormaPagamento.Convenio).ToArray();
     [ObservableProperty] private bool _gerarContaCompra;
+    [ObservableProperty] private bool _emUnidadeCompra;
+    [ObservableProperty] private string? _documentoEntrada;
+    [ObservableProperty] private string? _setorDestino;
+    public bool EhSaida => Tipo == TipoMovimentoEstoque.Saida;
     [ObservableProperty] private string? _fornecedor;
     [ObservableProperty] private DateTime _vencimentoCompra = DateTime.Today;
     [ObservableProperty] private bool _compraPaga;
@@ -651,7 +735,11 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
 
     partial void OnSalvandoChanged(bool value) => OnPropertyChanged(nameof(PodeSalvar));
 
-    partial void OnTipoChanged(TipoMovimentoEstoque value) => OnPropertyChanged(nameof(EhEntrada));
+    partial void OnTipoChanged(TipoMovimentoEstoque value)
+    {
+        OnPropertyChanged(nameof(EhEntrada));
+        OnPropertyChanged(nameof(EhSaida));
+    }
 
     [RelayCommand]
     private async Task SalvarAsync()
@@ -684,6 +772,10 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
             var dados = new MovimentoEstoque
             {
                 ItemEstoqueId = _itemId,
+                DestinoConsumo = EhSaida ? DestinoConsumoEstoque.Rotina : DestinoConsumoEstoque.NaoInformado,
+                SetorDestino = SetorDestino,
+                DocumentoEntrada = DocumentoEntrada,
+                Fornecedor = Fornecedor,
                 Tipo = Tipo,
                 Quantidade = quantidade,
                 CustoUnitario = custo,
@@ -695,9 +787,9 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
             var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
             if (EhEntrada && GerarContaCompra)
                 await estoque.ComprarAsync(dados, Fornecedor ?? string.Empty, DateOnly.FromDateTime(VencimentoCompra),
-                    CompraPaga, FormaCompra, SessaoUsuario.Atual.Operador);
+                    CompraPaga, FormaCompra, SessaoUsuario.Atual.Operador, emUnidadeCompra: EmUnidadeCompra);
             else
-                await estoque.MovimentarAsync(dados, SessaoUsuario.Atual.Operador);
+                await estoque.MovimentarAsync(dados, SessaoUsuario.Atual.Operador, emUnidadeCompra: EhEntrada && EmUnidadeCompra);
 
             Concluido?.Invoke();
         }
@@ -795,8 +887,8 @@ public sealed partial class ExtratoEstoqueViewModel : ObservableObject
                 {
                     Data = m.Data.ToString("dd/MM/yyyy"),
                     Tipo = RotulosEnum.De(m.Tipo),
-                    Movimento = m.Delta >= 0 ? $"+{m.Delta:0.##}" : $"−{-m.Delta:0.##}",
-                    SaldoApos = saldos[i].ToString("0.##"),
+                    Movimento = m.Delta >= 0 ? $"+{m.Delta:0.###}" : $"−{-m.Delta:0.###}",
+                    SaldoApos = saldos[i].ToString("0.###"),
                     Detalhe = Detalhar(m),
                     Quem = string.IsNullOrWhiteSpace(m.CriadoPor) ? "—" : m.CriadoPor,
                     EhPerda = m.Tipo == TipoMovimentoEstoque.Perda
@@ -809,7 +901,7 @@ public sealed partial class ExtratoEstoqueViewModel : ObservableObject
 
             Resumo = lista.Count == 0
                 ? "Nenhum movimento registrado."
-                : $"{lista.Count} movimento(s) · saldo atual {saldo:0.##}";
+                : $"{lista.Count} movimento(s) · saldo atual {saldo:0.###}";
         }
         catch (Exception ex)
         {
@@ -834,7 +926,12 @@ public sealed partial class ExtratoEstoqueViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(m.Observacao)) partes.Add(m.Observacao);
         if (!string.IsNullOrWhiteSpace(m.Lote)) partes.Add($"lote {m.Lote}");
         if (m.Validade is { } v) partes.Add($"validade {v:dd/MM/yyyy}");
-        if (m.AtendimentoId is not null) partes.Add("consumo de sessão");
+        if (m.AtendimentoId is not null) partes.Add($"consumo do atendimento #{m.AtendimentoId}");
+        if (m.DestinoConsumo == DestinoConsumoEstoque.Rotina) partes.Add($"rotina · setor {m.SetorDestino}");
+        if (!string.IsNullOrWhiteSpace(m.Fornecedor)) partes.Add($"fornecedor {m.Fornecedor}");
+        if (!string.IsNullOrWhiteSpace(m.DocumentoEntrada)) partes.Add($"documento {m.DocumentoEntrada}");
+        if (m.FatorConversao is > 1 or < 1)
+            partes.Add($"{m.QuantidadeInformada:0.###} {m.UnidadeInformada} × {m.FatorConversao:0.###} unidades");
         if (m.LancamentoFinanceiroId is { } conta) partes.Add($"compra vinculada à conta #{conta}");
         if (m.Tipo == TipoMovimentoEstoque.Ajuste)
             partes.Add(m.AjusteParaCima == true ? "contagem achou a mais" : "contagem achou a menos");

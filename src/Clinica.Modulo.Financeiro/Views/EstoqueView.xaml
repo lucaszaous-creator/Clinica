@@ -16,7 +16,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <TextBlock Text="Estoque" Style="{StaticResource H1}" Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Agulhas, moxa, ventosas, algodão. O saldo é a soma dos movimentos — nunca um número guardado, que é como o estoque para de bater." />
+                       Text="Materiais assistenciais, medicamentos e produtos de rotina. Acompanhe saldos, lotes, compras e consumos." />
             <Grid Margin="0,8,0,0">
                 <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" VerticalAlignment="Center"
                            HorizontalAlignment="Left" TextWrapping="Wrap" MaxWidth="820"
@@ -64,6 +64,10 @@
                         </StackPanel>
                     </Grid>
 
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock Text="Buscar produto, código de barras, fabricante, grupo ou local" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
+                        <TextBox Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
+                    </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Itens}">
                             <ItemsControl.ItemTemplate>
@@ -79,7 +83,7 @@
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                    <TextBlock Text="{Binding Nome}" ToolTip="{Binding Cadastro}" FontWeight="SemiBold"
                                                                Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <Border Style="{StaticResource Badge.Aviso}" Margin="10,0,0,0"
                                                             Visibility="{Binding AbaixoDoMinimo,
@@ -87,6 +91,7 @@
                                                         <TextBlock Text="repor" />
                                                     </Border>
                                                 </StackPanel>
+                                                <TextBlock Text="{Binding Cadastro}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,2,0,0" />
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">

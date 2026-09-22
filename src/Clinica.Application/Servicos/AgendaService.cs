@@ -1014,6 +1014,18 @@ public sealed class AgendaService
     }
 
     /// <summary>Relê o acesso antes de gravar, inclusive quando a permissão mudou com a tela aberta.</summary>
+    /// <summary>Conclusão e materiais pertencem à mesma transação; falha na baixa mantém o atendimento aberto.</summary>
+    public Task<ResultadoLancamento> ConcluirComConsumoAsync(int agendamentoId, string operador,
+        int usuarioId, PedidoConsumoProcedimento consumo, bool permitirEnfermagemPosterior = true,
+        CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
+    {
+        var resultado = await ConcluirAtendimentoClinicoAsync(agendamentoId, operador, ct,
+            usuarioId: usuarioId, permitirEnfermagemPosterior: permitirEnfermagemPosterior);
+        await new EstoqueService(_repo).ConfirmarConsumoProcedimentoAsync(resultado.Atendimento.Id, consumo, operador, ct);
+        return resultado;
+    }, ct);
+
     public async Task ExigirConclusaoClinicaAsync(int agendamentoId, int usuarioId, CancellationToken ct = default)
     {
         var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);

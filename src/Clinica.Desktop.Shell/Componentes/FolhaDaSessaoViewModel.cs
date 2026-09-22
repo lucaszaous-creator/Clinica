@@ -742,8 +742,18 @@ public partial class FolhaDaSessaoViewModel : ObservableObject
             {
                 try
                 {
-                    var fim = await scope.ServiceProvider.GetRequiredService<AgendaService>()
-                        .ConcluirAtendimentoClinicoAsync(horario, SessaoUsuario.Atual.Operador,
+                    var materiais = await ConferenciaMateriaisProcedimento.PerguntarAsync(_escopos, horario);
+                    if (!materiais.Prosseguir)
+                    {
+                        Mensagem = "Evolução salva. Confira os materiais para concluir o atendimento.";
+                        return false;
+                    }
+                    using var escopoConclusao = _escopos.CreateScope();
+                    var agenda = escopoConclusao.ServiceProvider.GetRequiredService<AgendaService>();
+                    var fim = materiais.Pedido is { } consumo
+                        ? await agenda.ConcluirComConsumoAsync(horario, SessaoUsuario.Atual.Operador,
+                            SessaoUsuario.Atual.UsuarioId, consumo)
+                        : await agenda.ConcluirAtendimentoClinicoAsync(horario, SessaoUsuario.Atual.Operador,
                             usuarioId: SessaoUsuario.Atual.UsuarioId, permitirEnfermagemPosterior: true);
                     var quantidade = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
                     Mensagem = $"Sessão salva e concluída; {quantidade} guia(s) aplicável(is)."

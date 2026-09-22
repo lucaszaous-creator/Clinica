@@ -3130,6 +3130,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // ---- Contas a pagar e a receber (parcela 12) ----
 
+    internal IQueryable<ConferenciaConsumoProcedimento> ConsultaConferenciaConsumo(int atendimentoId)
+        => _db.Set<ConferenciaConsumoProcedimento>().AsNoTracking().Where(c => c.AtendimentoId == atendimentoId);
+
+    public Task<ConferenciaConsumoProcedimento?> ConferenciaConsumoAsync(int atendimentoId, CancellationToken ct = default)
+        => ConsultaConferenciaConsumo(atendimentoId).SingleOrDefaultAsync(ct);
+
+    public async Task AdicionarConferenciaConsumoAsync(ConferenciaConsumoProcedimento conferencia, CancellationToken ct = default)
+        => await _db.Set<ConferenciaConsumoProcedimento>().AddAsync(conferencia, ct);
+
+    internal IQueryable<LancamentoFinanceiro> ConsultaContasDoParcelamento(Guid grupo)
+        => _db.Set<LancamentoFinanceiro>().AsNoTracking().Where(l => l.GrupoParcelamento == grupo)
+            .OrderBy(l => l.NumeroParcelaConta);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> ContasDoParcelamentoAsync(Guid grupo, CancellationToken ct = default)
+        => await ConsultaContasDoParcelamento(grupo).ToListAsync(ct);
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
         DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default)
     {

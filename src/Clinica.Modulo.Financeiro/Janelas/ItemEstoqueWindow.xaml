@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Item do estoque" Width="480" SizeToContent="Height"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Title="Item do estoque" Width="600" Height="650" MinWidth="460" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
@@ -14,11 +14,23 @@
     <StackPanel Margin="24">
         <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="Agulha, moxa, ventosa, algodão. O saldo não se digita aqui: ele é a soma dos movimentos, e quem o move é o botão Movimentar da lista." />
+                   Text="Cadastre materiais assistenciais, medicamentos e produtos de rotina. O saldo é atualizado pelas entradas e consumos." />
 
         <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
         <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
 
+        <TextBlock Text="Código interno" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding CodigoInterno}" MaxLength="40" />
+        <TextBlock Text="Código de barras" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding CodigoBarras}" MaxLength="60" />
+        <TextBlock Text="Grupo" Style="{StaticResource Rotulo}" />
+        <ComboBox ItemsSource="{Binding Grupos}" SelectedItem="{Binding Grupo}" ItemTemplate="{StaticResource ItemRotuloEnum}" />
+        <TextBlock Text="Uso permitido" Style="{StaticResource Rotulo}" />
+        <ComboBox ItemsSource="{Binding Usos}" SelectedItem="{Binding Uso}" ItemTemplate="{StaticResource ItemRotuloEnum}" />
+        <TextBlock Text="Fabricante" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Fabricante}" MaxLength="120" />
+        <TextBlock Text="Apresentação / especificação" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Apresentacao}" MaxLength="120" />
         <Grid Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -27,7 +39,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Unidade" Style="{StaticResource Rotulo}" />
+                <TextBlock Text="Unidade de consumo" Style="{StaticResource Rotulo}" />
                 <TextBox Text="{Binding Unidade, UpdateSourceTrigger=PropertyChanged}" MaxLength="10" />
             </StackPanel>
 
@@ -41,10 +53,24 @@
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
                    Text="Sem mínimo, o item não entra no alerta de reposição — deixe em branco quando não fizer sentido vigiar." />
 
+        <TextBlock Text="Estoque máximo (alvo da reposição)" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Maximo}" MaxLength="14" />
+        <TextBlock Text="Unidade de compra (ex.: cx)" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding UnidadeCompra}" MaxLength="10" />
+        <TextBlock Text="Unidades de consumo por embalagem (ex.: 100 un por cx)" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
+        <TextBox Text="{Binding FatorCompra}" MaxLength="14" />
+        <TextBlock Text="Local de armazenamento" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding LocalArmazenamento}" MaxLength="100" />
+        <CheckBox Content="Exigir lote nas entradas" IsChecked="{Binding ExigirLote}" Margin="0,12,0,4" />
+        <CheckBox Content="Exigir validade nas entradas" IsChecked="{Binding ExigirValidade}" />
+        <TextBlock Text="Medicamentos sempre exigem lote e validade. Cadastre cada apresentação como um produto distinto."
+                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,12" />
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Observacoes}" MaxLength="500" AcceptsReturn="True" TextWrapping="Wrap" Height="64" VerticalScrollBarVisibility="Auto" />
         <CheckBox Content="Ativo" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
-                   Text="Item que a clínica parou de usar deve ser INATIVADO, não excluído: excluir leva junto todo o histórico de movimentos dele." />
+                   Text="Inative produtos fora de uso. Itens com movimentação preservam seu histórico e não podem ser excluídos." />
 
         <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">

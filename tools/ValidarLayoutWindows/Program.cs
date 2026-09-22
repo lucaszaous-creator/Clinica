@@ -203,6 +203,22 @@ static class Program
         var compra = new Clinica.Financeiro.Janelas.MovimentoEstoqueWindow(new Clinica.Financeiro.ViewModels.MovimentoEstoqueViewModel(escopos, item.Id, item.Nome)
             { GerarContaCompra = true, CompraPaga = true, Fornecedor = "Fornecedor demonstrativo", Quantidade = "100", CustoUnitario = "2,50", Lote = "L-2026" });
         await ConferirJanela(compra, "estoque-compra", [480, 560]); compra.Close();
+        var cadastroItem = new Clinica.Financeiro.Janelas.ItemEstoqueWindow(new Clinica.Financeiro.ViewModels.ItemEstoqueEdicaoViewModel(escopos, item.Id));
+        await ConferirJanela(cadastroItem, "estoque-catalogo", [460, 600]); cadastroItem.Close();
+        var contaNova = new Clinica.Financeiro.Janelas.ContaWindow(new Clinica.Financeiro.ViewModels.ContaEdicaoViewModel(escopos)
+            { Descricao = "Compra de materiais", Contraparte = "Fornecedor", DocumentoReferencia = "NF-123", Valor = "100", QuantidadeParcelas = "3" });
+        await ConferirJanela(contaNova, "contas-parcelamento", [440, 600]); contaNova.Close();
+        var materiaisVm = new MateriaisProcedimentoViewModel([new MaterialProcedimentoLinha { ItemId = item.Id, Nome = "Material de procedimento com apresentação e nome compridos", Saldo = "Disponível: 10,125 un" }]);
+        materiaisVm.ConfirmarCommand.Execute(null);
+        if (materiaisVm.Pedido != null || string.IsNullOrWhiteSpace(materiaisVm.Erro)) throw new Exception("Consumo vazio passou sem declaração.");
+        materiaisVm.Itens[0].Quantidade = "1,125";
+        materiaisVm.Itens[0].Lote = "L-2026";
+        materiaisVm.Busca = "não encontrado";
+        materiaisVm.ConfirmarCommand.Execute(null);
+        if (materiaisVm.Pedido?.Materiais.Single().Quantidade != 1.125m) throw new Exception("Filtro apagou material preenchido.");
+        materiaisVm.Busca = null;
+        var materiaisJanela = new MateriaisProcedimentoWindow(materiaisVm);
+        await ConferirJanela(materiaisJanela, "materiais-procedimento", [550, 700]); materiaisJanela.Close();
         var gerente = sp.GetRequiredService<Clinica.Gerente.ViewModels.PainelDirecaoViewModel>();
         await gerente.CarregarCommand.ExecuteAsync(null);
         var direcao = new Window { Content = new Clinica.Gerente.Views.PainelDirecaoView { DataContext = gerente }, Height = 700 };

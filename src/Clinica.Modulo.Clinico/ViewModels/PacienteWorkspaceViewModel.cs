@@ -738,13 +738,19 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
                 return;
             }
 
+            var materiais = await ConferenciaMateriaisProcedimento.PerguntarAsync(_escopos, id);
+            if (!materiais.Prosseguir)
+            {
+                Avisar("Confira os materiais utilizados para concluir o atendimento.", erro: false);
+                return;
+            }
             RegistroAtendimento registro;
             using (var escopo = _escopos.CreateScope())
             {
                 var fechamento = escopo.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
                 registro = await fechamento.RegistrarAtendimentoAsync(
                     id, SessaoUsuario.Atual.Operador, concluirClinico: true,
-                    usuarioClinicoId: SessaoUsuario.Atual.UsuarioId, permitirEnfermagemPosterior: true);
+                    usuarioClinicoId: SessaoUsuario.Atual.UsuarioId, permitirEnfermagemPosterior: true, consumoProcedimento: materiais.Pedido);
             }
 
             // O posto passa a saber o atendimento que acabou de nascer: a próxima gravação

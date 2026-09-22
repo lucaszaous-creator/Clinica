@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260922024419_ParcelamentoContasDocumentado")]
+    partial class ParcelamentoContasDocumentado
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1241,41 +1244,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("Estado", "ExpiraEm");
 
                     b.ToTable("ColetasTablet", (string)null);
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.ConferenciaConsumoProcedimento", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AtendimentoId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("ConferidoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("ConferidoPor")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Pedido")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<bool>("SemConsumo")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AtendimentoId")
-                        .IsUnique();
-
-                    b.ToTable("ConferenciaConsumoProcedimento");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ConfiguracaoGlobal", b =>
@@ -5459,17 +5427,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Paciente");
 
                     b.Navigation("Sessao");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.ConferenciaConsumoProcedimento", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.Atendimento", "Atendimento")
-                        .WithMany()
-                        .HasForeignKey("AtendimentoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Atendimento");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ConsentimentoLgpd", b =>

@@ -1616,6 +1616,10 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<LancamentoFinanceiro>(e =>
         {
+            e.Property(x => x.Contraparte).HasMaxLength(200);
+            e.Property(x => x.DocumentoReferencia).HasMaxLength(100);
+            e.Property(x => x.PedidoParcelamento).HasMaxLength(64);
+            e.HasIndex(x => new { x.GrupoParcelamento, x.NumeroParcelaConta }).IsUnique();
             e.HasKey(x => x.Id);
             e.Property(x => x.Descricao).IsRequired().HasMaxLength(200);
             // Dinheiro em decimal exato — nunca ponto flutuante.
@@ -1941,8 +1945,29 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Cancelado);
         });
 
+        b.Entity<ConferenciaConsumoProcedimento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.AtendimentoId).IsUnique();
+            e.HasOne(x => x.Atendimento).WithMany().HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(x => x.Pedido).IsRequired().HasMaxLength(64);
+            e.Property(x => x.ConferidoPor).IsRequired().HasMaxLength(80);
+            e.Property(x => x.ConferidoEm).HasColumnType("timestamp without time zone");
+        });
+
         b.Entity<ItemEstoque>(e =>
         {
+            e.Property(x => x.CodigoInterno).HasMaxLength(40);
+            e.HasIndex(x => x.CodigoInterno).IsUnique();
+            e.Property(x => x.CodigoBarras).HasMaxLength(60);
+            e.Property(x => x.Fabricante).HasMaxLength(120);
+            e.Property(x => x.Apresentacao).HasMaxLength(120);
+            e.Property(x => x.Grupo).HasConversion<string>().HasMaxLength(30).HasDefaultValue(GrupoEstoque.MaterialAssistencial);
+            e.Property(x => x.Uso).HasConversion<string>().HasMaxLength(20).HasDefaultValue(UsoEstoque.Procedimentos);
+            e.Property(x => x.UnidadeCompra).HasMaxLength(10);
+            e.Property(x => x.FatorCompra).HasPrecision(14, 3).HasDefaultValue(1m);
+            e.Property(x => x.EstoqueMaximo).HasPrecision(14, 3);
+            e.Property(x => x.LocalArmazenamento).HasMaxLength(100);
             e.HasKey(x => x.Id);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(120);
             e.Property(x => x.Unidade).IsRequired().HasMaxLength(10);
@@ -1954,6 +1979,14 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<MovimentoEstoque>(e =>
         {
+            e.Property(x => x.DestinoConsumo).HasConversion<string>().HasMaxLength(20).HasDefaultValue(DestinoConsumoEstoque.NaoInformado);
+            e.Property(x => x.SetorDestino).HasMaxLength(100);
+            e.Property(x => x.Fornecedor).HasMaxLength(100);
+            e.Property(x => x.DocumentoEntrada).HasMaxLength(80);
+            e.Property(x => x.QuantidadeInformada).HasPrecision(14, 3);
+            e.Property(x => x.UnidadeInformada).HasMaxLength(10);
+            e.Property(x => x.FatorConversao).HasPrecision(14, 3);
+            e.Property(x => x.CustoInformado).HasPrecision(14, 4);
             e.HasOne(x => x.LancamentoFinanceiro).WithMany()
                 .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
             e.HasKey(x => x.Id);

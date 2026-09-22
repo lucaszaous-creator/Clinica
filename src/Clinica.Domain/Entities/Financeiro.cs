@@ -69,6 +69,13 @@ public class CategoriaFinanceira
 /// </summary>
 public class LancamentoFinanceiro
 {
+    public string? Contraparte { get; set; }
+    public string? DocumentoReferencia { get; set; }
+    /// <summary>Parcelamento da obrigação; independente das parcelas de depósito do cartão.</summary>
+    public Guid? GrupoParcelamento { get; set; }
+    public int? NumeroParcelaConta { get; set; }
+    public int? TotalParcelasConta { get; set; }
+    public string? PedidoParcelamento { get; set; }
     public int Id { get; set; }
 
     /// <summary>Data de competência (quando o fato ocorreu).</summary>

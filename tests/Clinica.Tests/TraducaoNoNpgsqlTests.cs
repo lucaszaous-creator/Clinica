@@ -36,6 +36,22 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Conferencia_de_materiais_traduz_vinculo_com_atendimento()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaConferenciaConsumo(42).ToQueryString().Should()
+            .Contain("AtendimentoId").And.Contain("WHERE");
+    }
+
+    [Fact]
+    public void Contas_do_parcelamento_traduzem_identificador_e_ordem()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaContasDoParcelamento(Guid.NewGuid()).ToQueryString().Should()
+            .Contain("GrupoParcelamento").And.Contain("ORDER BY").And.Contain("NumeroParcelaConta");
+    }
+
+    [Fact]
     public void Agenda_de_cartao_traduz_join_datas_e_exclusao_da_venda_integral()
     {
         using var db = Postgres();

@@ -461,4 +461,25 @@ public class FechamentoSessaoTests : IDisposable
         _db.Dispose();
         _conn.Dispose();
     }
+
+    [Fact]
+    public async Task Conclusao_com_materiais_insuficientes_preserva_agendamento_aberto()
+    {
+        var paciente = await CriarPacienteAsync();
+        var horario = await AgendarAsync(paciente);
+        var usuario = new UsuarioSistema { Nome = "Gerente", Login = "gerente-materiais", Perfil = PerfilAcesso.Gerente, Ativo = true };
+        _db.Add(usuario); await _db.SaveChangesAsync();
+        var material = await _estoque.SalvarItemAsync(new ItemEstoque { Nome = "Sem saldo" });
+        var concluir = () => _agenda.ConcluirComConsumoAsync(horario, "Gerente", usuario.Id,
+            new([new(material.Id, 1)]));
+        await concluir.Should().ThrowAsync<InvalidOperationException>().WithMessage("*saldo*");
+        _db.ChangeTracker.Clear();
+        var atual = (await _repo.ObterAgendamentoAsync(horario))!;
+        atual.FimAtendimentoEm.Should().BeNull();
+        atual.Status.Should().Be(StatusAgendamento.Agendado);
+        var resultado = await _agenda.ConcluirComConsumoAsync(horario, "Gerente", usuario.Id, new([], true));
+        resultado.Atendimento.Should().NotBeNull();
+        (await _estoque.ConferenciaDoProcedimentoAsync(resultado.Atendimento.Id))!.SemConsumo.Should().BeTrue();
+        (await _fechamento.PrepararAsync(horario)).Insumos.Should().BeEmpty();
+    }
 }
