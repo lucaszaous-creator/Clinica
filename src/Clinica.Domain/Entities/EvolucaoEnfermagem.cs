@@ -81,6 +81,9 @@ public class EvolucaoEnfermagem
     /// <summary>O que foi observado. Obrigatório — linha sem conteúdo não é registro.</summary>
     public string Texto { get; set; } = string.Empty;
 
+    /// <summary>Etapa do atendimento no portal: Chegada ou AposAplicacao. Nula nos registros anteriores.</summary>
+    public string? FaseAtendimento { get; set; }
+
     // ---- A CONSULTA DE ENFERMAGEM: o Processo de Enfermagem (parcela 73) ----
     //
     // ⚠️ Até aqui isto era UMA caixa de texto com sinais vitais ao lado, e isso não é uma

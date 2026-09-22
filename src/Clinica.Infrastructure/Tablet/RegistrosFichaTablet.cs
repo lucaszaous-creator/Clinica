@@ -22,6 +22,12 @@ public sealed partial class PostoTabletService
                 foreach (var item in p.Observacoes)
                 {
                     if (item is null) throw new InvalidOperationException("Confira as observações preenchidas.");
+                    if (item.FaseAtendimento is not null && item.FaseAtendimento is not ("Chegada" or "AposAplicacao"))
+                        throw new InvalidOperationException("Escolha Chegada ou Após aplicação para a evolução.");
+                    if (item.FaseAtendimento is not null && (item.Intercorrencia ||
+                        await db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == paciente && e.AgendamentoId == p.AgendamentoId
+                            && e.FaseAtendimento == item.FaseAtendimento && e.CanceladaEm == null, ct)))
+                        throw new InvalidOperationException("Esta etapa já foi registrada na sessão. Confira o prontuário antes de continuar.");
                     Textos(4000, item.Texto); Textos(300, item.AlergiaObservada);
                     if (item.NegaAlergia && !string.IsNullOrWhiteSpace(item.AlergiaObservada))
                         throw new InvalidOperationException("Escolha Nega ou descreva a alergia; não informe as duas opções na mesma observação.");
@@ -33,10 +39,18 @@ public sealed partial class PostoTabletService
                         : !string.IsNullOrWhiteSpace(item.AlergiaObservada)
                             ? item.Texto.TrimEnd() + "\n\nAlergia observada: " + item.AlergiaObservada.Trim()
                             : item.Texto;
+                    texto = item.FaseAtendimento switch
+                    {
+                        "Chegada" => "CHEGADA\n\n" + texto,
+                        "AposAplicacao" => "APÓS APLICAÇÃO\n\n" + texto,
+                        _ => texto
+                    };
                     Textos(4000, texto);
                     var e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, texto, autor,
                         agendamentoId: p.AgendamentoId, intercorrencia: item.Intercorrencia,
                         sinais: item.Sinais, alergiaObservada: item.AlergiaObservada, ct: ct);
+                    e.FaseAtendimento = item.FaseAtendimento;
+                    await db.SaveChangesAsync(ct);
                     ids.Add(e.Id);
                 }
                 return new ResultadoObservacoesEnfermagemTablet(ids.ToArray());

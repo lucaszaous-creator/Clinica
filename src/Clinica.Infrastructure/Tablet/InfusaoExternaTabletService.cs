@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Application.Tablet;
 using Clinica.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Clinica.Infrastructure.Tablet;
 
@@ -11,11 +12,19 @@ public sealed partial class PostoTabletService
         var u = await Autorizar(s,ct,Permissao.RegistrarEvolucaoEnfermagem);
         await Paciente(paciente,ct);
         var sessoes = await repo.AgendamentosDoPacienteNoDiaAsync(paciente,data,ct);
+        var ids = sessoes.Select(a => a.Id).ToArray();
+        var fases = await db.EvolucoesEnfermagem.AsNoTracking()
+            .Where(e => e.PacienteId == paciente && e.AgendamentoId != null
+                && ids.Contains(e.AgendamentoId.Value) && e.FaseAtendimento != null && e.CanceladaEm == null)
+            .Select(e => new { e.AgendamentoId, e.FaseAtendimento, e.Hora })
+            .ToListAsync(ct);
         var medicos = await new PrescricaoInternaService(repo,conferencia).MedicosParaValidacaoAsync(ct);
         await Auditar(u,paciente,"TabletContextoEnfermagemConsultado",ct);await db.SaveChangesAsync(ct);
         return new { Sessoes = sessoes.Where(a=>a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
                 .Select(a=>new {a.Id,a.DataHora,a.ProfissionalId,Profissional=a.Profissional?.Nome,a.FimAtendimentoEm,
-                    PermiteEvolucaoEnfermagem=EvolucaoEnfermagemService.PermiteEvolucao(a.ModalidadePrevista)}),
+                    PermiteEvolucaoEnfermagem=EvolucaoEnfermagemService.PermiteEvolucao(a.ModalidadePrevista),
+                    ChegadaHora=fases.FirstOrDefault(e=>e.AgendamentoId==a.Id&&e.FaseAtendimento=="Chegada")?.Hora,
+                    AposAplicacaoHora=fases.FirstOrDefault(e=>e.AgendamentoId==a.Id&&e.FaseAtendimento=="AposAplicacao")?.Hora}),
             Medicos = medicos.Where(p=>p.Id!=u.ProfissionalId).Select(p=>new {p.Id,p.Nome}) };
     }
 

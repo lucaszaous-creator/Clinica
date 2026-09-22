@@ -23,10 +23,13 @@ public sealed record RegistroEnfermagemTablet(Guid Idempotencia,DateOnly Data,Ti
     int? AgendamentoId=null);
 public sealed record VinculoEnfermagemTablet(Guid Idempotencia, int AgendamentoId, string Motivo);
 public sealed record ObservacaoEnfermagemTablet(TimeOnly Hora, string Texto, bool Intercorrencia,
-    SinaisVitais? Sinais = null, string? AlergiaObservada = null, bool NegaAlergia = false);
+    SinaisVitais? Sinais = null, string? AlergiaObservada = null, bool NegaAlergia = false,
+    string? FaseAtendimento = null);
 public sealed record ObservacoesEnfermagemTablet(Guid Idempotencia, DateOnly Data, int AgendamentoId,
     ObservacaoEnfermagemTablet[] Observacoes);
 public sealed record ResultadoObservacoesEnfermagemTablet(int[] Ids);
+public sealed record SalvarModeloEnfermagemTablet(Guid Idempotencia, int Id, string? Versao, string Nome, string Texto);
+public sealed record ModeloEnfermagemTablet(int Id, string Nome, string Texto, string Versao);
 public sealed record InfusaoExternaTablet(Guid Idempotencia, RegistroInfusaoExterna Dados);
 public sealed record NovoModeloDocumentoTablet(Guid Idempotencia,string Nome,TipoDocumentoClinico Tipo,string Texto,
     string? CorpoFormatado=null,int Id=0,string? Versao=null,bool ParaInfusao=false,string? ConfiguracaoInfusao=null);

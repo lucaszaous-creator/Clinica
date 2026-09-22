@@ -94,6 +94,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemPrescricaoInterna> ItensPrescricaoInterna => Set<ItemPrescricaoInterna>();
     public DbSet<ChecagemPrescricao> ChecagensPrescricao => Set<ChecagemPrescricao>();
     public DbSet<EvolucaoEnfermagem> EvolucoesEnfermagem => Set<EvolucaoEnfermagem>();
+    public DbSet<ModeloEvolucaoEnfermagem> ModelosEvolucaoEnfermagem => Set<ModeloEvolucaoEnfermagem>();
     public DbSet<DiagnosticoEnfermagem> DiagnosticosEnfermagem => Set<DiagnosticoEnfermagem>();
     public DbSet<CuidadoEnfermagem> CuidadosEnfermagem => Set<CuidadoEnfermagem>();
     public DbSet<ChecagemCuidado> ChecagensCuidado => Set<ChecagemCuidado>();
@@ -1210,10 +1211,25 @@ public class ClinicaDbContext : DbContext
 
         // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). Ao lado da checagem porque é a mesma
         // família e o mesmo desenho de autoria — mas o DONO é o paciente, não a folha.
+        b.Entity<ModeloEvolucaoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
+            e.Property(x => x.NomeChave).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(4000);
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.Property(x => x.CriadoPor).IsRequired().HasMaxLength(80);
+            e.Property(x => x.AtualizadoPor).IsRequired().HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(x => x.NomeChave).IsUnique();
+        });
+
         b.Entity<EvolucaoEnfermagem>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Texto).IsRequired().HasMaxLength(4000);
+            e.Property(x => x.FaseAtendimento).HasMaxLength(20);
             // As três etapas do Processo de Enfermagem que são TEXTO (parcela 73). Todas
             // anuláveis: a anotação de passagem continua sendo só o `Texto`.
             e.Property(x => x.Historico).HasMaxLength(4000);

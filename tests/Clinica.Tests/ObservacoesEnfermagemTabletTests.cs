@@ -53,6 +53,42 @@ public sealed partial class AtendimentoTabletTests
     }
 
     [Fact]
+    public async Task Chegada_e_apos_aplicacao_sao_salvas_em_momentos_separados_na_mesma_sessao()
+    {
+        await PrepararBSV(); await Enfermeira();
+        var chegada = new ObservacoesEnfermagemTablet(Guid.NewGuid(), svc.Hoje, horario.Id,
+            [new(new(8, 0), "Estado inicial fictício", false,
+                new SinaisVitais(120, 80, 72, 18, SaturacaoOxigenio: 98),
+                NegaAlergia: true, FaseAtendimento: "Chegada")]);
+        await Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, chegada, default);
+        Assert.Single(await db.EvolucoesEnfermagem.ToListAsync());
+        var final = new ObservacoesEnfermagemTablet(Guid.NewGuid(), svc.Hoje, horario.Id,
+            [new(new(9, 0), "Estado após aplicação fictício", false,
+                new SinaisVitais(118, 78, 70, 17, SaturacaoOxigenio: 99),
+                FaseAtendimento: "AposAplicacao")]);
+        await Posto.RegistrarObservacoesEnfermagemAsync(sessao, horario.PacienteId, final, default);
+        var registros = await db.EvolucoesEnfermagem.OrderBy(e => e.Hora).ToArrayAsync();
+        Assert.Equal(["Chegada", "AposAplicacao"], registros.Select(e => e.FaseAtendimento).ToArray());
+        Assert.All(registros, e => { Assert.Equal(horario.Id, e.AgendamentoId); Assert.Null(e.Temperatura); Assert.Null(e.Dor); });
+        Assert.Equal(120, registros[0].PressaoSistolica);
+        Assert.Equal(118, registros[1].PressaoSistolica);
+        Assert.StartsWith("CHEGADA", registros[0].Texto);
+        Assert.StartsWith("APÓS APLICAÇÃO", registros[1].Texto);
+        var ficha = Json(await Posto.FichaAsync(sessao, horario.PacienteId, 0, default));
+        Assert.Equal(2, ficha.GetProperty("enfermagem").GetArrayLength());
+        Assert.Contains(ficha.GetProperty("enfermagem").EnumerateArray(),
+            e => e.GetProperty("faseAtendimento").GetString() == "AposAplicacao");
+        var contexto = Json(await Posto.ContextoEnfermagemAsync(sessao, horario.PacienteId, svc.Hoje, default));
+        var sessaoContexto = Assert.Single(contexto.GetProperty("sessoes").EnumerateArray().Where(e => e.GetProperty("id").GetInt32() == horario.Id));
+        Assert.StartsWith("08:00", sessaoContexto.GetProperty("chegadaHora").GetString());
+        Assert.StartsWith("09:00", sessaoContexto.GetProperty("aposAplicacaoHora").GetString());
+        Assert.Empty(await db.Codigos.ToListAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Posto.RegistrarObservacoesEnfermagemAsync(
+            sessao, horario.PacienteId, chegada with { Idempotencia = Guid.NewGuid() }, default));
+        Assert.Equal(2, await db.EvolucoesEnfermagem.CountAsync());
+    }
+
+    [Fact]
     public async Task Observacoes_recusam_outro_paciente()
     {
         await PrepararBSV(); await Enfermeira();
