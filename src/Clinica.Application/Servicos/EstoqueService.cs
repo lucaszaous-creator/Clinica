@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -36,7 +37,10 @@ public sealed record ValidadeProxima(
 public sealed record CustoDoAtendimento(
     int AtendimentoId,
     decimal Custo,
-    IReadOnlyList<string> Itens);
+    IReadOnlyList<string> Itens)
+{
+    public bool Completo { get; init; } = true;
+}
 
 /// <summary>
 /// O custo de insumo de uma sessão, com data e paciente — a linha da tela.
@@ -49,7 +53,10 @@ public sealed record CustoDeSessao(
     DateOnly Data,
     string? Paciente,
     decimal Custo,
-    IReadOnlyList<string> Itens);
+    IReadOnlyList<string> Itens)
+{
+    public bool Completo { get; init; } = true;
+}
 
 /// <summary>
 /// O que o período gastou de insumo, e quanto sai uma sessão em média.
@@ -63,7 +70,10 @@ public sealed record ResumoCustoSessoes(
     int Sessoes,
     decimal Total,
     decimal? MedioPorSessao,
-    CustoDeSessao? MaisCara);
+    CustoDeSessao? MaisCara)
+{
+    public int SessoesComCustoIncompleto { get; init; }
+}
 
 /// <summary>
 /// Estoque de insumos (feature 10): entrada, baixa por sessão, alerta de mínimo e de
@@ -87,8 +97,9 @@ public sealed class EstoqueService
     public Task<ItemEstoque?> ObterItemAsync(int itemId, CancellationToken ct = default)
         => _repo.ObterItemEstoqueAsync(itemId, ct);
 
-    public async Task<ItemEstoque> SalvarItemAsync(
+    public Task<ItemEstoque> SalvarItemAsync(
         ItemEstoque dados, string? operador = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(dados.Nome))
             throw new InvalidOperationException("Dê um nome ao item.");
@@ -97,7 +108,11 @@ public sealed class EstoqueService
         if (dados.EstoqueMinimo < 0)
             throw new InvalidOperationException("O estoque mínimo não pode ser negativo.");
 
-        var destino = dados.Id == 0 ? null : await _repo.ObterItemEstoqueAsync(dados.Id, ct);
+        var destino = dados.Id == 0 ? null : await _repo.ObterItemEstoqueAsync(dados.Id, ct)
+            ?? throw new InvalidOperationException("Item não encontrado. Atualize o estoque.");
+        if (destino is not null && !string.Equals(destino.Unidade, dados.Unidade.Trim(), StringComparison.OrdinalIgnoreCase)
+            && (await _repo.MovimentosDoItemAsync(destino.Id, ct)).Count > 0)
+            throw new InvalidOperationException("Item com movimentos não pode mudar de unidade. Cadastre outro item para a nova unidade.");
         if (destino is null)
         {
             destino = new ItemEstoque { CriadoEm = DateTime.Now, CriadoPor = operador };
@@ -112,16 +127,20 @@ public sealed class EstoqueService
 
         await _repo.SalvarAsync(ct);
         return destino;
-    }
+    }, ct);
 
     /// <summary>
-    /// Apaga um item e TODO o histórico dele. Só faz sentido para quem foi cadastrado
-    /// errado — item que já se movimentou deve ser inativado, não apagado.
+    /// Apaga apenas um cadastro sem movimentos; itens com histórico devem ser inativados.
     /// </summary>
     public async Task ExcluirItemAsync(int itemId, CancellationToken ct = default)
     {
-        await _repo.RemoverItemEstoqueAsync(itemId, ct);
-        await _repo.SalvarAsync(ct);
+        await _repo.ExecutarGestaoAtomicaAsync(async () =>
+        {
+            if ((await _repo.MovimentosDoItemAsync(itemId, ct)).Count > 0)
+                throw new InvalidOperationException("Item com movimentação deve ser inativado. O histórico do estoque precisa ser preservado.");
+            await _repo.RemoverItemEstoqueAsync(itemId, ct);
+            return await _repo.SalvarAsync(ct);
+        }, ct);
     }
 
     // ==================== Saldo ====================
@@ -173,21 +192,47 @@ public sealed class EstoqueService
         var movimentos = await _repo.MovimentosNoPeriodoAsync(
             DateOnly.MinValue, DateOnly.MaxValue, ct);
 
-        return movimentos
-            .Where(m => m.Tipo == TipoMovimentoEstoque.Entrada && m.Validade is not null)
-            .Where(m => m.Validade!.Value <= limite)
-            .Where(m => comSaldo.Any(i => i.Id == m.ItemEstoqueId))
-            .Select(m => new ValidadeProxima(
-                m.ItemEstoqueId,
-                comSaldo.First(i => i.Id == m.ItemEstoqueId).Nome,
-                m.Validade!.Value,
-                m.Quantidade,
-                m.Lote))
+        return movimentos.GroupBy(m => m.ItemEstoqueId)
+            .Where(g => comSaldo.Any(i => i.Id == g.Key))
+            .SelectMany(g => RazaoEstoque.Calcular(g).Lotes)
+            .Where(l => l.Quantidade > 0 && l.Entrada.Validade is { } v && v <= limite)
+            .Select(l => new ValidadeProxima(
+                l.Entrada.ItemEstoqueId,
+                comSaldo.First(i => i.Id == l.Entrada.ItemEstoqueId).Nome,
+                l.Entrada.Validade!.Value,
+                l.Quantidade,
+                l.Entrada.Lote))
             .OrderBy(v => v.Validade)
             .ToList();
     }
 
     // ==================== Movimentos ====================
+
+    /// <summary>Registra material e obrigação financeira na mesma transação.</summary>
+    public Task<MovimentoEstoque> ComprarAsync(MovimentoEstoque dados, string fornecedor,
+        DateOnly vencimento, bool pago = false, FormaPagamento? forma = null,
+        string? operador = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
+        {
+            if (dados.Tipo != TipoMovimentoEstoque.Entrada || dados.CustoUnitario is not > 0)
+                throw new InvalidOperationException("A compra exige uma entrada com custo unitário maior que zero.");
+            if (string.IsNullOrWhiteSpace(fornecedor) || fornecedor.Trim().Length > 100)
+                throw new InvalidOperationException("Informe o fornecedor da compra (até 100 caracteres).");
+            if (pago && forma is null)
+                throw new InvalidOperationException("Informe como a compra foi paga.");
+            var movimento = await MovimentarAsync(dados, operador, ct);
+            var item = await _repo.ObterItemEstoqueAsync(dados.ItemEstoqueId, ct);
+            var descricao = $"Compra de {item!.Nome} — {fornecedor.Trim()}";
+            var conta = await new FinanceiroService(_repo).LancarAsync(movimento.Data, TipoLancamento.Saida,
+                descricao.Length <= 200 ? descricao : descricao[..200],
+                Math.Round(movimento.Quantidade * dados.CustoUnitario.Value, 2, MidpointRounding.AwayFromZero),
+                pago ? StatusLancamento.Realizado : StatusLancamento.Previsto,
+                formaPagamento: pago ? forma : null, dataVencimento: vencimento,
+                observacoes: $"Entrada de estoque #{movimento.Id}. {dados.Observacao}".Trim(), operador: operador, ct: ct);
+            movimento.LancamentoFinanceiroId = conta.Id;
+            await _repo.SalvarAsync(ct);
+            return movimento;
+        }, ct);
 
     public Task<IReadOnlyList<MovimentoEstoque>> MovimentosAsync(
         int itemId, CancellationToken ct = default)
@@ -268,9 +313,10 @@ public sealed class EstoqueService
     /// 3. **Contagem igual ao saldo não vira movimento.** Registrar um ajuste de zero
     ///    sujaria o extrato com linhas que não mudam nada.
     /// </summary>
-    public async Task<MovimentoEstoque?> AjustarInventarioAsync(
+    public Task<MovimentoEstoque?> AjustarInventarioAsync(
         int itemId, decimal quantidadeContada, string motivo,
         string? operador = null, DateOnly? data = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync<MovimentoEstoque?>(async () =>
     {
         if (string.IsNullOrWhiteSpace(motivo))
             throw new InvalidOperationException(
@@ -299,16 +345,37 @@ public sealed class EstoqueService
             Observacao = $"Inventário: contado {quantidadeContada:0.##} {item.Unidade}, "
                          + $"sistema tinha {saldo:0.##} — {motivo.Trim()}"
         }, operador, ct);
-    }
+    }, ct);
 
-    public async Task<MovimentoEstoque> MovimentarAsync(
+    public Task<MovimentoEstoque> MovimentarAsync(
         MovimentoEstoque dados, string? operador = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var item = await _repo.ObterItemEstoqueAsync(dados.ItemEstoqueId, ct)
             ?? throw new InvalidOperationException("Item de estoque não encontrado.");
 
         if (dados.Quantidade <= 0)
             throw new InvalidOperationException("A quantidade deve ser maior que zero.");
+        if (!item.Ativo)
+            throw new InvalidOperationException("Reative o item antes de movimentar seu estoque.");
+        if (!Enum.IsDefined(dados.Tipo) || dados.CustoUnitario < 0)
+            throw new InvalidOperationException("Tipo de movimento ou custo inválido.");
+        if (dados.CustoUnitario is { } custo && decimal.Round(custo, 4) != custo)
+            throw new InvalidOperationException("Use até quatro casas decimais para o custo unitário.");
+        if (decimal.Round(dados.Quantidade, 3) != dados.Quantidade)
+            throw new InvalidOperationException("Use até três casas decimais para a quantidade.");
+        if (dados.Tipo == TipoMovimentoEstoque.Ajuste &&
+            (dados.AjusteParaCima is null || string.IsNullOrWhiteSpace(dados.Observacao)))
+            throw new InvalidOperationException("Informe a direção e o motivo do ajuste de inventário.");
+        if (dados.Tipo == TipoMovimentoEstoque.Perda && string.IsNullOrWhiteSpace(dados.Observacao))
+            throw new InvalidOperationException("Perda sem motivo escrito vira estoque que não bate.");
+
+        var data = dados.Data == default ? DateOnly.FromDateTime(DateTime.Today) : dados.Data;
+        var anteriores = await _repo.MovimentosDoItemAsync(item.Id, ct);
+        if (anteriores.Any(m => m.Data > data))
+            throw new InvalidOperationException("Há movimentos posteriores. Registre o acerto na data atual para preservar saldo e custo históricos.");
+        var razao = RazaoEstoque.Calcular(anteriores);
+        var loteInformado = Limpar(dados.Lote);
 
         // ⚠️ A recusa da perda sem motivo morava SÓ no wrapper `PerderAsync` — que nenhuma
         // tela chama. A janela genérica de movimento entra por AQUI, e a única barreira
@@ -331,6 +398,12 @@ public sealed class EstoqueService
                 throw new InvalidOperationException(
                     $"O saldo de {item.Nome} é {saldo:0.##} {item.Unidade} — não dá para baixar "
                     + $"{dados.Quantidade:0.##}.");
+            var lotes = razao.Lotes.Where(l => loteInformado is null || l.Entrada.Lote == loteInformado).ToList();
+            if (lotes.Sum(l => l.Quantidade) < dados.Quantidade)
+                throw new InvalidOperationException("O lote informado não tem saldo suficiente.");
+            if (dados.Tipo == TipoMovimentoEstoque.Saida &&
+                lotes.Any(l => l.Quantidade > 0 && l.Entrada.Validade < data))
+                throw new InvalidOperationException("Há lote vencido nesta baixa. Registre a perda ou informe um lote válido antes de consumir.");
         }
 
         var movimento = new MovimentoEstoque
@@ -341,7 +414,7 @@ public sealed class EstoqueService
             AjusteParaCima = dados.Tipo == TipoMovimentoEstoque.Ajuste
                 ? dados.AjusteParaCima ?? false
                 : null,
-            CustoUnitario = dados.Tipo == TipoMovimentoEstoque.Entrada ? dados.CustoUnitario : null,
+            CustoUnitario = dados.Tipo == TipoMovimentoEstoque.Entrada ? dados.CustoUnitario : razao.CustoMedio,
             Data = dados.Data == default ? DateOnly.FromDateTime(DateTime.Today) : dados.Data,
             Validade = dados.Tipo == TipoMovimentoEstoque.Entrada ? dados.Validade : null,
             Lote = Limpar(dados.Lote),
@@ -363,7 +436,7 @@ public sealed class EstoqueService
 
         await _repo.SalvarAsync(ct);
         return movimento;
-    }
+    }, ct);
 
     // ==================== Custo ====================
 
@@ -377,13 +450,10 @@ public sealed class EstoqueService
             DateOnly.MinValue, DateOnly.MaxValue, ct);
 
         return movimentos
-            .Where(m => m.Tipo == TipoMovimentoEstoque.Entrada
-                        && m.CustoUnitario is not null && m.Quantidade > 0)
             .GroupBy(m => m.ItemEstoqueId)
-            .ToDictionary(
-                g => g.Key,
-                g => Math.Round(
-                    g.Sum(m => m.CustoUnitario!.Value * m.Quantidade) / g.Sum(m => m.Quantidade), 4));
+            .Select(g => (g.Key, Custo: RazaoEstoque.Calcular(g).CustoMedio))
+            .Where(x => x.Custo is not null)
+            .ToDictionary(x => x.Key, x => x.Custo!.Value);
     }
 
     /// <summary>
@@ -395,12 +465,12 @@ public sealed class EstoqueService
         int atendimentoId, CancellationToken ct = default)
     {
         var movimentos = await _repo.MovimentosDoAtendimentoAsync(atendimentoId, ct);
-        var medios = await CustosMediosAsync(ct);
+        var medios = await CustosHistoricosAsync(ct);
 
-        var (total, itens) = Precificar(
-            movimentos.Where(m => m.Tipo != TipoMovimentoEstoque.Entrada), medios);
+        var (total, itens, completo) = Precificar(
+            movimentos.Where(m => m.Tipo == TipoMovimentoEstoque.Saida), medios);
 
-        return new CustoDoAtendimento(atendimentoId, total, itens);
+        return new CustoDoAtendimento(atendimentoId, total, itens) { Completo = completo };
     }
 
     /// <summary>
@@ -416,19 +486,19 @@ public sealed class EstoqueService
         var movimentos = await _repo.ConsumosDeSessaoNoPeriodoAsync(de, ate, ct);
         if (movimentos.Count == 0) return [];
 
-        var medios = await CustosMediosAsync(ct);
+        var medios = await CustosHistoricosAsync(ct);
 
         return movimentos
             .GroupBy(m => m.AtendimentoId!.Value)
             .Select(g =>
             {
-                var (custo, itens) = Precificar(g, medios);
+                var (custo, itens, completo) = Precificar(g, medios);
                 return new CustoDeSessao(
                     g.Key,
                     g.Max(m => m.Data),
                     g.Select(m => m.Paciente?.Nome).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
                     custo,
-                    itens);
+                    itens) { Completo = completo };
             })
             .OrderByDescending(c => c.Data)
             .ThenByDescending(c => c.AtendimentoId)
@@ -443,12 +513,14 @@ public sealed class EstoqueService
         if (sessoes.Count == 0) return new ResumoCustoSessoes(0, 0m, null, null);
 
         var total = sessoes.Sum(s => s.Custo);
+        var incompletas = sessoes.Count(s => !s.Completo);
 
         return new ResumoCustoSessoes(
             sessoes.Count,
             total,
-            Math.Round(total / sessoes.Count, 2),
-            sessoes.OrderByDescending(s => s.Custo).First());
+            incompletas == 0 ? Math.Round(total / sessoes.Count, 2) : null,
+            incompletas == 0 ? sessoes.OrderByDescending(s => s.Custo).First() : null)
+            { SessoesComCustoIncompleto = incompletas };
     }
 
     /// <summary>
@@ -456,22 +528,31 @@ public sealed class EstoqueService
     /// do item quando não. Item sem preço nenhum NÃO some da lista — entra com custo
     /// zero, para a falta de cadastro ficar visível em vez de baratear a sessão.
     /// </summary>
-    private static (decimal Custo, IReadOnlyList<string> Itens) Precificar(
-        IEnumerable<MovimentoEstoque> saidas, IReadOnlyDictionary<int, decimal> medios)
+    private async Task<IReadOnlyDictionary<int, decimal?>> CustosHistoricosAsync(CancellationToken ct)
+        => (await _repo.MovimentosNoPeriodoAsync(DateOnly.MinValue, DateOnly.MaxValue, ct))
+            .GroupBy(m => m.ItemEstoqueId)
+            .SelectMany(g => RazaoEstoque.Calcular(g).CustosDosMovimentos)
+            .ToDictionary(x => x.Key, x => x.Value);
+
+    private static (decimal Custo, IReadOnlyList<string> Itens, bool Completo) Precificar(
+        IEnumerable<MovimentoEstoque> saidas, IReadOnlyDictionary<int, decimal?> medios)
     {
         decimal total = 0m;
         var itens = new List<string>();
+        var completo = true;
 
         foreach (var m in saidas)
         {
             var unitario = m.CustoUnitario
-                           ?? (medios.TryGetValue(m.ItemEstoqueId, out var medio) ? medio : 0m);
+                           ?? (medios.TryGetValue(m.Id, out var medio) ? medio : null);
 
-            total += unitario * m.Quantidade;
-            itens.Add($"{m.Item?.Nome ?? "item"} — {m.Quantidade:0.##} {m.Item?.Unidade ?? string.Empty}".Trim());
+            total += (unitario ?? 0m) * m.Quantidade;
+            if (unitario is null) completo = false;
+            itens.Add(($"{m.Item?.Nome ?? "item"} — {m.Quantidade:0.##} {m.Item?.Unidade ?? string.Empty}"
+                + (unitario is null ? " (custo não informado)" : string.Empty)).Trim());
         }
 
-        return (Math.Round(total, 2), itens);
+        return (Math.Round(total, 2), itens, completo);
     }
 
     private static string? Limpar(string? valor)

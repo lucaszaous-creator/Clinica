@@ -26,10 +26,11 @@ static class Program
     static int falhas;
     static bool completo;
     static bool somenteRetornos;
+    static bool somenteGestao;
     [STAThread]
     static int Main(string[] args)
     {
-        completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
+        somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
         int code = 0; app.Dispatcher.BeginInvoke(async () => { try { await Executar(); if (falhas > 0) throw new Exception($"{falhas} cortes encontrados. Consulte artifacts/layout-windows."); Console.WriteLine("TELAS CONFERIDAS"); } catch (Exception e) { Console.WriteLine(e); code = 1; } finally { PresentationTraceSources.DataBindingSource.Flush(); app.Shutdown(); } }); app.Run(); return code;
@@ -42,6 +43,7 @@ static class Program
         using var sp = services.BuildServiceProvider(); using var scope = sp.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>(); db.Database.EnsureCreated();
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
         var usuario = new UsuarioSistema { Nome = prof.Nome, Login = "qa", Perfil = PerfilAcesso.Gerente, ProfissionalId = prof.Id, Profissional = prof }; db.Add(usuario); await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
         if (somenteRetornos) { await ValidarRetornos(sp, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
         sp.GetRequiredService<PacienteEmFoco>().Definir(pac.Id, pac.Nome, 1, null, DateOnly.FromDateTime(DateTime.Today));
@@ -157,8 +159,94 @@ static class Program
             janela.Close();
         }
     }
+    static async Task ValidarGestao(ServiceProvider sp, Paciente paciente, UsuarioSistema usuario)
+    {
+        _ = new ShellViewModel("Gerente", [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(),
+            new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
+        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        LancamentoFinanceiro pendente;
+        ItemEstoque item;
+        using (var scope = sp.CreateScope())
+        {
+            var financeiro = scope.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.FinanceiroService>();
+            pendente = await financeiro.LancarAsync(hoje.AddDays(-10), TipoLancamento.Entrada,
+                "Sessão particular de acompanhamento — descrição comprida para conferência no balcão", 1250,
+                StatusLancamento.Previsto, pacienteId: paciente.Id, dataVencimento: hoje.AddDays(-2));
+            await financeiro.LancarAsync(hoje, TipoLancamento.Entrada, "Sessão recebida por Pix", 400,
+                formaPagamento: FormaPagamento.Pix, pacienteId: paciente.Id);
+            var estoque = scope.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.EstoqueService>();
+            item = await estoque.SalvarItemAsync(new ItemEstoque { Nome = "Agulha demonstrativa", Unidade = "un", EstoqueMinimo = 10 });
+            await estoque.EntrarAsync(item.Id, 2, custoUnitario: 3, data: hoje, validade: hoje.AddDays(10));
+            var painel = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.PainelDirecaoService>().MontarAsync(hoje);
+            if (painel.NaoVerificados.Count != 0 || painel.SaldoMes != 400
+                || !painel.Alertas.Any(a => a.Assunto == Clinica.Application.Servicos.AssuntoDirecao.EstoqueMinimo)
+                || !painel.Alertas.Any(a => a.Assunto == Clinica.Application.Servicos.AssuntoDirecao.EstoqueValidade))
+                throw new Exception("Gerente não consolidou corretamente caixa e estoque.");
+        }
+        var pagamentos = sp.GetRequiredService<Clinica.Recepcao.ViewModels.PagamentosViewModel>();
+        var view = new Clinica.Recepcao.Views.PagamentosView { DataContext = pagamentos };
+        var janela = new Window { Content = view, Width = 960, Height = 650 };
+        await ConferirJanela(janela, "pagamentos-busca", [620, 960]);
+        pagamentos.Seletor.SelecionarGarantindoNaLista(paciente);
+        await pagamentos.CarregarAsync();
+        if (pagamentos.Linhas.Count != 2 || pagamentos.NaoVerificado) throw new Exception("Consulta de pagamentos falhou.");
+        await ConferirJanela(janela, "pagamentos-lista", [620, 960, 1366]);
+        janela.Close();
+        var receber = new Clinica.Recepcao.ViewModels.ReceberPagamentoViewModel(escopos, pendente)
+            { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
+        var receberJanela = new Clinica.Recepcao.Janelas.ReceberPagamentoWindow(receber);
+        await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
+        var baixar = new Clinica.Financeiro.Janelas.BaixarLancamentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
+            { Forma = FormaPagamento.CartaoCredito });
+        await ConferirJanela(baixar, "financeiro-baixa", [420, 560]); baixar.Close();
+        var compra = new Clinica.Financeiro.Janelas.MovimentoEstoqueWindow(new Clinica.Financeiro.ViewModels.MovimentoEstoqueViewModel(escopos, item.Id, item.Nome)
+            { GerarContaCompra = true, CompraPaga = true, Fornecedor = "Fornecedor demonstrativo", Quantidade = "100", CustoUnitario = "2,50", Lote = "L-2026" });
+        await ConferirJanela(compra, "estoque-compra", [480, 560]); compra.Close();
+        var gerente = sp.GetRequiredService<Clinica.Gerente.ViewModels.PainelDirecaoViewModel>();
+        await gerente.CarregarCommand.ExecuteAsync(null);
+        var direcao = new Window { Content = new Clinica.Gerente.Views.PainelDirecaoView { DataContext = gerente }, Height = 700 };
+        await ConferirJanela(direcao, "gerente-gestao", [960, 1366]); direcao.Close();
+        foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Profissional })
+        {
+            usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+            if (pagamentos.PodeReceber != (perfil == PerfilAcesso.Recepcao)) throw new Exception("Permissão de pagamentos fora do perfil.");
+        }
+        Console.WriteLine("GESTÃO: saldos, alertas, permissões, pagamentos e compras conferidos.");
+    }
+
+    static async Task ConferirJanela(Window janela, string nome, int[] larguras)
+    {
+        janela.ShowInTaskbar = false; janela.ShowActivated = false; janela.WindowStartupLocation = WindowStartupLocation.Manual;
+        janela.Left = -30000; janela.Top = -30000; janela.Show();
+        foreach (var largura in larguras)
+        {
+            janela.Width = largura; janela.UpdateLayout(); await Task.Delay(120); janela.UpdateLayout();
+            foreach (var grade in Descendentes(janela).OfType<DataGrid>().Where(g => g.IsVisible))
+                if (Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault()?.ScrollableWidth > 0.1)
+                    throw new Exception($"Tabela ultrapassa a tela: {nome} {largura}");
+            foreach (var botao in Descendentes(janela).OfType<Button>().Where(b => b.IsVisible && b.Content is string))
+            {
+                var ponto = botao.TranslatePoint(new Point(), janela);
+                if (ponto.X < -1 || ponto.X + botao.ActualWidth > janela.ActualWidth + 1)
+                    throw new Exception($"Ação cortada: {nome} {largura} {botao.Content}");
+            }
+            Foto(janela, $"{nome}-{largura}");
+            Console.WriteLine($"GESTÃO {nome} {largura}: sem cortes horizontais");
+        }
+    }
+
     static IEnumerable<DependencyObject> Descendentes(DependencyObject o) { for (int i = 0; i < VisualTreeHelper.GetChildrenCount(o); i++) { var c = VisualTreeHelper.GetChild(o, i); yield return c; foreach (var d in Descendentes(c)) yield return d; } }
-    static void Foto(Window w, string nome) { var raiz = (FrameworkElement)w.Content; var bmp = new RenderTargetBitmap((int)raiz.ActualWidth, (int)raiz.ActualHeight, 96, 96, PixelFormats.Pbgra32); bmp.Render(raiz); var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bmp)); using var f = File.Create(Saida + "/" + nome + ".png"); png.Save(f); }
+    static void Foto(Window w, string nome)
+    {
+        var dpi = VisualTreeHelper.GetDpi(w);
+        var bmp = new RenderTargetBitmap((int)Math.Ceiling(w.ActualWidth * dpi.DpiScaleX),
+            (int)Math.Ceiling(w.ActualHeight * dpi.DpiScaleY), dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
+        bmp.Render(w);
+        var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bmp));
+        using var f = File.Create(Saida + "/" + nome + ".png"); png.Save(f);
+    }
+
 }
 sealed class DialogoTeste : IDialogoService
 {

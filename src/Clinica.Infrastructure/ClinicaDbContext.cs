@@ -1630,6 +1630,7 @@ public class ClinicaDbContext : DbContext
             // Conciliação bancária (parcela 63). O FITID é do banco e não tem tamanho
             // padronizado; 100 cobre com folga o que os bancos brasileiros emitem.
             e.Property(x => x.IdBancario).HasMaxLength(100);
+            e.Property(x => x.ContaBancariaConciliacao).HasMaxLength(200);
             e.Property(x => x.ConciliadoEm).HasColumnType("timestamp without time zone");
 
             // Índice, e não índice ÚNICO: uma transação do extrato pode legitimamente
@@ -1936,6 +1937,8 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<MovimentoEstoque>(e =>
         {
+            e.HasOne(x => x.LancamentoFinanceiro).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
             e.HasKey(x => x.Id);
             e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
             // Quantidade fracionada existe (ml, g), então não é inteiro.

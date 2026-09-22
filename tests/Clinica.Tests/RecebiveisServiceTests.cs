@@ -29,7 +29,7 @@ public class RecebiveisServiceTests : IDisposable
     private readonly FinanceiroService _financeiro;
     private readonly TaxaService _taxas;
 
-    private static readonly DateOnly Hoje = new(2026, 9, 20);
+    private static readonly DateOnly Hoje = new(2025, 9, 20);
 
     public RecebiveisServiceTests()
     {

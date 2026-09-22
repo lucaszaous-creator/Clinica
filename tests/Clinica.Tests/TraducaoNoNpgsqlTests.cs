@@ -36,6 +36,18 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Gestao_traduz_data_do_deposito_e_filtro_de_cobrancas_do_paciente()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var dia = new DateOnly(2026, 9, 21);
+        repo.ConsultaLancamentosParaConciliacao(dia, dia).ToQueryString().Should()
+            .Contain("COALESCE").And.Contain("PrevisaoRecebimento").And.Contain("RecebimentoConfirmadoEm");
+        repo.ConsultaCobrancasDoPaciente(42).ToQueryString().Should()
+            .Contain("PacienteId").And.Contain("CodigoFaturamentoId").And.Contain("ORDER BY");
+    }
+
+    [Fact]
     public void Conferencia_de_enfermagem_traduz_vinculo_e_retificacoes_no_postgres()
     {
         using var db = Postgres();

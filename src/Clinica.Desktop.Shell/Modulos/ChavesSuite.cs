@@ -15,6 +15,8 @@ namespace Clinica.Desktop.Shell.Modulos;
 /// </summary>
 public static class ChavesSuite
 {
+    public const string Estoque = "estoque";
+    public const string ExtratoBanco = "extrato-banco";
     /// <summary>Painel da direção — a abertura do Gerente Geral.</summary>
     public const string PainelDirecao = "painel-direcao";
 

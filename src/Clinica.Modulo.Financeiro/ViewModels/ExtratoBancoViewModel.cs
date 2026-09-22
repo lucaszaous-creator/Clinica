@@ -14,6 +14,9 @@ namespace Clinica.Financeiro.ViewModels;
 /// <summary>Uma linha do extrato na tela, com o que o sistema propõe para ela.</summary>
 public sealed partial class LinhaExtratoBanco : ObservableObject
 {
+    public required LinhaExtrato Transacao { get; init; }
+    public string? Conta { get; init; }
+    public bool DepositoAgrupado { get; init; }
     public required string IdBancario { get; init; }
     public required string Data { get; init; }
     public required string Valor { get; init; }
@@ -38,7 +41,7 @@ public sealed partial class LinhaExtratoBanco : ObservableObject
     public bool PodeConciliar => !JaConciliada && Candidatos.Count > 0;
 
     /// <summary>Mostra o seletor só quando há mais de uma opção — senão é ruído.</summary>
-    public bool Escolher => !JaConciliada && Candidatos.Count > 1;
+    public bool Escolher => !JaConciliada && !DepositoAgrupado && Candidatos.Count > 1;
 }
 
 /// <summary>
@@ -147,7 +150,8 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
             if (geracao != _geracaoCarga) return;
 
             // Monta em listas locais e só ENTÃO publica (a lição da parcela 62).
-            var linhas = r.Linhas.Select(Montar).ToList();
+            var conta = LeitorOfx.Ler(_conteudo).IdentificacaoConta;
+            var linhas = r.Linhas.Select(l => Montar(l, conta)).ToList();
 
             Linhas.Clear();
             foreach (var l in linhas) Linhas.Add(l);
@@ -182,19 +186,25 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
         }
     }
 
-    private static LinhaExtratoBanco Montar(LinhaConciliada l)
+    private static LinhaExtratoBanco Montar(LinhaConciliada l, string? conta)
     {
         var linha = new LinhaExtratoBanco
         {
+            Transacao = l.Extrato,
+            Conta = conta,
+            DepositoAgrupado = l.Situacao == SituacaoConciliacao.DepositoCartao,
             IdBancario = l.Extrato.Id,
             Data = l.Extrato.Data.ToString("dd/MM/yyyy"),
             Valor = l.Extrato.ValorAbsoluto.ToString("C2"),
             Descricao = l.Extrato.Descricao,
             Entrada = l.Extrato.Entrada,
             JaConciliada = l.Situacao == SituacaoConciliacao.JaConciliada,
-            Situacao = l.Situacao switch
+            Situacao = !l.Extrato.IdentidadeBancariaInformada
+                ? "OFX sem identificador bancário (FITID). Solicite um extrato completo ao banco."
+                : l.Situacao switch
             {
                 SituacaoConciliacao.Casada => "Casada — confirme",
+                SituacaoConciliacao.DepositoCartao => $"Depósito de {l.Candidatos[0].Adquirente}: {l.Candidatos.Count} vendas, bruto {l.Candidatos.Sum(c => c.Valor):C2}, taxas {l.Candidatos.Sum(c => c.ValorTaxa ?? 0):C2} — confirme o lote",
                 SituacaoConciliacao.Ambigua => $"{l.Candidatos.Count} candidatos — escolha qual",
                 SituacaoConciliacao.JaConciliada => "Já conferida",
                 _ => "Não há lançamento correspondente no sistema"
@@ -222,15 +232,19 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
 
             // Guarda com VOZ (a lição da parcela 41): na linha ambígua, sair calado faria
             // o botão parecer quebrado — a pessoa não adivinha que faltou escolher.
-            if (linha.Escolhido is not { } lancamento)
+            if (!linha.DepositoAgrupado && linha.Escolhido is null)
             {
                 Erro("Escolha primeiro com qual lançamento esta linha do extrato casa.");
                 return;
             }
 
             using var scope = _escopos.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>()
-                .ConciliarAsync(lancamento.Id, linha.IdBancario, SessaoUsuario.Atual.Operador);
+            var servico = scope.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>();
+            if (linha.DepositoAgrupado)
+                await servico.ConciliarDepositoAsync(linha.Candidatos.Select(l => l.Id).ToArray(),
+                    linha.Transacao, SessaoUsuario.Atual.Operador, linha.Conta);
+            else
+                await servico.ConciliarLinhaAsync(linha.Escolhido!.Id, linha.Transacao, SessaoUsuario.Atual.Operador, linha.Conta);
 
             _snackbar.Sucesso($"{linha.Valor} conferido contra o extrato.");
             await CruzarAsync();

@@ -68,7 +68,11 @@ public sealed record DecisaoFechamento(
     // dono e vencimento, em vez de entrada realizada). Sem isto a única saída de quem não
     // pagou na hora era não registrar nada, e a sessão sumia do dinheiro para sempre.
     bool FicaAReceber = false,
-    DateOnly? Vencimento = null);
+    DateOnly? Vencimento = null,
+    string? Adquirente = null,
+    string? Bandeira = null,
+    int Parcelas = 1,
+    DateOnly? DataPagamento = null);
 
 /// <summary>
 /// O que de fato aconteceu. Os <see cref="Avisos"/> são a parte que não pode ser
@@ -400,12 +404,18 @@ public sealed class FechamentoSessaoService
                     CatalogoModalidades.Nome(atendimento.ModalidadeCodigo, atendimento.Modalidade),
                     atendimento.Paciente?.Nome ?? "(paciente removido)");
 
-                var pedido = JsonSerializer.Serialize(new
+                var pedidoBase = new
                 {
                     Valor = decisao.Valor?.ToString("G29", CultureInfo.InvariantCulture),
                     Forma = decisao.FicaAReceber ? null : decisao.Forma, decisao.CategoriaId,
                     decisao.FicaAReceber, Vencimento = decisao.FicaAReceber ? decisao.Vencimento : null
-                });
+                };
+                // Mantém a chave dos fechamentos antigos quando nenhum dado novo foi informado.
+                var pedido = JsonSerializer.Serialize(pedidoBase);
+                if (!decisao.FicaAReceber && (decisao.Adquirente is not null || decisao.Bandeira is not null
+                    || decisao.Parcelas != 1 || decisao.DataPagamento is not null))
+                    pedido = JsonSerializer.Serialize(new { Base = pedidoBase, decisao.Adquirente,
+                        decisao.Bandeira, decisao.Parcelas, decisao.DataPagamento });
                 var lancamentoId = await _repo.ExecutarEtapaFechamentoAsync(atendimento.Id, "caixa", pedido, async () =>
                 {
                     if (decisao.FicaAReceber)
@@ -435,6 +445,13 @@ public sealed class FechamentoSessaoService
                     }
                     else
                     {
+                        if (decisao.Forma is null || decisao.Forma == FormaPagamento.Convenio)
+                            throw new InvalidOperationException("Informe como o paciente pagou a sessão.");
+                        var diaPagamento = decisao.DataPagamento ?? atendimento.Data;
+                        if (diaPagamento > DateOnly.FromDateTime(DateTime.Today))
+                            throw new InvalidOperationException("Pagamento futuro deve ficar a receber.");
+                        var deducoes = await new TaxaService(_repo).CalcularPagamentoPacienteAsync(valor, diaPagamento,
+                            decisao.Forma.Value, decisao.Adquirente, decisao.Bandeira, decisao.Parcelas, ct);
                         return (await _financeiro.LancarAsync(
                             atendimento.Data,
                             TipoLancamento.Entrada,
@@ -445,6 +462,12 @@ public sealed class FechamentoSessaoService
                             pacienteId: atendimento.PacienteId,
                             atendimentoId: atendimento.Id,
                             operador: operador,
+                            dataPagamento: diaPagamento,
+                            deducoes: deducoes,
+                            adquirente: decisao.Adquirente,
+                            bandeira: decisao.Bandeira,
+                            modalidadeCartao: TaxaService.ModalidadeDe(decisao.Forma, decisao.Parcelas),
+                            parcelas: TaxaService.ModalidadeDe(decisao.Forma) is null ? null : decisao.Parcelas,
                             ct: ct)).Id;
                     }
                 }, ct);

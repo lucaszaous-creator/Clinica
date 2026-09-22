@@ -147,12 +147,15 @@ public sealed class RecebiveisService
     /// depósito num atraso de três dias — o número ficaria errado justamente na métrica
     /// que a tela existe para medir.
     /// </summary>
-    public async Task<int> ConfirmarAsync(
+    public Task<int> ConfirmarAsync(
         IReadOnlyCollection<int> lancamentoIds,
         DateOnly dataReal,
         string? operador = null,
         CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
+        if (dataReal > DateOnly.FromDateTime(DateTime.Today))
+            throw new InvalidOperationException("Não é possível confirmar um depósito futuro.");
         if (lancamentoIds.Count == 0) return 0;
 
         var lancamentos = await _repo.LancamentosPorIdAsync(lancamentoIds, ct);
@@ -177,7 +180,7 @@ public sealed class RecebiveisService
         }, ct);
         await _repo.SalvarAsync(ct);
         return confirmados;
-    }
+    }, ct);
 
     /// <summary>
     /// Depósitos que já caíram, agrupados como caíram — por adquirente e dia do crédito.
@@ -215,14 +218,17 @@ public sealed class RecebiveisService
     /// Desfaz a confirmação de um depósito — para quando alguém marcou o dia errado.
     /// Não apaga o lançamento: só devolve o recebível à lista de espera.
     /// </summary>
-    public async Task<int> DesfazerConfirmacaoAsync(
+    public Task<int> DesfazerConfirmacaoAsync(
         IReadOnlyCollection<int> lancamentoIds,
         string? operador = null,
         CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (lancamentoIds.Count == 0) return 0;
 
         var lancamentos = await _repo.LancamentosPorIdAsync(lancamentoIds, ct);
+        if (lancamentos.Any(l => l.Conciliado))
+            throw new InvalidOperationException("Desfaça primeiro a conciliação no extrato bancário; o depósito conferido não pode voltar à espera isoladamente.");
         var desfeitos = 0;
 
         foreach (var l in lancamentos)
@@ -242,5 +248,5 @@ public sealed class RecebiveisService
         }, ct);
         await _repo.SalvarAsync(ct);
         return desfeitos;
-    }
+    }, ct);
 }

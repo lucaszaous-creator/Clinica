@@ -22,7 +22,7 @@
             <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
                     IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
             <Button Content="Registrar" Command="{Binding SalvarCommand}"
-                    IsDefault="True" MinWidth="140" />
+                    IsDefault="True" MinWidth="140" IsEnabled="{Binding PodeSalvar}" />
         </StackPanel>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
@@ -87,10 +87,6 @@
                             <DatePicker SelectedDate="{Binding Validade}" />
                         </StackPanel>
 
-                        <StackPanel Grid.Column="4">
-                            <TextBlock Text="Lote" Style="{StaticResource Rotulo}" />
-                            <TextBox Text="{Binding Lote}" MaxLength="60" />
-                        </StackPanel>
                     </Grid>
 
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
@@ -98,6 +94,23 @@
                                Text="A validade fica no lote, não no item: o mesmo insumo entra em lotes com vencimentos diferentes, e uma validade só por item apagaria o que vence primeiro." />
                 </StackPanel>
             </Border>
+
+            <TextBlock Text="Lote de origem (opcional)" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+            <TextBox Text="{Binding Lote}" MaxLength="60" />
+            <StackPanel Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}" Margin="0,12,0,0">
+                <CheckBox Content="Registrar também a compra no financeiro" IsChecked="{Binding GerarContaCompra}" />
+                <StackPanel Visibility="{Binding GerarContaCompra, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Fornecedor" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Fornecedor, UpdateSourceTrigger=PropertyChanged}" MaxLength="100" />
+                    <TextBlock Text="Vencimento da compra" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding VencimentoCompra}" />
+                    <CheckBox Content="Compra já paga" IsChecked="{Binding CompraPaga}" Margin="0,8,0,8" />
+                    <ComboBox ItemsSource="{Binding FormasCompra}" SelectedItem="{Binding FormaCompra}" ItemTemplate="{StaticResource ItemRotuloEnum}"
+                        Visibility="{Binding CompraPaga, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock Text="O valor será a quantidade × custo unitário. Estoque e conta serão gravados juntos."
+                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                </StackPanel>
+            </StackPanel>
 
             <TextBlock Text="Observação" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <TextBox Text="{Binding Observacao}" AcceptsReturn="True" Height="70"

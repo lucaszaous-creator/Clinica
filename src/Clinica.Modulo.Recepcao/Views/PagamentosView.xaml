@@ -1,0 +1,56 @@
+<UserControl x:Class="Clinica.Recepcao.Views.PagamentosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+    <UserControl.Resources><BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" /></UserControl.Resources>
+    <Grid Margin="24">
+        <comp:BuscaDePacienteView DataContext="{Binding Seletor}" Pergunta="Pagamentos na recepção"
+            Explicacao="Escolha o paciente para receber cobranças e emitir recibos."
+            Visibility="{Binding DataContext.SemPaciente, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}" />
+        <DockPanel Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <TextBlock Text="Pagamentos na recepção" Style="{StaticResource H1}" />
+                <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}" TextWrapping="Wrap" />
+                <WrapPanel Margin="0,8,0,8">
+                    <Button Content="Trocar paciente" Command="{Binding TrocarPacienteCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
+                    <Button Content="Atualizar" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" />
+                </WrapPanel>
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Margin="0,6,0,0" />
+            </StackPanel>
+            <Grid>
+            <ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding Linhas}" Carregando="{Binding Carregando}"
+                NaoVerificado="{Binding NaoVerificado}"
+                Titulo="Nenhuma cobrança registrada" Descricao="Registre a cobrança no fechamento da sessão ou na venda do pacote." />
+            <DataGrid ItemsSource="{Binding Linhas}" AutoGenerateColumns="False" RowHeight="NaN" MinRowHeight="40" IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Sessão / cobrança" Binding="{Binding Descricao}" Width="*" MinWidth="120">
+                        <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap" /><Setter Property="Margin" Value="8,4" /></Style></DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="Vencimento" Binding="{Binding Vencimento}" Width="96" />
+                    <DataGridTextColumn Header="Valor" Binding="{Binding Valor}" Width="90" />
+                    <DataGridTextColumn Header="Situação" Binding="{Binding Situacao}" Width="*" MinWidth="110">
+                        <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap" /><Setter Property="Margin" Value="8,4" /></Style></DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTemplateColumn Header="Ações" Width="100">
+                        <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Receber" Command="{Binding DataContext.ReceberCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}"
+                                    IsEnabled="{Binding DataContext.PodeReceber, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    Visibility="{Binding EmAberto, Converter={StaticResource BoolParaVisibilidade}}" />
+                                <Button Content="Recibo" Command="{Binding DataContext.ReciboCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}" Style="{StaticResource BotaoSecundario}"
+                                    IsEnabled="{Binding DataContext.PodeReceber, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    Visibility="{Binding Recebido, Converter={StaticResource BoolParaVisibilidade}}" />
+                            </StackPanel>
+                        </DataTemplate></DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+            </Grid>
+        </DockPanel>
+    </Grid>
+</UserControl>

@@ -72,6 +72,9 @@ public class ItemEstoque
 /// </summary>
 public class MovimentoEstoque
 {
+    /// <summary>Conta a pagar ou despesa criada junto da compra; doações e ajustes não geram conta.</summary>
+    public int? LancamentoFinanceiroId { get; set; }
+    public LancamentoFinanceiro? LancamentoFinanceiro { get; set; }
     /// <summary>
     /// No acerto de inventário: a contagem achou MAIS do que o sistema tinha. Null nos
     /// demais tipos, que já dizem a direção pelo próprio nome.

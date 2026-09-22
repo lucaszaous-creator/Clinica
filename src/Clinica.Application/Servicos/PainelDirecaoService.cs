@@ -19,6 +19,10 @@ public enum GravidadeDirecao
 /// </summary>
 public enum AssuntoDirecao
 {
+    EstoqueMinimo,
+    EstoqueValidade,
+    PagamentosPendentes,
+    BancoNaoConciliado,
     ContasVencidas,
     PacientesDevendo,
     DepositoAtrasado,
@@ -154,7 +158,10 @@ public sealed record PainelDirecao(
     IReadOnlyList<string> NaoVerificados)
 {
     /// <summary>O que entrou menos o que saiu no mês, realizado. BRUTO, como o resto do sistema.</summary>
-    public decimal SaldoMes => EntradasMes - SaidasMes;
+    public decimal TaxasMes { get; init; }
+    public decimal ImpostosMes { get; init; }
+    public decimal EntradasLiquidasMes => EntradasMes - TaxasMes - ImpostosMes;
+    public decimal SaldoMes => EntradasLiquidasMes - SaidasMes;
 
     /// <summary>
     /// Variação das entradas contra o mesmo trecho do mês anterior, em fração
@@ -165,7 +172,7 @@ public sealed record PainelDirecao(
         : null;
 
     /// <summary>Nada exige ação hoje.</summary>
-    public bool SemAlerta => Alertas.Count == 0;
+    public bool SemAlerta => Alertas.Count == 0 && !TemNaoVerificado;
 
     /// <summary>Houve bloco que não pôde ser lido — a tela precisa dizer QUAL.</summary>
     public bool TemNaoVerificado => NaoVerificados.Count > 0;
@@ -261,13 +268,15 @@ public sealed class PainelDirecaoService
         var inicioMes = new DateOnly(hoje.Year, hoje.Month, 1);
 
         // ---- Dinheiro do mês ----
-        decimal entradas = 0m, saidas = 0m;
+        decimal entradas = 0m, saidas = 0m, taxas = 0m, impostos = 0m;
         decimal? entradasAnterior = null;
         try
         {
             var resumo = await _financeiro.ResumoAsync(inicioMes, hoje, ct);
             entradas = resumo.EntradasRealizadas;
             saidas = resumo.SaidasRealizadas;
+            taxas = resumo.TaxasDescontadas;
+            impostos = resumo.ImpostosRetidos;
             entradasAnterior = await EntradasDoTrechoAnteriorAsync(hoje, ct);
         }
         catch (Exception ex)
@@ -625,6 +634,49 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Glosas");
         }
 
+        try
+        {
+            var estoque = new EstoqueService(_repo);
+            var repor = await estoque.AbaixoDoMinimoAsync(ct);
+            var validades = await estoque.ValidadesAsync(hoje, ct: ct);
+            if (repor.Count > 0)
+                alertas.Add(new AlertaDirecao(AssuntoDirecao.EstoqueMinimo,
+                    $"{repor.Count} insumo(s) no mínimo ou abaixo",
+                    string.Join(" · ", repor.Take(5).Select(i => $"{i.Nome}: {i.SaldoRotulo}")), GravidadeDirecao.Aviso));
+            if (validades.Count > 0)
+                alertas.Add(new AlertaDirecao(AssuntoDirecao.EstoqueValidade,
+                    $"{validades.Count} lote(s) com saldo vencendo ou vencido",
+                    $"{validades.Count(v => v.Vencido(hoje))} vencido(s). Confira os lotes e registre as perdas ou reposições.",
+                    validades.Any(v => v.Vencido(hoje)) ? GravidadeDirecao.Perigo : GravidadeDirecao.Aviso));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — estoque não pôde ser lido", ex);
+            naoVerificados.Add("Estoque");
+        }
+
+        try
+        {
+            var sessoes = await _financeiro.SessoesParticularesSemReceitaAsync(inicioMes, hoje, ct);
+            if (sessoes.Count > 0)
+                alertas.Add(new AlertaDirecao(AssuntoDirecao.PagamentosPendentes,
+                    $"{sessoes.Count} sessão(ões) particular(es) sem cobrança",
+                    "Atendidas neste mês, sem pagamento nem conta a receber registrados. Confira a conciliação do particular.",
+                    GravidadeDirecao.Perigo));
+            var banco = await _repo.LancamentosParaConciliacaoAsync(inicioMes, hoje, ct);
+            var pendentes = banco.Where(l => !l.Conciliado).ToList();
+            if (pendentes.Count > 0)
+                alertas.Add(new AlertaDirecao(AssuntoDirecao.BancoNaoConciliado,
+                    $"{pendentes.Count} lançamento(s) do mês sem conferência bancária",
+                    "Importe o OFX e confira os pagamentos e depósitos. Recebido e conciliado são etapas diferentes.",
+                    GravidadeDirecao.Aviso));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — conciliação operacional não pôde ser lida", ex);
+            naoVerificados.Add("Conciliação operacional");
+        }
+
         return new PainelDirecao(
             hoje,
             entradas, saidas, entradasAnterior,
@@ -642,7 +694,7 @@ public sealed class PainelDirecaoService
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única
             // forma de dizer o que vem antes sem escrever "prioridade 1" em cada linha.
             alertas.OrderByDescending(a => a.Gravidade).ThenBy(a => a.Assunto).ToList(),
-            naoVerificados);
+            naoVerificados) { TaxasMes = taxas, ImpostosMes = impostos };
     }
 
     /// <summary>

@@ -57,6 +57,13 @@ public sealed class FechamentoCaixaService
 
     public FechamentoCaixaService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>Impede reescrever a gaveta já conferida sem reabertura auditada.</summary>
+    public async Task ExigirDiaAbertoAsync(DateOnly dia, FormaPagamento? forma, CancellationToken ct = default)
+    {
+        if (forma == FormaPagamento.Dinheiro && await _repo.FechamentoCaixaDoDiaAsync(dia, ct) is { Reaberto: false })
+            throw new InvalidOperationException($"O caixa de {dia:dd/MM/yyyy} já foi conferido. Reabra o dia antes de alterar pagamentos em dinheiro.");
+    }
+
     /// <summary>
     /// O que o sistema apurou no dia, sem gravar nada. Traz junto o fechamento que já
     /// existe, quando existe — a tela precisa distinguir "ainda não conferido" de
@@ -88,13 +95,14 @@ public sealed class FechamentoCaixaService
     /// está inteiro na obrigação de explicar o que não bateu; sem ela, o registro vira um
     /// carimbo que diz apenas que alguém clicou.
     /// </summary>
-    public async Task<FechamentoCaixa> ConferirAsync(
+    public Task<FechamentoCaixa> ConferirAsync(
         DateOnly dia,
         decimal valorContado,
         string? justificativa = null,
         string? observacoes = null,
         string? operador = null,
         CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (valorContado < 0m)
             throw new ArgumentException(
@@ -139,7 +147,7 @@ public sealed class FechamentoCaixaService
         await _repo.SalvarAsync(ct);
 
         return fechamento;
-    }
+    }, ct);
 
     /// <summary>
     /// Reabre o dia para recontagem. O fechamento anterior NÃO é apagado: fica marcado

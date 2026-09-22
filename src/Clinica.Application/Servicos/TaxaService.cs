@@ -120,6 +120,27 @@ public sealed class TaxaService
 
     // ==================== Cálculo ====================
 
+    /// <summary>Pagamento informado no balcão: não presume a maquininha, a bandeira ou o prazo.</summary>
+    public async Task<DeducoesRecebimento> CalcularPagamentoPacienteAsync(decimal valor, DateOnly data,
+        FormaPagamento forma, string? adquirente, string? bandeira, int parcelas = 1,
+        CancellationToken ct = default)
+    {
+        if (!Enum.IsDefined(forma) || forma == FormaPagamento.Convenio)
+            throw new InvalidOperationException("Informe como o paciente pagou a sessão.");
+        if (parcelas is < 1 or > 36 || (forma != FormaPagamento.CartaoCredito && parcelas != 1))
+            throw new InvalidOperationException("Informe de 1 a 36 parcelas; parcelamento só se aplica ao cartão de crédito.");
+        if (data > DateOnly.FromDateTime(DateTime.Today))
+            throw new InvalidOperationException("Pagamento futuro deve ficar a receber.");
+        if (ModalidadeDe(forma) is not null && (string.IsNullOrWhiteSpace(adquirente) || string.IsNullOrWhiteSpace(bandeira)))
+            throw new InvalidOperationException("Informe a maquininha e a bandeira usadas no pagamento.");
+        if (adquirente?.Trim().Length > 60 || bandeira?.Trim().Length > 40)
+            throw new InvalidOperationException("Use até 60 caracteres na adquirente e 40 na bandeira.");
+        var deducoes = await CalcularAsync(valor, data, forma, Limpar(adquirente), Limpar(bandeira), parcelas, ct: ct);
+        if (ModalidadeDe(forma) is not null && deducoes.PrevisaoRecebimento is null)
+            throw new InvalidOperationException("Cadastre no Financeiro a taxa e o prazo desta maquininha antes de receber no cartão.");
+        return deducoes;
+    }
+
     /// <summary>
     /// Acha a taxa que vale para esta venda. A mais ESPECÍFICA ganha: uma regra da
     /// bandeira vence a regra genérica do adquirente — senão a clínica cadastraria a

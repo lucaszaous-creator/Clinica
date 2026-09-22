@@ -80,7 +80,7 @@
                         <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE825;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="SALDO REALIZADO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="RESULTADO LÍQUIDO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
                     <TextBlock Text="{Binding Saldo}" Style="{StaticResource CardKpi.Valor}"
@@ -93,7 +93,7 @@
                         <ctrl:BotaoMenuKpi DockPanel.Dock="Right" />
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE823;" Style="{StaticResource CardKpi.Icone}" />
-                            <TextBlock Text="SALDO COM PREVISTO" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
+                            <TextBlock Text="PROJEÇÃO BRUTA" Style="{StaticResource CardKpi.Rotulo}" VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
                     <TextBlock Text="{Binding Previsto}" Style="{StaticResource CardKpi.Valor}"
@@ -115,7 +115,7 @@
                     <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                FontSize="{StaticResource Fonte.Legenda}"
-                               Text="E este numero que bate com o extrato da adquirente. O bruto acima e o que o paciente pagou." />
+                               Text="Valor após taxas e tributos registrados. No extrato da maquininha, confira o bruto menos a taxa; tributos provisionados são recolhidos separadamente." />
                 </StackPanel>
                 <StackPanel Grid.Column="1">
                     <TextBlock Text="TAXAS E IMPOSTOS" Style="{StaticResource CardKpi.Rotulo}" />

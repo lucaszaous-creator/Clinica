@@ -157,6 +157,7 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
     [ObservableProperty] private string _entradasMes = "—";
     [ObservableProperty] private string _saidasMes = "—";
     [ObservableProperty] private string _saldoMes = "—";
+    [ObservableProperty] private string _deducoesMes = string.Empty;
     [ObservableProperty] private bool _saldoNegativo;
 
     /// <summary>"▲ 33% vs. o mesmo trecho de jul" — vazio sem base de comparação.</summary>
@@ -215,6 +216,12 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
             SaidasMes = Moeda(p.SaidasMes);
             SaldoMes = Moeda(p.SaldoMes);
             SaldoNegativo = p.SaldoMes < 0m;
+            DeducoesMes = $"Taxas: {Moeda(p.TaxasMes)} · impostos retidos: {Moeda(p.ImpostosMes)}";
+            if (p.NaoVerificados.Contains("Dinheiro do mês"))
+            {
+                EntradasMes = SaidasMes = SaldoMes = "—";
+                DeducoesMes = "Valores não verificados.";
+            }
 
             // Sem base de comparação, nada de seta — "—" continua sendo estado legítimo.
             if (p.VariacaoEntradas is { } variacao)
@@ -299,6 +306,9 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
     /// </summary>
     private static (string Chave, string Rotulo) Destino(AssuntoDirecao assunto) => assunto switch
     {
+        AssuntoDirecao.EstoqueMinimo or AssuntoDirecao.EstoqueValidade => (ChavesSuite.Estoque, "Conferir estoque"),
+        AssuntoDirecao.PagamentosPendentes => (ChavesSuite.Conciliacao, "Conferir cobranças"),
+        AssuntoDirecao.BancoNaoConciliado => (ChavesSuite.ExtratoBanco, "Conferir extrato"),
         AssuntoDirecao.ContasVencidas => (ChavesSuite.Contas, "Ver contas"),
         AssuntoDirecao.PacientesDevendo => (ChavesSuite.Inadimplencia, "Ver quem deve"),
         AssuntoDirecao.DepositoAtrasado => (ChavesSuite.Recebiveis, "Ver recebíveis"),

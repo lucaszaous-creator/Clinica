@@ -17,6 +17,7 @@ namespace Clinica.Recepcao.Modulo;
 /// </summary>
 public sealed class ModuloRecepcao : IModuloApp
 {
+    public const string ChavePagamentos = "pagamentos-recepcao";
     public const string ChavePainel = ChavesSuite.PainelRecepcao;
     public const string ChaveAgenda = ChavesSuite.AgendaRecepcao;
     public const string ChaveFila = "fila";
@@ -130,6 +131,11 @@ public sealed class ModuloRecepcao : IModuloApp
     // na sidebar. Perfis de Recep\u00E7\u00E3o e Profissional j\u00E1 nascem com as daqui.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        new ItemMenuModulo
+        {
+            Chave = ChavePagamentos, Rotulo = "Pagamentos", Glifo = "\uE8C7", Icone = "recibo",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
+        },
         // O painel do balcão abre o `Clinica.Recepcao.exe`, e é ABA de "Painel" no Gerente
         // Geral — onde a marca de abertura é a do painel da DIREÇÃO, como a parcela 22
         // estabeleceu. Aqui ele é o primeiro item porque, sem a Direção carregada, o item
@@ -424,6 +430,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddSingleton<PedidoAgenda>();
 
         servicos.AddTransient<PainelViewModel>();
+        servicos.AddTransient<PagamentosViewModel>();
         servicos.AddTransient<AgendaViewModel>();
         servicos.AddTransient<DocumentosViewModel>();
         servicos.AddTransient<FilaViewModel>();
@@ -459,6 +466,10 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
+        ChavePagamentos => new PagamentosView
+        {
+            DataContext = servicos.GetRequiredService<PagamentosViewModel>()
+        },
         ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },

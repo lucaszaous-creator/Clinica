@@ -1,4 +1,12 @@
-# Clínica — Sistema de Faturamento
+# Clínica — suíte de gestão em cinco módulos
+
+Recepção, Clínico, Faturamento, Financeiro e Gerente compartilham os serviços e o
+banco da clínica. O **Gerente** centraliza a visão da operação. O fluxo consolidado
+de pagamentos, conciliação, compras e estoque está em
+[Gestão consolidada](docs/gestao-consolidada.md), com responsabilidades e critérios
+dos indicadores.
+
+## Faturamento
 
 Sistema de **faturamento** (não recebíveis) para clínica médica. Modela os fluxogramas
 operacionais dos convênios e — o mais importante — **impede que o 2º código/guia seja

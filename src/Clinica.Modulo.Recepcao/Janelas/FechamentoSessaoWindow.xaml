@@ -166,7 +166,20 @@
                             </StackPanel>
                         </Grid>
 
-                        <StackPanel Margin="24,10,0,0" IsEnabled="{Binding GerarLancamento}">
+                          <StackPanel Margin="24,10,0,0" IsEnabled="{Binding GerarLancamento}"
+                                      Visibility="{Binding PagoAgora, Converter={StaticResource BoolParaVisibilidade}}">
+                              <TextBlock Text="Data do pagamento" Style="{StaticResource Rotulo}" />
+                              <DatePicker SelectedDate="{Binding DataPagamento}" />
+                              <StackPanel Visibility="{Binding EhCartao, Converter={StaticResource BoolParaVisibilidade}}">
+                                  <TextBlock Text="Maquininha / adquirente" Style="{StaticResource Rotulo}" />
+                                  <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
+                                  <TextBlock Text="Bandeira" Style="{StaticResource Rotulo}" />
+                                  <TextBox Text="{Binding Bandeira, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
+                                  <TextBlock Text="Parcelas no crédito" Style="{StaticResource Rotulo}" />
+                                  <TextBox Text="{Binding Parcelas, UpdateSourceTrigger=PropertyChanged}" MaxLength="2" />
+                              </StackPanel>
+                          </StackPanel>
+                          <StackPanel Margin="24,10,0,0" IsEnabled="{Binding GerarLancamento}">
                             <TextBlock Text="Categoria" Style="{StaticResource Rotulo}" />
                             <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}"
                                       DisplayMemberPath="Nome" />

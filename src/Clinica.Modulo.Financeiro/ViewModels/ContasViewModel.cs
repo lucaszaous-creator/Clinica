@@ -281,15 +281,12 @@ public sealed partial class ContasViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "dar baixa em conta");
 
-            if (!_dialogo.Confirmar("Dar baixa",
-                    $"Confirmar que \"{linha.Descricao}\" ({linha.Valor}) "
-                    + (linha.EhSaida ? "foi paga" : "foi recebida") + " hoje?")) return;
-
-            using var scope = _escopos.CreateScope();
-            var financeiro = scope.ServiceProvider.GetRequiredService<FinanceiroService>();
-            await financeiro.RealizarAsync(
-                linha.LancamentoId, DateOnly.FromDateTime(DateTime.Today),
-                operador: SessaoUsuario.Atual.Operador);
+            LancamentoFinanceiro lancamento;
+            using (var scope = _escopos.CreateScope())
+                lancamento = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .ObterLancamentoAsync(linha.LancamentoId) ?? throw new InvalidOperationException("Conta não encontrada.");
+            var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
+            if (new Janelas.BaixarLancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
 
             _snackbar.Sucesso(linha.EhSaida ? "Conta paga." : "Conta recebida.");
             await CarregarAsync();

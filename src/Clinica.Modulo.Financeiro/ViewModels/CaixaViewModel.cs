@@ -239,7 +239,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
             Entradas = $"{resumo.EntradasRealizadas:C}";
             Saidas = $"{resumo.SaidasRealizadas:C}";
-            Saldo = $"{resumo.SaldoRealizado:C}";
+            Saldo = $"{resumo.SaldoLiquido:C}";
             Previsto = $"{resumo.SaldoPrevisto:C}";
             Liquido = $"{resumo.EntradasLiquidas:C}";
             Deducoes = $"{resumo.TotalDeducoes:C}";
@@ -348,9 +348,12 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         try
         {
+            LancamentoFinanceiro lancamento;
             using (var escopo = _escopos.CreateScope())
-                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
-                    .RealizarAsync(linha.Id, operador: SessaoUsuario.Atual.Operador);
+                lancamento = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .ObterLancamentoAsync(linha.Id) ?? throw new InvalidOperationException("Lançamento não encontrado.");
+            var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
+            if (new Janelas.BaixarLancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
             _snackbar.Sucesso("Lançamento realizado.");
             await CarregarAsync();
         }
