@@ -71,7 +71,8 @@
             <TextBlock Text="Atendimentos e especialidades habilitados" Style="{StaticResource Rotulo}" />
             <TextBlock Text="O gerente escolhe o que a recepção pode marcar para este profissional. Consultas são separadas por especialidade."
                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,3,0,6" />
-            <ListBox ItemsSource="{Binding Atendimentos}" MaxHeight="210" ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox ItemsSource="{Binding Atendimentos}" MaxHeight="210" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ctrl:Ajudantes.RodaDaPagina="True">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <CheckBox Content="{Binding Rotulo}" IsChecked="{Binding Habilitado, Mode=TwoWay}"
