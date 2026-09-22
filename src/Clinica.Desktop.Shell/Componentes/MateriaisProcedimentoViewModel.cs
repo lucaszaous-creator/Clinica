@@ -25,12 +25,27 @@ public sealed partial class MateriaisProcedimentoViewModel : ObservableObject
     [ObservableProperty] private string? _busca;
     [ObservableProperty] private bool _semConsumo;
     [ObservableProperty] private string? _erro;
+    private readonly Func<PedidoConsumoProcedimento, Task<ConferenciaConsumoProcedimento>>? _salvar;
+    public string Contexto { get; init; } = string.Empty;
+    [ObservableProperty] private bool _podeEditar = true;
+    [ObservableProperty, NotifyCanExecuteChangedFor(nameof(ConfirmarCommand))] private bool _podeConfirmar = true;
+    [ObservableProperty] private string _situacao = "Não informado. O atendimento e as guias já estão concluídos.";
+    [ObservableProperty] private string _rotuloConfirmar = "Registrar materiais";
     public PedidoConsumoProcedimento? Pedido { get; private set; }
     public event Action? Confirmado;
 
-    public MateriaisProcedimentoViewModel(IEnumerable<MaterialProcedimentoLinha> itens)
+    public MateriaisProcedimentoViewModel(IEnumerable<MaterialProcedimentoLinha> itens,
+        Func<PedidoConsumoProcedimento, Task<ConferenciaConsumoProcedimento>>? salvar = null,
+        ConferenciaConsumoProcedimento? registro = null)
     {
+        _salvar = salvar;
         _todos = itens.ToList();
+        if (registro is not null)
+        {
+            SemConsumo = registro.SemConsumo;
+            Pedido = new(EstoqueService.MateriaisRegistrados(registro), registro.SemConsumo);
+            MostrarRegistro(registro);
+        }
         Filtrar();
     }
     partial void OnBuscaChanged(string? value) => Filtrar();
@@ -48,8 +63,17 @@ public sealed partial class MateriaisProcedimentoViewModel : ObservableObject
         _todos.Add(new MaterialProcedimentoLinha { ItemId = item.ItemId, Nome = item.Nome, Saldo = item.Saldo });
         Filtrar();
     }
-    [RelayCommand]
-    private void Confirmar()
+    private void MostrarRegistro(ConferenciaConsumoProcedimento r)
+    {
+        PodeEditar = false;
+        PodeConfirmar = r.BaixadoEm is null;
+        RotuloConfirmar = "Tentar baixa novamente";
+        Situacao = r.MotivoPendencia is { } motivo ? "Consumo registrado; baixa pendente. " + motivo
+            : r.SemConsumo ? "Sem consumo declarado." : "Materiais registrados e baixados do estoque.";
+    }
+
+    [RelayCommand(CanExecute = nameof(PodeConfirmar))]
+    private async Task ConfirmarAsync()
     {
         Erro = null;
         try
@@ -63,8 +87,9 @@ public sealed partial class MateriaisProcedimentoViewModel : ObservableObject
             }
             if (materiais.Count == 0 && !SemConsumo || materiais.Count > 0 && SemConsumo)
                 throw new InvalidOperationException("Informe os materiais usados ou marque que não houve consumo.");
-            Pedido = new(materiais, SemConsumo);
-            Confirmado?.Invoke();
+            if (PodeEditar) Pedido = new(materiais, SemConsumo);
+            if (_salvar is null) Confirmado?.Invoke();
+            else MostrarRegistro(await _salvar(Pedido!));
         }
         catch (Exception ex) { Erro = ex.Message; }
     }
@@ -72,8 +97,8 @@ public sealed partial class MateriaisProcedimentoViewModel : ObservableObject
 
 public static class ConferenciaMateriaisProcedimento
 {
-    /// <summary>A pergunta só prepara dados. Quem conclui grava sessão e estoque atomicamente.</summary>
-    public static async Task<(bool Prosseguir, PedidoConsumoProcedimento? Pedido)> PerguntarAsync(
+    /// <summary>Registro opcional posterior, aberto apenas por ação explícita.</summary>
+    public static async Task AbrirAsync(
         IServiceScopeFactory escopos, int agendamentoId)
     {
         using var escopo = escopos.CreateScope();
@@ -81,8 +106,8 @@ public static class ConferenciaMateriaisProcedimento
         var horario = await repo.ObterAgendamentoAsync(agendamentoId)
             ?? throw new InvalidOperationException("Horário não encontrado.");
         var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
-        if (horario.AtendimentoId is { } id && await estoque.ConferenciaDoProcedimentoAsync(id) is not null)
-            return (true, null);
+        await new PoliticaMateriaisService(repo).ExigirRegistroAsync(agendamentoId, SessaoUsuario.Atual.UsuarioId);
+        var registro = await estoque.ConferenciaDoProcedimentoAsync(horario.AtendimentoId!.Value);
         var saldos = await estoque.SaldosAsync(somenteAtivos: true);
         var linhas = saldos.Where(s => s.Uso != UsoEstoque.Rotina).OrderBy(s => s.Nome)
             .Select(s => new MaterialProcedimentoLinha { ItemId = s.ItemId,
@@ -91,9 +116,12 @@ public static class ConferenciaMateriaisProcedimento
         // Baixas antigas são apresentadas para conferência; o serviço impede repeti-las.
         if (horario.AtendimentoId is { } atendimentoId)
         {
-            var anteriores = (await repo.MovimentosDoAtendimentoAsync(atendimentoId))
-                .Where(m => m.Tipo == TipoMovimentoEstoque.Saida)
-                .GroupBy(m => (m.ItemEstoqueId, m.Lote));
+            var registrados = registro is not null ? EstoqueService.MateriaisRegistrados(registro) : [];
+            if (registrados.Count == 0 && registro?.SemConsumo != true)
+                registrados = (await repo.MovimentosDoAtendimentoAsync(atendimentoId))
+                    .Where(m => m.Tipo == TipoMovimentoEstoque.Saida)
+                    .Select(m => new MaterialConsumidoProcedimento(m.ItemEstoqueId, m.Quantidade, m.Lote)).ToArray();
+            var anteriores = registrados.GroupBy(m => (ItemEstoqueId: m.ItemId, m.Lote));
             foreach (var grupo in anteriores)
             {
                 var linha = linhas.FirstOrDefault(l => l.ItemId == grupo.Key.ItemEstoqueId && l.Quantidade is null);
@@ -107,8 +135,13 @@ public static class ConferenciaMateriaisProcedimento
                 linha.Lote = grupo.Key.Lote;
             }
         }
-        var vm = new MateriaisProcedimentoViewModel(linhas);
+        var vm = new MateriaisProcedimentoViewModel(linhas, async pedido =>
+        {
+            using var gravacao = escopos.CreateScope();
+            return await gravacao.ServiceProvider.GetRequiredService<EstoqueService>()
+                .RegistrarMateriaisAsync(agendamentoId, SessaoUsuario.Atual.UsuarioId, pedido);
+        }, registro) { Contexto = $"{horario.Paciente?.Nome} · {horario.DataHora:dd/MM/yyyy HH:mm}" };
         var janela = new MateriaisProcedimentoWindow(vm) { Owner = JanelaDona.Atual() };
-        return janela.ShowDialog() == true ? (true, vm.Pedido) : (false, null);
+        janela.ShowDialog();
     }
 }

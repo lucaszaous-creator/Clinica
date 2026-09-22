@@ -36,6 +36,13 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Fact]
+    public void Conferencias_em_lote_traduz_ids_no_Postgres()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaConferenciasDosAtendimentos([1, 2]).ToQueryString().Should().Contain("AtendimentoId");
+    }
+
+    [Fact]
     public void Historico_de_obrigacao_traduz_grupo_e_ordem()
     {
         using var db = Postgres();

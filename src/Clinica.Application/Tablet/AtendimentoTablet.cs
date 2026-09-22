@@ -38,7 +38,10 @@ public sealed record SalvarAtendimentoTablet(Guid Idempotencia, EvolucaoClinicaT
     Clinica.Application.Servicos.PedidoConsumoProcedimento? Consumo = null);
 public sealed record MaterialProcedimentoTablet(int ItemId, string Nome, string? CodigoInterno,
     string Unidade, decimal Saldo, bool ExigirLote, decimal? QuantidadeUtilizada = null, string? Lote = null);
-public sealed record MateriaisProcedimentoTablet(bool Conferido, bool SemConsumo, IReadOnlyList<MaterialProcedimentoTablet> Itens);
+public sealed record MateriaisProcedimentoTablet(bool Conferido, bool SemConsumo, IReadOnlyList<MaterialProcedimentoTablet> Itens,
+    bool Registrado = false, string? Pendencia = null);
+public sealed record RegistrarMateriaisTablet(Guid Idempotencia, Clinica.Application.Servicos.PedidoConsumoProcedimento Consumo);
+public sealed record ResultadoMateriaisTablet(bool Baixado, string Mensagem);
 public sealed record EmitirDocumentoTablet(Guid Idempotencia, string Tipo, string Texto,
     string? Observacoes = null, int? DiasAfastamento = null, string? Diluente = "SF 0,9%",
     string? Volume = null, string? TempoInfusao = "1h", bool AssinaturaEnfermagem = true,

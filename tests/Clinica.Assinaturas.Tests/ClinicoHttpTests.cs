@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Clinica.Domain;
+using Clinica.Application.Servicos;
+using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
@@ -70,7 +72,7 @@ public sealed class ClinicoHttpTests
             }
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/clinico/atendimentos/{restrito}")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/clinico/atendimentos/{restrito}/materiais")).StatusCode);
-            Assert.Equal(HttpStatusCode.OK,(await client.GetAsync($"/api/clinico/atendimentos/{id}/materiais")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/clinico/atendimentos/{id}/materiais")).StatusCode);
             Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/pacientes/{pacienteRestrito}")).StatusCode);
             var p=await Get($"/api/clinico/atendimentos/{id}");Assert.Equal(12,p["silhueta"]!["formas"]!.AsArray().Count);
             Assert.True((bool)p["exigeConferenciaEnfermagem"]!);
@@ -95,15 +97,32 @@ public sealed class ClinicoHttpTests
             Assert.Contains("no-store",pdf.Headers.CacheControl!.ToString());
             var semConferencia=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true};
             Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",semConferencia)).StatusCode);
-            var semMateriais=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false};
-            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",semMateriais)).StatusCode);
-            var encerrar=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false,consumo=new {materiais=Array.Empty<object>(),semConsumo=true}};
+            var encerrar=new {idempotencia=Guid.NewGuid(),evolucao=atualizado["evolucao"],finalizar=true,houveEnfermagem=false};
             var encerrado=await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",encerrar);Assert.Equal(HttpStatusCode.OK,encerrado.StatusCode);
             var fim=JsonNode.Parse(await encerrado.Content.ReadAsStringAsync())!;Assert.True((bool)fim["finalizado"]!);Assert.True((int)fim["guias"]!>0);
             Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",encerrar)).StatusCode);
             using(var scope=factory.Services.CreateScope())
             {
+                var repo=scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+                var ag=(await repo.ObterAgendamentoAsync(id))!;
+                Assert.Null(await repo.ConferenciaConsumoAsync(ag.AtendimentoId!.Value));
+                await repo.SalvarConfiguracaoAsync(PoliticaMateriaisService.Chave,
+                    System.Text.Json.JsonSerializer.Serialize(new PoliticaMateriais(ModoMateriais.Equipe,ag.DataHora.AddMinutes(-1))));
+                await repo.SalvarAsync();
+            }
+            Assert.Equal(HttpStatusCode.OK,(await client.GetAsync($"/api/clinico/atendimentos/{id}/materiais")).StatusCode);
+            var materiais=new {idempotencia=Guid.NewGuid(),consumo=new {materiais=Array.Empty<object>(),semConsumo=true}};
+            client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
+            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/materiais",materiais)).StatusCode);
+            client.DefaultRequestHeaders.Add("X-CSRF-TOKEN",(string?)(await Get("/api/sessao"))["csrf"]);
+            var materialSalvo=await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/materiais",materiais);
+            Assert.Equal(HttpStatusCode.OK,materialSalvo.StatusCode);
+            Assert.Equal(await materialSalvo.Content.ReadAsStringAsync(),await (await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/materiais",materiais)).Content.ReadAsStringAsync());
+            Assert.Equal(HttpStatusCode.NotFound,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{restrito}/materiais",materiais)).StatusCode);
+            using(var scope=factory.Services.CreateScope())
+            {
                 var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+                Assert.Single(await db.Set<ConferenciaConsumoProcedimento>().ToListAsync());
                 var ag=await db.Agendamentos.SingleAsync(a=>a.Id==id);Assert.NotNull(ag.FimAtendimentoEm);
                 Assert.Equal(ag.AtendimentoId,(await db.Evolucoes.SingleAsync(e=>e.AgendamentoId==id)).AtendimentoId);
                 Assert.Single(await db.Atendimentos.Where(a=>a.PacienteId==paciente).ToListAsync());

@@ -184,6 +184,30 @@ static class Program
                 || !painel.Alertas.Any(a => a.Assunto == Clinica.Application.Servicos.AssuntoDirecao.EstoqueValidade))
                 throw new Exception("Gerente não consolidou corretamente caixa e estoque.");
         }
+        var estoqueVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.EstoqueViewModel>();
+        await estoqueVm.CarregarCommand.ExecuteAsync(null);
+        if (estoqueVm.ModoMateriaisSelecionado != ModoMateriais.Desativado) throw new Exception("Materiais começaram ativados.");
+        var estoqueView = new Clinica.Financeiro.Views.EstoqueView { DataContext = estoqueVm };
+        var estoqueJanela = new Window { Content = estoqueView, Height = 750 };
+        await ConferirJanela(estoqueJanela, "estoque-itens", [960, 1366]);
+        Descendentes(estoqueView).OfType<TabControl>().Single().SelectedItem = Descendentes(estoqueView).OfType<TabItem>()
+            .Single(t => Equals(t.Header, "Materiais dos atendimentos"));
+        await ConferirJanela(estoqueJanela, "materiais-desativados", [960, 1366]);
+        estoqueVm.ModoMateriaisSelecionado = ModoMateriais.Gestao;
+        await estoqueVm.SalvarModoMateriaisCommand.ExecuteAsync(null);
+        using (var scope = sp.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            var fim = PoliticaMateriaisService.Agora.AddSeconds(1);
+            var atendimento = new Atendimento { PacienteId = paciente.Id, Data = hoje };
+            var horario = new Agendamento { PacienteId = paciente.Id, DataHora = fim.AddMinutes(-30),
+                Atendimento = atendimento, Status = StatusAgendamento.Realizado, FimAtendimentoEm = fim };
+            db.Add(horario); await db.SaveChangesAsync();
+            await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
+        }
+        await estoqueVm.CarregarMateriaisCommand.ExecuteAsync(null);
+        if (estoqueVm.AtendimentosMateriais.Single().Situacao != "Baixa pendente") throw new Exception("Pendência de saldo invisível.");
+        await ConferirJanela(estoqueJanela, "materiais-acompanhamento", [960, 1366]); estoqueJanela.Close();
         var pagamentos = sp.GetRequiredService<Clinica.Recepcao.ViewModels.PagamentosViewModel>();
         var view = new Clinica.Recepcao.Views.PagamentosView { DataContext = pagamentos };
         var janela = new Window { Content = view, Width = 960, Height = 650 };
@@ -209,12 +233,12 @@ static class Program
             { Descricao = "Compra de materiais", Contraparte = "Fornecedor", DocumentoReferencia = "NF-123", Valor = "100", QuantidadeParcelas = "3" });
         await ConferirJanela(contaNova, "contas-parcelamento", [440, 600]); contaNova.Close();
         var materiaisVm = new MateriaisProcedimentoViewModel([new MaterialProcedimentoLinha { ItemId = item.Id, Nome = "Material de procedimento com apresentação e nome compridos", Saldo = "Disponível: 10,125 un" }]);
-        materiaisVm.ConfirmarCommand.Execute(null);
+        await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
         if (materiaisVm.Pedido != null || string.IsNullOrWhiteSpace(materiaisVm.Erro)) throw new Exception("Consumo vazio passou sem declaração.");
         materiaisVm.Itens[0].Quantidade = "1,125";
         materiaisVm.Itens[0].Lote = "L-2026";
         materiaisVm.Busca = "não encontrado";
-        materiaisVm.ConfirmarCommand.Execute(null);
+        await materiaisVm.ConfirmarCommand.ExecuteAsync(null);
         if (materiaisVm.Pedido?.Materiais.Single().Quantidade != 1.125m) throw new Exception("Filtro apagou material preenchido.");
         materiaisVm.Busca = null;
         var materiaisJanela = new MateriaisProcedimentoWindow(materiaisVm);

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -10,6 +11,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
+
+public sealed record OpcaoMateriais(ModoMateriais Modo, string Nome);
 
 /// <summary>Um item do estoque na tela, com saldo e alerta já resolvidos.</summary>
 public sealed class LinhaEstoque
@@ -52,6 +55,71 @@ public sealed class LinhaCustoSessao
 /// </summary>
 public sealed partial class EstoqueViewModel : ObservableObject
 {
+    public IReadOnlyList<OpcaoMateriais> ModosMateriais { get; } = [
+        new(ModoMateriais.Desativado, "Desativado"), new(ModoMateriais.Gestao, "Somente gestão"),
+        new(ModoMateriais.Equipe, "Gestão e consultório")];
+    [ObservableProperty] private ModoMateriais _modoMateriaisSelecionado;
+    [ObservableProperty] private DateTime _materiaisInicio = DateTime.Today.AddDays(-7);
+    [ObservableProperty] private DateTime _materiaisFim = DateTime.Today;
+    [ObservableProperty] private string _resumoMateriais = "Registro de materiais desativado.";
+    public bool PodeConfigurarMateriais => PodeEditarFinanceiro && SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente;
+    public ObservableCollection<MateriaisDoAtendimento> AtendimentosMateriais { get; } = [];
+    private int _geracaoMateriais;
+
+    [RelayCommand]
+    private async Task CarregarMateriaisAsync()
+    {
+        var geracao = ++_geracaoMateriais;
+        try
+        {
+            using var escopo = _escopos.CreateScope();
+            var repo = escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            var politica = await new PoliticaMateriaisService(repo).ObterAsync();
+            var lista = PodeEditarFinanceiro ? await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                .MateriaisDosAtendimentosAsync(DateOnly.FromDateTime(MateriaisInicio), DateOnly.FromDateTime(MateriaisFim), SessaoUsuario.Atual.UsuarioId) : [];
+            if (geracao != _geracaoMateriais) return;
+            ModoMateriaisSelecionado = politica.Modo;
+            AtendimentosMateriais.Clear();
+            foreach (var item in lista) AtendimentosMateriais.Add(item);
+            ResumoMateriais = politica.Modo == ModoMateriais.Desativado
+                ? "Desativado. A rotina do atendimento continua como antes."
+                : $"Ativo desde {politica.AtivadaEm:dd/MM/yyyy HH:mm}. {lista.Count} atendimento(s) no período; {lista.Count(a => a.Situacao == "Baixa pendente")} baixa(s) pendente(s).";
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoMateriais) return;
+            AtendimentosMateriais.Clear();
+            ResumoMateriais = "Não foi possível verificar os materiais. Atualize para tentar novamente.";
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task SalvarModoMateriaisAsync()
+    {
+        try
+        {
+            using var escopo = _escopos.CreateScope();
+            await new PoliticaMateriaisService(escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>())
+                .SalvarAsync(ModoMateriaisSelecionado, SessaoUsuario.Atual.UsuarioId);
+            await CarregarMateriaisAsync();
+            _snackbar.Sucesso("Ativação dos materiais atualizada.");
+        }
+        catch (Exception ex) { Erro(ex.Message); }
+    }
+
+    [RelayCommand]
+    private async Task RegistrarMateriaisAsync(MateriaisDoAtendimento? item)
+    {
+        if (item is null) return;
+        try
+        {
+            await ConferenciaMateriaisProcedimento.AbrirAsync(_escopos, item.AgendamentoId);
+            await CarregarAsync();
+        }
+        catch (Exception ex) { Erro(ex.Message); }
+    }
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -199,6 +267,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 : $"{faltando} item(ns) para repor · {validades.Count} lote(s) vencendo ou vencidos.";
 
             await CarregarCustosAsync();
+            await CarregarMateriaisAsync();
         }
         catch (Exception ex)
         {

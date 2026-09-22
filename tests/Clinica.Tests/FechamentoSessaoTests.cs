@@ -392,7 +392,7 @@ public class FechamentoSessaoTests : IDisposable
     }
 
     [Fact]
-    public async Task Preparar_SugereOsInsumosDaUltimaSessao()
+    public async Task Preparar_NaoSugereConsumoDeOutraSessao()
     {
         var pacienteId = await CriarPacienteAsync();
         var agulha = await CriarItemComSaldoAsync("Agulha", 100m);
@@ -411,10 +411,7 @@ public class FechamentoSessaoTests : IDisposable
 
         var proposta = await _fechamento.PrepararAsync(proximo);
 
-        proposta.Insumos.Should().HaveCount(2);
-        proposta.Insumos.Single(i => i.ItemId == agulha.Id).Quantidade.Should().Be(10m);
-        proposta.Insumos.Single(i => i.ItemId == moxa.Id).Quantidade.Should().Be(2m);
-        proposta.Insumos.Should().OnlyContain(i => !i.SemSaldo);
+        proposta.Insumos.Should().BeEmpty("consumo anterior não vira consumo presumido do próximo atendimento");
     }
 
     [Fact]
@@ -463,23 +460,20 @@ public class FechamentoSessaoTests : IDisposable
     }
 
     [Fact]
-    public async Task Conclusao_com_materiais_insuficientes_preserva_agendamento_aberto()
+    public async Task Conclusao_sem_estoque_preserva_guias_e_nao_declara_sem_consumo()
     {
         var paciente = await CriarPacienteAsync();
         var horario = await AgendarAsync(paciente);
         var usuario = new UsuarioSistema { Nome = "Gerente", Login = "gerente-materiais", Perfil = PerfilAcesso.Gerente, Ativo = true };
         _db.Add(usuario); await _db.SaveChangesAsync();
-        var material = await _estoque.SalvarItemAsync(new ItemEstoque { Nome = "Sem saldo" });
-        var concluir = () => _agenda.ConcluirComConsumoAsync(horario, "Gerente", usuario.Id,
-            new([new(material.Id, 1)]));
-        await concluir.Should().ThrowAsync<InvalidOperationException>().WithMessage("*saldo*");
-        _db.ChangeTracker.Clear();
-        var atual = (await _repo.ObterAgendamentoAsync(horario))!;
-        atual.FimAtendimentoEm.Should().BeNull();
-        atual.Status.Should().Be(StatusAgendamento.Agendado);
-        var resultado = await _agenda.ConcluirComConsumoAsync(horario, "Gerente", usuario.Id, new([], true));
-        resultado.Atendimento.Should().NotBeNull();
-        (await _estoque.ConferenciaDoProcedimentoAsync(resultado.Atendimento.Id))!.SemConsumo.Should().BeTrue();
+        await _estoque.SalvarItemAsync(new ItemEstoque { Nome = "Sem saldo" });
+        var resultado = await _fechamento.RegistrarAtendimentoAsync(horario, "Gerente", concluirClinico: true,
+            usuarioClinicoId: usuario.Id, permitirEnfermagemPosterior: true);
+        var repetido = await _fechamento.RegistrarAtendimentoAsync(horario, "Gerente", concluirClinico: true,
+            usuarioClinicoId: usuario.Id, permitirEnfermagemPosterior: true);
+        repetido.Atendimento.Id.Should().Be(resultado.Atendimento.Id);
+        (await _repo.ObterAgendamentoAsync(horario))!.FimAtendimentoEm.Should().NotBeNull();
+        (await _estoque.ConferenciaDoProcedimentoAsync(resultado.Atendimento.Id)).Should().BeNull();
         (await _fechamento.PrepararAsync(horario)).Insumos.Should().BeEmpty();
     }
 }

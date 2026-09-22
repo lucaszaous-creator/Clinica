@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Clinica.Domain.Entities;
+using Clinica.Application.Modelos;
 
 namespace Clinica.Application.Servicos;
 
@@ -14,7 +15,20 @@ public sealed partial class EstoqueService
     public Task<ConferenciaConsumoProcedimento?> ConferenciaDoProcedimentoAsync(int atendimentoId, CancellationToken ct = default)
         => _repo.ConferenciaConsumoAsync(atendimentoId, ct);
 
-    /// <summary>Ou confirma todas as baixas, ou nenhuma. Reenvio não repete consumo.</summary>
+    /// <summary>Operação separada: nunca conclui, reabre ou relança atendimento/guias.</summary>
+    public Task<ConferenciaConsumoProcedimento> RegistrarMateriaisAsync(int agendamentoId, int usuarioId,
+        PedidoConsumoProcedimento pedido, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
+        {
+            var horario = await new PoliticaMateriaisService(_repo).ExigirRegistroAsync(agendamentoId, usuarioId, ct);
+            var usuario = (await _repo.ObterUsuarioAsync(usuarioId, ct))!;
+            return await ConfirmarConsumoProcedimentoAsync(horario.AtendimentoId!.Value, pedido, usuario.Login, ct);
+        }, ct);
+
+    public static IReadOnlyList<MaterialConsumidoProcedimento> MateriaisRegistrados(ConferenciaConsumoProcedimento registro)
+        => JsonSerializer.Deserialize<MaterialConsumidoProcedimento[]>(registro.MateriaisJson) ?? [];
+
+    /// <summary>Registra o relato; baixa tudo ou deixa tudo pendente. Reenvio não duplica consumo.</summary>
     public Task<ConferenciaConsumoProcedimento> ConfirmarConsumoProcedimentoAsync(
         int atendimentoId, PedidoConsumoProcedimento pedido, string operador, CancellationToken ct = default)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
@@ -24,11 +38,13 @@ public sealed partial class EstoqueService
         var materiais = pedido.Materiais ?? throw new InvalidOperationException("Informe os materiais usados.");
         if (materiais.Count == 0 && !pedido.SemConsumo || materiais.Count > 0 && pedido.SemConsumo)
             throw new InvalidOperationException("Informe os materiais usados ou declare explicitamente que não houve consumo.");
-        if (materiais.Any(m => m.ItemId <= 0 || m.Quantidade <= 0 || decimal.Round(m.Quantidade, 3) != m.Quantidade))
-            throw new InvalidOperationException("Informe quantidades positivas com até três casas decimais.");
+        if (materiais.Count > 300 || materiais.Any(m => m is null || m.ItemId <= 0 || m.Quantidade <= 0
+            || m.Quantidade >= 100000000000m || decimal.Round(m.Quantidade, 3) != m.Quantidade || m.Lote?.Length > 60))
+            throw new InvalidOperationException("Confira os materiais, lotes e quantidades positivas com até três casas decimais.");
         var agrupados = materiais.GroupBy(m => (m.ItemId, Lote: Limpar(m.Lote)))
             .Select(g => new MaterialConsumidoProcedimento(g.Key.ItemId, g.Sum(m => m.Quantidade), g.Key.Lote))
             .OrderBy(m => m.ItemId).ThenBy(m => m.Lote, StringComparer.Ordinal).ToArray();
+        if (agrupados.Any(m => m.Quantidade >= 100000000000m)) throw new InvalidOperationException("Quantidade acima do limite permitido.");
         static string Resumo(IEnumerable<MaterialConsumidoProcedimento> itens)
             => JsonSerializer.Serialize(itens.Select(m => new { m.ItemId, Quantidade = m.Quantidade.ToString("G29", CultureInfo.InvariantCulture), m.Lote }));
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Resumo(agrupados))));
@@ -36,13 +52,17 @@ public sealed partial class EstoqueService
         if (anterior is not null)
         {
             if (anterior.Pedido != hash || anterior.SemConsumo != pedido.SemConsumo)
-                throw new InvalidOperationException("Esta sessão já tem materiais conferidos com outros dados. Consulte o histórico de consumo.");
-            return anterior;
+                throw new InvalidOperationException("Esta sessão já tem materiais registrados com outros dados. Consulte o histórico de consumo.");
+            if (anterior.BaixadoEm is not null) return anterior;
         }
         var atendimento = await _repo.ObterAtendimentoAsync(atendimentoId, ct)
             ?? throw new InvalidOperationException("Atendimento não encontrado.");
         var movimentos = (await _repo.MovimentosDoAtendimentoAsync(atendimentoId, ct))
             .Where(m => m.Tipo == TipoMovimentoEstoque.Saida).ToList();
+        string? pendencia = null;
+        var agora = PoliticaMateriaisService.Agora;
+        // O consumo pertence à sessão original, mas a baixa tardia entra no razão de hoje.
+        var dataBaixa = DateOnly.FromDateTime(agora);
         if (movimentos.Count > 0)
         {
             var anteriores = movimentos.GroupBy(m => (m.ItemEstoqueId, Lote: Limpar(m.Lote)))
@@ -53,30 +73,55 @@ public sealed partial class EstoqueService
         }
         else
         {
-            foreach (var material in agrupados)
+            // Valida o conjunto inteiro antes da primeira baixa, sob a mesma trava de estoque.
+            var saldos = await _repo.SaldosEstoqueAsync(ct);
+            foreach (var grupo in agrupados.GroupBy(m => m.ItemId))
             {
-                var item = await _repo.ObterItemEstoqueAsync(material.ItemId, ct)
+                var item = await _repo.ObterItemEstoqueAsync(grupo.Key, ct)
                     ?? throw new InvalidOperationException("Material não encontrado.");
-                if ((item.ExigirLote || item.Grupo == GrupoEstoque.Medicamento) && material.Lote is null)
+                if (item.Uso == UsoEstoque.Rotina) throw new InvalidOperationException("Use materiais destinados a procedimentos.");
+                if (grupo.Any(m => (item.ExigirLote || item.Grupo == GrupoEstoque.Medicamento) && m.Lote is null))
                     throw new InvalidOperationException($"Informe o lote utilizado de {item.Nome}.");
-                await MovimentarAsync(new MovimentoEstoque {
-                    ItemEstoqueId = material.ItemId, Tipo = TipoMovimentoEstoque.Saida,
-                    Quantidade = material.Quantidade, Lote = material.Lote,
-                    AtendimentoId = atendimento.Id, PacienteId = atendimento.PacienteId,
-                    Data = atendimento.Data, Observacao = "Materiais conferidos no procedimento",
-                    DestinoConsumo = DestinoConsumoEstoque.Procedimento
-                }, operador, ct);
+                // Misturar uma baixa sem lote com outra por lote torna a alocação ambígua.
+                if (grupo.Count() > 1 && grupo.Any(m => m.Lote is null))
+                    throw new InvalidOperationException($"Informe o lote em todas as linhas de {item.Nome}.");
+                var anteriores = await _repo.MovimentosDoItemAsync(item.Id, ct);
+                var razao = RazaoEstoque.Calcular(anteriores);
+                if (!item.Ativo) pendencia ??= $"Reative o material {item.Nome} antes de baixar.";
+                if (anteriores.Any(m => m.Data > dataBaixa)) pendencia ??= $"Confira os movimentos futuros de {item.Nome}.";
+                if (grupo.Sum(m => m.Quantidade) > saldos.GetValueOrDefault(item.Id))
+                    pendencia ??= $"Saldo insuficiente de {item.Nome}. Registre a entrada ou confira o inventário.";
+                foreach (var m in grupo)
+                {
+                    var lotes = razao.Lotes.Where(l => m.Lote is null || l.Entrada.Lote == m.Lote).ToList();
+                    if (lotes.Sum(l => l.Quantidade) < m.Quantidade) pendencia ??= $"Saldo insuficiente no lote de {item.Nome}.";
+                    if (lotes.Any(l => l.Quantidade > 0 && l.Entrada.Validade < dataBaixa))
+                        pendencia ??= $"Confira o lote vencido de {item.Nome} antes da baixa.";
+                }
             }
+            if (pendencia is null)
+                foreach (var material in agrupados)
+                    await MovimentarInternoAsync(new MovimentoEstoque {
+                        ItemEstoqueId = material.ItemId, Tipo = TipoMovimentoEstoque.Saida,
+                        Quantidade = material.Quantidade, Lote = material.Lote,
+                        AtendimentoId = atendimento.Id, PacienteId = atendimento.PacienteId,
+                        Data = dataBaixa, Observacao = $"Materiais da sessão de {atendimento.Data:dd/MM/yyyy}",
+                        DestinoConsumo = DestinoConsumoEstoque.Procedimento
+                    }, operador, ct, baixaDaConferencia: true);
         }
-        var conferencia = new ConferenciaConsumoProcedimento {
-            AtendimentoId = atendimentoId, SemConsumo = pedido.SemConsumo,
-            Pedido = hash, ConferidoEm = DateTime.Now, ConferidoPor = operador.Trim()
+        var conferencia = anterior ?? new ConferenciaConsumoProcedimento {
+            AtendimentoId = atendimentoId, SemConsumo = pedido.SemConsumo, Pedido = hash,
+            MateriaisJson = JsonSerializer.Serialize(agrupados), ConferidoEm = agora, ConferidoPor = operador.Trim()
         };
-        await _repo.AdicionarConferenciaConsumoAsync(conferencia, ct);
+        conferencia.BaixadoEm = pendencia is null ? agora : null;
+        conferencia.MotivoPendencia = pendencia;
+        if (anterior is null) await _repo.AdicionarConferenciaConsumoAsync(conferencia, ct);
+        else await _repo.AtualizarBaixaConferenciaAsync(conferencia.Id, conferencia.BaixadoEm, pendencia, ct);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria {
-            Acao = "MateriaisProcedimentoConferidos", Operador = operador.Trim(), PacienteId = atendimento.PacienteId,
-            Detalhe = pedido.SemConsumo ? $"Atendimento #{atendimentoId}: sem consumo de materiais declarado."
-                : $"Atendimento #{atendimentoId}: {agrupados.Length} item(ns)/lote(s) conferido(s)."
+            Acao = pendencia is null ? "MateriaisProcedimentoConferidos" : "MateriaisProcedimentoPendentes",
+            Operador = operador.Trim(), PacienteId = atendimento.PacienteId,
+            Detalhe = $"Atendimento #{atendimentoId}: " + (pendencia ?? (pedido.SemConsumo
+                ? "sem consumo declarado." : $"{agrupados.Length} item(ns)/lote(s) com baixa registrada."))
         }, ct);
         await _repo.SalvarAsync(ct);
         return conferencia;

@@ -1956,6 +1956,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Pedido).IsRequired().HasMaxLength(64);
             e.Property(x => x.ConferidoPor).IsRequired().HasMaxLength(80);
             e.Property(x => x.ConferidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.MateriaisJson).IsRequired();
+            e.Property(x => x.BaixadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.MotivoPendencia).HasMaxLength(600);
         });
 
         b.Entity<ItemEstoque>(e =>

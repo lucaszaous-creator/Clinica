@@ -149,6 +149,47 @@
                 </DockPanel>
             </Border>
             </TabItem>
+            <TabItem Header="Materiais dos atendimentos">
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Text="Materiais após o atendimento" Style="{StaticResource H3}" />
+                            <TextBlock Text="Comece pela gestão e libere para a equipe quando estiver preparada. O registro é opcional e não interfere no atendimento nem nas guias. Atendimentos anteriores à ativação não viram pendências."
+                                       TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
+                            <WrapPanel>
+                                <ComboBox ItemsSource="{Binding ModosMateriais}" DisplayMemberPath="Nome" SelectedValuePath="Modo"
+                                          SelectedValue="{Binding ModoMateriaisSelecionado}" MinWidth="210" Margin="0,0,8,8"
+                                          AutomationProperties.Name="Disponibilidade do registro de materiais" IsEnabled="{Binding PodeConfigurarMateriais}" />
+                                <Button Content="Salvar ativação" Command="{Binding SalvarModoMateriaisCommand}" IsEnabled="{Binding PodeConfigurarMateriais}" Margin="0,0,0,8" />
+                            </WrapPanel>
+                            <WrapPanel Margin="0,8,0,8">
+                                <StackPanel Margin="0,0,12,0"><TextBlock Text="De" Style="{StaticResource Rotulo}" /><DatePicker SelectedDate="{Binding MateriaisInicio}" AutomationProperties.Name="Materiais desde" /></StackPanel>
+                                <StackPanel Margin="0,0,12,0"><TextBlock Text="Até" Style="{StaticResource Rotulo}" /><DatePicker SelectedDate="{Binding MateriaisFim}" AutomationProperties.Name="Materiais até" /></StackPanel>
+                                <Button Content="Consultar" Command="{Binding CarregarMateriaisCommand}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Bottom" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding ResumoMateriais}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        </StackPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding AtendimentosMateriais}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" Style="{StaticResource TextoSuave}" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" />
+                                            <Button Content="Ver / registrar materiais" HorizontalAlignment="Left" Style="{StaticResource BotaoSecundario}" Margin="0,8,0,0"
+                                                    Command="{Binding DataContext.RegistrarMateriaisCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
+
 
             <!-- ============ Custo por sessão (parcela 25) ============ -->
             <TabItem Header="Custo por sessão">

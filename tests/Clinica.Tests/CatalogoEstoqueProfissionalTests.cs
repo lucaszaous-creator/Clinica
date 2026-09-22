@@ -149,17 +149,24 @@ public sealed class CatalogoEstoqueProfissionalTests : IDisposable
     }
 
     [Fact]
-    public async Task Falha_em_um_material_desfaz_todas_as_baixas_e_a_confirmacao()
+    public async Task Falta_de_saldo_registra_relato_pendente_sem_baixa_parcial()
     {
         var atendimento = await AtendimentoAsync();
         var a = await _estoque.SalvarItemAsync(new ItemEstoque { Nome = "A" });
         var b = await _estoque.SalvarItemAsync(new ItemEstoque { Nome = "B" });
         await _estoque.EntrarAsync(a.Id, 10, data: _dia);
-        var baixar = () => _estoque.ConfirmarConsumoProcedimentoAsync(atendimento.Id,
+        var registro = await _estoque.ConfirmarConsumoProcedimentoAsync(atendimento.Id,
             new([new(a.Id, 2), new(b.Id, 1)]), "Médico");
-        await baixar.Should().ThrowAsync<InvalidOperationException>().WithMessage("*saldo*");
+        registro.BaixadoEm.Should().BeNull();
+        registro.MotivoPendencia.Should().Contain("Saldo");
         (await _estoque.SaldosAsync()).Single(i => i.ItemId == a.Id).Saldo.Should().Be(10);
-        (await _estoque.ConferenciaDoProcedimentoAsync(atendimento.Id)).Should().BeNull();
+        EstoqueService.MateriaisRegistrados((await _estoque.ConferenciaDoProcedimentoAsync(atendimento.Id))!).Should().HaveCount(2);
+        await _estoque.EntrarAsync(b.Id, 5, data: _dia);
+        var retomado = await _estoque.ConfirmarConsumoProcedimentoAsync(atendimento.Id,
+            new([new(a.Id, 2), new(b.Id, 1)]), "Gestão");
+        retomado.BaixadoEm.Should().NotBeNull();
+        (await _estoque.SaldosAsync()).Single(i => i.ItemId == a.Id).Saldo.Should().Be(8);
+        (await _estoque.SaldosAsync()).Single(i => i.ItemId == b.Id).Saldo.Should().Be(4);
     }
 
     [Fact]

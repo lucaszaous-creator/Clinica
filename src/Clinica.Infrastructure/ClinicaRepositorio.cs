@@ -3139,6 +3139,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarConferenciaConsumoAsync(ConferenciaConsumoProcedimento conferencia, CancellationToken ct = default)
         => await _db.Set<ConferenciaConsumoProcedimento>().AddAsync(conferencia, ct);
 
+    public async Task AtualizarBaixaConferenciaAsync(int id, DateTime? baixadoEm, string? motivo, CancellationToken ct = default)
+    {
+        var atual = await _db.Set<ConferenciaConsumoProcedimento>().SingleAsync(c => c.Id == id, ct);
+        atual.BaixadoEm = baixadoEm;
+        atual.MotivoPendencia = motivo;
+    }
+
+    public async Task<IReadOnlyList<ConferenciaConsumoProcedimento>> ConferenciasDosAtendimentosAsync(IReadOnlyCollection<int> atendimentos, CancellationToken ct = default)
+        => await ConsultaConferenciasDosAtendimentos(atendimentos).ToListAsync(ct);
+
+    internal IQueryable<ConferenciaConsumoProcedimento> ConsultaConferenciasDosAtendimentos(IReadOnlyCollection<int> atendimentos)
+        => _db.Set<ConferenciaConsumoProcedimento>().AsNoTracking().Where(c => atendimentos.Contains(c.AtendimentoId));
+
     internal IQueryable<LancamentoFinanceiro> ConsultaLancamentosDaObrigacao(Guid grupo)
         => _db.Set<LancamentoFinanceiro>().AsNoTracking().Where(l => l.GrupoObrigacao == grupo).OrderBy(l => l.Id);
 

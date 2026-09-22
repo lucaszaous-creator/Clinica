@@ -1634,6 +1634,8 @@ public interface IClinicaRepositorio
     /// recebe.
     /// </summary>
     Task<ConferenciaConsumoProcedimento?> ConferenciaConsumoAsync(int atendimentoId, CancellationToken ct = default);
+    Task AtualizarBaixaConferenciaAsync(int id, DateTime? baixadoEm, string? motivo, CancellationToken ct = default);
+    Task<IReadOnlyList<ConferenciaConsumoProcedimento>> ConferenciasDosAtendimentosAsync(IReadOnlyCollection<int> atendimentos, CancellationToken ct = default);
     Task AdicionarConferenciaConsumoAsync(ConferenciaConsumoProcedimento conferencia, CancellationToken ct = default);
 
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDaObrigacaoAsync(Guid grupo, CancellationToken ct = default);

@@ -5,6 +5,7 @@
         WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
     <DockPanel Margin="24">
         <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="{Binding Contexto}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
             <TextBlock Text="Quais materiais foram usados?" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" />
             <TextBlock Text="Informe as quantidades na unidade de consumo e os lotes utilizados. Materiais já registrados aparecem preenchidos para conferência."
                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" />
@@ -14,15 +15,16 @@
                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,12" />
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
-            <CheckBox Content="Confirmo que não houve consumo de materiais nesta sessão" IsChecked="{Binding SemConsumo}" />
+            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" Margin="0,0,0,12" />
+            <CheckBox IsEnabled="{Binding PodeEditar}" Content="Confirmo que não houve consumo de materiais nesta sessão" IsChecked="{Binding SemConsumo}" />
             <TextBlock Text="{Binding Erro}" Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" Margin="0,6,0,6" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Voltar ao atendimento" IsCancel="True" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
-                <Button Content="Confirmar materiais" Command="{Binding ConfirmarCommand}" IsDefault="True" />
+                <Button Content="Fechar" IsCancel="True" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
+                <Button Content="{Binding RotuloConfirmar}" Command="{Binding ConfirmarCommand}" IsDefault="True" />
             </StackPanel>
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Itens}">
+            <ItemsControl ItemsSource="{Binding Itens}" IsEnabled="{Binding PodeEditar}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Style="{StaticResource Card}" Margin="0,0,0,8">

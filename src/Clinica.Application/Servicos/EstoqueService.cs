@@ -412,6 +412,10 @@ public sealed partial class EstoqueService
 
     public Task<MovimentoEstoque> MovimentarAsync(
         MovimentoEstoque dados, string? operador = null, CancellationToken ct = default, bool emUnidadeCompra = false)
+        => MovimentarInternoAsync(dados, operador, ct, emUnidadeCompra);
+
+    private Task<MovimentoEstoque> MovimentarInternoAsync(MovimentoEstoque dados, string? operador,
+        CancellationToken ct, bool emUnidadeCompra = false, bool baixaDaConferencia = false)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var item = await _repo.ObterItemEstoqueAsync(dados.ItemEstoqueId, ct)
@@ -440,7 +444,7 @@ public sealed partial class EstoqueService
         ValidarTexto(dados.DocumentoEntrada, 80, "Documento da entrada");
         if (!Enum.IsDefined(dados.DestinoConsumo))
             throw new InvalidOperationException("Destino de consumo inválido.");
-        if (dados.Tipo == TipoMovimentoEstoque.Saida && dados.AtendimentoId is { } idAtendimento
+        if (!baixaDaConferencia && dados.Tipo == TipoMovimentoEstoque.Saida && dados.AtendimentoId is { } idAtendimento
             && await _repo.ConferenciaConsumoAsync(idAtendimento, ct) is not null)
             throw new InvalidOperationException("Os materiais desta sessão já foram conferidos. Consulte o consumo registrado antes de fazer outra baixa.");
         var destinoConsumo = dados.Tipo == TipoMovimentoEstoque.Saida

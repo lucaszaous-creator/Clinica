@@ -121,6 +121,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm},
             Paciente = new {a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento},
             Faturamento = await ResumoFaturamentoAsync(a, ct),
+            MateriaisHabilitados = await MateriaisHabilitadosAsync(a, ct),
             ExigeConferenciaEnfermagem = await agenda.ExigeConferenciaEnfermagemAsync(a.Id, ct),
             OrientacaoConclusao = (await new PoliticaConclusaoService(repo).ObterAsync(ct)).OrientacaoAoSalvar,
             PendenciaConclusao = await agenda.PendenciaEnfermagemAsync(a.Id, ct) ?? (await new ConclusaoAutomaticaService(db, repo, agenda, new(repo))
@@ -176,8 +177,6 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             if(pedido.Evolucao is null) throw new InvalidOperationException("Informe a evolução.");
             if(pedido.Finalizar || pedido.ConcluirAoSalvar) {
                 await agenda.ExigirConclusaoClinicaAsync(id, u.Id, ct);
-                if (pedido.Consumo is null && (a.AtendimentoId is not { } atendimento || await repo.ConferenciaConsumoAsync(atendimento, ct) is null))
-                    throw new InvalidOperationException("Confira os materiais utilizados ou declare que não houve consumo antes de concluir. Atualize o portal se a pergunta não aparecer.");
                 if (!pedido.ConcluirAoSalvar) await agenda.ConferirEnfermagemParaConclusaoAsync(id, pedido.HouveEnfermagem, ct);
             }
             var anterior = await EvolucaoAtual(id, ct);
@@ -211,15 +210,16 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 Observacoes = p.Mapa.Observacoes, Pontos = p.Mapa.Pontos.Select((p, i) => new PontoMapa {
                     Face = p.Face, X = p.X, Y = p.Y, Nome = p.Nome, Tecnica = p.Tecnica, Observacao = p.Observacao, Ordem = i + 1}).ToList()});
             int guias = 0; string[] avisos = [];
+            // Compatibilidade: consumo enviado pelo portal antigo não vira baixa nem declaração.
+            var consumoLegado = pedido.Consumo is not null;
             if (pedido.Finalizar || pedido.ConcluirAoSalvar)
             {
-                var fim = pedido.Consumo is { } consumo
-                    ? await agenda.ConcluirComConsumoAsync(a.Id, Operador(u), u.Id, consumo,
-                        permitirEnfermagemPosterior: pedido.ConcluirAoSalvar, ct: ct, houveEnfermagem: pedido.HouveEnfermagem)
-                    : await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id, pedido.HouveEnfermagem, permitirEnfermagemPosterior: pedido.ConcluirAoSalvar);
+                var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, Operador(u), ct, u.Id,
+                    pedido.HouveEnfermagem, permitirEnfermagemPosterior: pedido.ConcluirAoSalvar);
                 guias = fim.Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
                 avisos = fim.Avisos.ToArray();
             }
+            if (consumoLegado) avisos = [.. avisos, "Os materiais não foram registrados neste envio. Use Registrar materiais após concluir, quando o recurso estiver habilitado."];
             return new ResultadoGravacaoTablet(salvo.Id, Fotografar(salvo, await Mapa(salvo.Id, ct)).Versao,
                 pedido.Finalizar || pedido.ConcluirAoSalvar, a.AtendimentoId, guias, avisos);
         }, ct);
