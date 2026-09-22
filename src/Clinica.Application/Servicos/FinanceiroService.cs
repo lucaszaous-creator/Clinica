@@ -180,6 +180,7 @@ public sealed class FinanceiroService
         await RegistrarAsync("LancamentoCriado",
             $"{tipo} de {valor:C} — {lancamento.Descricao}", lancamento, operador, ct);
         await _repo.SalvarAsync(ct);
+        await new CalendarioCartaoService(_repo).CriarAsync(lancamento, deducoes?.LiquidacaoMensal == true, ct);
         return lancamento;
     }, ct);
 
@@ -204,10 +205,12 @@ public sealed class FinanceiroService
             throw new InvalidOperationException("Pagamento futuro deve permanecer previsto.");
         await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(dia, formaPagamento ?? lancamento.FormaPagamento, ct);
         var forma = formaPagamento ?? lancamento.FormaPagamento;
+        var liquidacaoMensal = false;
         if (lancamento.Tipo == TipoLancamento.Entrada && TaxaService.ModalidadeDe(forma) is not null)
         {
             var d = await new TaxaService(_repo).CalcularPagamentoPacienteAsync(lancamento.Valor, dia, forma!.Value,
                 adquirente ?? lancamento.Adquirente, bandeira ?? lancamento.Bandeira, parcelas ?? lancamento.Parcelas ?? 1, ct);
+            liquidacaoMensal = d.LiquidacaoMensal;
             lancamento.Adquirente = (adquirente ?? lancamento.Adquirente)?.Trim();
             lancamento.Bandeira = (bandeira ?? lancamento.Bandeira)?.Trim();
             lancamento.Parcelas = parcelas ?? lancamento.Parcelas ?? 1;
@@ -233,6 +236,7 @@ public sealed class FinanceiroService
         await RegistrarAsync("LancamentoRealizado",
             $"{lancamento.Valor:C} — {lancamento.Descricao}", lancamento, operador, ct);
         await _repo.SalvarAsync(ct);
+        await new CalendarioCartaoService(_repo).CriarAsync(lancamento, liquidacaoMensal, ct);
         return true;
     }, ct);
 
@@ -252,7 +256,8 @@ public sealed class FinanceiroService
 
         if (lancamento.Status == StatusLancamento.Cancelado)
             throw new InvalidOperationException("Este lançamento já está cancelado.");
-        if (lancamento.Conciliado || lancamento.RecebimentoConfirmadoEm is not null)
+        if (lancamento.Conciliado || lancamento.RecebimentoConfirmadoEm is not null
+            || (await _repo.ParcelasCartaoDoLancamentoAsync(lancamento.Id, ct)).Any(p => p.RecebidoEm != null || p.ConciliadoEm != null))
             throw new InvalidOperationException("Desfaça a conciliação e a confirmação de depósito antes de cancelar o lançamento.");
 
         if (lancamento.Status == StatusLancamento.Realizado)

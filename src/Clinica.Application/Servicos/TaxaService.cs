@@ -24,6 +24,7 @@ public sealed record DeducoesRecebimento(
     /// que o contador faz.
     /// </summary>
     public string? DetalheImposto { get; init; }
+    public bool LiquidacaoMensal { get; init; }
 
     public decimal Total => (ValorTaxa ?? 0m) + (ValorImposto ?? 0m);
 }
@@ -103,6 +104,7 @@ public sealed class TaxaService
         taxa.ParcelasAte = dados.ParcelasAte;
         taxa.Percentual = dados.Percentual;
         taxa.DiasParaReceber = dados.DiasParaReceber;
+        taxa.LiquidacaoMensal = dados.Modalidade == ModalidadeCartao.CreditoParcelado && dados.LiquidacaoMensal;
         taxa.VigenteDe = dados.VigenteDe;
         taxa.VigenteAte = dados.VigenteAte;
         taxa.Ativa = dados.Ativa;
@@ -190,6 +192,7 @@ public sealed class TaxaService
         decimal? taxaPercentual = null, valorTaxa = null;
         DateOnly? previsao = null;
         string? procedencia = null;
+        var liquidacaoMensal = false;
 
         // As parcelas ENTRAM aqui: sem elas, crédito em 10x seria tratado como crédito à
         // vista e pegaria a taxa errada — justamente a modalidade mais cara.
@@ -202,6 +205,7 @@ public sealed class TaxaService
                 valorTaxa = Arredondar(valorBruto * taxa.Percentual / 100m);
                 previsao = data.AddDays(taxa.DiasParaReceber);
                 procedencia = taxa.Descricao;
+                liquidacaoMensal = taxa.LiquidacaoMensal;
             }
         }
 
@@ -238,7 +242,8 @@ public sealed class TaxaService
         return new DeducoesRecebimento(
             taxaPercentual, valorTaxa, aliquota, valorImposto, previsao, procedencia)
         {
-            DetalheImposto = detalheImposto
+            DetalheImposto = detalheImposto,
+            LiquidacaoMensal = liquidacaoMensal
         };
     }
 

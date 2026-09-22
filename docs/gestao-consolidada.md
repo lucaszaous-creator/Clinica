@@ -44,7 +44,7 @@ outro paciente, valor alterado ou recebimento já realizado são recusados no ba
 | --- | --- |
 | Recebido bruto no mês | Lançamentos realizados pela data do pagamento; competência original é preservada |
 | Resultado líquido do mês | Bruto recebido menos taxas, impostos registrados e saídas realizadas; acompanha a convenção de caixa do resultado mensal existente |
-| Recebível de cartão | Venda registrada que ainda espera depósito da adquirente |
+| Recebível de cartão | Crédito integral ou parcela mensal que ainda espera depósito da adquirente |
 | Depósito de cartão | Bruto menos taxa de adquirente; tributos provisionados separadamente não diminuem esse depósito |
 | Crédito da operadora | Valor transferido após as retenções registradas na receita do convênio |
 | Conciliado | Pagamento conferido contra uma transação do extrato, identificado por banco/agência/conta e FITID |
@@ -55,8 +55,8 @@ O painel não apresenta recebimento registrado como se já tivesse sido concilia
 Falha de leitura do dinheiro do mês aparece como **não verificado**, não como zero.
 Despesas de tributos não devem duplicar deduções já consideradas no resultado.
 
-O OFX aceita depósito correspondente a uma venda ou ao lote completo de vendas da
-mesma adquirente e data. Um lote só é sugerido quando existe uma correspondência
+O OFX aceita depósito correspondente a um crédito integral, uma parcela mensal
+ou ao lote completo de créditos da mesma adquirente e data. Um lote só é sugerido quando existe uma correspondência
 inequívoca. A confirmação e sua reversão abrangem o lote inteiro. Arquivo sem
 FITID continua visível, mas não é conciliado usando uma identidade inventada.
 
@@ -82,7 +82,9 @@ FITID continua visível, mas não é conciliado usando uma identidade inventada.
 
 A migration `20260922003512_ConsolidacaoGestao` acrescenta o vínculo compra/conta e
 os campos de conta bancária, data do extrato e confirmação anterior do depósito.
-Não apaga tabelas, movimentos ou valores existentes. A atualização deve abranger
+A migration `20260922013900_AgendaRecebiveisPorContrato` acrescenta o calendário
+de créditos e a opção de liquidação mensal no cadastro de taxas.
+Não apagam tabelas, movimentos ou valores existentes. A atualização deve abranger
 os cinco executáveis: versões antigas não aplicam as novas proteções de gravação.
 
 Antes do uso operacional, validar em cópia do banco: cobranças em aberto, taxas e
@@ -92,11 +94,19 @@ entrega prepara código e pacotes; a execução em produção é uma etapa separ
 
 Limites relevantes para a configuração:
 
-- O modelo atual de cartão prevê um crédito integral por venda no prazo cadastrado.
-  Cartão parcelado só representa corretamente contratos com liquidação integral
-  nesse prazo. Agenda de depósitos mensais por parcela e antecipações parciais
-  exigem uma evolução específica; não se deve tratar o total como disponível no
-  primeiro vencimento de um contrato sem antecipação.
+- Cada regra de maquininha/contrato escolhe **receber uma parcela por mês** ou
+  **receber integralmente** no prazo cadastrado. No mensal, o prazo é do primeiro
+  crédito e os demais vencem nos meses seguintes. Bruto, taxa, previsão, confirmação
+  e conciliação ficam separados por crédito, preservando os centavos do total.
+  Renegociar o cadastro não altera vendas anteriores. Use nomes distintos para
+  contratos diferentes da mesma adquirente. Registros antigos conservam sua
+  previsão integral; não são repartidos automaticamente sem conhecer o contrato.
+- Na venda de pacote, **Pagar agora** registra o total aprovado na maquininha,
+  inclusive parcelado; **Cobrar depois** cria cobranças futuras ao paciente. O
+  crédito mensal da adquirente não gera inadimplência nem uma segunda receita.
+- Antecipações parciais negociadas depois da venda e tarifas diferentes das
+  cadastradas precisam ser conferidas pelo Financeiro. O sistema não presume
+  mudanças de contrato para forçar correspondência com o extrato.
 - Débito automático em maquininha, webhook Pix, estorno bancário e reembolso não
   são executados pelo registro de pagamento; ele registra a operação confirmada
   pela equipe. Cancelamento de lançamento não transfere dinheiro ao paciente.

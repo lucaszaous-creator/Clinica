@@ -7,6 +7,13 @@ namespace Clinica.Application.Abstracoes;
 /// <summary>Acesso a dados usado pelos serviços. Implementado sobre EF Core na camada de infraestrutura.</summary>
 public interface IClinicaRepositorio
 {
+    Task AdicionarParcelaCartaoAsync(ParcelaRecebivelCartao parcela, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDoLancamentoAsync(int lancamentoId, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoPorIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoAbertasAsync(DateOnly ate, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoConfirmadasAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoParaConciliacaoAsync(DateOnly de, DateOnly ate, CancellationToken ct = default);
+    Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDaTransacaoAsync(string idBancario, string? conta, CancellationToken ct = default);
     /// <summary>Transação e trava entre estações; chamadas aninhadas participam da mesma transação.</summary>
     Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default);
 

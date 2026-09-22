@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using System.Collections.ObjectModel;
 using System.IO;
 using Clinica.Application.Servicos;
@@ -29,13 +30,13 @@ public sealed partial class LinhaExtratoBanco : ObservableObject
     /// <summary>Já conciliada antes: dá para DESFAZER, não para conciliar de novo.</summary>
     public required bool JaConciliada { get; init; }
 
-    public ObservableCollection<LancamentoFinanceiro> Candidatos { get; init; } = [];
+    public ObservableCollection<ItemConciliacao> Candidatos { get; init; } = [];
 
     /// <summary>
     /// Qual lançamento casar. Vem pré-escolhido quando há UM só — a proposta do sistema —,
     /// e em branco na ambígua, porque escolher por ela seria decidir sem saber.
     /// </summary>
-    [ObservableProperty] private LancamentoFinanceiro? _escolhido;
+    [ObservableProperty] private ItemConciliacao? _escolhido;
 
     /// <summary>Há o que confirmar nesta linha.</summary>
     public bool PodeConciliar => !JaConciliada && Candidatos.Count > 0;
@@ -73,7 +74,7 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
     /// O que o sistema tem como recebido/pago e o banco não mostra. É a metade que
     /// ninguém pede e onde mora o erro caro: a venda marcada como recebida que nunca caiu.
     /// </summary>
-    public ObservableCollection<LancamentoFinanceiro> SoNoSistema { get; } = [];
+    public ObservableCollection<ItemConciliacao> SoNoSistema { get; } = [];
 
     [ObservableProperty] private string _arquivo = string.Empty;
     [ObservableProperty] private string _resumo = string.Empty;
@@ -204,7 +205,7 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
                 : l.Situacao switch
             {
                 SituacaoConciliacao.Casada => "Casada — confirme",
-                SituacaoConciliacao.DepositoCartao => $"Depósito de {l.Candidatos[0].Adquirente}: {l.Candidatos.Count} vendas, bruto {l.Candidatos.Sum(c => c.Valor):C2}, taxas {l.Candidatos.Sum(c => c.ValorTaxa ?? 0):C2} — confirme o lote",
+                SituacaoConciliacao.DepositoCartao => $"Depósito de {l.Candidatos[0].Adquirente}: {l.Candidatos.Count} créditos, bruto {l.Candidatos.Sum(c => c.Valor):C2}, taxas {l.Candidatos.Sum(c => c.ValorTaxa ?? 0):C2} — confirme o lote",
                 SituacaoConciliacao.Ambigua => $"{l.Candidatos.Count} candidatos — escolha qual",
                 SituacaoConciliacao.JaConciliada => "Já conferida",
                 _ => "Não há lançamento correspondente no sistema"
@@ -240,11 +241,8 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>();
-            if (linha.DepositoAgrupado)
-                await servico.ConciliarDepositoAsync(linha.Candidatos.Select(l => l.Id).ToArray(),
-                    linha.Transacao, SessaoUsuario.Atual.Operador, linha.Conta);
-            else
-                await servico.ConciliarLinhaAsync(linha.Escolhido!.Id, linha.Transacao, SessaoUsuario.Atual.Operador, linha.Conta);
+            await servico.ConciliarItensAsync(linha.DepositoAgrupado ? linha.Candidatos.ToArray() : [linha.Escolhido!],
+                linha.Transacao, SessaoUsuario.Atual.Operador, linha.Conta);
 
             _snackbar.Sucesso($"{linha.Valor} conferido contra o extrato.");
             await CruzarAsync();
@@ -271,8 +269,10 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "desfazer a conciliação");
 
             using var scope = _escopos.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>()
-                .DesfazerAsync(lancamento.Id, SessaoUsuario.Atual.Operador);
+            var servico = scope.ServiceProvider.GetRequiredService<ConciliacaoBancariaService>();
+            if (lancamento.ParcelaId is { } parcelaId)
+                await servico.DesfazerParcelaAsync(parcelaId, SessaoUsuario.Atual.Operador);
+            else await servico.DesfazerAsync(lancamento.Id, SessaoUsuario.Atual.Operador);
 
             _snackbar.Sucesso("Conciliação desfeita. A linha voltou para a lista.");
             await CruzarAsync();

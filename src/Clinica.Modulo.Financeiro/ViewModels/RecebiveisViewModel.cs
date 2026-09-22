@@ -20,6 +20,7 @@ public sealed class LinhaRecebivel
     public required string Detalhe { get; init; }
     public required bool Atrasado { get; init; }
     public required IReadOnlyList<int> LancamentoIds { get; init; }
+    public IReadOnlyList<int> ParcelaIds { get; init; } = [];
 
     public static LinhaRecebivel De(DepositoEsperado d, DateOnly hoje)
     {
@@ -34,13 +35,13 @@ public sealed class LinhaRecebivel
             // O prazo em palavras, como nas contas: ninguém calcula "20/10 menos hoje".
             Detalhe = dias switch
             {
-                < 0 => $"{d.Quantidade} venda(s) · DEVIA TER CAÍDO faz {-dias} dia(s)",
-                0 => $"{d.Quantidade} venda(s) · cai hoje",
-                1 => $"{d.Quantidade} venda(s) · cai amanhã",
-                _ => $"{d.Quantidade} venda(s) · cai em {dias} dia(s)"
+                < 0 => $"{d.Quantidade} crédito(s) · DEVIA TER CAÍDO faz {-dias} dia(s)",
+                0 => $"{d.Quantidade} crédito(s) · cai hoje",
+                1 => $"{d.Quantidade} crédito(s) · cai amanhã",
+                _ => $"{d.Quantidade} crédito(s) · cai em {dias} dia(s)"
             },
             Atrasado = d.Atrasado(hoje),
-            LancamentoIds = d.LancamentoIds
+            LancamentoIds = d.LancamentoIds, ParcelaIds = d.ParcelaIds
         };
     }
 }
@@ -54,6 +55,7 @@ public sealed class LinhaConfirmado
     public required string Detalhe { get; init; }
     public required bool Atrasou { get; init; }
     public required IReadOnlyList<int> LancamentoIds { get; init; }
+    public IReadOnlyList<int> ParcelaIds { get; init; } = [];
 
     public static LinhaConfirmado De(DepositoConfirmado d)
     {
@@ -72,9 +74,9 @@ public sealed class LinhaConfirmado
             Adquirente = d.Adquirente,
             Creditado = d.Creditado.ToString("dd/MM/yyyy"),
             Liquido = d.Liquido.ToString("C"),
-            Detalhe = $"{d.Quantidade} venda(s) · {atraso}",
+            Detalhe = $"{d.Quantidade} crédito(s) · {atraso}",
             Atrasou = d.DiasDeAtraso > 0,
-            LancamentoIds = d.LancamentoIds
+            LancamentoIds = d.LancamentoIds, ParcelaIds = d.ParcelaIds
         };
     }
 }
@@ -189,7 +191,7 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             Resumo = Depositos.Count == 0
                 ? "Nenhum recebimento de cartão pendente no período."
                 : r.TemAtraso
-                    ? $"{Depositos.Count} depósito(s) previsto(s) · {r.QuantidadeAtrasada} venda(s) que a adquirente JÁ DEVIA TER DEPOSITADO."
+                    ? $"{Depositos.Count} depósito(s) previsto(s) · {r.QuantidadeAtrasada} crédito(s) que a adquirente JÁ DEVIA TER DEPOSITADO."
                     : $"{Depositos.Count} depósito(s) previsto(s), nenhum atrasado.";
 
             var confirmados = await recebiveis.ConfirmadosAsync(
@@ -248,7 +250,7 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             var recebiveis = scope.ServiceProvider.GetRequiredService<RecebiveisService>();
 
             var n = await recebiveis.ConfirmarAsync(
-                linha.LancamentoIds, DateOnly.FromDateTime(dia), SessaoUsuario.Atual.Operador);
+                linha.LancamentoIds, DateOnly.FromDateTime(dia), SessaoUsuario.Atual.Operador, parcelaIds: linha.ParcelaIds);
 
             _snackbar.Sucesso($"{n} recebimento(s) confirmado(s).");
             await CarregarAsync();
@@ -287,7 +289,7 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             var recebiveis = scope.ServiceProvider.GetRequiredService<RecebiveisService>();
 
             var n = await recebiveis.DesfazerConfirmacaoAsync(
-                linha.LancamentoIds, SessaoUsuario.Atual.Operador);
+                linha.LancamentoIds, SessaoUsuario.Atual.Operador, parcelaIds: linha.ParcelaIds);
 
             _snackbar.Info($"{n} recebimento(s) devolvido(s) à espera.");
             await CarregarAsync();

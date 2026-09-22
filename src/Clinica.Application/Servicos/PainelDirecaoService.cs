@@ -664,10 +664,11 @@ public sealed class PainelDirecaoService
                     "Atendidas neste mês, sem pagamento nem conta a receber registrados. Confira a conciliação do particular.",
                     GravidadeDirecao.Perigo));
             var banco = await _repo.LancamentosParaConciliacaoAsync(inicioMes, hoje, ct);
-            var pendentes = banco.Where(l => !l.Conciliado).ToList();
-            if (pendentes.Count > 0)
+            var parcelasBanco = await _repo.ParcelasCartaoParaConciliacaoAsync(inicioMes, hoje, ct);
+            var pendentes = banco.Count(l => !l.Conciliado) + parcelasBanco.Count(p => p.ConciliadoEm is null);
+            if (pendentes > 0)
                 alertas.Add(new AlertaDirecao(AssuntoDirecao.BancoNaoConciliado,
-                    $"{pendentes.Count} lançamento(s) do mês sem conferência bancária",
+                    $"{pendentes} crédito(s)/pagamento(s) do mês sem conferência bancária",
                     "Importe o OFX e confira os pagamentos e depósitos. Recebido e conciliado são etapas diferentes.",
                     GravidadeDirecao.Aviso));
         }

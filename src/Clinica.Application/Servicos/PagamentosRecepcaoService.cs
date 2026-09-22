@@ -53,6 +53,7 @@ public sealed class PagamentosRecepcaoService(IClinicaRepositorio repo, TaxaServ
                 Detalhe = $"Cobrança {l.Id}: {l.Valor:C2} em {forma}, {data:dd/MM/yyyy}; líquido {l.ValorLiquido:C2}."
             }, ct);
             await repo.SalvarAsync(ct);
+            await new CalendarioCartaoService(repo).CriarAsync(l, d.LiquidacaoMensal, ct);
             return l;
         }, ct);
 }

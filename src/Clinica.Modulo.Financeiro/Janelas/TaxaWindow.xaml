@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Taxa da maquininha" Width="540" SizeToContent="Height" MinWidth="460"
+        Title="Taxa da maquininha" Width="540" SizeToContent="Height" MinWidth="460" MaxHeight="760"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -14,7 +14,7 @@
     <StackPanel Margin="24">
         <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                   Text="A regra mais específica ganha: bandeira vence o adquirente genérico. Sem taxa cadastrada o sistema NÃO inventa desconto — o lançamento fica só com o valor bruto, que é a verdade disponível." />
+                   Text="Use as condições do contrato. Pagamentos de pacientes no cartão exigem uma regra cadastrada; taxa zero também deve ser informada. A regra da bandeira tem prioridade sobre a genérica." />
 
         <Grid>
             <Grid.ColumnDefinitions>
@@ -23,7 +23,7 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" />
+                <TextBlock Text="Maquininha / contrato" Style="{StaticResource Rotulo}" />
                 <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
             </StackPanel>
             <StackPanel Grid.Column="2">
@@ -64,7 +64,7 @@
                 <TextBox Text="{Binding Percentual, UpdateSourceTrigger=PropertyChanged}" MaxLength="8" />
             </StackPanel>
             <StackPanel Grid.Column="2">
-                <TextBlock Text="Cai em (dias)" Style="{StaticResource Rotulo}" />
+                <TextBlock Text="Primeiro crédito (dias)" Style="{StaticResource Rotulo}" />
                 <TextBox Text="{Binding DiasParaReceber, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" />
             </StackPanel>
         </Grid>
@@ -89,6 +89,11 @@
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
                    Text="A adquirente renegocia: o que vale no recebimento de março é o percentual de março. Por isso o valor da taxa é COPIADO na venda, nunca referenciado — reajustar aqui não reescreve o que já foi recebido." />
 
+        <StackPanel Margin="0,12,0,0" Visibility="{Binding EhParcelado, Converter={StaticResource BoolParaVisibilidade}}">
+            <CheckBox Content="Receber uma parcela por mês" IsChecked="{Binding LiquidacaoMensal}" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,0"
+                       Text="Marcado: primeiro depósito no prazo informado, demais nos meses seguintes. Desmarcado: valor integral no primeiro depósito. Use nomes distintos para contratos diferentes da mesma maquininha." />
+        </StackPanel>
         <CheckBox Content="Ativa" IsChecked="{Binding Ativa}" Margin="0,12,0,0" />
 
         <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"

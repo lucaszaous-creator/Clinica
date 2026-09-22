@@ -24,6 +24,31 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => await _db.Lancamentos.Where(l => l.IdBancario == idBancario && l.ContaBancariaConciliacao == conta
             && l.ConciliadoEm != null).ToListAsync(ct);
 
+    public async Task AdicionarParcelaCartaoAsync(ParcelaRecebivelCartao parcela, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.AddAsync(parcela, ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDoLancamentoAsync(int lancamentoId, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => p.LancamentoFinanceiroId == lancamentoId).OrderBy(p => p.Numero).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoPorIdsAsync(IReadOnlyCollection<int> ids, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => ids.Contains(p.Id)).ToListAsync(ct);
+
+    public IQueryable<ParcelaRecebivelCartao> ConsultaParcelasCartao()
+        => _db.ParcelasRecebiveisCartao.AsNoTracking().Include(p => p.Lancamento)
+            .Where(p => p.Lancamento.Status == StatusLancamento.Realizado);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoAbertasAsync(DateOnly ate, CancellationToken ct = default)
+        => await ConsultaParcelasCartao().Where(p => p.RecebidoEm == null && p.Previsao <= ate).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoConfirmadasAsync(DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaParcelasCartao().Where(p => p.RecebidoEm >= de && p.RecebidoEm <= ate).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoParaConciliacaoAsync(DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaParcelasCartao().Where(p => (p.RecebidoEm ?? p.Previsao) >= de && (p.RecebidoEm ?? p.Previsao) <= ate).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDaTransacaoAsync(string idBancario, string? conta, CancellationToken ct = default)
+        => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => p.IdBancario == idBancario && p.ContaBancaria == conta && p.ConciliadoEm != null).ToListAsync(ct);
+
     public async Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default)
     {
         // Uma ordem única de trava evita inversões entre compra, caixa e baixa de insumo.
@@ -56,13 +81,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public IQueryable<LancamentoFinanceiro> ConsultaLancamentosParaConciliacao(DateOnly inicio, DateOnly fim)
         => _db.Lancamentos.AsNoTracking().Include(l => l.Paciente)
             .Where(l => l.Status == StatusLancamento.Realizado && l.FormaPagamento != FormaPagamento.Dinheiro)
+            .Where(l => !_db.ParcelasRecebiveisCartao.Any(p => p.LancamentoFinanceiroId == l.Id))
             .Where(l => (l.RecebimentoConfirmadoEm ?? l.PrevisaoRecebimento ?? l.DataPagamento ?? l.Data) >= inicio
                      && (l.RecebimentoConfirmadoEm ?? l.PrevisaoRecebimento ?? l.DataPagamento ?? l.Data) <= fim)
             ;
 
-    public Task<bool> IdBancarioUtilizadoAsync(string idBancario, string? conta = null, CancellationToken ct = default)
-        => _db.Lancamentos.AnyAsync(l => l.IdBancario == idBancario && l.ConciliadoEm != null
-            && (l.ContaBancariaConciliacao == conta || l.ContaBancariaConciliacao == null || conta == null), ct);
+    public async Task<bool> IdBancarioUtilizadoAsync(string idBancario, string? conta = null, CancellationToken ct = default)
+        => await _db.Lancamentos.AnyAsync(l => l.IdBancario == idBancario && l.ConciliadoEm != null
+            && (l.ContaBancariaConciliacao == conta || l.ContaBancariaConciliacao == null || conta == null), ct)
+            || await _db.ParcelasRecebiveisCartao.AnyAsync(p => p.IdBancario == idBancario && p.ConciliadoEm != null
+                && (p.ContaBancaria == conta || p.ContaBancaria == null || conta == null), ct);
 
     public async Task<IReadOnlyList<LancamentoFinanceiro>> CobrancasDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
@@ -2527,6 +2555,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         DateOnly ate, CancellationToken ct = default)
         => await _db.Lancamentos.AsNoTracking()
             .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => !_db.ParcelasRecebiveisCartao.Any(p => p.LancamentoFinanceiroId == l.Id))
             .Where(l => l.PrevisaoRecebimento != null && l.PrevisaoRecebimento <= ate)
             .Where(l => l.RecebimentoConfirmadoEm == null)
             .OrderBy(l => l.PrevisaoRecebimento).ThenBy(l => l.Id)
@@ -2536,6 +2565,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         DateOnly de, DateOnly ate, CancellationToken ct = default)
         => await _db.Lancamentos.AsNoTracking()
             .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => !_db.ParcelasRecebiveisCartao.Any(p => p.LancamentoFinanceiroId == l.Id))
             .Where(l => l.RecebimentoConfirmadoEm != null
                         && l.RecebimentoConfirmadoEm >= de
                         && l.RecebimentoConfirmadoEm <= ate)

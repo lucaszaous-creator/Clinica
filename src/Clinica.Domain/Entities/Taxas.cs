@@ -52,6 +52,9 @@ public class TaxaCartao
     /// </summary>
     public int DiasParaReceber { get; set; }
 
+    /// <summary>Contrato sem antecipação integral: primeiro crédito no prazo e os demais mensalmente.</summary>
+    public bool LiquidacaoMensal { get; set; }
+
     public DateOnly? VigenteDe { get; set; }
 
     public DateOnly? VigenteAte { get; set; }

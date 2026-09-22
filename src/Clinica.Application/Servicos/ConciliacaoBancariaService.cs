@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -27,10 +28,10 @@ public enum SituacaoConciliacao
 public sealed record LinhaConciliada(
     LinhaExtrato Extrato,
     SituacaoConciliacao Situacao,
-    IReadOnlyList<LancamentoFinanceiro> Candidatos)
+    IReadOnlyList<ItemConciliacao> Candidatos)
 {
     /// <summary>O único candidato, quando há exatamente um.</summary>
-    public LancamentoFinanceiro? Unico => Candidatos.Count == 1 ? Candidatos[0] : null;
+    public ItemConciliacao? Unico => Candidatos.Count == 1 ? Candidatos[0] : null;
 }
 
 /// <summary>
@@ -42,7 +43,7 @@ public sealed record LinhaConciliada(
 /// </summary>
 public sealed record ResultadoConciliacao(
     IReadOnlyList<LinhaConciliada> Linhas,
-    IReadOnlyList<LancamentoFinanceiro> SoNoSistema,
+    IReadOnlyList<ItemConciliacao> SoNoSistema,
     DateOnly? Inicio,
     DateOnly? Fim,
     string? Conta)
@@ -104,7 +105,7 @@ public sealed class ConciliacaoBancariaService
 
         if (extrato.Linhas.Count == 0)
             return new ResultadoConciliacao(
-                Array.Empty<LinhaConciliada>(), Array.Empty<LancamentoFinanceiro>(),
+                Array.Empty<LinhaConciliada>(), Array.Empty<ItemConciliacao>(),
                 extrato.Inicio, extrato.Fim, extrato.Conta);
 
         // A janela de busca é a do extrato ESTICADA pela folga dos dois lados — senão o
@@ -114,14 +115,16 @@ public sealed class ConciliacaoBancariaService
 
         var lancamentos = (await _repo.LancamentosParaConciliacaoAsync(de, ate, ct))
             .Where(l => l.Status == StatusLancamento.Realizado)
-            .ToList();
+            .Select(l => new ItemConciliacao(l)).ToList();
+        var parcelas = await _repo.ParcelasCartaoParaConciliacaoAsync(de, ate, ct);
+        lancamentos.AddRange(parcelas.Select(p => new ItemConciliacao(p.Lancamento, p)));
 
         var linhas = new List<LinhaConciliada>();
 
         // Lançamento já usado por uma linha não pode ser candidato da seguinte: dois PIX
         // de R$ 150 no mesmo dia são dois recebimentos, e oferecer o mesmo lançamento aos
         // dois faria a clínica conciliar duas entradas contra uma só.
-        var usados = new HashSet<int>();
+        var usados = new HashSet<string>();
 
         foreach (var linha in extrato.Linhas.OrderBy(l => l.Data))
         {
@@ -136,7 +139,7 @@ public sealed class ConciliacaoBancariaService
                 (l.ContaBancariaConciliacao == extrato.IdentificacaoConta || l.ContaBancariaConciliacao == null)).ToList();
             if (jaFeitas.Count > 0)
             {
-                usados.UnionWith(jaFeitas.Select(l => l.Id));
+                usados.UnionWith(jaFeitas.Select(l => l.Chave));
                 linhas.Add(new LinhaConciliada(
                     linha, SituacaoConciliacao.JaConciliada, jaFeitas));
                 continue;
@@ -144,7 +147,7 @@ public sealed class ConciliacaoBancariaService
 
             var candidatos = lancamentos
                 .Where(l => !l.Conciliado
-                            && !usados.Contains(l.Id)
+                            && !usados.Contains(l.Chave)
                             && Combina(l, linha))
                 // O mais PRÓXIMO no tempo primeiro: entre dois candidatos idênticos, o do
                 // mesmo dia é quase sempre o certo.
@@ -162,7 +165,7 @@ public sealed class ConciliacaoBancariaService
             // possível e nenhum candidato individual. Não procura combinações arbitrárias.
             if (candidatos.Count == 0 && linha.Entrada)
             {
-                var lotes = lancamentos.Where(l => !l.Conciliado && !usados.Contains(l.Id)
+                var lotes = lancamentos.Where(l => !l.Conciliado && !usados.Contains(l.Chave)
                         && l.Tipo == TipoLancamento.Entrada && l.ModalidadeCartao is not null
                         && !string.IsNullOrWhiteSpace(l.Adquirente)
                         && Math.Abs(DataDoDinheiro(l).DayNumber - linha.Data.DayNumber) <= FolgaDias)
@@ -172,13 +175,13 @@ public sealed class ConciliacaoBancariaService
                 {
                     candidatos = lotes[0].ToList();
                     situacao = SituacaoConciliacao.DepositoCartao;
-                    usados.UnionWith(candidatos.Select(l => l.Id));
+                    usados.UnionWith(candidatos.Select(l => l.Chave));
                 }
             }
 
             // Só a casada RESERVA o lançamento. Na ambígua ninguém escolheu ainda, e
             // reservar o primeiro candidato tiraria da linha seguinte a opção certa.
-            if (situacao == SituacaoConciliacao.Casada) usados.Add(candidatos[0].Id);
+            if (situacao == SituacaoConciliacao.Casada) usados.Add(candidatos[0].Chave);
 
             linhas.Add(new LinhaConciliada(linha, situacao, candidatos));
         }
@@ -186,7 +189,7 @@ public sealed class ConciliacaoBancariaService
         // A metade que o extrato não mostra: dado como recebido no sistema e ausente do
         // banco. É onde mora o erro caro — a venda marcada como paga que nunca caiu.
         var soNoSistema = lancamentos
-            .Where(l => !l.Conciliado && !usados.Contains(l.Id))
+            .Where(l => !l.Conciliado && !usados.Contains(l.Chave))
             .OrderBy(l => DataDoDinheiro(l))
             .ToList();
 
@@ -194,172 +197,177 @@ public sealed class ConciliacaoBancariaService
             linhas, soNoSistema, extrato.Inicio, extrato.Fim, extrato.Conta);
     }
 
-    /// <summary>
-    /// Confirma o casamento de uma linha do extrato com um lançamento.
-    ///
-    /// Grava o <c>FITID</c>, e é ele que torna a importação idempotente: o mesmo arquivo
-    /// relido não oferece de novo o que já foi conciliado.
-    /// </summary>
-    public Task ConciliarAsync(
-        int lancamentoId, string idBancario, string? operador = null,
+    // Mantido para integrações anteriores que já fornecem uma identidade bancária.
+    public Task ConciliarAsync(int lancamentoId, string idBancario, string? operador = null,
         CancellationToken ct = default)
-        => ConfirmarAsync(lancamentoId, idBancario, null, null, operador, ct);
-
-    private Task ConfirmarAsync(int lancamentoId, string idBancario, string? conta,
-        DateOnly? dataExtrato, string? operador, CancellationToken ct, bool validarIdentidade = true)
-        => _repo.ExecutarGestaoAtomicaAsync(async () =>
-    {
-        if (string.IsNullOrWhiteSpace(idBancario) || idBancario.Trim().Length > 100)
-            throw new InvalidOperationException("Informe uma identificação bancária válida, com até 100 caracteres.");
-        idBancario = idBancario.Trim();
-        var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
-            ?? throw new InvalidOperationException("Lançamento não encontrado.");
-
-        if (lancamento.Conciliado)
-            throw new InvalidOperationException(
-                "Este lançamento já foi conciliado. Desfaça a conciliação antes de casá-lo "
-                + "com outra linha do extrato.");
-
-        if (lancamento.Status != StatusLancamento.Realizado || lancamento.FormaPagamento == FormaPagamento.Dinheiro)
-            throw new InvalidOperationException("Concilie apenas pagamentos realizados que passam pelo banco.");
-        if (conta?.Length > 200)
-            throw new InvalidOperationException("Identificação bancária da conta excede 200 caracteres.");
-        if (validarIdentidade && await _repo.IdBancarioUtilizadoAsync(idBancario, conta, ct))
-            throw new InvalidOperationException("Esta transação bancária já foi conciliada. Atualize o extrato.");
-
-        lancamento.ConciliadoEm = DateTime.Now;
-        lancamento.IdBancario = idBancario;
-        lancamento.ContaBancariaConciliacao = conta;
-        lancamento.DataExtrato = dataExtrato;
-        lancamento.RecebimentoAntesDaConciliacao = lancamento.RecebimentoConfirmadoEm;
-        if (lancamento.PrevisaoRecebimento is not null && dataExtrato is not null)
-            lancamento.RecebimentoConfirmadoEm = dataExtrato;
-
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "LancamentoConciliado",
-            Detalhe = $"{lancamento.Descricao} — {lancamento.Valor:C2} · extrato {idBancario}",
-            PacienteId = lancamento.PacienteId
-        }, ct);
-
-        await _repo.SalvarAsync(ct);
-        return true;
-    }, ct);
-
-    /// <summary>Revalida valor, direção e data na confirmação, inclusive após alteração em outra estação.</summary>
-    public Task ConciliarLinhaAsync(int lancamentoId, LinhaExtrato linha, string? operador = null,
-        string? conta = null, CancellationToken ct = default)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
         {
-            if (!linha.IdentidadeBancariaInformada)
-                throw new InvalidOperationException("O OFX não informou o identificador bancário desta transação. Solicite um extrato com FITID.");
-            var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
-                ?? throw new InvalidOperationException("Lançamento não encontrado.");
-            if (!Combina(lancamento, linha))
-                throw new InvalidOperationException("Valor líquido, direção ou data divergente do extrato. Atualize e confira o lançamento.");
-            await ConfirmarAsync(lancamentoId, linha.Id, conta, linha.Data, operador, ct);
+            var item = await IntegralAsync(lancamentoId, ct);
+            await ValidarIdentidadeAsync(idBancario, null, ct);
+            await ConfirmarItemAsync(item, idBancario.Trim(), null, null, operador, ct);
+            await _repo.SalvarAsync(ct);
             return true;
         }, ct);
 
+    public Task ConciliarLinhaAsync(int lancamentoId, LinhaExtrato linha, string? operador = null,
+        string? conta = null, CancellationToken ct = default)
+        => ConciliarItensAsync([new ItemConciliacao(new LancamentoFinanceiro { Id = lancamentoId })],
+            linha, operador, conta, ct);
+
     public Task ConciliarDepositoAsync(IReadOnlyCollection<int> ids, LinhaExtrato linha,
+        string? operador = null, string? conta = null, CancellationToken ct = default)
+        => ConciliarItensAsync(ids.Select(id => new ItemConciliacao(new LancamentoFinanceiro { Id = id })).ToList(),
+            linha, operador, conta, ct);
+
+    /// <summary>Recarrega cada crédito e confere valor, direção e data dentro da transação.</summary>
+    public Task ConciliarItensAsync(IReadOnlyCollection<ItemConciliacao> referencias, LinhaExtrato linha,
         string? operador = null, string? conta = null, CancellationToken ct = default)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
         {
             if (!linha.IdentidadeBancariaInformada)
                 throw new InvalidOperationException("O OFX não informou o identificador bancário desta transação. Solicite um extrato com FITID.");
-            var lote = await _repo.LancamentosPorIdAsync(ids, ct);
-            if (ids.Count < 2 || ids.Distinct().Count() != ids.Count || lote.Count != ids.Count
-                || !linha.Entrada || lote.Any(l => l.Status != StatusLancamento.Realizado || l.Conciliado
-                    || l.Tipo != TipoLancamento.Entrada || l.ModalidadeCartao is null
-                    || string.IsNullOrWhiteSpace(l.Adquirente)
-                    || Math.Abs(DataDoDinheiro(l).DayNumber - linha.Data.DayNumber) > FolgaDias)
-                || lote.Select(l => (l.Adquirente, Dia: DataDoDinheiro(l))).Distinct().Count() != 1
-                || lote.Sum(ValorBancario) != linha.ValorAbsoluto)
-                throw new InvalidOperationException("O lote mudou ou seu total não corresponde ao depósito. Atualize o extrato.");
-            if (await _repo.IdBancarioUtilizadoAsync(linha.Id.Trim(), conta, ct))
-                throw new InvalidOperationException("Esta transação bancária já foi conciliada. Atualize o extrato.");
-            foreach (var l in lote)
-                await ConfirmarAsync(l.Id, linha.Id, conta, linha.Data, operador, ct, validarIdentidade: false);
+            if (referencias.Count == 0 || referencias.Select(i => i.Chave).Distinct().Count() != referencias.Count)
+                throw new InvalidOperationException("Escolha créditos distintos para o depósito.");
+            await ValidarIdentidadeAsync(linha.Id, conta, ct);
+            var lote = new List<ItemConciliacao>();
+            foreach (var r in referencias)
+            {
+                if (r.ParcelaId is { } id)
+                {
+                    var p = (await _repo.ParcelasCartaoPorIdsAsync([id], ct)).SingleOrDefault()
+                        ?? throw new InvalidOperationException("Parcela não encontrada.");
+                    lote.Add(new ItemConciliacao(p.Lancamento, p));
+                }
+                else lote.Add(await IntegralAsync(r.Id, ct));
+            }
+            if (lote.Any(i => i.Status != StatusLancamento.Realizado || i.Conciliado
+                    || i.Lancamento.FormaPagamento == FormaPagamento.Dinheiro
+                    || (i.Tipo == TipoLancamento.Entrada) != linha.Entrada
+                    || Math.Abs(i.Data.DayNumber - linha.Data.DayNumber) > FolgaDias)
+                || lote.Sum(i => i.ValorBancario) != linha.ValorAbsoluto
+                || (lote.Count > 1 && (!linha.Entrada || lote.Any(i => i.ModalidadeCartao is null
+                    || string.IsNullOrWhiteSpace(i.Adquirente))
+                    || lote.Select(i => (i.Adquirente, i.Data)).Distinct().Count() != 1)))
+                throw new InvalidOperationException("Valor líquido, direção ou data divergente do extrato. O lote mudou; atualize e confira os créditos.");
+            foreach (var item in lote)
+                await ConfirmarItemAsync(item, linha.Id.Trim(), conta, linha.Data, operador, ct);
+            await AtualizarVendasAsync(lote.Where(i => i.Parcela is not null).Select(i => i.Id), ct);
+            await _repo.SalvarAsync(ct);
             return true;
         }, ct);
 
-    /// <summary>
-    /// Desfaz a conciliação.
-    ///
-    /// Existe porque conciliar é humano e errar também: casada a linha errada, sem desfazer
-    /// a única saída seria mexer no banco. Não apaga o lançamento nem mexe no valor — só
-    /// devolve a linha à lista do que falta conferir.
-    /// </summary>
-    public Task DesfazerAsync(
-        int lancamentoId, string? operador = null, CancellationToken ct = default)
-        => _repo.ExecutarGestaoAtomicaAsync(async () =>
+    private async Task<ItemConciliacao> IntegralAsync(int id, CancellationToken ct)
     {
-        var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
+        var l = await _repo.ObterLancamentoAsync(id, ct)
             ?? throw new InvalidOperationException("Lançamento não encontrado.");
+        if ((await _repo.ParcelasCartaoDoLancamentoAsync(id, ct)).Count > 0)
+            throw new InvalidOperationException("Concilie os créditos das parcelas deste contrato, não o total da venda.");
+        return new ItemConciliacao(l);
+    }
 
-        if (!lancamento.Conciliado) return false;
-
-        var lote = await _repo.LancamentosDaTransacaoBancariaAsync(lancamento.IdBancario!, lancamento.ContaBancariaConciliacao, ct);
-        foreach (var item in lote)
-            await DesfazerLancamentoAsync(item, operador, ct);
-        await _repo.SalvarAsync(ct);
-        return true;
-    }, ct);
-
-    private async Task DesfazerLancamentoAsync(LancamentoFinanceiro lancamento, string? operador, CancellationToken ct)
+    private async Task ValidarIdentidadeAsync(string id, string? conta, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(id) || id.Trim().Length > 100 || conta?.Length > 200)
+            throw new InvalidOperationException("Informe uma identificação bancária válida (transação até 100 e conta até 200 caracteres).");
+        if (await _repo.IdBancarioUtilizadoAsync(id.Trim(), conta, ct))
+            throw new InvalidOperationException("Esta transação bancária já foi conciliada. Atualize o extrato.");
+    }
 
-        var idAntigo = lancamento.IdBancario;
-
-        lancamento.ConciliadoEm = null;
-        lancamento.IdBancario = null;
-        lancamento.ContaBancariaConciliacao = null;
-        if (lancamento.DataExtrato is not null && lancamento.PrevisaoRecebimento is not null)
-            lancamento.RecebimentoConfirmadoEm = lancamento.RecebimentoAntesDaConciliacao;
-        lancamento.DataExtrato = null;
-        lancamento.RecebimentoAntesDaConciliacao = null;
-
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+    private async Task ConfirmarItemAsync(ItemConciliacao item, string id, string? conta,
+        DateOnly? data, string? operador, CancellationToken ct)
+    {
+        if (item.Conciliado) throw new InvalidOperationException("Este lançamento já foi conciliado. Desfaça a conciliação antes de continuar.");
+        if (item.Status != StatusLancamento.Realizado
+            || item.Lancamento.FormaPagamento == FormaPagamento.Dinheiro)
+            throw new InvalidOperationException("Concilie apenas pagamentos realizados, ainda não conciliados, que passam pelo banco.");
+        if (item.Parcela is { } p)
         {
-            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "ConciliacaoDesfeita",
-            Detalhe = $"{lancamento.Descricao} — {lancamento.Valor:C2} · era do extrato {idAntigo}",
-            PacienteId = lancamento.PacienteId
+            p.ConciliadoEm = DateTime.Now;
+            p.IdBancario = id;
+            p.ContaBancaria = conta;
+            p.DataExtrato = data;
+            p.RecebimentoAntesDaConciliacao = p.RecebidoEm;
+            p.RecebidoEm = data ?? p.RecebidoEm;
+        }
+        else
+        {
+            var l = item.Lancamento;
+            l.ConciliadoEm = DateTime.Now;
+            l.IdBancario = id;
+            l.ContaBancariaConciliacao = conta;
+            l.DataExtrato = data;
+            l.RecebimentoAntesDaConciliacao = l.RecebimentoConfirmadoEm;
+            if (l.PrevisaoRecebimento is not null && data is not null) l.RecebimentoConfirmadoEm = data;
+        }
+        await AuditarAsync("LancamentoConciliado", item, id, operador, ct);
+    }
+
+    public Task DesfazerAsync(int lancamentoId, string? operador = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
+        {
+            var item = await IntegralAsync(lancamentoId, ct);
+            if (!item.Conciliado) return false;
+            await DesfazerTransacaoAsync(item.IdBancario!, item.ContaBancariaConciliacao, operador, ct);
+            return true;
         }, ct);
 
-    }
+    public Task DesfazerParcelaAsync(int parcelaId, string? operador = null, CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
+        {
+            var p = (await _repo.ParcelasCartaoPorIdsAsync([parcelaId], ct)).SingleOrDefault()
+                ?? throw new InvalidOperationException("Parcela não encontrada.");
+            if (p.ConciliadoEm is null) return false;
+            await DesfazerTransacaoAsync(p.IdBancario!, p.ContaBancaria, operador, ct);
+            return true;
+        }, ct);
 
-    /// <summary>
-    /// Este lançamento pode ser esta linha do extrato?
-    ///
-    /// O VALOR tem de bater ao centavo — é o que dá confiança ao par —, e a DIREÇÃO
-    /// também: uma entrada de R$ 150 no sistema não pode casar com uma saída de R$ 150 no
-    /// banco, por mais que os números coincidam.
-    /// </summary>
-    private static bool Combina(LancamentoFinanceiro l, LinhaExtrato linha)
+    private async Task DesfazerTransacaoAsync(string id, string? conta, string? operador, CancellationToken ct)
     {
-        // Tributos provisionados são recolhidos separadamente; a adquirente desconta sua taxa.
-        var valorBancario = ValorBancario(l);
-        if (valorBancario != linha.ValorAbsoluto) return false;
-
-        var entradaNoSistema = l.Tipo == TipoLancamento.Entrada;
-        if (entradaNoSistema != linha.Entrada) return false;
-
-        return Math.Abs(DataDoDinheiro(l).DayNumber - linha.Data.DayNumber) <= FolgaDias;
+        var vendas = await _repo.LancamentosDaTransacaoBancariaAsync(id, conta, ct);
+        var parcelas = await _repo.ParcelasCartaoDaTransacaoAsync(id, conta, ct);
+        foreach (var l in vendas)
+        {
+            l.ConciliadoEm = null;
+            l.IdBancario = null;
+            l.ContaBancariaConciliacao = null;
+            if (l.DataExtrato is not null && l.PrevisaoRecebimento is not null)
+                l.RecebimentoConfirmadoEm = l.RecebimentoAntesDaConciliacao;
+            l.DataExtrato = null;
+            l.RecebimentoAntesDaConciliacao = null;
+            await AuditarAsync("ConciliacaoDesfeita", new ItemConciliacao(l), id, operador, ct);
+        }
+        foreach (var p in parcelas)
+        {
+            p.ConciliadoEm = null;
+            p.IdBancario = null;
+            p.ContaBancaria = null;
+            p.RecebidoEm = p.RecebimentoAntesDaConciliacao;
+            p.DataExtrato = null;
+            p.RecebimentoAntesDaConciliacao = null;
+            await AuditarAsync("ConciliacaoDesfeita", new ItemConciliacao(p.Lancamento, p), id, operador, ct);
+        }
+        await AtualizarVendasAsync(parcelas.Select(p => p.LancamentoFinanceiroId), ct);
+        await _repo.SalvarAsync(ct);
     }
 
-    /// <summary>
-    /// A data em que o dinheiro se moveu: o PAGAMENTO quando há, a competência como último
-    /// recurso. É a mesma escolha do fluxo de caixa — casar pela competência compararia a
-    /// data em que a clínica lançou com a data em que o banco creditou.
-    /// </summary>
-    private static DateOnly DataDoDinheiro(LancamentoFinanceiro l)
-        => l.RecebimentoConfirmadoEm ?? l.PrevisaoRecebimento ?? l.DataPagamento ?? l.Data;
+    private async Task AtualizarVendasAsync(IEnumerable<int> ids, CancellationToken ct)
+    {
+        foreach (var id in ids.Distinct())
+            await new CalendarioCartaoService(_repo).AtualizarConfirmacaoDaVendaAsync(id, ct);
+    }
 
-    private static decimal ValorBancario(LancamentoFinanceiro l)
-        => l.Tipo != TipoLancamento.Entrada ? l.Valor
-            : l.FormaPagamento == FormaPagamento.Convenio || l.CodigoFaturamentoId is not null
-                ? l.ValorLiquido // A operadora transfere o líquido de suas retenções.
-                : l.Valor - (l.ValorTaxa ?? 0m);
+    private Task AuditarAsync(string acao, ItemConciliacao item, string id, string? operador, CancellationToken ct)
+        => _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = acao,
+            Detalhe = $"{item.Descricao} — {item.ValorBancario:C2} · extrato {id}",
+            PacienteId = item.Lancamento.PacienteId
+        }, ct);
+
+    private static bool Combina(ItemConciliacao item, LinhaExtrato linha)
+        => item.ValorBancario == linha.ValorAbsoluto && (item.Tipo == TipoLancamento.Entrada) == linha.Entrada
+            && Math.Abs(item.Data.DayNumber - linha.Data.DayNumber) <= FolgaDias;
+    private static DateOnly DataDoDinheiro(ItemConciliacao item) => item.Data;
+    private static decimal ValorBancario(ItemConciliacao item) => item.ValorBancario;
 }

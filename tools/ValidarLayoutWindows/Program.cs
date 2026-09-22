@@ -207,6 +207,27 @@ static class Program
         await gerente.CarregarCommand.ExecuteAsync(null);
         var direcao = new Window { Content = new Clinica.Gerente.Views.PainelDirecaoView { DataContext = gerente }, Height = 700 };
         await ConferirJanela(direcao, "gerente-gestao", [960, 1366]); direcao.Close();
+        var taxaVm = new Clinica.Financeiro.ViewModels.TaxaEdicaoViewModel(escopos, 0)
+            { Adquirente = "Maquininha / contrato mensal", Modalidade = ModalidadeCartao.CreditoParcelado,
+              LiquidacaoMensal = true, ParcelasDe = "2", ParcelasAte = "12", Percentual = "3" };
+        var contrato = new Clinica.Financeiro.Janelas.TaxaWindow(taxaVm);
+        await ConferirJanela(contrato, "contrato-cartao", [460, 600]); contrato.Close();
+        var pacoteVm = new PacoteVendaViewModel(escopos, paciente)
+            { Forma = FormaPagamento.CartaoCredito, Adquirente = "Contrato mensal", Bandeira = "Visa", ParcelasCartao = "3" };
+        var pacoteJanela = new PacoteVendaWindow(pacoteVm);
+        await ConferirJanela(pacoteJanela, "pacote-cartao", [680, 860]); pacoteJanela.Close();
+        using (var scope = sp.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<TaxaService>().SalvarAsync(new TaxaCartao
+                { Adquirente = "Contrato mensal", Modalidade = ModalidadeCartao.CreditoParcelado,
+                  Percentual = 3, DiasParaReceber = 0, LiquidacaoMensal = true });
+            await scope.ServiceProvider.GetRequiredService<PagamentosRecepcaoService>().ReceberAsync(paciente.Id,
+                pendente.Id, pendente.Valor, hoje, FormaPagamento.CartaoCredito, adquirente: "Contrato mensal", bandeira: "Visa", parcelas: 3);
+        }
+        var recebiveisVm = sp.GetRequiredService<Clinica.Financeiro.ViewModels.RecebiveisViewModel>();
+        await recebiveisVm.CarregarAsync();
+        var recebiveisJanela = new Window { Content = new Clinica.Financeiro.Views.RecebiveisView { DataContext = recebiveisVm }, Height = 700 };
+        await ConferirJanela(recebiveisJanela, "recebiveis-parcelas", [960, 1366]); recebiveisJanela.Close();
         foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Profissional })
         {
             usuario.Perfil = perfil; sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);

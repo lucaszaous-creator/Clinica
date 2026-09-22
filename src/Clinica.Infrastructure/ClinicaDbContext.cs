@@ -5,6 +5,7 @@ namespace Clinica.Infrastructure;
 
 public class ClinicaDbContext : DbContext
 {
+    public DbSet<ParcelaRecebivelCartao> ParcelasRecebiveisCartao => Set<ParcelaRecebivelCartao>();
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -1818,6 +1819,22 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.ProfissionalId);
             e.Ignore(x => x.Descricao);
+        });
+
+        b.Entity<ParcelaRecebivelCartao>(e =>
+        {
+            e.ToTable("ParcelasRecebiveisCartao");
+            e.HasKey(p => p.Id);
+            e.HasOne(p => p.Lancamento).WithMany().HasForeignKey(p => p.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(p => new { p.LancamentoFinanceiroId, p.Numero }).IsUnique();
+            e.HasIndex(p => p.Previsao);
+            e.HasIndex(p => new { p.ContaBancaria, p.IdBancario });
+            e.Property(p => p.Bruto).HasPrecision(14, 2);
+            e.Property(p => p.Taxa).HasPrecision(14, 2);
+            e.Property(p => p.IdBancario).HasMaxLength(100);
+            e.Property(p => p.ContaBancaria).HasMaxLength(200);
+            e.Property(p => p.ConciliadoEm).HasColumnType("timestamp without time zone");
+            e.Ignore(p => p.Liquido);
         });
 
         b.Entity<TaxaCartao>(e =>
