@@ -98,8 +98,9 @@ public class FaturamentoCongeladoTests
     }
 
     /// <summary>
-    /// O catálogo que o faturamento carrega na abertura devolve, em base VAZIA,
-    /// exatamente as embutidas — nem uma a mais.
+    /// O catálogo que o faturamento carrega na abertura mantém as seis embutidas.
+    /// A migração pode acrescentar Psicologia como entrada configurável, sem alterar
+    /// o enum nem os códigos e regras das guias.
     ///
     /// É o mesmo caminho que o `App.xaml.cs` dele percorre
     /// (`RecarregarCacheAsync` → `ListarAsync`), e é por onde a regressão da parcela 36
@@ -117,8 +118,10 @@ public class FaturamentoCongeladoTests
         var repo = new ClinicaRepositorio(db);
 
         var especialidades = await new EspecialidadeCatalogoService(repo).ListarAsync();
-        especialidades.Select(e => e.Codigo).Should()
-            .BeEquivalentTo(Enum.GetNames<Especialidade>());
+        var codigos = especialidades.Select(e => e.Codigo).ToArray();
+        codigos.Should().Contain(Enum.GetNames<Especialidade>());
+        codigos.Should().OnlyContain(c => Enum.GetNames<Especialidade>().Contains(c)
+            || c == "Psicologia");
 
         var modalidades = await new ModalidadeCatalogoService(repo).ListarAsync();
         modalidades.Select(m => m.Codigo).Should()
