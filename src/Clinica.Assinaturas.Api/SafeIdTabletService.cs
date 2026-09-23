@@ -21,13 +21,13 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         && !configuration.GetValue<bool>("Portal:Demo");
     private (OpcoesSafeID Opcoes, Uri Retorno) Configuracao()
     {
-        if(!Habilitado) throw new InvalidOperationException("A assinatura SafeID no tablet ainda não foi habilitada pela clínica.");
+        if(!Habilitado) throw ErroFormularioTablet.Criar("A assinatura SafeID no tablet ainda não foi habilitada pela clínica.");
         var id=configuration["Portal:SafeId:ClientId"]; var segredo=configuration["Portal:SafeId:ClientSecret"];
         if(string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(segredo)
             || !Uri.TryCreate(configuration["Portal:SafeId:Retorno"],UriKind.Absolute,out var retorno)
             || retorno.Scheme!="https" || (retorno.Host!="portal.clinicasemdormacae.com.br" && retorno.Host!="homologacao.clinicasemdormacae.com.br")
             || retorno.AbsolutePath!="/safeid/retorno" || retorno.UserInfo!="" || retorno.Query!="" || retorno.Fragment!="" || !retorno.IsDefaultPort)
-            throw new InvalidOperationException("A clínica precisa configurar o retorno HTTPS do SafeID para o tablet.");
+            throw ErroFormularioTablet.Criar("A clínica precisa configurar o retorno HTTPS do SafeID para o tablet.");
         return (new(id,segredo,[retorno],configuration.GetValue<bool>("Portal:SafeId:Homologacao") ? OpcoesSafeID.BaseHomologacao : OpcoesSafeID.BasePadrao),retorno);
     }
     private async Task<string> Conferir(string tipo,int id,bool confirmou,CancellationToken ct)
@@ -37,16 +37,16 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         {
             var p=await repo.ObterPrescricaoInternaAsync(id,ct)??throw new RecursoClinicoIndisponivel();
             if(!p.AguardaAssinaturaDaExecucao || !p.ExecucaoCompleta || !p.OrigemEnfermagem && p.AssinaturaDoPrescritor?.ArquivoId is null)
-                throw new InvalidOperationException("Encerre a execução e confira a via assinada pelo prescritor antes de assinar.");
+                throw ErroFormularioTablet.Criar("Encerre a execução e confira a via assinada pelo prescritor antes de assinar.");
             return ContratoTablet.Hash(ContratoTablet.Serializar(new {Versao=PostoTabletService.Versao(p),Cadastro=Cadastro(p.Paciente,p.Profissional),Prestador=prestador,ArquivoId=p.AssinaturaDoPrescritor?.ArquivoId,p.OrigemEnfermagem,p.OrientacaoExterna}));
         }
         if(tipo=="infusao")
         {
             var p=await repo.ObterPrescricaoInternaAsync(id,ct) ?? throw new RecursoClinicoIndisponivel();
             if((!p.PodeEditar && !(p.OrigemEnfermagem && p.AguardaValidacaoMedica && p.AssinaturaDaExecucao?.ArquivoId!=null)) || p.Itens.Count==0)
-                throw new InvalidOperationException("Confira o rascunho ou a execução assinada pela enfermagem antes de validar.");
+                throw ErroFormularioTablet.Criar("Confira o rascunho ou a execução assinada pela enfermagem antes de validar.");
             var alerta=await prescricoes.ConferirParaAssinaturaAsync(id,ct);
-            if(alerta.ExigeConfirmacao && !confirmou) throw new InvalidOperationException("Confira as alergias e confirme a revisão antes de assinar.");
+            if(alerta.ExigeConfirmacao && !confirmou) throw ErroFormularioTablet.Criar("Confira as alergias e confirme a revisão antes de assinar.");
             // Fotografia sem ids de navegação: qualquer mudança relevante invalida a autorização.
             return ContratoTablet.Hash(ContratoTablet.Serializar(new {p.PacienteId,p.ProfissionalId,p.AgendamentoId,p.Data,p.Hora,
                 Cadastro=Cadastro(p.Paciente,p.Profissional),Prestador=prestador,
@@ -55,9 +55,10 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
                 Alergias=alerta.Alergias.Select(a=>new {a.Id,a.Descricao,a.AtualizadoEm})}));
         }
         var d=await repo.ObterDocumentoAsync(id,ct) ?? throw new RecursoClinicoIndisponivel();
-        if(d.AssinadoEletronicamente || d.Cancelado) throw new InvalidOperationException("O documento já foi assinado ou cancelado.");
+        if(d.AssinadoEletronicamente || d.Cancelado) throw ErroFormularioTablet.Criar("O documento já foi assinado ou cancelado.");
         var faltas=ConformidadeDocumentoClinico.Conferir(d,assinaturaEletronica:true).Where(f=>f.Impeditiva).ToList();
-        if(faltas.Count>0) throw new InvalidOperationException(string.Join(" ",faltas.Select(f=>f.Descricao)));
+        if(faltas.Count>0) throw ErroFormularioTablet.Criar(string.Join(" ",faltas.Select(f=>f.Descricao))
+            + " Corrija as informações indicadas, confira o PDF atualizado e tente autorizar novamente.");
         return ContratoTablet.Hash(ContratoTablet.Serializar(new {d.PacienteId,d.ProfissionalId,d.AgendamentoId,d.Data,d.Numero,
             Cadastro=Cadastro(d.Paciente,d.Profissional),Prestador=prestador,
             d.Tipo,d.Titulo,d.Corpo,d.Observacoes,d.DiasAfastamento,d.Cid,d.CidAutorizado,
@@ -71,12 +72,12 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
     {
         var (u,_)=await acesso.ExigirDocumentoAsync(s,agendamento,tipo,id,true,ct);
         var (opcoes,retorno)=Configuracao();
-        if(string.IsNullOrWhiteSpace(u.Profissional!.Cpf)) throw new InvalidOperationException("Cadastre o CPF do profissional no sistema antes de assinar.");
+        if(string.IsNullOrWhiteSpace(u.Profissional!.Cpf)) throw ErroFormularioTablet.Criar("Cadastre o CPF do profissional no sistema antes de assinar.");
         var hash=ContratoTablet.Hash(await Conferir(tipo,id,confirmou,ct)+ContratoTablet.Serializar(Cadastro(null,u.Profissional)));
         using var http=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false}) {Timeout=TimeSpan.FromSeconds(30)};
         var cliente=new ClienteSafeID(http,opcoes);
         try {await cliente.TokenDaAplicacaoAsync(ct);}
-        catch {throw new InvalidOperationException("Não foi possível autorizar a aplicação no SafeID. Confira a configuração da clínica.");}
+        catch {throw ErroFormularioTablet.Criar("Não foi possível autorizar a aplicação no SafeID. Confira a configuração da clínica.");}
         var a=autorizacoes.Criar(s.Id,agendamento,id,tipo,hash,confirmou);
         var escopo=EscopoSafeID.ParaAto(tipo=="execucao"?2:1);
         return new {a.Id,Url=cliente.UrlDeAutorizacao(a.Pkce,retorno,escopo.Escopo,
@@ -114,11 +115,11 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
             var cliente=new ClienteSafeID(http,opcoes);
             etapa = "token";
             var token=await cliente.TokenPorCodigoAsync(a.Codigo!,a.Pkce,retorno,ct);
-            if(!token.Vigente) throw new InvalidOperationException("A autorização SafeID expirou.");
+            if(!token.Vigente) throw ErroFormularioTablet.Criar("A autorização SafeID expirou.");
             etapa = "certificados";
             var certificados=await cliente.CertificadosAsync(token.AccessToken,somenteDaAutorizacao:true,ct);
             var validos=certificados.Where(c=>c.Certificado.Vigente && c.Certificado.Cpf==Cpf.Normalizar(u.Profissional!.Cpf)).ToArray();
-            if(validos.Length!=1) throw new InvalidOperationException("O SafeID precisa autorizar um único certificado válido do profissional conectado.");
+            if(validos.Length!=1) throw ErroFormularioTablet.Criar("O SafeID precisa autorizar um único certificado válido do profissional conectado.");
             var escolhido=validos[0];
             etapa = "titular";
             TitularDoCertificado.Exigir(escolhido.Certificado,u.Profissional!.Cpf,u.Profissional.Nome);
@@ -141,7 +142,7 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
             // CPF ou conteúdo da resposta. Só códigos e nomes de métodos controlados.
             logger.LogWarning("SafeID tablet: referencia={Referencia} etapa={Etapa} codigo={Codigo} origem={Origem}",
                 a.Id, etapa, falha.Codigo, falha.Origem);
-            throw new InvalidOperationException("A assinatura não foi confirmada. Confira o documento no histórico antes de iniciar outra autorização. "
+            throw ErroFormularioTablet.Criar("A assinatura não foi confirmada. Confira o documento no histórico antes de iniciar outra autorização. "
                 + $"Referência: {a.Id:N}. Código: {falha.Codigo}.");
         }
     }
