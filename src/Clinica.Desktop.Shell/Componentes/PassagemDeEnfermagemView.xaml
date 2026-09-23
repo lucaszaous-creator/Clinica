@@ -76,17 +76,8 @@
                     <TextBox Width="70" Text="{Binding Respiratoria, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
                 <StackPanel Margin="0,0,14,6">
-                    <TextBlock Text="Temp. (°C)" Style="{StaticResource TextoSuave}" />
-                    <TextBox Width="70" Text="{Binding Temperatura, UpdateSourceTrigger=PropertyChanged}" />
-                </StackPanel>
-                <StackPanel Margin="0,0,14,6">
                     <TextBlock Text="SpO₂ (%)" Style="{StaticResource TextoSuave}" />
                     <TextBox Width="70" Text="{Binding Saturacao, UpdateSourceTrigger=PropertyChanged}" />
-                </StackPanel>
-                <StackPanel Margin="0,0,14,6">
-                    <TextBlock Text="Dor (0–10)" Style="{StaticResource TextoSuave}" />
-                    <TextBox Width="70" Text="{Binding Dor, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTip="A dor aferida agora, o quinto sinal vital. NÃO entra na curva de dor do prontuário, que mede o efeito do tratamento entre sessões — são duas leituras diferentes." />
                 </StackPanel>
             </WrapPanel>
         </StackPanel>

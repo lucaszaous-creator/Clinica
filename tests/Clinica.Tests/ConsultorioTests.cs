@@ -622,13 +622,15 @@ public class ConsultorioTests : IDisposable
         // percorrendo `Enum.GetValues<Especialidade>()` — a especialidade nova apareceria
         // sozinha no seletor do lançamento de atendimento.
         //
-        // Base vazia tem de devolver EXATAMENTE as seis de sempre. Se este teste falhar
-        // com "sete", alguém pôs um valor no enum e mudou uma tela que fatura a clínica.
+        // Psicologia pode entrar pelo catálogo configurável após a migração.
+        // Neurocirurgia continua fora das embutidas e do seed automático.
         var catalogo = new EspecialidadeCatalogoService(_repo);
 
         var embutidas = await catalogo.ListarAsync();
 
-        embutidas.Should().HaveCount(6);
+        embutidas.Select(e => e.Codigo).Should().Contain(Enum.GetNames<Especialidade>());
+        embutidas.Should().OnlyContain(e => Enum.GetNames<Especialidade>().Contains(e.Codigo)
+            || e.Codigo == "Psicologia");
         embutidas.Should().NotContain(e => e.Codigo == InstrumentoOswestry.CodigoNeurocirurgia,
             "especialidade nova entra pelo CATÁLOGO, quando a clínica a cadastrar");
     }

@@ -22,6 +22,16 @@ internal static class RotasPostoTablet
             =>Results.Ok(await svc.RegistrarEnfermagemAsync(await sessao(c,portal),id,p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/enfermagem/observacoes",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,ObservacoesEnfermagemTablet p)
             =>Results.Ok(await svc.RegistrarObservacoesEnfermagemAsync(await sessao(c,portal),id,p,c.RequestAborted)));
+        g.MapGet("/modelos-enfermagem",async(HttpContext c,PortalTabletService portal,PostoTabletService svc)
+            =>Results.Ok(await svc.ModelosEnfermagemAsync(await sessao(c,portal),c.RequestAborted)));
+        g.MapPost("/modelos-enfermagem",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,SalvarModeloEnfermagemTablet p)
+            =>Results.Ok(await svc.SalvarModeloEnfermagemAsync(await sessao(c,portal),p,c.RequestAborted)));
+        g.MapGet("/modelos-evolucao",async(HttpContext c,PortalTabletService portal,PostoTabletService svc)
+            =>Results.Ok(await svc.ModelosEvolucaoAsync(await sessao(c,portal),c.RequestAborted)));
+        g.MapPost("/modelos-evolucao",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,SalvarModeloEvolucaoTablet p)
+            =>Results.Ok(await svc.SalvarModeloEvolucaoAsync(await sessao(c,portal),p,c.RequestAborted)));
+        g.MapPost("/modelos-documento",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,NovoModeloDocumentoTablet p)
+            =>Results.Ok(await svc.SalvarModeloDocumentoGlobalAsync(await sessao(c,portal),p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/enfermagem/{evolucao:int}/vincular",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,int evolucao,VinculoEnfermagemTablet p)
             =>Results.Ok(await svc.VincularEnfermagemAsync(await sessao(c,portal),id,evolucao,p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/modelos-documento",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,NovoModeloDocumentoTablet p)
@@ -46,7 +56,8 @@ internal static class RotasPostoTablet
             =>Results.Ok(await svc.AnexarAsync(await sessao(c,portal),id,p,c.RequestAborted)));
         g.MapGet("/pacientes/{id:int}/anexos/{anexo:int}/conteudo",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,int anexo)=> {
             var a=await svc.ConteudoAnexoAsync(await sessao(c,portal),id,anexo,c.RequestAborted);
-            return Results.File(a.Conteudo,a.Tipo);
+            var nome=a.Tipo switch {"application/pdf"=>"anexo.pdf","image/png"=>"anexo.png",_=>"anexo.jpg"};
+            return Results.File(a.Conteudo,a.Tipo,nome);
         });
         g.MapGet("/pacientes/{id:int}/rascunhos/{tipo}/{documento:int}",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,string tipo,int documento)
             =>Results.Ok(await svc.RascunhoAsync(await sessao(c,portal),id,tipo,documento,c.RequestAborted)));
@@ -59,7 +70,7 @@ internal static class RotasPostoTablet
         g.MapGet("/pacientes/{id:int}/mapas/{evolucao:int}",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,int evolucao)
             =>Results.Ok(await svc.MapaAsync(await sessao(c,portal),id,evolucao,c.RequestAborted)));
         g.MapGet("/pacientes/{id:int}/anexos/{anexo:int}/pdf",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,int anexo)
-            =>Results.File(await svc.AnexoPdfAsync(await sessao(c,portal),id,anexo,c.RequestAborted),"application/pdf"));
+            =>Results.File(await svc.AnexoPdfAsync(await sessao(c,portal),id,anexo,c.RequestAborted),"application/pdf","anexo.pdf"));
         g.MapPost("/pacientes/buscar",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,BuscaPacienteTablet pedido)
             =>Results.Ok(await svc.BuscarAsync(await sessao(c,portal),pedido.Busca,c.RequestAborted)));
         g.MapGet("/pacientes/{id:int}",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,int? pagina)

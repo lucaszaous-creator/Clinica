@@ -13,6 +13,12 @@
             <TextBlock Text="Receber pagamento" Style="{StaticResource H1}" />
             <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap" Margin="0,0,0,12" />
             <TextBlock Text="{Binding Valor}" Style="{StaticResource H2}" TextWrapping="Wrap" />
+            <TextBlock Text="Valor recebido agora" Style="{StaticResource Rotulo}" />
+            <TextBox Text="{Binding ValorRecebido, UpdateSourceTrigger=PropertyChanged}" MaxLength="15" />
+            <TextBlock Text="Vencimento do saldo restante (se houver)" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
+            <DatePicker SelectedDate="{Binding VencimentoSaldo}" />
+            <TextBlock Text="Se receber parte do valor, o restante continuará na lista de cobranças. O recibo corresponde somente ao valor recebido."
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,12" />
             <TextBlock Text="Data do pagamento" Style="{StaticResource Rotulo}" />
             <DatePicker SelectedDate="{Binding Data}" />
             <TextBlock Text="Forma de pagamento" Style="{StaticResource Rotulo}" />

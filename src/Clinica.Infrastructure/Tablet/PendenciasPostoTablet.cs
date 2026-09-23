@@ -10,7 +10,7 @@ public sealed partial class PostoTabletService
     public async Task<object> PendenciasAsync(SessaoTablet s,int pagina,CancellationToken ct)
     {
         var u=await Autorizar(s,ct);
-        if(pagina is <0 or >10000)throw new InvalidOperationException("Página inválida.");
+        if(pagina is <0 or >10000)throw ErroFormularioTablet.Criar("Página inválida.");
         var inicio=acesso.Hoje.AddDays(-90).ToDateTime(TimeOnly.MinValue);
         var fim=acesso.Hoje.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var sessoes=await db.Agendamentos.AsNoTracking()

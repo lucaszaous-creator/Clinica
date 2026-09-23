@@ -17,6 +17,12 @@
                 <TextBlock Text="{Binding Titulo}" Style="{StaticResource H1}" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap" Margin="0,12,0,0" />
                 <TextBlock Text="{Binding Valor}" Style="{StaticResource H2}" TextWrapping="Wrap" Margin="0,8,0,16" />
+                <TextBlock Text="Valor pago / recebido agora" />
+                <TextBox Text="{Binding ValorPago, UpdateSourceTrigger=PropertyChanged}" MaxLength="15" Margin="0,4,0,8" />
+                <TextBlock Text="Vencimento do saldo restante (se houver)" TextWrapping="Wrap" />
+                <DatePicker SelectedDate="{Binding VencimentoSaldo}" Margin="0,4,0,8" />
+                <TextBlock Text="Na baixa parcial, somente o valor informado entra no caixa; o restante permanece em aberto."
+                           TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
                 <TextBlock Text="Data efetiva do pagamento" />
                 <DatePicker SelectedDate="{Binding Data}" Margin="0,4,0,12" />
                 <TextBlock Text="Forma de pagamento" />

@@ -15,12 +15,25 @@ internal static class RotasAtendimentoTablet
     internal static void Mapear(WebApplication app, Func<HttpContext, PortalTabletService, Task<SessaoTablet>> sessao)
     {
         var grupo = app.MapGroup("/api/clinico");
-        grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc)=>
-        {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),modalidades=Enum.GetValues<ModalidadeAtendimento>().Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
+        grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc,ClinicaDbContext db)=>
+        {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);
+            var catalogo=await db.Especialidades.AsNoTracking()
+                .Select(e=>new {codigo=e.Codigo,nome=e.Nome,e.Ativo}).ToListAsync(c.RequestAborted);
+            var especialidades=catalogo.Where(e=>e.Ativo).Select(e=>new {e.codigo,e.nome})
+                .Concat(Enum.GetValues<Especialidade>()
+                    .Where(e=>!catalogo.Any(cadastrada=>string.Equals(cadastrada.codigo,e.ToString(),StringComparison.OrdinalIgnoreCase)))
+                    .Select(e=>new {codigo=e.ToString(),nome=EspecialidadeInfo.NomeExibicao(e)}))
+                .GroupBy(e=>e.codigo,StringComparer.OrdinalIgnoreCase).Select(g=>g.First())
+                .Where(e=>u.Profissional?.Atende(nameof(ModalidadeAtendimento.Consulta),e.codigo)==true).ToArray();
+            return Results.Ok(new {nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),consultaCodigo=(int)ModalidadeAtendimento.Consulta,especialidades,modalidades=Enum.GetValues<ModalidadeAtendimento>().Where(m=>(u.Perfil!=PerfilAcesso.Psicologia||m==ModalidadeAtendimento.Consulta)&&(m==ModalidadeAtendimento.Consulta?especialidades.Length>0:u.Profissional?.Atende(m.ToString())==true)).Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
         grupo.MapGet("/dia", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, DateOnly? data)
             => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
             => Results.Ok(await svc.AbrirAsync(await sessao(c,portal),id,c.RequestAborted)));
+        grupo.MapGet("/atendimentos/{id:int}/materiais", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
+            => Results.Ok(await svc.MateriaisAsync(await sessao(c,portal),id,c.RequestAborted)));
+        grupo.MapPost("/atendimentos/{id:int}/materiais", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id, RegistrarMateriaisTablet pedido)
+            => Results.Ok(await svc.RegistrarMateriaisAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}/mapas/{evolucao:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id,int evolucao)
             => Results.Ok(await svc.CopiarMapaAsync(await sessao(c,portal),id,evolucao,c.RequestAborted)));
         grupo.MapPost("/atendimentos/{id:int}/salvar", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id, SalvarAtendimentoTablet pedido)

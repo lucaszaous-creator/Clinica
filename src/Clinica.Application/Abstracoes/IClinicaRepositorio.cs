@@ -1633,6 +1633,14 @@ public interface IClinicaRepositorio
     /// mostra os dois. Filtra por tipo quando a tela quer só o que se paga ou só o que se
     /// recebe.
     /// </summary>
+    Task<ConferenciaConsumoProcedimento?> ConferenciaConsumoAsync(int atendimentoId, CancellationToken ct = default);
+    Task AtualizarBaixaConferenciaAsync(int id, DateTime? baixadoEm, string? motivo, CancellationToken ct = default);
+    Task<IReadOnlyList<ConferenciaConsumoProcedimento>> ConferenciasDosAtendimentosAsync(IReadOnlyCollection<int> atendimentos, CancellationToken ct = default);
+    Task AdicionarConferenciaConsumoAsync(ConferenciaConsumoProcedimento conferencia, CancellationToken ct = default);
+
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDaObrigacaoAsync(Guid grupo, CancellationToken ct = default);
+    Task<IReadOnlyList<LancamentoFinanceiro>> ContasDoParcelamentoAsync(Guid grupo, CancellationToken ct = default);
+
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
         DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default);
 

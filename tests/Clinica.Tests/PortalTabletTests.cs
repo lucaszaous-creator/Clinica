@@ -241,7 +241,8 @@ public sealed class PortalTabletTests : IDisposable
     [Fact] public async Task Identidade_errada_e_segundo_tablet_nao_emitem_termos_duplicados()
     {
         var s=await Preparar();var outra=await svc.EntrarAsync(usuario,"outro",null,default);
-        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id,[1],new DateOnly(1981,1,15),"Documento conferido"),default));
+        var validacao=await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id,[1],new DateOnly(1981,1,15),"Documento conferido"),default));
+        Assert.True(ErroFormularioTablet.EhPublico(validacao));
         await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id,[1],paciente.DataNascimento!.Value,"Documento conferido"),default));
         Assert.Equal(1,await db.DocumentosClinicos.CountAsync());Assert.Equal("equipe",outra.Sessao.Modo);
     }

@@ -1,5 +1,8 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
+using Clinica.Domain;
+using System.Text.Json;
 
 namespace Clinica.Application.Servicos;
 
@@ -30,8 +33,13 @@ public sealed class EquipeService
         => _repo.ObterProfissionalAsync(id, ct);
 
     /// <summary>Cria ou atualiza um profissional. Devolve a entidade persistida.</summary>
-    public async Task<Profissional> SalvarProfissionalAsync(Profissional dados, CancellationToken ct = default)
+    public async Task<Profissional> SalvarProfissionalAsync(Profissional dados, CancellationToken ct = default,
+        SessaoUsuario? solicitante = null)
     {
+        if (dados.HabilitacoesAtendimentoJson is not null
+            && (solicitante is not { Autenticado: true, Perfil: PerfilAcesso.Gerente }
+                || !solicitante.Pode(Permissao.GerenciarEquipe)))
+            throw new UnauthorizedAccessException("Somente o gerente pode definir os atendimentos e especialidades do profissional.");
         if (string.IsNullOrWhiteSpace(dados.Nome))
             throw new InvalidOperationException("Informe o nome do profissional.");
 
@@ -73,6 +81,26 @@ public sealed class EquipeService
         // gravador, que o CI não vê porque nada quebra — só não funciona.
         destino.Cpf = cpf;
         destino.EspecialidadeCodigo = Limpar(dados.EspecialidadeCodigo);
+        if (dados.HabilitacoesAtendimentoJson is not null)
+        {
+            var habilitacoes = dados.HabilitacoesAtendimento
+                ?? throw new InvalidOperationException("Configuração de atendimentos inválida.");
+            var modalidades = CatalogoModalidades.Ativas.Select(m => m.Codigo).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var especialidades = CatalogoEspecialidades.Ativas.Select(e => e.Codigo).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (habilitacoes.Any(h => !modalidades.Contains(h.ModalidadeCodigo)
+                || (CatalogoModalidades.Base(h.ModalidadeCodigo) == ModalidadeAtendimento.Consulta
+                    ? h.EspecialidadeCodigo is null || !especialidades.Contains(h.EspecialidadeCodigo)
+                    : h.EspecialidadeCodigo is not null)))
+                throw new InvalidOperationException("Selecione modalidades e especialidades ativas do catálogo.");
+            if (string.Equals(destino.EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase)
+                && habilitacoes.Any(h => CatalogoModalidades.Base(h.ModalidadeCodigo) != ModalidadeAtendimento.Consulta
+                    || !string.Equals(h.EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Profissional de Psicologia só pode atender consulta de Psicologia.");
+            if (habilitacoes.GroupBy(h => (h.ModalidadeCodigo.ToUpperInvariant(), h.EspecialidadeCodigo?.ToUpperInvariant()))
+                    .Any(g => g.Count() > 1))
+                throw new InvalidOperationException("Há atendimentos habilitados repetidos.");
+            destino.HabilitacoesAtendimentoJson = JsonSerializer.Serialize(habilitacoes);
+        }
         destino.Telefone = Limpar(dados.Telefone);
         destino.Email = Limpar(dados.Email);
         destino.Cor = Limpar(dados.Cor);

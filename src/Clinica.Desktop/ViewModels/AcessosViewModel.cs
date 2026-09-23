@@ -79,7 +79,9 @@ public sealed partial class AcessosViewModel : ObservableObject
                     Id = u.Id,
                     Nome = u.Nome,
                     Login = u.Login,
-                    Perfil = PerfisAcesso.Rotular(u.Perfil),
+                    Perfil = u.Perfil == PerfilAcesso.Profissional && u.Profissional?.EspecialidadeCodigo is { } especialidade
+                        ? "Médico · " + Clinica.Domain.Regras.CatalogoEspecialidades.Nome(especialidade)
+                        : PerfisAcesso.Rotular(u.Perfil),
                     Profissional = u.Profissional?.Nome ?? "—",
                     Situacao = u.Ativo ? "Ativo" : "Inativo",
                     UltimoAcesso = u.UltimoAcessoEm is { } quando

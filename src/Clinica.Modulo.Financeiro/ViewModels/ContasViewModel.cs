@@ -31,8 +31,8 @@ public sealed class LinhaConta
         return new LinhaConta
         {
             LancamentoId = l.Id,
-            Descricao = l.Descricao,
-            Categoria = l.Categoria?.Nome ?? (l.Paciente?.Nome ?? "sem categoria"),
+            Descricao = l.NumeroParcelaConta is { } numero ? $"{l.Descricao} — {numero}/{l.TotalParcelasConta}" : l.Descricao,
+            Categoria = string.Join(" · ", new[] { l.Contraparte ?? l.Paciente?.Nome, l.DocumentoReferencia, l.Categoria?.Nome }.Where(x => !string.IsNullOrWhiteSpace(x))),
             Valor = l.Valor.ToString("C"),
             Vencimento = l.DataVencimento?.ToString("dd/MM/yyyy") ?? "—",
             // O prazo em palavras, porque é assim que se pensa nele no balcão: ninguém
@@ -273,6 +273,14 @@ public sealed partial class ContasViewModel : ObservableObject
     /// de sempre — a conta e o lançamento são a mesma coisa, vista pela data que interessa.
     /// </summary>
     [RelayCommand]
+    private async Task HistoricoAsync(LinhaConta? linha)
+    {
+        if (linha is null) return;
+        try { await HistoricoObrigacao.MostrarAsync(_escopos, _dialogo, linha.LancamentoId); }
+        catch (Exception ex) { _snackbar.Erro(ex.Message); }
+    }
+
+    [RelayCommand]
     private async Task BaixarAsync(LinhaConta? linha)
     {
         if (linha is null) return;
@@ -288,7 +296,7 @@ public sealed partial class ContasViewModel : ObservableObject
             var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
             if (new Janelas.BaixarLancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
 
-            _snackbar.Sucesso(linha.EhSaida ? "Conta paga." : "Conta recebida.");
+            _snackbar.Sucesso("Baixa registrada. Eventual saldo restante continua em aberto.");
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -486,6 +494,11 @@ public sealed partial class ContasViewModel : ObservableObject
 public sealed partial class ContaEdicaoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
+    private readonly Guid _idempotencia = Guid.NewGuid();
+    [ObservableProperty] private string? _contraparte;
+    [ObservableProperty] private string? _documentoReferencia;
+    [ObservableProperty] private string _quantidadeParcelas = "1";
+    [ObservableProperty] private DateTime _competencia = DateTime.Today;
 
     public ObservableCollection<CategoriaFinanceira> Categorias { get; } = [];
 
@@ -550,6 +563,7 @@ public sealed partial class ContaEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task SalvarAsync()
     {
+        if (Salvando) return;
         Mensagem = null;
         MensagemEhErro = false;
 
@@ -577,11 +591,18 @@ public sealed partial class ContaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var contas = scope.ServiceProvider.GetRequiredService<ContasService>();
 
-            await contas.LancarContaAsync(
+            if (!int.TryParse(QuantidadeParcelas, out var parcelas))
+                throw new InvalidOperationException("Informe o número de parcelas mensais.");
+            await contas.LancarParcelamentoAsync(
+                _idempotencia,
                 EhSaida ? TipoLancamento.Saida : TipoLancamento.Entrada,
                 Descricao!,
                 valor,
+                parcelas,
                 DateOnly.FromDateTime(venc),
+                DateOnly.FromDateTime(Competencia),
+                contraparte: Contraparte,
+                documentoReferencia: DocumentoReferencia,
                 categoriaId: Categoria?.Id,
                 operador: SessaoUsuario.Atual.Operador,
                 // Só na conta a RECEBER: o modo pode ter sido trocado depois de escolher

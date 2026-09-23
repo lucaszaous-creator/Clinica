@@ -10,6 +10,11 @@ namespace Clinica.Desktop.Controls;
 /// </summary>
 public static class Valores
 {
+    /// <summary>Entrada decimal sem separador de milhar; vírgula e ponto indicam fração, independentemente do Windows.</summary>
+    public static bool TentarLerNumeroExato(string? texto, out decimal valor)
+        => decimal.TryParse(texto?.Trim().Replace(',', '.'),
+            NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out valor);
+
     /// <summary>
     /// Aceita o valor como a clínica digita: "1.250,00" (pt-BR) e também "1250.00".
     /// O sinal nunca sai daqui — quem decide entrada ou saída é o tipo do lançamento.

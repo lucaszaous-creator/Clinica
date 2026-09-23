@@ -31,7 +31,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
         var u=await Autorizar(s,ct,Permissao.VerAgenda);
         if(PoliticaAtendimentoTablet.PodeAtender(u))return await acesso.DiaAsync(s,dia,ct);
         var data=dia??acesso.Hoje;
-        if(Math.Abs(data.DayNumber-acesso.Hoje.DayNumber)>366)throw new InvalidOperationException("Escolha uma data no intervalo de um ano.");
+        if(Math.Abs(data.DayNumber-acesso.Hoje.DayNumber)>366)throw ErroFormularioTablet.Criar("Escolha uma data no intervalo de um ano.");
         var inicio=data.ToDateTime(TimeOnly.MinValue);var fim=inicio.AddDays(1);
         var horarios=await db.Agendamentos.AsNoTracking().Where(a=>a.DataHora>=inicio&&a.DataHora<fim&&(a.Status==StatusAgendamento.Agendado||a.Status==StatusAgendamento.Realizado))
             .OrderBy(a=>a.DataHora).Take(300).Select(a=>new {a.Id,a.PacienteId,Nome=a.Paciente!.Nome,Nascimento=a.Paciente.DataNascimento,a.DataHora,Modalidade=a.ModalidadePrevista.ToString(),
@@ -52,7 +52,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
         var u=await Autorizar(s,ct);
         var a=await db.AnexosPaciente.AsNoTracking().Include(a=>a.Arquivo).SingleOrDefaultAsync(a=>a.Id==id&&a.PacienteId==paciente&&a.CanceladoEm==null,ct)??throw new RecursoClinicoIndisponivel();
         var bytes=a.Arquivo?.Conteudo;
-        if(a.TipoConteudo!="application/pdf"||bytes is null||bytes.Length<5||!bytes.AsSpan(0,5).SequenceEqual("%PDF-"u8))throw new InvalidOperationException("O PDF não está disponível no banco. Consulte o anexo no desktop.");
+        if(a.TipoConteudo!="application/pdf"||bytes is null||bytes.Length<5||!bytes.AsSpan(0,5).SequenceEqual("%PDF-"u8))throw ErroFormularioTablet.Criar("O PDF não está disponível no banco. Consulte o anexo no desktop.");
         await Auditar(u,paciente,"TabletFichaAnexoConsultado",ct);await db.SaveChangesAsync(ct);return bytes;
     }
 
@@ -66,7 +66,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
     public async Task<object> FichaAsync(SessaoTablet s,int id,int pagina,CancellationToken ct)
     {
         var u=await Autorizar(s,ct);var p=await Paciente(id,ct);
-        if(pagina is <0 or >10000) throw new InvalidOperationException("Página inválida.");
+        if(pagina is <0 or >10000) throw ErroFormularioTablet.Criar("Página inválida.");
         var skip=pagina*25;
         var sessoes=await db.Agendamentos.AsNoTracking().Where(a=>a.PacienteId==id).OrderByDescending(a=>a.DataHora).ThenByDescending(a=>a.Id).Skip(skip).Take(26)
             .Select(a=>new {a.Id,a.DataHora,Modalidade=a.ModalidadePrevista.ToString(),Situacao=a.Status.ToString(),Profissional=a.Profissional==null?null:a.Profissional.Nome,
@@ -100,13 +100,13 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
             PodeAtender=PoliticaAtendimentoTablet.PodeAtender(u),PodePrescrever=u.Pode(Permissao.Prescrever),PodeExecutar=u.Pode(Permissao.ChecarPrescricao),Pagina=pagina,
             Mais=sessoes.Count>25||evolucoes.Count>25||exames.Count>25||avaliacoes.Count>25||documentos.Count>25||infusoes.Count>25||medidas.Count>25||anexos.Count>25||enfermagem.Count>25,
             Anamnese=DadosAnamnese(anamnese),VersaoAnamnese=Hash(DadosAnamnese(anamnese)),PodeEditarFicha=u.Pode(Permissao.EditarProntuario),PodeAnexar=PodeAnexar(u),PodeRegistrarEnfermagem=u.Pode(Permissao.RegistrarEvolucaoEnfermagem),TiposMedida=MedidaClinicaService.Registraveis.Select(t=>new {t.Codigo,t.Nome,t.Unidade,t.Minimo,t.Maximo,t.RotuloSegundoValor}),Exames=exames.Take(25),Avaliacoes=avaliacoes.Take(25),Campos=campos,Sessoes=sessoes.Take(25),Evolucoes=evolucoes.Take(25),Documentos=documentos.Take(25),Infusoes=infusoes.Take(25),Medidas=medidas.Take(25),Anexos=anexos.Take(25),Problemas=problemas.Select(x=>new {x.Id,Tipo=x.Natureza.ToString(),x.Descricao,Situacao=x.Situacao.ToString(),x.Cid,x.Observacoes,x.Inicio,x.Fim,Versao=Hash(DadosProblema(x))}),
-            Enfermagem=enfermagem.Take(25).Select(e=>new {e.Id,e.AgendamentoId,PodeVincular=e.AutorUsuarioId==u.Id||u.Perfil==PerfilAcesso.Gerente,e.RegistradoEm,e.Data,e.Texto,e.AutorNome,e.AutorConselho,e.Hora,e.Historico,e.ExameFisico,e.Avaliacao,e.Intercorrencia,e.PressaoSistolica,e.PressaoDiastolica,e.FrequenciaCardiaca,e.FrequenciaRespiratoria,e.Temperatura,e.SaturacaoOxigenio,e.Dor,e.RetificaEvolucaoId,e.MotivoRetificacao,e.CanceladaEm,e.MotivoCancelamento,e.AcessoLocal,e.AcessoCalibre,e.AcessoPuncionadoEm,Diagnosticos=e.Diagnosticos.OrderBy(d=>d.Ordem).Select(d=>new {d.Codigo,d.Titulo,d.RelacionadoA,d.EvidenciadoPor,d.ResultadoEsperado}),Cuidados=e.Cuidados.OrderBy(c=>c.Ordem).Select(c=>new {c.Codigo,c.Descricao,c.Frequencia,c.SeNecessario,Checagens=c.Checagens.OrderBy(x=>x.Id).Select(x=>new {x.Id,x.Data,x.HoraRealizacao,Situacao=x.Situacao.ToString(),x.Justificativa,x.Observacao,x.ExecutanteNome,x.ExecutanteConselho,x.RetificaChecagemId,x.MotivoRetificacao})})})};
+            Enfermagem=enfermagem.Take(25).Select(e=>new {e.Id,e.AgendamentoId,e.FaseAtendimento,PodeVincular=e.AutorUsuarioId==u.Id||u.Perfil==PerfilAcesso.Gerente,e.RegistradoEm,e.Data,e.Texto,e.AutorNome,e.AutorConselho,e.Hora,e.Historico,e.ExameFisico,e.Avaliacao,e.Intercorrencia,e.PressaoSistolica,e.PressaoDiastolica,e.FrequenciaCardiaca,e.FrequenciaRespiratoria,e.Temperatura,e.SaturacaoOxigenio,e.Dor,e.RetificaEvolucaoId,e.MotivoRetificacao,e.CanceladaEm,e.MotivoCancelamento,e.AcessoLocal,e.AcessoCalibre,e.AcessoPuncionadoEm,Diagnosticos=e.Diagnosticos.OrderBy(d=>d.Ordem).Select(d=>new {d.Codigo,d.Titulo,d.RelacionadoA,d.EvidenciadoPor,d.ResultadoEsperado}),Cuidados=e.Cuidados.OrderBy(c=>c.Ordem).Select(c=>new {c.Codigo,c.Descricao,c.Frequencia,c.SeNecessario,Checagens=c.Checagens.OrderBy(x=>x.Id).Select(x=>new {x.Id,x.Data,x.HoraRealizacao,Situacao=x.Situacao.ToString(),x.Justificativa,x.Observacao,x.ExecutanteNome,x.ExecutanteConselho,x.RetificaChecagemId,x.MotivoRetificacao})})})};
     }
 
     // O recibo avulso não depende de criar uma sessão de atendimento fictícia.
     private async Task<T> Escrever<T>(SessaoTablet s,int paciente,Guid chave,object pedido,string acao,Permissao permissao,Func<UsuarioSistema,Task<T>> executar,CancellationToken ct)
     {
-        if(chave==Guid.Empty) throw new InvalidOperationException("Atualize antes de enviar.");
+        if(chave==Guid.Empty) throw ErroFormularioTablet.Criar("Atualize antes de enviar.");
         await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
         if(db.Database.IsNpgsql())await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(20260917, {paciente})",ct);
         var u=await Autorizar(s,ct,permissao);await Paciente(paciente,ct);
@@ -121,13 +121,16 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
         => Escrever(s,paciente,p.Idempotencia,p,"TabletAtendimentoAvulso",Permissao.EditarProntuario|Permissao.LancarAtendimento,async u=>
         {
             if(!PoliticaAtendimentoTablet.PodeAtender(u))throw new UnauthorizedAccessException("Seu perfil registra enfermagem, sem criar atendimento médico.");
-            if(!Enum.IsDefined(p.Modalidade)||p.Motivo?.Length>1000)throw new InvalidOperationException("Confira modalidade e observações.");
+            if(!Enum.IsDefined(p.Modalidade)||p.Motivo?.Length>1000)throw ErroFormularioTablet.Criar("Confira modalidade e observações.");
+            if(u.Perfil==PerfilAcesso.Psicologia&&p.Modalidade!=ModalidadeAtendimento.Consulta)
+                throw ErroFormularioTablet.Criar("O perfil Psicologia inicia somente consultas de Psicologia.");
             var inicio=acesso.Hoje.ToDateTime(TimeOnly.MinValue);var fim=inicio.AddDays(1);
             var existentes=await db.Agendamentos.Where(a=>a.PacienteId==paciente&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim&&a.Status==StatusAgendamento.Agendado).Take(2).ToListAsync(ct);
             if(existentes.Count>1)throw new ConflitoClinicoTablet("Há mais de uma sessão aberta hoje. Escolha a sessão na agenda para evitar duplicidade.");
             if(existentes.Count==1)return new ResultadoAvulsoTablet(existentes[0].Id,true);
             var agora=TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeMilliseconds(acesso.Agora),TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime;
-            var a=await agenda.AgendarAsync(paciente,agora,p.Modalidade,p.Motivo,ct:ct,profissionalId:u.ProfissionalId,encaixe:true,operador:u.Login);
+            var a=await agenda.AgendarAsync(paciente,agora,p.Modalidade,p.Motivo,ct:ct,profissionalId:u.ProfissionalId,encaixe:true,operador:u.Login,
+                especialidadeConsultaCodigo:u.Perfil==PerfilAcesso.Psicologia?"Psicologia":p.EspecialidadeConsultaCodigo);
             await agenda.IniciarAtendimentoAsync(a.Id,u.Login,quando:agora,ct:ct);
             return new ResultadoAvulsoTablet(a.Id,false);
         },ct);
@@ -138,7 +141,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
     public async Task<object> FilaAsync(SessaoTablet s,int pagina,CancellationToken ct)
     {
         await Autorizar(s,ct,Permissao.ChecarPrescricao);
-        if(pagina is <0 or >10000)throw new InvalidOperationException("Página inválida.");
+        if(pagina is <0 or >10000)throw ErroFormularioTablet.Criar("Página inválida.");
         var folhas=await db.PrescricoesInternas.AsNoTracking().Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
             .Where(p=>p.CanceladaEm==null&&((p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada)||p.Situacao==SituacaoPrescricao.Assinada||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao&&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null)))
             .OrderBy(p=>p.Data).ThenBy(p=>p.Id).Skip(pagina*50).Take(51).ToListAsync(ct);
@@ -165,7 +168,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
             var p=await repo.ObterPrescricaoInternaAsync(id,ct)??throw new RecursoClinicoIndisponivel();
             if(Versao(p)!=pedido.Versao)throw new ConflitoClinicoTablet("A infusão mudou. Atualize e confira a checagem antes de continuar.");
             if(!p.Itens.Any(i=>i.Id==pedido.ItemId))throw new RecursoClinicoIndisponivel();
-            if(!Enum.IsDefined(pedido.Situacao)||pedido.Justificativa?.Length>1000||pedido.AlergiaObservada?.Length>500||pedido.MotivoRetificacao?.Length>1000)throw new InvalidOperationException("Confira os dados da checagem.");
+            if(!Enum.IsDefined(pedido.Situacao)||pedido.Justificativa?.Length>1000||pedido.AlergiaObservada?.Length>500||pedido.MotivoRetificacao?.Length>1000)throw ErroFormularioTablet.Criar("Confira os dados da checagem.");
             var autor=new IdentificacaoExecutante(u.Id,u.Nome,u.Profissional!.RegistroConselho);autor.Exigir("registrar a execução");
             if(string.IsNullOrWhiteSpace(pedido.MotivoRetificacao))await checagem.ChecarAsync(pedido.ItemId,pedido.Situacao,pedido.Hora,autor,pedido.Justificativa,pedido.AlergiaObservada,pedido.ConfirmouAlergia,ct);
             else await checagem.RetificarAsync(pedido.ItemId,pedido.Situacao,pedido.Hora,autor,pedido.MotivoRetificacao,pedido.Justificativa,pedido.ConfirmouAlergia,ct);

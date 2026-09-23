@@ -16,7 +16,7 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <TextBlock Text="Estoque" Style="{StaticResource H1}" Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Agulhas, moxa, ventosas, algodão. O saldo é a soma dos movimentos — nunca um número guardado, que é como o estoque para de bater." />
+                       Text="Materiais assistenciais, medicamentos e produtos de rotina. Acompanhe saldos, lotes, compras e consumos." />
             <Grid Margin="0,8,0,0">
                 <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" VerticalAlignment="Center"
                            HorizontalAlignment="Left" TextWrapping="Wrap" MaxWidth="820"
@@ -64,6 +64,10 @@
                         </StackPanel>
                     </Grid>
 
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock Text="Buscar produto, código de barras, fabricante, grupo ou local" Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
+                        <TextBox Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
+                    </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Itens}">
                             <ItemsControl.ItemTemplate>
@@ -79,7 +83,7 @@
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                    <TextBlock Text="{Binding Nome}" ToolTip="{Binding Cadastro}" FontWeight="SemiBold"
                                                                Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <Border Style="{StaticResource Badge.Aviso}" Margin="10,0,0,0"
                                                             Visibility="{Binding AbaixoDoMinimo,
@@ -87,6 +91,7 @@
                                                         <TextBlock Text="repor" />
                                                     </Border>
                                                 </StackPanel>
+                                                <TextBlock Text="{Binding Cadastro}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,2,0,0" />
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
@@ -144,6 +149,47 @@
                 </DockPanel>
             </Border>
             </TabItem>
+            <TabItem Header="Materiais dos atendimentos">
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top">
+                            <TextBlock Text="Materiais após o atendimento" Style="{StaticResource H3}" />
+                            <TextBlock Text="Comece pela gestão e libere para a equipe quando estiver preparada. O registro é opcional e não interfere no atendimento nem nas guias. Atendimentos anteriores à ativação não viram pendências."
+                                       TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
+                            <WrapPanel>
+                                <ComboBox ItemsSource="{Binding ModosMateriais}" DisplayMemberPath="Nome" SelectedValuePath="Modo"
+                                          SelectedValue="{Binding ModoMateriaisSelecionado}" MinWidth="210" Margin="0,0,8,8"
+                                          AutomationProperties.Name="Disponibilidade do registro de materiais" IsEnabled="{Binding PodeConfigurarMateriais}" />
+                                <Button Content="Salvar ativação" Command="{Binding SalvarModoMateriaisCommand}" IsEnabled="{Binding PodeConfigurarMateriais}" Margin="0,0,0,8" />
+                            </WrapPanel>
+                            <WrapPanel Margin="0,8,0,8">
+                                <StackPanel Margin="0,0,12,0"><TextBlock Text="De" Style="{StaticResource Rotulo}" /><DatePicker SelectedDate="{Binding MateriaisInicio}" AutomationProperties.Name="Materiais desde" /></StackPanel>
+                                <StackPanel Margin="0,0,12,0"><TextBlock Text="Até" Style="{StaticResource Rotulo}" /><DatePicker SelectedDate="{Binding MateriaisFim}" AutomationProperties.Name="Materiais até" /></StackPanel>
+                                <Button Content="Consultar" Command="{Binding CarregarMateriaisCommand}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Bottom" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding ResumoMateriais}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        </StackPanel>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding AtendimentosMateriais}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="0,12">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" Style="{StaticResource TextoSuave}" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding Pendencia}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" />
+                                            <Button Content="Ver / registrar materiais" HorizontalAlignment="Left" Style="{StaticResource BotaoSecundario}" Margin="0,8,0,0"
+                                                    Command="{Binding DataContext.RegistrarMateriaisCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
+
 
             <!-- ============ Custo por sessão (parcela 25) ============ -->
             <TabItem Header="Custo por sessão">

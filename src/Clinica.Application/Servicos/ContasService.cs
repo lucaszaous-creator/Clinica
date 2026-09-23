@@ -54,7 +54,7 @@ public sealed record ResumoContas(
 /// com índice único no banco. Dois postos abrindo o app na mesma manhã não podem criar
 /// o aluguel de agosto duas vezes.
 /// </summary>
-public sealed class ContasService
+public sealed partial class ContasService
 {
     private readonly IClinicaRepositorio _repo;
 
@@ -107,7 +107,7 @@ public sealed class ContasService
     /// que o lançar genérico não conhece, e duplicar a validação aqui sairia mais caro
     /// que gravá-la direto com a auditoria junto.
     /// </summary>
-    public async Task<LancamentoFinanceiro> LancarContaAsync(
+    public Task<LancamentoFinanceiro> LancarContaAsync(
         TipoLancamento tipo,
         string descricao,
         decimal valor,
@@ -127,18 +127,26 @@ public sealed class ContasService
         // conciliação — "fica a receber" resolve a sessão tanto quanto "pago agora", e sem
         // o id ela continuaria aparecendo como sem dinheiro registrado.
         int? atendimentoId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? contraparte = null, string? documentoReferencia = null)
+        => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(descricao))
             throw new ArgumentException("A descrição da conta é obrigatória.", nameof(descricao));
-        if (valor <= 0)
-            throw new ArgumentException("O valor deve ser maior que zero — o sinal vem do tipo.", nameof(valor));
+        if (valor <= 0 || valor >= 1000000000000m || decimal.Round(valor, 2) != valor)
+            throw new ArgumentException("Informe valor positivo em reais e centavos, dentro do limite permitido.", nameof(valor));
+        if (!Enum.IsDefined(tipo) || formaPagamento is { } forma && !Enum.IsDefined(forma))
+            throw new ArgumentException("Tipo de conta ou forma de pagamento inválidos.");
+        if (descricao.Trim().Length > 200 || contraparte?.Trim().Length > 200 || documentoReferencia?.Trim().Length > 100 || observacoes?.Length > 500)
+            throw new ArgumentException("Descrição/contraparte: até 200 caracteres; documento: até 100; observações: até 500.");
 
         var conta = new LancamentoFinanceiro
         {
             // A competência PADRÃO é o próprio vencimento. A clínica não faz regime de
             // competência separado, e pedir duas datas para quem só quer registrar o
             // aluguel transformaria a tarefa mais comum na mais chata.
+            Contraparte = string.IsNullOrWhiteSpace(contraparte) ? null : contraparte.Trim(),
+            DocumentoReferencia = string.IsNullOrWhiteSpace(documentoReferencia) ? null : documentoReferencia.Trim(),
             Data = competencia ?? vencimento,
             DataVencimento = vencimento,
             Tipo = tipo,
@@ -164,7 +172,58 @@ public sealed class ContasService
         }, ct);
         await _repo.SalvarAsync(ct);
         return conta;
-    }
+    }, ct);
+
+    /// <summary>Cria a obrigação em parcelas mensais, de forma atômica e idempotente.</summary>
+    public Task<IReadOnlyList<LancamentoFinanceiro>> LancarParcelamentoAsync(
+        Guid idempotencia, TipoLancamento tipo, string descricao, decimal valorTotal,
+        int quantidadeParcelas, DateOnly primeiroVencimento, DateOnly competencia,
+        string? contraparte = null, string? documentoReferencia = null,
+        int? categoriaId = null, int? pacienteId = null, string? operador = null,
+        CancellationToken ct = default)
+        => _repo.ExecutarGestaoAtomicaAsync<IReadOnlyList<LancamentoFinanceiro>>(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(descricao))
+            throw new ArgumentException("Informe a descrição da obrigação.");
+        if (idempotencia == Guid.Empty)
+            throw new ArgumentException("Identifique a operação de parcelamento.");
+        if (quantidadeParcelas is < 1 or > 120 || valorTotal <= 0 || valorTotal >= 1000000000000m ||
+            decimal.Round(valorTotal, 2) != valorTotal || valorTotal < quantidadeParcelas * 0.01m)
+            throw new ArgumentException("Informe de 1 a 120 parcelas, com ao menos um centavo por parcela e total em reais e centavos.");
+        var pedido = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new {
+                tipo, descricao = descricao.Trim(), total = valorTotal.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                quantidadeParcelas, primeiroVencimento, competencia, contraparte = contraparte?.Trim(),
+                documentoReferencia = documentoReferencia?.Trim(), categoriaId, pacienteId
+            }))));
+        var existentes = await _repo.ContasDoParcelamentoAsync(idempotencia, ct);
+        if (existentes.Count > 0)
+        {
+            if (existentes.Count != quantidadeParcelas || existentes.Any(c => c.PedidoParcelamento != pedido))
+                throw new InvalidOperationException("Esta operação já foi gravada com outros dados. Consulte as contas antes de lançar novamente.");
+            return existentes;
+        }
+        // Calcula todas as datas antes de gravar: 31/jan → 28/fev → 31/mar.
+        var datas = Enumerable.Range(0, quantidadeParcelas).Select(i => primeiroVencimento.AddMonths(i)).ToArray();
+        var centavos = decimal.ToInt64(valorTotal * 100m);
+        var baseCentavos = centavos / quantidadeParcelas;
+        var resto = centavos % quantidadeParcelas;
+        var contas = new List<LancamentoFinanceiro>();
+        for (var i = 0; i < quantidadeParcelas; i++)
+        {
+            var valor = (baseCentavos + (i < resto ? 1 : 0)) / 100m;
+            var conta = await LancarContaAsync(tipo, descricao, valor, datas[i], competencia,
+                categoriaId: categoriaId, pacienteId: pacienteId, operador: operador, ct: ct,
+                contraparte: contraparte, documentoReferencia: documentoReferencia);
+            conta.GrupoParcelamento = idempotencia;
+            conta.NumeroParcelaConta = i + 1;
+            conta.TotalParcelasConta = quantidadeParcelas;
+            conta.PedidoParcelamento = pedido;
+            contas.Add(conta);
+        }
+        await _repo.SalvarAsync(ct);
+        return contas;
+    }, ct);
 
     /// <summary>
     /// Adia o vencimento de uma conta em aberto. Renegociar prazo é rotina; o que não se

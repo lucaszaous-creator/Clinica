@@ -4,7 +4,7 @@ namespace Clinica.Domain.Entities;
 public static class ConclusaoClinica
 {
     public static bool Permitida(PerfilAcesso perfil, Permissao permissoes, int? profissionalId)
-        => (perfil == PerfilAcesso.Gerente || perfil == PerfilAcesso.Profissional && profissionalId is > 0)
+        => (perfil == PerfilAcesso.Gerente || perfil is PerfilAcesso.Profissional or PerfilAcesso.Psicologia && profissionalId is > 0)
            && (permissoes & (Permissao.EditarProntuario | Permissao.LancarAtendimento))
                == (Permissao.EditarProntuario | Permissao.LancarAtendimento);
 }

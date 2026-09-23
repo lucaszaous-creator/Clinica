@@ -244,8 +244,11 @@
                                                    Foreground="{StaticResource Brush.Texto.Primario}"
                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
-                                        <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                        <WrapPanel MaxWidth="300" Grid.Column="5" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
+                                            <Button Content="Histórico" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.HistoricoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
                                             <Button Content="Realizar"
                                                     Style="{StaticResource BotaoAcaoGrid}"
                                                     Command="{Binding DataContext.RealizarCommand,
@@ -267,7 +270,7 @@
                                                     CommandParameter="{Binding}"
                                                     Visibility="{Binding PodeCancelar,
                                                                  Converter={StaticResource BoolParaVisibilidade}}" />
-                                        </StackPanel>
+                                        </WrapPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

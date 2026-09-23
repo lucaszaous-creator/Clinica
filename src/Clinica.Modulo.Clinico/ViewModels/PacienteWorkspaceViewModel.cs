@@ -469,6 +469,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
     private Task LimparSessao()
     {
+        ++_geracaoHorario;
+        MostrarMateriais = false;
         TemSessao = false;
         return Task.CompletedTask;
     }
@@ -478,14 +480,35 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// conclusão muda o <c>Status</c> no banco, e a barra que continuasse dizendo "em
     /// atendimento" ofereceria um botão para concluir o que já está concluído.
     /// </summary>
+    [ObservableProperty] private bool _mostrarMateriais;
+    private int _geracaoHorario;
+
+    [RelayCommand]
+    private async Task RegistrarMateriaisAsync()
+    {
+        if (_foco.AgendamentoId is not { } id) return;
+        try { await ConferenciaMateriaisProcedimento.AbrirAsync(_escopos, id); }
+        catch (Exception ex) { Avisar(ex.Message, erro: true); }
+    }
+
     private async Task RecarregarHorarioAsync(int id)
     {
+        var geracao = ++_geracaoHorario;
+        MostrarMateriais = false;
         try
         {
             using var escopo = _escopos.CreateScope();
             var repo = escopo.ServiceProvider
                 .GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
-            _horario = await repo.ObterAgendamentoAsync(id);
+            var horario = await repo.ObterAgendamentoAsync(id);
+            var politicaMateriais = await new PoliticaMateriaisService(repo).ObterAsync();
+            var registrado = politicaMateriais.Modo != ModoMateriais.Desativado && horario?.AtendimentoId is { } atendimento
+                && await repo.ConferenciaConsumoAsync(atendimento) is not null;
+            if (geracao != _geracaoHorario || _foco.AgendamentoId != id) return;
+            _horario = horario;
+            MostrarMateriais = _horario?.FimAtendimentoEm is not null && _horario.AtendimentoId is not null
+                && (politicaMateriais.Modo == ModoMateriais.Equipe || politicaMateriais.Modo == ModoMateriais.Gestao && SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro))
+                && (politicaMateriais.Abrange(_horario) || registrado);
             AvisoConclusaoAutomatica = await escopo.ServiceProvider.GetRequiredService<AgendaService>().PendenciaEnfermagemAsync(id)
                 ?? (await escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ConclusaoAutomaticaService>()
                 .PendenciasAsync(Clinica.Infrastructure.ConclusaoAutomaticaService.Agora, id)).FirstOrDefault()?.Motivo;

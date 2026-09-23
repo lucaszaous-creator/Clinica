@@ -40,11 +40,28 @@ public enum TipoMovimentoEstoque
 /// como o estoque para de bater — uma gravação que falha no meio e o número fica errado
 /// para sempre, sem ninguém saber desde quando.
 /// </summary>
+public enum GrupoEstoque { MaterialAssistencial, Medicamento, ProtecaoIndividual, HigieneLimpeza, Administrativo, Copa, Instrumental, Outros }
+public enum UsoEstoque { Procedimentos, Rotina, Ambos }
+public enum DestinoConsumoEstoque { NaoInformado, Procedimento, Rotina }
+
 public class ItemEstoque
 {
     public int Id { get; set; }
 
     public string Nome { get; set; } = string.Empty;
+    public string? CodigoInterno { get; set; }
+    public string? CodigoBarras { get; set; }
+    public string? Fabricante { get; set; }
+    public string? Apresentacao { get; set; }
+    public GrupoEstoque Grupo { get; set; }
+    public UsoEstoque Uso { get; set; }
+    public bool ExigirLote { get; set; }
+    public bool ExigirValidade { get; set; }
+    /// <summary>Embalagem de compra; o saldo permanece na unidade de consumo.</summary>
+    public string? UnidadeCompra { get; set; }
+    public decimal FatorCompra { get; set; } = 1m;
+    public decimal? EstoqueMaximo { get; set; }
+    public string? LocalArmazenamento { get; set; }
 
     /// <summary>Unidade de contagem: "un", "cx", "ml", "par".</summary>
     public string Unidade { get; set; } = "un";
@@ -72,6 +89,15 @@ public class ItemEstoque
 /// </summary>
 public class MovimentoEstoque
 {
+    public DestinoConsumoEstoque DestinoConsumo { get; set; }
+    public string? SetorDestino { get; set; }
+    public string? Fornecedor { get; set; }
+    public string? DocumentoEntrada { get; set; }
+    /// <summary>Retrato da embalagem informada, preservado após alterações do cadastro.</summary>
+    public decimal? QuantidadeInformada { get; set; }
+    public string? UnidadeInformada { get; set; }
+    public decimal? FatorConversao { get; set; }
+    public decimal? CustoInformado { get; set; }
     /// <summary>Conta a pagar ou despesa criada junto da compra; doações e ajustes não geram conta.</summary>
     public int? LancamentoFinanceiroId { get; set; }
     public LancamentoFinanceiro? LancamentoFinanceiro { get; set; }

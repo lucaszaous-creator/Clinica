@@ -98,6 +98,29 @@ public static class RotulosEnum
         },
 
         // ---- estoque e pacote ----
+        GrupoEstoque g => g switch
+        {
+            GrupoEstoque.MaterialAssistencial => "Material assistencial",
+            GrupoEstoque.Medicamento => "Medicamento",
+            GrupoEstoque.ProtecaoIndividual => "Proteção individual (EPI)",
+            GrupoEstoque.HigieneLimpeza => "Higiene e limpeza",
+            GrupoEstoque.Administrativo => "Administrativo",
+            GrupoEstoque.Copa => "Copa",
+            GrupoEstoque.Instrumental => "Instrumental",
+            _ => "Outros"
+        },
+        UsoEstoque u => u switch
+        {
+            UsoEstoque.Procedimentos => "Procedimentos",
+            UsoEstoque.Rotina => "Rotina da clínica",
+            _ => "Procedimentos e rotina"
+        },
+        DestinoConsumoEstoque d => d switch
+        {
+            DestinoConsumoEstoque.Procedimento => "Procedimento",
+            DestinoConsumoEstoque.Rotina => "Rotina da clínica",
+            _ => "Não informado (histórico)"
+        },
         TipoMovimentoEstoque t => t switch
         {
             TipoMovimentoEstoque.Entrada => "Entrada",

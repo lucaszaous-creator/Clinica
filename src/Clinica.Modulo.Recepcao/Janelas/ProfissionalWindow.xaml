@@ -53,7 +53,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="Especialidade" Style="{StaticResource Rotulo}" />
+                <TextBlock Text="Especialidade principal" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding Especialidade}"
                           DisplayMemberPath="Nome" />
             </StackPanel>
@@ -67,6 +67,20 @@
                            TextWrapping="Wrap" />
             </StackPanel>
         </Grid>
+        <StackPanel Margin="0,12,0,0" Visibility="{Binding PodeConfigurarAtendimentos, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="Atendimentos e especialidades habilitados" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="O gerente escolhe o que a recepção pode marcar para este profissional. Consultas são separadas por especialidade."
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,3,0,6" />
+            <ListBox ItemsSource="{Binding Atendimentos}" MaxHeight="210" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ctrl:Ajudantes.RodaDaPagina="True">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox Content="{Binding Rotulo}" IsChecked="{Binding Habilitado, Mode=TwoWay}"
+                                  IsEnabled="{Binding Permitido}" Margin="3" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </StackPanel>
         <!-- ===== JORNADA (set/2026) =====
              Dias e horário de atendimento. Até aqui quem atende terça e quinta aparecia na
              grade com coluna vazia e MARCÁVEL nos outros cinco dias. Com a jornada, a grade

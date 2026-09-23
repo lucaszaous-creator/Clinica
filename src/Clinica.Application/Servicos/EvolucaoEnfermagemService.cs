@@ -154,6 +154,7 @@ public class EvolucaoEnfermagemService
             // do registro é reescrita mutilada, e a versão corrigida passaria a dizer que
             // o paciente não tinha acesso venoso.
             acesso);
+        evolucao.FaseAtendimento = anterior.FaseAtendimento;
 
         // ⚠️ O PROCESSO DE ENFERMAGEM VEM JUNTO (corrigido na parcela 74, 2ª rodada).
         //

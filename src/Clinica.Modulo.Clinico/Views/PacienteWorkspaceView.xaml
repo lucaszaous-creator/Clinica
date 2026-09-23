@@ -221,6 +221,9 @@
                                 Command="{Binding FinalizarSessaoCommand}"
                                 Visibility="{Binding MostrarConcluirGerente, Converter={StaticResource BoolParaVisibilidade}}"
                                 ToolTip="Conclui o atendimento original e gera as guias aplicáveis. A enfermagem pode registrar posteriormente." />
+                        <Button Content="Registrar materiais" Command="{Binding RegistrarMateriaisCommand}"
+                                Style="{StaticResource BotaoSecundario}" Margin="0,0,12,0"
+                                Visibility="{Binding MostrarMateriais, Converter={StaticResource BoolParaVisibilidade}}" />
                         <Button Content="Trocar paciente" Padding="4,0" Margin="0,0,12,0"
                                 VerticalAlignment="Center"
                                 Style="{StaticResource BotaoFantasma}"

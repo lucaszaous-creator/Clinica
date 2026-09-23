@@ -3130,6 +3130,41 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // ---- Contas a pagar e a receber (parcela 12) ----
 
+    internal IQueryable<ConferenciaConsumoProcedimento> ConsultaConferenciaConsumo(int atendimentoId)
+        => _db.Set<ConferenciaConsumoProcedimento>().AsNoTracking().Where(c => c.AtendimentoId == atendimentoId);
+
+    public Task<ConferenciaConsumoProcedimento?> ConferenciaConsumoAsync(int atendimentoId, CancellationToken ct = default)
+        => ConsultaConferenciaConsumo(atendimentoId).SingleOrDefaultAsync(ct);
+
+    public async Task AdicionarConferenciaConsumoAsync(ConferenciaConsumoProcedimento conferencia, CancellationToken ct = default)
+        => await _db.Set<ConferenciaConsumoProcedimento>().AddAsync(conferencia, ct);
+
+    public async Task AtualizarBaixaConferenciaAsync(int id, DateTime? baixadoEm, string? motivo, CancellationToken ct = default)
+    {
+        var atual = await _db.Set<ConferenciaConsumoProcedimento>().SingleAsync(c => c.Id == id, ct);
+        atual.BaixadoEm = baixadoEm;
+        atual.MotivoPendencia = motivo;
+    }
+
+    public async Task<IReadOnlyList<ConferenciaConsumoProcedimento>> ConferenciasDosAtendimentosAsync(IReadOnlyCollection<int> atendimentos, CancellationToken ct = default)
+        => await ConsultaConferenciasDosAtendimentos(atendimentos).ToListAsync(ct);
+
+    internal IQueryable<ConferenciaConsumoProcedimento> ConsultaConferenciasDosAtendimentos(IReadOnlyCollection<int> atendimentos)
+        => _db.Set<ConferenciaConsumoProcedimento>().AsNoTracking().Where(c => atendimentos.Contains(c.AtendimentoId));
+
+    internal IQueryable<LancamentoFinanceiro> ConsultaLancamentosDaObrigacao(Guid grupo)
+        => _db.Set<LancamentoFinanceiro>().AsNoTracking().Where(l => l.GrupoObrigacao == grupo).OrderBy(l => l.Id);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDaObrigacaoAsync(Guid grupo, CancellationToken ct = default)
+        => await ConsultaLancamentosDaObrigacao(grupo).ToListAsync(ct);
+
+    internal IQueryable<LancamentoFinanceiro> ConsultaContasDoParcelamento(Guid grupo)
+        => _db.Set<LancamentoFinanceiro>().AsNoTracking().Where(l => l.GrupoParcelamento == grupo)
+            .OrderBy(l => l.NumeroParcelaConta);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> ContasDoParcelamentoAsync(Guid grupo, CancellationToken ct = default)
+        => await ConsultaContasDoParcelamento(grupo).ToListAsync(ct);
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
         DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default)
     {

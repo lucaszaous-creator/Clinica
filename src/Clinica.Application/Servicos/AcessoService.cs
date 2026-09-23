@@ -105,6 +105,7 @@ public sealed class AcessoService
             throw new InvalidOperationException($"Já existe um usuário com o login \"{normalizado}\".");
 
         await CriticarVinculoAsync(profissionalId, usuarioId: 0, ct);
+        await CriticarPerfilClinicoAsync(perfil, profissionalId, ct);
 
         var (hash, sal) = HashSenha.Gerar(senha);
 
@@ -156,6 +157,7 @@ public sealed class AcessoService
                 "Dê a permissão a outra pessoa antes de tirar a dele.");
 
         await CriticarVinculoAsync(profissionalId, usuarioId, ct);
+        await CriticarPerfilClinicoAsync(perfil, profissionalId, ct);
 
         usuario.Nome = nome.Trim();
         usuario.Perfil = perfil;
@@ -398,6 +400,20 @@ public sealed class AcessoService
                 $"O profissional já está vinculado ao usuário \"{jaVinculado.Login}\". "
                 + "Cada profissional tem um acesso — desative o outro antes, ou vincule "
                 + "este usuário a outro profissional.");
+    }
+
+    private async Task CriticarPerfilClinicoAsync(PerfilAcesso perfil, int? profissionalId, CancellationToken ct)
+    {
+        if (perfil is not (PerfilAcesso.Psicologia or PerfilAcesso.Profissional)) return;
+        if (perfil == PerfilAcesso.Profissional && profissionalId is null) return;
+        if (profissionalId is not { } id)
+            throw new InvalidOperationException("Vincule o perfil Psicologia a um profissional cadastrado.");
+        var profissional = await _repo.ObterProfissionalAsync(id, ct);
+        var psicologia = string.Equals(profissional?.EspecialidadeCodigo, "Psicologia", StringComparison.OrdinalIgnoreCase);
+        if (perfil == PerfilAcesso.Profissional && psicologia)
+            throw new InvalidOperationException("Este profissional é de Psicologia. Escolha o perfil Psicóloga(o).");
+        if (perfil == PerfilAcesso.Psicologia && (profissional is not { Ativo: true } || !psicologia))
+            throw new InvalidOperationException("O perfil Psicologia exige profissional ativo com especialidade Psicologia.");
     }
 
     // ---------------------------------------------------------------- interno

@@ -187,7 +187,8 @@ public sealed class FinanceiroService
     /// <summary>Marca um lançamento previsto como efetivamente pago/recebido.</summary>
     public Task RealizarAsync(int lancamentoId, DateOnly? dataPagamento = null,
         FormaPagamento? formaPagamento = null, string? operador = null, CancellationToken ct = default,
-        string? adquirente = null, string? bandeira = null, int? parcelas = null, decimal? valorConferido = null)
+        string? adquirente = null, string? bandeira = null, int? parcelas = null, decimal? valorConferido = null,
+        decimal? valorPago = null, DateOnly? vencimentoSaldo = null)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
@@ -205,6 +206,10 @@ public sealed class FinanceiroService
             throw new InvalidOperationException("Pagamento futuro deve permanecer previsto.");
         await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(dia, formaPagamento ?? lancamento.FormaPagamento, ct);
         var forma = formaPagamento ?? lancamento.FormaPagamento;
+        if (forma is { } formaInformada && !Enum.IsDefined(formaInformada))
+            throw new InvalidOperationException("Forma de pagamento inválida.");
+        if (valorPago is { } parcial)
+            await new ContasService(_repo).PrepararBaixaParcialAsync(lancamento, parcial, vencimentoSaldo, operador, ct);
         var liquidacaoMensal = false;
         if (lancamento.Tipo == TipoLancamento.Entrada && TaxaService.ModalidadeDe(forma) is not null)
         {
@@ -248,8 +253,8 @@ public sealed class FinanceiroService
         string? operador = null, CancellationToken ct = default)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
-        if (string.IsNullOrWhiteSpace(motivo))
-            throw new ArgumentException("Informe o motivo do cancelamento.", nameof(motivo));
+        if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length > 300)
+            throw new ArgumentException("Informe o motivo do cancelamento (até 300 caracteres).", nameof(motivo));
 
         var lancamento = await _repo.ObterLancamentoAsync(lancamentoId, ct)
             ?? throw new InvalidOperationException($"Lançamento {lancamentoId} não encontrado.");
@@ -262,10 +267,14 @@ public sealed class FinanceiroService
 
         if (lancamento.Status == StatusLancamento.Realizado)
             await new FechamentoCaixaService(_repo).ExigirDiaAbertoAsync(lancamento.DataPagamento ?? lancamento.Data, lancamento.FormaPagamento, ct);
+        await new ContasService(_repo).ReabrirBaixaDesdobradaAsync(lancamento, operador, ct);
+        var recibo = await _repo.ReciboVigenteDoLancamentoAsync(lancamento.Id, ct);
+        if (recibo is not null)
+            await new DocumentoFinanceiroService(_repo).CancelarAsync(recibo.Id, "Pagamento cancelado: " + motivo.Trim(), operador, ct);
         lancamento.Status = StatusLancamento.Cancelado;
-        lancamento.Observacoes = string.IsNullOrWhiteSpace(lancamento.Observacoes)
-            ? $"Cancelado: {motivo}"
-            : $"{lancamento.Observacoes} | Cancelado: {motivo}";
+        var observacaoCancelamento = string.IsNullOrWhiteSpace(lancamento.Observacoes)
+            ? $"Cancelado: {motivo}" : $"{lancamento.Observacoes} | Cancelado: {motivo}";
+        if (observacaoCancelamento.Length <= 500) lancamento.Observacoes = observacaoCancelamento;
 
         await RegistrarAsync("LancamentoCancelado",
             $"{lancamento.Valor:C} — {motivo}", lancamento, operador, ct);

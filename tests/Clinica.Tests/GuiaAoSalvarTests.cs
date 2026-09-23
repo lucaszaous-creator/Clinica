@@ -15,7 +15,7 @@ public sealed partial class AtendimentoTabletTests
         await PrepararBSV();
         horario.ModalidadePrevista = modalidade;
         await db.SaveChangesAsync();
-        var pedido = (await Pedido()) with { ConcluirAoSalvar = true };
+        var pedido = (await Pedido()) with { ConcluirAoSalvar = true, Consumo = new([], true) };
         var salvo = await svc.SalvarAsync(sessao, horario.Id, pedido, default);
         Assert.True(salvo.Finalizado);
         Assert.True(salvo.Guias > 0);
