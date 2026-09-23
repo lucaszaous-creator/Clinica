@@ -10,7 +10,8 @@ public sealed partial class PostoTabletService
 {
     private static string VersaoModeloEvolucao(ModeloEvolucao m) => Hash(new
     {
-        m.Id, m.Nome, m.ProfissionalId, m.Ativo, m.AtualizadoEm,
+        m.Id, m.Nome, m.ProfissionalId, m.Ativo,
+        AtualizadoEm = m.AtualizadoEm?.ToString("yyyy-MM-ddTHH:mm:ss.ffffff", System.Globalization.CultureInfo.InvariantCulture),
         m.QueixaPrincipal, m.HistoriaDoencaAtual, m.ExameFisico, m.HipoteseDiagnostica,
         m.CidSessao, m.TextoEvolucao, m.Conduta, m.Orientacoes, m.PlanoTerapeutico
     });
@@ -90,6 +91,9 @@ public sealed partial class PostoTabletService
         modelo.AtualizadoEm = DateTime.Now;
         if (!modelo.TemConteudo) throw ErroFormularioTablet.Criar("Escreva ao menos um campo do modelo.");
         await db.SaveChangesAsync(ct);
+        // O PostgreSQL persiste microssegundos e devolve Kind=Unspecified. A versão
+        // enviada ao navegador precisa ser calculada sobre o valor relido do banco.
+        await db.Entry(modelo).ReloadAsync(ct);
         var resultado = DadosModeloEvolucao(modelo);
         db.Set<OperacaoClinicaTablet>().Add(new OperacaoClinicaTablet
         {
