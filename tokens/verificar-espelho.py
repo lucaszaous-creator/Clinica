@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-XAML = RAIZ / "src" / "Clinica.Desktop" / "Styles" / "Tokens.xaml"
+XAML = RAIZ / "src" / "Clinica.Desktop.Shell" / "Styles" / "Tokens.xaml"
 CSS = RAIZ / "tokens" / "colors.css"
 
 

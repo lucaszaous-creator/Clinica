@@ -250,6 +250,7 @@
                         </DockPanel>
                     </Border>
                 </WrapPanel>
+                <Button Content="Marcar atendimento" HorizontalAlignment="Left" MinWidth="180" Command="{Binding MarcarAtendimentoCommand}" IsEnabled="{Binding PodeMarcarAtendimento}" Margin="0,0,8,0" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
                         IsEnabled="{Binding PodeMarcar}"
                         HorizontalAlignment="Right" MinWidth="160" Padding="16,8"

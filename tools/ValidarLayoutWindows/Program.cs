@@ -38,7 +38,7 @@ static class Program
     static async Task Executar()
     {
         using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).Options;
-        IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Gerente.Modulo.ModuloGerente()];
+        IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()];
         var services = new ServiceCollection(); services.AddClinica("Host=127.0.0.1;Database=nao_usado;Username=nao_usado"); services.AddScoped(_ => new ClinicaDbContext(options)); services.AddSingleton<SessaoUsuario>(); services.AddSingleton<SnackbarService>(); services.AddSingleton<ISnackbarService>(s => s.GetRequiredService<SnackbarService>()); services.AddSingleton<IDialogoService, DialogoTeste>(); foreach (var m in modulos) m.Registrar(services);
         using var sp = services.BuildServiceProvider(); using var scope = sp.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>(); db.Database.EnsureCreated();
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
@@ -162,7 +162,7 @@ static class Program
     static async Task ValidarGestao(ServiceProvider sp, Paciente paciente, UsuarioSistema usuario)
     {
         _ = new ShellViewModel("Gerente", [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(),
-            new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
+            new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
         var escopos = sp.GetRequiredService<IServiceScopeFactory>();
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         LancamentoFinanceiro pendente;
@@ -217,11 +217,11 @@ static class Program
         if (pagamentos.Linhas.Count != 2 || pagamentos.NaoVerificado) throw new Exception("Consulta de pagamentos falhou.");
         await ConferirJanela(janela, "pagamentos-lista", [620, 960, 1366]);
         janela.Close();
-        var receber = new Clinica.Recepcao.ViewModels.ReceberPagamentoViewModel(escopos, pendente)
+        var receber = new Clinica.Desktop.Shell.Componentes.ReceberPagamentoViewModel(escopos, pendente)
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
-        var receberJanela = new Clinica.Recepcao.Janelas.ReceberPagamentoWindow(receber);
+        var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
         await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
-        var baixar = new Clinica.Financeiro.Janelas.BaixarLancamentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
+        var baixar = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
             { Forma = FormaPagamento.CartaoCredito });
         await ConferirJanela(baixar, "financeiro-baixa", [420, 560]); baixar.Close();
         var compra = new Clinica.Financeiro.Janelas.MovimentoEstoqueWindow(new Clinica.Financeiro.ViewModels.MovimentoEstoqueViewModel(escopos, item.Id, item.Nome)

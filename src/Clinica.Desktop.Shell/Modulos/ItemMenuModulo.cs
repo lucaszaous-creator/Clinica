@@ -153,6 +153,7 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// exatamente como antes.
     /// </summary>
     public Permissao Requer { get; init; } = Permissao.Nenhuma;
+    public Permissao RequerAlgum { get; init; } = Permissao.Nenhuma;
 
     /// <summary>Quando informado, publica esta tela apenas para o perfil indicado.</summary>
     public PerfilAcesso? PerfilExclusivo { get; init; }

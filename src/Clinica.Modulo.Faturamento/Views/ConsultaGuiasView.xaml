@@ -1,0 +1,191 @@
+<UserControl x:Class="Clinica.Desktop.Views.ConsultaGuiasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell">
+<UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Conversores.xaml" /><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Componentes/Tabelas.xaml" /></ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Consultar guias" Style="{StaticResource H1}" />
+
+        <!-- Filtros -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+                <WrapPanel>
+                    <StackPanel Width="220" Margin="0,0,12,8">
+                        <TextBlock Text="Paciente (nome ou CPF)" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding TermoPaciente, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Nome ou CPF…" />
+                    </StackPanel>
+                    <StackPanel Width="160" Margin="0,0,12,8">
+                        <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding NumeroGuia, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <StackPanel Width="220" Margin="0,0,12,8">
+                        <TextBlock Text="Observação da pendência" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding TermoObservacao, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Ex.: portal fora do ar…" />
+                    </StackPanel>
+                    <StackPanel Width="140" Margin="0,0,12,8">
+                        <TextBlock Text="De (atendimento)" Style="{StaticResource Rotulo}" />
+                        <DatePicker SelectedDate="{Binding Inicio}" />
+                    </StackPanel>
+                    <StackPanel Width="140" Margin="0,0,12,8">
+                        <TextBlock Text="Até" Style="{StaticResource Rotulo}" />
+                        <DatePicker SelectedDate="{Binding Fim}" />
+                    </StackPanel>
+                    <StackPanel Width="150" Margin="0,0,12,8">
+                        <TextBlock Text="Status" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding Status}" SelectedItem="{Binding StatusSelecionado}" />
+                    </StackPanel>
+                    <StackPanel Width="200" Margin="0,0,12,8">
+                        <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding OpcoesConvenio}" SelectedItem="{Binding ConvenioSelecionado}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Width="220" Margin="0,0,12,8">
+                        <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding OpcoesModalidade}" SelectedItem="{Binding ModalidadeSelecionada}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Width="180" Margin="0,0,12,8">
+                        <TextBlock Text="Especialidade" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding OpcoesEspecialidade}" SelectedItem="{Binding EspecialidadeSelecionada}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </WrapPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                    <Button Command="{Binding BuscarCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE721;" Style="{StaticResource Icone}" FontSize="{StaticResource Fonte.Tabela}" Margin="0,0,6,0" />
+                            <TextBlock Text="Buscar" />
+                        </StackPanel>
+                    </Button>
+                    <Button Content="Limpar" Command="{Binding LimparCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                    <!-- StackPanel horizontal dá a cada filho a largura que ele PEDE e nunca
+                         dobra a linha: sem o teto + TextWrapping, o resumo com o recorte do
+                         filtro sai pela direita da tela (checagem 17). -->
+                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0"
+                               TextWrapping="Wrap" MaxWidth="520"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+        <Grid>
+        <ctrl:EmptyState Glifo="&#xE721;" Titulo="Nenhuma guia encontrada" Panel.ZIndex="1"
+                         Descricao="Ajuste os filtros acima e clique em Buscar.">
+            <ctrl:EmptyState.Style>
+                <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Resultados.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ctrl:EmptyState.Style>
+        </ctrl:EmptyState>
+        <DataGrid ItemsSource="{Binding Resultados}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                <DataGridTextColumn Header="Atend. nº" Binding="{Binding Atendimento.Numero}" Width="Auto" />
+                <!-- Quem LANÇOU o atendimento (parcela 58). A direção pediu isso: a
+                     trilha de auditoria responde "quem fez isso?" desde a parcela 21, mas
+                     ela é outra tela, filtrada por período — e a pergunta que se faz
+                     auditando a consulta é sobre AQUELA linha. Vazio nas guias anteriores
+                     a esta parcela: inventar um nome seria pior. -->
+                <DataGridTextColumn Header="Lançou por" Binding="{Binding Atendimento.LancadoPor}"
+                                    Width="Auto" />
+                <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
+                <DataGridTextColumn Header="Convênio"
+                                    Binding="{Binding Atendimento.Paciente.ConvenioNome}" Width="*" />
+                <DataGridTextColumn Header="Modalidade"
+                                    Binding="{Binding Atendimento.Modalidade, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Especialidade"
+                                    Binding="{Binding Especialidade, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Código"
+                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
+                <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
+                <DataGridTemplateColumn Header="Situação" Width="1.2*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <!-- Pílula de status do design: verde-tint quando baixada, âmbar quando pendente. -->
+                            <Border x:Name="PilulaSituacao" Style="{StaticResource Pilula}" VerticalAlignment="Center"
+                                    Background="{StaticResource Brush.Aviso.Suave}">
+                                <TextBlock x:Name="TxtSituacao" FontSize="{StaticResource Fonte.Legenda}" FontWeight="SemiBold"
+                                           Text="{Binding Path=., Converter={StaticResource StatusCodigo}}"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Baixado}" Value="True">
+                                    <Setter TargetName="PilulaSituacao" Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                    <Setter TargetName="TxtSituacao" Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
+                <DataGridTemplateColumn Header="Observação" Width="1.2*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ObservacaoPendencia}" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" ToolTip="{Binding ObservacaoPendencia}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Ações" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Capa" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Reimprimir a capa de faturamento deste atendimento"
+                                        Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+
+                                <!-- "O que aconteceu com esta guia?" — baixa, estorno,
+                                     glosa, lote, NC. A trilha existe desde a parcela 21 e
+                                     o faturamento, que é onde essas ações acontecem, não
+                                     tinha uma linha dela (parcela 63). -->
+                                <Button Content="Histórico" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Quem mexeu nesta guia, quando e o quê"
+                                        IsEnabled="{Binding DataContext.PodeVerHistorico, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.HistoricoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        </Grid>
+        </Border>
+    </Grid>
+</UserControl>

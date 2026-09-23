@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../src/Clinica.Modulo.Faturamento/Clinica.Modulo.Faturamento.csproj" />
     <ProjectReference Include="../../src/Clinica.Modulo.Clinico/Clinica.Modulo.Clinico.csproj" />
     <ProjectReference Include="../../src/Clinica.Modulo.Recepcao/Clinica.Modulo.Recepcao.csproj" />
     <ProjectReference Include="../../src/Clinica.Modulo.Gerente/Clinica.Modulo.Gerente.csproj" />

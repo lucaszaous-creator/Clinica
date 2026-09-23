@@ -82,6 +82,7 @@ PROJETOS_WPF = [
     "Clinica.Modulo.Financeiro",
     "Clinica.Modulo.Gerente",
     "Clinica.Modulo.Clinico",
+    "Clinica.Modulo.Faturamento",
     "Clinica.Recepcao",
     "Clinica.Financeiro",
     "Clinica.Gerente",

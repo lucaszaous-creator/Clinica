@@ -8,8 +8,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
-public sealed partial class BaixarLancamentoViewModel(IServiceScopeFactory escopos, LancamentoFinanceiro lancamento) : ObservableObject
+public sealed partial class BaixarLancamentoViewModel(IServiceScopeFactory escopos, LancamentoFinanceiro lancamento) : ObservableObject, Clinica.Desktop.Shell.Componentes.IRecebimento
 {
+    public string ValorInformado { get => ValorPago; set => ValorPago = value; }
     public event Action? Concluido;
     public string Descricao => lancamento.Descricao;
     public string Valor => $"Saldo da conta: {lancamento.Valor:C2}";

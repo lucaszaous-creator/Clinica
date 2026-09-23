@@ -45,6 +45,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
     /// <summary>Corte aplicado no banco. Null = sem corte (telas de listagem).</summary>
     public int? Limite { get; }
+    public Func<string?, CancellationToken, Task<IReadOnlyList<Paciente>>>? ConsultaPersonalizada { get; set; }
 
     /// <summary>Refino opcional em memória sobre o que veio do banco (filtro, ordenação alternativa).</summary>
     public Func<IReadOnlyList<Paciente>, IEnumerable<Paciente>>? Refinar { get; set; }
@@ -396,7 +397,9 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
             {
                 using var scope = _scopeFactory.CreateScope();
                 var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-                encontrados = await service.BuscarAsync(Termo, Limite, ct);
+                encontrados = ConsultaPersonalizada is null
+                    ? await service.BuscarAsync(Termo, Limite, ct)
+                    : await ConsultaPersonalizada(Termo, ct);
             }
 
             // Resposta fora de ordem: só a busca mais recente pode escrever na lista.

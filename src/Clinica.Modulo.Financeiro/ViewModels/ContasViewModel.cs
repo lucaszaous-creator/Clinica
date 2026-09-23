@@ -294,7 +294,7 @@ public sealed partial class ContasViewModel : ObservableObject
                 lancamento = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
                     .ObterLancamentoAsync(linha.LancamentoId) ?? throw new InvalidOperationException("Conta não encontrada.");
             var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
-            if (new Janelas.BaixarLancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
+            if (new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
 
             _snackbar.Sucesso("Baixa registrada. Eventual saldo restante continua em aberto.");
             await CarregarAsync();

@@ -24,7 +24,7 @@ public sealed class ModuloGerente : IModuloApp
 {
     public const string ChavePainel = ChavesSuite.PainelDirecao;
     public const string ChaveIndicadores = "indicadores";
-    public const string ChaveFaturamento = ChavesSuite.FaturamentoTiss;
+    public const string ChaveFaturamento = "faturamento-resumo";
     public const string ChaveCusto = "custo-transacao";
     public const string ChaveRentabilidade = "rentabilidade-convenio";
     public const string ChavePrecos = "precos-convenio";
@@ -107,7 +107,7 @@ public sealed class ModuloGerente : IModuloApp
         // itens que se queria economizar.
         new ItemMenuModulo
         {
-            Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7", Icone = "recibo",
+            Chave = ChaveFaturamento, Rotulo = "Resumo de faturamento", Glifo = "\uE8C7", Icone = "recibo",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
         },
         // Duas tabelas, um item (set/2026): a por CONVÊNIO (deste módulo) e a do PARTICULAR
@@ -304,10 +304,7 @@ public sealed class ModuloGerente : IModuloApp
     {
         servicos.AddTransient<PainelDirecaoViewModel>();
         servicos.AddTransient<IndicadoresViewModel>();
-        // FaturamentoGerencialViewModel NÃO se registra: é sub-aba construída à mão pelo
-        // FaturamentoTissViewModel — registro sem resolvedor é código morto que sugere
-        // um caminho de DI que não existe.
-        servicos.AddTransient<FaturamentoTissViewModel>();
+        servicos.AddTransient<FaturamentoGerencialViewModel>();
         servicos.AddTransient<PrecosConvenioViewModel>();
         servicos.AddTransient<PrecosParticularViewModel>();
         servicos.AddTransient<CustoTransacaoViewModel>();
@@ -336,9 +333,9 @@ public sealed class ModuloGerente : IModuloApp
         {
             DataContext = servicos.GetRequiredService<IndicadoresViewModel>()
         },
-        ChaveFaturamento => new FaturamentoTissView
+        ChaveFaturamento => new FaturamentoGerencialView
         {
-            DataContext = servicos.GetRequiredService<FaturamentoTissViewModel>()
+            DataContext = servicos.GetRequiredService<FaturamentoGerencialViewModel>()
         },
         ChavePrecos => new PrecosConvenioView
         {

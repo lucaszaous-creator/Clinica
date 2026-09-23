@@ -1,0 +1,152 @@
+<UserControl x:Class="Clinica.Desktop.Views.GlosasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Conversores.xaml" /><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Componentes/Tabelas.xaml" /></ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Controle de glosas" Style="{StaticResource H1}" />
+
+        <WrapPanel Grid.Row="1" Margin="0,0,0,10">
+            <Button Command="{Binding BuscarCommand}" Style="{StaticResource BotaoSecundario}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="{StaticResource Fonte.Tabela}" Margin="0,0,6,0" />
+                    <TextBlock Text="Atualizar" />
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding GerarRecursoXmlCommand}" IsEnabled="{Binding PodeRegistrarGlosa}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                    ToolTip="Gerar o XML de recurso de glosa (padrão TISS) com as glosas em aberto da lista">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icone}" FontSize="{StaticResource Fonte.Tabela}" Margin="0,0,6,0" />
+                    <TextBlock Text="Recurso de glosa (.xml)" />
+                </StackPanel>
+            </Button>
+            <Button Command="{Binding AbrirGuiaCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                    ToolTip="O que cada motivo de glosa significa, como evitá-lo e o que juntar para recorrer">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE897;" Style="{StaticResource Icone}" FontSize="{StaticResource Fonte.Tabela}" Margin="0,0,6,0" />
+                    <TextBlock Text="Por que as guias são glosadas" />
+                </StackPanel>
+            </Button>
+            <!-- Quebra linha e tem teto: mensagem numa linha so corre para fora da tela.
+                 A barra e WrapPanel pelo mesmo motivo — StackPanel horizontal nunca dobra. -->
+            <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       TextWrapping="Wrap" MaxWidth="420"
+                       Foreground="{StaticResource Brush.Erro}" />
+        </WrapPanel>
+
+        <!-- ===== Filtro =====
+             O recorte roda em memória sobre a carga completa: é isso que dá o total
+             honesto do resumo — a caixinha "em aberto", ligada por padrão, escondia o
+             resto sem dizer que a lista era parcial. -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10">
+            <WrapPanel>
+                <StackPanel Width="220" Margin="0,0,12,4">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource CampoPesquisa}" />
+                </StackPanel>
+                <StackPanel Width="160" Margin="0,0,16,4">
+                    <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroGuia, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <CheckBox Content="Mostrar só glosas em aberto" IsChecked="{Binding SomenteEmAberto}"
+                          VerticalAlignment="Bottom" Margin="0,0,16,8" />
+                <CheckBox Content="Só prazo de recurso vencido" IsChecked="{Binding SoPrazoVencido}"
+                          VerticalAlignment="Bottom" Margin="0,0,16,8"
+                          ToolTip="Só as glosas cujo prazo de recorrer já passou — as que viraram decisão" />
+                <Button Content="Limpar filtro" Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" Margin="0,0,16,0" />
+                <!-- O resumo diz que a lista é PARCIAL: "5 em aberto de 40 no total" e
+                     "40 glosas" respondem perguntas diferentes. -->
+                <TextBlock Text="{Binding Resumo}" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                           TextWrapping="Wrap" MaxWidth="360"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+            </WrapPanel>
+        </Border>
+
+        <!-- O padrão da própria clínica: o que mais glosa aqui, e o que fazer a respeito -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,10"
+                Visibility="{Binding MotivosRecorrentes.Count, Converter={StaticResource ZeroParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="O que mais glosa nesta clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                <ItemsControl ItemsSource="{Binding MotivosRecorrentes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource Badge.Erro}" VerticalAlignment="Top"
+                                        Margin="0,0,10,0">
+                                    <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding ComoEvitar}" TextWrapping="Wrap"
+                                           VerticalAlignment="Center" Style="{StaticResource FichaRotulo}" Margin="0" />
+                                <Button Grid.Column="2" Content="Entenda" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        VerticalAlignment="Center" Margin="10,0,0,0"
+                                        Command="{Binding DataContext.AbrirGuiaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding Codigo}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="4" Style="{StaticResource Card}">
+        <DataGrid ItemsSource="{Binding Glosas}">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="30">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse Width="16" Height="16"
+                                     Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}"
+                                     ToolTip="Urgência do prazo de recurso" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Paciente" Binding="{Binding Codigo.Atendimento.Paciente.Nome}" Width="*" />
+                <DataGridTextColumn Header="Convênio"
+                                    Binding="{Binding Codigo.Atendimento.Paciente.ConvenioNome}" Width="*" />
+                <DataGridTextColumn Header="Código"
+                                    Binding="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Nº guia" Binding="{Binding Codigo.NumeroGuiaReal}" Width="Auto" />
+                <DataGridTextColumn Header="Glosada em" Binding="{Binding Codigo.DataGlosa, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                <DataGridTextColumn Header="Motivo (ANS)" Binding="{Binding MotivoAns}" Width="1.2*" />
+                <DataGridTextColumn Header="Complemento" Binding="{Binding Codigo.MotivoGlosa}" Width="*" />
+                <DataGridTextColumn Header="Prazo recurso" Binding="{Binding PrazoRotulo}" Width="Auto" />
+                <DataGridTextColumn Header="Situação" Binding="{Binding Codigo.Glosa}" Width="Auto" />
+                <DataGridTemplateColumn Header="Ações" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Reapresentar" Style="{StaticResource BotaoAcaoGrid}"
+                                        IsEnabled="{Binding DataContext.PodeRegistrarGlosa, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.ReapresentarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Content="Recuperada" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        IsEnabled="{Binding DataContext.PodeRegistrarGlosa, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.RecuperarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        </Border>
+    </Grid>
+</UserControl>

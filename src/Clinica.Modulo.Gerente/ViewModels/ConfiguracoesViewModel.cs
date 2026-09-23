@@ -35,6 +35,9 @@ namespace Clinica.Gerente.ViewModels;
 /// </summary>
 public sealed partial class ConfiguracoesViewModel : ObservableObject
 {
+    public Clinica.Desktop.Shell.Componentes.DadosClinicaViewModel DadosClinica { get; }
+    public Clinica.Desktop.Shell.Componentes.RegrasFaturamentoViewModel RegrasFaturamento { get; }
+
     private readonly IServiceScopeFactory _escopos;
 
     /// <summary>
@@ -250,6 +253,8 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     public ConfiguracoesViewModel(IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
         _escopos = escopos;
+        DadosClinica = new(escopos, snackbar);
+        RegrasFaturamento = new(escopos, snackbar);
         _snackbar = snackbar;
         _ = CarregarAsync();
     }

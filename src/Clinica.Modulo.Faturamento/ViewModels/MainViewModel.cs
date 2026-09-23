@@ -1,0 +1,504 @@
+using System.Collections.ObjectModel;
+using System.Windows.Input;
+using Clinica.Desktop.Controls;
+using Clinica.Domain.Entities;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Clinica.Desktop.ViewModels;
+
+/// <summary>
+/// Shell de navegação: abas superiores agrupadas, breadcrumb,
+/// pesquisa global (command palette de seções), contador de pendências e snackbar.
+/// </summary>
+public partial class MainViewModel : ObservableObject
+{
+    private readonly IServiceProvider _sp;
+
+    [ObservableProperty]
+    private object? _currentViewModel;
+
+    [ObservableProperty]
+    private int _pendenciasBadge;
+
+    [ObservableProperty]
+    private Secao _secaoAtual = Secao.Pendencias;
+
+    [ObservableProperty]
+    private string _breadcrumbModulo = "Painel";
+
+    [ObservableProperty]
+    private string _breadcrumbTela = "Pendências";
+
+    /// <summary>Título curto exibido no breadcrumb quando em tela de detalhe (vazio fora delas).</summary>
+    [ObservableProperty]
+    private string _breadcrumbDetalhe = string.Empty;
+
+    [ObservableProperty]
+    private string _textoPesquisaGlobal = string.Empty;
+
+    [ObservableProperty]
+    private bool _pesquisaAberta;
+
+    /// <summary>
+    /// Quem está logado, no cabeçalho ("Ana Souza · Faturista"). Não é enfeite:
+    /// no balcão duas pessoas dividem a máquina, e quem assume o posto precisa ver de
+    /// relance que a sessão ainda é da colega — senão a baixa dela vai para a auditoria
+    /// no nome errado, que é o defeito que o login veio corrigir.
+    /// </summary>
+    [ObservableProperty]
+    private string _usuarioRotulo = string.Empty;
+
+    public ObservableCollection<ItemMenu> ResultadosPesquisa { get; } = [];
+
+    public IReadOnlyList<GrupoMenu> Grupos { get; }
+    [ObservableProperty] private GrupoMenu? _grupoSelecionado;
+
+    private readonly List<ItemMenu> _itens;
+
+    public SnackbarService Snackbar { get; }
+
+    /// <summary>Versão exibida no cabeçalho: a instalada (Velopack) ou a do assembly com aviso de build portátil.</summary>
+    public string VersaoApp => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "";
+
+    public MainViewModel(IServiceProvider sp, SnackbarService snackbar)
+    {
+        _sp = sp;
+        Snackbar = snackbar;
+
+        // A navegação é filtrada pela permissão de quem entrou (parcela 45). Guardar a lista
+        // COMPLETA e esconder só na tela não serviria: `_itens` também alimenta a pesquisa
+        // global, e um resultado de busca que abre uma tela proibida é exatamente a porta
+        // que a permissão veio fechar.
+        _itens = TodosOsItens()
+            .Where(i => SessaoUsuario.Atual.Pode(i.Requer))
+            .ToList();
+
+        Grupos = _itens.GroupBy(i => i.Grupo)
+                       .Select(g => new GrupoMenu(g.Key, g.ToList()))
+                       .ToList();
+
+        UsuarioRotulo = SessaoUsuario.Atual.Rotulo;
+
+        // Abre no primeiro item que a pessoa PODE ver. Fixar "Pendências" abriria em branco
+        // para quem não tem VerFaturamento — e tela vazia se lê como defeito, não como
+        // permissão faltando. Quem não tem seção nenhuma nem chega aqui: a abertura do app
+        // exige VerFaturamento e diz isso na porta.
+        // A rota escolhida monta somente a seção solicitada.
+    }
+
+    /// <summary>
+    /// Todos os itens da navegação, com a permissão que cada um pede. O corte segue o ATO e
+    /// não a tela: lançar atendimento CRIA guias e configurar muda a regra para todo mundo,
+    /// e por isso os dois têm bit próprio; o resto do faturamento é leitura.
+    /// </summary>
+    private static IEnumerable<ItemMenu> TodosOsItens() =>
+    [
+        new ItemMenu { Secao = Secao.Pendencias, Rotulo = "Pendências", Glifo = "\uE9D5", Grupo = "Painel",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.NaoConformidades, Rotulo = "NC", Glifo = "", Grupo = "Painel",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda",
+                       Requer = Permissao.VerAgenda },
+        new ItemMenu { Secao = Secao.ConsultaGuias, Rotulo = "Consultar guias", Glifo = "\uE721", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Faturados, Rotulo = "Faturados", Glifo = "\uE8C7", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Glosas, Rotulo = "Glosas", Glifo = "\uF140", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Tiss, Rotulo = "Guias TISS", Glifo = "\uE7C3", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Pacientes, Rotulo = "Pacientes", Glifo = "\uE716", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.VerFichaPaciente },
+        new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.VerIndicadores },
+        // ACESSOS — a mesma tela do Gerente Geral, agora também aqui (pedido da direção).
+        // `GerenciarUsuarios` é a trava: só o perfil Gerente o tem por padrão, então na
+        // prática só a gerente vê e usa esta linha. Não amarramos ao PERFIL de propósito —
+        // o modelo do projeto decide por BIT, e é o que permite a direção conceder a uma
+        // pessoa específica sem promovê-la a Gerente Geral.
+        new ItemMenu { Secao = Secao.Acessos, Rotulo = "Acessos", Glifo = "\uE72E", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.GerenciarUsuarios },
+        new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.ConfigurarFaturamento },
+    ];
+
+    // ===== Atalhos globais (roteados para a tela ativa via IAtalhosDeTela) =====
+
+    [RelayCommand]
+    private void AtalhoSalvar() => Executar((CurrentViewModel as IAtalhosDeTela)?.AtalhoSalvar);
+
+    [RelayCommand]
+    private void AtalhoImprimir() => Executar((CurrentViewModel as IAtalhosDeTela)?.AtalhoImprimir);
+
+    [RelayCommand]
+    private void AtalhoAtualizar() => Executar((CurrentViewModel as IAtalhosDeTela)?.AtalhoAtualizar);
+
+    private static void Executar(ICommand? comando)
+    {
+        if (comando?.CanExecute(null) == true)
+            comando.Execute(null);
+    }
+
+    /// <summary>
+    /// True quando o sistema detectou (em segundo plano) uma versão nova já baixada e pronta — é o que
+    /// faz o botão "Atualizar" aparecer no rodapé. Enquanto false, não há nada a atualizar e o botão some.
+    /// </summary>
+    [ObservableProperty]
+    private bool _atualizacaoDisponivel;
+
+    /// <summary>Número da versão nova disponível (para o rótulo do botão), quando houver.</summary>
+    [ObservableProperty]
+    private string _versaoDisponivel = string.Empty;
+
+    /// <summary>
+    /// Sinaliza que há uma atualização baixada e pronta (chamado pela verificação em segundo plano).
+    /// Faz o botão "Atualizar" aparecer. Idempotente.
+    /// </summary>
+    public void SinalizarAtualizacaoDisponivel(string versao)
+    {
+        VersaoDisponivel = versao;
+        AtualizacaoDisponivel = true;
+    }
+
+    /// <summary>
+    /// Botão "Atualizar": aplica NA HORA a versão nova já baixada e reinicia o app atualizado. Só
+    /// aparece quando há atualização pronta (<see cref="AtualizacaoDisponivel"/>); se o usuário não
+    /// clicar, a mesma versão é aplicada ao fechar o sistema.
+    /// </summary>
+    [RelayCommand]
+    private void AtualizarAgora()
+    {
+        var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
+        if (dialogo.Confirmar("Atualizar sistema",
+                $"A versão {VersaoDisponivel} está pronta. Reiniciar agora para aplicar? " +
+                "(Se preferir, ela é aplicada automaticamente quando você fechar o sistema.)"))
+            Snackbar.Info("Feche e reabra o aplicativo para aplicar a atualização."); // encerra e reabre já atualizado
+    }
+
+    /// <summary>
+    /// Trocar de usuário REABRE o app, em vez de só trocar a sessão em memória.
+    ///
+    /// Parece exagero e não é: as ViewModels leem a permissão quando são construídas (é o
+    /// que acende ou apaga cada botão), e metade delas já está viva na memória quando
+    /// alguém pede para trocar. Repontar a sessão deixaria a tela da colega anterior
+    /// aberta com os botões dela — permissão que parece aplicada e não está é pior do que
+    /// permissão nenhuma, porque ninguém vai conferir.
+    /// </summary>
+    /// <summary>
+    /// Trocar a PRÓPRIA senha — a metade voluntária que faltava (parcela 69). O serviço
+    /// confere a senha atual, então não há permissão a exigir: a prova de posse é ela.
+    /// </summary>
+    [RelayCommand]
+    private void TrocarMinhaSenha()
+    {
+        // Guarda que FALA (parcela 41): sem sessão autenticada não há senha de quem
+        // trocar — só acontece em build de teste, e sair calado leria como botão morto.
+        if (SessaoUsuario.Atual.UsuarioId == 0)
+        {
+            Snackbar.Erro("Não há usuário conectado — a troca de senha é de quem fez login.");
+            return;
+        }
+
+        var janela = new Clinica.Desktop.Shell.Componentes.TrocaSenhaWindow(
+            _sp.GetRequiredService<IServiceScopeFactory>())
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (janela.ShowDialog() == true)
+            Snackbar.Sucesso("Senha trocada.");
+    }
+
+    [RelayCommand]
+    private void TrocarUsuario()
+    {
+        var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
+        if (!dialogo.Confirmar("Trocar usuário",
+                "O sistema vai fechar e abrir de novo na tela de entrada. "
+                + "Salve o que estiver editando antes de continuar.")) return;
+
+        try
+        {
+            var executavel = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(executavel))
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(executavel) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            // Não conseguiu reabrir: fecha assim mesmo e diz o que fazer. Continuar aberto
+            // com a sessão antiga seria fingir que a troca aconteceu.
+            Configuracao.LogErros.Registrar("Trocar usuário — reabertura do app falhou", ex);
+            Snackbar.Erro("Não foi possível reabrir o sistema automaticamente. "
+                          + "Feche e abra de novo para entrar com outro usuário.");
+            return;
+        }
+
+        System.Windows.Application.Current.Shutdown();
+    }
+
+    [RelayCommand]
+    private void Navegar(Secao secao)
+    {
+        // Segunda barreira da navegação: a navegação já não mostra o item, mas o ATALHO de
+        // teclado chega por outro caminho (Ctrl+N vai direto para "Novo atendimento").
+        // Sem isto, esconder o item seria enfeite.
+        //
+        // E ela FALA. Guarda que volta em silêncio é atalho que não faz nada: quem aperta
+        // Ctrl+N e não vê nada acontecer conclui que o sistema travou, e não tem como
+        // adivinhar que o acesso dele não inclui aquela tela.
+        if (_itens.All(i => i.Secao != secao))
+        {
+            Snackbar.Erro("Seu acesso não inclui esta tela. Fale com a direção da clínica.");
+            return;
+        }
+
+        switch (secao)
+        {
+            case Secao.Pendencias: MostrarDashboard(); break;
+            case Secao.NaoConformidades: MostrarNaoConformidades(); break;
+            case Secao.Agenda: MostrarAgenda(); break;
+            case Secao.ConsultaGuias: MostrarConsultaGuias(); break;
+            case Secao.Faturados: MostrarFaturados(); break;
+            case Secao.Glosas: MostrarGlosas(); break;
+            case Secao.Tiss: MostrarTiss(); break;
+            case Secao.Pacientes: MostrarPacientes(); break;
+            case Secao.Relatorios: MostrarRelatorios(); break;
+            case Secao.Acessos: MostrarAcessos(); break;
+            case Secao.Parametros: MostrarParametros(); break;
+        }
+    }
+
+    /// <summary>Atualiza seção ativa, destaque do menu e breadcrumb.</summary>
+    private void DefinirSecao(Secao secao)
+    {
+        SecaoAtual = secao;
+        BreadcrumbDetalhe = string.Empty;
+        foreach (var item in _itens)
+            item.EstaAtivo = item.Secao == secao;
+
+        var ativo = _itens.FirstOrDefault(i => i.Secao == secao);
+        if (ativo is not null)
+        {
+            GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(ativo));
+            BreadcrumbModulo = ativo.Grupo;
+            BreadcrumbTela = ativo.Rotulo;
+        }
+    }
+
+    // ===== Pesquisa global (seções + pacientes por nome/CPF) =====
+
+    partial void OnTextoPesquisaGlobalChanged(string value)
+    {
+        ResultadosPesquisa.Clear();
+        var termo = value.Trim();
+        if (termo.Length == 0)
+        {
+            PesquisaAberta = false;
+            return;
+        }
+
+        foreach (var item in _itens.Where(i =>
+                     i.Rotulo.Contains(termo, StringComparison.CurrentCultureIgnoreCase) ||
+                     i.Grupo.Contains(termo, StringComparison.CurrentCultureIgnoreCase)))
+            ResultadosPesquisa.Add(item);
+
+        PesquisaAberta = ResultadosPesquisa.Count > 0;
+
+        // Pacientes entram de forma assíncrona (banco); 2+ letras para não varrer tudo.
+        if (termo.Length >= 2)
+            _ = PesquisarPacientesAsync(termo);
+    }
+
+    /// <summary>Quantos pacientes cabem no menu da pesquisa global sem virar uma lista.</summary>
+    private const int MaximoPacientesNaPesquisa = 6;
+
+    private async Task PesquisarPacientesAsync(string termo)
+    {
+        try
+        {
+            using var scope = _sp.CreateScope();
+            var pacientes = await scope.ServiceProvider
+                .GetRequiredService<Clinica.Application.Servicos.PacienteService>()
+                // O corte vai no SQL: a pesquisa global mostra no máximo 6 nomes.
+                .BuscarAsync(termo, limite: MaximoPacientesNaPesquisa);
+
+            // O usuário pode ter continuado digitando enquanto o banco respondia.
+            if (TextoPesquisaGlobal.Trim() != termo) return;
+
+            foreach (var p in pacientes)
+                ResultadosPesquisa.Add(new ItemMenu
+                {
+                    Secao = Secao.Pacientes,
+                    Rotulo = p.Nome,
+                    Glifo = "\uE77B", // pessoa
+                    Grupo = "Paciente",
+                    PacienteId = p.Id
+                });
+
+            PesquisaAberta = ResultadosPesquisa.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            // Banco fora do ar não pode quebrar a digitação na pesquisa.
+            Configuracao.LogErros.Registrar("Pesquisa global — busca de pacientes falhou", ex);
+        }
+    }
+
+    [RelayCommand]
+    private void NavegarResultado(ItemMenu? item)
+    {
+        item ??= ResultadosPesquisa.FirstOrDefault();
+        if (item is null) return;
+
+        FecharPesquisa();
+
+        if (item.PacienteId is int pacienteId)
+        {
+            DefinirSecao(Secao.Pacientes);
+            AbrirFicha(pacienteId);
+            return;
+        }
+
+        Navegar(item.Secao);
+    }
+
+    [RelayCommand]
+    private void FecharPesquisa()
+    {
+        PesquisaAberta = false;
+        TextoPesquisaGlobal = string.Empty;
+    }
+
+    // ===== Seções =====
+
+    [RelayCommand]
+    private void MostrarDashboard()
+    {
+        var vm = _sp.GetRequiredService<DashboardViewModel>();
+        vm.PendenciasAtualizadas += total => PendenciasBadge = total;
+        vm.AbrirBaixaSolicitado += AbrirBaixa;
+        vm.FichaSolicitada += AbrirFicha;
+        vm.AbrirGlosasSolicitado += MostrarGlosas;
+        DefinirSecao(Secao.Pendencias);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarPacientes() => Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.PacientesRecepcao);
+
+    [RelayCommand]
+    private void MostrarAgenda() => Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.Agenda);
+
+    [RelayCommand]
+    private void MostrarFaturados()
+    {
+        var vm = _sp.GetRequiredService<FaturadosViewModel>();
+        DefinirSecao(Secao.Faturados);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarConsultaGuias()
+    {
+        var vm = _sp.GetRequiredService<ConsultaGuiasViewModel>();
+        DefinirSecao(Secao.ConsultaGuias);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarGlosas()
+    {
+        var vm = _sp.GetRequiredService<GlosasViewModel>();
+        DefinirSecao(Secao.Glosas);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarNaoConformidades()
+    {
+        var vm = _sp.GetRequiredService<NaoConformidadesViewModel>();
+        DefinirSecao(Secao.NaoConformidades);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarTiss()
+    {
+        var vm = _sp.GetRequiredService<TissViewModel>();
+        DefinirSecao(Secao.Tiss);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarParametros()
+    {
+        var vm = _sp.GetRequiredService<ParametrosViewModel>();
+        DefinirSecao(Secao.Parametros);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    /// <summary>
+    /// Cadastro de usuários e permissões — a MESMA tela do Gerente Geral, sobre o MESMO
+    /// banco. Não há sincronização a fazer: o usuário criado aqui entra em qualquer app.
+    ///
+    /// A segunda barreira mora nos comandos do <see cref="AcessosViewModel"/>. Aqui só a
+    /// primeira: sem <see cref="Permissao.GerenciarUsuarios"/> a pessoa nem chega, porque
+    /// a pesquisa global e o menu filtram pelo `Requer` do item — mas navegar não é o
+    /// único caminho, e é por isso que esconder nunca basta sozinho.
+    /// </summary>
+    [RelayCommand]
+    private void MostrarAcessos() => Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.Acessos);
+
+    [RelayCommand]
+    private void MostrarRelatorios()
+    {
+        var vm = _sp.GetRequiredService<RelatoriosViewModel>();
+        DefinirSecao(Secao.Relatorios);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    private void AbrirBaixa(int codigoId)
+    {
+        var vm = _sp.GetRequiredService<BaixaViewModel>();
+        vm.BaixaConcluida += MostrarDashboard;
+        vm.Cancelado += MostrarDashboard;
+        BreadcrumbDetalhe = "Dar baixa";
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync(codigoId);
+    }
+
+    private async void AbrirFicha(int pacienteId)
+    {
+        var origem = CurrentViewModel;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir ficha do paciente");
+            using var scope = _sp.CreateScope();
+            var paciente = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.PacienteService>().ObterAsync(pacienteId);
+            if (paciente is null || !ReferenceEquals(origem, CurrentViewModel)) return;
+            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
+            foco.Definir(paciente.Id, paciente.Nome);
+            CurrentViewModel = _sp.GetRequiredService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>()
+                .Criar(foco, () => CurrentViewModel = origem);
+        }
+        catch (Exception ex) { Snackbar.Erro("Não foi possível abrir a ficha. " + ex.Message); }
+    }
+
+    private void AbrirEdicaoPaciente(int pacienteId)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "editar paciente");
+        var vm = new Clinica.Desktop.Shell.Componentes.Cadastro.CadastroPacienteViewModel(_sp.GetRequiredService<IServiceScopeFactory>(), pacienteId);
+        new Clinica.Desktop.Shell.Componentes.Cadastro.CadastroPacienteWindow(vm) { Owner = System.Windows.Application.Current.MainWindow }.ShowDialog();
+    }
+}

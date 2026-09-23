@@ -22,7 +22,8 @@ public partial class App : System.Windows.Application
     /// </summary>
     private readonly IReadOnlyList<IModuloApp> _modulos =
     [
-        new Modulo.ModuloRecepcao()
+        new Modulo.ModuloRecepcao(),
+        new ModuloContextual(new Clinica.Clinico.Modulo.ModuloClinico())
     ];
 
     protected override async void OnStartup(StartupEventArgs e)

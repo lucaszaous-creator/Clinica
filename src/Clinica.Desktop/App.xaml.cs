@@ -114,7 +114,7 @@ public partial class App : System.Windows.Application
 
                 if (reconfig == MessageBoxResult.Yes)
                 {
-                    ConexaoStore.Limpar(); // força a tela de setup na próxima volta
+                    Clinica.Desktop.Shell.Configuracao.ConexaoStore.Limpar(); // força a tela de setup na próxima volta
                     continue;
                 }
 
@@ -136,8 +136,9 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        var window = _host!.Services.GetRequiredService<MainWindow>();
-        window.DataContext = _host.Services.GetRequiredService<MainViewModel>();
+        var window = new Clinica.Desktop.Shell.ShellWindow { Title = "Faturamento — Clínica SemDor" };
+        window.DataContext = new Clinica.Desktop.Shell.ShellViewModel("Faturamento", _modulos, _host!.Services);
+        Clinica.Desktop.Controls.AjusteJanela.Instalar();
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
         window.WindowState = WindowState.Maximized;
@@ -203,7 +204,7 @@ public partial class App : System.Windows.Application
 
         while (true)
         {
-            var login = new Acesso.LoginWindow(escopos, primeiroAcesso);
+            var login = new Clinica.Desktop.Shell.LoginWindow(escopos, "Faturamento", primeiroAcesso);
             if (login.ShowDialog() != true || login.Usuario is null) return false;
 
             // Este é o app do FATURAMENTO: quem não tem a leitura dele não tem seção
@@ -238,12 +239,11 @@ public partial class App : System.Windows.Application
 
             _updateTimer?.Stop(); // já há versão baixada aguardando; não precisa checar de novo
 
-            // Faz o botão "Atualizar" aparecer no rodapé da sidebar (aplica na hora ao clicar).
-            _host.Services.GetRequiredService<MainViewModel>().SinalizarAtualizacaoDisponivel(versao);
+            // A atualização fica pronta para o próximo fechamento.
+            // O pacote será aplicado no fechamento, pelo mesmo atualizador do canal win.
 
             var snackbar = _host.Services.GetRequiredService<Controls.ISnackbarService>();
-            snackbar.Info($"Atualização {versao} disponível. Clique em \"Atualizar\" na barra lateral " +
-                          "ou feche e reabra o sistema para aplicar.");
+            snackbar.Info($"Atualização {versao} disponível. Salve seu trabalho, feche e reabra o sistema para aplicar.");
         }
         catch (Exception ex)
         {
@@ -367,47 +367,23 @@ public partial class App : System.Windows.Application
         if (!string.IsNullOrWhiteSpace(env))
             return env;
 
-        var salva = ConexaoStore.Carregar();
+        var salva = Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar();
         if (!string.IsNullOrWhiteSpace(salva))
             return salva;
 
-        var setup = new SetupWindow();
-        return setup.ShowDialog() == true ? ConexaoStore.Carregar() : null;
+        var setup = new Clinica.Desktop.Shell.SetupWindow("Faturamento");
+        return setup.ShowDialog() == true ? Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar() : null;
     }
 
+    private static readonly Clinica.Desktop.Shell.Modulos.IModuloApp[] _modulos =
+    [
+        new Clinica.Faturamento.Modulo.ModuloFaturamento(),
+        new Clinica.Desktop.Shell.Modulos.ModuloContextual(new Clinica.Recepcao.Modulo.ModuloRecepcao(), "agenda", "pacientes", "ajuda"),
+        new Clinica.Desktop.Shell.Modulos.ModuloContextual(new Clinica.Clinico.Modulo.ModuloClinico()),
+        new Clinica.Desktop.Shell.Modulos.ModuloContextual(new Clinica.Gerente.Modulo.ModuloGerente(), "acessos", "configuracoes")
+    ];
     private static IHost ConstruirHost(string connectionString) =>
-        Host.CreateDefaultBuilder()
-            .ConfigureServices((_, services) =>
-            {
-                services.AddClinica(connectionString);
-
-                // Snackbar único do shell (instanciado na thread de UI ao resolver o MainViewModel).
-                services.AddSingleton<Controls.SnackbarService>();
-                services.AddSingleton<Controls.ISnackbarService>(sp => sp.GetRequiredService<Controls.SnackbarService>());
-                services.AddSingleton<Controls.IDialogoService, Controls.DialogoService>();
-
-                // Quem está usando o app NESTE processo (parcela 45). Singleton como na
-                // suíte: `SessaoUsuario.Atual` aponta para esta mesma instância assim que
-                // alguém entra, e é dela que sai o operador gravado na auditoria.
-                services.AddSingleton<SessaoUsuario>();
-
-                services.AddSingleton<MainViewModel>();
-                services.AddTransient<DashboardViewModel>();
-                services.AddTransient<NaoConformidadesViewModel>();
-                services.AddTransient<PacientesViewModel>();
-                services.AddTransient<BaixaViewModel>();
-                services.AddTransient<RelatoriosViewModel>();
-                services.AddTransient<FaturadosViewModel>();
-                services.AddTransient<FichaPacienteViewModel>();
-                services.AddTransient<AgendaViewModel>();
-                services.AddTransient<GlosasViewModel>();
-                services.AddTransient<TissViewModel>();
-                services.AddTransient<ConsultaGuiasViewModel>();
-                services.AddTransient<ParametrosViewModel>();
-                services.AddTransient<AcessosViewModel>();
-                services.AddSingleton<MainWindow>();
-            })
-            .Build();
+        Clinica.Desktop.Shell.ShellBootstrap.ConstruirHost(connectionString, _modulos);
 
     protected override async void OnExit(ExitEventArgs e)
     {

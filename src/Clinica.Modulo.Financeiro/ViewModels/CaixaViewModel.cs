@@ -353,7 +353,7 @@ public sealed partial class CaixaViewModel : ObservableObject
                 lancamento = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
                     .ObterLancamentoAsync(linha.Id) ?? throw new InvalidOperationException("Lançamento não encontrado.");
             var vm = new BaixarLancamentoViewModel(_escopos, lancamento);
-            if (new Janelas.BaixarLancamentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
+            if (new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
             _snackbar.Sucesso("Lançamento realizado.");
             await CarregarAsync();
         }

@@ -396,7 +396,7 @@
                         Command="{Binding ConfirmarSessoesCommand}" />
                 <!-- O que ficou pendurado entre a agenda e os atendimentos (parcela
                      93). Fila de tempos em tempos, então JANELA — não item de menu. -->
-                <Button Content="Conciliar agenda…" Margin="8,0,0,4"
+                <Button Content="Conferir atendimentos…" Margin="8,0,0,4"
                         Style="{StaticResource BotaoSecundario}"
                         VerticalAlignment="Center"
                         ToolTip="Horários cuja data passou e ninguém resolveu"
@@ -418,6 +418,7 @@
                         Command="{Binding FecharAgendaCommand}" />
                 <Button Content="Horários e travas" Command="{Binding ConfigurarHorariosCommand}"
                         IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,4" />
+                <Button Content="Marcar atendimento" Command="{Binding MarcarAtendimentoCommand}" IsEnabled="{Binding PodeMarcarAtendimento}" Margin="0,0,8,0" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
                         IsEnabled="{Binding PodeEditarAgenda}"
                         VerticalAlignment="Center" Margin="8,0,0,4" />

@@ -61,15 +61,15 @@ public class AjustesFluxoTests : IDisposable
         var service = new PacienteService(_repo);
 
         var padraoComApp = await service.SalvarNovoAsync(
-            new Paciente { Nome = "Com App", Convenio = Convenio.UnimedPadrao, PossuiApp = true });
+            new Paciente { Nome = "Com App", Documento = "52998224725", Endereco = "Rua de Teste, 1", Convenio = Convenio.UnimedPadrao, PossuiApp = true });
         padraoComApp.Categoria.Should().Be(Categoria.Verde);
 
         var padraoSemApp = await service.SalvarNovoAsync(
-            new Paciente { Nome = "Sem App", Convenio = Convenio.UnimedPadrao, PossuiApp = false });
+            new Paciente { Nome = "Sem App", Documento = "11144477735", Endereco = "Rua de Teste, 2", Convenio = Convenio.UnimedPadrao, PossuiApp = false });
         padraoSemApp.Categoria.Should().Be(Categoria.Amarela);
 
         var petro = await service.SalvarNovoAsync(
-            new Paciente { Nome = "Petro", Convenio = Convenio.Petrobras });
+            new Paciente { Nome = "Petro", Documento = "12345678909", Endereco = "Rua de Teste, 3", Convenio = Convenio.Petrobras });
         petro.Categoria.Should().Be(Categoria.Vermelha);
     }
 
@@ -78,7 +78,7 @@ public class AjustesFluxoTests : IDisposable
     {
         var service = new PacienteService(_repo);
         var p = await service.SalvarNovoAsync(
-            new Paciente { Nome = "Muda Plano", Convenio = Convenio.UnimedPadrao, PossuiApp = false });
+            new Paciente { Nome = "Muda Plano", Documento = "52998224725", Endereco = "Rua de Teste, 1", Convenio = Convenio.UnimedPadrao, PossuiApp = false });
         p.Categoria.Should().Be(Categoria.Amarela);
 
         // Passou a ter app → categoria recalculada para Verde.
@@ -143,6 +143,7 @@ public class AjustesFluxoTests : IDisposable
         var p = await service.SalvarNovoAsync(new Paciente
         {
             Nome = "Habitual",
+            Documento = "52998224725", Endereco = "Rua de Teste, 1",
             Convenio = Convenio.Amil,
             ModalidadePreferida = ModalidadeAtendimento.BsvComAcupuntura
         });
@@ -171,7 +172,7 @@ public class AjustesFluxoTests : IDisposable
     {
         var pacienteService = new PacienteService(_repo);
         var paciente = await pacienteService.SalvarNovoAsync(
-            new Paciente { Nome = "Agenda", Convenio = Convenio.UnimedIntercambio });
+            new Paciente { Nome = "Agenda", Documento = "52998224725", Endereco = "Rua de Teste, 1", Convenio = Convenio.UnimedIntercambio });
 
         var agenda = new AgendaService(_repo, new AtendimentoService(_repo));
         var quando = new DateTime(2026, 7, 20, 15, 30, 0);
@@ -199,7 +200,7 @@ public class AjustesFluxoTests : IDisposable
     {
         var pacienteService = new PacienteService(_repo);
         var paciente = await pacienteService.SalvarNovoAsync(
-            new Paciente { Nome = "Sem Agenda", Convenio = Convenio.UnimedIntercambio });
+            new Paciente { Nome = "Sem Agenda", Documento = "52998224725", Endereco = "Rua de Teste, 1", Convenio = Convenio.UnimedIntercambio });
 
         var atendimentos = new AtendimentoService(_repo);
         await atendimentos.LancarAsync(paciente.Id, new DateOnly(2026, 7, 20), ModalidadeAtendimento.AcupunturaSimples);

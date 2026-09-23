@@ -3,23 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <!-- Ordem importa: tokens/conversores → estilos → componentes. -->
-                <ResourceDictionary Source="Styles/Tokens.xaml" />
-                <ResourceDictionary Source="Styles/Conversores.xaml" />
-                <ResourceDictionary Source="Styles/Theme.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Botoes.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Campos.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Selecao.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Tabelas.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Navegacao.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Feedback.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Sobreposicao.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Cartoes.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Midia.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Pacientes.xaml" />
-                <ResourceDictionary Source="Styles/Componentes/Icones.xaml" />
-            </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Desktop.Shell;component/Styles/Suite.xaml" /><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Conversores.xaml" /></ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

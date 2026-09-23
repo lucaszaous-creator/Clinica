@@ -1,0 +1,97 @@
+<UserControl x:Class="Clinica.Recepcao.Views.ResumoAdministrativoPacienteView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell">
+<UserControl.Resources><BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" /><ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" /></UserControl.Resources>
+<ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
+                        <StackPanel Margin="0,0,0,24">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Pode ser atendido hoje?" Style="{StaticResource H3}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" Text="Carteirinha, cota de sessões do convênio e consentimento LGPD. Conferir aqui evita a glosa que só apareceria depois da sessão." />
+
+
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8" Visibility="{Binding ElegibilidadeNaoVerificada,                                              Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap" Text="Não foi possível conferir a elegibilidade agora. Isto NÃO quer dizer que está tudo certo — tente Atualizar." />
+                        </Border>
+
+
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaSucesso}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding Alertas.Count}" Value="0" />
+                                                <Condition Binding="{Binding ElegibilidadeNaoVerificada}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="Sem pendências: carteirinha, cota e consentimento em ordem." TextWrapping="Wrap" />
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Alertas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:LinhaAlerta}">
+                                    <Border Margin="0,0,0,6" Padding="12,8" CornerRadius="{StaticResource Raio.Medio}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding EhVermelho}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Descricao}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource Brush.Texto.Primario}" />
+
+                                            <Button Grid.Column="1" Content="Receber…" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource BotaoSecundario}" Visibility="{Binding PodeReceber, Converter={StaticResource BoolParaVisibilidade}}" IsEnabled="{Binding DataContext.PodeReceberDivida, RelativeSource={RelativeSource AncestorType=UserControl}}" Command="{Binding DataContext.ReceberDividaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+
+                <Border Style="{StaticResource Card}" Visibility="{Binding PodeVerAgenda,                                      Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock Text="Próximos horários" Style="{StaticResource H3}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" Text="O que este paciente tem marcado daqui em diante, os cinco mais próximos. Abrir leva à agenda daquele dia." />
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8" Visibility="{Binding ProximosHorariosNaoVerificados,                                              Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap" Text="Não foi possível ler a agenda deste paciente agora. Isto NÃO quer dizer que ele não tem horário — tente Atualizar." />
+                        </Border>
+                        <TextBlock Text="Nenhum horário marcado daqui em diante." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Visibility="{Binding SemProximosHorarios,                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+                        <ItemsControl ItemsSource="{Binding ProximosHorarios}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:LinhaHorarioFuturo}">
+                                    <Border Padding="0,8" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="Abrir na agenda" Style="{StaticResource BotaoPequeno}" VerticalAlignment="Center" Margin="12,0,0,0" Command="{Binding DataContext.AbrirNaAgendaCommand,                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                            <Border DockPanel.Dock="Right" Style="{StaticResource Badge.Aviso}" VerticalAlignment="Center" Margin="8,0,0,0" Visibility="{Binding Encaixe,                                                                  Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Encaixe" />
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Contexto}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                </StackPanel>
+                    </ScrollViewer>
+
+</UserControl>

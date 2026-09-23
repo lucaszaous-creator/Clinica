@@ -319,6 +319,14 @@ public sealed class LinhaListaEspera
 /// </summary>
 public sealed partial class AgendaViewModel : ObservableObject
 {
+    public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    [RelayCommand] private void MarcarAtendimento()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
+        if (!NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
+            throw new InvalidOperationException("A marcação não está disponível neste acesso.");
+    }
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;

@@ -315,12 +315,7 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
                 return;
             }
 
-            if (!_dialogo.Confirmar("Renovar consulta",
-                    $"Gerar/renovar a consulta de {item.PacienteNome} para hoje?")) return;
-
-            using var scope = _escopos.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<ConsultaService>();
-            await service.RenovarAsync(item.PacienteId, DateOnly.FromDateTime(DateTime.Today));
+            if (!await RenovacaoConsultaFluxo.ExecutarAsync(_escopos, _dialogo, item.PacienteId, item.PacienteNome)) return;
         }
         catch (Exception ex)
         {

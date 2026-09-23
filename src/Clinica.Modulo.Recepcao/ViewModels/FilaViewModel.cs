@@ -444,6 +444,14 @@ public sealed partial class ChipProfissional : ObservableObject
 /// </summary>
 public sealed partial class FilaViewModel : ObservableObject
 {
+    public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    [RelayCommand] private void MarcarAtendimento()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
+        if (!NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveMarcarHorario))
+            throw new InvalidOperationException("A marcação não está disponível neste acesso.");
+    }
+
     /// <summary>A partir daqui a espera é longa o bastante para destacar o cartão.</summary>
     private const int EsperaLongaMinutos = 30;
 
@@ -1528,11 +1536,15 @@ public sealed partial class FilaViewModel : ObservableObject
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "abrir a ficha do paciente");
-            var vm = new PacientesViewModel(_escopos, _snackbar, _dialogo)
-                { MostrandoFicha = true, MostrarVoltar = false };
-            await vm.Ficha.AbrirAsync(c.PacienteId);
-            new ConsultaContextualWindow($"Ficha — {c.Paciente}",
-                new Views.PacientesView { DataContext = vm }, "Voltar à fila do dia").ShowDialog();
+            using var escopo = _escopos.CreateScope();
+            var foco = new Clinica.Desktop.Shell.Modulos.PacienteEmFoco();
+            foco.Definir(c.PacienteId, c.Paciente);
+            ConsultaContextualWindow? janela = null;
+            var ficha = escopo.ServiceProvider.GetRequiredService<Clinica.Desktop.Shell.Modulos.IFabricaFichaPaciente>()
+                .Criar(foco, () => janela?.Close());
+            janela = new ConsultaContextualWindow($"Ficha — {c.Paciente}", ficha, "Voltar à fila do dia");
+            janela.ShowDialog();
+            await Task.CompletedTask;
         }, "ficha do paciente");
 
     [RelayCommand]

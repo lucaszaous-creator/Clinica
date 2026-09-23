@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><UseWPF>true</UseWPF>
+    <RootNamespace>Clinica.Desktop</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <ProjectReference Include="../Clinica.Desktop.Shell/Clinica.Desktop.Shell.csproj" />
+    <ProjectReference Include="../Clinica.Infrastructure/Clinica.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

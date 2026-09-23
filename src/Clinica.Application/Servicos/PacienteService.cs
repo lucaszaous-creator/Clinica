@@ -65,7 +65,22 @@ public sealed class PacienteService
             .OrderByDescending(c => c.DataEmissao)
             .ToList();
 
-    public async Task<Paciente> SalvarNovoAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
+    public Task<Paciente> SalvarNovoAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
+    {
+        ValidacaoCadastroPaciente.Exigir(paciente);
+        paciente.Endereco = paciente.Endereco!.Trim();
+        return PersistirNovoAsync(paciente, categoriaManual, ct);
+    }
+
+    // Importação histórica preserva o que veio do sistema anterior, sem inventar dados.
+    // Estas portas internas não ficam disponíveis aos módulos de cadastro.
+    internal Task<Paciente> ImportarNovoAsync(Paciente paciente, CancellationToken ct = default)
+        => PersistirNovoAsync(paciente, false, ct);
+
+    internal Task CompletarImportadoAsync(Paciente paciente, CancellationToken ct = default)
+        => PersistirAtualizacaoAsync(paciente, true, ct);
+
+    private async Task<Paciente> PersistirNovoAsync(Paciente paciente, bool categoriaManual, CancellationToken ct)
     {
         await CriticarAsync(paciente, ct);
         if (!categoriaManual)
@@ -80,7 +95,14 @@ public sealed class PacienteService
     /// Por padrão a categoria é derivada do convênio + app; passe <paramref name="categoriaManual"/>
     /// = true para preservar uma categoria definida manualmente na ficha.
     /// </summary>
-    public async Task AtualizarAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
+    public Task AtualizarAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
+    {
+        ValidacaoCadastroPaciente.Exigir(paciente);
+        paciente.Endereco = paciente.Endereco!.Trim();
+        return PersistirAtualizacaoAsync(paciente, categoriaManual, ct);
+    }
+
+    private async Task PersistirAtualizacaoAsync(Paciente paciente, bool categoriaManual, CancellationToken ct)
     {
         await CriticarAsync(paciente, ct);
         if (!categoriaManual)
@@ -239,10 +261,9 @@ public sealed class PacienteService
         if (string.IsNullOrWhiteSpace(paciente.Nome))
             throw new ArgumentException("Informe o nome do paciente.");
 
-        // CPF em branco é o caso NORMAL e continua passando: criança, paciente de
-        // convênio cadastrado pela carteirinha, quem chegou sem documento. Exigi-lo aqui
-        // travaria o cadastro no balcão com o paciente na frente — e o pedido foi impedir
-        // DUPLICATA, não tornar o CPF obrigatório.
+        // Somente a importação histórica chega aqui sem CPF. As portas públicas de
+        // cadastro/edição exigem CPF e endereço antes de persistir; a importação mantém
+        // os dados disponíveis e a próxima edição pede que a ficha seja completada.
         if (string.IsNullOrWhiteSpace(paciente.Documento))
         {
             // Vazio vira nulo: dois pacientes com documento "" são iguais para qualquer

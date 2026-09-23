@@ -19,7 +19,9 @@ public static class NavegacaoSuite
     private static Func<string, bool, bool>? _navegar;
 
     /// <summary>Ligado pela <c>ShellViewModel</c> na construção. Só o shell chama.</summary>
-    internal static void Ligar(Func<string, bool, bool> navegar) => _navegar = navegar;
+    private static Func<bool>? _voltar;
+    internal static void Ligar(Func<string, bool, bool> navegar, Func<bool>? voltar = null) { _navegar = navegar; _voltar = voltar; }
+    public static bool Voltar() => _voltar?.Invoke() ?? false;
 
     /// <summary>
     /// O destino existe e está visível para quem está usando o app — o módulo pode não
