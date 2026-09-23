@@ -8,10 +8,11 @@ public partial class CadastroPacienteWindow : Window
     {
         InitializeComponent();
         DataContext = vm;
-        MaxHeight = SystemParameters.WorkArea.Height;
-        MaxWidth = SystemParameters.WorkArea.Width;
-        void Concluir() => DialogResult = true;
+        // O Windows maximiza na área útil do monitor; limites fixos cortariam a janela.
+        var concluido = false;
+        void Concluir() { concluido = true; DialogResult = true; }
         vm.Concluido += Concluir;
+        Closing += (_, e) => { if (vm.Salvando && !concluido) e.Cancel = true; };
         Closed += (_, _) => vm.Concluido -= Concluir;
     }
 }

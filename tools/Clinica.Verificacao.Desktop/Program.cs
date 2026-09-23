@@ -79,6 +79,8 @@ internal static class Program
             foreach(var modulo in modulos) modulo.Registrar(s);
             using var provider = s.BuildServiceProvider();
             provider.GetRequiredService<SessaoUsuario>().Entrar(new UsuarioSistema { Id=1,Nome="Acesso de demonstração",Perfil=perfil });
+            using(var inicializacao=provider.CreateScope())
+                await inicializacao.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.ConvenioCatalogoService>().RecarregarCacheAsync();
             var shell = new ShellViewModel(nome,modulos,provider);
             Evidencias.Add(new { perfil=nome, destinos=shell.Itens.Select(i=>new { i.Chave,i.Rotulo,i.Grupo,i.Abas }).ToArray() });
             var visiveis = shell.Grupos.SelectMany(g => g.Itens).ToList();
@@ -132,15 +134,21 @@ internal static class Program
                 Conferir(NavegacaoSuite.Voltar() && ReferenceEquals(anterior,shell.TelaAtual),"Voltar preserva instância e filtros da origem");
                 var cadastro=new CadastroPacienteViewModel(provider.GetRequiredService<IServiceScopeFactory>(),1001);
                 while(cadastro.Carregando) await Task.Delay(10);
-                var opcao=new Clinica.Domain.Regras.OpcaoDeConvenio("UnimedPadrao","Unimed Costa do Sol (Padrão)",Convenio.UnimedPadrao,"Gera guia para o faturamento.",true,false);
-                cadastro.Convenios.Add(opcao);cadastro.Convenio=opcao;
+                var opcao=cadastro.Convenios.Single(c=>c.Codigo=="UnimedPadrao");
+                cadastro.Convenio=opcao;
                 cadastro.Documento="";await cadastro.SalvarCommand.ExecuteAsync(null);
                 Conferir(!string.IsNullOrWhiteSpace(cadastro.ErroDocumento),"Cadastro exige CPF antes de gravar");
                 cadastro.Documento="52998224725";cadastro.Endereco="";await cadastro.SalvarCommand.ExecuteAsync(null);
                 Conferir(!string.IsNullOrWhiteSpace(cadastro.ErroEndereco),"Cadastro exige endereço antes de gravar");
                 cadastro.Endereco="Rua de demonstração, 100 — Macaé/RJ";cadastro.Mensagem="";
-                var janelaCadastro = new CadastroPacienteWindow(cadastro) { ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000 };
-                janelaCadastro.Show(); await Task.Delay(100);Render(janelaCadastro,"cadastro-real.png");janelaCadastro.Close();
+                var janelaCadastro = new CadastroPacienteWindow(cadastro) { ShowInTaskbar=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000 };
+                Conferir(janelaCadastro.WindowState==WindowState.Maximized,"Cadastro configurado para nascer maximizado");
+                Conferir(double.IsPositiveInfinity(janelaCadastro.MaxWidth) && double.IsPositiveInfinity(janelaCadastro.MaxHeight),"Cadastro maximizado sem limites fixos do monitor primário");
+                janelaCadastro.Show(); await Task.Delay(120);
+                Conferir(janelaCadastro.WindowState==WindowState.Maximized,"Cadastro permanece maximizado após abrir");
+                Render(janelaCadastro,"cadastro-real.png");
+                await VerificarCadastroAsync(provider,options,sentinela,cadastro,janelaCadastro,opcao);
+                janelaCadastro.Close();
                 var shellWindow=new ShellWindow { DataContext=shell,ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000,Width=1366,Height=768 };
                 shellWindow.Show();
                 foreach(var chave in new[]{"agenda","marcar-horario","pacientes-recepcao","faturamento-gerencial","configuracoes"}) {
@@ -163,6 +171,92 @@ internal static class Program
             await Dispatcher.Yield(DispatcherPriority.Background);
         }
     }
+    static async Task VerificarCadastroAsync(ServiceProvider provider, DbContextOptions<ClinicaDbContext> options,
+        SentinelaProntuario sentinela, CadastroPacienteViewModel cadastro, CadastroPacienteWindow janela,
+        Clinica.Domain.Regras.OpcaoDeConvenio opcao)
+    {
+        var escopos=provider.GetRequiredService<IServiceScopeFactory>();
+        sentinela.AtrasarPaciente=true;sentinela.Proibir=true;sentinela.ProibirHistoricoCadastro=true;sentinela.Leituras.Clear();
+        var carregando=new CadastroPacienteViewModel(escopos,1001);
+        Conferir(carregando.Carregando && !carregando.PodePreencher,"Carga lenta bloqueia preenchimento antes de apresentar o cadastro");
+        await carregando.SalvarCommand.ExecuteAsync(null);
+        Conferir(carregando.Mensagem.Contains("Aguarde"),"Salvar durante carga lenta não grava dados incompletos");
+        await EsperarCadastroAsync(carregando);
+        Conferir(carregando.PodePreencher && carregando.Nome=="Paciente de demonstração","Fim da carga libera formulário com os dados existentes");
+        Conferir(sentinela.Leituras.Count==0,"Cadastro carrega somente a ficha, sem atendimentos, códigos ou prontuário");
+        sentinela.Proibir=false;sentinela.ProibirHistoricoCadastro=false;sentinela.AtrasarPaciente=false;
+
+        var corpo=(Grid)janela.Content;
+        var rolagem=corpo.Children.OfType<ScrollViewer>().Single();
+        foreach(var campo in new[]{"Telefone","Email","Carteirinha","IndicadoPor","Observacoes"}) {
+            var editor=Visuais(corpo).OfType<TextBox>().Single(b=>b.GetBindingExpression(TextBox.TextProperty)?.ParentBinding.Path.Path==campo);
+            var propriedade=typeof(CadastroPacienteViewModel).GetProperty(campo)!;
+            var antes=propriedade.GetValue(cadastro);
+            editor.SetCurrentValue(TextBox.TextProperty,"Texto de verificação");
+            await Dispatcher.Yield(DispatcherPriority.DataBind);
+            Conferir(Equals(propriedade.GetValue(cadastro),"Texto de verificação"),$"{campo}: texto atualizado antes de sair do campo para salvar pelo teclado");
+            propriedade.SetValue(cadastro,antes);
+        }
+        var salvar=Visuais(corpo).OfType<Button>().Single(b=>Equals(b.Content,"Salvar cadastro"));
+        var cancelar=Visuais(corpo).OfType<Button>().Single(b=>Equals(b.Content,"Cancelar"));
+        janela.WindowState=WindowState.Normal;janela.Left=-30000;janela.Top=-30000;
+        foreach(var dimensao in new[]{new Size(600,450),new Size(960,720),new Size(1366,768),new Size(1920,1080)})
+        {
+            janela.Width=dimensao.Width;janela.Height=dimensao.Height;
+            await Dispatcher.Yield(DispatcherPriority.Render);janela.UpdateLayout();
+            var area=new Rect(0,0,corpo.ActualWidth,corpo.ActualHeight);
+            Conferir(area.Contains(salvar.TransformToAncestor(corpo).TransformBounds(new Rect(salvar.RenderSize)))
+                && area.Contains(cancelar.TransformToAncestor(corpo).TransformBounds(new Rect(cancelar.RenderSize))),$"Cadastro {dimensao}: Salvar e Cancelar permanecem dentro da área útil");
+            Conferir(rolagem.ScrollableWidth<1,$"Cadastro {dimensao}: conteúdo sem rolagem horizontal");
+            rolagem.ScrollToEnd();await Dispatcher.Yield(DispatcherPriority.Render);
+            var observacoes=Visuais(rolagem).OfType<TextBox>().Single(b=>b.GetBindingExpression(TextBox.TextProperty)?.ParentBinding.Path.Path=="Observacoes");
+            var limite=observacoes.TransformToAncestor(rolagem).TransformBounds(new Rect(observacoes.RenderSize));
+            Conferir(limite.Top>=-1 && limite.Bottom<=rolagem.ActualHeight+1,$"Cadastro {dimensao}: último campo acessível por rolagem");
+            rolagem.ScrollToHome();
+            if(dimensao.Width==1366) Render(janela,"cadastro-restaurado-1366.png");
+        }
+        cadastro.Salvando=true;await Dispatcher.Yield(DispatcherPriority.DataBind);
+        Conferir(!salvar.IsEnabled && !cancelar.IsEnabled && !cadastro.PodePreencher,"Durante a gravação não permite editar, salvar novamente ou cancelar");
+        janela.Close();Conferir(janela.IsVisible,"Fechar janela durante a gravação é recusado");
+        cadastro.Salvando=false;
+
+        var novo=new CadastroPacienteViewModel(escopos);await EsperarCadastroAsync(novo);
+        novo.Nome="Cadastro de teste isolado";novo.Documento="111.444.777-35";novo.Endereco="Rua fictícia, 1, Centro, Macaé/RJ";
+        novo.Convenio=novo.Convenios.Single(c=>c.Codigo==opcao.Codigo);novo.Email="cadastro@example.com";novo.Telefone="22999990000";
+        novo.DataNascimento=new DateTime(1990,1,1);novo.Carteirinha="DEMO";novo.ValidadeCarteirinha=new DateTime(2030,1,1);
+        novo.Origem=OrigemPaciente.Indicacao;novo.IndicadoPor="Indicação fictícia";novo.Observacoes="Observação fictícia";
+        var concluidos=0;novo.Concluido+=()=>concluidos++;
+        await novo.SalvarCommand.ExecuteAsync(null);
+        Conferir(concluidos==1 && novo.PacienteId is >0,"Cadastro novo grava e devolve a identidade do paciente");
+        using(var db=new ClinicaDbContext(options)) {
+            var p=await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x=>x.Documento=="11144477735");
+            Conferir(p is not null && p.Endereco==novo.Endereco && p.Email==novo.Email && p.Telefone==novo.Telefone
+                && p.DataNascimento==new DateOnly(1990,1,1) && p.Carteirinha==novo.Carteirinha
+                && p.ValidadeCarteirinha==new DateOnly(2030,1,1) && p.Origem==novo.Origem
+                && p.IndicadoPor==novo.IndicadoPor && p.Observacoes==novo.Observacoes,"Gravação preserva identificação, contato, endereço, convênio e origem");
+        }
+        var editar=new CadastroPacienteViewModel(escopos,novo.PacienteId);await EsperarCadastroAsync(editar);
+        Conferir(editar.Endereco==novo.Endereco && editar.IndicadoPor==novo.IndicadoPor && editar.Observacoes==novo.Observacoes,"Reabrir cadastro recupera os campos gravados");
+        editar.Observacoes="Observação alterada";await editar.SalvarCommand.ExecuteAsync(null);
+        if(editar.MensagemEhErro) Console.WriteLine("CADASTRO_TESTE_EDICAO: "+editar.Mensagem);
+        using(var db=new ClinicaDbContext(options)) {
+            var registros=await db.Pacientes.AsNoTracking().Where(x=>x.Documento=="11144477735").ToListAsync();
+            Conferir(registros.Count==1 && registros[0].Observacoes=="Observação alterada" && registros[0].Carteirinha=="DEMO","Editar mantém a mesma ficha e preserva campos não alterados");
+        }
+    }
+    static async Task EsperarCadastroAsync(CadastroPacienteViewModel vm)
+    {
+        var prazo=Stopwatch.StartNew();
+        while(vm.Carregando && prazo.Elapsed<TimeSpan.FromSeconds(10)) await Task.Delay(10);
+        if(vm.Carregando) throw new TimeoutException("Cadastro não concluiu a carga em dez segundos no banco de teste.");
+    }
+    static IEnumerable<DependencyObject> Visuais(DependencyObject pai)
+    {
+        for(int i=0;i<VisualTreeHelper.GetChildrenCount(pai);i++) {
+            var filho=VisualTreeHelper.GetChild(pai,i);yield return filho;
+            foreach(var item in Visuais(filho)) yield return item;
+        }
+    }
     static async Task FotoAsync(FrameworkElement tela,string nome)
     {
         var janela=new Window { Content=tela,ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000,Width=1366,Height=768 };
@@ -183,10 +277,13 @@ internal static class Program
 sealed class SentinelaProntuario : DbCommandInterceptor
 {
     public bool Proibir { get; set; }
+    public bool AtrasarPaciente { get; set; }
+    public bool ProibirHistoricoCadastro { get; set; }
     public List<string> Leituras { get; } = [];
     void Conferir(DbCommand c) {
-        if(Proibir && new[]{"Evolucoes","ProblemasPaciente","Hipoteses"}.Any(t=>c.CommandText.Contains(t,StringComparison.OrdinalIgnoreCase))) Leituras.Add(c.CommandText);
+        if((Proibir && new[]{"Evolucoes","ProblemasPaciente","Hipoteses"}.Any(t=>c.CommandText.Contains(t,StringComparison.OrdinalIgnoreCase)))
+            || (ProibirHistoricoCadastro && new[]{"Atendimentos","Codigos"}.Any(t=>c.CommandText.Contains(t,StringComparison.OrdinalIgnoreCase)))) Leituras.Add(c.CommandText);
     }
     public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand c,CommandEventData d,InterceptionResult<DbDataReader> result) { Conferir(c);return result; }
-    public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand c,CommandEventData d,InterceptionResult<DbDataReader> result,CancellationToken ct=default) { Conferir(c);return ValueTask.FromResult(result); }
+    public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand c,CommandEventData d,InterceptionResult<DbDataReader> result,CancellationToken ct=default) { Conferir(c);if(AtrasarPaciente && c.CommandText.Contains("Pacientes")) await Task.Delay(150,ct);return result; }
 }

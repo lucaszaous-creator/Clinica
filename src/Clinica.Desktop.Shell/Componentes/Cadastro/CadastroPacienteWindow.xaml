@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
         Title="Cadastro do paciente" Width="900" Height="680" MinWidth="600" MinHeight="450"
-        WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+        WindowStartupLocation="CenterOwner" WindowState="Maximized"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
     <Window.Resources>
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
@@ -15,8 +16,8 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <DockPanel Margin="0,0,0,16">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Tirar foto" Command="{Binding CapturarFotoCommand}" Style="{StaticResource BotaoSecundario}" IsEnabled="{Binding PodeEditar}" />
-                <Button Content="Remover foto" Command="{Binding RemoverFotoCommand}" Style="{StaticResource BotaoSecundario}" IsEnabled="{Binding PodeEditar}"
+                <Button Content="Tirar foto" Command="{Binding CapturarFotoCommand}" Style="{StaticResource BotaoSecundario}" IsEnabled="{Binding PodePreencher}" />
+                <Button Content="Remover foto" Command="{Binding RemoverFotoCommand}" Style="{StaticResource BotaoSecundario}" IsEnabled="{Binding PodePreencher}"
                         Visibility="{Binding TemFoto, Converter={StaticResource BoolParaVisibilidade}}" Margin="8,0,0,0" />
             </StackPanel>
             <StackPanel Orientation="Horizontal">
@@ -24,12 +25,14 @@
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" HorizontalAlignment="Left" TextWrapping="Wrap" />
                     <TextBlock Text="Campos com * são obrigatórios." Style="{StaticResource TextoSuave}" />
+                    <TextBlock Text="Carregando cadastro…" Style="{StaticResource TextoSuave}"
+                               Visibility="{Binding Carregando, Converter={StaticResource BoolParaVisibilidade}}" />
                 </StackPanel>
             </StackPanel>
         </DockPanel>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <Border Style="{StaticResource Card}" Padding="24">
-                <StackPanel>
+                <StackPanel IsEnabled="{Binding PodePreencher}">
                     <TextBlock Text="Identificação" Style="{StaticResource H3}" />
                     <TextBlock Text="Nome completo *" Style="{StaticResource Rotulo}" />
                     <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" Margin="0,0,0,16" />
@@ -57,11 +60,11 @@
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <StackPanel Style="{StaticResource CampoCadastro}">
                             <TextBlock Text="Telefone / WhatsApp" Style="{StaticResource Rotulo}" />
-                            <TextBox Text="{Binding Telefone}" MaxLength="20" />
+                            <TextBox Text="{Binding Telefone, UpdateSourceTrigger=PropertyChanged}" MaxLength="20" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Style="{StaticResource CampoCadastro}">
                             <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" />
-                            <TextBox Text="{Binding Email}" MaxLength="120" />
+                            <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="Endereço residencial *" Style="{StaticResource Rotulo}" />
@@ -80,7 +83,7 @@
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <StackPanel Style="{StaticResource CampoCadastro}">
                             <TextBlock Text="Número da carteirinha" Style="{StaticResource Rotulo}" />
-                            <TextBox Text="{Binding Carteirinha}" MaxLength="40" />
+                            <TextBox Text="{Binding Carteirinha, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Style="{StaticResource CampoCadastro}">
                             <TextBlock Text="Validade da carteirinha" Style="{StaticResource Rotulo}" />
@@ -107,19 +110,19 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Style="{StaticResource CampoCadastro}">
                             <TextBlock Text="Quem indicou" Style="{StaticResource Rotulo}" />
-                            <TextBox Text="{Binding IndicadoPor}" MaxLength="120" IsEnabled="{Binding EhIndicacao}" />
+                            <TextBox Text="{Binding IndicadoPor, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" IsEnabled="{Binding EhIndicacao}" />
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="Observações do cadastro" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" />
+                    <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" />
                 </StackPanel>
             </Border>
         </ScrollViewer>
         <DockPanel Grid.Row="2" Margin="0,16,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" IsCancel="True" MinWidth="100" Margin="0,0,8,0" />
+                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" IsCancel="True" MinWidth="100" Margin="0,0,8,0" IsEnabled="{Binding PodeFechar}" />
                 <Button Content="Salvar cadastro" Command="{Binding SalvarCommand}" IsDefault="True" MinWidth="140"
-                        IsEnabled="{Binding PodeEditar}" ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
+                        IsEnabled="{Binding PodePreencher}" ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
             </StackPanel>
             <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Erro}" TextWrapping="Wrap" Margin="0,0,20,0" VerticalAlignment="Center" />
         </DockPanel>

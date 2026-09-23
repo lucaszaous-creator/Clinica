@@ -131,9 +131,15 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     [ObservableProperty] private string _titulo = "Novo paciente";
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
-    [ObservableProperty] private bool _salvando;
-    [ObservableProperty] private bool _carregando = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodePreencher), nameof(PodeFechar))]
+    private bool _salvando;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodePreencher))]
+    private bool _carregando = true;
     private bool _carregado;
+    public bool PodePreencher => PodeEditar && _carregado && !Carregando && !Salvando;
+    public bool PodeFechar => !Salvando;
 
     /// <summary>Miniatura exibida no formulário (a pendente, se houve captura).</summary>
     [ObservableProperty] private byte[]? _miniatura;
@@ -174,7 +180,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
-            var p = await pacientes.ObterComHistoricoAsync(_id.Value);
+            var p = await pacientes.ObterAsync(_id.Value);
             if (p is null) throw new InvalidOperationException("Paciente não encontrado. Reabra a lista antes de editar.");
 
             Titulo = "Editar paciente";
@@ -223,6 +229,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     [RelayCommand]
     private void CapturarFoto()
     {
+        if (!PodePreencher) return;
         var janela = new CapturaFotoWindow(Nome)
         {
             Owner = JanelaDona.Atual()
@@ -252,6 +259,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     [RelayCommand]
     private void RemoverFoto()
     {
+        if (!PodePreencher) return;
         _fotoCheiaPendente = null;
         _fotoMiniaturaPendente = null;
         _removerFoto = true;
@@ -310,7 +318,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
 
             var paciente = _id is null
                 ? new Paciente()
-                : await pacientes.ObterComHistoricoAsync(_id.Value)
+                : await pacientes.ObterAsync(_id.Value)
                   ?? throw new InvalidOperationException("Paciente não encontrado.");
 
             paciente.Nome = Nome.Trim();

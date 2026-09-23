@@ -21,13 +21,14 @@
 
 - **Regras de domínio e aplicação:** 2.849 testes aprovados, 0 falhas.
 - **Fronteira HTTP das assinaturas:** 15 testes aprovados, 0 falhas.
-- **Navegação, contexto e formulários:** 238 verificações aprovadas: seis perfis/composições; autorização de rotas, paciente correto, retorno, CPF/endereço, atualização da ficha após edição, bloqueio de consultas clínicas para perfis administrativos e preservação cruzada de TUSS/Pix.
+- **Navegação, contexto e formulários:** 268 verificações aprovadas: seis perfis/composições; autorização de rotas, paciente correto, retorno, CPF/endereço, atualização da ficha após edição, bloqueio de consultas clínicas para perfis administrativos e preservação cruzada de TUSS/Pix.
 - **Layout Windows completo:** 625 combinações de tela/aba/largura verificadas (880, 960, 1024, 1366 e 1920 px), sem cortes detectados pelo verificador.
 - **Gestão e operações financeiras:** Rotina Windows --gestao aprovada: saldos, alertas, permissões, pagamentos e compras com dados fictícios.
 - **Compilação nativa:** Clinica.sln: 0 erros. Avisos de compilador registrados no log.
 - **Compilação-sombra:** C# de 11 projetos WPF aprovado.
 - **Design system:** 216 arquivos XAML, 10 projetos e 136 construtores conferidos; 33 cores do CSS/XAML em correspondência.
 - **Vínculos das telas:** Logs WPF de bindings sem erros nas rodadas registradas.
+- **Cadastro expandido:** Abre maximizado, sem limites fixos de monitor. Janelas de 600×450, 960×720, 1366×768 e 1920×1080 verificadas; botões acessíveis, rolagem e preservação dos campos aprovadas.
 
 ## Revisão com Jev
 
