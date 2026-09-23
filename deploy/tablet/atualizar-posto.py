@@ -74,10 +74,14 @@ with tarfile.open(pacote) as tar:
     manifest = json.loads(tar.extractfile(nome+'/manifesto.json').read().decode('utf-8-sig'))
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
-    assert migracao is False or (manifest['contrato']==3 and migracao=='20260917185911_EnfermagemVinculadaEValidacaoInfusao')
+    anteriores_migracao={
+        '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
+        '20260923190924_EdicaoEnfermagemExclusiva':'20260922231000_HabilitacoesDoProfissional',
+    }
+    assert migracao is False or (manifest['contrato']==3 and migracao in anteriores_migracao)
     if migracao:
         ultima=sql('SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY "MigrationId" DESC LIMIT 1')
-        assert ultima in ('20260917133639_TravaOpcionalDaAgenda',migracao),'Base mudou; conferir antes de migrar'
+        assert ultima in (anteriores_migracao[migracao],migracao),'Base mudou; conferir antes de migrar'
         assert 'migracao-enfermagem.sql' in manifest['arquivos']
     assert nome==f"tablet-continuidade-{manifest['backend'][:12]}-{manifest['interface'][:12]}"
     assert {m.name[len(nome)+1:] for m in membros if m.isfile()} == set(manifest['arquivos']) | {'manifesto.json'}
@@ -138,6 +142,9 @@ for tabela in inserir:
                 conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(role)};')
                 revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(role)};')
 for tabela in ('Anamneses','MedidasClinicas','ProblemasPaciente'):grant('UPDATE',tabela)
+if sql(f"SELECT has_column_privilege('{role}','\"EvolucoesEnfermagem\"','FaseAtendimento','UPDATE')")!='t':
+    conceder.append(f'GRANT UPDATE ("FaseAtendimento") ON "EvolucoesEnfermagem" TO {ident(role)};')
+    revogar.append(f'REVOKE UPDATE ("FaseAtendimento") ON "EvolucoesEnfermagem" FROM {ident(role)};')
 if migracao and sql(f"SELECT has_column_privilege('{role}','\"EvolucoesEnfermagem\"','AgendamentoId','UPDATE')")!='t':
     conceder.append(f'GRANT UPDATE ("AgendamentoId") ON "EvolucoesEnfermagem" TO {ident(role)};')
     revogar.append(f'REVOKE UPDATE ("AgendamentoId") ON "EvolucoesEnfermagem" FROM {ident(role)};')
@@ -148,12 +155,17 @@ for coluna in ('AtendimentoId','CodigoFaturamentoId','Tipo','Status'):
 privado(backup/'permissoes-aplicar.sql','\n'.join(conceder))
 privado(backup/'permissoes-recuar.sql','\n'.join(revogar))
 privado(backup/'release-anterior.txt',anterior)
+if migracao=='20260923190924_EdicaoEnfermagemExclusiva':
+    conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" TO {ident(role)};')
+    revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
+elif sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
+    for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'EdicoesEnfermagemTablet')
 aplicado=False;mudou=False
 try:
     if migracao:
         # Migration aditiva e idempotente. O recuo preserva as colunas e todos os registros.
         schema=(release/'migracao-enfermagem.sql').read_text(encoding='utf-8-sig')
-        assert migracao in schema and 'DROP ' not in schema.upper() and 'DELETE ' not in schema.upper()
+        assert migracao in schema and not re.search(r'\b(?:DROP|TRUNCATE)\s|\bDELETE\s+FROM\b',schema,re.I)
         sql("SET lock_timeout='5s'; SET statement_timeout='60s';\n"+schema)
         assert sql(f'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId"=\'{migracao}\'')=='1'
     sql('BEGIN;\n'+'\n'.join(conceder)+'\nCOMMIT;');aplicado=True
