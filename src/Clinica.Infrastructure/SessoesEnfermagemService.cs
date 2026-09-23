@@ -1,5 +1,6 @@
 using Clinica.Domain.Entities;
 using Clinica.Domain;
+using Clinica.Application.Tablet;
 using Microsoft.EntityFrameworkCore;
 
 namespace Clinica.Infrastructure;
@@ -31,8 +32,10 @@ public sealed class SessoesEnfermagemService(ClinicaDbContext db)
         if (usuario is not { Ativo: true, Perfil: PerfilAcesso.Enfermagem }
             || !usuario.Pode(Permissao.VerAgenda | Permissao.VerProntuario | Permissao.RegistrarEvolucaoEnfermagem))
             throw new UnauthorizedAccessException("Esta lista é exclusiva do perfil Enfermagem.");
-        if (filtro.Pagina is < 0 or > 10000 || filtro.Inicio > filtro.Fim)
-            throw new InvalidOperationException("Confira o período e a página selecionados.");
+        if (filtro is null || filtro.Pagina is < 0 or > 10000 || filtro.Inicio > filtro.Fim
+            || filtro.Fim == DateOnly.MaxValue || filtro.Paciente?.Length > 120
+            || filtro.Medico?.Length > 120 || filtro.Situacao?.Length > 20)
+            throw ErroFormularioTablet.Criar("Confira os filtros da agenda da enfermagem.");
         var inicioHoje = hoje.ToDateTime(TimeOnly.MinValue);
         var amanha = inicioHoje.AddDays(1);
         var consulta = db.Agendamentos.AsNoTracking()
@@ -54,7 +57,7 @@ public sealed class SessoesEnfermagemService(ClinicaDbContext db)
             "Pendentes" => consulta.Where(a => !a.RegistroLegado && (!a.ChegadaRegistrada || !a.AposAplicacaoRegistrada) && a.DataHora < amanha),
             "Registradas" => consulta.Where(a => a.RegistroLegado || a.ChegadaRegistrada && a.AposAplicacaoRegistrada),
             "Todas" => consulta,
-            _ => throw new InvalidOperationException("Escolha uma situação válida.")
+            _ => throw ErroFormularioTablet.Criar("Escolha uma situação válida.")
         };
         if (filtro.Inicio is {} desde) consulta = consulta.Where(a => a.DataHora >= desde.ToDateTime(TimeOnly.MinValue));
         if (filtro.Fim is {} ate) { var limite = ate.AddDays(1).ToDateTime(TimeOnly.MinValue); consulta = consulta.Where(a => a.DataHora < limite); }

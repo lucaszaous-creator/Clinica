@@ -12,7 +12,7 @@ public static class TracoTablet
     {
         try { return Ler(png); }
         catch (Exception e) when (e is InvalidDataException or EndOfStreamException or ArgumentException or OverflowException)
-        { throw new InvalidOperationException("Faça uma rubrica legível na área indicada e tente novamente."); }
+        { throw ErroFormularioTablet.Criar("Faça uma rubrica legível na área indicada e tente novamente."); }
     }
 
     private static (int, int) Ler(byte[] png)

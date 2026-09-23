@@ -36,7 +36,7 @@ public sealed partial class AtendimentoTabletService
             else
             {
                 var item = await repo.ObterItemEstoqueAsync(material.ItemId, ct)
-                    ?? throw new InvalidOperationException("O material registrado não foi localizado.");
+                    ?? throw ErroFormularioTablet.Criar("O material registrado não foi localizado.");
                 linhas.Add(new(item.Id, item.Nome, item.CodigoInterno, item.Unidade, saldos.GetValueOrDefault(item.Id),
                     item.ExigirLote || item.Grupo == GrupoEstoque.Medicamento, material.Quantidade, material.Lote));
             }
@@ -49,7 +49,7 @@ public sealed partial class AtendimentoTabletService
         => Escrever(sessao, id, pedido.Idempotencia, pedido, async (u, horario) =>
         {
             if (!await MateriaisHabilitadosAsync(horario, ct)) throw new RecursoClinicoIndisponivel();
-            if (pedido.Consumo is null) throw new InvalidOperationException("Informe os materiais.");
+            if (pedido.Consumo is null) throw ErroFormularioTablet.Criar("Informe os materiais.");
             var registro = await new EstoqueService(repo).RegistrarMateriaisAsync(id, u.Id, pedido.Consumo, ct);
             return new ResultadoMateriaisTablet(registro.BaixadoEm is not null, registro.MotivoPendencia is { } motivo
                 ? "Consumo registrado; baixa pendente no estoque. " + motivo + " O atendimento e as guias permanecem concluídos."

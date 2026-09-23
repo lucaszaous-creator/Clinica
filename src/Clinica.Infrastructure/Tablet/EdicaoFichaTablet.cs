@@ -14,7 +14,7 @@ public sealed partial class PostoTabletService
     }
     private static void Textos(int limite, params string?[] valores)
     {
-        if (valores.Any(v => v?.Length > limite)) throw new InvalidOperationException($"Use no máximo {limite} caracteres por campo.");
+        if (valores.Any(v => v?.Length > limite)) throw ErroFormularioTablet.Criar($"Use no máximo {limite} caracteres por campo.");
     }
     private static object? DadosAnamnese(AnamnesePaciente? a) => a is null ? null : new {
         a.Id,a.AntecedentesPessoais,a.AntecedentesFamiliares,a.HabitosDeVida,a.HistoriaObstetrica,
@@ -31,7 +31,7 @@ public sealed partial class PostoTabletService
             Textos(500,p.Motivo);
             var atual=await repo.AnamneseDoPacienteAsync(paciente,ct);
             ConferirVersao(p.Versao,Hash(DadosAnamnese(atual)));
-            if(atual is not null && string.IsNullOrWhiteSpace(p.Motivo)) throw new InvalidOperationException("Informe o motivo da revisão da anamnese.");
+            if(atual is not null && string.IsNullOrWhiteSpace(p.Motivo)) throw ErroFormularioTablet.Criar("Informe o motivo da revisão da anamnese.");
             var salvo=await new AnamneseService(repo).SalvarAsync(paciente,new() {
                 AntecedentesPessoais=p.AntecedentesPessoais,AntecedentesFamiliares=p.AntecedentesFamiliares,
                 HabitosDeVida=p.HabitosDeVida,HistoriaObstetrica=p.HistoriaObstetrica,
@@ -61,12 +61,12 @@ public sealed partial class PostoTabletService
     public Task<ResultadoFichaTablet> SalvarProblemaAsync(SessaoTablet s,int paciente,ProblemaTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,p,"TabletProblema",Permissao.EditarProntuario,async u => {
             Textos(300,p.Descricao);Textos(2000,p.Observacoes);Textos(15,p.Cid);
-            if(!Enum.IsDefined(p.Natureza)) throw new InvalidOperationException("Escolha a natureza do registro.");
+            if(!Enum.IsDefined(p.Natureza)) throw ErroFormularioTablet.Criar("Escolha a natureza do registro.");
             ProblemaPaciente? atual=null;
             if(p.Id!=0) {
                 atual=await db.ProblemasPaciente.SingleOrDefaultAsync(x=>x.Id==p.Id&&x.PacienteId==paciente,ct)??throw new RecursoClinicoIndisponivel();
                 ConferirVersao(p.Versao,Hash(DadosProblema(atual)));
-                if(atual.Situacao==SituacaoProblema.Descartado)throw new InvalidOperationException("Reabra o registro antes de editar.");
+                if(atual.Situacao==SituacaoProblema.Descartado)throw ErroFormularioTablet.Criar("Reabra o registro antes de editar.");
             }
             var salvo=await new ProblemaPacienteService(repo).SalvarAsync(new() {Id=p.Id,PacienteId=paciente,
                 ProfissionalId=atual?.ProfissionalId??u.ProfissionalId,EvolucaoId=atual?.EvolucaoId,
@@ -82,7 +82,7 @@ public sealed partial class PostoTabletService
             if(p.Situacao==SituacaoProblema.Resolvido) await svc.ResolverAsync(id,p.Fim,u.Login,ct);
             else if(p.Situacao==SituacaoProblema.Descartado) await svc.DescartarAsync(id,p.Motivo!,u.Login,ct);
             else if(p.Situacao==SituacaoProblema.Ativo) await svc.ReabrirAsync(id,u.Login,ct);
-            else throw new InvalidOperationException("Escolha uma situação válida.");
+            else throw ErroFormularioTablet.Criar("Escolha uma situação válida.");
             return new ResultadoFichaTablet(id);
         },ct);
 

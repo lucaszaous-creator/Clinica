@@ -12,7 +12,7 @@ public sealed partial class PostoTabletService
         => Escrever(s, paciente, p.Idempotencia, p, "TabletObservacoesEnfermagem",
             Permissao.RegistrarEvolucaoEnfermagem, async u => {
                 if (p.AgendamentoId <= 0 || p.Observacoes is not { Length: >= 1 and <= 20 })
-                    throw new InvalidOperationException("Escolha a sessão e informe de 1 a 20 observações por envio.");
+                    throw ErroFormularioTablet.Criar("Escolha a sessão e informe de 1 a 20 observações por envio.");
                 var autor = new IdentificacaoExecutante(u.Id, u.Nome, u.Profissional!.RegistroConselho);
                 autor.Exigir("registrar as observações de enfermagem");
                 var servico = new EvolucaoEnfermagemService(repo);
@@ -21,18 +21,18 @@ public sealed partial class PostoTabletService
                 // Se qualquer observação falhar, nenhuma é persistida.
                 foreach (var item in p.Observacoes)
                 {
-                    if (item is null) throw new InvalidOperationException("Confira as observações preenchidas.");
+                    if (item is null) throw ErroFormularioTablet.Criar("Confira as observações preenchidas.");
                     if (item.FaseAtendimento is not null && item.FaseAtendimento is not ("Chegada" or "AposAplicacao"))
-                        throw new InvalidOperationException("Escolha Chegada ou Após aplicação para a evolução.");
+                        throw ErroFormularioTablet.Criar("Escolha Chegada ou Após aplicação para a evolução.");
                     if (item.FaseAtendimento is not null && (item.Intercorrencia ||
                         await db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == paciente && e.AgendamentoId == p.AgendamentoId
                             && e.FaseAtendimento == item.FaseAtendimento && e.CanceladaEm == null, ct)))
-                        throw new InvalidOperationException("Esta etapa já foi registrada na sessão. Confira o prontuário antes de continuar.");
+                        throw ErroFormularioTablet.Criar("Esta etapa já foi registrada na sessão. Confira o prontuário antes de continuar.");
                     Textos(4000, item.Texto); Textos(300, item.AlergiaObservada);
                     if (item.NegaAlergia && !string.IsNullOrWhiteSpace(item.AlergiaObservada))
-                        throw new InvalidOperationException("Escolha Nega ou descreva a alergia; não informe as duas opções na mesma observação.");
+                        throw ErroFormularioTablet.Criar("Escolha Nega ou descreva a alergia; não informe as duas opções na mesma observação.");
                     if (string.IsNullOrWhiteSpace(item.Texto))
-                        throw new InvalidOperationException("Preencha a evolução da observação.");
+                        throw ErroFormularioTablet.Criar("Preencha a evolução da observação.");
                     // A negativa pertence à observação, nunca à lista de alergias ativas.
                     // Fica visível também no desktop e PDF, sem apagar alertas anteriores.
                     var texto = item.NegaAlergia ? item.Texto.TrimEnd() + "\n\nAlergia: NEGA."
@@ -74,10 +74,10 @@ public sealed partial class PostoTabletService
                 var anterior=await repo.ObterEvolucaoEnfermagemAsync(id,ct)??throw new RecursoClinicoIndisponivel();
                 if(anterior.PacienteId!=paciente)throw new RecursoClinicoIndisponivel();
                 if(anterior.Diagnosticos.Count>0||anterior.Cuidados.Count>0)
-                    throw new InvalidOperationException("Retifique o processo com diagnósticos e cuidados no módulo clínico, preservando o plano completo.");
+                    throw ErroFormularioTablet.Criar("Retifique o processo com diagnósticos e cuidados no módulo clínico, preservando o plano completo.");
                 if(await db.EvolucoesEnfermagem.AnyAsync(x=>x.RetificaEvolucaoId==id&&x.CanceladaEm==null,ct))
                     throw new ConflitoClinicoTablet("Este registro já foi retificado. Atualize a ficha.");
-                if(!string.IsNullOrWhiteSpace(p.AlergiaObservada))throw new InvalidOperationException("Registre a nova alergia em uma nova observação de enfermagem.");
+                if(!string.IsNullOrWhiteSpace(p.AlergiaObservada))throw ErroFormularioTablet.Criar("Registre a nova alergia em uma nova observação de enfermagem.");
                 e=await servico.RetificarAsync(id,p.Data,p.Hora,p.Texto,autor,p.Motivo!,p.Intercorrencia,p.Sinais,
                     new(anterior.Historico,anterior.ExameFisico,anterior.Avaliacao),
                     new(anterior.AcessoLocal,anterior.AcessoCalibre,anterior.AcessoPuncionadoEm),ct);
@@ -97,9 +97,9 @@ public sealed partial class PostoTabletService
     public Task<ResultadoFichaTablet> CriarModeloAsync(SessaoTablet s,int paciente,NovoModeloDocumentoTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,p,"TabletModeloDocumento",Permissao.Prescrever,async u=> {
             Textos(100,p.Nome);Textos(20000,p.Texto);Textos(250000,p.CorpoFormatado);
-            if(!TiposEditaveis.Contains(p.Tipo))throw new InvalidOperationException("Escolha um tipo de documento disponível.");
+            if(!TiposEditaveis.Contains(p.Tipo))throw ErroFormularioTablet.Criar("Escolha um tipo de documento disponível.");
             if(string.IsNullOrWhiteSpace(p.Nome)||await db.ModelosDocumento.AnyAsync(m=>m.Id!=p.Id&&m.Tipo==p.Tipo&&m.Nome.ToLower()==p.Nome.Trim().ToLower(),ct))
-                throw new InvalidOperationException("Dê um nome novo ao modelo. Os modelos existentes são preservados.");
+                throw ErroFormularioTablet.Criar("Dê um nome novo ao modelo. Os modelos existentes são preservados.");
             if(p.Id!=0) {
                 var anterior=await repo.ObterModeloDocumentoAsync(p.Id,ct)??throw new RecursoClinicoIndisponivel();
                 ConferirVersao(p.Versao??"",VersaoModelo(anterior));

@@ -128,7 +128,7 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public async Task<object> PacienteAsync(int id, string operadora, CancellationToken ct)
     {
         var p=await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x=>x.Id==id,ct)
-            ?? throw new InvalidOperationException("Paciente não encontrado.");
+            ?? throw ErroFormularioTablet.Criar("Paciente não encontrado.");
         var modelos=new List<object>();
         foreach (var m in await ModelosAsync(ct))
         {
@@ -153,23 +153,23 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     {
         if(s.Modo!="equipe") throw new AcessoTabletBloqueado();
         if(pedido.Modelos is null || pedido.Modelos.Length is <1 or >2 || pedido.Modelos.Distinct().Count()!=pedido.Modelos.Length)
-            throw new InvalidOperationException("Selecione um ou dois termos pendentes.");
+            throw ErroFormularioTablet.Criar("Selecione um ou dois termos pendentes.");
         var p=await db.Pacientes.SingleOrDefaultAsync(x=>x.Id==pedido.PacienteId,ct)
-            ?? throw new InvalidOperationException("Paciente não encontrado.");
+            ?? throw ErroFormularioTablet.Criar("Paciente não encontrado.");
         if (p.DataNascimento is null || p.DataNascimento!=pedido.Nascimento)
-            throw new InvalidOperationException("A data de nascimento não confere. Confira a identidade e o cadastro antes da coleta.");
+            throw ErroFormularioTablet.Criar("A data de nascimento não confere. Confira a identidade e o cadastro antes da coleta.");
         if (string.IsNullOrWhiteSpace(pedido.IdentidadeConferida) || pedido.IdentidadeConferida.Length>150)
-            throw new InvalidOperationException("Registre qual documento foi conferido presencialmente.");
+            throw ErroFormularioTablet.Criar("Registre qual documento foi conferido presencialmente.");
         var modelos=await ModelosAsync(ct);
-        if(pedido.Modelos.Any(id=>modelos.All(m=>m.Id!=id))) throw new InvalidOperationException("Modelo indisponível para este portal.");
+        if(pedido.Modelos.Any(id=>modelos.All(m=>m.Id!=id))) throw ErroFormularioTablet.Criar("Modelo indisponível para este portal.");
         await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
         foreach(var m in modelos.Where(m=>pedido.Modelos.Contains(m.Id)))
         {
             var diario=await DiarioAsync(m.Id,ct);
-            if(await CobertoAsync(p.Id,m.Id,diario,ct)) throw new InvalidOperationException("Este termo já está assinado e vigente no prontuário.");
+            if(await CobertoAsync(p.Id,m.Id,diario,ct)) throw ErroFormularioTablet.Criar("Este termo já está assinado e vigente no prontuário.");
             var chave=$"{p.Id}:{m.Id}:{(diario ? Hoje.ToString("yyyy-MM-dd") : "continuo")}";
             if(await db.ColetasTablet.AnyAsync(c=>c.ChaveAtiva==chave,ct))
-                throw new InvalidOperationException("Já existe coleta deste termo em andamento. Conclua ou encerre a coleta anterior.");
+                throw ErroFormularioTablet.Criar("Já existe coleta deste termo em andamento. Conclua ou encerre a coleta anterior.");
             var itens=m.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemDocumento
                 {Descricao=i.Descricao,Detalhe=i.Detalhe}).ToList();
             itens.Add(new ItemDocumento { Codigo=RespostaDeclaracao.CodigoAlergiasTablet,
@@ -213,22 +213,22 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         if(s.Modo!="paciente") throw new AcessoTabletBloqueado();
         var c=await db.ColetasTablet.SingleOrDefaultAsync(c=>c.Id==coletaId && c.SessaoId==s.Id,ct)
             ?? throw new AcessoTabletBloqueado();
-        if(envio.ConteudoHash!=c.ConteudoHash) throw new InvalidOperationException("O documento apresentado mudou. Chame a enfermeira.");
+        if(envio.ConteudoHash!=c.ConteudoHash) throw ErroFormularioTablet.Criar("O documento apresentado mudou. Chame a enfermeira.");
         var d=JsonSerializer.Deserialize<DocumentoTablet>(c.ConteudoJson,ContratoTablet.Json)!;
         var respostas=ContratoTablet.ValidarRespostas(d,envio);
         byte[] png;
         try { png=Convert.FromBase64String(envio.TracoPng ?? ""); }
-        catch(FormatException) { throw new InvalidOperationException("Rubrica inválida. Desenhe novamente."); }
+        catch(FormatException) { throw ErroFormularioTablet.Criar("Rubrica inválida. Desenhe novamente."); }
         TracoTablet.Validar(png);
         var json=ContratoTablet.Serializar(respostas);
         var hash=ContratoTablet.Hash(c.ConteudoHash+"\n"+json+"\n"+ContratoTablet.Hash(png));
         if(c.Idempotencia==envio.Idempotencia && c.SubmissaoHash==hash) return;
         if(c.Estado!="preparado" || c.ExpiraEm<=Agora)
-            throw new InvalidOperationException("Esta coleta já foi enviada ou encerrou. Chame a enfermeira.");
-        var atual=await repo.ObterDocumentoAsync(c.DocumentoId,ct) ?? throw new InvalidOperationException("Documento indisponível.");
+            throw ErroFormularioTablet.Criar("Esta coleta já foi enviada ou encerrou. Chame a enfermeira.");
+        var atual=await repo.ObterDocumentoAsync(c.DocumentoId,ct) ?? throw ErroFormularioTablet.Criar("Documento indisponível.");
         if(atual.CanceladoEm!=null || atual.PacienteAssinadoEm!=null
             || ContratoTablet.Hash(ContratoTablet.Serializar(ContratoTablet.Fotografar(atual)))!=c.ConteudoHash)
-            throw new InvalidOperationException("O documento foi alterado. Chame a enfermeira para preparar uma nova coleta.");
+            throw ErroFormularioTablet.Criar("O documento foi alterado. Chame a enfermeira para preparar uma nova coleta.");
         c.SubmissaoJson=json; c.SubmissaoHash=hash; c.TracoPng=png; c.Idempotencia=envio.Idempotencia;
         c.RecebidoEm=Agora; c.Estado="recebido";
         // Concorre também com a reentrada da equipe: a sessão lida antes da entrega
@@ -242,7 +242,7 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     {
         if(s.Modo!="paciente") throw new AcessoTabletBloqueado();
         if(recusa && (string.IsNullOrWhiteSpace(motivo) || motivo.Length>500))
-            throw new InvalidOperationException("Informe o motivo da recusa em até 500 caracteres.");
+            throw ErroFormularioTablet.Criar("Informe o motivo da recusa em até 500 caracteres.");
         await using var tx=await db.Database.BeginTransactionAsync(ct);
         foreach(var c in await db.ColetasTablet.Where(c=>c.SessaoId==s.Id && c.Estado=="preparado").ToListAsync(ct))
         {
@@ -286,9 +286,9 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public async Task RetomarAsync(Guid id,string operadora,CancellationToken ct)
     {
         var c=await db.ColetasTablet.SingleOrDefaultAsync(c=>c.Id==id,ct)
-            ?? throw new InvalidOperationException("Coleta não encontrada.");
+            ?? throw ErroFormularioTablet.Criar("Coleta não encontrada.");
         if(c.Estado!="falha" || c.SubmissaoJson is null || c.TracoPng is null)
-            throw new InvalidOperationException("Somente um arquivamento pendente pode ser retomado.");
+            throw ErroFormularioTablet.Criar("Somente um arquivamento pendente pode ser retomado.");
         c.Estado="recebido"; c.Tentativas=0; c.Falha=null;
         await Auditar("TabletArquivamentoRetomado",c.PacienteId,operadora,$"Coleta {id}; mesma rubrica recebida",ct);
         await db.SaveChangesAsync(ct);
@@ -330,9 +330,9 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public async Task<byte[]> AbrirViaAsync(int documentoId,string operadora,CancellationToken ct)
     {
         var via=await db.ViasAssinadasPaciente.AsNoTracking().SingleOrDefaultAsync(v=>v.DocumentoId==documentoId,ct)
-            ?? throw new InvalidOperationException("A via ainda não foi arquivada pelo portal.");
+            ?? throw ErroFormularioTablet.Criar("A via ainda não foi arquivada pelo portal.");
         if(ContratoTablet.Hash(via.Conteudo)!=via.Sha256 || ContratoTablet.Hash(via.EvidenciaJson)!=via.EvidenciaSha256)
-            throw new InvalidOperationException("A integridade da via precisa de conferência. Acione o suporte.");
+            throw ErroFormularioTablet.Criar("A integridade da via precisa de conferência. Acione o suporte.");
         var paciente=await db.DocumentosClinicos.Where(d=>d.Id==documentoId).Select(d=>d.PacienteId).SingleAsync(ct);
         await Auditar("TabletViaConsultada",paciente,operadora,$"Documento {documentoId}",ct);
         await db.SaveChangesAsync(ct);

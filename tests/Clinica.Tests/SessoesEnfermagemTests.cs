@@ -1,5 +1,6 @@
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Application.Tablet;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -8,6 +9,24 @@ namespace Clinica.Tests;
 
 public sealed partial class AtendimentoTabletTests
 {
+    [Fact]
+    public async Task Filtros_da_agenda_sao_validados_no_servidor()
+    {
+        await PrepararBSV(); await Enfermeira();
+        var lista = new SessoesEnfermagemService(db);
+        foreach (var filtro in new[] {
+            new FiltroSessoesEnfermagem(Paciente: new string('P', 121)),
+            new FiltroSessoesEnfermagem(Medico: new string('M', 121)),
+            new FiltroSessoesEnfermagem(Fim: DateOnly.MaxValue),
+            new FiltroSessoesEnfermagem(Situacao: new string('S', 21)) })
+        {
+            var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => lista.ListarAsync(usuario.Id, filtro, svc.Hoje));
+            Assert.True(ErroFormularioTablet.EhPublico(erro));
+        }
+        Assert.Empty((await lista.ListarAsync(usuario.Id,
+            new(Paciente: new string('P', 120)), svc.Hoje)).Itens);
+    }
+
     [Fact]
     public async Task Lista_enfermagem_inclui_BSV_concluido_pendente_e_registrado_hoje_com_filtros()
     {

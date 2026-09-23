@@ -48,13 +48,13 @@ public sealed partial class PostoTabletService
     public Task<ResultadoDocumentoTablet> CorrigirRascunhoAsync(SessaoTablet s,int paciente,string tipo,int id,RascunhoTablet p,CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,new{tipo,id,p},"TabletRascunhoCorrigido",Permissao.Prescrever,async u=> {
             Textos(400,p.Motivo);Textos(20000,p.Corpo);Textos(1000,p.Observacoes);Textos(500,p.Indicacao);
-            if(string.IsNullOrWhiteSpace(p.Motivo))throw new InvalidOperationException("Informe o motivo da correção.");
+            if(string.IsNullOrWhiteSpace(p.Motivo))throw ErroFormularioTablet.Criar("Informe o motivo da correção.");
             if(tipo=="infusao") {
                 var anterior=await RascunhoInfusao(u,paciente,id,ct);ConferirVersao(p.Versao,Versao(anterior));
-                if(p.Itens is not {Length:>0 and <=50})throw new InvalidOperationException("Informe de 1 a 50 itens.");
+                if(p.Itens is not {Length:>0 and <=50})throw ErroFormularioTablet.Criar("Informe de 1 a 50 itens.");
                 foreach(var i in p.Itens) {
                     Textos(20000,i.Descricao);Textos(1000,i.Observacoes);Textos(120,i.Diluente);Textos(60,i.Dose,i.Volume,i.TempoInfusao);
-                    if(string.IsNullOrWhiteSpace(i.Descricao)||!Enum.IsDefined(i.Via))throw new InvalidOperationException("Confira descrição e via de cada item.");
+                    if(string.IsNullOrWhiteSpace(i.Descricao)||!Enum.IsDefined(i.Via))throw ErroFormularioTablet.Criar("Confira descrição e via de cada item.");
                 }
                 var nova=await Prescricoes.CriarAsync(paciente,u.ProfissionalId,anterior.AgendamentoId,anterior.EvolucaoId,u.Login,ct);
                 await Prescricoes.SalvarRascunhoAsync(nova.Id,p.Indicacao,p.Observacoes,p.Itens.Select(i=>new ItemPrescricaoInterna {

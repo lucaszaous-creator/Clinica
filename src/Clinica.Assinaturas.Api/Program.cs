@@ -27,6 +27,7 @@ if(!demo && !string.IsNullOrWhiteSpace(socketPortal))
 }
 if(demo && !builder.Environment.IsDevelopment()) throw new InvalidOperationException("Demonstração só é permitida em Development.");
 var codigoTablet=builder.Configuration["Portal:CodigoTablet"] ?? "";
+var cookieDispositivo=demo ? "clinica.tablet.device" : "__Host-clinica.tablet.device";
 var modelos=builder.Configuration.GetSection("Portal:Modelos").Get<int[]>() ?? [];
 if(!demo && (codigoTablet.Length<32 || modelos.Length!=2 || modelos.Distinct().Count()!=2 || modelos.Any(id=>id<=0)))
     throw new InvalidOperationException("Configure o código de cadastro dos tablets e os dois modelos clínicos aprovados.");
@@ -90,11 +91,28 @@ builder.Services.AddAntiforgery(o=>
 });
 builder.Services.Configure<ForwardedHeadersOptions>(o=>o.ForwardedHeaders=ForwardedHeaders.XForwardedProto);
 builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=1_000_000);
+string? DispositivoRegistrado(HttpContext ctx)
+{
+    if(demo) return "tablet-ficticio";
+    try
+    {
+        var protetorDispositivo=ctx.RequestServices.GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector("DispositivoTablet.v1");
+        var valor=protetorDispositivo.Unprotect(ctx.Request.Cookies[cookieDispositivo] ?? "").Split('|');
+        if(valor.Length==3 && valor[0]==ContratoTablet.Hash(codigoTablet)
+            && long.TryParse(valor[2],out var expira) && expira>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            return valor[1];
+    }
+    catch(Exception e) when(e is CryptographicException or FormatException or ArgumentException) { }
+    return null;
+}
 builder.Services.AddRateLimiter(o=>
 {
     o.RejectionStatusCode=429;
     o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(ctx=>RateLimitPartition.GetFixedWindowLimiter(
-        ctx.Request.Path.StartsWithSegments("/api/entrar") ? "login" : ctx.Connection.RemoteIpAddress?.ToString() ?? "local",
+        ctx.Request.Path.StartsWithSegments("/api/entrar")
+            ? "login:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo:"+(ctx.Connection.RemoteIpAddress?.ToString() ?? "local"))
+            : "api:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo:"+(ctx.Connection.RemoteIpAddress?.ToString() ?? "local")),
         _=>new FixedWindowRateLimiterOptions {PermitLimit=ctx.Request.Path.StartsWithSegments("/api/entrar") ? 30 : 240,
             Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
 });
@@ -103,21 +121,12 @@ builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 var app=builder.Build();
 var cookieSessao=demo ? "clinica.tablet" : "__Host-clinica.tablet";
-var cookieDispositivo=demo ? "clinica.tablet.device" : "__Host-clinica.tablet.device";
 var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("DispositivoTablet.v1");
+var extensoesPublicas=new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {".html",".css",".js",".mjs",".png",".woff2",".bcmap",".pfb",".ttf",".txt"};
 CookieOptions Cookie(int horas)=>new() {HttpOnly=true,Secure=!demo,SameSite=SameSiteMode.Strict,Path="/",MaxAge=TimeSpan.FromHours(horas)};
 string Dispositivo(HttpContext ctx)
-{
-    if(demo) return "tablet-ficticio";
-    try
-    {
-        var valor=protetor.Unprotect(ctx.Request.Cookies[cookieDispositivo] ?? "").Split('|');
-        if(valor.Length==3 && valor[0]==ContratoTablet.Hash(codigoTablet)
-            && long.TryParse(valor[2],out var expira) && expira>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) return valor[1];
-    }
-    catch(System.Security.Cryptography.CryptographicException) { }
-    throw new UnauthorizedAccessException();
-}
+    => DispositivoRegistrado(ctx) ?? throw new UnauthorizedAccessException();
 async Task<Clinica.Domain.Entities.SessaoTablet> Sessao(HttpContext ctx,PortalTabletService svc,bool equipe)
     => await svc.AutorizarAsync(ctx.Request.Cookies[cookieSessao],Dispositivo(ctx),equipe,ctx.RequestAborted);
 
@@ -142,6 +151,14 @@ app.Use(async(ctx,next)=>
     ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     ctx.Response.Headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()";
     if(!demo) ctx.Response.Headers["Strict-Transport-Security"]="max-age=31536000";
+    if(!ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/health"))
+    {
+        var caminho=ctx.Request.Path.Value ?? "";
+        var extensao=Path.GetExtension(caminho);
+        if(caminho.Split('/').Any(parte=>parte.StartsWith('.'))
+            || (extensao.Length>0 && !extensoesPublicas.Contains(extensao)))
+        {ctx.Response.StatusCode=404;return;}
+    }
     if((demo && ctx.Connection.RemoteIpAddress is { } ip && !IPAddress.IsLoopback(ip))
         || (!demo && !ctx.Request.IsHttps)) {ctx.Response.StatusCode=403; return;}
     try
@@ -170,7 +187,8 @@ app.Use(async(ctx,next)=>
             AcessoTabletBloqueado=>"O tablet está em modo paciente. A equipe precisa entrar novamente.",
             AntiforgeryValidationException=>"A proteção da página expirou. Atualize antes de continuar.",
             DbUpdateException=>"A operação mudou em outro acesso. Atualize para conferir antes de repetir.",
-            FormatException=>"Confira os dados informados.",_=>e.Message}});
+            InvalidOperationException validacao when ErroFormularioTablet.EhPublico(validacao)=>validacao.Message,
+            _=>"Confira os dados informados."}});
     }
     catch(Exception) when(!ctx.RequestAborted.IsCancellationRequested)
     {
@@ -197,14 +215,20 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
 app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService acesso,PortalTabletService svc)=>
 {
     if(pedido.Login?.Length is not (>=3 and <=80) || pedido.Senha?.Length is not (>0 and <=200)) throw new UnauthorizedAccessException();
-    var resultado=await acesso.AutenticarAsync(pedido.Login,pedido.Senha,ct:ctx.RequestAborted);
-    if(!resultado.Sucesso || resultado.Usuario is not { } u || !svc.PodeEntrar(u)) throw new UnauthorizedAccessException();
     string dispositivo;
+    var cadastrarDispositivo=false;
     try {dispositivo=Dispositivo(ctx);}
     catch(UnauthorizedAccessException)
     {
         if(!CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(pedido.CodigoTablet ?? "")),
             SHA256.HashData(Encoding.UTF8.GetBytes(codigoTablet)))) throw new UnauthorizedAccessException();
+        dispositivo="";
+        cadastrarDispositivo=true;
+    }
+    var resultado=await acesso.AutenticarAsync(pedido.Login,pedido.Senha,ct:ctx.RequestAborted);
+    if(!resultado.Sucesso || resultado.Usuario is not { } u || !svc.PodeEntrar(u)) throw new UnauthorizedAccessException();
+    if(cadastrarDispositivo)
+    {
         dispositivo=PortalTabletService.Token();
         ctx.Response.Cookies.Append(cookieDispositivo,protetor.Protect(ContratoTablet.Hash(codigoTablet)+"|"+dispositivo+"|"
             +DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeMilliseconds()),Cookie(720));

@@ -33,13 +33,13 @@ public sealed partial class PostoTabletService
         SessaoTablet s, SalvarModeloEvolucaoTablet p, CancellationToken ct)
     {
         if (p.Idempotencia == Guid.Empty || p.Id < 0)
-            throw new InvalidOperationException("Atualize os modelos antes de salvar.");
+            throw ErroFormularioTablet.Criar("Atualize os modelos antes de salvar.");
         Textos(100, p.Nome);
         Textos(2000, p.QueixaPrincipal, p.Conduta, p.Orientacoes);
         Textos(4000, p.HistoriaDoencaAtual, p.ExameFisico, p.TextoEvolucao);
         Textos(1000, p.HipoteseDiagnostica, p.PlanoTerapeutico);
         Textos(20, p.CidSessao);
-        if (string.IsNullOrWhiteSpace(p.Nome)) throw new InvalidOperationException("Informe o nome do modelo.");
+        if (string.IsNullOrWhiteSpace(p.Nome)) throw ErroFormularioTablet.Criar("Informe o nome do modelo.");
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         if (db.Database.IsNpgsql())
@@ -61,11 +61,11 @@ public sealed partial class PostoTabletService
         var dono = p.Compartilhado ? null : u.ProfissionalId;
         var duplicado = await db.ModelosEvolucao.AnyAsync(m => m.Id != p.Id && m.ProfissionalId == dono
             && m.Nome.ToLower() == nome.ToLower(), ct);
-        if (duplicado) throw new InvalidOperationException("Já existe um modelo com esse nome neste escopo.");
+        if (duplicado) throw ErroFormularioTablet.Criar("Já existe um modelo com esse nome neste escopo.");
         ModeloEvolucao modelo;
         if (p.Id == 0)
         {
-            if (!p.Ativo) throw new InvalidOperationException("Um modelo novo deve começar ativo.");
+            if (!p.Ativo) throw ErroFormularioTablet.Criar("Um modelo novo deve começar ativo.");
             modelo = new ModeloEvolucao { ProfissionalId = dono, CriadoPor = u.Login };
             db.ModelosEvolucao.Add(modelo);
         }
@@ -88,7 +88,7 @@ public sealed partial class PostoTabletService
         modelo.PlanoTerapeutico = p.PlanoTerapeutico?.Trim();
         modelo.Ativo = p.Ativo;
         modelo.AtualizadoEm = DateTime.Now;
-        if (!modelo.TemConteudo) throw new InvalidOperationException("Escreva ao menos um campo do modelo.");
+        if (!modelo.TemConteudo) throw ErroFormularioTablet.Criar("Escreva ao menos um campo do modelo.");
         await db.SaveChangesAsync(ct);
         var resultado = DadosModeloEvolucao(modelo);
         db.Set<OperacaoClinicaTablet>().Add(new OperacaoClinicaTablet
@@ -110,12 +110,12 @@ public sealed partial class PostoTabletService
         SessaoTablet s, NovoModeloDocumentoTablet p, CancellationToken ct)
     {
         if (p.Idempotencia == Guid.Empty || p.Id < 0)
-            throw new InvalidOperationException("Atualize os modelos antes de salvar.");
+            throw ErroFormularioTablet.Criar("Atualize os modelos antes de salvar.");
         Textos(100, p.Nome);
         Textos(20000, p.Texto);
         Textos(250000, p.CorpoFormatado);
         if (!TiposEditaveis.Contains(p.Tipo) || string.IsNullOrWhiteSpace(p.Nome))
-            throw new InvalidOperationException("Confira o tipo e o nome do modelo.");
+            throw ErroFormularioTablet.Criar("Confira o tipo e o nome do modelo.");
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         if (db.Database.IsNpgsql())
             await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(20260922, 3)", ct);
@@ -131,7 +131,7 @@ public sealed partial class PostoTabletService
         }
         if (await db.ModelosDocumento.AnyAsync(m => m.Id != p.Id && m.Tipo == p.Tipo
             && m.Nome.ToLower() == p.Nome.Trim().ToLower(), ct))
-            throw new InvalidOperationException("Já existe um modelo com esse nome e tipo.");
+            throw ErroFormularioTablet.Criar("Já existe um modelo com esse nome e tipo.");
         if (p.Id != 0)
         {
             var anterior = await repo.ObterModeloDocumentoAsync(p.Id, ct) ?? throw new RecursoClinicoIndisponivel();

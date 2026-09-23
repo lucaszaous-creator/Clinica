@@ -32,17 +32,17 @@ public static class ContratoTablet
     public static RespostasTablet ValidarRespostas(DocumentoTablet documento, EnviarRubrica envio)
     {
         if (!envio.Confirmo || envio.Idempotencia == Guid.Empty)
-            throw new InvalidOperationException("Confirme que deseja assinar este documento.");
+            throw ErroFormularioTablet.Criar("Confirme que deseja assinar este documento.");
         if (envio.Respostas is null || envio.Respostas.Count != documento.Itens.Length
             || documento.Itens.Any(i => !envio.Respostas.TryGetValue(i.Ordem, out var r) || r is not ("Sim" or "Não")))
-            throw new InvalidOperationException("Responda todas as declarações, incluindo alergias, antes de assinar.");
+            throw ErroFormularioTablet.Criar("Responda todas as declarações, incluindo alergias, antes de assinar.");
         var alergia = documento.Itens.SingleOrDefault(i => i.Codigo == RespostaDeclaracao.CodigoAlergiasTablet)
-            ?? throw new InvalidOperationException("Este documento precisa da pergunta obrigatória sobre alergias.");
+            ?? throw ErroFormularioTablet.Criar("Este documento precisa da pergunta obrigatória sobre alergias.");
         var detalhe = envio.AlergiasDetalhes?.Trim();
         if (detalhe?.Length > 500)
-            throw new InvalidOperationException("Descreva as alergias em até 500 caracteres.");
+            throw ErroFormularioTablet.Criar("Descreva as alergias em até 500 caracteres.");
         if (envio.Respostas[alergia.Ordem] == "Não" && !string.IsNullOrEmpty(detalhe))
-            throw new InvalidOperationException("Confira a resposta sobre alergias e o relato preenchido.");
+            throw ErroFormularioTablet.Criar("Confira a resposta sobre alergias e o relato preenchido.");
         return new(new SortedDictionary<int, string?>(envio.Respostas), string.IsNullOrEmpty(detalhe) ? null : detalhe);
     }
 }

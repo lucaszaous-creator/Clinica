@@ -30,11 +30,11 @@ public sealed partial class PostoTabletService
         SessaoTablet s, SalvarModeloEnfermagemTablet p, CancellationToken ct)
     {
         if (p.Idempotencia == Guid.Empty || p.Id < 0)
-            throw new InvalidOperationException("Atualize a lista antes de salvar o modelo.");
+            throw ErroFormularioTablet.Criar("Atualize a lista antes de salvar o modelo.");
         Textos(100, p.Nome);
         Textos(4000, p.Texto);
         if (string.IsNullOrWhiteSpace(p.Nome) || string.IsNullOrWhiteSpace(p.Texto))
-            throw new InvalidOperationException("Informe o nome e o texto do modelo.");
+            throw ErroFormularioTablet.Criar("Informe o nome e o texto do modelo.");
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         if (db.Database.IsNpgsql())
@@ -54,7 +54,7 @@ public sealed partial class PostoTabletService
         var nome = p.Nome.Trim();
         var chave = ChaveModeloEnfermagem(nome);
         if (await db.ModelosEvolucaoEnfermagem.AnyAsync(m => m.NomeChave == chave && m.Id != p.Id, ct))
-            throw new InvalidOperationException("Já existe um modelo com este nome. Escolha outro nome ou edite o existente.");
+            throw ErroFormularioTablet.Criar("Já existe um modelo com este nome. Escolha outro nome ou edite o existente.");
 
         ModeloEvolucaoEnfermagem modelo;
         if (p.Id == 0)

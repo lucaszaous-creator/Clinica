@@ -51,7 +51,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
     {
         var u = await AutorizarAsync(s, ct);
         var data = dia ?? Hoje;
-        if (Math.Abs(data.DayNumber - Hoje.DayNumber) > 366) throw new InvalidOperationException("Escolha uma data no intervalo de um ano.");
+        if (Math.Abs(data.DayNumber - Hoje.DayNumber) > 366) throw ErroFormularioTablet.Criar("Escolha uma data no intervalo de um ano.");
         var inicio = data.ToDateTime(TimeOnly.MinValue); var fim = inicio.AddDays(1);
         var horarios = await db.Agendamentos.AsNoTracking().Where(a => a.ProfissionalId == u.ProfissionalId
             && a.DataHora >= inicio && a.DataHora < fim
@@ -151,7 +151,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
     public async Task<T> Escrever<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
         Func<UsuarioSistema, Agendamento, Task<T>> acao, CancellationToken ct)
     {
-        if (chave == Guid.Empty) throw new InvalidOperationException("Atualize a página antes de salvar.");
+        if (chave == Guid.Empty) throw ErroFormularioTablet.Criar("Atualize a página antes de salvar.");
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         if (db.Database.IsNpgsql()) await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(20260916, {agendamento})", ct);
         var u = await AutorizarAsync(s, ct); var a = await Horario(u, agendamento, ct);
@@ -174,7 +174,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
     public Task<ResultadoGravacaoTablet> SalvarAsync(SessaoTablet s, int id, SalvarAtendimentoTablet pedido, CancellationToken ct)
         => Escrever(s, id, pedido.Idempotencia, pedido, async (u, a) =>
         {
-            if(pedido.Evolucao is null) throw new InvalidOperationException("Informe a evolução.");
+            if(pedido.Evolucao is null) throw ErroFormularioTablet.Criar("Informe a evolução.");
             if(pedido.Finalizar || pedido.ConcluirAoSalvar) {
                 await agenda.ExigirConclusaoClinicaAsync(id, u.Id, ct);
                 if (!pedido.ConcluirAoSalvar) await agenda.ConferirEnfermagemParaConclusaoAsync(id, pedido.HouveEnfermagem, ct);
@@ -192,9 +192,9 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             ValidarTextos(2000,p.Orientacoes);
             ValidarTextos(20, p.CidSessao);
             if (p.Mapa is {} mapa) {
-                if(mapa.Pontos is null || mapa.Pontos.Length > MapaCorporal.MaximoPontos) throw new InvalidOperationException("Use até 80 pontos no mapa.");
+                if(mapa.Pontos is null || mapa.Pontos.Length > MapaCorporal.MaximoPontos) throw ErroFormularioTablet.Criar("Use até 80 pontos no mapa.");
                 ValidarTextos(1000, mapa.Observacoes); foreach(var ponto in mapa.Pontos) {
-                    if(ponto is null) throw new InvalidOperationException("Confira os pontos do mapa.");
+                    if(ponto is null) throw ErroFormularioTablet.Criar("Confira os pontos do mapa.");
                     ValidarTextos(40, ponto.Nome);ValidarTextos(200,ponto.Observacao);
                 }
             }
@@ -238,11 +238,11 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
     {
             ValidarTextos(20_000, pedido.Texto);
             ValidarTextos(pedido.Tipo=="infusao"?2000:1000,pedido.Observacoes);
-            if (string.IsNullOrWhiteSpace(pedido.Texto)) throw new InvalidOperationException("Escreva o conteúdo da prescrição.");
+            if (string.IsNullOrWhiteSpace(pedido.Texto)) throw ErroFormularioTablet.Criar("Escreva o conteúdo da prescrição.");
             if (pedido.Tipo == "infusao")
             {
                 ValidarTextos(120, pedido.Diluente);ValidarTextos(60,pedido.Volume,pedido.TempoInfusao);
-                if (!Enum.IsDefined(pedido.Via)) throw new InvalidOperationException("Escolha uma via de administração válida.");
+                if (!Enum.IsDefined(pedido.Via)) throw ErroFormularioTablet.Criar("Escolha uma via de administração válida.");
                 if(pedido.Itens is { } itensModelo) new Clinica.Domain.ModeloInfusao(pedido.Indicacao,pedido.Observacoes,itensModelo.Select(i=>new Clinica.Domain.ItemModeloInfusao(i.Descricao,i.DescricaoFormatada,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.SeNecessario,i.Observacoes,i.ObservacoesFormatadas)).ToArray()).Guardar();
                 var p = await prescricoes.CriarAsync(paciente, u.ProfissionalId, agendamento, evolucao, Operador(u), ct);
                 await prescricoes.SalvarRascunhoAsync(p.Id, pedido.Indicacao, pedido.Observacoes, pedido.Itens is {Length:>0} ? pedido.Itens.Select(i=>new ItemPrescricaoInterna {Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,SeNecessario=i.SeNecessario,HoraPrevista=i.HoraPrevista,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray() : [new ItemPrescricaoInterna {
@@ -253,7 +253,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             }
             var tipo = pedido.Tipo switch {"receita" => TipoDocumentoClinico.Receita, "exame" => TipoDocumentoClinico.PedidoExame,
                 "atestado" => TipoDocumentoClinico.Atestado, "comparecimento" => TipoDocumentoClinico.Comparecimento,
-                "relatorio" => TipoDocumentoClinico.RelatorioEvolucao, "anamnese" => TipoDocumentoClinico.Anamnese, _ => throw new InvalidOperationException("Escolha um tipo de documento disponível.")};
+                "relatorio" => TipoDocumentoClinico.RelatorioEvolucao, "anamnese" => TipoDocumentoClinico.Anamnese, _ => throw ErroFormularioTablet.Criar("Escolha um tipo de documento disponível.")};
             var doc = await documentos.EmitirAsync(new DocumentoClinico {PacienteId = paciente,
                 ProfissionalId = u.ProfissionalId, AgendamentoId = agendamento, EvolucaoId = evolucao,
                 Data = Hoje, Tipo = tipo, Corpo = pedido.Texto, CorpoFormatado=pedido.CorpoFormatado, Observacoes = pedido.Observacoes,ObservacoesFormatadas=pedido.ObservacoesFormatadas,
@@ -295,7 +295,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         {
             ValidarTextos(100,pedido.Nome);
             if(pedido.Mapa?.Pontos is not {} pontos || pontos.Length is <1 or >80 || pontos.Any(p=>p is null))
-                throw new InvalidOperationException("Marque entre 1 e 80 pontos antes de guardar o modelo.");
+                throw ErroFormularioTablet.Criar("Marque entre 1 e 80 pontos antes de guardar o modelo.");
             ValidarTextos(1000,pedido.Mapa.Observacoes);
             foreach(var p in pontos) {ValidarTextos(40,p.Nome);ValidarTextos(200,p.Observacao);}
             // Sem opção de tornar dados deste paciente globais pela fronteira web.
@@ -308,5 +308,5 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
     private Task Auditar(UsuarioSistema u, int paciente, string acao, string detalhe, CancellationToken ct)
         => repo.RegistrarAuditoriaAsync(new EventoAuditoria {Operador = Operador(u), PacienteId = paciente, Acao = acao, Detalhe = detalhe}, ct);
     private static void ValidarTextos(int max, params string?[] textos)
-    {if (textos.Any(t => t?.Length > max)) throw new InvalidOperationException($"Use no máximo {max} caracteres por campo.");}
+    {if (textos.Any(t => t?.Length > max)) throw ErroFormularioTablet.Criar($"Use no máximo {max} caracteres por campo.");}
 }

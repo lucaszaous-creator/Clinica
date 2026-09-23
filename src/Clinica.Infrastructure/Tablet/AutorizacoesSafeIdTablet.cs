@@ -37,7 +37,7 @@ public sealed class AutorizacoesSafeIdTablet(TimeProvider tempo)
         {
             var agora = tempo.GetUtcNow().ToUnixTimeMilliseconds();
             foreach(var id in pendentes.Where(p => p.Value.ExpiraEm <= agora).Select(p => p.Key).ToArray()) pendentes.Remove(id);
-            if(pendentes.Count >= 100) throw new InvalidOperationException("Há muitas autorizações em andamento. Aguarde um instante.");
+            if(pendentes.Count >= 100) throw ErroFormularioTablet.Criar("Há muitas autorizações em andamento. Aguarde um instante.");
             if(pendentes.Values.Any(p=>p.Sessao==sessao && p.Situacao is "aguardando" or "autorizado" or "assinando"))
                 throw new ConflitoClinicoTablet("Conclua a autorização anterior ou aguarde sua expiração antes de pedir outra.");
             var a = new Autorizacao {Sessao = sessao, Agendamento = agendamento, Documento = documento,
