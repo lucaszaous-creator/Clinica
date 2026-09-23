@@ -46,10 +46,19 @@ public sealed partial class PostoTabletService
                         "AposAplicacao" => "APÓS APLICAÇÃO\n\n" + texto,
                         _ => texto
                     };
-                    Textos(4000, texto);
-                    var e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, texto, autor,
-                        agendamentoId: p.AgendamentoId, intercorrencia: item.Intercorrencia,
-                        sinais: item.Sinais, alergiaObservada: item.AlergiaObservada, ct: ct);
+                      var rotulo = item.FaseAtendimento == "Chegada" ? "Evolução de chegada"
+                          : item.FaseAtendimento == "AposAplicacao" ? "Evolução após aplicação"
+                          : $"Complemento {ids.Count}";
+                      if (texto.Length > 4000)
+                          throw ErroFormularioTablet.Criar($"{rotulo}: reduza o texto para até {4000 - (texto.Length - item.Texto.Length)} caracteres, reservando espaço para a identificação da etapa e das alergias. Seu texto permanece no formulário.");
+                      EvolucaoEnfermagem e;
+                      try {
+                          e = await servico.RegistrarAsync(paciente, p.Data, item.Hora, texto, autor,
+                              agendamentoId: p.AgendamentoId, intercorrencia: item.Intercorrencia,
+                              sinais: item.Sinais, alergiaObservada: item.AlergiaObservada, ct: ct);
+                      } catch (InvalidOperationException ex) when (ErroFormularioTablet.EhPublico(ex)) {
+                          throw ErroFormularioTablet.Criar($"{rotulo}: {ex.Message}");
+                      }
                     e.FaseAtendimento = item.FaseAtendimento;
                     await db.SaveChangesAsync(ct);
                     ids.Add(e.Id);

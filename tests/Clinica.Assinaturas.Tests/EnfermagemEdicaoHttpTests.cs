@@ -61,13 +61,20 @@ public sealed class EnfermagemEdicaoHttpTests
             Assert.Contains("Frequência cardíaca",(string?)JsonNode.Parse(await invalido.Content.ReadAsStringAsync())!["erro"]);
             var futuro=await a.PostAsJsonAsync(root+"/observacoes",Pedido() with{Data=new(2099,1,1)});
             Assert.Equal(HttpStatusCode.BadRequest,futuro.StatusCode);Assert.Contains("futuro",(string?)JsonNode.Parse(await futuro.Content.ReadAsStringAsync())!["erro"]);
-            var pedido=Pedido();var first=await a.PostAsJsonAsync(root+"/observacoes",pedido);
+            var pedido=Pedido();
+            pedido=pedido with{Observacoes=[pedido.Observacoes[0],new(new(8,5),"Complemento fictício",false,null)]};
+            var first=await a.PostAsJsonAsync(root+"/observacoes",pedido);
             Assert.Equal(HttpStatusCode.OK,first.StatusCode);
+            var agendaResposta=await a.PostAsJsonAsync("/api/posto/enfermagem/sessoes/buscar",new{situacao="Hoje"});
+            Assert.Equal(HttpStatusCode.OK,agendaResposta.StatusCode);
+            var item=JsonNode.Parse(await agendaResposta.Content.ReadAsStringAsync())!["itens"]!.AsArray().Single(x=>(int)x!["id"]! == agendamento)!;
+            Assert.True((bool)item["chegadaRegistrada"]!);Assert.False((bool)item["aposAplicacaoRegistrada"]!);
+            Assert.False((bool)item["registrada"]!);Assert.False((bool)item["registroLegado"]!);
             Assert.Equal(await first.Content.ReadAsStringAsync(),await (await a.PostAsJsonAsync(root+"/observacoes",pedido)).Content.ReadAsStringAsync());
             Assert.Equal(HttpStatusCode.OK,(await a.PostAsJsonAsync(root+"/observacoes",Pedido("AposAplicacao"))).StatusCode);
             using(var scope=app.Services.CreateScope()){
                 var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
-                Assert.Equal(2,await db.EvolucoesEnfermagem.CountAsync());Assert.Equal(0,await db.Codigos.CountAsync());
+                Assert.Equal(3,await db.EvolucoesEnfermagem.CountAsync());Assert.Equal(0,await db.Codigos.CountAsync());
                 (await db.Set<EdicaoEnfermagemTablet>().SingleAsync()).ExpiraEm=0;await db.SaveChangesAsync();
             }
             Assert.Equal(HttpStatusCode.OK,(await b.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=eb})).StatusCode);

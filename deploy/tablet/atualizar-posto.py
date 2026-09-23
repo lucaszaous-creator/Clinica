@@ -152,14 +152,14 @@ for coluna in ('AtendimentoId','CodigoFaturamentoId','Tipo','Status'):
     if sql(f"SELECT has_column_privilege('{role}','\"Lancamentos\"','{coluna}','SELECT')")!='t':
         conceder.append(f'GRANT SELECT ({ident(coluna)}) ON "Lancamentos" TO {ident(role)};')
         revogar.append(f'REVOKE SELECT ({ident(coluna)}) ON "Lancamentos" FROM {ident(role)};')
+if sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
+    for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'EdicoesEnfermagemTablet')
+elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
+    conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" TO {ident(role)};')
+    revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
 privado(backup/'permissoes-aplicar.sql','\n'.join(conceder))
 privado(backup/'permissoes-recuar.sql','\n'.join(revogar))
 privado(backup/'release-anterior.txt',anterior)
-if migracao=='20260923190924_EdicaoEnfermagemExclusiva':
-    conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" TO {ident(role)};')
-    revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
-elif sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
-    for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'EdicoesEnfermagemTablet')
 aplicado=False;mudou=False
 try:
     if migracao:
