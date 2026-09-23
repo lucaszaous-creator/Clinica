@@ -13,6 +13,7 @@ public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
     private readonly FichaPacienteViewModel _ficha;
     private int _pacienteId;
     private Task? _carga;
+    public event Action? Alterou;
     public bool PodeEditar => Clinica.Domain.Entities.SessaoUsuario.Atual.Pode(Clinica.Domain.Entities.Permissao.EditarPaciente);
     public object Resumo { get; }
     public object Convenio { get; }
@@ -25,6 +26,7 @@ public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
     public FichaAdministrativaPaciente(IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _ficha = new FichaPacienteViewModel(escopos, snackbar, dialogo) { SomenteAdministrativo = true };
+        _ficha.Alterou += () => Alterou?.Invoke();
         Resumo = Preparar(new Views.ResumoAdministrativoPacienteView());
         Convenio = Preparar(new Views.ConvenioPacienteView());
         Relacionamento = Preparar(new Views.RelacionamentoPacienteView());

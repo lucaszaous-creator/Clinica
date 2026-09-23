@@ -1,3 +1,5 @@
+using System.Data.Common;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.Diagnostics;
 using Clinica.Desktop.Shell.Componentes.Cadastro;
 using System.IO;
@@ -52,7 +54,8 @@ internal static class Program
     static async Task VerificarAsync()
     {
         using var conn = new SqliteConnection("Data Source=:memory:"); conn.Open();
-        var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conn).Options;
+        var sentinela=new SentinelaProntuario();
+        var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conn).AddInterceptors(sentinela).Options;
         using(var db = new ClinicaDbContext(options))
         {
             db.Database.EnsureCreated();
@@ -97,13 +100,23 @@ internal static class Program
             if(SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente))
             {
                 var foco = new PacienteEmFoco(); foco.Definir(1001,"Paciente de demonstração");
+                sentinela.Proibir = !SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+                sentinela.Leituras.Clear();
                 var ficha = provider.GetRequiredService<IFabricaFichaPaciente>().Criar(foco);
                 Conferir(ficha.GetType().Name == "PacienteWorkspaceView",$"{nome}: ficha canônica");
                 var vm = (Clinica.Clinico.ViewModels.PacienteWorkspaceViewModel)ficha.DataContext;
                 var outro = new PacienteEmFoco(); outro.Definir(1002,"Outro paciente fictício");
                 Conferir(!vm.Corresponde(outro),$"{nome}: impede reaproveitar ficha de outro paciente");
                 await vm.Capa.CarregarAsync();
+                if(sentinela.Proibir) Conferir(sentinela.Leituras.Count==0,$"{nome}: ficha administrativa não consulta prontuário");
+                sentinela.Proibir=false;
                 if(nome=="Gerente") {
+                    var editorOriginal=vm.Atendimento;
+                    using(var dbAtualizacao=new ClinicaDbContext(options)) { var p=await dbAtualizacao.Pacientes.FindAsync(1001);p!.Nome="Paciente demonstração atualizado";p.Endereco="Endereço atualizado fictício";await dbAtualizacao.SaveChangesAsync(); }
+                    await vm.AtualizarCadastroAsync();
+                    Conferir(vm.Paciente=="Paciente demonstração atualizado" && vm.Capa.Endereco=="Endereço atualizado fictício" && ReferenceEquals(vm.Atendimento,editorOriginal),"Editar cadastro atualiza ficha sem substituir editor clínico");
+                    using(var dbAtualizacao=new ClinicaDbContext(options)) { var p=await dbAtualizacao.Pacientes.FindAsync(1001);p!.Nome="Paciente de demonstração";p.Endereco="Rua de demonstração, 100 — Macaé/RJ";await dbAtualizacao.SaveChangesAsync(); }
+                    await vm.AtualizarCadastroAsync();
                     await FotoAsync(ficha,"ficha-unificada.png");
                     var admin=(FrameworkElement)vm.Administrativo!.Convenio;
                     await FotoAsync(admin,"autorizacoes.png");
@@ -165,4 +178,15 @@ internal static class Program
         bitmap.Render(tela);
         var png = new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using var arquivo=File.Create(Path.Combine(Saida,nome));png.Save(arquivo);
     }
+}
+
+sealed class SentinelaProntuario : DbCommandInterceptor
+{
+    public bool Proibir { get; set; }
+    public List<string> Leituras { get; } = [];
+    void Conferir(DbCommand c) {
+        if(Proibir && new[]{"Evolucoes","ProblemasPaciente","Hipoteses"}.Any(t=>c.CommandText.Contains(t,StringComparison.OrdinalIgnoreCase))) Leituras.Add(c.CommandText);
+    }
+    public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand c,CommandEventData d,InterceptionResult<DbDataReader> result) { Conferir(c);return result; }
+    public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand c,CommandEventData d,InterceptionResult<DbDataReader> result,CancellationToken ct=default) { Conferir(c);return ValueTask.FromResult(result); }
 }

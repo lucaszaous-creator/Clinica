@@ -11,6 +11,7 @@ public interface IFabricaFichaPaciente
 /// <summary>Funções administrativas incorporadas à mesma ficha sem dependência entre módulos.</summary>
 public interface IFichaAdministrativaPaciente
 {
+    event Action? Alterou;
     bool PodeEditar { get; }
     object Resumo { get; }
     object Convenio { get; }

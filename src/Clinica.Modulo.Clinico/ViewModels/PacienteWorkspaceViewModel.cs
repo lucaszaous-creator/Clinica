@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
@@ -357,6 +357,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
         if (Capa.PodeVerFicha)
         {
             Administrativo = servicos.GetService<IFichaAdministrativaPaciente>();
+            if (Administrativo is not null) Administrativo.Alterou += () => _ = AtualizarCadastroAsync();
             if (foco.PacienteId is { } pacienteId) Administrativo?.DefinirPaciente(pacienteId);
         }
         // Dentro do paciente ela não desenha o próprio cabeçalho: o nome já está no
@@ -446,6 +447,14 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     {
         await Prescricoes.CarregarAsync();
         await Infusoes.CarregarAsync();
+    }
+
+    /// <summary>Atualiza somente dados cadastrais; mantém os editores clínicos e seus rascunhos.</summary>
+    public async Task AtualizarCadastroAsync()
+    {
+        await Capa.CarregarAsync();
+        if (!Capa.NaoVerificado) Paciente = Capa.Paciente;
+        await CarregarCabecalhoAsync();
     }
 
     /// <summary>
