@@ -14,9 +14,9 @@ public sealed class PerfilPsicologia : Migration
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         if (ActiveProvider.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
-            migrationBuilder.Sql("INSERT OR IGNORE INTO \"Especialidades\" (\"Codigo\", \"Nome\", \"Ativo\") VALUES ('Psicologia', 'Psicologia', 1)");
+            migrationBuilder.Sql("INSERT OR IGNORE INTO \"Especialidades\" (\"Codigo\", \"Nome\", \"Ativo\") VALUES ('Psicologia', 'Psicologia', 1);");
         else
-            migrationBuilder.Sql("INSERT INTO \"Especialidades\" (\"Codigo\", \"Nome\", \"Ativo\") VALUES ('Psicologia', 'Psicologia', TRUE) ON CONFLICT (\"Codigo\") DO NOTHING");
+            migrationBuilder.Sql("INSERT INTO \"Especialidades\" (\"Codigo\", \"Nome\", \"Ativo\") VALUES ('Psicologia', 'Psicologia', TRUE) ON CONFLICT (\"Codigo\") DO NOTHING;");
     }
 
     // Uma especialidade já usada por profissionais ou consultas permanece no catálogo no rollback.
