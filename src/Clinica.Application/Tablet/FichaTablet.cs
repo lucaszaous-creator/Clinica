@@ -26,7 +26,8 @@ public sealed record ObservacaoEnfermagemTablet(TimeOnly Hora, string Texto, boo
     SinaisVitais? Sinais = null, string? AlergiaObservada = null, bool NegaAlergia = false,
     string? FaseAtendimento = null);
 public sealed record ObservacoesEnfermagemTablet(Guid Idempotencia, DateOnly Data, int AgendamentoId,
-    ObservacaoEnfermagemTablet[] Observacoes);
+    ObservacaoEnfermagemTablet[] Observacoes, Guid? EditorId = null);
+public sealed record ReservarEdicaoEnfermagemTablet(int AgendamentoId, Guid EditorId, bool Liberar = false);
 public sealed record ResultadoObservacoesEnfermagemTablet(int[] Ids);
 public sealed record SalvarModeloEnfermagemTablet(Guid Idempotencia, int Id, string? Versao, string Nome, string Texto);
 public sealed record ModeloEnfermagemTablet(int Id, string Nome, string Texto, string Versao);

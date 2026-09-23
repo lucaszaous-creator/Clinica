@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Tablet;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -135,15 +136,15 @@ public class EvolucaoEnfermagemService
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivoRetificacao))
-            throw new InvalidOperationException(
+            throw ErroFormularioTablet.Criar(
                 "Diga por que o registro anterior estava errado. É essa frase que separa "
                 + "uma correção de uma reescrita.");
 
         var anterior = await _repo.ObterEvolucaoEnfermagemAsync(evolucaoId, ct)
-            ?? throw new InvalidOperationException("Registro de enfermagem não encontrado.");
+            ?? throw ErroFormularioTablet.Criar("Registro de enfermagem não encontrado.");
 
         if (anterior.Cancelada)
-            throw new InvalidOperationException(
+            throw ErroFormularioTablet.Criar(
                 $"Este registro foi cancelado em {anterior.CanceladaEm:dd/MM/yyyy} e não se "
                 + "retifica — escreva um registro novo.");
 
@@ -199,15 +200,15 @@ public class EvolucaoEnfermagemService
         int evolucaoId, string motivo, string operador, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivo))
-            throw new InvalidOperationException(
+            throw ErroFormularioTablet.Criar(
                 "Diga por que este registro está sendo cancelado. Sem o motivo, quem ler o "
                 + "prontuário amanhã não sabe se houve engano de paciente ou de digitação.");
 
         var evolucao = await _repo.ObterEvolucaoEnfermagemAsync(evolucaoId, ct)
-            ?? throw new InvalidOperationException("Registro de enfermagem não encontrado.");
+            ?? throw ErroFormularioTablet.Criar("Registro de enfermagem não encontrado.");
 
         if (evolucao.Cancelada)
-            throw new InvalidOperationException(
+            throw ErroFormularioTablet.Criar(
                 $"Este registro já foi cancelado em {evolucao.CanceladaEm:dd/MM/yyyy}.");
 
         evolucao.CanceladaEm = _agora();
@@ -234,19 +235,19 @@ public class EvolucaoEnfermagemService
         string motivo, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivo) || motivo.Length > 500)
-            throw new InvalidOperationException("Informe o motivo do vínculo, com até 500 caracteres.");
+            throw ErroFormularioTablet.Criar("Informe o motivo do vínculo, com até 500 caracteres.");
         var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);
         if (usuario is null || !usuario.Ativo || !usuario.Pode(Permissao.RegistrarEvolucaoEnfermagem))
             throw new UnauthorizedAccessException("Seu acesso não permite vincular evolução de enfermagem.");
         var evolucao = await _repo.ObterEvolucaoEnfermagemAsync(evolucaoId, ct)
-            ?? throw new InvalidOperationException("Evolução de enfermagem não encontrada.");
+            ?? throw ErroFormularioTablet.Criar("Evolução de enfermagem não encontrada.");
         if (evolucao.Cancelada || evolucao.AutorUsuarioId != usuario.Id && usuario.Perfil != PerfilAcesso.Gerente)
             throw new UnauthorizedAccessException("Somente o autor ou a direção pode vincular este registro ativo.");
         if (await _repo.EvolucaoEnfermagemFoiRetificadaAsync(evolucao.Id, ct))
-            throw new InvalidOperationException("Este registro foi retificado. Vincule a evolução vigente.");
+            throw ErroFormularioTablet.Criar("Este registro foi retificado. Vincule a evolução vigente.");
         if (evolucao.AgendamentoId == agendamentoId) return;
         if (evolucao.AgendamentoId is not null)
-            throw new InvalidOperationException("A evolução já está vinculada a outra sessão. Preserve o vínculo original e registre a correção no prontuário.");
+            throw ErroFormularioTablet.Criar("A evolução já está vinculada a outra sessão. Preserve o vínculo original e registre a correção no prontuário.");
         await ConferirSessaoAsync(evolucao.PacienteId, agendamentoId, ct);
         evolucao.AgendamentoId = agendamentoId;
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria {
@@ -259,13 +260,13 @@ public class EvolucaoEnfermagemService
     private async Task ConferirSessaoAsync(int pacienteId, int agendamentoId, CancellationToken ct)
     {
         var horario = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
-            ?? throw new InvalidOperationException("Sessão não encontrada.");
+            ?? throw ErroFormularioTablet.Criar("Sessão não encontrada.");
         if (horario.PacienteId != pacienteId)
-            throw new InvalidOperationException("A sessão pertence a outro paciente.");
+            throw ErroFormularioTablet.Criar("A sessão pertence a outro paciente.");
         if (!PermiteEvolucao(horario.ModalidadePrevista))
-            throw new InvalidOperationException("A evolução de enfermagem é permitida somente em BSV e BSV com acupuntura. Infusões continuam disponíveis na área de execução.");
+            throw ErroFormularioTablet.Criar("A evolução de enfermagem é permitida somente em BSV e BSV com acupuntura. Infusões continuam disponíveis na área de execução.");
         if (horario.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado))
-            throw new InvalidOperationException("Escolha uma sessão em atendimento ou concluída; horários cancelados, substituídos ou com falta não recebem evolução.");
+            throw ErroFormularioTablet.Criar("Escolha uma sessão em atendimento ou concluída; horários cancelados, substituídos ou com falta não recebem evolução.");
     }
 
     public static bool PermiteEvolucao(ModalidadeAtendimento modalidade)
@@ -282,7 +283,7 @@ public class EvolucaoEnfermagemService
             .Where(a => PermiteEvolucao(a.ModalidadePrevista) && a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado)
             .ToArray();
         if (sessoes.Length != 1)
-            throw new InvalidOperationException(sessoes.Length == 0
+            throw ErroFormularioTablet.Criar(sessoes.Length == 0
                 ? "Não há sessão BSV para este paciente na data informada. A evolução de enfermagem é exclusiva de BSV; confira a sessão antes de registrar."
                 : "Há mais de uma sessão BSV nesta data. Abra a sessão correta pela agenda para registrar a evolução de enfermagem.");
         return sessoes[0].Id;
@@ -360,7 +361,7 @@ public class EvolucaoEnfermagemService
         bool intercorrencia, SinaisVitais? sinais, AcessoVenoso? acesso = null)
     {
         if (string.IsNullOrWhiteSpace(texto))
-            throw new InvalidOperationException(
+            throw ErroFormularioTablet.Criar(
                 "Escreva o que foi observado. Um registro em branco ocupa uma linha do "
                 + "prontuário sem dizer nada — e some no meio dos que dizem.");
 
@@ -409,7 +410,7 @@ public class EvolucaoEnfermagemService
         // A crítica mora no DOMÍNIO porque há mais de uma porta que grava (a janela da sala
         // e a do prontuário) — validar na tela cobriria uma e deixaria a outra passando.
         if (evolucao.CriticarSinaisVitais() is { } erro)
-            throw new InvalidOperationException(erro);
+            throw ErroFormularioTablet.Criar(erro);
 
         return evolucao;
     }
@@ -424,7 +425,7 @@ public class EvolucaoEnfermagemService
         var agora = _agora();
 
         if (momento > agora + FolgaDeRelogio)
-            throw new InvalidOperationException(
+            throw ErroFormularioTablet.Criar(
                 $"O horário {data:dd/MM/yyyy} às {hora:HH\\:mm} está no futuro. Registre o "
                 + "que já foi observado — a hora é a do fato, não a de quando você digita.");
     }

@@ -180,14 +180,17 @@ app.Use(async(ctx,next)=>
     {
         ctx.Response.StatusCode=e switch {UnauthorizedAccessException=>401,AcessoTabletBloqueado=>403,
             RecursoClinicoIndisponivel=>404,ConflitoClinicoTablet=>409,
-            AntiforgeryValidationException=>400,DbUpdateException=>409,_=>400};
+            AntiforgeryValidationException=>400,DbUpdateException falha=>FalhaPersistenciaTablet.Status(falha),_=>400};
+        if(e is DbUpdateException persistencia)
+            app.Logger.LogError("Falha de persistência do portal. Código {Codigo}; referência {Referencia}.",
+                FalhaPersistenciaTablet.Codigo(persistencia) ?? "indisponivel",ctx.TraceIdentifier);
         await ctx.Response.WriteAsJsonAsync(new {erro=e switch {
             UnauthorizedAccessException=>"Entre com uma conta autorizada neste tablet.",
             RecursoClinicoIndisponivel=>"Registro indisponível para este acesso.",
             ConflitoClinicoTablet=>e.Message,
             AcessoTabletBloqueado=>"O tablet está em modo paciente. A equipe precisa entrar novamente.",
             AntiforgeryValidationException=>"A proteção da página expirou. Atualize antes de continuar.",
-            DbUpdateException=>"A operação mudou em outro acesso. Atualize para conferir antes de repetir.",
+            DbUpdateException falha=>FalhaPersistenciaTablet.Mensagem(falha),
             InvalidOperationException validacao when ErroFormularioTablet.EhPublico(validacao)=>validacao.Message,
             _=>"Confira os dados informados."}});
     }

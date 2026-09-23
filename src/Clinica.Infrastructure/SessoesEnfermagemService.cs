@@ -47,7 +47,8 @@ public sealed class SessoesEnfermagemService(ClinicaDbContext db)
                     && e.CanceladaEm == null && !db.EvolucoesEnfermagem.Any(r => r.RetificaEvolucaoId == e.Id && r.CanceladaEm == null)),
                 AposAplicacaoRegistrada = db.EvolucoesEnfermagem.Any(e => e.AgendamentoId == a.Id && e.FaseAtendimento == "AposAplicacao"
                     && e.CanceladaEm == null && !db.EvolucoesEnfermagem.Any(r => r.RetificaEvolucaoId == e.Id && r.CanceladaEm == null)),
-                RegistroLegado = db.EvolucoesEnfermagem.Any(e => e.AgendamentoId == a.Id && e.FaseAtendimento == null
+                RegistroLegado = !db.EvolucoesEnfermagem.Any(e => e.AgendamentoId == a.Id && e.FaseAtendimento != null)
+                    && db.EvolucoesEnfermagem.Any(e => e.AgendamentoId == a.Id && e.FaseAtendimento == null
                     && e.CanceladaEm == null && !db.EvolucoesEnfermagem.Any(r => r.RetificaEvolucaoId == e.Id && r.CanceladaEm == null)),
                 Concluida = a.FimAtendimentoEm != null });
         consulta = filtro.Situacao switch
