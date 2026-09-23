@@ -30,7 +30,7 @@ namespace Clinica.Infrastructure.Migrations
                 type: "character varying(600)",
                 maxLength: 600,
                 nullable: true);
-            migrationBuilder.Sql("UPDATE \"ConferenciaConsumoProcedimento\" SET \"BaixadoEm\" = \"ConferidoEm\"");
+            migrationBuilder.Sql("UPDATE \"ConferenciaConsumoProcedimento\" SET \"BaixadoEm\" = \"ConferidoEm\";");
         }
 
         /// <inheritdoc />
