@@ -16,13 +16,17 @@ public sealed partial class AtendimentoTabletTests
             false, true, TextoEvolucao: "Texto reutilizável");
         var criado = await Posto.SalvarModeloEvolucaoAsync(sessao, pedido, default);
         Assert.Equal(criado, await Posto.SalvarModeloEvolucaoAsync(sessao, pedido, default));
+        db.ChangeTracker.Clear(); // Cada chamada HTTP usa outro contexto e relê o timestamp persistido.
         Assert.False(criado.Compartilhado);
         Assert.Equal(usuario.ProfissionalId, (await db.ModelosEvolucao.SingleAsync()).ProfissionalId);
         var listado = Assert.Single(await Posto.ModelosEvolucaoAsync(sessao, default));
         Assert.Equal(criado.Id, listado.Id);
+        Assert.Equal(criado.Versao, listado.Versao);
         var editado = await Posto.SalvarModeloEvolucaoAsync(sessao,
             pedido with { Id = criado.Id, Versao = criado.Versao, Idempotencia = Guid.NewGuid(), TextoEvolucao = "Texto alterado" }, default);
         Assert.NotEqual(criado.Versao, editado.Versao);
+        db.ChangeTracker.Clear();
+        Assert.Equal(editado.Versao, Assert.Single(await Posto.ModelosEvolucaoAsync(sessao, default)).Versao);
         await Posto.SalvarModeloEvolucaoAsync(sessao,
             pedido with { Id = editado.Id, Versao = editado.Versao, Idempotencia = Guid.NewGuid(), Ativo = false }, default);
         Assert.Empty(await Posto.ModelosEvolucaoAsync(sessao, default));
