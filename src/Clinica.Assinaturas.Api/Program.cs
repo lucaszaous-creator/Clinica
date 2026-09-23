@@ -74,6 +74,7 @@ builder.Services.AddScoped<AssinaturaDeDocumentoClinicoService>();
 builder.Services.AddScoped<AssinaturaDePrescricaoService>();
 builder.Services.AddSingleton<AutorizacoesSafeIdTablet>();
 builder.Services.AddScoped<SafeIdTabletService>();
+builder.Services.AddScoped<EnderecoPrescricaoTabletService>();
 builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<FinalizadorTablet>();

@@ -59,6 +59,12 @@ internal static class RotasAtendimentoTablet
         });
         grupo.MapGet("/safeid",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService acesso,SafeIdTabletService svc)=>
         {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {habilitado=svc.Habilitado});});
+        grupo.MapGet("/atendimentos/{id:int}/documento/{documento:int}/safeid/endereco",
+            async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento)
+                => Results.Ok(await svc.ConferirAsync(await sessao(c,portal),id,documento,c.RequestAborted)));
+        grupo.MapPost("/atendimentos/{id:int}/documento/{documento:int}/safeid/endereco",
+            async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento, EnderecoPrescricaoTablet pedido) =>
+            { await svc.CompletarAsync(await sessao(c,portal),id,documento,pedido.Endereco,c.RequestAborted); return Results.NoContent(); });
         grupo.MapPost("/atendimentos/{id:int}/{tipo}/{documento:int}/safeid", async(HttpContext c,PortalTabletService portal,
             SafeIdTabletService svc,int id,string tipo,int documento,PedidoSafeIdTablet pedido)
             => Results.Ok(await svc.IniciarAsync(await sessao(c,portal),id,tipo,documento,pedido.ConfirmouAlergia,c.RequestAborted)));
@@ -82,3 +88,4 @@ internal static class RotasAtendimentoTablet
     }
 }
 public sealed record PedidoSafeIdTablet(bool ConfirmouAlergia);
+public sealed record EnderecoPrescricaoTablet(string? Endereco);
