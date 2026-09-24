@@ -2,7 +2,7 @@
 
 ## Como propomos deixar — imagens das novas telas
 
-**Cinco capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
+**Sete capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
 
 Todos os dados exibidos são fictícios. As oito capturas WPF da versão atual continuam na [galeria de evidências](README.md#capturas-reais-da-versão-atual). As imagens abaixo mostram concretamente como recomendamos organizar a agenda.
 
@@ -44,9 +44,23 @@ Quando não for possível conferir os bloqueios, manter a última leitura identi
 
 ![Proposta visual — Falha de atualização com mensagem clara](propostas/05-proposta-nao-verificada.png)
 
+## Atendimentos do dia — recepção e médicos
+
+**Uma mesma aba, com ações conforme o perfil.** A recepção abre todos os profissionais; o médico abre sua agenda. Horários, chegada, espera e situação vêm dos mesmos registros. As ações e os dados clínicos seguem as permissões.
+
+### Proposta 6. Visão da recepção
+
+![Proposta de Atendimentos do dia para recepção](propostas/06-fluxo-recepcao.png)
+
+### Proposta 7. Visão do médico
+
+![Proposta de Atendimentos do dia para o médico](propostas/07-fluxo-medico.png)
+
+[Leia o fluxo completo, as ações por perfil e as regras das duas evoluções de enfermagem](FLUXO-DO-DIA.md).
+
 ## Origem e limites das imagens
 
-As cinco imagens acima são capturas dos protótipos propostos. As oito imagens em `fotos/` são capturas dos componentes WPF reais da PR #205, commit `798dd26`, executados localmente com perfil Recepção e banco SQLite isolado. Não são imagens da produção. Todos os nomes e horários são fictícios. A execução das capturas WPF teve oito PNGs, nenhuma exceção e log de bindings vazio.
+As sete imagens acima são capturas dos protótipos propostos. As oito imagens em `fotos/` são capturas dos componentes WPF reais da PR #205, commit `798dd26`, executados localmente com perfil Recepção e banco SQLite isolado. Não são imagens da produção. Todos os nomes e horários são fictícios. A execução das capturas WPF teve oito PNGs, nenhuma exceção e log de bindings vazio.
 
 ## Conclusão
 

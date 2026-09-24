@@ -1,17 +1,17 @@
 # Agenda SemDor — como ficará e evidências atuais
 
-**PR #205 · revisão com Jev · Modelo A.** Cinco imagens de propostas visuais e oito capturas reais da versão atual, todas com dados fictícios. As propostas de agenda ainda não estão implementadas no aplicativo.
+**PR #205 · revisão com Jev · Modelo A.** Sete imagens de propostas visuais e oito capturas reais da versão atual, todas com dados fictícios. As propostas de agenda ainda não estão implementadas no aplicativo.
 
 ## Acesso e download
 
-- [Relatório completo com as cinco imagens propostas e 12 recomendações](DIAGNOSTICO-AGENDA.md)
-- [Baixar ZIP com relatório, 13 imagens e protótipos](https://github.com/lucaszaous-creator/Clinica/raw/refs/heads/codex/navegacao-unificada/docs/revisoes/agenda-pr205/agenda-fotos-e-relatorio.zip)
+- [Relatório completo com as sete imagens propostas e 12 recomendações](DIAGNOSTICO-AGENDA.md)
+- [Baixar ZIP com relatório, 15 imagens e protótipos](https://github.com/lucaszaous-creator/Clinica/raw/refs/heads/codex/navegacao-unificada/docs/revisoes/agenda-pr205/agenda-fotos-e-relatorio.zip)
 
 As imagens aparecem diretamente no GitHub, sem depender da rede local. Para usar o pacote, extraia o ZIP e abra `index.html`; os protótipos também funcionam sem servidor.
 
 ## Como propomos deixar — imagens das novas telas
 
-**Cinco capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
+**Sete capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
 
 Todos os dados exibidos são fictícios. As oito capturas WPF da versão atual continuam na [galeria de evidências](README.md#capturas-reais-da-versão-atual). As imagens abaixo mostram concretamente como recomendamos organizar a agenda.
 
@@ -52,6 +52,20 @@ Configuração por dia da semana, mais de um intervalo de trabalho, exceções p
 Quando não for possível conferir os bloqueios, manter a última leitura identificada e pedir atualização. Não apresentar espaços vazios como vagas confirmadas. Este é um novo estado proposto, sem captura equivalente da versão atual.
 
 ![Proposta visual — Falha de atualização com mensagem clara](propostas/05-proposta-nao-verificada.png)
+
+## Atendimentos do dia — recepção e médicos
+
+**Uma mesma aba, com ações conforme o perfil.** A recepção abre todos os profissionais; o médico abre sua agenda. Horários, chegada, espera e situação vêm dos mesmos registros. As ações e os dados clínicos seguem as permissões.
+
+### Proposta 6. Visão da recepção
+
+![Proposta de Atendimentos do dia para recepção](propostas/06-fluxo-recepcao.png)
+
+### Proposta 7. Visão do médico
+
+![Proposta de Atendimentos do dia para o médico](propostas/07-fluxo-medico.png)
+
+[Leia o fluxo completo, as ações por perfil e as regras das duas evoluções de enfermagem](FLUXO-DO-DIA.md).
 
 ## Capturas reais da versão atual
 
