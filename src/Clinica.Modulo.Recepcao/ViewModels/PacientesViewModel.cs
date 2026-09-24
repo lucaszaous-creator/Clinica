@@ -53,7 +53,7 @@ public sealed partial class PacientesViewModel : ObservableObject
         using var scope = _escopos.CreateScope();
         var pacientes = await scope.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(termo, null, ct);
         var filtro = Filtros[Math.Clamp(Filtro, 0, Filtros.Count - 1)];
-        if (filtro == "Cadastro incompleto") return pacientes.Where(p => string.IsNullOrWhiteSpace(p.Documento) || string.IsNullOrWhiteSpace(p.Endereco)).ToList();
+        if (filtro == "Cadastro incompleto") return pacientes.Where(p => string.IsNullOrWhiteSpace(p.Documento)).ToList();
         if (filtro != "Em tratamento") return pacientes;
         SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar pacientes em tratamento");
         var sessoes = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()

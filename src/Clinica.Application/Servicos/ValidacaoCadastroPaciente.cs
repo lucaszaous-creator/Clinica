@@ -14,9 +14,7 @@ public static class ValidacaoCadastroPaciente
                 : null;
 
     public static string? ErroEndereco(string? endereco)
-        => string.IsNullOrWhiteSpace(endereco)
-            ? "Informe o endereço residencial do paciente."
-            : endereco.Trim().Length > 300
+        => !string.IsNullOrWhiteSpace(endereco) && endereco.Trim().Length > 300
                 ? "O endereço deve ter até 300 caracteres."
                 : null;
 

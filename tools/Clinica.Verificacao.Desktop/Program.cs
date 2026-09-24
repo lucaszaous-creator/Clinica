@@ -177,8 +177,11 @@ internal static partial class Program
                 cadastro.Convenio=opcao;
                 cadastro.Documento="";await cadastro.SalvarCommand.ExecuteAsync(null);
                 Conferir(!string.IsNullOrWhiteSpace(cadastro.ErroDocumento),"Cadastro exige CPF antes de gravar");
+                var cadastroConcluido=false;cadastro.Concluido+=()=>cadastroConcluido=true;
                 cadastro.Documento="52998224725";cadastro.Endereco="";await cadastro.SalvarCommand.ExecuteAsync(null);
-                Conferir(!string.IsNullOrWhiteSpace(cadastro.ErroEndereco),"Cadastro exige endereço antes de gravar");
+                Conferir(cadastroConcluido && cadastro.ErroEndereco is null,"Cadastro salva edição sem exigir endereço");
+                using(var conferirCadastro=new ClinicaDbContext(options))
+                    Conferir((await conferirCadastro.Pacientes.FindAsync(1001))!.Endereco is null,"Edição sem endereço persiste campo nulo");
                 cadastro.Endereco="Rua de demonstração, 100 — Macaé/RJ";cadastro.Mensagem="";
                 var janelaCadastro = new CadastroPacienteWindow(cadastro) { ShowInTaskbar=false,WindowStartupLocation=WindowStartupLocation.Manual,Left=-30000,Top=-30000 };
                 Conferir(janelaCadastro.WindowState==WindowState.Maximized,"Cadastro configurado para nascer maximizado");
@@ -260,7 +263,7 @@ internal static partial class Program
         cadastro.Salvando=false;
 
         var novo=new CadastroPacienteViewModel(escopos);await EsperarCadastroAsync(novo);
-        novo.Nome="Cadastro de teste isolado";novo.Documento="111.444.777-35";novo.Endereco="Rua fictícia, 1, Centro, Macaé/RJ";
+        novo.Nome="Cadastro de teste isolado";novo.Documento="111.444.777-35";novo.Endereco=null;
         novo.Convenio=novo.Convenios.Single(c=>c.Codigo==opcao.Codigo);novo.Email="cadastro@example.com";novo.Telefone="22999990000";
         novo.DataNascimento=new DateTime(1990,1,1);novo.Carteirinha="DEMO";novo.ValidadeCarteirinha=new DateTime(2030,1,1);
         novo.Origem=OrigemPaciente.Indicacao;novo.IndicadoPor="Indicação fictícia";novo.Observacoes="Observação fictícia";

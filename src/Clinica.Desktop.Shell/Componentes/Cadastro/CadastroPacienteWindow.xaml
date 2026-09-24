@@ -67,9 +67,9 @@
                             <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="Endereço residencial *" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="Endereço residencial (opcional)" Style="{StaticResource Rotulo}" />
                     <TextBox Text="{Binding Endereco, UpdateSourceTrigger=PropertyChanged}" MaxLength="300" MinHeight="60" AcceptsReturn="True"
-                             TextWrapping="Wrap" AutomationProperties.Name="Endereço residencial obrigatório" />
+                             TextWrapping="Wrap" AutomationProperties.Name="Endereço residencial opcional" />
                     <TextBlock Text="{Binding ErroEndereco}" Foreground="{StaticResource Brush.Erro}" TextWrapping="Wrap"
                                Visibility="{Binding ErroEndereco, Converter={StaticResource TextoParaVisibilidade}}" />
                     <TextBlock Text="Rua, número (ou s/n), bairro, cidade e UF. Acrescente o complemento quando houver."

@@ -93,7 +93,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
     [ObservableProperty] private string? _email;
 
     /// <summary>
-    /// Endereço residencial, obrigatório para salvar o cadastro e sua edição.
+    /// Endereço residencial, opcional no cadastro e na edição.
     /// </summary>
     [ObservableProperty] private string? _endereco;
     [ObservableProperty] private DateTime? _dataNascimento;
@@ -297,7 +297,7 @@ public sealed partial class CadastroPacienteViewModel : ObservableObject
         ErroEndereco = ValidacaoCadastroPaciente.ErroEndereco(Endereco);
         if (ErroDocumento is not null || ErroEndereco is not null)
         {
-            Erro("Confira o CPF e o endereço nos campos sinalizados. Os dados preenchidos foram mantidos.");
+            Erro("Confira os campos sinalizados. Os dados preenchidos foram mantidos.");
             return;
         }
 
