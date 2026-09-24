@@ -534,13 +534,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
-    // Sem Include de propósito: quem consome (a busca de vagas) só lê hora, duração e
-    // status — dois meses de agenda com paciente e profissional junto seria carga à toa.
+    // O profissional fornece a duração padrão quando o agendamento não a informou.
+    // Inclui sobreposições iniciadas antes do período, sem carregar pacientes e salas.
     public async Task<IReadOnlyList<Agendamento>> AgendamentosDoProfissionalNoPeriodoAsync(
         int profissionalId, DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
             .Where(a => a.ProfissionalId == profissionalId
-                        && a.DataHora >= inicio && a.DataHora <= fim)
+                        && a.DataHora < fim
+                        && a.DataHora.AddMinutes(a.DuracaoMinutos
+                            ?? (a.Profissional == null ? null : a.Profissional.DuracaoPadraoMinutos)
+                            ?? Agendamento.DuracaoPadraoMinutos) > inicio)
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
 

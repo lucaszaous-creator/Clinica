@@ -3,19 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="Raiz">
 
-    <!-- ============================================================================
-         A LEGENDA DAS FAMÍLIAS (set/2026 — a agenda com cor).
-
-         Uma linha de texto suave no pé da tela: um quadrado de 10 px por família, com o
-         MESMO brush que o traço da linha, o avatar e o cartão da grade usam. A cor sai do
-         token, nunca de um hexadecimal escrito aqui — se o token mudar, a legenda muda
-         junto, que é a única razão de uma legenda existir.
-
-         As duas metades opcionais são de quem hospeda: as LISTAS mostram o ✓ da rodada de
-         confirmação; a GRADE desenha o encaixe (traço laranja) e a agenda fechada (a
-         hachura). Legenda que explica um sinal que a tela não desenha ensina a procurar
-         o que não existe.
-         ============================================================================ -->
+    <!-- Modelo A: legenda textual da modalidade; encaixe, bloqueio e confirmação mantêm identificação visual. -->
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
@@ -42,32 +30,15 @@
          direita. Ela é o filho que PREENCHE de quem a hospeda (checagem 32). -->
     <WrapPanel>
         <StackPanel Style="{StaticResource Item}">
-            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Acento}" />
-            <TextBlock Style="{StaticResource Texto}" Text="Acupuntura" />
-        </StackPanel>
-        <StackPanel Style="{StaticResource Item}">
-            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
-            <TextBlock Style="{StaticResource Texto}" Text="Acupuntura com eletro" />
-        </StackPanel>
-        <StackPanel Style="{StaticResource Item}">
-            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Modalidade.Bsv}" />
-            <TextBlock Style="{StaticResource Texto}" Text="BSV" />
-        </StackPanel>
-        <StackPanel Style="{StaticResource Item}">
-            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
-            <TextBlock Style="{StaticResource Texto}" Text="BSV com acupuntura" />
-        </StackPanel>
-        <StackPanel Style="{StaticResource Item}">
-            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Modalidade.Consulta}" />
-            <TextBlock Style="{StaticResource Texto}" Text="Consulta" />
+            <TextBlock Style="{StaticResource Texto}" Text="Modalidade informada em cada atendimento" />
         </StackPanel>
 
         <!-- Só a grade -->
         <StackPanel Style="{StaticResource Item}"
                     Visibility="{Binding ComGrade, ElementName=Raiz,
                                  Converter={StaticResource BoolParaVisibilidade}}">
-            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Aviso}" />
-            <TextBlock Style="{StaticResource Texto}" Text="traço laranja = encaixe" />
+            <Border Style="{StaticResource Amostra}" Background="{StaticResource Brush.Marca.Navy}" />
+            <TextBlock Style="{StaticResource Texto}" Text="traço espesso = encaixe" />
         </StackPanel>
         <StackPanel Style="{StaticResource Item}"
                     Visibility="{Binding ComGrade, ElementName=Raiz,
@@ -84,7 +55,7 @@
             <TextBlock Text="&#xE73E;" FontFamily="{StaticResource FonteIcones}"
                        FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,6,0"
                        VerticalAlignment="Center"
-                       Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                       Foreground="{StaticResource Brush.Acento}" />
             <TextBlock Style="{StaticResource Texto}" Text="confirmou na rodada de confirmação" />
         </StackPanel>
     </WrapPanel>

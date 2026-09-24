@@ -11,7 +11,7 @@ namespace Clinica.Recepcao.ViewModels;
 /// </param>
 public sealed record PedidoNovoAtendimento(
     bool MarcarParaDepois, DateTime? DataHora, int? ProfissionalId, int? SalaId,
-    int? PacienteId = null);
+    int? PacienteId = null, int? DuracaoMinutos = null, string? ModalidadeCodigo = null);
 
 /// <summary>
 /// A ponte de um clique entre a AGENDA e o NOVO ATENDIMENTO — a criação de horário foi

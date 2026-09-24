@@ -19,7 +19,7 @@
              Compacto: numa faixa de meia hora há ~46 px. O clique abre o PACIENTE — a
              semana é leitura, e daqui se entra no caso. -->
         <DataTemplate x:Key="CartaoSemanaTemplate" DataType="{x:Type mod:SessaoDoDia}">
-            <Button Style="{StaticResource CartaoDeHorario}"
+            <Button Style="{StaticResource AgendaModeloA.Cartao}"
                     Command="{Binding DataContext.AbrirCommand,
                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}">
@@ -52,7 +52,7 @@
                                FontSize="{StaticResource Fonte.Legenda}" />
 
                     <WrapPanel Margin="0,3,0,0">
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,0"
+                        <Border Style="{StaticResource AgendaModeloA.Status.Local}" Margin="0,0,4,0"
                                 Visibility="{Binding RegistroPendente,
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Sem evolução" />
@@ -224,8 +224,8 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
                             <Setter Property="Background"
-                                    Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                    Value="{StaticResource Brush.Acento.Tint}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Marca.Navy}" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>

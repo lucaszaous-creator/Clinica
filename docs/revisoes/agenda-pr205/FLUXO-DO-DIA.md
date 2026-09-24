@@ -1,3 +1,5 @@
+> **Atualização da PR #205:** consulte a [implementação do Modelo A com capturas WPF reais e cobertura item a item](IMPLEMENTACAO-MODELO-A.md). Esta página preserva o diagnóstico e os protótipos históricos; as ampliações funcionais pendentes estão discriminadas no novo relatório.
+
 # Mockups visuais — módulo Clínico e módulo Recepção
 
 **Escopo corrigido: apenas aparência. O fluxo atual permanece.** Esta versão substitui a proposta anterior de reorganização do fluxo do dia. As imagens são capturas de mockups HTML no navegador, com dados fictícios; não são telas já implantadas no WPF.

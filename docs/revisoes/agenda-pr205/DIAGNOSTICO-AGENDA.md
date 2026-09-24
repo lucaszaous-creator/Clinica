@@ -1,3 +1,5 @@
+> **Atualização da PR #205:** consulte a [implementação do Modelo A com capturas WPF reais e cobertura item a item](IMPLEMENTACAO-MODELO-A.md). Esta página preserva o diagnóstico e os protótipos históricos; as ampliações funcionais pendentes estão discriminadas no novo relatório.
+
 # Agenda — diagnóstico e recomendações com Jev
 
 > **Escopo atual da revisão do dia: somente visual.** Veja os [mockups nos módulos Clínico e Recepção](FLUXO-DO-DIA.md). As recomendações funcionais anteriores neste diagnóstico não são parte desta alteração visual.

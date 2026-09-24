@@ -83,6 +83,41 @@ static class Program
                 }
             }
         }
+        // Modelo A: a nova organização continua abrindo o mesmo formulário, sem gravar
+        // um horário ao apenas consultar uma vaga. Exercita a View e os bindings reais.
+        NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
+        await Task.Delay(250);
+        var planejamento = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
+            .OfType<Clinica.Recepcao.ViewModels.AgendaViewModel>().First();
+        planejamento.Dia = DateTime.Today.AddDays(8 - (int)DateTime.Today.DayOfWeek);
+        await planejamento.CarregarAsync();
+        planejamento.FiltroProfissional = planejamento.FiltroProfissionais.First(p => p.Id == prof.Id);
+        planejamento.DuracaoPlanejamento = "60";
+        await planejamento.CarregarAsync();
+        if (planejamento.VagasPlanejamento.Count == 0) throw new Exception("Planejamento: profissional sem horários deve oferecer vagas.");
+        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        var botaoVaga = Descendentes(win).OfType<Button>().First(b => b.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
+        if (!botaoVaga.IsEnabled || botaoVaga.Command is null || !botaoVaga.Command.CanExecute(botaoVaga.CommandParameter))
+            throw new Exception("Planejamento: vaga visível não permite abrir a marcação no primeiro carregamento.");
+        planejamento.ModoSemana = true; await planejamento.CarregarAsync();
+        if (planejamento.ProfissionalEmFocoId != prof.Id || planejamento.Colunas.Any(c => c.ProfissionalId != prof.Id))
+            throw new Exception("Planejamento: a semana perdeu o profissional escolhido.");
+        planejamento.DisponibilidadeNaoVerificada = true;
+        planejamento.DuracaoPlanejamento = "45";
+        if (planejamento.VagasPlanejamento.Count != 0 || planejamento.ColunasPlanejamento.Any(c => c.Blocos.Any(b => b.Disponivel)))
+            throw new Exception("Planejamento: disponibilidade não verificada anunciou vaga.");
+        planejamento.DuracaoPlanejamento = "60"; await planejamento.CarregarAsync();
+        var vagaEscolhida = planejamento.VagasPlanejamento.First();
+        var quantidadeAntes = await db.Agendamentos.CountAsync();
+        await planejamento.EscolherVagaPlanejamentoCommand.ExecuteAsync(vagaEscolhida);
+        await Task.Delay(500);
+        var formulario = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
+            .OfType<Clinica.Recepcao.ViewModels.NovoAtendimentoViewModel>().First();
+        if (formulario.Profissional?.Id != prof.Id || formulario.Duracao != "60"
+            || formulario.Data.Date != vagaEscolhida.Inicio.Date || formulario.Hora != vagaEscolhida.Inicio.ToString("HH:mm"))
+            throw new Exception("Planejamento: o formulário perdeu o contexto da vaga.");
+        if (await db.Agendamentos.CountAsync() != quantidadeAntes) throw new Exception("Consultar vaga gravou um agendamento.");
+        Console.WriteLine("PLANEJAMENTO: profissional, semana, falha de leitura e formulário preservados; nenhuma gravação.");
         win.Close();
         // Regressão de produção: a direção não precisa de cadastro como médico para
         // concluir uma sessão já escrita. Exercita a view real, inclusive o binding.

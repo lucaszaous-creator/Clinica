@@ -10,34 +10,8 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
-        <!-- O avatar da linha na cor da FAMÍLIA (set/2026 — a agenda com cor): a MESMA
-             regra e os MESMOS tokens da lista do balcão, porque as duas listas são a mesma
-             agenda lida de dois postos. Só iniciais aqui — a leitura do dia do médico não
-             traz a miniatura da foto (a lição da parcela 74: meça o que a consulta TRAZ).
-             ⚠️ `BasedOn` obrigatório: estilo local sem herança substitui o implícito, onde
-             mora o Template, e o controle desenha NADA (checagem 40). -->
-        <Style x:Key="AvatarDaLinha" TargetType="ctrl:Avatar" BasedOn="{StaticResource {x:Type ctrl:Avatar}}">
-            <Setter Property="Margin" Value="0,0,10,0" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
-                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.AcupunturaEletro.Suave}" />
-                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
-                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.Bsv.Suave}" />
-                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.Bsv}" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
-                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.BsvAcupuntura.Suave}" />
-                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
-                    <Setter Property="Fundo" Value="{StaticResource Brush.Modalidade.Consulta.Suave}" />
-                    <Setter Property="Tinta" Value="{StaticResource Brush.Modalidade.Consulta}" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
+        <!-- Avatar no Modelo A; a modalidade permanece escrita no contexto da linha. -->
+        <Style x:Key="AvatarDaLinha" TargetType="ctrl:Avatar" BasedOn="{StaticResource AgendaModeloA.Avatar}" />
     </UserControl.Resources>
 
     <DockPanel Margin="24,20,24,24">
@@ -76,7 +50,7 @@
                 <TextBlock Text="{Binding AgendaFechada}" Margin="0,6,0,0"
                            TextWrapping="Wrap" FontWeight="SemiBold"
                            FontSize="{StaticResource Fonte.Legenda}"
-                           Foreground="{StaticResource Brush.Aviso}"
+                           Foreground="{StaticResource Brush.Acento}"
                            HorizontalAlignment="Left"
                            Visibility="{Binding AgendaFechada,
                                         Converter={StaticResource TextoParaVisibilidade},
@@ -114,7 +88,7 @@
                                          alarmante é botão que se aprende a ignorar. -->
                                     <DataTrigger Binding="{Binding TemPendentes}" Value="True">
                                         <Setter Property="Foreground"
-                                                Value="{StaticResource Brush.Aviso}" />
+                                                Value="{StaticResource Brush.Acento}" />
                                         <Setter Property="FontWeight" Value="SemiBold" />
                                     </DataTrigger>
                                 </Style.Triggers>
@@ -137,8 +111,8 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
                             <Setter Property="Background"
-                                    Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                    Value="{StaticResource Brush.Acento.Tint}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Marca.Navy}" />
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -146,8 +120,7 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
-             declarada ANTES do miolo que preenche — senão o miolo a come (parcela 47). -->
+        <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
         <comp:LegendaFamiliasView DockPanel.Dock="Bottom" Margin="0,10,0,0" ComConfirmacao="True" />
 
         <!-- ============ A LISTA DO DIA (parcela 95) ============
@@ -159,7 +132,7 @@
 
              ⚠️ Não envolver a DataGrid num ScrollViewer: quebra a virtualização, e não há
              página rolante acima dela — a roda fica com a tabela. -->
-        <Border Style="{StaticResource Card}">
+        <Border Style="{StaticResource Card}" Padding="0">
             <Grid>
                 <!-- NaoVerificado ligado (parcela 61): banco fora do ar não pode desenhar
                      "Nenhum horário" — falha com cara de dia vazio, na abertura do médico. -->
@@ -181,42 +154,30 @@
                      célula, sem erro, sem aviso e sem barra de rolagem para alcançar o que sumiu.
                      `NaN` devolve o "do tamanho do conteúdo" que é o padrão do WPF; o `MinRowHeight`
                      guarda o piso de densidade para as linhas que couberem numa linha só. -->
-                <DataGrid x:Name="TabelaMeuDia" ItemsSource="{Binding Sessoes}"
+                <DataGrid Style="{StaticResource AgendaModeloA.Tabela}" x:Name="TabelaMeuDia" ItemsSource="{Binding Sessoes}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                           CanUserAddRows="False" CanUserDeleteRows="False"
                           CanUserSortColumns="False" SelectionMode="Single"
-                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36">
+                          RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="64">
                     <DataGrid.RowStyle>
                         <!-- Cancelado e falta ficam na lista, APAGADOS — nunca somem: linha
                              ausente se confunde com horário que nunca existiu. -->
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-                            <!-- O traço da FAMÍLIA à esquerda e a linha verde de quem está na
-                                 sala (set/2026): a mesma regra e os mesmos tokens da lista do
-                                 balcão e do cartão da grade. Setters ANTES dos gatilhos
-                                 (checagem 46). -->
+                            <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
                             <Setter Property="BorderThickness" Value="3,0,0,0" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                            <Setter Property="BorderBrush" Value="Transparent" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="AcupunturaComEletro">
-                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.AcupunturaEletro}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvApenas">
-                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.Bsv}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="BsvComAcupuntura">
-                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.BsvAcupuntura}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding ModalidadeFamilia}" Value="Consulta">
-                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Modalidade.Consulta}" />
-                                </DataTrigger>
                                 <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
-                                    <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Tint}" />
+                                    <Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
                                 </DataTrigger>
-                                <!-- Apagado, e o traço da família apaga junto (vem depois dos
-                                     gatilhos de família: gatilho posterior vence). -->
+                                <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                    <Setter Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
+                                </Trigger>
                                 <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
-                                    <Setter Property="Opacity" Value="0.55" />
+                                    <Setter Property="Opacity" Value="0.8" />
                                     <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -224,12 +185,12 @@
                     </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <!-- A hora em negrito, como a lista do balcão: é a âncora da leitura. -->
-                        <DataGridTemplateColumn Header="HORÁRIO" Width="110" MinWidth="110">
+                        <DataGridTemplateColumn Header="HORÁRIO" Width="135" MinWidth="135">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Hora}" FontWeight="SemiBold"
                                                TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center" Margin="0,6,8,6" />
+                                               VerticalAlignment="Center" Margin="4,12,8,12" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -237,14 +198,14 @@
                         <DataGridTemplateColumn x:Name="ColunaPaciente" Header="PACIENTE" Width="*" MinWidth="200">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <DockPanel Margin="0,6,8,6">
+                                    <DockPanel Margin="4,12,8,12">
                                         <ctrl:Avatar DockPanel.Dock="Left" Tamanho="34"
                                                      Nome="{Binding Paciente}"
                                                      Style="{StaticResource AvatarDaLinha}" />
                                     <StackPanel>
                                         <DockPanel>
                                             <Border DockPanel.Dock="Right" Margin="8,0,0,0"
-                                                    Style="{StaticResource Badge.Aviso}"
+                                                    Style="{StaticResource AgendaModeloA.Status.Local}"
                                                     VerticalAlignment="Center"
                                                     Visibility="{Binding Encaixe,
                                                                  Converter={StaticResource BoolParaVisibilidade}}">
@@ -269,17 +230,15 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
-                        <!-- STATUS: a etapa em uma palavra, e a hora do fato embaixo. As
-                             cores são as das raias de antes (e as da fila do balcão): dois
-                             leitores da mesma agenda, um vocabulário. -->
-                        <DataGridTemplateColumn Header="STATUS" Width="160" MinWidth="160">
+                        <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
+                        <DataGridTemplateColumn Header="STATUS" Width="185" MinWidth="160">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Margin="0,6,8,6" VerticalAlignment="Center">
+                                    <StackPanel Margin="4,12,8,12" VerticalAlignment="Center">
                                         <!-- O ponto colorido do estado (set/2026) — o mesmo da
                                              lista do balcão. Some na linha apagada. -->
                                         <Border x:Name="pilula" HorizontalAlignment="Left"
-                                                Style="{StaticResource Badge}">
+                                                Style="{StaticResource AgendaModeloA.Status}">
                                             <StackPanel Orientation="Horizontal">
                                                 <Ellipse x:Name="ponto" Width="7" Height="7" Margin="0,0,6,0"
                                                          VerticalAlignment="Center"
@@ -296,34 +255,34 @@
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
                                             <Setter TargetName="pilula" Property="Style"
-                                                    Value="{StaticResource Badge.Aviso}" />
+                                                    Value="{StaticResource AgendaModeloA.Status.Local}" />
                                             <Setter TargetName="ponto" Property="Fill"
-                                                    Value="{StaticResource Brush.Aviso}" />
+                                                    Value="{StaticResource Brush.Acento}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
                                             <Setter TargetName="pilula" Property="Style"
-                                                    Value="{StaticResource Badge.Erro}" />
+                                                    Value="{StaticResource AgendaModeloA.Status.Destaque}" />
                                             <Setter TargetName="ponto" Property="Fill"
-                                                    Value="{StaticResource Brush.Erro}" />
+                                                    Value="{StaticResource Brush.Marca.Navy}" />
                                         </DataTrigger>
                                         <!-- Chamada demorada: o balcão ainda não trouxe a pessoa,
                                              e é o profissional que está parado esperando. -->
                                         <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
                                             <Setter TargetName="detalhe" Property="Foreground"
-                                                    Value="{StaticResource Brush.Erro}" />
+                                                    Value="{StaticResource Brush.Marca.Navy}" />
                                             <Setter TargetName="detalhe" Property="FontWeight" Value="SemiBold" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
                                             <Setter TargetName="pilula" Property="Style"
-                                                    Value="{StaticResource Badge.Sucesso}" />
+                                                    Value="{StaticResource AgendaModeloA.Status.Ativo}" />
                                             <Setter TargetName="ponto" Property="Fill"
-                                                    Value="{StaticResource Brush.Sucesso}" />
+                                                    Value="{StaticResource Brush.Texto.Invertido}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Etapa}" Value="Finalizado">
                                             <Setter TargetName="pilula" Property="Style"
-                                                    Value="{StaticResource Badge.Info}" />
+                                                    Value="{StaticResource AgendaModeloA.Status}" />
                                             <Setter TargetName="ponto" Property="Fill"
-                                                    Value="{StaticResource Brush.Info}" />
+                                                    Value="{StaticResource Brush.Texto.Secundario}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding ForaDaFila}" Value="True">
                                             <Setter TargetName="ponto" Property="Visibility" Value="Collapsed" />
@@ -339,12 +298,12 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock x:Name="prontuario" Text="{Binding Prontuario}"
-                                               VerticalAlignment="Center" Margin="0,6,8,6"
+                                               VerticalAlignment="Center" Margin="4,12,8,12"
                                                TextTrimming="CharacterEllipsis" />
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding ProntuarioPendente}" Value="True">
                                             <Setter TargetName="prontuario" Property="Foreground"
-                                                    Value="{StaticResource Brush.Aviso}" />
+                                                    Value="{StaticResource Brush.Acento}" />
                                             <Setter TargetName="prontuario" Property="FontWeight" Value="SemiBold" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
