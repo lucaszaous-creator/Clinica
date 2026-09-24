@@ -21,6 +21,7 @@ public interface IFichaAdministrativaPaciente
     ICommand EditarCommand { get; }
     ICommand WhatsAppCommand { get; }
     void DefinirPaciente(int pacienteId);
+    Task AtualizarAsync();
 }
 
 public interface IFabricaListaPacientes

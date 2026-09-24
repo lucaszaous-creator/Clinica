@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls;
+using System.Windows.Data;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Modulos;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +15,7 @@ public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
     private readonly FichaPacienteViewModel _ficha;
     private int _pacienteId;
     private Task? _carga;
+    private bool _abriu;
     public event Action? Alterou;
     public bool PodeEditar => Clinica.Domain.Entities.SessaoUsuario.Atual.Pode(Clinica.Domain.Entities.Permissao.EditarPaciente);
     public object Resumo { get; }
@@ -40,7 +43,16 @@ public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
     {
         view.DataContext = _ficha;
         view.Loaded += async (_, _) => await CarregarAsync();
-        return view;
+        var mensagem = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 6) };
+        mensagem.SetResourceReference(TextBlock.ForegroundProperty, "Brush.Erro");
+        mensagem.SetBinding(TextBlock.TextProperty, new Binding(nameof(FichaPacienteViewModel.Mensagem)));
+        mensagem.SetBinding(UIElement.VisibilityProperty, new Binding(nameof(FichaPacienteViewModel.Mensagem))
+            { Converter = new TextoParaVisibilidade() });
+        DockPanel.SetDock(mensagem, Dock.Top);
+        var painel = new DockPanel { DataContext = _ficha };
+        painel.Children.Add(mensagem);
+        painel.Children.Add(view);
+        return painel;
     }
 
     public void DefinirPaciente(int pacienteId)
@@ -50,5 +62,38 @@ public sealed class FichaAdministrativaPaciente : IFichaAdministrativaPaciente
         _pacienteId = pacienteId;
     }
 
-    private Task CarregarAsync() => _carga ??= _ficha.AbrirAsync(_pacienteId);
+    private Task CarregarAsync()
+    {
+        if (_carga is null || (_carga.IsCompleted && _ficha.MensagemEhErro))
+            _carga = CarregarFichaAsync();
+        return _carga;
+    }
+
+    public async Task AtualizarAsync()
+    {
+        if (_carga is { IsCompleted: false }) await _carga;
+        _carga = CarregarFichaAsync();
+        await _carga;
+    }
+
+    private async Task CarregarFichaAsync()
+    {
+        try
+        {
+            if (_abriu) await _ficha.CarregarAsync();
+            else
+            {
+                await _ficha.AbrirAsync(_pacienteId);
+                _abriu = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Inclui a auditoria de abertura, anterior à carga da ficha. O evento
+            // Loaded não pode propagar uma falha de rede ao Dispatcher do aplicativo.
+            Clinica.Application.Diagnostico.Registrar("Abertura da ficha administrativa", ex);
+            _ficha.Mensagem = "Não foi possível carregar esta seção. Tente Atualizar ficha.";
+            _ficha.MensagemEhErro = true;
+        }
+    }
 }

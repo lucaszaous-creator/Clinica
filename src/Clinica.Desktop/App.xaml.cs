@@ -58,9 +58,10 @@ public partial class App : System.Windows.Application
             return; // o Velopack encerra este processo e reabre o app atualizado
 
         // Loop: obter conexão (1º acesso ou salva) → conectar/migrar. Se falhar, oferecer reconfigurar.
+        var forcarSetup = false;
         while (true)
         {
-            var connectionString = ObterConexao();
+            var connectionString = ObterConexao(forcarSetup);
             if (connectionString is null)
             {
                 Shutdown();
@@ -114,7 +115,9 @@ public partial class App : System.Windows.Application
 
                 if (reconfig == MessageBoxResult.Yes)
                 {
-                    Clinica.Desktop.Shell.Configuracao.ConexaoStore.Limpar(); // força a tela de setup na próxima volta
+                    // A conexão pode vir da pasta legada ou do ambiente: apagar só
+                    // a configuração da suíte não impede reler a mesma conexão ruim.
+                    forcarSetup = true;
                     continue;
                 }
 
@@ -361,15 +364,15 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>Fonte da conexão: env var → configuração salva → tela de primeiro acesso.</summary>
-    private static string? ObterConexao()
+    private static string? ObterConexao(bool forcarSetup = false)
     {
-        var env = Environment.GetEnvironmentVariable("ConnectionStrings__Clinica");
-        if (!string.IsNullOrWhiteSpace(env))
-            return env;
-
-        var salva = Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar();
-        if (!string.IsNullOrWhiteSpace(salva))
-            return salva;
+        if (!forcarSetup)
+        {
+            var env = Environment.GetEnvironmentVariable("ConnectionStrings__Clinica");
+            if (!string.IsNullOrWhiteSpace(env)) return env;
+            var salva = Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar();
+            if (!string.IsNullOrWhiteSpace(salva)) return salva;
+        }
 
         var setup = new Clinica.Desktop.Shell.SetupWindow("Faturamento");
         return setup.ShowDialog() == true ? Clinica.Desktop.Shell.Configuracao.ConexaoStore.Carregar() : null;

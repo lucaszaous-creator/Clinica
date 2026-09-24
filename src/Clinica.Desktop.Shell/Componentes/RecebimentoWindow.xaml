@@ -3,12 +3,23 @@
         xmlns:shared="clr-namespace:Clinica.Desktop.Shell.Componentes" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{Binding Titulo}" Width="600" Height="620" MinWidth="480" MinHeight="460"
         WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Fundo}">
-    <Window.Resources><BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" /></Window.Resources>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <Style x:Key="HabilitadoForaDaGravacao" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <DockPanel Margin="24">
         <WrapPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancelar" IsCancel="True" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
+            <Button Content="Cancelar" IsCancel="True" Margin="0,0,8,0">
+                <Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                    <Style.Triggers><DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="IsEnabled" Value="False" /></DataTrigger></Style.Triggers>
+                </Style></Button.Style>
+            </Button>
             <Button Content="Confirmar" Command="{Binding ConfirmarCommand}" IsEnabled="{Binding PodeConfirmar}" />
         </WrapPanel>
-        <shared:DadosRecebimentoView />
+        <shared:DadosRecebimentoView Style="{StaticResource HabilitadoForaDaGravacao}" />
     </DockPanel>
 </Window>

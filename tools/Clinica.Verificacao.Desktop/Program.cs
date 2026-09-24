@@ -24,7 +24,7 @@ using F = Clinica.Financeiro.Modulo.ModuloFinanceiro;
 using B = Clinica.Faturamento.Modulo.ModuloFaturamento;
 using G = Clinica.Gerente.Modulo.ModuloGerente;
 
-internal static class Program
+internal static partial class Program
 {
     static readonly List<object> Evidencias = [];
     static readonly List<string> Falhas = [];
@@ -132,6 +132,7 @@ internal static class Program
                 var anterior=shell.TelaAtual;
                 NavegacaoSuite.Ir("configuracoes");
                 Conferir(NavegacaoSuite.Voltar() && ReferenceEquals(anterior,shell.TelaAtual),"Voltar preserva instância e filtros da origem");
+                await VerificarRevisaoPrAsync(provider, options, sentinela);
                 var cadastro=new CadastroPacienteViewModel(provider.GetRequiredService<IServiceScopeFactory>(),1001);
                 while(cadastro.Carregando) await Task.Delay(10);
                 var opcao=cadastro.Convenios.Single(c=>c.Codigo=="UnimedPadrao");
@@ -277,10 +278,12 @@ internal static class Program
 sealed class SentinelaProntuario : DbCommandInterceptor
 {
     public bool Proibir { get; set; }
+    public bool FalharPaciente { get; set; }
     public bool AtrasarPaciente { get; set; }
     public bool ProibirHistoricoCadastro { get; set; }
     public List<string> Leituras { get; } = [];
     void Conferir(DbCommand c) {
+        if (FalharPaciente && c.CommandText.Contains("FROM \"Pacientes\"")) throw new InvalidOperationException("Falha de leitura simulada");
         if((Proibir && new[]{"Evolucoes","ProblemasPaciente","Hipoteses"}.Any(t=>c.CommandText.Contains(t,StringComparison.OrdinalIgnoreCase)))
             || (ProibirHistoricoCadastro && new[]{"Atendimentos","Codigos"}.Any(t=>c.CommandText.Contains(t,StringComparison.OrdinalIgnoreCase)))) Leituras.Add(c.CommandText);
     }

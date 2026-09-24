@@ -450,6 +450,13 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject, ICont
     }
 
     /// <summary>Atualiza somente dados cadastrais; mantém os editores clínicos e seus rascunhos.</summary>
+    [RelayCommand]
+    private async Task AtualizarFichaAsync()
+    {
+        await AtualizarCadastroAsync();
+        if (Administrativo is not null) await Administrativo.AtualizarAsync();
+    }
+
     public async Task AtualizarCadastroAsync()
     {
         await Capa.CarregarAsync();

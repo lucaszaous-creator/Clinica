@@ -10,7 +10,7 @@
                 <Button Content="WhatsApp" Command="{Binding Administrativo.WhatsAppCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
                 <Button Content="Editar cadastro" Command="{Binding Administrativo.EditarCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
             </StackPanel>
-            <Button DockPanel.Dock="Right" Content="Atualizar ficha" Command="{Binding Capa.CarregarCommand}"
+            <Button DockPanel.Dock="Right" Content="Atualizar ficha" Command="{Binding AtualizarFichaCommand}"
                     Style="{StaticResource BotaoSecundario}" Margin="12,0,0,0"
                     ToolTip="Consultar os dados atuais, inclusive os registrados no portal. Não altera o atendimento em edição." />
             <TextBlock Text="{Binding Capa.AtualizacaoFicha}" TextWrapping="Wrap" VerticalAlignment="Center" Style="{StaticResource TextoSuave}" />
