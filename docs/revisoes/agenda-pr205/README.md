@@ -1,15 +1,59 @@
-# Agenda SemDor — fotos reais e relatório
+# Agenda SemDor — como ficará e evidências atuais
 
-**Material de demonstração da PR #205.** Capturas dos componentes WPF reais do commit `798dd26`, executados localmente com banco isolado. Todos os pacientes, profissionais e horários apresentados são fictícios. As imagens mostram a versão atual; as melhorias descritas são propostas.
+**PR #205 · revisão com Jev · Modelo A.** Cinco imagens de propostas visuais e oito capturas reais da versão atual, todas com dados fictícios. As propostas de agenda ainda não estão implementadas no aplicativo.
 
 ## Acesso e download
 
-- [Relatório completo: 12 recomendações](DIAGNOSTICO-AGENDA.md)
-- [Baixar ZIP com galeria, relatório e oito fotos](https://github.com/lucaszaous-creator/Clinica/raw/refs/heads/codex/navegacao-unificada/docs/revisoes/agenda-pr205/agenda-fotos-e-relatorio.zip)
+- [Relatório completo com as cinco imagens propostas e 12 recomendações](DIAGNOSTICO-AGENDA.md)
+- [Baixar ZIP com relatório, 13 imagens e protótipos](https://github.com/lucaszaous-creator/Clinica/raw/refs/heads/codex/navegacao-unificada/docs/revisoes/agenda-pr205/agenda-fotos-e-relatorio.zip)
 
-O ZIP funciona sem servidor: extraia a pasta e abra `index.html` no navegador. As imagens abaixo também podem ser vistas diretamente nesta página do GitHub, em qualquer dispositivo.
+As imagens aparecem diretamente no GitHub, sem depender da rede local. Para usar o pacote, extraia o ZIP e abra `index.html`; os protótipos também funcionam sem servidor.
 
-## Capturas reais
+## Como propomos deixar — imagens das novas telas
+
+**Cinco capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
+
+Todos os dados exibidos são fictícios. As oito capturas WPF da versão atual continuam na [galeria de evidências](README.md#capturas-reais-da-versão-atual). As imagens abaixo mostram concretamente como recomendamos organizar a agenda.
+
+### Proposta 1. Agenda diária de cada médico
+
+Profissional, duração e sala no mesmo cabeçalho; calendário para saltar de data; horários ocupados, bloqueados e disponíveis desenhados pela duração. No exemplo, a primeira vaga conjunta é 11h30–12h30.
+
+![Proposta visual — Agenda diária de cada médico](propostas/01-proposta-dia.png)
+
+[Comparar com a tela atual](fotos/02-grade-profissionais.png).
+
+### Proposta 2. Semana completa do médico selecionado
+
+O médico permanece selecionado ao trocar entre Dia e Semana. A jornada e os intervalos ficam visíveis; sexta-feira à tarde aparece fora do expediente.
+
+![Proposta visual — Semana completa do médico selecionado](propostas/02-proposta-semana.png)
+
+[Comparar com a tela atual](fotos/03-grade-semana.png).
+
+### Proposta 3. Encontrar uma vaga que realmente comporte a consulta
+
+A busca considera profissional, sala, capacidade, paciente e duração. Mostra por que 09h30 não comporta 60 minutos e por que 11h conflita com a sala. Continuar leva ao agendamento completo.
+
+![Proposta visual — Encontrar uma vaga que realmente comporte a consulta](propostas/03-proposta-vagas.png)
+
+[Comparar com a tela atual](fotos/07-proximas-vagas.png).
+
+### Proposta 4. Jornada, intervalos, bloqueios e trava juntos
+
+Configuração por dia da semana, mais de um intervalo de trabalho, exceções por data e estado da trava. A função Marcar permanece disponível pelo botão Agendar; a proposta preserva séries, encaixes e validações.
+
+![Proposta visual — Jornada, intervalos, bloqueios e trava juntos](propostas/04-proposta-jornada.png)
+
+[Comparar com a tela atual](fotos/05-horarios-travas.png).
+
+### Proposta 5. Falha de atualização com mensagem clara
+
+Quando não for possível conferir os bloqueios, manter a última leitura identificada e pedir atualização. Não apresentar espaços vazios como vagas confirmadas. Este é um novo estado proposto, sem captura equivalente da versão atual.
+
+![Proposta visual — Falha de atualização com mensagem clara](propostas/05-proposta-nao-verificada.png)
+
+## Capturas reais da versão atual
 
 ### 1. Grade por profissional
 

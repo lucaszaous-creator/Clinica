@@ -1,8 +1,52 @@
 # Agenda — diagnóstico e recomendações com Jev
 
-## Origem das imagens
+## Como propomos deixar — imagens das novas telas
 
-Capturas dos componentes WPF reais da PR #205, commit `798dd26`, executados localmente com perfil Recepção e banco SQLite isolado. Profissionais, pacientes, bloqueios e horários são fictícios. As telas não foram desenhadas por IA nem alteradas para simular uma implementação futura. Não são capturas da produção. Execução: oito PNGs, nenhuma exceção e log de bindings vazio.
+**Cinco capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
+
+Todos os dados exibidos são fictícios. As oito capturas WPF da versão atual continuam na [galeria de evidências](README.md#capturas-reais-da-versão-atual). As imagens abaixo mostram concretamente como recomendamos organizar a agenda.
+
+### Proposta 1. Agenda diária de cada médico
+
+Profissional, duração e sala no mesmo cabeçalho; calendário para saltar de data; horários ocupados, bloqueados e disponíveis desenhados pela duração. No exemplo, a primeira vaga conjunta é 11h30–12h30.
+
+![Proposta visual — Agenda diária de cada médico](propostas/01-proposta-dia.png)
+
+[Comparar com a tela atual](fotos/02-grade-profissionais.png).
+
+### Proposta 2. Semana completa do médico selecionado
+
+O médico permanece selecionado ao trocar entre Dia e Semana. A jornada e os intervalos ficam visíveis; sexta-feira à tarde aparece fora do expediente.
+
+![Proposta visual — Semana completa do médico selecionado](propostas/02-proposta-semana.png)
+
+[Comparar com a tela atual](fotos/03-grade-semana.png).
+
+### Proposta 3. Encontrar uma vaga que realmente comporte a consulta
+
+A busca considera profissional, sala, capacidade, paciente e duração. Mostra por que 09h30 não comporta 60 minutos e por que 11h conflita com a sala. Continuar leva ao agendamento completo.
+
+![Proposta visual — Encontrar uma vaga que realmente comporte a consulta](propostas/03-proposta-vagas.png)
+
+[Comparar com a tela atual](fotos/07-proximas-vagas.png).
+
+### Proposta 4. Jornada, intervalos, bloqueios e trava juntos
+
+Configuração por dia da semana, mais de um intervalo de trabalho, exceções por data e estado da trava. A função Marcar permanece disponível pelo botão Agendar; a proposta preserva séries, encaixes e validações.
+
+![Proposta visual — Jornada, intervalos, bloqueios e trava juntos](propostas/04-proposta-jornada.png)
+
+[Comparar com a tela atual](fotos/05-horarios-travas.png).
+
+### Proposta 5. Falha de atualização com mensagem clara
+
+Quando não for possível conferir os bloqueios, manter a última leitura identificada e pedir atualização. Não apresentar espaços vazios como vagas confirmadas. Este é um novo estado proposto, sem captura equivalente da versão atual.
+
+![Proposta visual — Falha de atualização com mensagem clara](propostas/05-proposta-nao-verificada.png)
+
+## Origem e limites das imagens
+
+As cinco imagens acima são capturas dos protótipos propostos. As oito imagens em `fotos/` são capturas dos componentes WPF reais da PR #205, commit `798dd26`, executados localmente com perfil Recepção e banco SQLite isolado. Não são imagens da produção. Todos os nomes e horários são fictícios. A execução das capturas WPF teve oito PNGs, nenhuma exceção e log de bindings vazio.
 
 ## Conclusão
 
@@ -42,7 +86,7 @@ Evidência: `fotos/02-grade-profissionais.png`.
 
 **Hoje:** A célula vazia não basta para dizer que cabe uma consulta inteira.
 
-**Proposta:** Exibir disponibilidade para a duração selecionada. No exemplo, o vão de 09h30 dura 30 minutos; a consulta de 60 minutos da Dra. Ana só cabe às 11h, depois do bloqueio.
+**Proposta:** Exibir disponibilidade para a duração selecionada. No exemplo, o vão de 09h30 dura 30 minutos; o primeiro horário possível para a médica é 11h, depois do bloqueio; com a sala selecionada, a primeira vaga conjunta é 11h30.
 
 Evidência: `fotos/02-grade-profissionais.png`.
 
