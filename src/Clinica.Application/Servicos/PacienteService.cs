@@ -68,7 +68,7 @@ public sealed class PacienteService
     public Task<Paciente> SalvarNovoAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
         ValidacaoCadastroPaciente.Exigir(paciente);
-        paciente.Endereco = paciente.Endereco!.Trim();
+        paciente.Endereco = string.IsNullOrWhiteSpace(paciente.Endereco) ? null : paciente.Endereco.Trim();
         return PersistirNovoAsync(paciente, categoriaManual, ct);
     }
 
@@ -98,7 +98,7 @@ public sealed class PacienteService
     public Task AtualizarAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
         ValidacaoCadastroPaciente.Exigir(paciente);
-        paciente.Endereco = paciente.Endereco!.Trim();
+        paciente.Endereco = string.IsNullOrWhiteSpace(paciente.Endereco) ? null : paciente.Endereco.Trim();
         return PersistirAtualizacaoAsync(paciente, categoriaManual, ct);
     }
 
@@ -262,7 +262,7 @@ public sealed class PacienteService
             throw new ArgumentException("Informe o nome do paciente.");
 
         // Somente a importação histórica chega aqui sem CPF. As portas públicas de
-        // cadastro/edição exigem CPF e endereço antes de persistir; a importação mantém
+        // cadastro/edição exigem CPF antes de persistir; a importação mantém
         // os dados disponíveis e a próxima edição pede que a ficha seja completada.
         if (string.IsNullOrWhiteSpace(paciente.Documento))
         {

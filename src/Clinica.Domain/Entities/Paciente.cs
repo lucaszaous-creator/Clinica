@@ -19,9 +19,8 @@ public class Paciente
     public string? Email { get; set; }
 
     /// <summary>
-    /// Endereço residencial, obrigatório ao salvar o cadastro ou sua edição.
-    /// Anulável para preservar fichas anteriores e importações históricas. Na emissão,
-    /// fichas ainda incompletas continuam sendo conferidas por
+    /// Endereço residencial, opcional no cadastro e na edição. Na emissão,
+    /// os dados necessários ao documento continuam sendo conferidos por
     /// <see cref="ConformidadeDocumentoClinico"/>.
     /// </summary>
     public string? Endereco { get; set; }
