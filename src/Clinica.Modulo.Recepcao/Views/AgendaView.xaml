@@ -296,7 +296,7 @@
                                 <Button Command="{Binding DataContext.EscolherVagaPlanejamentoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         CommandParameter="{Binding}" IsEnabled="{Binding DataContext.PodeEditarAgenda, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         Style="{StaticResource BotaoSecundario}" HorizontalContentAlignment="Left" Padding="12" Margin="0,0,0,10">
-                                    <StackPanel><TextBlock Text="{Binding Inicio, StringFormat='{}{0:ddd dd/MM · HH:mm}'}" FontWeight="SemiBold" /><TextBlock Text="{Binding Fim, StringFormat='Até {0:HH:mm} · escolher horário'}" Style="{StaticResource TextoSuave}" Margin="0,4,0,0" /></StackPanel>
+                                    <StackPanel><TextBlock Text="{Binding Inicio, StringFormat='{}{0:ddd dd/MM · HH:mm}'}" FontWeight="SemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding Fim, StringFormat='Até {0:HH:mm} · escolher horário'}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel>
                                 </Button>
                             </DataTemplate></ItemsControl.ItemTemplate>
                         </ItemsControl>
