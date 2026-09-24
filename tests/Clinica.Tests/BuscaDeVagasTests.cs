@@ -163,4 +163,74 @@ public class BuscaDeVagasTests : IDisposable
         resultado.JornadaPresumida.Should().BeTrue();
         resultado.Vagas.Select(v => v.Inicio).Should().Equal(Segunda8h.AddHours(2), Segunda8h.AddHours(2).AddMinutes(30));
     }
+
+    [Fact]
+    public void Busca_conjunta_respeita_duracao_bloqueio_e_ocupacao_da_sala_por_outro_medico()
+    {
+        var ana = Ana(das: new(8, 0), ate: new(17, 0));
+        var sala = new Sala { Id = 2, Nome = "Consultorio", Capacidade = 1 };
+        var outro = Marcado(Segunda8h.AddHours(3), 30, profissionalId: 99); outro.SalaId = sala.Id;
+        var ocupados = new[] { Marcado(Segunda8h, 60), Marcado(Segunda8h.AddHours(1), 30), outro };
+        var bloqueios = new[] { new BloqueioAgenda { ProfissionalId = ana.Id,
+            Inicio = Segunda8h.AddHours(2), Fim = Segunda8h.AddHours(3), Motivo = "Reuniao" } };
+        var vagas = BuscaDeVagas.Calcular(Segunda8h, 60, ana, ocupados, bloqueios, quantidade: 1, sala: sala);
+        vagas.Single().Inicio.Should().Be(Segunda8h.AddHours(3.5));
+        vagas.Single().Fim.Should().Be(Segunda8h.AddHours(4.5));
+    }
+
+    [Fact]
+    public void Sala_compartilhada_respeita_capacidade_sem_contar_cancelamentos()
+    {
+        var sala = new Sala { Id = 2, Nome = "Aplicacao", Capacidade = 2 };
+        var ativo = Marcado(Segunda8h, 60, profissionalId: 99); ativo.SalaId = 2;
+        var cancelado = Marcado(Segunda8h, 60, profissionalId: 98, status: StatusAgendamento.Cancelado); cancelado.SalaId = 2;
+        BuscaDeVagas.Calcular(Segunda8h, 30, Ana(), [ativo, cancelado], [], quantidade: 1, sala: sala)
+            .Single().Inicio.Should().Be(Segunda8h);
+        var segundo = Marcado(Segunda8h, 30, profissionalId: 97); segundo.SalaId = 2;
+        BuscaDeVagas.Calcular(Segunda8h, 30, Ana(), [ativo, segundo], [], quantidade: 1, sala: sala)
+            .Single().Inicio.Should().Be(Segunda8h.AddMinutes(30));
+    }
+
+    [Fact]
+    public void Busca_considera_paciente_e_bloqueio_especifico_da_sala()
+    {
+        var sala = new Sala { Id = 2, Nome = "Consultorio", Capacidade = 1 };
+        var outro = Marcado(Segunda8h, 30, profissionalId: 99); outro.PacienteId = 44;
+        var bloqueio = new BloqueioAgenda { SalaId = 2, Inicio = Segunda8h.AddMinutes(30),
+            Fim = Segunda8h.AddHours(1), Motivo = "Manutencao" };
+        BuscaDeVagas.Calcular(Segunda8h, 30, Ana(), [outro], [bloqueio], quantidade: 1, sala: sala, pacienteId: 44)
+            .Single().Inicio.Should().Be(Segunda8h.AddHours(1));
+    }
+
+    [Fact]
+    public async Task Servico_conjunto_le_ocupacao_de_outro_profissional_na_sala()
+    {
+        var ana = new Profissional { Nome = "Ana", AtendeDas = new(8, 0), AtendeAte = new(17, 0) };
+        var outro = new Profissional { Nome = "Outro" };
+        var paciente = new Paciente { Nome = "Ficticio" };
+        var sala = new Sala { Nome = "Consultorio", Capacidade = 1 };
+        _db.AddRange(ana, outro, paciente, sala); await _db.SaveChangesAsync();
+        _db.Agendamentos.Add(new Agendamento { PacienteId = paciente.Id, ProfissionalId = outro.Id,
+            SalaId = sala.Id, DataHora = Segunda8h, DuracaoMinutos = 60, Status = StatusAgendamento.Agendado });
+        await _db.SaveChangesAsync();
+        var resultado = await new BuscaDeVagasService(_repo).ProximasComRecursosAsync(ana.Id, Segunda8h, 30, sala.Id);
+        resultado.Vagas.First().Inicio.Should().Be(Segunda8h.AddHours(1));
+        (await _db.Agendamentos.CountAsync()).Should().Be(1, "consultar vagas nao cria agendamentos");
+    }
+
+    [Fact]
+    public async Task Busca_nao_oferece_horario_ocupado_por_sessao_iniciada_no_dia_anterior()
+    {
+        var ana = new Profissional { Nome = "Ana", AtendeDas = new(0, 0), AtendeAte = new(3, 0), DuracaoPadraoMinutos = 120 };
+        var paciente = new Paciente { Nome = "Ficticio" }; _db.AddRange(ana, paciente); await _db.SaveChangesAsync();
+        var meiaNoite = Segunda8h.Date;
+        _db.Agendamentos.Add(new Agendamento { PacienteId = paciente.Id, ProfissionalId = ana.Id,
+            DataHora = meiaNoite.AddMinutes(-30), DuracaoMinutos = null, Status = StatusAgendamento.Agendado });
+        await _db.SaveChangesAsync();
+        var resultado = await new BuscaDeVagasService(_repo).ProximasAsync(ana.Id, meiaNoite, 30, quantidade: 1);
+        resultado.Vagas.Single().Inicio.Should().Be(meiaNoite.AddMinutes(90));
+        var virada = await new AgendaService(_repo, new AtendimentoService(_repo)).OcupacoesNaViradaAsync(meiaNoite);
+        virada.Should().ContainSingle();
+        virada.Single().FimPrevisto.Should().Be(meiaNoite.AddMinutes(90));
+    }
 }

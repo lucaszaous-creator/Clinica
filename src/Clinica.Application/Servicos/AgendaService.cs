@@ -369,6 +369,10 @@ public sealed class AgendaService
     public Task<IReadOnlyList<Agendamento>> DoDiaAsync(DateOnly dia, CancellationToken ct = default)
         => _repo.AgendamentosNoPeriodoAsync(dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
 
+    /// <summary>Ocupações que atravessam a abertura do período; complementam a consulta por data inicial.</summary>
+    public Task<IReadOnlyList<Agendamento>> OcupacoesNaViradaAsync(DateTime inicio, CancellationToken ct = default)
+        => _repo.AgendamentosQueSobrepoemAsync(inicio, inicio.AddTicks(1), ct);
+
     /// <summary>Agendamentos de um intervalo de dias (visão de semana).</summary>
     public Task<IReadOnlyList<Agendamento>> NoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _repo.AgendamentosNoPeriodoAsync(inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct);

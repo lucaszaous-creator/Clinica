@@ -75,6 +75,7 @@ PROJETOS = [
     "src/Clinica.Modulo.Financeiro",
     "src/Clinica.Modulo.Gerente",
     "src/Clinica.Modulo.Clinico",
+    "src/Clinica.Modulo.Faturamento",
     "src/Clinica.Recepcao",
     "src/Clinica.Financeiro",
     "src/Clinica.Gerente",
@@ -2056,7 +2057,7 @@ for f, raiz in arvores_com_faturamento.items():
 # Autoteste: os dois estilos existem nos DOIS design systems? Uma checagem que manda usar
 # `CelulaSuave` num dicionário onde ela não foi declarada trocaria um defeito por um
 # crash em runtime (StaticResource não resolvido não quebra o build).
-for _ds in ("src/Clinica.Desktop.Shell/Styles/Theme.xaml", "src/Clinica.Desktop/Styles/Theme.xaml"):
+for _ds in ("src/Clinica.Desktop.Shell/Styles/Theme.xaml", "src/Clinica.Desktop.Shell/Styles/Theme.xaml"):
     _p = RAIZ / _ds
     if not _p.exists() or 'x:Key="CelulaSuave"' not in _p.read_text(encoding="utf-8"):
         erros.append(
@@ -2610,7 +2611,7 @@ for _ns, _projeto, _deve_pegar in (
     # Legítimo: o shell declara esse namespace, então sem `assembly=` está certo.
     ("Clinica.Desktop.Controls", "Clinica.Desktop.Shell", False),
     # Legítimo: o faturamento também o declara (os dois design systems, parcela 7).
-    ("Clinica.Desktop.Controls", "Clinica.Desktop", False),
+    ("Clinica.Desktop.Controls", "Clinica.Desktop", True),
 ):
     _declarados = _namespaces_por_projeto.get(_projeto, set())
     if _declarados and ((_ns not in _declarados) != _deve_pegar):

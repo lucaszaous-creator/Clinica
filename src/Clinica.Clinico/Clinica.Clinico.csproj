@@ -37,4 +37,7 @@
     <Page Include="App.xaml" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,89 @@
+<UserControl x:Class="Clinica.Recepcao.Views.PrivacidadePacienteView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell">
+<UserControl.Resources><BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" /><ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" /></UserControl.Resources>
+<ScrollViewer xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
+                        <StackPanel Margin="0,0,0,24">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Consentimentos (LGPD)" Style="{StaticResource H3}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10" Text="Quem responde é o PACIENTE, no termo que ele assina. Cada resposta vira um registro datado, e revogar não apaga o anterior — ele continua provando o consentimento do período já tratado." />
+
+
+                        <Border Background="{StaticResource Brush.Fundo}" CornerRadius="6" Padding="12,10" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Termo de consentimento assinado pelo paciente" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" />
+                                    <TextBlock Text="{Binding TermoLgpdSituacao}" Margin="0,2,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                </StackPanel>
+
+                                <Button Grid.Column="1" Content="Colher assinatura…" VerticalAlignment="Center" MinWidth="150" Style="{StaticResource BotaoSecundario}" ToolTip="Abre o termo com as quatro finalidades. O paciente assina na tela do balcão ou pelo link do WhatsApp." IsEnabled="{Binding PodeColherTermoLgpd}" Command="{Binding ColherTermoLgpdCommand}" />
+                            </Grid>
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Consentimentos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:LinhaConsentimento}">
+                                    <Border Padding="0,10" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Situacao}" Margin="0,2,0,0" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Style="{StaticResource Badge.Sucesso}" Margin="0,0,8,0" Visibility="{Binding Vigente,                                                                      Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="Vigente" />
+                                                </Border>
+
+
+                                                <Button Content="Revogar" Margin="8,0,0,0" Command="{Binding DataContext.RevogarCommand,                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridPerigo}">
+                                                            <Setter Property="IsEnabled" Value="False" />
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding PodeRevogar}" Value="True" />
+                                                                        <Condition Binding="{Binding DataContext.PodeEditarCadastro,                                                                                             RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True" />
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="IsEnabled" Value="True" />
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Margin="0,12,0,24">
+                    <StackPanel>
+                        <TextBlock Text="Direitos do titular" Style="{StaticResource H3}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10" Text="Pedido de acesso e pedido de eliminação (LGPD, art. 18). O prontuário NÃO se apaga: a guarda é obrigação legal do profissional de saúde e a lei a preserva (art. 16, II) — anonimizar tira a identificação e mantém o histórico." />
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Exportar meus dados" Style="{StaticResource BotaoSecundario}" MinWidth="170" IsEnabled="{Binding PodeVerProntuario}" Command="{Binding ExportarDadosCommand}" />
+                            <Button Content="Anonimizar cadastro" Margin="8,0,0,0" Style="{StaticResource BotaoPerigo}" MinWidth="170" IsEnabled="{Binding PodeAnonimizar}" Command="{Binding AnonimizarCommand}" />
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0" Text="Anonimizar não tem volta e por isso pede permissão própria — o balcão exporta, a direção elimina." />
+                    </StackPanel>
+                </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+</UserControl>

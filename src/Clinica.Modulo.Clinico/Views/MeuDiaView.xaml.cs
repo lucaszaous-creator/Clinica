@@ -25,9 +25,14 @@ public partial class MeuDiaView : UserControl
         // As ações têm espaço desde a primeira carga, antes de a tabela medir os
         // botões trazidos pela consulta. O restante pertence ao nome e contexto.
         if (TabelaMeuDia.ActualWidth > 0)
-            ColunaPaciente.Width = new DataGridLength(Math.Max(200,
-                TabelaMeuDia.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12
-                - 110 - 160 - 110 - 140));
+        {
+            var larguraFixa = 0d;
+            foreach (var coluna in TabelaMeuDia.Columns)
+                if (coluna != ColunaPaciente && coluna.Visibility == Visibility.Visible)
+                    larguraFixa += Math.Max(coluna.MinWidth, coluna.Width.Value);
+            ColunaPaciente.Width = new DataGridLength(Math.Max(ColunaPaciente.MinWidth,
+                TabelaMeuDia.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12 - larguraFixa));
+        }
     }
 
     public MeuDiaView()

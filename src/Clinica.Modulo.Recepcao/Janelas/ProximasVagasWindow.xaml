@@ -45,7 +45,7 @@
                             <Button Content="{Binding Rotulo}" Tag="{Binding}"
                                     Style="{StaticResource BotaoSecundario}"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                    MinHeight="40" Margin="0,0,0,8"
+                                    MinHeight="48" Padding="16,12" Margin="0,0,0,10"
                                     Click="Vaga_Click" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

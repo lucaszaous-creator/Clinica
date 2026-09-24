@@ -41,6 +41,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clinica.Assinaturas.Api", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clinica.Assinaturas.Tests", "tests\Clinica.Assinaturas.Tests\Clinica.Assinaturas.Tests.csproj", "{C5EC344E-C547-4CAD-A48A-62BF5C6534C2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Clinica.Modulo.Faturamento", "src\Clinica.Modulo.Faturamento\Clinica.Modulo.Faturamento.csproj", "{0C68DCE5-4F0C-40F5-B922-C4A6D3B4A378}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -118,6 +120,10 @@ Global
 		{C5EC344E-C547-4CAD-A48A-62BF5C6534C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C5EC344E-C547-4CAD-A48A-62BF5C6534C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C5EC344E-C547-4CAD-A48A-62BF5C6534C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C68DCE5-4F0C-40F5-B922-C4A6D3B4A378}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C68DCE5-4F0C-40F5-B922-C4A6D3B4A378}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C68DCE5-4F0C-40F5-B922-C4A6D3B4A378}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C68DCE5-4F0C-40F5-B922-C4A6D3B4A378}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A1B2C3D4-1122-4E33-8F44-5A6B7C8D9E05} = {4BC83AA2-19BC-42ED-9373-4FD6EC4A824B}
@@ -137,5 +143,6 @@ Global
 		{1C0F7AAF-652C-4B36-AA1A-E150AC011051} = {4BC83AA2-19BC-42ED-9373-4FD6EC4A824B}
 		{F3A025DD-1DF7-478D-880A-3C8D6E22EAB7} = {4BC83AA2-19BC-42ED-9373-4FD6EC4A824B}
 		{C5EC344E-C547-4CAD-A48A-62BF5C6534C2} = {D1E2CD6F-BE44-4D9B-9019-89B1E25118A6}
+		{0C68DCE5-4F0C-40F5-B922-C4A6D3B4A378} = {4BC83AA2-19BC-42ED-9373-4FD6EC4A824B}
 	EndGlobalSection
 EndGlobal

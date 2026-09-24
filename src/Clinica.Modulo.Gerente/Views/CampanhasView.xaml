@@ -45,11 +45,11 @@
                            Text="O sistema descobre quem contatar, respeita o consentimento de comunicação (LGPD) e nunca repete o mesmo paciente na mesma rodada. O envio continua sendo um clique por pessoa — é o WhatsApp da clínica." />
 
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="Confirmações de amanhã" Command="{Binding GerarConfirmacoesCommand}"
+                    <Button Content="Abrir confirmações da agenda" Command="{Binding GerarConfirmacoesCommand}"
                             MinWidth="200" />
                     <Button Content="NPS de ontem" Command="{Binding GerarNpsCommand}"
                             MinWidth="150" Margin="8,0,0,0" Style="{StaticResource BotaoSecundario}" />
-                    <Button Content="Recall do mês" Command="{Binding GerarRecallCommand}"
+                    <Button Content="Abrir fila de recall" Command="{Binding GerarRecallCommand}"
                             MinWidth="150" Margin="8,0,0,0" Style="{StaticResource BotaoSecundario}" />
                 </StackPanel>
 

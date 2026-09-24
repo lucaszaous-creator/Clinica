@@ -68,6 +68,9 @@ jobs:
       - name: Conferir gestão, pagamentos e estoque no Windows
         run: dotnet run --project tools/ValidarLayoutWindows -c Release -- --gestao
 
+      - name: Conferir navegação dos cinco aplicativos e perfis
+        run: dotnet run --project tools/Clinica.Verificacao.Desktop -c Release -- artifacts/navegacao-desktop
+
       - name: Publicar .exe (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj

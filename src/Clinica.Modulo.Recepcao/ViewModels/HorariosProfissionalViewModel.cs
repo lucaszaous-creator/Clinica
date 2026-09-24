@@ -36,6 +36,13 @@ public sealed partial class HorariosProfissionalViewModel : ObservableObject
     public bool PodeSalvar => Profissional is not null && !Carregando && !Salvando
         && SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
     public bool Alterou { get; private set; }
+    public int? ProfissionalPreferidoId { get; set; }
+    public System.Windows.Input.ICommand? FecharAgendaCommand { get; set; }
+    public bool TemFecharAgenda => FecharAgendaCommand is not null;
+    public ObservableCollection<string> BloqueiosDoProfissional { get; } = [];
+    [ObservableProperty] private string _resumoBloqueios = "Selecione um profissional para consultar os bloqueios.";
+    private int _geracaoBloqueios;
+    private int _geracaoCarga;
 
     public HorariosProfissionalViewModel(IServiceScopeFactory escopos)
     {
@@ -46,6 +53,8 @@ public sealed partial class HorariosProfissionalViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+        var escolhido = Profissional?.Id ?? ProfissionalPreferidoId;
         Carregando = true;
         Profissional = null;
         Profissionais.Clear();
@@ -54,12 +63,14 @@ public sealed partial class HorariosProfissionalViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "configurar horários e travas");
             using var scope = _escopos.CreateScope();
             var lista = await scope.ServiceProvider.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync();
+            if (geracao != _geracaoCarga) return;
             foreach (var p in lista.OrderBy(p => p.Nome)) Profissionais.Add(p);
+            if (escolhido is { } id) Profissional = Profissionais.FirstOrDefault(p => p.Id == id);
             Mensagem = lista.Count == 0 ? "Cadastre um profissional ativo em Profissionais e salas." : "Escolha o profissional que deseja configurar.";
             MensagemEhErro = false;
         }
-        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
-        finally { Carregando = false; }
+        catch (Exception ex) { if (geracao == _geracaoCarga) { Mensagem = ex.Message; MensagemEhErro = true; } }
+        finally { if (geracao == _geracaoCarga) Carregando = false; }
     }
 
     partial void OnProfissionalChanged(Profissional? value)
@@ -70,6 +81,32 @@ public sealed partial class HorariosProfissionalViewModel : ObservableObject
         foreach (var d in Dias) d.Selecionado = value?.DiasDeAtendimento is not null && value.AtendeEm(d.Dia);
         Mensagem = "As regras valem em todos os postos. Horários já marcados são preservados.";
         MensagemEhErro = false;
+        _ = CarregarBloqueiosAsync();
+    }
+
+    [RelayCommand]
+    private async Task CarregarBloqueiosAsync()
+    {
+        var geracao = ++_geracaoBloqueios;
+        BloqueiosDoProfissional.Clear();
+        if (Profissional is not { } p) { ResumoBloqueios = "Selecione um profissional."; return; }
+        ResumoBloqueios = "Consultando os próximos 60 dias…";
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var lista = await scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>()
+                .NoPeriodoAsync(DateTime.Today, DateTime.Today.AddDays(60));
+            if (geracao != _geracaoBloqueios) return;
+            foreach (var b in lista.Where(b => b.AlcancaRecurso(p.Id, null)).OrderBy(b => b.Inicio))
+                BloqueiosDoProfissional.Add($"{b.Inicio:dd/MM HH:mm}–{b.Fim:dd/MM HH:mm} · {b.Motivo}");
+            ResumoBloqueios = BloqueiosDoProfissional.Count == 0 ? "Nenhum bloqueio nos próximos 60 dias." : "Bloqueios do profissional e da clínica nos próximos 60 dias.";
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoBloqueios) return;
+            ResumoBloqueios = "Bloqueios não verificados. Atualize para conferir.";
+            Clinica.Application.Diagnostico.Registrar("Horários e travas — leitura dos bloqueios", ex);
+        }
     }
 
     [RelayCommand]

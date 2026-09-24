@@ -33,11 +33,11 @@ public partial class App : System.Windows.Application
         // marcado com `Inicial` neste executável.
         new ModuloClinico(),
         new ModuloFinanceiro(),
+        new Clinica.Faturamento.Modulo.ModuloFaturamento(),
         // Último de propósito: as telas da direção são as menos usadas no dia a dia, e
         // a sidebar é lida de cima para baixo na ordem do trabalho.
         new ModuloGerente()
-        // A Fase 4 (faturamento como módulo) foi CANCELADA: o Gerente lê o faturamento
-        // pela tela própria do ModuloGerente, sem encostar no app em produção.
+
     ];
 
     protected override async void OnStartup(StartupEventArgs e)

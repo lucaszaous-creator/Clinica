@@ -4,8 +4,9 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             xmlns:local="clr-namespace:Clinica.Recepcao.Views"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
-             Background="{StaticResource Brush.Fundo}">
+             Background="{StaticResource Brush.Fundo}" Language="pt-BR">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
@@ -27,12 +28,13 @@
              em cada um de quarenta cartões é uma tela em que o olho para de distinguir o
              frequente do raro. -->
         <DataTemplate x:Key="CartaoAgendaTemplate" DataType="{x:Type vm:CartaoAgenda}">
-            <Button Style="{StaticResource CartaoDeHorario}"
-                    ToolTip="{Binding Lancamento}"
+            <Button Style="{StaticResource AgendaModeloA.Cartao}"
+                    ToolTip="{Binding Contexto}"
                     Command="{Binding DataContext.AbrirHorarioCommand,
                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}">
                 <StackPanel>
+
                     <!-- DockPanel, não StackPanel horizontal: o horizontal dá ao texto a
                          largura que ele PEDE e o TextTrimming nunca corta (a lição da Fila). -->
                     <DockPanel>
@@ -42,19 +44,15 @@
                                    FontFamily="{StaticResource FonteIcones}"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,3,0"
                                    VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                   Foreground="{StaticResource Brush.Acento}"
                                    ToolTip="Confirmou a presença na rodada de confirmação"
                                    Visibility="{Binding ConfirmouPresenca,
                                                 Converter={StaticResource BoolParaVisibilidade}}" />
-                        <TextBlock Text="{Binding Paciente}"
+                        <TextBlock Text="{Binding TituloPlanejamento}"
                                    TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
                                    FontSize="{StaticResource Fonte.Legenda}" />
                     </DockPanel>
-                    <!-- A linha de contexto abre pela SITUAÇÃO quando já houve alguma
-                         (set/2026), e a COR é a mesma que a lista do dia dá à pílula:
-                         âmbar no local, vermelho chamado, verde em atendimento. Sem cor
-                         a palavra existe e não SALTA, e o que a cliente pediu é ver a
-                         mudança de status de relance, atravessando o dia inteiro. -->
+                    <!-- Modelo A: estados e modalidade continuam identificados por texto; cores em azul e neutros. -->
                     <TextBlock x:Name="contexto" Text="{Binding Contexto}" Margin="0,1,0,0"
                                TextTrimming="CharacterEllipsis"
                                Foreground="{StaticResource Brush.Texto.Secundario}"
@@ -62,8 +60,8 @@
 
                     <!-- Só o que muda a conduta ganha selo. Estado normal não leva selo
                          nenhum: selo em toda linha é selo que ninguém lê. -->
-                    <WrapPanel Margin="0,3,0,0">
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,0"
+                    <WrapPanel x:Name="selos" Margin="0,3,0,0">
+                        <Border Style="{StaticResource AgendaModeloA.Status.Local}" Margin="0,0,4,0"
                                 Visibility="{Binding EhEncaixe,
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Encaixe" />
@@ -71,13 +69,13 @@
                         <!-- Só o que a rodada AFIRMOU: avisado e sem resposta. Sem contato
                              gerado não há selo — acusar de "não confirmou" quem nunca foi
                              avisado seria o selo mentindo (parcela 87). -->
-                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,0"
+                        <Border Style="{StaticResource AgendaModeloA.Status.Local}" Margin="0,0,4,0"
                                 ToolTip="Avisado na rodada de confirmação e ainda sem resposta"
                                 Visibility="{Binding NaoConfirmou,
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Não confirmou" />
                         </Border>
-                        <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,0"
+                        <Border Style="{StaticResource AgendaModeloA.Status}" Margin="0,0,4,0"
                                 ToolTip="Legado: guia não é atendimento — pode apagar"
                                 Visibility="{Binding EhRetornoDoSegundoCodigo,
                                              Converter={StaticResource BoolParaVisibilidade}}">
@@ -87,19 +85,23 @@
                 </StackPanel>
             </Button>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Compacto}" Value="True">
+                    <Setter TargetName="contexto" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="selos" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding Etapa}" Value="Chegou">
                     <Setter TargetName="contexto" Property="Foreground"
-                            Value="{StaticResource Brush.Aviso}" />
+                            Value="{StaticResource Brush.Acento}" />
                     <Setter TargetName="contexto" Property="FontWeight" Value="SemiBold" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Etapa}" Value="Chamado">
                     <Setter TargetName="contexto" Property="Foreground"
-                            Value="{StaticResource Brush.Erro}" />
+                            Value="{StaticResource Brush.Marca.Navy}" />
                     <Setter TargetName="contexto" Property="FontWeight" Value="SemiBold" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Etapa}" Value="EmAtendimento">
                     <Setter TargetName="contexto" Property="Foreground"
-                            Value="{StaticResource Brush.Sucesso.Forte}" />
+                            Value="{StaticResource Brush.Acento}" />
                     <Setter TargetName="contexto" Property="FontWeight" Value="SemiBold" />
                 </DataTrigger>
                 <!-- Concluído e fora do dia ficam no cinza padrão: já aconteceram, e
@@ -107,405 +109,215 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- ============ Uma célula da linha do tempo ============ -->
-        <DataTemplate x:Key="CelulaAgendaTemplate" DataType="{x:Type vm:CelulaAgenda}">
-            <!-- A ORDEM dos filhos é o que decide quem recebe o clique: o Grid empilha na
-                 ordem do XAML e o último desenha por cima. As camadas decorativas vêm
-                 primeiro e são IsHitTestVisible="False" — sem isso a hachura do feriado
-                 comeria o clique do vão que agora é clicável. -->
-            <Grid Margin="1,0">
-                <!-- Continuação: coberto por uma sessão que começou antes. Sem esta faixa,
-                     uma sessão de uma hora deixaria a meia hora seguinte parecendo vaga. -->
-                <Border Background="{StaticResource Brush.Acento.Suave}"
-                        CornerRadius="{StaticResource Raio.Pequeno}"
-                        Margin="0,0,0,1" IsHitTestVisible="False"
-                        Visibility="{Binding Continuacao,
-                                     Converter={StaticResource BoolParaVisibilidade}}" />
-
-                <!-- FORA DO EXPEDIENTE (set/2026): a jornada declarada do profissional da
-                     coluna. Mais leve que o bloqueio — é rotina, não exceção — e SEM texto:
-                     numa agenda de 7h às 20h, quem atende de tarde teria "fora do
-                     expediente" escrito em dezoito vãos. A dica diz. O bloqueio, quando
-                     há, vence e se desenha por cima. -->
-                <!-- Sem ToolTip: com IsHitTestVisible="False" ele nunca apareceria, e
-                     dica que não abre é dica que ninguém sabe que perdeu. Quem diz quando
-                     ele atende é a do "+" (`CelulaAgenda.DicaDoVao`). -->
-                <Border Background="{StaticResource Brush.Raia}"
-                        CornerRadius="{StaticResource Raio.Pequeno}"
-                        Margin="0,0,0,1" IsHitTestVisible="False"
-                        Visibility="{Binding MostrarExpediente,
-                                     Converter={StaticResource BoolParaVisibilidade}}" />
-
-                <!-- AGENDA FECHADA (parcela 63): férias, feriado ou folga. A hachura e o
-                     motivo FICAM — é a informação que faz a recepcionista pensar duas
-                     vezes. O que saiu foi a barreira: desde set/2026 o serviço não recusa
-                     mais, então o vão fechado voltou a ser clicável e o formulário repete
-                     o motivo como aviso. -->
-                <Border Background="{StaticResource Brush.AgendaFechada}"
-                        BorderBrush="{StaticResource Brush.Borda}"
-                        BorderThickness="0,0,0,1"
-                        CornerRadius="{StaticResource Raio.Pequeno}"
-                        Margin="0,0,0,1" Padding="4,0" IsHitTestVisible="False"
-                        Visibility="{Binding MostrarBloqueio,
-                                     Converter={StaticResource BoolParaVisibilidade}}">
-                    <!-- O motivo sobre a hachura leva um fundo próprio: texto direto sobre
-                         a diagonal não se lê (set/2026). -->
-                    <Border Background="{StaticResource Brush.Superficie}"
-                            CornerRadius="{StaticResource Raio.Pequeno}"
-                            Padding="4,1" HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Bloqueio}" VerticalAlignment="Center"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   TextTrimming="CharacterEllipsis" />
-                    </Border>
-                </Border>
-
-                <!-- Vão livre: o clique JÁ abre o formulário nesta hora e nesta coluna.
-                     É o gesto que a agenda existe para ter. O botão fica quase invisível
-                     até o mouse chegar — um "+" aceso em cada vão de um dia vazio seria
-                     uma tela de sinais de mais. -->
-                <Button Style="{StaticResource VaoLivre}"
-                        Visibility="{Binding PodeMarcar,
-                                     Converter={StaticResource BoolParaVisibilidade}}"
-                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
-                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        ToolTip="{Binding DicaDoVao}"
-                        Command="{Binding DataContext.AgendarNaFaixaCommand,
-                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}">
-                    <TextBlock Text="+" FontSize="{StaticResource Fonte.H3}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                </Button>
-
-                <!-- Ocupado. Mais de um cartão só quando houve encaixe — e aí eles se
-                     empilham e a faixa inteira cresce, que é honesto: dois pacientes na
-                     mesma meia hora ocupam mesmo o dobro. -->
-                <ItemsControl ItemsSource="{Binding Cartoes}"
-                              ItemTemplate="{StaticResource CartaoAgendaTemplate}" />
-
-                <!-- MAIS UM NO MESMO HORÁRIO (set/2026): o vão ocupado continua sendo vão
-                     livre. Pedido da clínica — na acupuntura o paciente fica na maca com
-                     as agulhas enquanto outro é atendido —, e sem este botão tirar a
-                     recusa do serviço resolveria metade: a recepcionista veria o vão
-                     tomado e nem tentaria.
-                     Pequeno e no canto de propósito: ele divide a célula com o cartão, e o
-                     clique no cartão (que abre a janela do horário) continua sendo o gesto
-                     principal. É o ÚLTIMO filho, senão o cartão o cobriria. -->
-                <Button Style="{StaticResource VaoMaisUm}"
-                        Visibility="{Binding PodeSobrepor,
-                                     Converter={StaticResource BoolParaVisibilidade}}"
-                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
-                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        ToolTip="{Binding DicaDeSobrepor}"
-                        Command="{Binding DataContext.AgendarNaFaixaCommand,
-                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                        CommandParameter="{Binding}">
-                    <TextBlock Text="+" FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                </Button>
-            </Grid>
-        </DataTemplate>
-
-        <!-- ============ Uma faixa (linha) da grade ============ -->
-        <DataTemplate x:Key="FaixaAgendaTemplate" DataType="{x:Type vm:FaixaAgenda}">
-            <!-- Grid, e não DockPanel puro: a linha do AGORA é uma SOBREPOSIÇÃO, e
-                 sobreposição só existe num pai que empilha (checagem 25). Ela é o ÚLTIMO
-                 filho e não recebe clique — o vão continua clicável por baixo dela. -->
-            <Grid>
-            <DockPanel>
-                <!-- A régua. A meia hora não repete o número: a linha mais forte da hora
-                     cheia já separa os blocos, e "09:30" abaixo de "09:00" só engorda a
-                     coluna sem dizer nada que a posição não diga. -->
-                <Border DockPanel.Dock="Left" Width="{StaticResource LarguraRegua}"
-                        Padding="0,4,10,0">
-                    <StackPanel>
-                        <TextBlock Text="{Binding Rotulo}" HorizontalAlignment="Right"
-                                   TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
-                        <!-- A pílula "agora" na régua, na faixa em que a hora atual cai
-                             (set/2026). Só hoje, só no modo dia — a VM decide. -->
-                        <Border Background="{StaticResource Brush.Erro}"
-                                CornerRadius="{StaticResource Raio.Pequeno}"
-                                Padding="5,1" HorizontalAlignment="Right" Margin="0,2,0,0"
-                                Visibility="{Binding Agora,
-                                             Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="agora" FontWeight="Bold"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Foreground="{StaticResource Brush.Texto.Invertido}" />
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- A linha da hora cheia é mais forte; a da meia, um fio. -->
-                <Border BorderBrush="{StaticResource Brush.Borda}" MinHeight="46">
-                    <Border.Style>
-                        <Style TargetType="Border">
+        <DataTemplate x:Key="BlocoPlanejamentoTemplate" DataType="{x:Type vm:BlocoAgendaVisual}">
+            <Grid ClipToBounds="True">
+                <Button Command="{Binding DataContext.AgendarNaFaixaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding Celula}" ToolTip="{Binding Detalhe}"
+                        Visibility="{Binding TemVao, Converter={StaticResource BoolParaVisibilidade}}"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center" Padding="10,4">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                            <Setter Property="IsEnabled" Value="False" />
+                            <Setter Property="Background" Value="{StaticResource Brush.Fundo}" />
                             <Setter Property="BorderThickness" Value="0,0,0,1" />
-                            <Setter Property="Opacity" Value="0.55" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding HoraCheia}" Value="True">
-                                    <Setter Property="Opacity" Value="1" />
+                                <DataTrigger Binding="{Binding Bloqueado}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                                    <Setter Property="BorderThickness" Value="1" />
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding Disponivel}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+                                    <Setter Property="BorderThickness" Value="1" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Marca.Medio}" />
+                                </DataTrigger>
+                                <MultiDataTrigger><MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding Celula.PodeMarcar}" Value="True" />
+                                    <Condition Binding="{Binding DataContext.PodeEditarAgenda, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True" />
+                                    <Condition Binding="{Binding DataContext.DisponibilidadeNaoVerificada, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False" />
+                                </MultiDataTrigger.Conditions><Setter Property="IsEnabled" Value="True" /></MultiDataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </Border.Style>
-
-                    <!-- Colunas de largura IGUAL: é o que faz o cabeçalho e todas as
-                         faixas ficarem no mesmo prumo sem uma única SharedSizeGroup. -->
-                    <ItemsControl ItemsSource="{Binding Celulas}"
-                                  ItemTemplate="{StaticResource CelulaAgendaTemplate}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Rows="1" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
+                    </Button.Style>
+                    <TextBlock Text="{Binding Rotulo}" TextTrimming="CharacterEllipsis" FontSize="{StaticResource Fonte.Legenda}" />
+                </Button>
+                <Border Visibility="{Binding TemCartao, Converter={StaticResource BoolParaVisibilidade}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ContentPresenter Content="{Binding Cartao}" ContentTemplate="{StaticResource CartaoAgendaTemplate}" />
+                        <Button Grid.Column="1" Content="+" Width="28" Height="26" MinHeight="0" Padding="0" Margin="2,2,0,0" VerticalAlignment="Top"
+                                Command="{Binding DataContext.AgendarNaFaixaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Encaixe}" Visibility="{Binding PodeSobrepor, Converter={StaticResource BoolParaVisibilidade}}"
+                                AutomationProperties.Name="Marcar mais um paciente neste horário" ToolTip="Marcar mais um paciente neste horário">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding DataContext.PodeEditarAgenda, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True" />
+                                    <Condition Binding="{Binding DataContext.DisponibilidadeNaoVerificada, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False" />
+                                </MultiDataTrigger.Conditions><Setter Property="IsEnabled" Value="True" /></MultiDataTrigger></Style.Triggers>
+                            </Style></Button.Style>
+                        </Button>
+                    </Grid>
                 </Border>
-            </DockPanel>
-
-            <!-- A LINHA DO AGORA (set/2026 — mockup aprovado): um fio vermelho de 2 px no
-                 topo da faixa em que a hora atual cai, atravessando as colunas a partir da
-                 régua. Marca a FAIXA, não o minuto: a faixa tem 30 min e cresce com o
-                 encaixe, e posicionar ao minuto exigiria medir a altura — precisão que a
-                 pergunta ("onde estamos no dia?") não pede. `IsHitTestVisible=False`: o
-                 vão embaixo dela continua clicável. -->
-            <DockPanel VerticalAlignment="Top" IsHitTestVisible="False"
-                       Visibility="{Binding Agora,
-                                    Converter={StaticResource BoolParaVisibilidade}}">
-                <!-- O MESMO espaçador de régua do cabeçalho das colunas: a linha começa
-                     onde a primeira coluna começa. -->
-                <Border DockPanel.Dock="Left" Width="{StaticResource LarguraRegua}" />
-                <Border BorderBrush="{StaticResource Brush.Erro}" BorderThickness="0,2,0,0" />
-            </DockPanel>
             </Grid>
         </DataTemplate>
-
-        <!-- ============ Cabeçalho de uma coluna ============ -->
-        <DataTemplate x:Key="CabecalhoColunaTemplate" DataType="{x:Type vm:ColunaAgenda}">
-            <!-- O avatar do profissional abre a coluna (set/2026): iniciais em azul sólido,
-                 para a coluna se achar de relance numa grade de seis. Só onde a coluna É de
-                 um profissional — por sala, por dia e em "Sem profissional" ele some, e
-                 quem decide é o OBJETO (conversor de objeto, não o de texto). -->
-            <DockPanel Margin="2,0,2,8">
-                <ctrl:Avatar DockPanel.Dock="Left" Tamanho="28" Margin="0,0,8,0"
-                             VerticalAlignment="Center"
-                             Nome="{Binding Nome}"
-                             Fundo="{StaticResource Brush.Acento}"
-                             Tinta="{StaticResource Brush.Texto.Invertido}"
-                             Visibility="{Binding Profissional,
-                                          Converter={StaticResource ObjetoParaVisibilidade}}" />
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
-                    <TextBlock Text="{Binding Resumo}"
-                               TextTrimming="CharacterEllipsis"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                    <!-- O que está fechado neste dia (set/2026). Sem esta linha, um dia de
-                         férias aparece só com menos horários — e menos horários se lê como
-                         "ninguém marcou". -->
-                    <TextBlock Text="{Binding Fechamentos}"
-                               TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding Fechamentos}"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Aviso}"
-                               Visibility="{Binding TemFechamentos,
-                                            Converter={StaticResource BoolParaVisibilidade}}" />
-                </StackPanel>
-            </DockPanel>
-        </DataTemplate>
+        <Style x:Key="ModoDiaPlanejamento" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+            <Style.Triggers><DataTrigger Binding="{Binding ModoSemana}" Value="False">
+                <Setter Property="Background" Value="{StaticResource Brush.Acento}" /><Setter Property="Foreground" Value="{StaticResource Brush.Texto.Invertido}" />
+            </DataTrigger></Style.Triggers>
+        </Style>
+        <Style x:Key="ModoSemanaPlanejamento" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+            <Style.Triggers><DataTrigger Binding="{Binding ModoSemana}" Value="True">
+                <Setter Property="Background" Value="{StaticResource Brush.Acento}" /><Setter Property="Foreground" Value="{StaticResource Brush.Texto.Invertido}" />
+            </DataTrigger></Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <DockPanel Margin="24">
-
-        <!-- ============ Cabeçalho ============ -->
-        <!-- DockPanel, e não Grid: o WrapPanel precisa ser o filho que PREENCHE para
-             receber uma largura finita na medição. Numa coluna `Auto` (ou docado à
-             direita) ele mede com largura infinita, nunca dobra a linha e empurra o
-             título para fora da tela — o defeito é invisível no monitor de quem programa
-             e aparece no de 1366 px do balcão. -->
-        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0">
-                <TextBlock Text="Agenda" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" Margin="0" />
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Agenda" Style="{StaticResource H1}" Margin="0" />
+                <TextBlock Text="{Binding ResumoPlanejamento}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" />
             </StackPanel>
-
-            <!-- Os controles quebram para a linha de baixo em vez de saírem pela direita:
-                 são nove, e num monitor de 1366 px eles não cabem numa linha só. -->
-            <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Button Content="◀" AutomationProperties.Name="Dia anterior" Command="{Binding DiaAnteriorCommand}"
-                        Style="{StaticResource BotaoSecundario}" Width="40"
-                        VerticalAlignment="Center" Margin="0,0,0,4" />
-                <Border Background="{StaticResource Brush.Superficie}"
-                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                        CornerRadius="{StaticResource Raio.Medio}"
-                        Padding="16,8" Margin="8,0,8,4" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Texto.Primario}"
-                               VerticalAlignment="Center" TextWrapping="Wrap"
-                               HorizontalAlignment="Left" />
-                </Border>
-                <Button Content="▶" AutomationProperties.Name="Próximo dia" Command="{Binding ProximoDiaCommand}"
-                        Style="{StaticResource BotaoSecundario}" Width="40"
-                        VerticalAlignment="Center" Margin="0,0,0,4" />
-                <Button Content="Hoje" Command="{Binding HojeCommand}"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Center" Margin="8,0,0,4" />
-
-                <!-- Dia ou semana. No modo semana as colunas passam a ser os DIAS: é a
-                     forma de responder "quando ele tem vaga?", que no modo dia se
-                     responde clicando de dia em dia até achar. -->
-                <CheckBox Content="Ver a semana" IsChecked="{Binding ModoSemana}"
-                          VerticalAlignment="Center" Margin="16,0,0,4" />
-
-                <!-- As colunas viram as SALAS (parcela 63) — a metade da feature 02 da
-                     proposta que nunca existiu. Responde "a sala de infusão está livre às
-                     14h?", que na grade por profissional se responde varrendo seis colunas
-                     e lendo o rodapé de cada cartão.
-                     Desabilitada na semana: lá as colunas já são os dias, e cruzar as duas
-                     daria uma grade sala × dia que não cabe em coluna nenhuma. -->
-                <CheckBox Content="Ver por sala" IsChecked="{Binding AgruparPorSala}"
-                          IsEnabled="{Binding PodeAgruparPorSala}"
-                          ToolTip="Uma coluna por sala, em vez de uma por profissional. Vale no modo dia."
-                          VerticalAlignment="Center" Margin="16,0,0,4" />
-
-                <!-- Só aparece para quem entrou como profissional: no balcão a agenda
-                     é da clínica inteira e a caixa não teria sentido. -->
-                <CheckBox Content="Ver todos os profissionais"
-                          IsChecked="{Binding MostrarTodosOsProfissionais}"
-                          VerticalAlignment="Center" Margin="16,0,0,4"
-                          Visibility="{Binding SoMinhaAgenda, Converter={StaticResource BoolParaVisibilidade}}" />
-
-                <!-- A lista de espera saiu da faixa lateral de 320 px e virou botão: ela
-                     se consulta quando um horário VAGA, e a agenda é o que se olha o
-                     tempo todo. O rótulo carrega a contagem e o horário em foco. -->
-                <Button Content="{Binding EsperaResumo}" Margin="16,0,0,4"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Center"
-                        ToolTip="Quem está esperando por um horário que vague"
-                        Command="{Binding AbrirEsperaCommand}" />
-
-                <!-- A rodada de amanhã: quem confirma as sessões é quem está no balcão,
-                     e até aqui essa tela só existia no Gerente Geral. -->
-                <Button Content="Confirmar amanhã…" Margin="8,0,0,4"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Center"
-                        Command="{Binding ConfirmarSessoesCommand}" />
-                <!-- O que ficou pendurado entre a agenda e os atendimentos (parcela
-                     93). Fila de tempos em tempos, então JANELA — não item de menu. -->
-                <Button Content="Conciliar agenda…" Margin="8,0,0,4"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Center"
-                        ToolTip="Horários cuja data passou e ninguém resolveu"
-                        Command="{Binding ConciliarAgendaCommand}" />
-                <!-- A folha que o profissional leva para a sala. Toda clínica imprime
-                     essa folha; nesta, a secretária copiava a agenda num bloco. -->
-                <Button Content="Imprimir folha" Margin="8,0,0,4"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Center"
-                        Command="{Binding ImprimirAgendaCommand}" />
-                <!-- Férias, feriado, folga (parcela 62): o bloqueio existia desde a
-                     parcela 26 com a única porta atrás de `GerenciarEquipe`, bit que o
-                     balcão não tem — a feature era do balcão e o balcão não a alcançava. -->
-                <Button Content="Fechar agenda…" Margin="8,0,0,4"
-                        Style="{StaticResource BotaoSecundario}"
-                        VerticalAlignment="Center"
-                        IsEnabled="{Binding PodeEditarAgenda}"
-                        ToolTip="Férias, feriado ou folga: a agenda passa a recusar marcação no período. Quem já estava marcado continua — e a janela diz quem é."
-                        Command="{Binding FecharAgendaCommand}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="Horários e travas" Command="{Binding ConfigurarHorariosCommand}"
-                        IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,4" />
-                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
-                        IsEnabled="{Binding PodeEditarAgenda}"
-                        VerticalAlignment="Center" Margin="8,0,0,4" />
+                        IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
+                <Button Content="Agendar" Command="{Binding MarcarAtendimentoCommand}" IsEnabled="{Binding PodeMarcarAtendimento}" MinWidth="120" />
+            </StackPanel>
+        </Grid>
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,14">
+            <WrapPanel>
+                <StackPanel Width="260" Margin="0,0,12,4">
+                    <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding FiltroProfissionais}" SelectedItem="{Binding FiltroProfissional}" DisplayMemberPath="Nome" AutomationProperties.Name="Profissional da agenda" />
+                </StackPanel>
+                <StackPanel Width="190" Margin="0,0,12,4">
+                    <TextBlock Text="Atendimento" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding ModalidadesPlanejamento}" SelectedItem="{Binding ModalidadePlanejamento}" DisplayMemberPath="Nome" AutomationProperties.Name="Modalidade para agendar" />
+                </StackPanel>
+                <StackPanel Width="90" Margin="0,0,12,4">
+                    <TextBlock Text="Duração (min)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding DuracaoPlanejamento, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Duração para consultar vagas" MaxLength="3" />
+                </StackPanel>
+                <StackPanel Width="200" Margin="0,0,12,4">
+                    <TextBlock Text="Sala" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding FiltroSalas}" SelectedItem="{Binding FiltroSala}" DisplayMemberPath="Nome" AutomationProperties.Name="Sala da agenda" />
+                </StackPanel>
+                <Button Content="Próximas vagas" Command="{Binding BuscarVagasPlanejamentoCommand}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
             </WrapPanel>
-        </DockPanel>
-
-        <!-- Erro inline -->
-        <Border DockPanel.Dock="Top" Margin="0,0,0,16"
-                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                             FallbackValue=Collapsed}">
-            <Border.Style>
-                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
-
-        <!-- Sem SALA cadastrada, na visão por sala: grade vazia se lê como defeito, não
-             como cadastro faltando (parcela 63). -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,16"
-                Visibility="{Binding SemSalas, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                       Text="Nenhuma sala cadastrada ainda. Cadastre em Profissionais e salas — é o que dá colunas a esta visão. Os horários sem sala continuam aparecendo na coluna &quot;Sem sala&quot;." />
+        <Expander DockPanel.Dock="Top" Header="Operações da agenda" Margin="0,0,0,12">
+            <WrapPanel Margin="0,8,0,0">
+                <Button Content="{Binding EsperaResumo}" Command="{Binding AbrirEsperaCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+                <Button Content="Confirmar amanhã…" Command="{Binding ConfirmarSessoesCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+                <Button Content="Conferir atendimentos…" Command="{Binding ConciliarAgendaCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+                <Button Content="Imprimir folha" Command="{Binding ImprimirAgendaCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+                <Button Content="Fechar agenda…" Command="{Binding FecharAgendaCommand}" IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}" IsEnabled="{Binding PodeEditarAgenda}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,6" />
+            </WrapPanel>
+        </Expander>
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,12"
+                Visibility="{Binding DisponibilidadeNaoVerificada, Converter={StaticResource BoolParaVisibilidade}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Tentar novamente" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" Margin="12,0,0,0" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Disponibilidade não verificada" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding UltimaLeitura}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+            </DockPanel>
         </Border>
-
-        <!-- Sem profissional cadastrado: a grade não tem colunas e a tela precisa dizer por quê -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,16"
-                Visibility="{Binding SemProfissionais, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                       Text="Nenhum profissional cadastrado ainda. Cadastre a equipe em Profissionais e salas — é o que dá colunas a esta agenda." />
-        </Border>
-
-        <!-- ============ A LINHA DO TEMPO ============
-             A agenda deixou de ser uma pilha de cartões e virou grade: as horas descem
-             pela régua da esquerda, os profissionais (ou os dias, no modo semana) são as
-             colunas, e o VAZIO tem tamanho. É a diferença entre "quais horários existem"
-             e "quando cabe", que é a pergunta do balcão com o paciente na frente.
-
-             As colunas têm largura IGUAL (UniformGrid), que é o que mantém cabeçalho e
-             faixas no mesmo prumo sem SharedSizeGroup nenhuma. Abaixo do piso de 190 px
-             por coluna o nome do paciente vira reticências, então quem cede é a tela: a
-             grade rola na horizontal. -->
-
-        <!-- A legenda das famílias fica SEMPRE (decisão da direção). Ancorada embaixo e
-             declarada ANTES do miolo que preenche — senão o miolo a come (parcela 47). -->
-        <comp:LegendaFamiliasView DockPanel.Dock="Bottom" Margin="0,10,0,0" ComGrade="True" />
-
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Mensagem}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8"
+                   Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}" />
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding UltimaLeitura}" Style="{StaticResource TextoSuave}" TextTrimming="CharacterEllipsis" Margin="0,10,0,0" />
         <Grid>
-            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto">
-                <DockPanel MinWidth="{Binding LarguraGrade}">
-
-                    <!-- O cabeçalho das colunas rola JUNTO com a grade, de propósito: um
-                         cabeçalho congelado exigiria dois ScrollViewers sincronizados à
-                         mão na horizontal, e é assim que cabeçalho e coluna saem do
-                         prumo. Ele é o mesmo UniformGrid das faixas, com o mesmo
-                         espaçador de régua — as duas metades do mesmo alinhamento. -->
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
-                        <Border DockPanel.Dock="Left" Width="{StaticResource LarguraRegua}" />
-                        <ItemsControl ItemsSource="{Binding Colunas}"
-                                      ItemTemplate="{StaticResource CabecalhoColunaTemplate}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Rows="1" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </DockPanel>
-
-                    <ItemsControl ItemsSource="{Binding Faixas}"
-                                  ItemTemplate="{StaticResource FaixaAgendaTemplate}"
-                                  VerticalAlignment="Top" />
+            <Grid.ColumnDefinitions><ColumnDefinition x:Name="ColunaCalendario" Width="224" /><ColumnDefinition Width="*" /><ColumnDefinition x:Name="ColunaVagas" Width="264" /></Grid.ColumnDefinitions>
+            <Border x:Name="LateralCalendario" Style="{StaticResource Card}" Padding="12" Margin="0,0,14,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Calendar SelectedDate="{Binding Dia}" DisplayDate="{Binding Dia}" SelectionMode="SingleDate" HorizontalAlignment="Center" />
+                        <Button Content="Ir para hoje" Command="{Binding HojeCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,10,0,16" />
+                        <TextBlock Text="{Binding ProfissionalEmFocoNome}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding JornadaPlanejamento}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,10" />
+                        <Border Style="{StaticResource AgendaModeloA.Status.Local}"><TextBlock Text="{Binding TravaPlanejamento}" TextWrapping="Wrap" /></Border>
+                        <Separator Margin="0,16" />
+                        <TextBlock Text="Disponibilidade" FontWeight="SemiBold" />
+                        <TextBlock Text="Ocupado: bloco com duração completa.&#10;&#10;Disponível: cabe a duração consultada.&#10;&#10;Bloqueado ou fora do expediente: identificado por texto." Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                        <TextBlock Text="{Binding SalaPlanejamento}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,16,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource Card}" Padding="0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1" Padding="12">
+                        <WrapPanel>
+                            <Button Content="‹" Command="{Binding DiaAnteriorCommand}" Style="{StaticResource BotaoSecundario}" AutomationProperties.Name="Período anterior" Margin="0,0,6,6" />
+                            <DatePicker SelectedDate="{Binding Dia}" Width="135" AutomationProperties.Name="Data da agenda" Margin="0,0,6,6" />
+                            <Button Content="›" Command="{Binding ProximoDiaCommand}" Style="{StaticResource BotaoSecundario}" AutomationProperties.Name="Próximo período" Margin="0,0,10,6" />
+                            <Button Content="Dia" Command="{Binding VerDiaPlanejamentoCommand}" Style="{StaticResource ModoDiaPlanejamento}" Margin="0,0,6,6" />
+                            <Button Content="Semana" Command="{Binding VerSemanaPlanejamentoCommand}" Style="{StaticResource ModoSemanaPlanejamento}" Margin="0,0,10,6" />
+                            <CheckBox Content="Por sala" IsChecked="{Binding AgruparPorSala}" IsEnabled="{Binding PodeAgruparPorSala}" VerticalAlignment="Center" Margin="0,0,10,6" />
+                            <Button Content="Atualizar" Command="{Binding CarregarCommand}" Style="{StaticResource BotaoSecundario}" Margin="0,0,0,6" />
+                        </WrapPanel>
+                    </Border>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" TextTrimming="CharacterEllipsis" Margin="12,8" />
+                    <Grid>
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <Grid MinWidth="{Binding LarguraGrade}" VerticalAlignment="Top">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="64" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <ItemsControl ItemsSource="{Binding ReguaPlanejamento}" Height="{Binding AlturaPlanejamento}" Margin="0,64,0,0">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemContainerStyle><Style TargetType="ContentPresenter"><Setter Property="Canvas.Top" Value="{Binding Topo}" /></Style></ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding Rotulo}" Style="{StaticResource TextoSuave}" Margin="10,4,0,0" /></DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl Grid.Column="1" ItemsSource="{Binding ColunasPlanejamento}">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel>
+                                                <Border Height="64" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,1" Background="{StaticResource Brush.Fundo}" Padding="10,8">
+                                                    <StackPanel><TextBlock Text="{Binding Nome}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Nome}" /><TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" /></StackPanel>
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding Blocos}" ItemTemplate="{StaticResource BlocoPlanejamentoTemplate}"
+                                                              Height="{Binding DataContext.AlturaPlanejamento, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><local:LinhaTempoAgendaPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </ScrollViewer>
+                        <ctrl:EstadoDaTela Itens="{Binding ColunasPlanejamento}" Carregando="{Binding Carregando}"
+                                           Glifo="&#xE787;" TextoCarregando="Montando a agenda…"
+                                           Titulo="Nenhuma coluna para este filtro" Descricao="Confira o profissional ou a sala escolhida." />
+                    </Grid>
                 </DockPanel>
-            </ScrollViewer>
-
-            <ctrl:EstadoDaTela Itens="{Binding Colunas}"
-                               Carregando="{Binding Carregando}"
-                               NaoVerificado="{Binding NaoVerificado}"
-                               Glifo="&#xE787;"
-                               TextoCarregando="Montando a agenda…"
-                               Titulo="Nenhum horário neste dia"
-                               Descricao="Bloqueio de férias ou feriado aparece marcado — e o encaixe fura o bloqueio quando a recepção assume." />
+            </Border>
+            <Border x:Name="LateralVagas" Grid.Column="2" Style="{StaticResource Card}" Padding="16" Margin="14,0,0,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock Text="Próximas vagas" Style="{StaticResource H2}" />
+                        <TextBlock Text="{Binding ResumoPlanejamento}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,6,0,8" />
+                        <TextBlock Text="{Binding SalaPlanejamento}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <TextBlock Text="{Binding EstadoVagas}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,12,0,8" AutomationProperties.LiveSetting="Polite" />
+                        <Button Content="Ver mais dias e horários" Command="{Binding BuscarVagasPlanejamentoCommand}" Style="{StaticResource BotaoSecundario}" Padding="8" />
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding VagasPlanejamento}">
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <Button Command="{Binding DataContext.EscolherVagaPlanejamentoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" IsEnabled="{Binding DataContext.PodeEditarAgenda, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Style="{StaticResource BotaoSecundario}" HorizontalContentAlignment="Left" Padding="12" Margin="0,0,0,10">
+                                    <StackPanel><TextBlock Text="{Binding Inicio, StringFormat='{}{0:ddd dd/MM · HH:mm}'}" FontWeight="SemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding Fim, StringFormat='Até {0:HH:mm} · escolher horário'}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel>
+                                </Button>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
         </Grid>
     </DockPanel>
 </UserControl>

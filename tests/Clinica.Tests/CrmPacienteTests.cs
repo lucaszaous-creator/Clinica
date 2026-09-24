@@ -80,6 +80,8 @@ public class CrmPacienteTests : IDisposable
         var p = await CriarAsync();
         p.Origem = OrigemPaciente.Indicacao;
         p.IndicadoPor = "Dra. Helena (ortopedia)";
+        p.Documento = "52998224725";
+        p.Endereco = "Rua de Teste, 1, Centro, Macaé, RJ";
         await _pacientes.AtualizarAsync(p);
 
         var lido = await _repo.ObterPacienteAsync(p.Id);
@@ -90,10 +92,11 @@ public class CrmPacienteTests : IDisposable
     [Fact]
     public async Task Origem_NaoQuebraOQueJaEstavaCadastrado()
     {
-        // A migration é aditiva e as colunas são anuláveis: o paciente cadastrado antes
-        // da parcela continua carregando e salvando como sempre.
+        // Completar os campos obrigatórios de uma ficha antiga mantém a origem ausente.
         var p = await CriarAsync("Paciente antigo");
         p.Telefone = "21999998888";
+        p.Documento = "52998224725";
+        p.Endereco = "Rua de Teste, 1, Centro, Macaé, RJ";
         await _pacientes.AtualizarAsync(p);
 
         var lido = await _repo.ObterPacienteAsync(p.Id);

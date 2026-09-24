@@ -37,6 +37,20 @@ public sealed partial class ShellViewModel : ObservableObject
     /// troque de aba em vez de reconstruir tudo.
     /// </summary>
     private ItemMenuModulo? _itemAtual;
+    private readonly List<(ItemMenuModulo Item, object Tela)> _historico = [];
+    private bool Voltar()
+    {
+        if (_historico.Count == 0) return false;
+        var anterior = _historico[^1];
+        _historico.RemoveAt(_historico.Count - 1);
+        _itemAtual = anterior.Item;
+        TelaAtual = anterior.Tela;
+        TituloTela = anterior.Item.Rotulo;
+        ModuloAtual = GruposSidebar.Rotulo(anterior.Item.Grupo);
+        GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(anterior.Item)) ?? GrupoSelecionado;
+        foreach (var item in Itens) item.EstaAtivo = ReferenceEquals(item, anterior.Item);
+        return true;
+    }
 
     /// <summary>Título da janela (nome do app, ex.: "Recepção").</summary>
     public string Titulo { get; }
@@ -114,7 +128,8 @@ public sealed partial class ShellViewModel : ObservableObject
         foreach (var modulo in _modulos)
         {
             // Pode() já libera quando não há sessão autenticada — a regra mora nela.
-            foreach (var item in modulo.Itens.Where(i => sessao?.Pode(i.Requer) != false
+            foreach (var item in modulo.Itens.Select(OrganizacaoNavegacao.Aplicar).Where(i => sessao?.Pode(i.Requer) != false
+                && (i.RequerAlgum == Permissao.Nenhuma || sessao?.PodeAlgum(i.RequerAlgum) != false)
                 && (i.PerfilExclusivo is null || sessao?.Perfil == i.PerfilExclusivo)))
             {
                 // Dois módulos podem publicar a MESMA chave quando a tela subiu para o
@@ -144,7 +159,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // abriria uma régua de abas vazia, que se lê como tela quebrada. Este filtro roda
         // DEPOIS do laço acima porque só então `Itens` conhece todas as chaves.
         var compostos = Itens
-            .Where(i => !i.Oculto && i.Abas.Count > 0 && AbasDisponiveis(i).Count > 0)
+            .Where(i => !i.Oculto && !(i.Chave == "consultorio-agenda" && Itens.Any(x => x.Chave == "agenda" && !x.Oculto)) && i.Abas.Count > 0 && AbasDisponiveis(i).Count > 0)
             .ToList();
 
         // ⚠️ A TELA ÓRFÃ — a armadilha desta parcela, e ela é a nona ocorrência do defeito
@@ -168,6 +183,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         Grupos = Itens
             .Where(i => !i.Oculto
+                        && !(i.Chave == "consultorio-agenda" && Itens.Any(x => x.Chave == "agenda" && !x.Oculto))
                         && !reivindicadas.Contains(i.Chave)
                         && (i.Abas.Count == 0 || AbasDisponiveis(i).Count > 0))
             .GroupBy(i => i.Grupo)
@@ -186,7 +202,7 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // Uma tela pode pedir para abrir outra (o painel da direção leva ao assunto do
         // alerta). Ligado aqui porque é este objeto que sabe navegar.
-        NavegacaoSuite.Ligar(IrPara);
+        NavegacaoSuite.Ligar(IrPara, Voltar);
 
         // Abre no item marcado como inicial; sem ele — ou sem permissão para vê-lo —, no
         // primeiro disponível, como sempre. Existe porque o Gerente Geral carrega os três
@@ -231,6 +247,7 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     private bool IrPara(string chave, bool apenasConferir)
     {
+        if (!Itens.Any(i => i.Chave == chave)) return false;
         var pai = Grupos
             .SelectMany(g => g.Itens)
             .FirstOrDefault(i => i.Abas.Any(a => a.Chave == chave));
@@ -256,23 +273,29 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public void Navegar(ItemMenuModulo? item, int abaInicial)
     {
-        if (item is null) return;
+        if (item is null || !Itens.Contains(item)) return;
         GrupoSelecionado = Grupos.FirstOrDefault(g => g.Itens.Contains(item)) ?? GrupoSelecionado;
 
         // Clicar de novo no item já aberto só troca de aba — remontar a tela do zero
         // jogaria fora o que a pessoa tivesse digitado nas outras abas.
-        if (ReferenceEquals(_itemAtual, item) && TelaAtual is not null)
+        if (ReferenceEquals(_itemAtual, item) && TelaAtual is not null
+            && !(TelaAtual is System.Windows.FrameworkElement { DataContext: IContextoPaciente contexto }
+                && _servicos.GetService<PacienteEmFoco>() is { } foco && !contexto.Corresponde(foco)))
         {
             if (TelaAtual is TelaComAbas jaAberta) jaAberta.Selecionar(abaInicial);
             return;
         }
 
-        _itemAtual = item;
-        foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
-
         var tela = item.Abas.Count > 0 ? MontarComposta(item, abaInicial) : MontarTela(item);
         if (tela is null) return;
 
+        if (_itemAtual is not null && TelaAtual is not null)
+        {
+            _historico.Add((_itemAtual, TelaAtual));
+            if (_historico.Count > 8) _historico.RemoveAt(0);
+        }
+        _itemAtual = item;
+        foreach (var i in Itens) i.EstaAtivo = ReferenceEquals(i, item);
         TelaAtual = tela;
         TituloTela = item.Rotulo;
         ModuloAtual = GruposSidebar.Rotulo(item.Grupo);

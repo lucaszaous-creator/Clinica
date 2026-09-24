@@ -222,9 +222,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
     // ------------------------------------------------------------------ rodadas
 
     [RelayCommand]
-    private async Task GerarConfirmacoesAsync()
-        => await GerarAsync(async campanhas =>
-            await campanhas.GerarConfirmacoesAsync(DateOnly.FromDateTime(DateTime.Today.AddDays(1))));
+    private void GerarConfirmacoes() => Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.ConfirmacoesAgenda);
 
     [RelayCommand]
     private async Task GerarNpsAsync()
@@ -232,14 +230,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
             await campanhas.GerarNpsAsync(DateOnly.FromDateTime(DateTime.Today.AddDays(-1))));
 
     [RelayCommand]
-    private async Task GerarRecallAsync()
-        => await GerarAsync(async campanhas =>
-        {
-            using var scope = _escopos.CreateScope();
-            var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
-            var dias = await parametros.ObterDiasInatividadeRecallAsync();
-            return await campanhas.GerarRecallAsync(DateOnly.FromDateTime(DateTime.Today), dias);
-        });
+    private void GerarRecall() => Clinica.Desktop.Shell.Modulos.NavegacaoSuite.Ir(Clinica.Desktop.Shell.Modulos.ChavesSuite.RetornoPacientes);
 
     private async Task GerarAsync(Func<CampanhaService, Task<Clinica.Application.Modelos.ResultadoCampanha>> rodada)
     {

@@ -35,6 +35,8 @@ public sealed class CartaoAgenda
 
     /// <summary>Fim previsto — é o que dá ao cartão a ALTURA dele na linha do tempo.</summary>
     public required DateTime Fim { get; init; }
+    public bool Compacto => (Fim - DataHora).TotalMinutes <= 30;
+    public string TituloPlanejamento => (EhEncaixe ? "Encaixe · " : "") + $"{Faixa} · {Paciente}";
 
     public required string Modalidade { get; init; }
 
@@ -319,6 +321,20 @@ public sealed class LinhaListaEspera
 /// </summary>
 public sealed partial class AgendaViewModel : ObservableObject
 {
+    [RelayCommand] private void VerDiaPlanejamento() => ModoSemana = false;
+    [RelayCommand] private void VerSemanaPlanejamento() => ModoSemana = true;
+    [RelayCommand] private Task BuscarVagasPlanejamentoAsync() => ConsultarVagasPlanejamentoAsync();
+    [RelayCommand] private Task EscolherVagaPlanejamentoAsync(Vaga? vaga) => AbrirVagaPlanejamentoAsync(vaga);
+    public bool PodeMarcarAtendimento => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    [RelayCommand] private void MarcarAtendimento()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar atendimento");
+        if (!IrParaNovoAtendimento(new PedidoNovoAtendimento(true, Dia.Date, ProfissionalEmFocoId, FiltroSala?.Id,
+                DuracaoMinutos: int.TryParse(DuracaoPlanejamento, out var d) ? d : null,
+                ModalidadeCodigo: ModalidadePlanejamento?.Codigo)))
+            throw new InvalidOperationException("A marcação não está disponível neste acesso.");
+    }
+
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -495,6 +511,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     partial void OnModoSemanaChanged(bool value)
     {
+        InvalidarVagas();
         // Sair do foco do horário: "quem chamar para as 14h" é pergunta do modo dia.
         SugestaoPara = null;
         SugestaoProfissionalId = null;
@@ -511,6 +528,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     partial void OnDiaChanged(DateTime value)
     {
+        InvalidarVagas();
         // Trocar de dia desfaz o foco: "quem chamar para as 14h de ontem" não é pergunta.
         SugestaoPara = null;
         SugestaoProfissionalId = null;
@@ -530,6 +548,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task CarregarAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
+        DisponibilidadeNaoVerificada = true;
+        InvalidarVagas();
 
         try
         {
@@ -553,6 +573,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             // Buscá-lo assim mesmo era uma ida inteira ao banco remoto (com três joins)
             // cujo resultado ninguém abria, a cada clique nas setas de semana.
             IReadOnlyList<Agendamento> doDia = ModoSemana ? [] : await agenda.DoDiaAsync(dia);
+            var anteriores = await agenda.OcupacoesNaViradaAsync(ModoSemana ? SegundaDa(Dia) : Dia.Date);
             var profissionais = await equipe.ProfissionaisAtivosAsync();
 
             // As salas são lidas AQUI, com o resto — e não lá embaixo, no ramo que as usa.
@@ -560,13 +581,16 @@ public sealed partial class AgendaViewModel : ObservableObject
             // tempo do roundtrip, e a releitura de fundo (1 min, silenciosa) fazia isso
             // debaixo do olho de quem marca horário. É a regra da parcela 62: entre o
             // Clear() e o último Add não pode haver await.
-            var salas = AgruparPorSala
-                ? await equipe.SalasAtivasAsync()
-                : [];
+            var salas = await equipe.SalasAtivasAsync();
 
             // Chegou tarde: outro clique já pediu uma carga mais nova.
             if (geracao != _geracaoCarga) return;
 
+            PrepararFiltros(profissionais, salas);
+            _ocupacoesAnteriores = anteriores;
+            _horariosPlanejamento = doDia.Concat(anteriores).DistinctBy(a => a.Id).ToList();
+            DisponibilidadeNaoVerificada = true;
+            if (FiltroSala?.Id is { } salaFiltro) doDia = doDia.Where(a => a.SalaId == salaFiltro).ToList();
             SemProfissionais = profissionais.Count == 0;
 
             // Zerado a cada carga: só o ramo da visão por sala o levanta, senão o aviso
@@ -577,7 +601,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             // Os fechamentos que alcançam o que está na tela. Carregados JUNTO da grade e
             // não por célula: a leitura é uma só para o período inteiro, e perguntar ao
             // banco a cada vão daria ~300 consultas por dia aberto.
-            await CarregarBloqueiosAsync(scope, geracao);
+            var bloqueiosVerificados = await CarregarBloqueiosAsync(scope, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarConfirmacoesAsync(scope, doDia, geracao);
             if (geracao != _geracaoCarga) return;
@@ -596,6 +620,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
                 Colunas.Clear();
                 foreach (var c in colunasDaSemana) Colunas.Add(c);
+                DisponibilidadeNaoVerificada = !bloqueiosVerificados;
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
                 return;
@@ -608,6 +633,8 @@ public sealed partial class AgendaViewModel : ObservableObject
             if (AgruparPorSala)
             {
                 SoMinhaAgenda = false;
+                if (ProfissionalEmFocoId is { } pid) doDia = doDia.Where(a => a.ProfissionalId == pid).ToList();
+                if (FiltroSala?.Id is { } sid) salas = salas.Where(s => s.Id == sid).ToList();
                 SemSalas = salas.Count == 0;
 
                 foreach (var s in salas)
@@ -640,6 +667,7 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Resumo = $"{doDia.Count(a => a.OcupaAgenda)} horário(s) no dia · "
                          + $"{Colunas.Count} coluna(s)";
 
+                DisponibilidadeNaoVerificada = !bloqueiosVerificados;
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
                 return;
@@ -649,10 +677,10 @@ public sealed partial class AgendaViewModel : ObservableObject
             // para o Profissional desde a parcela 5, e um fisioterapeuta que abre o app
             // quer ver a agenda DELE — não caçá-la entre seis colunas. O balcão (sem
             // profissional vinculado) continua vendo a clínica inteira.
-            var meu = SessaoUsuario.Atual.ProfissionalId;
+            var meu = ProfissionalEmFocoId;
             SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
 
-            var visiveis = SoMinhaAgenda && !MostrarTodosOsProfissionais
+            var visiveis = meu is not null
                 ? profissionais.Where(p => p.Id == meu).ToList()
                 : profissionais;
 
@@ -667,7 +695,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             // paciente seguindo na Fila e na folha impressa do dia. Não cai em "Sem
             // profissional": o horário TEM dono, e atribuí-lo a ninguém esconderia
             // justamente quem precisa ser remarcado.
-            if (visiveis.Count == profissionais.Count)
+            if (meu is null)
             {
                 var ativos = profissionais.Select(p => p.Id).ToHashSet();
                 foreach (var grupo in doDia
@@ -684,14 +712,15 @@ public sealed partial class AgendaViewModel : ObservableObject
             // (e do faturamento, que marca sem informar quem atende), não uma pessoa.
             // Filtrando por "minha agenda", ele não é meu — fica de fora.
             var orfaos = doDia.Where(a => a.ProfissionalId is null).ToList();
-            if (orfaos.Count > 0 && visiveis.Count == profissionais.Count)
+            if (orfaos.Count > 0 && meu is null)
                 Colunas.Add(MontarColuna(null, "Sem profissional", dia, orfaos));
 
-            var ocupando = visiveis.Count == profissionais.Count
+            var ocupando = meu is null
                 ? doDia.Count(a => a.OcupaAgenda)
                 : doDia.Count(a => a.OcupaAgenda && a.ProfissionalId == meu);
             Resumo = $"{ocupando} horário(s) no dia · {Colunas.Count} coluna(s)";
 
+            DisponibilidadeNaoVerificada = !bloqueiosVerificados;
             MontarGrade();
             await CarregarEsperaAsync(espera, geracao);
         }
@@ -704,6 +733,10 @@ public sealed partial class AgendaViewModel : ObservableObject
             // A releitura de fundo que falha não pinta a tela de vermelho: quem está com
             // um paciente à frente não pode levar um aviso de erro porque o banco demorou
             // uma vez. A grade segue com o que já tinha, e o log guarda o motivo.
+            DisponibilidadeNaoVerificada = true;
+            UltimaLeitura = "Falha ao atualizar. Última leitura: " + _ultimaConsultaConcluida + ". Tente novamente.";
+            InvalidarVagas();
+            MontarPlanejamento();
             if (silencioso) return;
 
             NaoVerificado = true;
@@ -885,9 +918,9 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task<List<ColunaAgenda>?> MontarSemanaAsync(
         IServiceScope scope, AgendaService agenda, IReadOnlyList<Profissional> profissionais, int geracao)
     {
-        var meu = SessaoUsuario.Atual.ProfissionalId;
+        var meu = ProfissionalEmFocoId;
         SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
-        var soMeu = SoMinhaAgenda && !MostrarTodosOsProfissionais;
+        var soMeu = meu is not null;
 
         // O casting vem ANTES da conta: `DayOfWeek + 6` continua sendo DayOfWeek (soma de
         // enum com int devolve o enum), e o resto de divisão não existe para enum.
@@ -916,6 +949,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         await CarregarConfirmacoesAsync(scope, daSemana, geracao);
         if (geracao != _geracaoCarga) return null;
 
+        _horariosPlanejamento = daSemana.Concat(_ocupacoesAnteriores).DistinctBy(a => a.Id).ToList();
+        if (FiltroSala?.Id is { } salaFiltro) daSemana = daSemana.Where(a => a.SalaId == salaFiltro).ToList();
         var porDia = daSemana
             .GroupBy(a => a.DataHora.Date)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<Agendamento>)[.. g]);
@@ -1047,14 +1082,14 @@ public sealed partial class AgendaViewModel : ObservableObject
     {
         Faixas.Clear();
         QuantidadeColunas = Math.Max(1, Colunas.Count);
-        LarguraGrade = 64 + 190.0 * QuantidadeColunas;
+        LarguraGrade = 64 + (ModoSemana ? 160.0 : 190.0) * QuantidadeColunas;
 
-        if (Colunas.Count == 0) return;
+        if (Colunas.Count == 0) { MontarPlanejamento(); return; }
 
         var todos = Colunas.SelectMany(c => c.Horarios).ToList();
 
-        var inicio = AberturaPadrao;
-        var fim = FechamentoPadrao;
+        var inicio = ProfissionalDoFiltro?.AtendeDas ?? AberturaPadrao;
+        var fim = ProfissionalDoFiltro?.AtendeAte ?? FechamentoPadrao;
         foreach (var c in todos)
         {
             var comeco = TimeOnly.FromDateTime(c.DataHora);
@@ -1091,22 +1126,22 @@ public sealed partial class AgendaViewModel : ObservableObject
 
                 celulas.Add(new CelulaAgenda
                 {
-                    ProfissionalId = coluna.ProfissionalId,
-                    SalaId = coluna.SalaId,
+                    ProfissionalId = coluna.ProfissionalId ?? ProfissionalEmFocoId,
+                    SalaId = coluna.SalaId ?? FiltroSala?.Id,
                     Quando = quando,
                     Cartoes = naFaixa,
                     Continuacao = coberta,
                     NoPassado = quando < agora,
-                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId, coluna.SalaId),
-                    ForaDoExpediente = ExpedienteDe(coluna.Profissional, quando),
-                    AgendaProtegida = coluna.Profissional?.AgendaProtegida == true
+                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId ?? ProfissionalEmFocoId, coluna.SalaId ?? FiltroSala?.Id),
+                    ForaDoExpediente = ExpedienteDe(coluna.Profissional ?? ProfissionalDoFiltro, quando),
+                    AgendaProtegida = (coluna.Profissional ?? ProfissionalDoFiltro)?.AgendaProtegida == true
                 });
             }
 
             Faixas.Add(new FaixaAgenda
             {
                 Hora = hora,
-                Rotulo = hora.Minute == 0 ? hora.ToString("HH:mm") : string.Empty,
+                Rotulo = hora.ToString("HH:mm"),
                 HoraCheia = hora.Minute == 0,
                 // A linha do agora: a faixa que contém a hora atual. `AddMinutes` na última
                 // faixa do dia dá a volta para 00:00 e a comparação falha, que é o certo.
@@ -1114,6 +1149,12 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Celulas = celulas
             });
         }
+        if (!DisponibilidadeNaoVerificada)
+        {
+            _ultimaConsultaConcluida = $"{DateTime.Now:HH:mm} · {(ModoSemana ? "semana de" : "dia")} {Dia:dd/MM}";
+            UltimaLeitura = "Disponibilidade consultada às " + _ultimaConsultaConcluida;
+        }
+        MontarPlanejamento();
     }
 
     /// <summary>
@@ -1125,7 +1166,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// que não pode é passar calado: sem a linha no log, a clínica acreditaria que não há
     /// férias marcadas.
     /// </summary>
-    private async Task CarregarBloqueiosAsync(IServiceScope scope, int geracao)
+    private async Task<bool> CarregarBloqueiosAsync(IServiceScope scope, int geracao)
     {
         try
         {
@@ -1136,17 +1177,22 @@ public sealed partial class AgendaViewModel : ObservableObject
                 : (Dia.Date, Dia.Date.AddDays(1));
 
             var lista = await bloqueios.NoPeriodoAsync(inicio, fim);
-            if (geracao != _geracaoCarga) return;
+            if (geracao != _geracaoCarga) return false;
 
             _bloqueios = lista;
+            // A leitura da semana ainda pode estar em andamento. Só o chamador libera
+            // a disponibilidade, ao publicar horários, colunas e bloqueios da mesma carga.
+            return true;
         }
         catch (Exception ex)
         {
-            if (geracao != _geracaoCarga) return;
+            if (geracao != _geracaoCarga) return false;
 
-            _bloqueios = [];
+            DisponibilidadeNaoVerificada = true;
+            UltimaLeitura = "Disponibilidade não verificada. Última leitura: " + _ultimaConsultaConcluida + ". Atualize para conferir.";
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — bloqueios da agenda não puderam ser lidos", ex);
+            return false;
         }
     }
 
@@ -1278,7 +1324,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
         if (IrParaNovoAtendimento(new PedidoNovoAtendimento(
-                MarcarParaDepois: true, DataHora: Dia.Date, ProfissionalId: null, SalaId: null)))
+                MarcarParaDepois: true, DataHora: Dia.Date, ProfissionalId: ProfissionalEmFocoId, SalaId: FiltroSala?.Id,
+                DuracaoMinutos: int.TryParse(DuracaoPlanejamento, out var d) ? d : null, ModalidadeCodigo: ModalidadePlanejamento?.Codigo)))
             return;
 
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
@@ -1344,7 +1391,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         // sala preenchidos — redigitar é onde a hora sai errada.
         if (IrParaNovoAtendimento(new PedidoNovoAtendimento(
                 MarcarParaDepois: true, DataHora: celula.Quando,
-                ProfissionalId: celula.ProfissionalId, SalaId: celula.SalaId)))
+                ProfissionalId: celula.ProfissionalId ?? ProfissionalEmFocoId, SalaId: celula.SalaId ?? FiltroSala?.Id,
+                DuracaoMinutos: int.TryParse(DuracaoPlanejamento, out var d) ? d : null, ModalidadeCodigo: ModalidadePlanejamento?.Codigo)))
             return;
 
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
@@ -1352,7 +1400,9 @@ public sealed partial class AgendaViewModel : ObservableObject
             Data = celula.Quando.Date,
             Hora = celula.Quando.ToString("HH:mm"),
             ProfissionalPreferidoId = celula.ProfissionalId,
-            SalaPreferidaId = celula.SalaId
+            SalaPreferidaId = celula.SalaId,
+            Duracao = DuracaoPlanejamento,
+            ModalidadeSelecionada = ModalidadePlanejamento
         });
     }
 
@@ -1520,7 +1570,9 @@ public sealed partial class AgendaViewModel : ObservableObject
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "configurar horários e travas");
-            var vm = new HorariosProfissionalViewModel(_escopos);
+            var vm = new HorariosProfissionalViewModel(_escopos)
+            { ProfissionalPreferidoId = ProfissionalEmFocoId, FecharAgendaCommand = FecharAgendaCommand };
+            await vm.CarregarAsync();
             new Janelas.HorariosProfissionalWindow(vm) { Owner = Dono() }.ShowDialog();
             if (vm.Alterou) await CarregarAsync();
         }
@@ -1866,9 +1918,7 @@ public sealed partial class AgendaViewModel : ObservableObject
                     DateOnly.FromDateTime(Dia),
                     // Respeita o filtro da tela: quem está vendo só a própria agenda
                     // espera imprimir só a própria agenda.
-                    SoMinhaAgenda && !MostrarTodosOsProfissionais
-                        ? SessaoUsuario.Atual.ProfissionalId
-                        : null,
+                    ProfissionalEmFocoId,
                     await parametros.ObterPrestadorAsync());
             }
 

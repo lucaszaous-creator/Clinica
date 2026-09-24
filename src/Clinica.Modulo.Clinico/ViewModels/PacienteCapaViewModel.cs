@@ -291,7 +291,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
         // que está desenhada duas linhas acima, na mesma tela — e a que ninguém lembraria
         // de ajustar seria esta.
         var consultorio = servicos.GetRequiredService<ConsultorioService>();
-        var cabecalho = await consultorio.CabecalhoAsync(pacienteId);
+        var cabecalho = PodeVerProntuario ? await consultorio.CabecalhoAsync(pacienteId) : null;
 
         var repo = servicos.GetRequiredService<IClinicaRepositorio>();
         var p = await repo.ObterPacienteAsync(pacienteId);
@@ -300,6 +300,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
 
         if (p is not null)
         {
+            Paciente = p.Nome;
             // ⚠️ A IDADE VEM DA REGRA, NÃO DO CRACHÁ — e ela escreve o TERCEIRO ESTADO.
             // Duas razões, e as duas apareceram na releitura desta parcela:
             // (a) lendo `cabecalho?.Idade`, uma data implausível some em SILÊNCIO (a linha
@@ -330,7 +331,7 @@ public sealed partial class PacienteCapaViewModel : ObservableObject
                 : "sem validade informada";
         }
 
-        EmTratamento = cabecalho is null
+        EmTratamento = !PodeVerProntuario ? "Consulta restrita ao perfil clínico" : cabecalho is null
             ? "não foi possível conferir"
             : (cabecalho.PrimeiraSessao is { } primeira
                 ? $"desde {primeira:dd/MM/yyyy}"

@@ -1,16 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    Executável do Gerente Geral — a mesma casca fina dos outros, só que carregando
-    TODOS os módulos. Não tem tela própria: cada item da sidebar vem do módulo dono,
-    então nada aqui precisa ser corrigido em dois lugares.
-    Ver docs/arquitetura-multi-exe.md (Fase 3).
-
-    As telas exclusivas da direção (BI, campanhas, acessos e a visão de leitura do
-    faturamento) vivem no Clinica.Modulo.Gerente, que só este executável carrega.
-    A Fase 4 — faturamento como módulo — foi CANCELADA: o app de faturamento está
-    congelado, e o Gerente o enxerga lendo os serviços compartilhados.
-  -->
+  <!-- Gerente reúne os módulos operacionais, incluindo o faturamento compartilhado. -->
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -46,4 +36,5 @@
     <Page Include="App.xaml" />
   </ItemGroup>
 
+<ItemGroup><ProjectReference Include="..\Clinica.Modulo.Faturamento\Clinica.Modulo.Faturamento.csproj" /></ItemGroup>
 </Project>

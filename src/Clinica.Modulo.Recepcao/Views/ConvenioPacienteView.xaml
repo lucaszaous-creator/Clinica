@@ -1,0 +1,73 @@
+<UserControl x:Class="Clinica.Recepcao.Views.ConvenioPacienteView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell">
+<UserControl.Resources><BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" /><ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" /></UserControl.Resources>
+<DockPanel xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Margin="0,14,0,0">
+<StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+<TextBlock Text="{Binding ValidadeConsulta}" TextWrapping="Wrap" Style="{StaticResource H3}" />
+<Button Content="Renovar validade da consulta" Command="{Binding RenovarConsultaCommand}" IsEnabled="{Binding PodeRenovarConsulta}" Visibility="{Binding UsaConsultaRenovavel, Converter={StaticResource BoolParaVisibilidade}}" HorizontalAlignment="Left" Style="{StaticResource BotaoSecundario}" Margin="0,8,0,0" />
+<TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Aviso}" TextWrapping="Wrap" Margin="0,8,0,0" />
+</StackPanel>
+
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left" Text="As sessões que o convênio autorizou. O consumo é contado sozinho pelos atendimentos dentro da vigência — não se digita." />
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center" MinHeight="36" MinWidth="170" Style="{StaticResource BotaoSecundario}" Command="{Binding NovaAutorizacaoCommand}" IsEnabled="{Binding PodeEditarCadastro}" Content="Nova autorização" ToolTip="Registrar a senha que o convênio liberou" />
+                        </Grid>
+
+
+                        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,10" Visibility="{Binding AutorizacoesNaoVerificadas,                                              Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap" Text="Não foi possível ler as autorizações deste paciente — a lista abaixo NÃO significa que ele não tem senha." />
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" MinHeight="180">
+                            <Grid>
+                                <ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding Autorizacoes}" Glifo="" Titulo="Nenhuma autorização registrada" Descricao="Cadastre a senha que o convênio liberou e o balcão passa a ser avisado quando as sessões estiverem acabando — antes de a próxima virar glosa 2006." />
+
+                                <ItemsControl ItemsSource="{Binding Autorizacoes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="3" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="200" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+
+                                                <Border x:Name="traco" Grid.Column="0" CornerRadius="2" Background="{StaticResource Brush.Semaforo.Verde}" />
+
+                                                <StackPanel Grid.Column="1" Margin="10,0,8,0">
+                                                    <TextBlock FontWeight="SemiBold" Text="{Binding Autorizacao.Numero, TargetNullValue='(sem número)'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock x:Name="resumo" Text="{Binding Resumo}" TextWrapping="Wrap" HorizontalAlignment="Left" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,2,0,0" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                    <TextBlock FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Autorizacao.DataEmissao, StringFormat='emitida {0:dd/MM/yyyy}'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Secundario}" Text="{Binding Autorizacao.DataValidade, StringFormat='válida até {0:dd/MM/yyyy}'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Content="Editar" MinHeight="30" MinWidth="80" VerticalAlignment="Center" Margin="0,0,6,0" Style="{StaticResource BotaoSecundario}" IsEnabled="{Binding DataContext.PodeEditarCadastro,                                                                         RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.EditarAutorizacaoCommand,                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                    <Button Content="Excluir" MinHeight="30" MinWidth="80" VerticalAlignment="Center" Style="{StaticResource BotaoSecundarioPerigo}" IsEnabled="{Binding DataContext.PodeEditarCadastro,                                                                         RelativeSource={RelativeSource AncestorType=ItemsControl}}" Command="{Binding DataContext.ExcluirAutorizacaoCommand,                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding NaUltima}" Value="True">
+                                                    <Setter TargetName="traco" Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                    <Setter TargetName="resumo" Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="resumo" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Utilizavel}" Value="False">
+                                                    <Setter TargetName="traco" Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                    <Setter TargetName="resumo" Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                    <Setter TargetName="resumo" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </DockPanel>
+
+</UserControl>

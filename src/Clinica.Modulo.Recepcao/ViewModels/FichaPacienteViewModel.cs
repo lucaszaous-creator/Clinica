@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes.Cadastro;
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -457,6 +458,22 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// parcela 49 — digitar o telefone de alguém e escrever a evolução dele são atos de
     /// peso diferente, e até aqui o mesmo bit dava os dois.
     /// </summary>
+    [ObservableProperty] private string _validadeConsulta = "Consultando validade…";
+    [ObservableProperty] private bool _usaConsultaRenovavel;
+    public bool PodeRenovarConsulta => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+    [RelayCommand]
+    private async Task RenovarConsultaAsync()
+    {
+        if (PacienteId == 0 || Carregando) return;
+        var pacienteId = PacienteId;
+        try
+        {
+            if (await RenovacaoConsultaFluxo.ExecutarAsync(_escopos, _dialogo, pacienteId, Nome)
+                && PacienteId == pacienteId) await CarregarAsync();
+        }
+        catch (Exception ex) { if (PacienteId == pacienteId) { Mensagem = ex.Message; MensagemEhErro = true; } }
+    }
+
     public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     /// <summary>
@@ -559,7 +576,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// liam a evolução inteira de qualquer paciente — o corte da parcela 49 desfeito por uma
     /// aba. Nem ler nem desenhar, como a seção de termos já fazia.
     /// </summary>
-    public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+    public bool SomenteAdministrativo { get; init; }
+    public bool PodeVerProntuario => !SomenteAdministrativo && SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
     /// <summary>Bit próprio da evolução de enfermagem (parcela 71).</summary>
     public bool PodeRegistrarEnfermagem =>
@@ -802,17 +820,26 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             }
 
             AplicarCadastro(paciente);
+            var consulta = await scope.ServiceProvider.GetRequiredService<ConsultaService>()
+                .DoPacienteAsync(id, DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracaoCarga) return;
+            UsaConsultaRenovavel = consulta?.UsaConsulta == true;
+            ValidadeConsulta = consulta is null ? "Validade não disponível."
+                : !consulta.UsaConsulta ? "Este convênio não usa consulta renovável."
+                : consulta.Vencimento is null ? "Nenhuma validade de consulta registrada."
+                : $"Validade da consulta do convênio: {consulta.Vencimento:dd/MM/yyyy}.";
+
 
             var foto = await pacientes.ObterFotoAsync(id);
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
             Foto = foto ?? paciente.FotoMiniatura;
 
-            await CarregarProntuarioAsync(scope, id, geracao);
+            if (!SomenteAdministrativo) await CarregarProntuarioAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarConsentimentosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
-            await CarregarDocumentosAsync(scope, id, geracao);
+            if (!SomenteAdministrativo) await CarregarDocumentosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarTermosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
@@ -1482,8 +1509,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         if (PacienteId == 0) return;
 
-        var vm = new PacienteEdicaoViewModel(_escopos, PacienteId);
-        var janela = new Janelas.PacienteWindow(vm)
+        var vm = new CadastroPacienteViewModel(_escopos, PacienteId);
+        var janela = new CadastroPacienteWindow(vm)
         {
             Owner = JanelaDona.Atual()
         };

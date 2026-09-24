@@ -1,0 +1,78 @@
+<Window x:Class="Clinica.Desktop.Alertas.RetornoLoteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:alertas="clr-namespace:Clinica.Desktop.Alertas"
+        Title="Registrar retorno do lote" Height="560" Width="860"
+        Icon="/Clinica.Desktop.Shell;component/Assets/Marca/icone.png"
+        MinHeight="420" MinWidth="700"
+        WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+<Window.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Conversores.xaml" /><ResourceDictionary Source="/Clinica.Modulo.Faturamento;component/Styles/Componentes/Tabelas.xaml" /></ResourceDictionary.MergedDictionaries></ResourceDictionary></Window.Resources>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" x:Name="TxtTitulo" Text="Registrar retorno" Style="{StaticResource H2}" />
+        <TextBlock Grid.Row="1" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,10" TextWrapping="Wrap"
+                   Text="Conforme o demonstrativo de análise da operadora, marque as guias GLOSADAS e informe o motivo. As demais serão consideradas aceitas. As glosas entram no controle de glosas com o prazo de recurso correndo." />
+
+        <Border Grid.Row="2" Style="{StaticResource Card}">
+            <DataGrid x:Name="GridGuias" IsReadOnly="False" CanUserAddRows="False"
+                      AutoGenerateColumns="False" HeadersVisibility="Column">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Glosada" Binding="{Binding Glosada, UpdateSourceTrigger=PropertyChanged}" Width="70" />
+                    <DataGridTextColumn Header="Paciente" Binding="{Binding Paciente}" IsReadOnly="True" Width="*" />
+                    <DataGridTextColumn Header="Código" Binding="{Binding Tipo}" IsReadOnly="True" Width="0.8*" />
+                    <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuia}" IsReadOnly="True" Width="Auto" />
+                    <DataGridTemplateColumn Header="Motivo da glosa (tabela ANS)" Width="1.6*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate DataType="{x:Type alertas:RetornoLinha}">
+                                <ComboBox ItemsSource="{Binding Motivos}" SelectedItem="{Binding Motivo, UpdateSourceTrigger=PropertyChanged}"
+                                          IsEnabled="{Binding Glosada}" Margin="2" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Complemento" Width="1.2*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate DataType="{x:Type alertas:RetornoLinha}">
+                                <TextBox Text="{Binding Complemento, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding Glosada}" Margin="2" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- Grid, e não StackPanel horizontal: a observação larga fixa em 320px era um PISO.
+             StackPanel dá ao filho a largura que ele pede e nunca encolhe, então a linha
+             exigia 741px numa janela cujo mínimo é 700 — arrastada até o mínimo, o campo
+             saía cortado pela direita. Em coluna elástica ele acompanha a janela nos dois
+             sentidos: encolhe até o mínimo sem cortar, e cresce quando maximizada em vez
+             de deixar um vão morto ao lado. -->
+        <Grid Grid.Row="3" Margin="0,12,0,0" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Data do retorno:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <DatePicker Grid.Column="1" x:Name="DpData" Width="140" />
+            <TextBlock Grid.Column="2" Text="Observação:" VerticalAlignment="Center" Margin="16,0,6,0" />
+            <TextBox Grid.Column="3" x:Name="TxtObservacao" MinWidth="160" />
+        </Grid>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
+                    IsCancel="True" Margin="0,0,10,0" />
+            <Button x:Name="BtnConfirmar" Content="Registrar retorno" Click="Confirmar_Click" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>

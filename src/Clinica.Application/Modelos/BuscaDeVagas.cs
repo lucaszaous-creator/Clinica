@@ -74,7 +74,9 @@ public static class BuscaDeVagas
         IReadOnlyList<BloqueioAgenda> bloqueios,
         int quantidade = QuantidadePadrao,
         int diasMaximos = DiasMaximos,
-        int passoMinutos = Agendamento.DuracaoPadraoMinutos)
+        int passoMinutos = Agendamento.DuracaoPadraoMinutos,
+        Sala? sala = null,
+        int? pacienteId = null)
     {
         if (duracaoMinutos <= 0) duracaoMinutos = Agendamento.DuracaoPadraoMinutos;
 
@@ -82,7 +84,7 @@ public static class BuscaDeVagas
             .Where(a => a.OcupaAgenda && a.ProfissionalId == profissional.Id)
             .ToList();
         var fechamentos = bloqueios
-            .Where(b => b.AlcancaRecurso(profissional.Id, null))
+            .Where(b => b.AlcancaRecurso(profissional.Id, sala?.Id))
             .ToList();
 
         var abre = profissional.AtendeDas ?? Agendamento.AberturaPadraoGrade;
@@ -102,6 +104,12 @@ public static class BuscaDeVagas
                 var fim = inicio.AddMinutes(duracaoMinutos);
                 if (dele.Any(a => a.ColideCom(inicio, fim))) continue;
                 if (fechamentos.Any(b => b.ColideCom(inicio, fim))) continue;
+                // Mesmos critérios usados na conferência do formulário de marcação.
+                // A busca só lê; a validação definitiva continua acontecendo ao salvar.
+                if (sala is not null && ocupados.Count(a => a.OcupaAgenda && a.SalaId == sala.Id
+                        && a.ColideCom(inicio, fim)) >= sala.Capacidade) continue;
+                if (pacienteId is not null && ocupados.Any(a => a.OcupaAgenda
+                        && a.PacienteId == pacienteId && a.ColideCom(inicio, fim))) continue;
 
                 vagas.Add(new Vaga(inicio, fim));
                 if (vagas.Count == quantidade) break;

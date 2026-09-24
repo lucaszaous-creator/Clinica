@@ -37,13 +37,21 @@ public partial class FilaView : UserControl
         var compacto = ActualWidth < 1100;
         SetValue(ModoCompactoPropertyKey, compacto);
         ColunaProfissional.Visibility = compacto ? Visibility.Collapsed : Visibility.Visible;
+        ColunaHorario.Width = new DataGridLength(compacto ? 110 : 135);
         // Ao ocultar uma coluna o DataGrid pode conservar a distribuição estrela da
         // largura anterior. Repartir a largura útil evita células encolhidas e vazio à
         // direita durante a mudança de monitor/tamanho. A barra vertical fica reservada.
         if (TabelaAgenda.ActualWidth > 0)
-            ColunaPaciente.Width = new DataGridLength(Math.Max(240,
-                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12
-                - 110 - 140 - 248 - (compacto ? 0 : 180)));
+        {
+            // As demais colunas têm largura em pixels declarada no XAML. Usá-la aqui
+            // mantém as ações visíveis quando o espaçamento do design system muda.
+            var larguraFixa = 0d;
+            foreach (var coluna in TabelaAgenda.Columns)
+                if (coluna != ColunaPaciente && coluna.Visibility == Visibility.Visible)
+                    larguraFixa += Math.Max(coluna.MinWidth, coluna.Width.Value);
+            ColunaPaciente.Width = new DataGridLength(Math.Max(ColunaPaciente.MinWidth,
+                TabelaAgenda.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12 - larguraFixa));
+        }
     }
 
     public FilaView()

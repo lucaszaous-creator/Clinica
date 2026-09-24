@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
@@ -45,8 +45,11 @@ namespace Clinica.Clinico.ViewModels;
 /// direção e a fila do dia navegam por elas, e renomear contrato de navegação para arrumar
 /// leiaute quebraria o que funciona em outro módulo.
 /// </summary>
-public sealed partial class PacienteWorkspaceViewModel : ObservableObject
+public sealed partial class PacienteWorkspaceViewModel : ObservableObject, IContextoPaciente
 {
+    public bool Corresponde(PacienteEmFoco foco) => _foco.PacienteId == foco.PacienteId
+        && _foco.AgendamentoId == foco.AgendamentoId && _foco.AtendimentoId == foco.AtendimentoId;
+
     private readonly PacienteEmFoco _foco;
     private readonly IServiceScopeFactory _escopos;
     private readonly IDialogoService _dialogo;
@@ -139,6 +142,9 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// contato e convênio continua sendo do balcão.
     /// </summary>
     public PacienteCapaViewModel Capa { get; }
+    public IFichaAdministrativaPaciente? Administrativo { get; }
+    public bool PodeVerAdministrativo => Capa.PodeVerFicha && Administrativo is not null;
+    public Action? VoltarParaOrigem { get; init; }
 
     public ProntuarioClinicoViewModel Prontuario { get; }
 
@@ -309,7 +315,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     public PacienteWorkspaceViewModel(
         IServiceProvider servicos, PacienteEmFoco foco, int aba = 0, int subAba = 0)
     {
-        _foco = foco;
+        // Cada ficha mantém sua identidade. Abrir consulta rápida não altera a evolução em outra janela.
+        var contexto = new PacienteEmFoco();
+        if (foco.PacienteId is { } id) contexto.Definir(id, foco.Nome, foco.AgendamentoId, foco.AtendimentoId, foco.DataDoHorario);
+        _foco = contexto;
+        foco = contexto;
         SubAbaAcompanhamento = subAba;
 
         // A decisão de QUEM vê qual seção de escrita mora no domínio, para o dotnet test
@@ -322,7 +332,8 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         Secoes = ModuloClinico.RailDoPaciente()
             .Select((secao, i) => new ItemDoRail(
                 secao.Rotulo, secao.Grupo,
-                Oculta: (i == secaoMedico && !medico) || (i == secaoEnfermagem && !enfermagem)))
+                Oculta: (i == secaoMedico && !medico) || (i == secaoEnfermagem && !enfermagem)
+                    || (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario) && i != ModuloClinico.AbaDe(ModuloClinico.ChavePaciente))))
             .ToList();
 
         SecoesAgrupadas = new ListCollectionView(Secoes.ToList());
@@ -336,23 +347,30 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
         // e trocar de aba é folhear o prontuário dela — se cada aba fosse carregada no
         // primeiro clique, folhear custaria uma ida ao banco por página, justamente no
         // momento em que se está com o paciente na frente.
-        Atendimento = servicos.GetRequiredService<AtendimentoViewModel>();
-        Enfermagem = servicos.GetRequiredService<AtendimentoEnfermagemViewModel>();
-        Anamnese = servicos.GetRequiredService<AnamneseViewModel>();
-        Capa = servicos.GetRequiredService<PacienteCapaViewModel>();
-        Prontuario = servicos.GetRequiredService<ProntuarioClinicoViewModel>();
-        Prescricoes = servicos.GetRequiredService<PrescricoesClinicasViewModel>();
+        var focoClinico = SessaoUsuario.Atual.Pode(Permissao.VerProntuario) ? foco : new PacienteEmFoco();
+        Atendimento = ActivatorUtilities.CreateInstance<AtendimentoViewModel>(servicos, focoClinico);
+        Enfermagem = ActivatorUtilities.CreateInstance<AtendimentoEnfermagemViewModel>(servicos, focoClinico);
+        Anamnese = ActivatorUtilities.CreateInstance<AnamneseViewModel>(servicos, focoClinico);
+        Capa = ActivatorUtilities.CreateInstance<PacienteCapaViewModel>(servicos, foco);
+        Prontuario = ActivatorUtilities.CreateInstance<ProntuarioClinicoViewModel>(servicos, focoClinico);
+        Prescricoes = ActivatorUtilities.CreateInstance<PrescricoesClinicasViewModel>(servicos, focoClinico);
+        if (Capa.PodeVerFicha)
+        {
+            Administrativo = servicos.GetService<IFichaAdministrativaPaciente>();
+            if (Administrativo is not null) Administrativo.Alterou += () => _ = AtualizarCadastroAsync();
+            if (foco.PacienteId is { } pacienteId) Administrativo?.DefinirPaciente(pacienteId);
+        }
         // Dentro do paciente ela não desenha o próprio cabeçalho: o nome já está no
         // crachá, uma vez, e o seletor de busca dela trocaria o paciente do posto por
         // baixo desta tela — o mestre-detalhe que o workspace existe para acabar.
         Prescricoes.MostrarCabecalho = false;
         Prescricoes.AbrirInfusaoNoPaciente = () => SubAbaDocumentos = 1;
-        Infusoes = servicos.GetRequiredService<PrescricaoInfusaoViewModel>();
+        Infusoes = ActivatorUtilities.CreateInstance<PrescricaoInfusaoViewModel>(servicos, focoClinico);
         Infusoes.MostrarCabecalho = false;
-        Anexos = servicos.GetRequiredService<AnexosPacienteViewModel>();
-        Dor = servicos.GetRequiredService<EvolucaoDorViewModel>();
-        Medidas = servicos.GetRequiredService<MedidasViewModel>();
-        Avaliacoes = servicos.GetRequiredService<AvaliacoesViewModel>();
+        Anexos = ActivatorUtilities.CreateInstance<AnexosPacienteViewModel>(servicos, focoClinico);
+        Dor = ActivatorUtilities.CreateInstance<EvolucaoDorViewModel>(servicos, focoClinico);
+        Medidas = ActivatorUtilities.CreateInstance<MedidasViewModel>(servicos, focoClinico);
+        Avaliacoes = ActivatorUtilities.CreateInstance<AvaliacoesViewModel>(servicos, focoClinico);
 
         SemPaciente = !_foco.Definido;
         Paciente = _foco.Nome;
@@ -384,7 +402,11 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// chegou aqui sempre o alcança.
     /// </summary>
     [RelayCommand]
-    private void Voltar() => NavegacaoSuite.Ir(ChaveDeVolta(_foco.AgendamentoId));
+    private void Voltar()
+    {
+        if (VoltarParaOrigem is not null) VoltarParaOrigem();
+        else if (!NavegacaoSuite.Voltar()) NavegacaoSuite.Ir(ChaveDeVolta(_foco.AgendamentoId));
+    }
 
     /// <summary>Para onde o botão de voltar leva DE VERDADE — ver <see cref="Voltar"/>.</summary>
     private static string ChaveDeVolta(int? agendamentoId)
@@ -418,13 +440,28 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
     /// <summary>Abre a carteira para escolher outra pessoa.</summary>
     [RelayCommand]
-    private void TrocarPaciente() => NavegacaoSuite.Ir(ModuloClinico.ChavePacientesDaClinica);
+    private void TrocarPaciente() => Voltar();
 
     [RelayCommand]
     public async Task AtualizarDocumentosAsync()
     {
         await Prescricoes.CarregarAsync();
         await Infusoes.CarregarAsync();
+    }
+
+    /// <summary>Atualiza somente dados cadastrais; mantém os editores clínicos e seus rascunhos.</summary>
+    [RelayCommand]
+    private async Task AtualizarFichaAsync()
+    {
+        await AtualizarCadastroAsync();
+        if (Administrativo is not null) await Administrativo.AtualizarAsync();
+    }
+
+    public async Task AtualizarCadastroAsync()
+    {
+        await Capa.CarregarAsync();
+        if (!Capa.NaoVerificado) Paciente = Capa.Paciente;
+        await CarregarCabecalhoAsync();
     }
 
     /// <summary>
@@ -435,6 +472,7 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
     /// </summary>
     private async Task CarregarCabecalhoAsync()
     {
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario)) return;
         if (_foco.PacienteId is not { } id) return;
 
         try

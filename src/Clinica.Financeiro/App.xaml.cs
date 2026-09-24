@@ -15,7 +15,9 @@ public partial class App : System.Windows.Application
 
     private readonly IReadOnlyList<IModuloApp> _modulos =
     [
-        new Modulo.ModuloFinanceiro()
+        new Modulo.ModuloFinanceiro(),
+        new ModuloContextual(new Clinica.Recepcao.Modulo.ModuloRecepcao()),
+        new ModuloContextual(new Clinica.Clinico.Modulo.ModuloClinico())
     ];
 
     protected override async void OnStartup(StartupEventArgs e)

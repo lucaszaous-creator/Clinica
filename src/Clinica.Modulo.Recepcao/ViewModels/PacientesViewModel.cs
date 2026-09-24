@@ -1,3 +1,5 @@
+using Clinica.Desktop.Shell.Componentes.Cadastro;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -39,7 +41,26 @@ public sealed partial class PacientesViewModel : ObservableObject
 
     public SeletorPacienteViewModel Seletor { get; }
 
-    public FichaPacienteViewModel Ficha { get; }
+    private readonly IFabricaFichaPaciente _fabrica;
+    [ObservableProperty] private object? _fichaUnica;
+    public IReadOnlyList<string> Filtros { get; } = SessaoUsuario.Atual.Pode(Permissao.VerProntuario)
+        ? new[] { "Todos", "Em tratamento", "Cadastro incompleto" }
+        : new[] { "Todos", "Cadastro incompleto" };
+    [ObservableProperty] private int _filtro;
+    partial void OnFiltroChanged(int value) { if (Seletor is not null) { if (string.IsNullOrWhiteSpace(Seletor.Termo)) Seletor.DesligarSugestaoCommand.Execute(null); else _ = Seletor.BuscarAsync(imediato: true); } }
+    private async Task<IReadOnlyList<Paciente>> BuscarListaAsync(string? termo, CancellationToken ct)
+    {
+        using var scope = _escopos.CreateScope();
+        var pacientes = await scope.ServiceProvider.GetRequiredService<PacienteService>().BuscarAsync(termo, null, ct);
+        var filtro = Filtros[Math.Clamp(Filtro, 0, Filtros.Count - 1)];
+        if (filtro == "Cadastro incompleto") return pacientes.Where(p => string.IsNullOrWhiteSpace(p.Documento) || string.IsNullOrWhiteSpace(p.Endereco)).ToList();
+        if (filtro != "Em tratamento") return pacientes;
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "consultar pacientes em tratamento");
+        var sessoes = await scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+            .SessoesDosPacientesAsync(pacientes.Select(p => p.Id).ToList(), ct);
+        return pacientes.Where(p => sessoes.TryGetValue(p.Id, out var resumo) && resumo.Sessoes > 0).ToList();
+    }
+    public int SecaoInicial { get; set; } = 2;
     public bool MostrarVoltar { get; init; } = true;
 
     [ObservableProperty] private string _resumo = string.Empty;
@@ -70,10 +91,11 @@ public sealed partial class PacientesViewModel : ObservableObject
     public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     public PacientesViewModel(
-        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo, IFabricaFichaPaciente fabrica)
     {
         _escopos = escopos;
         _snackbar = snackbar;
+        _fabrica = fabrica;
 
         // Listagem: sem corte, é ela que precisa mostrar todo mundo QUANDO alguém pedir.
         //
@@ -86,18 +108,10 @@ public sealed partial class PacientesViewModel : ObservableObject
         // a lista É a resposta". O argumento continua valendo para o que a tela OFERECE, e
         // não para o que ela faz sozinha: a listagem completa continua a um clique
         // ("Ver todos"), e é justamente por ser cara que ela precisa ser PEDIDA.
-        Seletor = new SeletorPacienteViewModel(escopos, limite: null) { SemBuscaInicial = true };
+        Seletor = new SeletorPacienteViewModel(escopos, limite: null) { SemBuscaInicial = true, ConsultaPersonalizada = BuscarListaAsync };
         Seletor.SelecaoMudou += AoTrocarPaciente;
         Seletor.Atualizou += AtualizarResumo;
 
-        Ficha = new FichaPacienteViewModel(escopos, snackbar, dialogo);
-        // Editar o cadastro muda o nome/foto que a lista mostra.
-        // Editar o cadastro só precisa reler o que ESTÁ na tela: no ocioso não há lista
-        // para atualizar, e reler ali traria o cadastro inteiro por causa de uma edição.
-        Ficha.Alterou += () =>
-        {
-            if (!Seletor.Ocioso) _ = Seletor.BuscarAsync(imediato: true);
-        };
 
         AtualizarResumo();
     }
@@ -113,7 +127,9 @@ public sealed partial class PacientesViewModel : ObservableObject
         if (paciente is null) return;
 
         MostrandoFicha = true;
-        _ = Ficha.AbrirAsync(paciente.Id);
+        var foco = new PacienteEmFoco();
+        foco.Definir(paciente.Id, paciente.Nome);
+        FichaUnica = _fabrica.Criar(foco, Voltar, SecaoInicial);
     }
 
     /// <summary>
@@ -125,7 +141,9 @@ public sealed partial class PacientesViewModel : ObservableObject
     private void Voltar()
     {
         MostrandoFicha = false;
-        Seletor.Limpar();
+        FichaUnica = null;
+        Seletor.Selecionado = null;
+        if (!Seletor.Ocioso) _ = Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>
@@ -155,12 +173,12 @@ public sealed partial class PacientesViewModel : ObservableObject
     public bool ListandoTudo => Seletor.ListandoTodos;
 
     [RelayCommand]
-    private async Task NovoPacienteAsync()
+    private void NovoPaciente()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cadastrar paciente");
 
-        var vm = new PacienteEdicaoViewModel(_escopos);
-        var janela = new Janelas.PacienteWindow(vm)
+        var vm = new CadastroPacienteViewModel(_escopos);
+        var janela = new CadastroPacienteWindow(vm)
         {
             Owner = JanelaDona.Atual()
         };

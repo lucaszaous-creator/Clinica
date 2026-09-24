@@ -497,7 +497,7 @@ public sealed class ImportacaoPacientesService
             {
                 if (linha.EhCriar)
                 {
-                    var nova = await _pacientes.SalvarNovoAsync(linha.Ficha, ct: ct);
+                    var nova = await _pacientes.ImportarNovoAsync(linha.Ficha, ct);
                     idPorLinha[linha.Numero] = nova.Id;
                     await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
                     {
@@ -531,7 +531,7 @@ public sealed class ImportacaoPacientesService
                     {
                         // categoriaManual: a categoria da ficha existente não se recalcula
                         // por uma importação que nem toca o convênio dela.
-                        await _pacientes.AtualizarAsync(atual, categoriaManual: true, ct);
+                        await _pacientes.CompletarImportadoAsync(atual, ct);
                     }
                     catch
                     {

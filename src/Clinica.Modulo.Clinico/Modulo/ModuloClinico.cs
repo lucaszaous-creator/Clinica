@@ -586,6 +586,7 @@ public sealed class ModuloClinico : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddTransient<IFabricaFichaPaciente, FabricaFichaPaciente>();
         // O paciente do posto é SINGLETON: é o contexto do consultório, e as telas
         // clínicas o leem na abertura. Ver PacienteEmFoco.
         servicos.AddSingleton<PacienteEmFoco>();
@@ -609,7 +610,6 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<AvaliacoesViewModel>();
         servicos.AddTransient<AnamneseViewModel>();
         servicos.AddTransient<AnexosPacienteViewModel>();
-        servicos.AddTransient<PacientesDaClinicaViewModel>();
         servicos.AddTransient<ProntuariosViewModel>();
         servicos.AddTransient<ExamesViewModel>();
         // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
@@ -623,7 +623,7 @@ public sealed class ModuloClinico : IModuloApp
     {
         ChaveSessoesEnfermagem => new SessoesEnfermagemView { DataContext = servicos.GetRequiredService<SessoesEnfermagemViewModel>() },
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
-        ChavePacientesDaClinica => new PacientesDaClinicaView { DataContext = servicos.GetRequiredService<PacientesDaClinicaViewModel>() },
+        ChavePacientesDaClinica => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(1),
         ChaveProntuarios => new ProntuariosView { DataContext = servicos.GetRequiredService<ProntuariosViewModel>() },
         ChaveExames => new ExamesView { DataContext = servicos.GetRequiredService<ExamesViewModel>() },
         ChaveRegistrosPendentes => new RegistrosPendentesView

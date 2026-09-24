@@ -15,6 +15,26 @@ public sealed class BuscaDeVagasService
 
     public BuscaDeVagasService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>Consulta conjunta, sem alterar a marcação nem as regras de conflito.</summary>
+    public async Task<ResultadoBuscaDeVagas> ProximasComRecursosAsync(
+        int profissionalId, DateTime aPartirDe, int duracaoMinutos,
+        int? salaId = null, int? pacienteId = null, CancellationToken ct = default)
+    {
+        if (salaId is null && pacienteId is null)
+            return await ProximasAsync(profissionalId, aPartirDe, duracaoMinutos, ct: ct);
+        var profissional = await _repo.ObterProfissionalAsync(profissionalId, ct)
+            ?? throw new InvalidOperationException("Profissional não encontrado.");
+        var sala = salaId is { } sid ? await _repo.ObterSalaAsync(sid, ct)
+            ?? throw new InvalidOperationException("Sala não encontrada.") : null;
+        var ate = aPartirDe.Date.AddDays(BuscaDeVagas.DiasMaximos);
+        var ocupados = await _repo.AgendamentosQueSobrepoemAsync(aPartirDe.Date, ate, ct);
+        var bloqueios = await _repo.BloqueiosNoPeriodoAsync(aPartirDe.Date, ate, ct);
+        var vagas = BuscaDeVagas.Calcular(aPartirDe, duracaoMinutos, profissional, ocupados,
+            bloqueios, sala: sala, pacienteId: pacienteId);
+        return new ResultadoBuscaDeVagas(profissional.Rotulo, duracaoMinutos, aPartirDe, ate,
+            BuscaDeVagas.JornadaPresumida(profissional), profissional.DescricaoJornada, vagas);
+    }
+
     /// <param name="duracaoMinutos">A duração pedida; nula usa a padrão do profissional, e na falta dela a da clínica.</param>
     public async Task<ResultadoBuscaDeVagas> ProximasAsync(
         int profissionalId, DateTime aPartirDe, int? duracaoMinutos = null,

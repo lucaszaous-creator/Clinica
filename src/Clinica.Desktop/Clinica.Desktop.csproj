@@ -37,6 +37,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
@@ -44,7 +45,6 @@
 
   <!-- Marca (logo SemDor): empacotada como Resource para uso via pack URI na UI. -->
   <ItemGroup>
-    <Compile Include="../Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\Marca\*.png" />
@@ -56,4 +56,10 @@
     <Page Include="App.xaml" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Modulo.Faturamento\Clinica.Modulo.Faturamento.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Clinico\Clinica.Modulo.Clinico.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Gerente\Clinica.Modulo.Gerente.csproj" />
+  </ItemGroup>
 </Project>

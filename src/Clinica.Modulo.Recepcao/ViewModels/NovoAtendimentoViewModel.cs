@@ -1117,6 +1117,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 Profissional = Profissionais.FirstOrDefault(p => p.Id == profissionalId) ?? Profissional;
             if (pedido.SalaId is { } salaId)
                 Sala = Salas.FirstOrDefault(s => s.Id == salaId) ?? Sala;
+            if (pedido.ModalidadeCodigo is { } codigo)
+                ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == codigo) ?? ModalidadeSelecionada;
+            if (pedido.DuracaoMinutos is { } duracao) Duracao = duracao.ToString();
             // A crítica de choque já correu a cada atribuição acima (hora, profissional,
             // sala) — a última leitura é a que fica, pelo contador de geração.
             return pedido.PacienteId;

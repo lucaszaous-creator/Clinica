@@ -158,30 +158,20 @@ public sealed partial class CobrancaDoPacienteViewModel : ObservableObject
         {
             SessaoUsuario.Atual.ExigirAlgum(QuemRecebe, "receber no balcão");
 
-            if (conta.Forma is null)
-            {
-                Erro("Escolha como o paciente está pagando (dinheiro, PIX, cartão…) antes de receber.");
-                return;
-            }
-
-            if (!_dialogo.Confirmar("Receber conta",
-                    $"{Paciente} — {conta.Descricao}\n\nRegistrar o recebimento de {conta.ValorTexto} "
-                    + $"em {RotulosEnum.De(conta.Forma.Value)}, hoje?"))
-                return;
-
-            Ocupado = true;
             using var escopo = _escopos.CreateScope();
-            await escopo.ServiceProvider.GetRequiredService<InadimplenciaService>().ReceberAsync(
-                conta.LancamentoId, DateOnly.FromDateTime(DateTime.Today), conta.Forma,
-                SessaoUsuario.Atual.Operador);
-
-            conta.Recebida = true;
+            var lancamento = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .ObterLancamentoAsync(conta.LancamentoId) ?? throw new InvalidOperationException("Cobrança não encontrada.");
+            if (lancamento.PacienteId != _pacienteId || lancamento.Tipo != TipoLancamento.Entrada)
+                throw new InvalidOperationException("Esta cobrança não pertence ao paciente selecionado.");
+            var vm = new ReceberPagamentoViewModel(_escopos, lancamento) { Forma = conta.Forma };
+            if (new RecebimentoWindow(vm) { Owner = JanelaDona.Atual() }.ShowDialog() != true) return;
+            Ocupado = true;
             Mudou = true;
-            Mensagem = $"Recebido: {conta.ValorTexto} ({conta.Descricao}).";
+            Mensagem = "Recebimento registrado. Confira o saldo atualizado na lista.";
             MensagemEhErro = false;
             await CarregarAsync();
             // A recarga zera a mensagem: reescreve DEPOIS (a lição da parcela 68).
-            Mensagem = $"Recebido: {conta.ValorTexto} ({conta.Descricao}).";
+            Mensagem = "Recebimento registrado. Confira o saldo atualizado na lista.";
             MensagemEhErro = false;
         }
         catch (Exception ex)

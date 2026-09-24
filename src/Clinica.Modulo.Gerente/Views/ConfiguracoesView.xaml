@@ -1,743 +1,389 @@
-<UserControl x:Class="Clinica.Gerente.Views.ConfiguracoesView"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             Background="{StaticResource Brush.Fundo}">
-
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
-        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
-    </UserControl.Resources>
-
-    <Grid>
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell" xmlns:shared="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Clinica.Gerente.Views.ConfiguracoesView" Background="{StaticResource Brush.Fundo}">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+  </UserControl.Resources>
+  <Grid>
     <DockPanel Margin="24">
-
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Configurações" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="O que vale para a clínica inteira. Cada bloco salva sozinho — são assuntos diferentes, e um botão único gravaria o que ninguém olhou." />
-        </StackPanel>
-
-        <!-- A visibilidade segue a MENSAGEM; a cor segue a GRAVIDADE (parcela 62).
-             Amarrada a `MensagemEhErro`, a caixa só aparecia no erro — e toda mensagem de
-             ÊXITO ou de estado vazio, que zera o booleano, sumia junto com ele. Quem decide
-             se aparece é o texto; quem decide a cor é a gravidade. -->
-        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
-                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
-                             FallbackValue=Collapsed}">
-            <Border.Style>
-                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
-                            <Setter Property="BorderThickness" Value="1" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-        </Border>
-
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel IsEnabled="{Binding PodeEditar}">
-                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                    <StackPanel>
-                        <TextBlock Text="Enfermagem e conclusão das sessões" Style="{StaticResource H3}" />
-                        <TextBlock Text="Exigir evolução de enfermagem antes de concluir estas modalidades BSV:" TextWrapping="Wrap" Margin="0,12,0,8" />
-                        <ItemsControl ItemsSource="{Binding ModalidadesEnfermagem}">
-                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate><DataTemplate>
-                                <CheckBox Content="{Binding Nome}" IsChecked="{Binding Selecionada}" Margin="0,4,20,4" />
-                            </DataTemplate></ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="{Binding SituacaoConclusaoAutomatica}" TextWrapping="Wrap" Margin="0,16,0,8" />
-                        <WrapPanel>
-                            <TextBlock Text="Prazo em horas após a última gravação:" VerticalAlignment="Center" Margin="0,0,12,0" />
-                            <TextBox Text="{Binding PrazoConclusaoHoras, UpdateSourceTrigger=PropertyChanged}" Width="80" MaxLength="3" AutomationProperties.Name="Prazo para conclusão automática em horas" />
-                        </WrapPanel>
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,12"
-                            Text="O médico usa apenas Salvar sessão. Exemplo: conclusão em 24 horas após a última gravação da evolução médica. Vale para evoluções gravadas após ativar a regra. Nas modalidades marcadas, a falta de evolução de enfermagem mantém a sessão pendente, com aviso. As guias são geradas uma única vez. O sistema não assina documentos nem confirma pagamentos. A conclusão precisa de conexão com o banco; para funcionar com os computadores desligados, o serviço de conclusão deve estar ativo no servidor." />
-                        <Button Content="Salvar regras de conclusão" Command="{Binding SalvarConclusaoCommand}" HorizontalAlignment="Left" />
-                        <Separator Margin="0,16" />
-                        <TextBlock Text="Sessões que precisam de atenção" Style="{StaticResource H3}" />
-                        <TextBlock Text="{Binding ResumoPendenciasConclusao}" TextWrapping="Wrap" Margin="0,8" />
-                        <Button Content="Atualizar pendências" Command="{Binding AtualizarPendenciasConclusaoCommand}" HorizontalAlignment="Left" Style="{StaticResource BotaoSecundario}" />
-                        <ItemsControl ItemsSource="{Binding PendenciasConclusao}" Margin="0,12,0,0">
-                            <ItemsControl.ItemTemplate><DataTemplate>
-                                <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,8">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Profissional}" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding AgendamentoId, StringFormat=Sessão {0}}" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate></ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Clínica / prestador ===== -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="A clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
-                                   Text="Sai impresso na capa de lote, na guia TISS e em todo documento que o paciente leva. Errado aqui é errado no papel." />
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Razão social" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding RazaoSocial}" MaxLength="120" />
-
-                                <TextBlock Text="CNPJ" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding Cnpj}" MaxLength="20" />
-
-                                <TextBlock Text="Endereço" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding Endereco}" MaxLength="200" />
-
-                                <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding Email}" MaxLength="120" />
-
-                                <TextBlock Text="Cidade" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding Cidade}" MaxLength="60" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Nome fantasia" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding NomeFantasia}" MaxLength="120" />
-
-                                <TextBlock Text="CNES" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding Cnes}" MaxLength="20" />
-
-                                <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding Telefone}" MaxLength="30" />
-
-                                <TextBlock Text="Chave Pix" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                                <TextBox Text="{Binding ChavePix, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
-                                <TextBlock Text="{Binding TipoChavePixRotulo}" TextWrapping="Wrap"
-                                           Style="{StaticResource TextoSuave}"
-                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Button Content="Salvar dados da clínica" Command="{Binding SalvarPrestadorCommand}"
-                                HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Operação e marketing ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Operação e marketing" Style="{StaticResource H3}" Margin="0,0,0,12" />
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Jornada diária (minutos)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding JornadaDiariaMinutos}" MaxLength="4" />
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="É o DENOMINADOR da taxa de ocupação. Clínica de meio período veria 50% com a agenda cheia se ficasse nos 480 padrão." />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Recall: dias sem vir" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding DiasInatividadeRecall}" MaxLength="4" />
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="A partir de quantos dias parado o paciente entra na lista de recall." />
-                            </StackPanel>
-                        </Grid>
-
-                        <StackPanel Margin="0,14,0,0">
-                            <TextBlock Text="Faturamento na marcação" Style="{StaticResource Rotulo}"
-                                       Margin="0,0,0,4" />
-                            <CheckBox IsChecked="{Binding GuiaNoAgendamento}"
-                                      Content="A guia nasce quando o atendimento entra no sistema (marcação ou avulso)" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Text="Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar. ⚠ LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro." />
-                        </StackPanel>
-
-                        <StackPanel Margin="0,14,0,0">
-                            <TextBlock Text="Carimbadora de tempo (ACT) — opcional"
-                                       Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding CarimbadoraDeTempo}" MaxLength="300" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Text="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil das prescrições. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso." />
-                        </StackPanel>
-
-                        <Separator Margin="0,18,0,14" />
-
-                        <!-- Ato RARO (escrever o termo de um procedimento novo) mora em
-                             BOTÃO, não em painel aberto — a regra de leiaute do README. -->
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="Escrever termos…"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="170"
-                                    Margin="16,0,0,0" VerticalAlignment="Center"
-                                    Click="AoAbrirTermos" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Termos assinados pelo paciente"
-                                           Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           HorizontalAlignment="Left" MaxWidth="820"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina na tela dele (o segundo monitor do balcão) antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
-                            </StackPanel>
-                        </DockPanel>
-
-                        <Separator Margin="0,18,0,14" />
-
-                        <!-- Ato RARO (combinar o que a clínica passa a registrar em toda
-                             sessão) mora em BOTÃO — a regra de leiaute do README. -->
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="Campos do prontuário…"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="170"
-                                    Margin="16,0,0,0" VerticalAlignment="Center"
-                                    Click="AoAbrirCampos" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Campos personalizados do prontuário"
-                                           Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           HorizontalAlignment="Left" MaxWidth="820"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Dado dentro do texto livre não se compara entre sessões nem vira coluna de relatório; aqui ele vira campo." />
-                            </StackPanel>
-                        </DockPanel>
-
-                        <Separator Margin="0,18,0,14" />
-
-                        <StackPanel>
-                            <TextBlock Text="Certificado em nuvem (SafeID) — opcional"
-                                       Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       HorizontalAlignment="Left" MaxWidth="820"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Margin="0,0,0,8"
-                                       Text="Credenciais da aplicação no portal da Safeweb. Cadastradas aqui uma vez, valem para todas as máquinas da clínica. Em branco, o sistema assina apenas com certificado instalado na máquina (token ou arquivo)." />
-
-                            <!-- Variável de ambiente vence o banco. Quando ela está em vigor,
-                                 editar aqui não teria efeito NENHUM e o sistema ainda diria
-                                 "salvo" — pior que não oferecer o campo. -->
-                            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
-                                    Visibility="{Binding SafeIdVemDoAmbiente, Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock TextWrapping="Wrap"
-                                           Text="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (SafeID__ClientId e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
-                            </Border>
-
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="client_id" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding SafeIdClientId}" MaxLength="200"
-                                             IsEnabled="{Binding SafeIdEditavel}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="client_secret" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding SafeIdClientSecret}" MaxLength="300"
-                                             IsEnabled="{Binding SafeIdEditavel}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <CheckBox IsChecked="{Binding SafeIdHomologacao}"
-                                      IsEnabled="{Binding SafeIdEditavel}"
-                                      Content="Usar o ambiente de homologação da Safeweb (somente para testes)" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       HorizontalAlignment="Left" MaxWidth="820"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Margin="24,2,0,0"
-                                       Text="Marcado, as assinaturas saem com certificado de teste e NÃO têm valor jurídico. Desmarque antes de usar na clínica." />
-                        </StackPanel>
-
-                        <Button Content="Salvar operação" Command="{Binding SalvarOperacaoCommand}"
-                                HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Publicação do documento assinado (parcela 53) ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Publicação de documentos assinados"
-                                   Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   Text="Receita, atestado, pedido de exame e declaração de comparecimento assinados digitalmente ganham um QR Code. O farmacêutico aponta a câmera e o documento abre — sem o paciente precisar enviar arquivo nenhum. Prontuário NUNCA é publicado." />
-
-                        <!-- A tela ABRE dizendo como está. Sem esta linha, "desligada" e
-                             "ligada e quebrada" têm a mesma aparência, e a segunda só
-                             apareceria na primeira receita assinada. -->
-                        <!-- Contexto permanente é LINHA, não faixa. A frase muda de
-                             conteúdo (ligada / sem armazenamento / desligada), mas está
-                             SEMPRE lá — então uma moldura em volta dela é permanente. -->
-                        <TextBlock Text="{Binding SituacaoPublicacao}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}"
-                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" />
-
-                        <StackPanel Margin="0,14,0,0">
-                            <TextBlock Text="Domínio da clínica" Style="{StaticResource Rotulo}"
-                                       Margin="0,0,0,4" />
-                            <TextBox Text="{Binding DominioPublicacao}" MaxLength="200" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       HorizontalAlignment="Left" MaxWidth="820"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Margin="0,4,0,0"
-                                       Text="Ex.: https://documentos.suaclinica.com.br — é o endereço que o farmacêutico vê ao escanear, e por isso precisa ser o domínio da clínica. Peça ao responsável pelo site um registro CNAME apontando para o provedor de armazenamento. Em branco, a publicação fica DESLIGADA." />
-                        </StackPanel>
-
-                        <!-- Trocar o domínio depois NÃO conserta o que já saiu: a URL fica
-                             selada dentro do PDF assinado, que não pode ser regerado. -->
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,6,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo." />
-
-                        <StackPanel Margin="0,14,0,0" MaxWidth="260" HorizontalAlignment="Left">
-                            <TextBlock Text="Dias no ar" Style="{StaticResource Rotulo}"
-                                       Margin="0,0,0,4" />
-                            <TextBox Text="{Binding DiasPublicacao}" MaxLength="3" />
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Margin="0,4,0,0"
-                                   Text="Por quantos dias o documento fica acessível pelo link, de 1 a 365. Receita simples costuma valer 30 dias; uso contínuo, mais. Vencido o prazo, o arquivo sai do ar e a clínica republica com um clique, sem perder o QR já impresso. O registro no sistema continua guardado por 20 anos, sempre." />
-
-                        <Separator Margin="0,18,0,14" />
-
-                        <StackPanel>
-                            <TextBlock Text="Armazenamento (onde os arquivos ficam)"
-                                       Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       HorizontalAlignment="Left" MaxWidth="820"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Margin="0,0,0,8"
-                                       Text="Serve qualquer provedor compatível com S3 (Magalu Cloud, Cloudflare R2, AWS). Cadastrado aqui uma vez, vale para todas as máquinas. IMPORTANTE: o balde não pode permitir LISTAGEM de conteúdo — o endereço secreto de cada documento é a única barreira, e um balde que lista entrega todos de uma vez." />
-
-                            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
-                                    Visibility="{Binding ArmazenamentoVemDoAmbiente, Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock TextWrapping="Wrap"
-                                           Text="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (CLINICA_ARMAZENAMENTO_ENDPOINT e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
-                            </Border>
-
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Endereço do provedor (endpoint)"
-                                               Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding ArmazenamentoEndpoint}" MaxLength="200"
-                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Balde (bucket)" Style="{StaticResource Rotulo}"
-                                               Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding ArmazenamentoBucket}" MaxLength="100"
-                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Chave de acesso" Style="{StaticResource Rotulo}"
-                                               Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding ArmazenamentoChave}" MaxLength="200"
-                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Chave secreta" Style="{StaticResource Rotulo}"
-                                               Margin="0,0,0,4" />
-                                    <TextBox Text="{Binding ArmazenamentoSegredo}" MaxLength="300"
-                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <StackPanel MaxWidth="260" HorizontalAlignment="Left">
-                                <TextBlock Text="Região (opcional)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding ArmazenamentoRegiao}" MaxLength="60"
-                                         IsEnabled="{Binding ArmazenamentoEditavel}" />
-                            </StackPanel>
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       HorizontalAlignment="Left" MaxWidth="820"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Margin="0,4,0,0"
-                                       Text="Em branco, o sistema usa us-east-1, que é o que a maioria dos provedores aceita quando não tem região própria." />
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                            <Button Content="Salvar publicação"
-                                    Command="{Binding SalvarPublicacaoCommand}"
-                                    VerticalAlignment="Center" MinWidth="190" />
-                            <Button Content="{Binding RotuloTesteConexao}"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding TestarConexaoCommand}"
-                                    IsEnabled="{Binding PodeTestarConexao}"
-                                    VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="170" />
-                            <Button Content="Enviar arquivo de teste"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding EnviarExemploCommand}"
-                                    IsEnabled="{Binding PodeTestarConexao}"
-                                    VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="200" />
-                        </StackPanel>
-
-                        <!-- O endereço FICA na tela para ser aberto e copiado. Confirmar
-                             "enviado" sem dizer onde deixaria a pessoa procurando no painel
-                             do provedor qual dos objetos é o dela. -->
-                        <Border Style="{StaticResource AlertaInfo}" Margin="0,10,0,0"
-                                Visibility="{Binding TemUrlDoExemplo, Converter={StaticResource BoolParaVisibilidade}}">
-                            <StackPanel>
-                                <TextBlock TextWrapping="Wrap"
-                                           Text="Arquivo de teste no ar. Abra o endereço abaixo no navegador — ele tem que ABRIR o PDF, não baixar. Depois apague o objeto no painel do provedor." />
-                                <TextBox Text="{Binding UrlDoExemplo, Mode=OneWay}"
-                                         IsReadOnly="True" Margin="0,8,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Margin="0,6,0,0"
-                                   Text="Testar conexão grava um arquivo de teste no balde e o apaga em seguida — é o mesmo caminho que a publicação de verdade usa. Salve antes de testar." />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Lembretes por e-mail (set/2026) ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Lembretes por e-mail" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   Text="Na abertura da Recepção e do Gerente, o sistema manda a confirmação da sessão por e-mail a quem tem endereço na ficha — as sessões de hoje, de amanhã e do fim de semana que vier. É a MESMA rodada de confirmação do balcão: quem já foi avisado pelo WhatsApp não recebe e-mail, e quem recebeu aparece na rodada como avisado por e-mail. A mensagem não leva dado clínico." />
-
-                        <!-- A tela ABRE dizendo como está — contexto permanente é LINHA, não faixa. -->
-                        <TextBlock Text="{Binding SituacaoEmail}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}"
-                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" />
-
-                        <Grid Margin="0,14,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="160" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Servidor de saída (SMTP)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailSmtpHost}" MaxLength="200"
-                                         ctrl:Ajudantes.Placeholder="smtp.gmail.com" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Porta" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailSmtpPorta}" MaxLength="5"
-                                         ctrl:Ajudantes.Placeholder="587" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailSmtpUsuario}" MaxLength="200" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Senha (ou senha de aplicativo)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailSmtpSenha}" MaxLength="300" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Remetente (e-mail que o paciente vê)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailRemetente}" MaxLength="120"
-                                         ctrl:Ajudantes.Placeholder="contato@suaclinica.com.br" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Nome do remetente" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailRemetenteNome}" MaxLength="120"
-                                         ctrl:Ajudantes.Placeholder="Clínica SemDor" />
-                            </StackPanel>
-                        </Grid>
-
-                        <CheckBox IsChecked="{Binding EmailSmtpTls}" Margin="0,4,0,0"
-                                  Content="Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica" />
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Margin="0,8,0,0"
-                                   Text="Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica. A resposta do paciente chega no remetente." />
-
-                        <Separator Margin="0,14,0,12" />
-
-                        <!-- WrapPanel filho de StackPanel vertical: largura finita, dobra na tela
-                             estreita (checagem 32). Botão ao lado de campo usa a altura do campo. -->
-                        <WrapPanel>
-                            <Button Content="Salvar lembretes"
-                                    Command="{Binding SalvarEmailCommand}"
-                                    IsEnabled="{Binding PodeEditar}"
-                                    VerticalAlignment="Center" MinWidth="190" Margin="0,0,16,8" />
-                            <StackPanel Width="260" Margin="0,0,10,8">
-                                <TextBlock Text="Mandar o teste para" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding EmailDestinoTeste}" MaxLength="120" />
-                            </StackPanel>
-                            <Button Content="{Binding RotuloTesteEmail}"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding TestarEmailCommand}"
-                                    IsEnabled="{Binding PodeTestarEmail}"
-                                    VerticalAlignment="Bottom" MinWidth="200" Margin="0,0,0,8" />
-                        </WrapPanel>
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para o endereço acima; nenhum paciente recebe nada." />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Tela do paciente (parcela 66, 5ª rodada) ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Tela do paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
-                                   Text="O monitor virado para quem assina, como a maquininha do cartão: a recepcionista conduz na tela dela e o paciente lê e assina na dele. Sem escolher nada, a assinatura é colhida na própria janela de quem conduz." />
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Monitor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding TelasDisponiveis}"
-                                          SelectedItem="{Binding TelaDoPaciente, Mode=TwoWay}"
-                                          DisplayMemberPath="Rotulo"
-                                          IsEnabled="{Binding PodeEditar}" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                        VerticalAlignment="Bottom" Margin="10,0,0,0">
-                                <Button Content="Salvar" MinWidth="120"
-                                        VerticalAlignment="Center"
-                                        Command="{Binding SalvarTelaDoPacienteCommand}"
-                                        IsEnabled="{Binding PodeEditar}" />
-                                <Button Content="Testar" Style="{StaticResource BotaoSecundario}"
-                                        MinWidth="120" Margin="10,0,0,0"
-                                        VerticalAlignment="Center"
-                                        Command="{Binding TestarTelaDoPacienteCommand}"
-                                        IsEnabled="{Binding PodeEditar}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Terceiro estado ESCRITO: a tela gravada pode estar desligada, e
-                             silêncio faria a clínica concluir que a feature quebrou quando o
-                             que houve foi um cabo solto. -->
-                        <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
-                                Visibility="{Binding AvisoTelaDoPaciente, Converter={StaticResource TextoParaVisibilidade}}">
-                            <TextBlock Text="{Binding AvisoTelaDoPaciente}" TextWrapping="Wrap" />
-                        </Border>
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
-                                   Text="Use o Testar antes do primeiro paciente: as telas do Windows se chamam \\.\DISPLAY1 e \\.\DISPLAY2, e o único jeito de saber qual é qual é ver o exemplo aparecer nela." />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Faturamento ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,24">
-                    <StackPanel>
-                        <TextBlock Text="Regras de faturamento" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
-                                   Text="Valem para o app de faturamento, que continua sendo quem fatura. Editar aqui evita ter de sentar naquele posto só para mudar um prazo." />
-
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Alerta de consulta (dias)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding JanelaAlertaConsulta}" MaxLength="3" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Recurso de glosa (dias)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding PrazoRecursoGlosa}" MaxLength="3" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="4">
-                                <TextBlock Text="Prazo de decisão (dias)" Style="{StaticResource Rotulo}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding IntervaloRodadaPendencias}" MaxLength="3" />
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0"
-                                   Text="O prazo de decisão conta a partir de a guia VIRAR pendente (a data prevista de faturamento), não do atendimento: o 2º código só existe 24 h depois, e contar do atendimento cobraria decisão sobre uma guia que ninguém tinha como tirar." />
-
-                        <CheckBox Content="A rodada de pendências também cobra consultas a renovar"
-                                  IsChecked="{Binding RodadaAplicaConsultas}" Margin="0,12,0,0" />
-                        <CheckBox Content="A rodada de pendências também cobra carteirinhas vencidas"
-                                  IsChecked="{Binding RodadaAplicaCarteirinhas}" Margin="0,8,0,0" />
-
-                        <Button Content="Salvar faturamento" Command="{Binding SalvarFaturamentoCommand}"
-                                HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== Backup da base (parcela 35) =====
-                     A capacidade existia desde a parcela 34 e nenhuma tela a chamava:
-                     backup no código e nenhum no disco. -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Backup da clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                   Text="Uma cópia de tudo: pacientes, prontuário, agenda, financeiro, estoque e acessos. Guarde FORA desta máquina — pendrive ou nuvem. Cópia que fica no mesmo computador do banco não é plano B." />
-
-                        <!-- Cópia AUTOMÁTICA (parcela 52). Até aqui o backup era só o botão
-                             de baixo: a clínica tinha a ferramenta e não a política, e a
-                             auditoria de fornecedor pediu política. -->
-                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
-                                Visibility="{Binding BackupDesligado, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                                       FontSize="{StaticResource Fonte.Legenda}"
-                                       Text="A cópia automática está DESLIGADA: nenhuma pasta de destino foi escolhida. Enquanto isso, a clínica só tem backup nos dias em que alguém clicar no botão abaixo." />
-                        </Border>
-
-                        <TextBlock Text="Cópia automática" Style="{StaticResource Rotulo}" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                   Text="Gravada na abertura do Gerente quando o prazo vence. Escolha uma pasta de REDE ou de nuvem sincronizada — o sistema não tem como saber onde a pasta fica fisicamente, e cópia no mesmo computador não protege contra incêndio, furto nem ransomware." />
-
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" Text="{Binding PastaBackup}" IsReadOnly="True"
-                                     VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Content="Escolher pasta…"
-                                    Command="{Binding EscolherPastaBackupCommand}"
-                                    IsEnabled="{Binding PodeEditar}"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="140" />
-                        </Grid>
-
-                        <WrapPanel Margin="0,0,0,10">
-                            <StackPanel Margin="0,0,20,8">
-                                <TextBlock Text="Copiar a cada (dias)" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding IntervaloBackupDias}" Width="90"
-                                         IsEnabled="{Binding PodeEditar}" HorizontalAlignment="Left" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,20,8">
-                                <TextBlock Text="Cópias a guardar" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding CopiasBackup}" Width="90"
-                                         IsEnabled="{Binding PodeEditar}" HorizontalAlignment="Left" />
-                            </StackPanel>
-                            <Button Content="Salvar política" Command="{Binding SalvarPoliticaBackupCommand}"
-                                    IsEnabled="{Binding PodeEditar}"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    VerticalAlignment="Bottom" Margin="0,0,0,8" MinWidth="140" />
-                        </WrapPanel>
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,4"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="Guardar várias cópias não é excesso: a corrupção que ninguém percebeu na sexta é copiada por cima da única cópia boa no sábado." />
-
-                        <TextBlock Text="{Binding SituacaoBackup}" TextWrapping="Wrap" Margin="0,0,0,14"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-
-                        <Separator Margin="0,0,0,14" />
-
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Copiar agora" Command="{Binding CopiarAgoraCommand}"
-                                    IsEnabled="{Binding PodeEditar}" MinWidth="150" />
-                            <Button Content="Salvar cópia em…" Command="{Binding FazerBackupCommand}"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Margin="12,0,0,0" MinWidth="150" />
-                            <Button Content="Conferir um backup" Command="{Binding ConferirBackupCommand}"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Margin="12,0,0,0" MinWidth="170" />
-                        </StackPanel>
-
-                        <TextBlock Text="{Binding ResumoBackup}" TextWrapping="Wrap" Margin="0,12,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir." />
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="Para RESTAURAR um backup, fale com o suporte. A restauração substitui a base inteira, só entra numa base vazia e é feita junto com quem acompanha a operação — por isso ela não tem botão aqui." />
-                    </StackPanel>
-                </Border>
+      <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+        <TextBlock Text="Configurações" Style="{StaticResource H1}" Margin="0,0,0,4" />
+        <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap" Text="O que vale para a clínica inteira. Cada bloco salva sozinho — são assuntos diferentes, e um botão único gravaria o que ninguém olhou." />
+      </StackPanel>
+      <Border DockPanel.Dock="Top" Margin="0,0,0,12" Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},                              FallbackValue=Collapsed}">
+        <Border.Style>
+          <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                <Setter Property="BorderThickness" Value="1" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+      </Border>
+      <TabControl>
+        <TabItem Header="Clínica">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}" Margin="0,14,0,0">
+              <shared:DadosClinicaView DataContext="{Binding DadosClinica}" Margin="0,0,0,24" />
             </StackPanel>
-        </ScrollViewer>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Atendimento">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}" Margin="0,14,0,0">
+              <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                  <TextBlock Text="Enfermagem e conclusão das sessões" Style="{StaticResource H3}" />
+                  <TextBlock Text="Exigir evolução de enfermagem antes de concluir estas modalidades BSV:" TextWrapping="Wrap" Margin="0,12,0,8" />
+                  <ItemsControl ItemsSource="{Binding ModalidadesEnfermagem}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <CheckBox Content="{Binding Nome}" IsChecked="{Binding Selecionada}" Margin="0,4,20,4" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding SituacaoConclusaoAutomatica}" TextWrapping="Wrap" Margin="0,16,0,8" />
+                  <WrapPanel>
+                    <TextBlock Text="Prazo em horas após a última gravação:" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <TextBox Text="{Binding PrazoConclusaoHoras, UpdateSourceTrigger=PropertyChanged}" Width="80" MaxLength="3" AutomationProperties.Name="Prazo para conclusão automática em horas" />
+                  </WrapPanel>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,12" Text="O médico usa apenas Salvar sessão. Exemplo: conclusão em 24 horas após a última gravação da evolução médica. Vale para evoluções gravadas após ativar a regra. Nas modalidades marcadas, a falta de evolução de enfermagem mantém a sessão pendente, com aviso. As guias são geradas uma única vez. O sistema não assina documentos nem confirma pagamentos. A conclusão precisa de conexão com o banco; para funcionar com os computadores desligados, o serviço de conclusão deve estar ativo no servidor." />
+                  <Button Content="Salvar regras de conclusão" Command="{Binding SalvarConclusaoCommand}" HorizontalAlignment="Left" />
+                  <Separator Margin="0,16" />
+                  <TextBlock Text="Sessões que precisam de atenção" Style="{StaticResource H3}" />
+                  <TextBlock Text="{Binding ResumoPendenciasConclusao}" TextWrapping="Wrap" Margin="0,8" />
+                  <Button Content="Atualizar pendências" Command="{Binding AtualizarPendenciasConclusaoCommand}" HorizontalAlignment="Left" Style="{StaticResource BotaoSecundario}" />
+                  <ItemsControl ItemsSource="{Binding PendenciasConclusao}" Margin="0,12,0,0">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,8">
+                          <StackPanel>
+                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Profissional}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Data, StringFormat=dd/MM/yyyy HH:mm}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding AgendamentoId, StringFormat=Sessão {0}}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Operação">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}" Margin="0,14,0,0">
+              <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel>
+                  <TextBlock Text="Operação e marketing" Style="{StaticResource H3}" Margin="0,0,0,12" />
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="16" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Jornada diária (minutos)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding JornadaDiariaMinutos}" MaxLength="4" />
+                      <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Text="É o DENOMINADOR da taxa de ocupação. Clínica de meio período veria 50% com a agenda cheia se ficasse nos 480 padrão." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Recall: dias sem vir" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding DiasInatividadeRecall}" MaxLength="4" />
+                      <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Text="A partir de quantos dias parado o paciente entra na lista de recall." />
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Margin="0,14,0,0">
+                    <TextBlock Text="Faturamento na marcação" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <CheckBox IsChecked="{Binding GuiaNoAgendamento}" Content="A guia nasce quando o atendimento entra no sistema (marcação ou avulso)" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Text="Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar. ⚠ LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro." />
+                  </StackPanel>
+                  <StackPanel Margin="0,14,0,0">
+                    <TextBlock Text="Carimbadora de tempo (ACT) — opcional" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding CarimbadoraDeTempo}" MaxLength="300" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Text="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil das prescrições. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso." />
+                  </StackPanel>
+                  <Separator Margin="0,18,0,14" />
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Escrever termos…" Style="{StaticResource BotaoSecundario}" MinWidth="170" Margin="16,0,0,0" VerticalAlignment="Center" Click="AoAbrirTermos" />
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="Termos assinados pelo paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina na tela dele (o segundo monitor do balcão) antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
+                    </StackPanel>
+                  </DockPanel>
+                  <Separator Margin="0,18,0,14" />
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Campos do prontuário…" Style="{StaticResource BotaoSecundario}" MinWidth="170" Margin="16,0,0,0" VerticalAlignment="Center" Click="AoAbrirCampos" />
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="Campos personalizados do prontuário" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Text="O que ESTA clínica anota em cada sessão além dos campos do sistema — “nº de agulhas”, “aparelho usado”, “carga do exercício”. Dado dentro do texto livre não se compara entre sessões nem vira coluna de relatório; aqui ele vira campo." />
+                    </StackPanel>
+                  </DockPanel>
+                  <Separator Margin="0,18,0,14" />
+                  <StackPanel>
+                    <TextBlock Text="Certificado em nuvem (SafeID) — opcional" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" Text="Credenciais da aplicação no portal da Safeweb. Cadastradas aqui uma vez, valem para todas as máquinas da clínica. Em branco, o sistema assina apenas com certificado instalado na máquina (token ou arquivo)." />
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10" Visibility="{Binding SafeIdVemDoAmbiente, Converter={StaticResource BoolParaVisibilidade}}">
+                      <TextBlock TextWrapping="Wrap" Text="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (SafeID__ClientId e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
+                    </Border>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="client_id" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding SafeIdClientId}" MaxLength="200" IsEnabled="{Binding SafeIdEditavel}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="client_secret" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding SafeIdClientSecret}" MaxLength="300" IsEnabled="{Binding SafeIdEditavel}" />
+                      </StackPanel>
+                    </Grid>
+                    <CheckBox IsChecked="{Binding SafeIdHomologacao}" IsEnabled="{Binding SafeIdEditavel}" Content="Usar o ambiente de homologação da Safeweb (somente para testes)" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="24,2,0,0" Text="Marcado, as assinaturas saem com certificado de teste e NÃO têm valor jurídico. Desmarque antes de usar na clínica." />
+                  </StackPanel>
+                  <Button Content="Salvar operação" Command="{Binding SalvarOperacaoCommand}" HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Faturamento">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}" Margin="0,14,0,0">
+              <shared:RegrasFaturamentoView DataContext="{Binding RegrasFaturamento}" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Integrações">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}" Margin="0,14,0,0">
+              <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel>
+                  <TextBlock Text="Publicação de documentos assinados" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" Text="Receita, atestado, pedido de exame e declaração de comparecimento assinados digitalmente ganham um QR Code. O farmacêutico aponta a câmera e o documento abre — sem o paciente precisar enviar arquivo nenhum. Prontuário NUNCA é publicado." />
+                  <TextBlock Text="{Binding SituacaoPublicacao}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" />
+                  <StackPanel Margin="0,14,0,0">
+                    <TextBlock Text="Domínio da clínica" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding DominioPublicacao}" MaxLength="200" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" Text="Ex.: https://documentos.suaclinica.com.br — é o endereço que o farmacêutico vê ao escanear, e por isso precisa ser o domínio da clínica. Peça ao responsável pelo site um registro CNAME apontando para o provedor de armazenamento. Em branco, a publicação fica DESLIGADA." />
+                  </StackPanel>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" Margin="0,6,0,0" FontSize="{StaticResource Fonte.Legenda}" Text="Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo." />
+                  <StackPanel Margin="0,14,0,0" MaxWidth="260" HorizontalAlignment="Left">
+                    <TextBlock Text="Dias no ar" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding DiasPublicacao}" MaxLength="3" />
+                  </StackPanel>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" Text="Por quantos dias o documento fica acessível pelo link, de 1 a 365. Receita simples costuma valer 30 dias; uso contínuo, mais. Vencido o prazo, o arquivo sai do ar e a clínica republica com um clique, sem perder o QR já impresso. O registro no sistema continua guardado por 20 anos, sempre." />
+                  <Separator Margin="0,18,0,14" />
+                  <StackPanel>
+                    <TextBlock Text="Armazenamento (onde os arquivos ficam)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" Text="Serve qualquer provedor compatível com S3 (Magalu Cloud, Cloudflare R2, AWS). Cadastrado aqui uma vez, vale para todas as máquinas. IMPORTANTE: o balde não pode permitir LISTAGEM de conteúdo — o endereço secreto de cada documento é a única barreira, e um balde que lista entrega todos de uma vez." />
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10" Visibility="{Binding ArmazenamentoVemDoAmbiente, Converter={StaticResource BoolParaVisibilidade}}">
+                      <TextBlock TextWrapping="Wrap" Text="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (CLINICA_ARMAZENAMENTO_ENDPOINT e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
+                    </Border>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="Endereço do provedor (endpoint)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding ArmazenamentoEndpoint}" MaxLength="200" IsEnabled="{Binding ArmazenamentoEditavel}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="Balde (bucket)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding ArmazenamentoBucket}" MaxLength="100" IsEnabled="{Binding ArmazenamentoEditavel}" />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Margin="0,0,0,8">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <StackPanel Grid.Column="0">
+                        <TextBlock Text="Chave de acesso" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding ArmazenamentoChave}" MaxLength="200" IsEnabled="{Binding ArmazenamentoEditavel}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2">
+                        <TextBlock Text="Chave secreta" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding ArmazenamentoSegredo}" MaxLength="300" IsEnabled="{Binding ArmazenamentoEditavel}" />
+                      </StackPanel>
+                    </Grid>
+                    <StackPanel MaxWidth="260" HorizontalAlignment="Left">
+                      <TextBlock Text="Região (opcional)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding ArmazenamentoRegiao}" MaxLength="60" IsEnabled="{Binding ArmazenamentoEditavel}" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" Text="Em branco, o sistema usa us-east-1, que é o que a maioria dos provedores aceita quando não tem região própria." />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                    <Button Content="Salvar publicação" Command="{Binding SalvarPublicacaoCommand}" VerticalAlignment="Center" MinWidth="190" />
+                    <Button Content="{Binding RotuloTesteConexao}" Style="{StaticResource BotaoSecundario}" Command="{Binding TestarConexaoCommand}" IsEnabled="{Binding PodeTestarConexao}" VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="170" />
+                    <Button Content="Enviar arquivo de teste" Style="{StaticResource BotaoSecundario}" Command="{Binding EnviarExemploCommand}" IsEnabled="{Binding PodeTestarConexao}" VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="200" />
+                  </StackPanel>
+                  <Border Style="{StaticResource AlertaInfo}" Margin="0,10,0,0" Visibility="{Binding TemUrlDoExemplo, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                      <TextBlock TextWrapping="Wrap" Text="Arquivo de teste no ar. Abra o endereço abaixo no navegador — ele tem que ABRIR o PDF, não baixar. Depois apague o objeto no painel do provedor." />
+                      <TextBox Text="{Binding UrlDoExemplo, Mode=OneWay}" IsReadOnly="True" Margin="0,8,0,0" />
+                    </StackPanel>
+                  </Border>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" Text="Testar conexão grava um arquivo de teste no balde e o apaga em seguida — é o mesmo caminho que a publicação de verdade usa. Salve antes de testar." />
+                </StackPanel>
+              </Border>
+              <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel>
+                  <TextBlock Text="Lembretes por e-mail" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" Text="Na abertura da Recepção e do Gerente, o sistema manda a confirmação da sessão por e-mail a quem tem endereço na ficha — as sessões de hoje, de amanhã e do fim de semana que vier. É a MESMA rodada de confirmação do balcão: quem já foi avisado pelo WhatsApp não recebe e-mail, e quem recebeu aparece na rodada como avisado por e-mail. A mensagem não leva dado clínico." />
+                  <TextBlock Text="{Binding SituacaoEmail}" TextWrapping="Wrap" Style="{StaticResource TextoSuave}" HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" />
+                  <Grid Margin="0,14,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="16" />
+                      <ColumnDefinition Width="160" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Servidor de saída (SMTP)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailSmtpHost}" MaxLength="200" ctrl:Ajudantes.Placeholder="smtp.gmail.com" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Porta" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailSmtpPorta}" MaxLength="5" ctrl:Ajudantes.Placeholder="587" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="16" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailSmtpUsuario}" MaxLength="200" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Senha (ou senha de aplicativo)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailSmtpSenha}" MaxLength="300" />
+                    </StackPanel>
+                  </Grid>
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="16" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Remetente (e-mail que o paciente vê)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailRemetente}" MaxLength="120" ctrl:Ajudantes.Placeholder="contato@suaclinica.com.br" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                      <TextBlock Text="Nome do remetente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailRemetenteNome}" MaxLength="120" ctrl:Ajudantes.Placeholder="Clínica SemDor" />
+                    </StackPanel>
+                  </Grid>
+                  <CheckBox IsChecked="{Binding EmailSmtpTls}" Margin="0,4,0,0" Content="Usar criptografia (TLS) — recomendado; desligue só para servidor interno da clínica" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0" Text="Gmail: smtp.gmail.com, porta 587, com SENHA DE APLICATIVO (não a senha da conta — o Google recusa). Outlook / Microsoft 365: smtp.office365.com, porta 587. Hospedagem própria: pergunte ao responsável pelo e-mail da clínica. A resposta do paciente chega no remetente." />
+                  <Separator Margin="0,14,0,12" />
+                  <WrapPanel>
+                    <Button Content="Salvar lembretes" Command="{Binding SalvarEmailCommand}" IsEnabled="{Binding PodeEditar}" VerticalAlignment="Center" MinWidth="190" Margin="0,0,16,8" />
+                    <StackPanel Width="260" Margin="0,0,10,8">
+                      <TextBlock Text="Mandar o teste para" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <TextBox Text="{Binding EmailDestinoTeste}" MaxLength="120" />
+                    </StackPanel>
+                    <Button Content="{Binding RotuloTesteEmail}" Style="{StaticResource BotaoSecundario}" Command="{Binding TestarEmailCommand}" IsEnabled="{Binding PodeTestarEmail}" VerticalAlignment="Bottom" MinWidth="200" Margin="0,0,0,8" />
+                  </WrapPanel>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Text="O teste usa a configuração SALVA — salve antes de testar. Ele manda um único e-mail para o endereço acima; nenhum paciente recebe nada." />
+                </StackPanel>
+              </Border>
+              <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel>
+                  <TextBlock Text="Tela do paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12" Text="O monitor virado para quem assina, como a maquininha do cartão: a recepcionista conduz na tela dela e o paciente lê e assina na dele. Sem escolher nada, a assinatura é colhida na própria janela de quem conduz." />
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="Monitor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                      <ComboBox ItemsSource="{Binding TelasDisponiveis}" SelectedItem="{Binding TelaDoPaciente, Mode=TwoWay}" DisplayMemberPath="Rotulo" IsEnabled="{Binding PodeEditar}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="10,0,0,0">
+                      <Button Content="Salvar" MinWidth="120" VerticalAlignment="Center" Command="{Binding SalvarTelaDoPacienteCommand}" IsEnabled="{Binding PodeEditar}" />
+                      <Button Content="Testar" Style="{StaticResource BotaoSecundario}" MinWidth="120" Margin="10,0,0,0" VerticalAlignment="Center" Command="{Binding TestarTelaDoPacienteCommand}" IsEnabled="{Binding PodeEditar}" />
+                    </StackPanel>
+                  </Grid>
+                  <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0" Visibility="{Binding AvisoTelaDoPaciente, Converter={StaticResource TextoParaVisibilidade}}">
+                    <TextBlock Text="{Binding AvisoTelaDoPaciente}" TextWrapping="Wrap" />
+                  </Border>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" Text="Use o Testar antes do primeiro paciente: as telas do Windows se chamam \\.\DISPLAY1 e \\.\DISPLAY2, e o único jeito de saber qual é qual é ver o exemplo aparecer nela." />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Backup">
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel IsEnabled="{Binding PodeEditar}" Margin="0,14,0,0">
+              <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                <StackPanel>
+                  <TextBlock Text="Backup da clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12" Text="Uma cópia de tudo: pacientes, prontuário, agenda, financeiro, estoque e acessos. Guarde FORA desta máquina — pendrive ou nuvem. Cópia que fica no mesmo computador do banco não é plano B." />
+                  <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,12" Visibility="{Binding BackupDesligado, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}" Text="A cópia automática está DESLIGADA: nenhuma pasta de destino foi escolhida. Enquanto isso, a clínica só tem backup nos dias em que alguém clicar no botão abaixo." />
+                  </Border>
+                  <TextBlock Text="Cópia automática" Style="{StaticResource Rotulo}" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8" Text="Gravada na abertura do Gerente quando o prazo vence. Escolha uma pasta de REDE ou de nuvem sincronizada — o sistema não tem como saber onde a pasta fica fisicamente, e cópia no mesmo computador não protege contra incêndio, furto nem ransomware." />
+                  <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{Binding PastaBackup}" IsReadOnly="True" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="Escolher pasta…" Command="{Binding EscolherPastaBackupCommand}" IsEnabled="{Binding PodeEditar}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="140" />
+                  </Grid>
+                  <WrapPanel Margin="0,0,0,10">
+                    <StackPanel Margin="0,0,20,8">
+                      <TextBlock Text="Copiar a cada (dias)" Style="{StaticResource Rotulo}" />
+                      <TextBox Text="{Binding IntervaloBackupDias}" Width="90" IsEnabled="{Binding PodeEditar}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,20,8">
+                      <TextBlock Text="Cópias a guardar" Style="{StaticResource Rotulo}" />
+                      <TextBox Text="{Binding CopiasBackup}" Width="90" IsEnabled="{Binding PodeEditar}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <Button Content="Salvar política" Command="{Binding SalvarPoliticaBackupCommand}" IsEnabled="{Binding PodeEditar}" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Bottom" Margin="0,0,0,8" MinWidth="140" />
+                  </WrapPanel>
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="{StaticResource Fonte.Legenda}" Text="Guardar várias cópias não é excesso: a corrupção que ninguém percebeu na sexta é copiada por cima da única cópia boa no sábado." />
+                  <TextBlock Text="{Binding SituacaoBackup}" TextWrapping="Wrap" Margin="0,0,0,14" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Primario}" />
+                  <Separator Margin="0,0,0,14" />
+                  <StackPanel Orientation="Horizontal">
+                    <Button Content="Copiar agora" Command="{Binding CopiarAgoraCommand}" IsEnabled="{Binding PodeEditar}" MinWidth="150" />
+                    <Button Content="Salvar cópia em…" Command="{Binding FazerBackupCommand}" Style="{StaticResource BotaoSecundario}" Margin="12,0,0,0" MinWidth="150" />
+                    <Button Content="Conferir um backup" Command="{Binding ConferirBackupCommand}" Style="{StaticResource BotaoSecundario}" Margin="12,0,0,0" MinWidth="170" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding ResumoBackup}" TextWrapping="Wrap" Margin="0,12,0,0" FontSize="{StaticResource Fonte.Legenda}" Foreground="{StaticResource Brush.Texto.Primario}" />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,0" FontSize="{StaticResource Fonte.Legenda}" Text="Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir." />
+                  <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" FontSize="{StaticResource Fonte.Legenda}" Text="Para RESTAURAR um backup, fale com o suporte. A restauração substitui a base inteira, só entra numa base vazia e é feita junto com quem acompanha a operação — por isso ela não tem botão aqui." />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+      </TabControl>
     </DockPanel>
-    <ctrl:EstadoDaTela
-                       Vazio="False"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       TextoCarregando="Lendo as configurações…"
-                       TextoNaoVerificado="Não foi possível montar esta tela. Os números não estão zerados — eles não puderam ser lidos." />
-    </Grid>
+    <ctrl:EstadoDaTela Vazio="False" Carregando="{Binding Carregando}" NaoVerificado="{Binding NaoVerificado}" TextoCarregando="Lendo as configurações…" TextoNaoVerificado="Não foi possível montar esta tela. Os números não estão zerados — eles não puderam ser lidos." />
+  </Grid>
 </UserControl>

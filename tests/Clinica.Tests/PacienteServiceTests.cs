@@ -53,7 +53,7 @@ public class PacienteServiceTests : IDisposable
 
     private static Paciente Nova(string nome, string? cpf) => new()
     {
-        Nome = nome, Documento = cpf,
+        Nome = nome, Documento = cpf, Endereco = "Rua de Teste, 1, Centro, Macaé, RJ",
         Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino
     };
 
@@ -100,20 +100,75 @@ public class PacienteServiceTests : IDisposable
         (await _db.Pacientes.FindAsync(p.Id))!.Nome.Should().Be("Ana Paula");
     }
 
-    /// <summary>
-    /// CPF em branco é o caso NORMAL — criança, paciente cadastrado pela carteirinha, quem
-    /// chegou sem documento. Vários pacientes sem CPF não são duplicatas uns dos outros, e
-    /// exigir o CPF travaria o cadastro no balcão com o paciente na frente.
-    /// </summary>
-    [Fact]
-    public async Task SemCpf_VariosPacientesConvivem_EODocumentoVaiNuloParaOBanco()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SalvarNovo_SemCpf_RecusaSemCriarFicha(string? cpf)
     {
-        await _pacientes.SalvarNovoAsync(Nova("Sem documento 1", null));
-        await _pacientes.SalvarNovoAsync(Nova("Sem documento 2", "   "));
+        var salvar = () => _pacientes.SalvarNovoAsync(Nova("Cadastro incompleto", cpf));
 
-        _db.Pacientes.Count().Should().Be(2);
-        // Vazio vira NULO: dois documentos "" seriam iguais para qualquer comparação.
-        _db.Pacientes.Select(p => p.Documento).Should().OnlyContain(d => d == null);
+        (await salvar.Should().ThrowAsync<ArgumentException>()).WithMessage("Informe o CPF do paciente.");
+        (await _db.Pacientes.CountAsync()).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task SalvarNovo_SemEndereco_RecusaSemCriarFicha(string? endereco)
+    {
+        var p = Nova("Cadastro incompleto", "52998224725");
+        p.Endereco = endereco;
+        var salvar = () => _pacientes.SalvarNovoAsync(p);
+
+        (await salvar.Should().ThrowAsync<ArgumentException>()).WithMessage("Informe o endereço residencial do paciente.");
+        (await _db.Pacientes.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task SalvarNovo_EnderecoLongo_RecusaComOrientacao()
+    {
+        var p = Nova("Cadastro", "52998224725");
+        p.Endereco = new string('x', 301);
+        var salvar = () => _pacientes.SalvarNovoAsync(p);
+        (await salvar.Should().ThrowAsync<ArgumentException>()).WithMessage("O endereço deve ter até 300 caracteres.");
+        (await _db.Pacientes.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task FichaAntiga_PodeSerLida_MasEdicaoExigeCompletarCpfEEndereco()
+    {
+        var p = await CriarPacienteAsync("Cadastro anterior");
+        (await _pacientes.ObterAsync(p.Id)).Should().NotBeNull();
+        var salvar = () => _pacientes.AtualizarAsync(p);
+        (await salvar.Should().ThrowAsync<ArgumentException>()).WithMessage("Informe o CPF do paciente.");
+
+        p.Documento = "529.982.247-25";
+        (await salvar.Should().ThrowAsync<ArgumentException>()).WithMessage("Informe o endereço residencial do paciente.");
+
+        p.Endereco = "  Rua de Teste, 1, Centro, Macaé, RJ  ";
+        await salvar();
+        _db.ChangeTracker.Clear();
+        var salvo = await _pacientes.ObterAsync(p.Id);
+        salvo!.Documento.Should().Be("52998224725");
+        salvo.Endereco.Should().Be("Rua de Teste, 1, Centro, Macaé, RJ");
+        (await _db.Pacientes.CountAsync()).Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Atualizar_NaoPermiteApagarObrigatorios(bool apagarCpf)
+    {
+        var p = await _pacientes.SalvarNovoAsync(Nova("Cadastro completo", "52998224725"));
+        if (apagarCpf) p.Documento = " "; else p.Endereco = " ";
+        var salvar = () => _pacientes.AtualizarAsync(p);
+        await salvar.Should().ThrowAsync<ArgumentException>();
+        _db.ChangeTracker.Clear();
+        var salvo = await _pacientes.ObterAsync(p.Id);
+        salvo!.Documento.Should().Be("52998224725");
+        salvo.Endereco.Should().Be("Rua de Teste, 1, Centro, Macaé, RJ");
     }
 
     /// <summary>
@@ -148,7 +203,7 @@ public class PacienteServiceTests : IDisposable
     public async Task Atualizar_TrocandoOCpfParaODeOutroPaciente_Recusa()
     {
         await _pacientes.SalvarNovoAsync(Nova("Dona do CPF", "529.982.247-25"));
-        var outro = await _pacientes.SalvarNovoAsync(Nova("Outro", null));
+        var outro = await _pacientes.SalvarNovoAsync(Nova("Outro", "11144477735"));
 
         outro.Documento = "52998224725";
         var salvar = () => _pacientes.AtualizarAsync(outro);

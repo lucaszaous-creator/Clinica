@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
         xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
-        Title="Conciliar agenda" Width="880" Height="660" MinWidth="620" MinHeight="460"
+        Title="Conferir atendimentos" Width="880" Height="660" MinWidth="620" MinHeight="460"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -15,7 +15,7 @@
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Conciliar agenda" Style="{StaticResource DialogoTitulo}" />
+            <TextBlock Text="Conferir atendimentos" Style="{StaticResource DialogoTitulo}" />
             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
                        Text="Horários cuja data já passou e que ninguém resolveu. Enquanto o check-in pela agenda não é usado, é o estado normal de quem foi atendido por fora — mas o horário parado infla a ocupação, põe no “Meu dia” do médico um paciente que não vem, e fica com a evolução da sessão de verdade." />
 

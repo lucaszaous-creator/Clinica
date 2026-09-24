@@ -37,8 +37,9 @@ static class Program
     }
     static async Task Executar()
     {
-        using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).Options;
-        IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Gerente.Modulo.ModuloGerente()];
+        var pausaAgenda = new PausaLeituraAgenda();
+        using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(pausaAgenda).Options;
+        IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()];
         var services = new ServiceCollection(); services.AddClinica("Host=127.0.0.1;Database=nao_usado;Username=nao_usado"); services.AddScoped(_ => new ClinicaDbContext(options)); services.AddSingleton<SessaoUsuario>(); services.AddSingleton<SnackbarService>(); services.AddSingleton<ISnackbarService>(s => s.GetRequiredService<SnackbarService>()); services.AddSingleton<IDialogoService, DialogoTeste>(); foreach (var m in modulos) m.Registrar(services);
         using var sp = services.BuildServiceProvider(); using var scope = sp.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>(); db.Database.EnsureCreated();
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
@@ -83,6 +84,87 @@ static class Program
                 }
             }
         }
+        // Modelo A: a nova organização continua abrindo o mesmo formulário, sem gravar
+        // um horário ao apenas consultar uma vaga. Exercita a View e os bindings reais.
+        NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveAgenda);
+        await Task.Delay(250);
+        var planejamento = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
+            .OfType<Clinica.Recepcao.ViewModels.AgendaViewModel>().First();
+        planejamento.Dia = DateTime.Today.AddDays(8 - (int)DateTime.Today.DayOfWeek);
+        await planejamento.CarregarAsync();
+        planejamento.FiltroProfissional = planejamento.FiltroProfissionais.First(p => p.Id == prof.Id);
+        planejamento.DuracaoPlanejamento = "60";
+        await planejamento.CarregarAsync();
+        if (planejamento.VagasPlanejamento.Count == 0) throw new Exception("Planejamento: profissional sem horários deve oferecer vagas.");
+        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        var botaoVaga = Descendentes(win).OfType<Button>().First(b => b.DataContext is Clinica.Recepcao.ViewModels.BlocoAgendaVisual { Disponivel: true });
+        if (!botaoVaga.IsEnabled || botaoVaga.Command is null || !botaoVaga.Command.CanExecute(botaoVaga.CommandParameter))
+            throw new Exception("Planejamento: vaga visível não permite abrir a marcação no primeiro carregamento.");
+        // Sala e profissional são recursos independentes: a ocupação por outro médico
+        // deve aparecer na consulta da sala, sem mudar a vaga oferecida sem filtro de sala.
+        var salaA = new Sala { Nome = "Sala A", Capacidade = 1, Ativa = true };
+        var salaB = new Sala { Nome = "Sala B", Capacidade = 1, Ativa = true };
+        var outroProfissional = new Profissional { Nome = "Outro profissional fictício", Ativo = true };
+        prof.AgendaProtegida = false;
+        db.AddRange(salaA, salaB, outroProfissional); await db.SaveChangesAsync();
+        var inicioPlanejado = planejamento.Dia.Date.AddHours(8);
+        db.AddRange(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, SalaId = salaA.Id,
+                DataHora = inicioPlanejado, DuracaoMinutos = 60 },
+            new Agendamento { PacienteId = pac.Id, ProfissionalId = outroProfissional.Id, SalaId = salaB.Id,
+                DataHora = inicioPlanejado.AddHours(1), DuracaoMinutos = 60 });
+        await db.SaveChangesAsync();
+        planejamento.AgruparPorSala = true; await planejamento.CarregarAsync();
+        var problemasPlanejamento = new List<string>();
+        var blocosPorSala = planejamento.ColunasPlanejamento.SelectMany(c => c.Blocos).ToArray();
+        if (!blocosPorSala.Any(b => b.Disponivel && b.Celula?.SalaId == salaA.Id && b.Celula.Quando == inicioPlanejado.AddHours(1))
+            || blocosPorSala.Any(b => b.Disponivel && b.Celula?.SalaId == salaB.Id && b.Celula.Quando == inicioPlanejado.AddHours(1)))
+            problemasPlanejamento.Add("Por sala: profissional e ocupação da sala não foram combinados.");
+        if (planejamento.VagasPlanejamento.Select(v => v.Inicio).Distinct().Count() != planejamento.VagasPlanejamento.Count)
+            problemasPlanejamento.Add("Por sala: painel de vagas repetiu o mesmo horário.");
+        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        if (!Descendentes(win).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled
+                && ReferenceEquals(b.Command, planejamento.AgendarNaFaixaCommand)
+                && b.CommandParameter is Clinica.Recepcao.ViewModels.CelulaAgenda { Livre: false, NoPassado: false }))
+            problemasPlanejamento.Add("Horário ocupado: atalho de marcar mais um paciente desapareceu com a trava desligada.");
+        if (problemasPlanejamento.Count > 0) throw new Exception(string.Join("\n", problemasPlanejamento));
+        Foto(win, "planejamento-salas-e-sobreposicao");
+        prof.AgendaProtegida = true; await db.SaveChangesAsync(); await planejamento.CarregarAsync();
+        win.UpdateLayout(); await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        if (Descendentes(win).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled
+                && ReferenceEquals(b.Command, planejamento.AgendarNaFaixaCommand)
+                && b.CommandParameter is Clinica.Recepcao.ViewModels.CelulaAgenda { Livre: false, NoPassado: false }))
+            throw new Exception("Atalho de sobreposição liberado com trava ativa.");
+        planejamento.AgruparPorSala = false;
+        planejamento.ModoSemana = true; await planejamento.CarregarAsync();
+        if (planejamento.ProfissionalEmFocoId != prof.Id || planejamento.Colunas.Any(c => c.ProfissionalId != prof.Id))
+            throw new Exception("Planejamento: a semana perdeu o profissional escolhido.");
+        pausaAgenda.Armar();
+        var cargaPausada = planejamento.CarregarAsync();
+        try
+        {
+            await pausaAgenda.Entrou.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            planejamento.DuracaoPlanejamento = "45";
+            if (!planejamento.DisponibilidadeNaoVerificada || planejamento.VagasPlanejamento.Count != 0
+                || planejamento.ColunasPlanejamento.Any(c => c.Blocos.Any(b => b.Disponivel)))
+                throw new Exception("Leitura parcial: vagas foram liberadas antes de consultar os horários da semana.");
+        }
+        finally { pausaAgenda.Liberar.TrySetResult(); await cargaPausada; }
+        planejamento.DisponibilidadeNaoVerificada = true;
+        planejamento.DuracaoPlanejamento = "45";
+        if (planejamento.VagasPlanejamento.Count != 0 || planejamento.ColunasPlanejamento.Any(c => c.Blocos.Any(b => b.Disponivel)))
+            throw new Exception("Planejamento: disponibilidade não verificada anunciou vaga.");
+        planejamento.DuracaoPlanejamento = "60"; await planejamento.CarregarAsync();
+        var vagaEscolhida = planejamento.VagasPlanejamento.First();
+        var quantidadeAntes = await db.Agendamentos.CountAsync();
+        await planejamento.EscolherVagaPlanejamentoCommand.ExecuteAsync(vagaEscolhida);
+        await Task.Delay(500);
+        var formulario = Descendentes(win).OfType<FrameworkElement>().Select(e => e.DataContext)
+            .OfType<Clinica.Recepcao.ViewModels.NovoAtendimentoViewModel>().First();
+        if (formulario.Profissional?.Id != prof.Id || formulario.Duracao != "60"
+            || formulario.Data.Date != vagaEscolhida.Inicio.Date || formulario.Hora != vagaEscolhida.Inicio.ToString("HH:mm"))
+            throw new Exception("Planejamento: o formulário perdeu o contexto da vaga.");
+        if (await db.Agendamentos.CountAsync() != quantidadeAntes) throw new Exception("Consultar vaga gravou um agendamento.");
+        Console.WriteLine("PLANEJAMENTO: profissional, semana, falha de leitura e formulário preservados; nenhuma gravação.");
         win.Close();
         // Regressão de produção: a direção não precisa de cadastro como médico para
         // concluir uma sessão já escrita. Exercita a view real, inclusive o binding.
@@ -162,7 +244,7 @@ static class Program
     static async Task ValidarGestao(ServiceProvider sp, Paciente paciente, UsuarioSistema usuario)
     {
         _ = new ShellViewModel("Gerente", [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(),
-            new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
+            new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()], sp);
         var escopos = sp.GetRequiredService<IServiceScopeFactory>();
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         LancamentoFinanceiro pendente;
@@ -217,11 +299,11 @@ static class Program
         if (pagamentos.Linhas.Count != 2 || pagamentos.NaoVerificado) throw new Exception("Consulta de pagamentos falhou.");
         await ConferirJanela(janela, "pagamentos-lista", [620, 960, 1366]);
         janela.Close();
-        var receber = new Clinica.Recepcao.ViewModels.ReceberPagamentoViewModel(escopos, pendente)
+        var receber = new Clinica.Desktop.Shell.Componentes.ReceberPagamentoViewModel(escopos, pendente)
             { Forma = FormaPagamento.CartaoCredito, Adquirente = "Maquininha", Bandeira = "Visa", Parcelas = "3" };
-        var receberJanela = new Clinica.Recepcao.Janelas.ReceberPagamentoWindow(receber);
+        var receberJanela = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(receber);
         await ConferirJanela(receberJanela, "receber-cartao", [480, 600]); receberJanela.Close();
-        var baixar = new Clinica.Financeiro.Janelas.BaixarLancamentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
+        var baixar = new Clinica.Desktop.Shell.Componentes.RecebimentoWindow(new Clinica.Financeiro.ViewModels.BaixarLancamentoViewModel(escopos, pendente)
             { Forma = FormaPagamento.CartaoCredito });
         await ConferirJanela(baixar, "financeiro-baixa", [420, 560]); baixar.Close();
         var compra = new Clinica.Financeiro.Janelas.MovimentoEstoqueWindow(new Clinica.Financeiro.ViewModels.MovimentoEstoqueViewModel(escopos, item.Id, item.Nome)
@@ -335,6 +417,31 @@ sealed class DialogoTeste : IDialogoService
     public bool Confirmar(string titulo, string mensagem) => false;
     public bool ConfirmarPerigo(string titulo, string mensagem) => false;
     public void Aviso(string titulo, string mensagem) { }
+}
+sealed class PausaLeituraAgenda : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+{
+    bool armada, viuBloqueios;
+    public TaskCompletionSource Entrou { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public TaskCompletionSource Liberar { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public void Armar()
+    {
+        armada = true; viuBloqueios = false;
+        Entrou = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Liberar = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+    public override async ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+        System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+        Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result, CancellationToken cancellationToken = default)
+    {
+        if (!armada) return result;
+        if (viuBloqueios)
+        {
+            armada = false; Entrou.TrySetResult();
+            await Liberar.Task.WaitAsync(cancellationToken);
+        }
+        else if (command.CommandText.Contains("\"BloqueiosAgenda\"")) viuBloqueios = true;
+        return result;
+    }
 }
 sealed class SnackbarTeste : ISnackbarService
 {

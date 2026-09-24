@@ -106,8 +106,10 @@ public sealed class ClinicoHttpTests
                 var repo=scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
                 var ag=(await repo.ObterAgendamentoAsync(id))!;
                 Assert.Null(await repo.ConferenciaConsumoAsync(ag.AtendimentoId!.Value));
+                Assert.NotNull(ag.FimAtendimentoEm);
+                // A política considera o término real, que pode anteceder o horário agendado.
                 await repo.SalvarConfiguracaoAsync(PoliticaMateriaisService.Chave,
-                    System.Text.Json.JsonSerializer.Serialize(new PoliticaMateriais(ModoMateriais.Equipe,ag.DataHora.AddMinutes(-1))));
+                    System.Text.Json.JsonSerializer.Serialize(new PoliticaMateriais(ModoMateriais.Equipe,ag.FimAtendimentoEm.Value.AddMinutes(-1))));
                 await repo.SalvarAsync();
             }
             Assert.Equal(HttpStatusCode.OK,(await client.GetAsync($"/api/clinico/atendimentos/{id}/materiais")).StatusCode);

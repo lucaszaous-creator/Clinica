@@ -125,12 +125,14 @@ public sealed class ModuloRecepcao : IModuloApp
     /// </summary>
     public const string ChaveAjuda = ChavesSuite.Ajuda;
 
+    public const string ChaveConfirmacoes = ChavesSuite.ConfirmacoesAgenda;
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
     // na sidebar. Perfis de Recep\u00E7\u00E3o e Profissional j\u00E1 nascem com as daqui.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        new ItemMenuModulo { Chave = ChaveConfirmacoes, Rotulo = "Confirmações de agenda", Glifo = "\uE73E", Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda },
         new ItemMenuModulo
         {
             Chave = ChavePagamentos, Rotulo = "Pagamentos", Glifo = "\uE8C7", Icone = "recibo",
@@ -424,6 +426,9 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddTransient<ConfirmacoesViewModel>();
+        servicos.AddTransient<IFichaAdministrativaPaciente, FichaAdministrativaPaciente>();
+        servicos.AddTransient<IFabricaListaPacientes, FabricaListaPacientes>();
         // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
         // pré-preenchimento, definido por quem navega e consumido pela tela ao abrir.
         servicos.AddSingleton<PreenchimentoNovoAtendimento>();
@@ -466,6 +471,7 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
+        ChaveConfirmacoes => new ConfirmacoesView { DataContext = servicos.GetRequiredService<ConfirmacoesViewModel>() },
         ChavePagamentos => new PagamentosView
         {
             DataContext = servicos.GetRequiredService<PagamentosViewModel>()
@@ -506,7 +512,7 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             DataContext = servicos.GetRequiredService<PrecosParticularViewModel>()
         },
-        ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
+        ChaveProntuario => servicos.GetRequiredService<IFabricaListaPacientes>().Criar(secao: 3),
         ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
         ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.
