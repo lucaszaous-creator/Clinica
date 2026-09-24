@@ -8,7 +8,7 @@
 
 **Sete capturas de protótipos HTML renderizados no navegador, seguindo o Modelo A:** logo oficial, paleta do design system e tipografia Segoe UI. São propostas visuais, ainda não implementadas no aplicativo WPF nem publicadas em produção. A navegação do protótipo é parcial; os controles não consultam nem gravam no banco.
 
-Todos os dados exibidos são fictícios. As oito capturas WPF da versão atual continuam na [galeria de evidências](README.md#capturas-reais-da-versão-atual). As imagens abaixo mostram concretamente como recomendamos organizar a agenda.
+Todos os dados exibidos são fictícios. As oito capturas WPF da versão atual continuam na [galeria de evidências](HISTORICO-PROPOSTAS.md#capturas-reais-da-versão-anterior). As imagens abaixo mostram concretamente como recomendamos organizar a agenda.
 
 ### Proposta 1. Agenda diária de cada médico
 

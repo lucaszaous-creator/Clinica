@@ -3,6 +3,7 @@
 **PR #205 · revisão com Jev · aplicativo WPF real.** As imagens abaixo mostram a nova organização da agenda, executada com dados fictícios em banco isolado. Não representam implantação em produção.
 
 - [Relatório da implementação, imagens e cobertura das 12 recomendações](IMPLEMENTACAO-MODELO-A.md)
+- [Revisão final com Jev: falhas corrigidas e testes](REVISAO-FINAL.md)
 - [Diagnóstico aprovado e protótipos de referência](DIAGNOSTICO-AGENDA.md)
 - [Fluxo do dia: ações preservadas](FLUXO-DO-DIA.md)
 - [Histórico das telas anteriores](HISTORICO-PROPOSTAS.md)

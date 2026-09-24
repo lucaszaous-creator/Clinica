@@ -601,7 +601,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             // Os fechamentos que alcançam o que está na tela. Carregados JUNTO da grade e
             // não por célula: a leitura é uma só para o período inteiro, e perguntar ao
             // banco a cada vão daria ~300 consultas por dia aberto.
-            await CarregarBloqueiosAsync(scope, geracao);
+            var bloqueiosVerificados = await CarregarBloqueiosAsync(scope, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarConfirmacoesAsync(scope, doDia, geracao);
             if (geracao != _geracaoCarga) return;
@@ -620,6 +620,7 @@ public sealed partial class AgendaViewModel : ObservableObject
 
                 Colunas.Clear();
                 foreach (var c in colunasDaSemana) Colunas.Add(c);
+                DisponibilidadeNaoVerificada = !bloqueiosVerificados;
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
                 return;
@@ -666,6 +667,7 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Resumo = $"{doDia.Count(a => a.OcupaAgenda)} horário(s) no dia · "
                          + $"{Colunas.Count} coluna(s)";
 
+                DisponibilidadeNaoVerificada = !bloqueiosVerificados;
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
                 return;
@@ -718,6 +720,7 @@ public sealed partial class AgendaViewModel : ObservableObject
                 : doDia.Count(a => a.OcupaAgenda && a.ProfissionalId == meu);
             Resumo = $"{ocupando} horário(s) no dia · {Colunas.Count} coluna(s)";
 
+            DisponibilidadeNaoVerificada = !bloqueiosVerificados;
             MontarGrade();
             await CarregarEsperaAsync(espera, geracao);
         }
@@ -1123,15 +1126,15 @@ public sealed partial class AgendaViewModel : ObservableObject
 
                 celulas.Add(new CelulaAgenda
                 {
-                    ProfissionalId = coluna.ProfissionalId,
+                    ProfissionalId = coluna.ProfissionalId ?? ProfissionalEmFocoId,
                     SalaId = coluna.SalaId ?? FiltroSala?.Id,
                     Quando = quando,
                     Cartoes = naFaixa,
                     Continuacao = coberta,
                     NoPassado = quando < agora,
-                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId, coluna.SalaId ?? FiltroSala?.Id),
-                    ForaDoExpediente = ExpedienteDe(coluna.Profissional, quando),
-                    AgendaProtegida = coluna.Profissional?.AgendaProtegida == true
+                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId ?? ProfissionalEmFocoId, coluna.SalaId ?? FiltroSala?.Id),
+                    ForaDoExpediente = ExpedienteDe(coluna.Profissional ?? ProfissionalDoFiltro, quando),
+                    AgendaProtegida = (coluna.Profissional ?? ProfissionalDoFiltro)?.AgendaProtegida == true
                 });
             }
 
@@ -1163,7 +1166,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// que não pode é passar calado: sem a linha no log, a clínica acreditaria que não há
     /// férias marcadas.
     /// </summary>
-    private async Task CarregarBloqueiosAsync(IServiceScope scope, int geracao)
+    private async Task<bool> CarregarBloqueiosAsync(IServiceScope scope, int geracao)
     {
         try
         {
@@ -1174,19 +1177,22 @@ public sealed partial class AgendaViewModel : ObservableObject
                 : (Dia.Date, Dia.Date.AddDays(1));
 
             var lista = await bloqueios.NoPeriodoAsync(inicio, fim);
-            if (geracao != _geracaoCarga) return;
+            if (geracao != _geracaoCarga) return false;
 
             _bloqueios = lista;
-            DisponibilidadeNaoVerificada = false;
+            // A leitura da semana ainda pode estar em andamento. Só o chamador libera
+            // a disponibilidade, ao publicar horários, colunas e bloqueios da mesma carga.
+            return true;
         }
         catch (Exception ex)
         {
-            if (geracao != _geracaoCarga) return;
+            if (geracao != _geracaoCarga) return false;
 
             DisponibilidadeNaoVerificada = true;
             UltimaLeitura = "Disponibilidade não verificada. Última leitura: " + _ultimaConsultaConcluida + ". Atualize para conferir.";
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — bloqueios da agenda não puderam ser lidos", ex);
+            return false;
         }
     }
 

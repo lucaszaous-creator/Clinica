@@ -142,7 +142,22 @@
                     <TextBlock Text="{Binding Rotulo}" TextTrimming="CharacterEllipsis" FontSize="{StaticResource Fonte.Legenda}" />
                 </Button>
                 <Border Visibility="{Binding TemCartao, Converter={StaticResource BoolParaVisibilidade}}">
-                    <ContentPresenter Content="{Binding Cartao}" ContentTemplate="{StaticResource CartaoAgendaTemplate}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ContentPresenter Content="{Binding Cartao}" ContentTemplate="{StaticResource CartaoAgendaTemplate}" />
+                        <Button Grid.Column="1" Content="+" Width="28" Height="26" MinHeight="0" Padding="0" Margin="2,2,0,0" VerticalAlignment="Top"
+                                Command="{Binding DataContext.AgendarNaFaixaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding Encaixe}" Visibility="{Binding PodeSobrepor, Converter={StaticResource BoolParaVisibilidade}}"
+                                AutomationProperties.Name="Marcar mais um paciente neste horário" ToolTip="Marcar mais um paciente neste horário">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                                <Setter Property="IsEnabled" Value="False" />
+                                <Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding DataContext.PodeEditarAgenda, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True" />
+                                    <Condition Binding="{Binding DataContext.DisponibilidadeNaoVerificada, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False" />
+                                </MultiDataTrigger.Conditions><Setter Property="IsEnabled" Value="True" /></MultiDataTrigger></Style.Triggers>
+                            </Style></Button.Style>
+                        </Button>
+                    </Grid>
                 </Border>
             </Grid>
         </DataTemplate>

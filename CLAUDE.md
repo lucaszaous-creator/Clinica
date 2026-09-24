@@ -177,6 +177,7 @@ Nenhum deles quebra o build quando é esquecido:
 ### 4. ViewModel e tela
 
 - **Carga async** disparada por tecla/clique/timer/troca-de-paciente: **contador de geração**.
+- **Disponibilidade da agenda:** só libere vagas depois de concluir todas as leituras do período. Na visão por sala, combine o profissional selecionado com a sala de cada coluna; preserve o atalho de sobreposição e a trava. Regressões na PR #205: `tools/ValidarLayoutWindows` cobre ocupação cruzada, trava ligada/desligada e leitura pausada após os bloqueios.
 - **Entre o `Clear()` e o último `Add` não pode haver `await`.**
 - **Timer**: quem liga e desliga é a VIEW, no `Loaded`/`Unloaded`. No ViewModel ele mantém viva
   cada tela já trocada — e leva as sub-ViewModels junto.

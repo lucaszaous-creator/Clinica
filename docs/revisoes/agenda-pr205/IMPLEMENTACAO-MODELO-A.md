@@ -1,5 +1,7 @@
 # Agenda Modelo A — implementação na PR #205
 
+[Revisão final com Jev: correções de disponibilidade por sala, atalho de sobreposição e leitura parcial](REVISAO-FINAL.md).
+
 Esta é a implementação da nova organização da agenda, com capturas do aplicativo WPF real. O diagnóstico e os protótipos anteriores continuam disponíveis como referência. As imagens desta página usam exclusivamente dados fictícios e banco SQLite isolado; não são capturas de produção.
 
 ## O que mudou de fato

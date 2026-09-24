@@ -16,11 +16,13 @@ public sealed record FiltroSala(int? Id, string Nome);
 /// <summary>Projeção visual da agenda. Não grava agendamentos nem altera seus estados.</summary>
 public sealed record BlocoAgendaVisual(double Topo, double Altura, string Rotulo,
     CartaoAgenda? Cartao = null, CelulaAgenda? Celula = null,
-    string? Detalhe = null, bool Disponivel = false, int Raia = 0, int Raias = 1)
+    string? Detalhe = null, bool Disponivel = false, int Raia = 0, int Raias = 1,
+    CelulaAgenda? Encaixe = null)
 {
     public bool TemCartao => Cartao is not null;
     public bool TemVao => Celula is not null;
     public bool Bloqueado => Celula is { Bloqueada: true } or { Expediente: true };
+    public bool PodeSobrepor => Encaixe?.PodeSobrepor == true;
 }
 public sealed record ColunaAgendaVisual(string Nome, string Resumo, IReadOnlyList<BlocoAgendaVisual> Blocos);
 public sealed record HoraAgendaVisual(double Topo, string Rotulo);
@@ -98,6 +100,12 @@ public sealed partial class AgendaViewModel
     {
         ++_geracaoVagas; BuscandoVagas = false; VagasPlanejamento.Clear();
         EstadoVagas = "Use Próximas vagas para conferir este filtro.";
+    }
+    partial void OnDisponibilidadeNaoVerificadaChanged(bool value)
+    {
+        if (!value) return;
+        InvalidarVagas();
+        MontarPlanejamento();
     }
     partial void OnFiltroProfissionalChanged(FiltroProfissional? value)
     {
@@ -178,15 +186,19 @@ public sealed partial class AgendaViewModel
         {
             var coluna = Colunas[indice]; var blocos = new List<BlocoAgendaVisual>();
             var inicio = coluna.Data.ToDateTime(TimeOnly.MinValue).AddMinutes(inicioMinuto);
+            var profissional = coluna.Profissional ?? ProfissionalDoFiltro;
+            var salaId = coluna.SalaId ?? FiltroSala?.Id;
+            var sala = _salasPlanejamento.FirstOrDefault(s => s.Id == salaId);
             var vagas = coluna.Data >= DateOnly.FromDateTime(DateTime.Today)
-                && coluna.Profissional is { } p && duracaoValida && !DisponibilidadeNaoVerificada
+                && profissional is { } p && duracaoValida && !DisponibilidadeNaoVerificada
+                && (salaId is null || sala is not null)
                 ? BuscaDeVagas.Calcular(inicio > DateTime.Now ? inicio : DateTime.Now, duracao, p,
                     _horariosPlanejamento, _bloqueios, quantidade: 100, diasMaximos: 1,
-                    sala: _salasPlanejamento.FirstOrDefault(s => s.Id == FiltroSala?.Id))
+                    sala: sala)
                     .Where(v => DateOnly.FromDateTime(v.Inicio) == coluna.Data).ToList()
                 : [];
             var disponiveis = vagas.Select(v => v.Inicio).ToHashSet();
-            if (!BuscandoVagas && ProfissionalEmFocoId is not null)
+            if (!BuscandoVagas && ProfissionalEmFocoId is not null && !(AgruparPorSala && !ModoSemana))
                 foreach (var vaga in vagas.Take(Math.Max(0, 10 - VagasPlanejamento.Count))) VagasPlanejamento.Add(vaga);
             DateTime? proximoBloco = null;
             foreach (var faixa in Faixas)
@@ -206,18 +218,18 @@ public sealed partial class AgendaViewModel
                     minutosBloco += seguintes * 30;
                 }
                 proximoBloco = celula.Quando.AddMinutes(minutosBloco);
-                var sala = _salasPlanejamento.FirstOrDefault(s => s.Id == FiltroSala?.Id);
                 var salaOcupada = sala is not null && _horariosPlanejamento.Count(a => a.OcupaAgenda && a.SalaId == sala.Id
                     && a.ColideCom(celula.Quando, celula.Quando.AddMinutes(duracao))) >= sala.Capacidade;
                 var rotulo = DisponibilidadeNaoVerificada ? "Não verificado"
                     : celula.Bloqueada ? celula.Bloqueio!
                     : celula.Expediente ? "Fora do expediente"
                     : celula.NoPassado ? "Horário passado"
-                    : coluna.Profissional is { } dono && !BuscaDeVagas.AtendeNoDia(dono, coluna.Data.DayOfWeek)
+                    : profissional is { } dono && !BuscaDeVagas.AtendeNoDia(dono, coluna.Data.DayOfWeek)
                         ? "Sem jornada para este dia"
+                    : salaId is not null && sala is null ? "Sala indisponível"
                     : livre ? $"Disponível · {duracao} min"
                     : salaOcupada ? "Sala ocupada"
-                    : coluna.Profissional is null ? "Consultar horário" : $"Não cabe {duracao} min";
+                    : profissional is null ? "Consultar horário" : $"Não cabe {duracao} min";
                 blocos.Add(new(topo, Math.Max(2, minutosBloco * 1.2 - 2), rotulo, Celula: celula,
                     Detalhe: celula.ForaDoExpediente, Disponivel: livre));
             }
@@ -231,11 +243,27 @@ public sealed partial class AgendaViewModel
                 cartoes.Add((horario, raia));
             }
             foreach (var (cartao, raia) in cartoes)
+            {
+                var dono = _profissionaisPlanejamento.FirstOrDefault(p => p.Id == cartao.ProfissionalId)
+                    ?? _horariosPlanejamento.FirstOrDefault(a => a.Id == cartao.AgendamentoId)?.Profissional;
+                var encaixe = new CelulaAgenda { ProfissionalId = cartao.ProfissionalId,
+                    SalaId = coluna.SalaId ?? FiltroSala?.Id, Quando = cartao.DataHora,
+                    Cartoes = [cartao], Continuacao = false, NoPassado = cartao.DataHora < DateTime.Now,
+                    AgendaProtegida = dono?.AgendaProtegida == true };
                 blocos.Add(new((cartao.DataHora - inicio).TotalMinutes * 1.2,
                     Math.Max(2, (cartao.Fim - cartao.DataHora).TotalMinutes * 1.2 - 2),
-                    cartao.Faixa, Cartao: cartao, Raia: raia, Raias: Math.Max(1, finais.Count)));
+                    cartao.Faixa, Cartao: cartao, Raia: raia, Raias: Math.Max(1, finais.Count), Encaixe: encaixe));
+            }
             ColunasPlanejamento.Add(new(coluna.Nome, coluna.Resumo, blocos));
         }
+        // O painel lateral segue os filtros do cabeçalho. A grade por sala calcula cada
+        // recurso separadamente; juntar essas listas repetiria horários e perderia a sala.
+        if (!BuscandoVagas && AgruparPorSala && !ModoSemana && !DisponibilidadeNaoVerificada
+            && duracaoValida && ProfissionalDoFiltro is { } selecionado && Dia.Date >= DateTime.Today)
+            foreach (var vaga in BuscaDeVagas.Calcular(Dia.Date > DateTime.Now ? Dia.Date : DateTime.Now,
+                duracao, selecionado, _horariosPlanejamento, _bloqueios, diasMaximos: 1,
+                sala: _salasPlanejamento.FirstOrDefault(s => s.Id == FiltroSala?.Id)))
+                VagasPlanejamento.Add(vaga);
         if (!BuscandoVagas)
             EstadoVagas = ProfissionalEmFocoId is null ? "Escolha um profissional para consultar vagas."
                 : DisponibilidadeNaoVerificada ? "Disponibilidade não verificada. Atualize a agenda."
