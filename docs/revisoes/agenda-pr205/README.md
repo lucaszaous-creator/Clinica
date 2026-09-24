@@ -1,5 +1,7 @@
 # Agenda SemDor — como ficará e evidências atuais
 
+> **Escopo atual da revisão do dia: somente visual.** Veja os [mockups nos módulos Clínico e Recepção](FLUXO-DO-DIA.md). As recomendações funcionais anteriores neste diagnóstico não são parte desta alteração visual.
+
 **PR #205 · revisão com Jev · Modelo A.** Sete imagens de propostas visuais e oito capturas reais da versão atual, todas com dados fictícios. As propostas de agenda ainda não estão implementadas no aplicativo.
 
 ## Acesso e download
@@ -53,19 +55,19 @@ Quando não for possível conferir os bloqueios, manter a última leitura identi
 
 ![Proposta visual — Falha de atualização com mensagem clara](propostas/05-proposta-nao-verificada.png)
 
-## Atendimentos do dia — recepção e médicos
+## Mockups do dia dentro de cada módulo — somente visual
 
-**Uma mesma aba, com ações conforme o perfil.** A recepção abre todos os profissionais; o médico abre sua agenda. Horários, chegada, espera e situação vêm dos mesmos registros. As ações e os dados clínicos seguem as permissões.
+**Escopo corrigido:** o fluxo existente permanece. Os mockups abaixo substituem a proposta anterior de alterar ações e reorganizar o fluxo do dia. A revisão trata de espaçamento, alinhamento, hierarquia e cores, preservando os comandos e seus destinos.
 
-### Proposta 6. Visão da recepção
+### Proposta 6. Módulo Recepção — Agenda do dia
 
-![Proposta de Atendimentos do dia para recepção](propostas/06-fluxo-recepcao.png)
+![Mockup visual do módulo Recepção](propostas/06-fluxo-recepcao.png)
 
-### Proposta 7. Visão do médico
+### Proposta 7. Módulo Clínico — Meu dia
 
-![Proposta de Atendimentos do dia para o médico](propostas/07-fluxo-medico.png)
+![Mockup visual do módulo Clínico](propostas/07-fluxo-medico.png)
 
-[Leia o fluxo completo, as ações por perfil e as regras das duas evoluções de enfermagem](FLUXO-DO-DIA.md).
+[Veja o detalhamento visual e as ações atuais preservadas](FLUXO-DO-DIA.md).
 
 ## Capturas reais da versão atual
 
