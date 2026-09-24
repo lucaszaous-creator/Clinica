@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
  <ItemGroup>
+  <Compile Include="../../src/Clinica.Desktop/ModuloFaturamentoAplicativo.cs" Link="ModuloFaturamentoAplicativo.cs" />
   <ProjectReference Include="../../src/Clinica.Modulo.Recepcao/Clinica.Modulo.Recepcao.csproj" />
   <ProjectReference Include="../../src/Clinica.Modulo.Clinico/Clinica.Modulo.Clinico.csproj" />
   <ProjectReference Include="../../src/Clinica.Modulo.Financeiro/Clinica.Modulo.Financeiro.csproj" />

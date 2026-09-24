@@ -176,6 +176,8 @@ Nenhum deles quebra o build quando é esquecido:
 
 ### 4. ViewModel e tela
 
+- **Escopo do executável:** registrar componentes compartilhados não autoriza publicar seus menus/rotas. O Faturamento usa `ModuloFaturamentoAplicativo`, conferido pela mesma composição na verificação Windows, para abrir apenas Financeiro/Faturamento de guias mesmo com acesso de gerente. Testar abertura, busca e navegação direta; `Oculto` sozinho não bloqueia uma rota.
+
 - **Carga async** disparada por tecla/clique/timer/troca-de-paciente: **contador de geração**.
 - **Disponibilidade da agenda:** só libere vagas depois de concluir todas as leituras do período. Na visão por sala, combine o profissional selecionado com a sala de cada coluna; preserve o atalho de sobreposição e a trava. Regressões na PR #205: `tools/ValidarLayoutWindows` cobre ocupação cruzada, trava ligada/desligada e leitura pausada após os bloqueios.
 - **Entre o `Clear()` e o último `Add` não pode haver `await`.**

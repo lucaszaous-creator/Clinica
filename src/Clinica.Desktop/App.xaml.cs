@@ -380,10 +380,7 @@ public partial class App : System.Windows.Application
 
     private static readonly Clinica.Desktop.Shell.Modulos.IModuloApp[] _modulos =
     [
-        new Clinica.Faturamento.Modulo.ModuloFaturamento(),
-        new Clinica.Desktop.Shell.Modulos.ModuloContextual(new Clinica.Recepcao.Modulo.ModuloRecepcao(), "agenda", "pacientes", "ajuda"),
-        new Clinica.Desktop.Shell.Modulos.ModuloContextual(new Clinica.Clinico.Modulo.ModuloClinico()),
-        new Clinica.Desktop.Shell.Modulos.ModuloContextual(new Clinica.Gerente.Modulo.ModuloGerente(), "acessos", "configuracoes")
+        new ModuloFaturamentoAplicativo()
     ];
     private static IHost ConstruirHost(string connectionString) =>
         Clinica.Desktop.Shell.ShellBootstrap.ConstruirHost(connectionString, _modulos);
