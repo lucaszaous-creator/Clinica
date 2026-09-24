@@ -67,7 +67,8 @@ internal static partial class Program
             ("Consultório", PerfilAcesso.Profissional, [new C(),new ModuloContextual(new R())]),
             ("Enfermagem", PerfilAcesso.Enfermagem, [new C(),new ModuloContextual(new R())]),
             ("Financeiro", PerfilAcesso.Financeiro,[new F(),new ModuloContextual(new R()),new ModuloContextual(new C())]),
-            ("Faturamento", PerfilAcesso.Faturista,[new B(),new ModuloContextual(new R(),"agenda","pacientes","ajuda"),new ModuloContextual(new C()),new ModuloContextual(new G(),"acessos","configuracoes")]),
+            ("Faturamento", PerfilAcesso.Faturista,[new Clinica.Desktop.ModuloFaturamentoAplicativo()]),
+            ("Faturamento — gerente", PerfilAcesso.Gerente,[new Clinica.Desktop.ModuloFaturamentoAplicativo()]),
             ("Gerente", PerfilAcesso.Gerente,[new R(),new C(),new F(),new B(),new G()])
         };
         foreach(var (nome,perfil,modulos) in composicoes)
@@ -84,6 +85,43 @@ internal static partial class Program
             var shell = new ShellViewModel(nome,modulos,provider);
             Evidencias.Add(new { perfil=nome, destinos=shell.Itens.Select(i=>new { i.Chave,i.Rotulo,i.Grupo,i.Abas }).ToArray() });
             var visiveis = shell.Grupos.SelectMany(g => g.Itens).ToList();
+            if (nome.StartsWith("Faturamento"))
+            {
+                Conferir(shell.Grupos.Count == 1 && shell.Grupos[0].Grupo == GrupoSidebar.Financeiro,
+                    $"{nome}: somente grupo Financeiro");
+                Conferir(visiveis.Count == 1 && visiveis[0].Chave == ChavesSuite.FaturamentoTiss,
+                    $"{nome}: somente Faturamento de guias no menu");
+                Conferir(shell.TituloTela == "Faturamento de guias" && shell.TelaAtual is Clinica.Desktop.Shell.Componentes.TelaComAbas,
+                    $"{nome}: abertura direta no faturamento");
+                var composta = (Clinica.Desktop.Shell.Componentes.TelaComAbas)shell.TelaAtual!;
+                var regua = (TabControl)composta.FindName("Abas");
+                var esperadas = new[] { "Resumo", "Pendências e baixas", "Consultar guias", "Faturados", "Glosas e recursos", "Não conformidades", "Lotes e XML TISS" };
+                if (perfil == PerfilAcesso.Gerente) esperadas = esperadas.Concat(new[] { "Relatórios de guias", "Regras e catálogos TISS" }).ToArray();
+                Conferir(regua.Items.Cast<TabItem>().Select(a => (string)a.Header).SequenceEqual(esperadas),
+                    $"{nome}: subabas de guias preservadas conforme permissão");
+                Conferir(regua.SelectedIndex == 0 && ((TabItem)regua.Items[0]).Content is Clinica.Gerente.Views.FaturamentoGerencialView,
+                    $"{nome}: Resumo materializa a tela de faturamento");
+                foreach (var chave in new[] { "agenda", "fila", ChavesSuite.AgendaRecepcao, ChavesSuite.ConsultorioSemana,
+                    "agenda-confirmacoes", "retornos-a-marcar", "marcar-horario", "pacientes", "acessos", "configuracoes" })
+                {
+                    var telaAntes = shell.TelaAtual;
+                    Conferir(!NavegacaoSuite.Existe(chave) && !NavegacaoSuite.Ir(chave) && ReferenceEquals(telaAntes, shell.TelaAtual),
+                        $"{nome}: rota alheia recusada {chave}");
+                    Conferir(modulos[0].CriarTela(chave, provider) is null, $"{nome}: fábrica recusa {chave}");
+                }
+                foreach (var termo in new[] { "Agenda", "Confirmações", "Retornos", "Paciente", "Acessos" })
+                {
+                    shell.TextoPesquisa = termo;
+                    Conferir(shell.ResultadosPesquisa.Count == 0, $"{nome}: busca não oferece {termo}");
+                }
+                shell.TextoPesquisa = "";
+                if (perfil == PerfilAcesso.Faturista)
+                {
+                    var janelaFaturamento = new ShellWindow { DataContext = shell, Title = "Faturamento — Clínica SemDor", Width = 1366, Height = 820,
+                        ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
+                    janelaFaturamento.Show(); await Task.Delay(250); Render(janelaFaturamento, "faturamento-exclusivo.png"); janelaFaturamento.Close();
+                }
+            }
             Conferir(visiveis.Select(i=>i.Rotulo).Distinct().Count()==visiveis.Count,$"{nome}: sem rótulos principais duplicados");
             Conferir(!NavegacaoSuite.Existe("destino-inexistente"),$"{nome}: destino inexistente recusado");
             if (!SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios)) Conferir(!NavegacaoSuite.Existe("acessos"),$"{nome}: acesso proibido não resolve como aba vizinha");
