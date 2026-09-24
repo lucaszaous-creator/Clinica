@@ -31,6 +31,12 @@ Antes da correção, a execução falhou nos dois primeiros cenários de interfa
 
 ## Escopo e evidências anteriores
 
+### Ajuste de estabilidade identificado no CI
+
+O teste HTTP `Percurso_real_isola_profissionais_preserva_rascunho_e_conclui_uma_vez` usava o horário agendado para ativar a política de materiais. Quando executado antes desse horário, a ativação ficava posterior ao término real e a API retornava corretamente `404`. A falha foi reproduzida localmente e o preparo do teste passou a usar `FimAtendimentoEm`, com verificação de que o atendimento realmente terminou. Nenhuma regra de aplicação foi alterada para contornar o teste. Após a correção, os **15 testes HTTP passaram**.
+
+### Limites da entrega
+
 - [Implementação visual, fotos e cobertura das 12 recomendações](IMPLEMENTACAO-MODELO-A.md).
 - [Revisão anterior da navegação, ficha, cadastro, recebimentos e Faturamento](../../revisao-pr205.md).
 - A revisão não acrescenta migrations, regras de conclusão clínica ou automações de atendimento.
