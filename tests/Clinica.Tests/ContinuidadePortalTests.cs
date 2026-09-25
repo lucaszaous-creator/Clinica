@@ -174,4 +174,53 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal(new[]{assinada.Id},enfermagem.Select(x=>x.GetProperty("id").GetInt32()));
         Assert.Equal("Assinada",enfermagem.Single().GetProperty("situacao").GetString());
     }
+
+    [Fact] public async Task Fila_de_infusoes_notifica_cada_assinatura_sem_confundir_falha_de_arquivo()
+    {
+        await Preparar();
+        var rascunho=await Folha(SituacaoPrescricao.Rascunho);
+        var executar=await Folha(SituacaoPrescricao.Assinada);
+        var assinarEnfermagem=await Folha(SituacaoPrescricao.Encerrada);
+        assinarEnfermagem.OrigemEnfermagem=true;
+        assinarEnfermagem.RegistradaPorUsuarioId=usuario.Id;
+        var assinarMedico=await Folha(SituacaoPrescricao.Encerrada);
+        assinarMedico.OrigemEnfermagem=true;
+        assinarMedico.Assinaturas.Add(new() {Papel=PapelAssinatura.Executante,
+            Arquivo=new ArquivoAssinado {Conteudo=[1],NomeArquivo="prescricao.pdf"},
+            ArquivoRegistro=new ArquivoAssinado {Conteudo=[2],NomeArquivo="registro.pdf"}});
+        var regularizar=await Folha(SituacaoPrescricao.Encerrada);
+        regularizar.Assinaturas.Add(new() {Papel=PapelAssinatura.Executante,
+            Arquivo=new ArquivoAssinado {Conteudo=[3],NomeArquivo="prescricao.pdf"}});
+        await db.SaveChangesAsync();
+
+        var avisosMedico=await new ChecagemPrescricaoService(repo).ContarAssinaturasPendentesAsync(
+            usuario.Id,usuario.ProfissionalId,podeChecar:false,podePrescrever:true);
+        Assert.Equal(0,avisosMedico.Enfermagem);
+        Assert.Equal(1,avisosMedico.Medico);
+
+        var medico=Json(await Posto.FilaAsync(sessao,0,default));
+        Assert.Equal(2,medico.GetProperty("total").GetInt32());
+        Assert.Equal(1,medico.GetProperty("resumo").GetProperty("assinaturaMedica").GetInt32());
+        Assert.Equal(1,medico.GetProperty("resumo").GetProperty("rascunhosMedicos").GetInt32());
+        var itensMedico=medico.GetProperty("itens").EnumerateArray().ToDictionary(x=>x.GetProperty("id").GetInt32());
+        Assert.Equal("revisarRascunho",itensMedico[rascunho.Id].GetProperty("acaoPendente").GetString());
+        Assert.Equal("assinarMedico",itensMedico[assinarMedico.Id].GetProperty("acaoPendente").GetString());
+
+        await Enfermeira();
+        var avisosEnfermagem=await new ChecagemPrescricaoService(repo).ContarAssinaturasPendentesAsync(
+            usuario.Id,usuario.ProfissionalId,podeChecar:true,podePrescrever:false);
+        Assert.Equal(1,avisosEnfermagem.Enfermagem);
+        Assert.Equal(0,avisosEnfermagem.Medico);
+        var enfermagem=Json(await Posto.FilaAsync(sessao,0,default));
+        Assert.Equal(3,enfermagem.GetProperty("total").GetInt32());
+        var resumo=enfermagem.GetProperty("resumo");
+        Assert.Equal(1,resumo.GetProperty("execucaoEnfermagem").GetInt32());
+        Assert.Equal(1,resumo.GetProperty("assinaturaEnfermagem").GetInt32());
+        Assert.Equal(1,resumo.GetProperty("registroPendente").GetInt32());
+        Assert.Equal(0,resumo.GetProperty("assinaturaMedica").GetInt32());
+        var itens=enfermagem.GetProperty("itens").EnumerateArray().ToDictionary(x=>x.GetProperty("id").GetInt32());
+        Assert.Equal("executar",itens[executar.Id].GetProperty("acaoPendente").GetString());
+        Assert.Equal("assinarEnfermagem",itens[assinarEnfermagem.Id].GetProperty("acaoPendente").GetString());
+        Assert.Equal("regularizarRegistro",itens[regularizar.Id].GetProperty("acaoPendente").GetString());
+    }
 }

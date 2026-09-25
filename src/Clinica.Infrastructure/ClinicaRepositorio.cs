@@ -1986,10 +1986,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
-            .Where(p => (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
+            .Where(p => p.CanceladaEm == null && ((p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
                             && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoId != null && a.ArquivoRegistroId != null)) || p.Situacao == SituacaoPrescricao.Encerrada
                         && p.ExigeAssinaturaEletronicaDaExecucao
-                        && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoRegistroId != null));
+                        && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoRegistroId != null)));
 
         if (profissionalId is int pid)
             q = q.Where(p => p.ProfissionalId == pid);
@@ -2009,6 +2009,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 && p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
                 && p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoId != null && a.ArquivoRegistroId != null))
             .OrderBy(p => p.Data).ThenBy(p => p.Hora).ThenBy(p => p.Id).ToListAsync(ct);
+
+    public async Task<PendenciasAssinaturasInfusao> ContarAssinaturasInfusaoAsync(
+        int usuarioId, int? profissionalId, bool podeChecar, bool podePrescrever,
+        CancellationToken ct = default)
+    {
+        var folhas = _db.PrescricoesInternas.AsNoTracking()
+            .Where(p => p.CanceladaEm == null && p.Situacao == SituacaoPrescricao.Encerrada);
+        var enfermagem = podeChecar
+            ? await folhas.CountAsync(p => ((p.OrigemEnfermagem && p.AssinadaEm == null
+                    && p.RegistradaPorUsuarioId == usuarioId)
+                || (!p.OrigemEnfermagem && p.ExigeAssinaturaEletronicaDaExecucao))
+                && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoId != null), ct)
+            : 0;
+        var medico = podePrescrever && profissionalId is int id
+            ? await folhas.CountAsync(p => p.ProfissionalId == id && p.OrigemEnfermagem
+                && p.AssinadaEm == null && p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante
+                    && a.ArquivoId != null && a.ArquivoRegistroId != null), ct)
+            : 0;
+        return new PendenciasAssinaturasInfusao(enfermagem, medico);
+    }
 
     public Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
         int itemId, CancellationToken ct = default)

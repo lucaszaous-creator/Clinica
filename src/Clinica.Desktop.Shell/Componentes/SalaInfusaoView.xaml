@@ -157,6 +157,13 @@
                                                 <TextBlock TextWrapping="Wrap"
                                                            Text="Falta a assinatura eletrônica da enfermagem" />
                                             </Border>
+                                            <Border HorizontalAlignment="Left" Margin="0,6,0,0"
+                                                    Style="{StaticResource Badge.Aviso}"
+                                                    Visibility="{Binding RegistroPendente,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock TextWrapping="Wrap"
+                                                           Text="Assinatura recebida · falta arquivar o registro da execução" />
+                                            </Border>
 
                                             <!-- Folha de OUTRO dia: ela só entra na fila de
                                                  hoje quando deve assinatura, e sem a data se

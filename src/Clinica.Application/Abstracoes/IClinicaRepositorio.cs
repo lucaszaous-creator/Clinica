@@ -966,6 +966,11 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasAguardandoValidacaoMedicaAsync(
         int profissionalId, CancellationToken ct = default);
 
+    /// <summary>Contagem leve para o aviso persistente, sem carregar folhas ou dados de pacientes.</summary>
+    Task<PendenciasAssinaturasInfusao> ContarAssinaturasInfusaoAsync(
+        int usuarioId, int? profissionalId, bool podeChecar, bool podePrescrever,
+        CancellationToken ct = default);
+
     /// <summary>Item rastreado, com a prescrição e as checagens — o alvo de checar/retificar.</summary>
     Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
         int itemId, CancellationToken ct = default);

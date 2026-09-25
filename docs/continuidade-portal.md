@@ -25,6 +25,25 @@ recepção; presença confirmada não equivale a evolução concluída.
 
 ## Infusão: médico e enfermagem
 
+`GET /api/posto/infusoes` devolve a fila do perfil autenticado, `total` antes da
+paginação e um `resumo` com cinco contagens: `execucaoEnfermagem`,
+`assinaturaEnfermagem`, `assinaturaMedica`, `registroPendente` e
+`rascunhosMedicos`. Cada linha traz `acaoPendente`, `hora` e
+`origemEnfermagem`. A infusão externa só entra na fila de assinatura da
+enfermagem para o usuário que registrou a execução; após arquivar ambas as vias,
+vai para o médico responsável. Uma assinatura já recebida cujo registro ainda
+não foi arquivado tem ação `regularizarRegistro`, sem solicitar nova assinatura.
+
+O desktop mostra uma contagem persistente das assinaturas de enfermagem e do
+médico responsável no cabeçalho. Ela abre a Sala de Infusão e é atualizada a
+cada minuto por uma consulta de contagem, sem carregar os dados dos pacientes.
+O selo da sala também separa assinatura ausente de arquivamento pendente.
+
+`GET /api/posto/pendencias` mantém as seções de sessões, documentos e recepção
+e acrescenta `maisDocumentos` para paginar a aba Documentos sem depender das
+outras seções. O portal usa os rascunhos próprios dessa fila; os documentos
+emitidos continuam na ficha do paciente.
+
 O núcleo existente mantém a assinatura do prescritor e acrescenta a assinatura
 do executante no PDF da prescrição, com as duas áreas visuais lado a lado.
 A folha de checagens é um segundo PDF. O portal exibe nomes, conselhos, datas e
