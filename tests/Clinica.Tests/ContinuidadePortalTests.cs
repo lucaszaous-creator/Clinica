@@ -155,4 +155,23 @@ public sealed partial class AtendimentoTabletTests
         Assert.Empty(p.GetProperty("sessoes").EnumerateArray());Assert.Empty(p.GetProperty("documentos").EnumerateArray());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>Posto.ModelosDocumentoAsync(sessao,default));
     }
+    [Fact] public async Task Fila_de_infusoes_separa_execucao_da_enfermagem_da_avaliacao_medica()
+    {
+        await Preparar();
+        var rascunho=await Folha(SituacaoPrescricao.Rascunho);
+        var assinada=await Folha(SituacaoPrescricao.Assinada);
+
+        var pendencias=Json(await Posto.PendenciasAsync(sessao,0,default));
+        Assert.False(pendencias.TryGetProperty("infusoes",out _));
+        Assert.False(pendencias.TryGetProperty("totalInfusoes",out _));
+
+        var medico=Json(await Posto.FilaAsync(sessao,0,default)).GetProperty("itens").EnumerateArray().ToArray();
+        Assert.Equal(new[]{rascunho.Id},medico.Select(x=>x.GetProperty("id").GetInt32()));
+        Assert.Equal("Rascunho",medico.Single().GetProperty("situacao").GetString());
+
+        await Enfermeira();
+        var enfermagem=Json(await Posto.FilaAsync(sessao,0,default)).GetProperty("itens").EnumerateArray().ToArray();
+        Assert.Equal(new[]{assinada.Id},enfermagem.Select(x=>x.GetProperty("id").GetInt32()));
+        Assert.Equal("Assinada",enfermagem.Single().GetProperty("situacao").GetString());
+    }
 }

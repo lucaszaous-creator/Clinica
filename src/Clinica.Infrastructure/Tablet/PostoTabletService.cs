@@ -141,17 +141,28 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
 
     public async Task<object> FilaAsync(SessaoTablet s,int pagina,CancellationToken ct)
     {
-        await Autorizar(s,ct,Permissao.ChecarPrescricao);
+        var u=await Autorizar(s,ct);
+        var podeExecutar=u.Pode(Permissao.ChecarPrescricao);
+        var podePrescrever=u.Pode(Permissao.Prescrever);
+        if(!podeExecutar&&!podePrescrever)throw new UnauthorizedAccessException("Esta fila exige permissão de enfermagem ou prescrição.");
         if(pagina is <0 or >10000)throw ErroFormularioTablet.Criar("Página inválida.");
-        var folhas=await db.PrescricoesInternas.AsNoTracking().Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
-            .Where(p=>p.CanceladaEm==null&&((p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
-                && !p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))
-                ||p.Situacao==SituacaoPrescricao.Assinada||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao&&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null)))
+        var pendencias=db.PrescricoesInternas.AsNoTracking().Where(p=>p.CanceladaEm==null&&(
+                podeExecutar&&((p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
+                    &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))
+                    ||p.Situacao==SituacaoPrescricao.Assinada
+                    ||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao
+                        &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null))
+                ||podePrescrever&&p.ProfissionalId==u.ProfissionalId&&(p.Situacao==SituacaoPrescricao.Rascunho
+                    ||p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
+                        &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))));
+        var total=await pendencias.CountAsync(ct);
+        var folhas=await pendencias.Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
             .OrderBy(p=>p.Data).ThenBy(p=>p.Id).Skip(pagina*50).Take(51).ToListAsync(ct);
-        return new {Pagina=pagina,Mais=folhas.Count>50,Total=await db.PrescricoesInternas.CountAsync(p=>p.CanceladaEm==null&&
-            (p.Situacao==SituacaoPrescricao.Assinada||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao
-                &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null)),ct),
-            Itens=folhas.Take(50).Select(p=>new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,Situacao=p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada?"AguardaEnfermagem":p.Situacao.ToString(),p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao,RegistroSemAssinatura=p.AssinaturaDaExecucao is {} a&&a.ArquivoRegistroId is null})};
+        return new {Pagina=pagina,Mais=folhas.Count>50,Total=total,
+            Itens=folhas.Take(50).Select(p=>new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,
+                Situacao=p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
+                    ?p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null)?"AguardaMedico":"AguardaEnfermagem"
+                    :p.Situacao.ToString(),p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao,RegistroSemAssinatura=p.AssinaturaDaExecucao is {} a&&a.ArquivoRegistroId is null})};
     }
     public static string Versao(PrescricaoInterna p)=>ContratoTablet.Hash(ContratoTablet.Serializar(new {p.Id,p.Situacao,p.Data,p.Hora,p.AtualizadoEm,p.EncerradaEm,p.OrigemEnfermagem,p.OrientacaoExterna,p.RegistradaPorUsuarioId,
         Itens=p.Itens.OrderBy(i=>i.Id).Select(i=>new {i.Id,i.Descricao,i.DescricaoFormatada,i.Dose,i.Via,i.Diluente,i.Volume,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.ObservacoesFormatadas,i.SuspensoEm,i.MotivoSuspensao,Checagens=i.Checagens.OrderBy(c=>c.Id).Select(c=>new {c.Id,c.Situacao,c.DataRealizacao,Hora=c.HoraRealizacao,c.Justificativa,c.RetificaChecagemId})})}));
