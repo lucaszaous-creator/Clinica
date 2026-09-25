@@ -915,6 +915,9 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateOnly?>("DataRealizacao")
+                        .HasColumnType("date");
+
                     b.Property<string>("ExecutanteConselho")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
