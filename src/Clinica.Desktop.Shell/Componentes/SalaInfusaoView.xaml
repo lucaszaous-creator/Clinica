@@ -63,8 +63,8 @@
                                             Command="{Binding DataContext.AbrirCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
                                     <StackPanel>
-                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
-                                        <TextBlock Text="{Binding Numero}" Style="{StaticResource TextoSuave}" />
+                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Numero}" Style="{StaticResource TextoSuave}" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </DockPanel>
                             </Border>
