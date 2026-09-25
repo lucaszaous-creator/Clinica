@@ -40,7 +40,9 @@ public sealed partial class AtendimentoTabletTests
         await Enfermagem(outro.Id);
         await Enfermeira();
         var lista = new SessoesEnfermagemService(db);
-        var ambos = await lista.ListarAsync(usuario.Id, new(), svc.Hoje);
+        var hoje = await lista.ListarAsync(usuario.Id, new(), svc.Hoje);
+        Assert.Equal(outro.Id, Assert.Single(hoje.Itens).Id);
+        var ambos = await lista.ListarAsync(usuario.Id, new(Situacao: "DiaEPendentes"), svc.Hoje);
         Assert.Equal(2, ambos.Itens.Count);
         Assert.Contains(ambos.Itens, a => a.Id == horario.Id && a.Concluida && !a.Registrada);
         Assert.Contains(ambos.Itens, a => a.Id == outro.Id && a.Registrada);
@@ -51,7 +53,7 @@ public sealed partial class AtendimentoTabletTests
         Assert.Empty((await lista.ListarAsync(usuario.Id, new(Paciente: "nome inexistente"), svc.Hoje)).Itens);
         Assert.Empty((await lista.ListarAsync(usuario.Id, new(Medico: "medico inexistente"), svc.Hoje)).Itens);
         await Enfermagem(horario.Id);
-        Assert.DoesNotContain((await lista.ListarAsync(usuario.Id, new(), svc.Hoje)).Itens, a => a.Id == horario.Id);
+        Assert.DoesNotContain((await lista.ListarAsync(usuario.Id, new(Situacao: "DiaEPendentes"), svc.Hoje)).Itens, a => a.Id == horario.Id);
     }
 
     [Fact]
