@@ -40,7 +40,9 @@ public sealed partial class AtendimentoTabletTests
         await Enfermagem(outro.Id);
         await Enfermeira();
         var lista = new SessoesEnfermagemService(db);
-        var ambos = await lista.ListarAsync(usuario.Id, new(), svc.Hoje);
+        var hoje = await lista.ListarAsync(usuario.Id, new(), svc.Hoje);
+        Assert.Equal(outro.Id, Assert.Single(hoje.Itens).Id);
+        var ambos = await lista.ListarAsync(usuario.Id, new(Situacao: "DiaEPendentes"), svc.Hoje);
         Assert.Equal(2, ambos.Itens.Count);
         Assert.Contains(ambos.Itens, a => a.Id == horario.Id && a.Concluida && !a.Registrada);
         Assert.Contains(ambos.Itens, a => a.Id == outro.Id && a.Registrada);
@@ -51,7 +53,7 @@ public sealed partial class AtendimentoTabletTests
         Assert.Empty((await lista.ListarAsync(usuario.Id, new(Paciente: "nome inexistente"), svc.Hoje)).Itens);
         Assert.Empty((await lista.ListarAsync(usuario.Id, new(Medico: "medico inexistente"), svc.Hoje)).Itens);
         await Enfermagem(horario.Id);
-        Assert.DoesNotContain((await lista.ListarAsync(usuario.Id, new(), svc.Hoje)).Itens, a => a.Id == horario.Id);
+        Assert.DoesNotContain((await lista.ListarAsync(usuario.Id, new(Situacao: "DiaEPendentes"), svc.Hoje)).Itens, a => a.Id == horario.Id);
     }
 
     [Fact]
@@ -78,13 +80,17 @@ public sealed partial class AtendimentoTabletTests
         horario.DataHora = svc.Hoje.AddDays(-1).ToDateTime(new(9, 0));
         horario.Status = StatusAgendamento.Realizado;
         await db.SaveChangesAsync();
+        var lista = new SessoesEnfermagemService(db);
+        Assert.Empty((await lista.ListarAsync(usuario.Id, new(), svc.Hoje)).Itens);
+        Assert.Single((await lista.ListarAsync(usuario.Id,
+            new(Situacao: "Todas", Fim: svc.Hoje.AddDays(-1)), svc.Hoje)).Itens);
         var chegada = await Enfermagem(horario.Id);
         chegada.FaseAtendimento = "Chegada";
         await db.SaveChangesAsync();
         // Complementos sem fase não são evoluções antigas nem concluem a saída.
         await Enfermagem(horario.Id);
-        var lista = new SessoesEnfermagemService(db);
-        var pendente = Assert.Single((await lista.ListarAsync(usuario.Id, new(), svc.Hoje)).Itens);
+        var pendente = Assert.Single((await lista.ListarAsync(usuario.Id,
+            new(Situacao: "Pendentes"), svc.Hoje)).Itens);
         Assert.True(pendente.ChegadaRegistrada);
         Assert.False(pendente.AposAplicacaoRegistrada);
         Assert.False(pendente.Registrada);
@@ -95,7 +101,7 @@ public sealed partial class AtendimentoTabletTests
             AutorNome = "Outra enfermeira", AutorConselho = "COREN teste"
         });
         await db.SaveChangesAsync();
-        Assert.DoesNotContain((await lista.ListarAsync(usuario.Id, new(), svc.Hoje)).Itens, x => x.Id == horario.Id);
+        Assert.Empty((await lista.ListarAsync(usuario.Id, new(), svc.Hoje)).Itens);
         var completo = Assert.Single((await lista.ListarAsync(usuario.Id, new(Situacao: "Registradas"), svc.Hoje)).Itens);
         Assert.True(completo.Registrada);
     }

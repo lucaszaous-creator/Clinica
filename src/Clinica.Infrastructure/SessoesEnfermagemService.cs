@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Clinica.Infrastructure;
 
 public sealed record FiltroSessoesEnfermagem(string? Paciente = null, DateOnly? Inicio = null,
-    DateOnly? Fim = null, string? Medico = null, string Situacao = "DiaEPendentes", int Pagina = 0);
+    DateOnly? Fim = null, string? Medico = null, string Situacao = "Hoje", int Pagina = 0);
 public sealed record SessaoEnfermagemItem(int Id, int PacienteId, string Paciente, DateTime DataHora,
     string Medico, ModalidadeAtendimento Modalidade, int? AtendimentoId, bool ChegadaRegistrada,
     bool AposAplicacaoRegistrada, bool RegistroLegado, bool Concluida)
