@@ -147,22 +147,51 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
         if(!podeExecutar&&!podePrescrever)throw new UnauthorizedAccessException("Esta fila exige permissão de enfermagem ou prescrição.");
         if(pagina is <0 or >10000)throw ErroFormularioTablet.Criar("Página inválida.");
         var pendencias=db.PrescricoesInternas.AsNoTracking().Where(p=>p.CanceladaEm==null&&(
-                podeExecutar&&((p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
+                podeExecutar&&((p.OrigemEnfermagem&&p.RegistradaPorUsuarioId==u.Id&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
                     &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))
                     ||p.Situacao==SituacaoPrescricao.Assinada
                     ||p.Situacao==SituacaoPrescricao.Encerrada&&p.ExigeAssinaturaEletronicaDaExecucao
+                        &&(!p.OrigemEnfermagem||p.RegistradaPorUsuarioId==u.Id)
                         &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null))
                 ||podePrescrever&&p.ProfissionalId==u.ProfissionalId&&(p.Situacao==SituacaoPrescricao.Rascunho
                     ||p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
                         &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))));
+
+        // A contagem é feita antes da paginação. Cada etapa é uma ação diferente:
+        // assinatura já colhida mas ainda não arquivada não deve aparecer como
+        // "falta assinar"; isso mandaria o profissional repetir uma assinatura.
+        var execucaoEnfermagem=await pendencias.CountAsync(p=>p.Situacao==SituacaoPrescricao.Assinada,ct);
+        var assinaturaEnfermagem=await pendencias.CountAsync(p=>p.Situacao==SituacaoPrescricao.Encerrada
+            &&(p.OrigemEnfermagem&&p.AssinadaEm==null||p.ExigeAssinaturaEletronicaDaExecucao)
+            &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null),ct);
+        var assinaturaMedica=await pendencias.CountAsync(p=>p.OrigemEnfermagem&&p.AssinadaEm==null
+            &&p.Situacao==SituacaoPrescricao.Encerrada
+            &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null),ct);
+        var registroPendente=await pendencias.CountAsync(p=>p.Situacao==SituacaoPrescricao.Encerrada
+            &&(p.ExigeAssinaturaEletronicaDaExecucao||p.OrigemEnfermagem&&p.AssinadaEm==null)
+            &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId==null),ct);
+        var rascunhosMedicos=await pendencias.CountAsync(p=>p.Situacao==SituacaoPrescricao.Rascunho,ct);
         var total=await pendencias.CountAsync(ct);
         var folhas=await pendencias.Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
             .OrderBy(p=>p.Data).ThenBy(p=>p.Id).Skip(pagina*50).Take(51).ToListAsync(ct);
         return new {Pagina=pagina,Mais=folhas.Count>50,Total=total,
-            Itens=folhas.Take(50).Select(p=>new {p.Id,p.Numero,p.Data,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,
+            Resumo=new {ExecucaoEnfermagem=execucaoEnfermagem,AssinaturaEnfermagem=assinaturaEnfermagem,
+                AssinaturaMedica=assinaturaMedica,RegistroPendente=registroPendente,RascunhosMedicos=rascunhosMedicos},
+            Itens=folhas.Take(50).Select(p=>new {p.Id,p.Numero,p.Data,p.Hora,p.PacienteId,Paciente=p.Paciente!.Nome,Nascimento=p.Paciente.DataNascimento,
                 Situacao=p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
                     ?p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null)?"AguardaMedico":"AguardaEnfermagem"
-                    :p.Situacao.ToString(),p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao,RegistroSemAssinatura=p.AssinaturaDaExecucao is {} a&&a.ArquivoRegistroId is null})};
+                    :p.Situacao.ToString(),AcaoPendente=AcaoPendenteInfusao(p),p.OrigemEnfermagem,
+                p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao,RegistroSemAssinatura=p.AssinaturaDaExecucao is {} a&&a.ArquivoRegistroId is null})};
+    }
+
+    private static string AcaoPendenteInfusao(PrescricaoInterna p)
+    {
+        if(p.Situacao==SituacaoPrescricao.Rascunho)return "revisarRascunho";
+        if(p.Situacao==SituacaoPrescricao.Assinada)return "executar";
+        var assinatura=p.AssinaturaDaExecucao;
+        if(assinatura?.ArquivoId is null)return "assinarEnfermagem";
+        if(assinatura.ArquivoRegistroId is null)return "regularizarRegistro";
+        return "assinarMedico";
     }
     public static string Versao(PrescricaoInterna p)=>ContratoTablet.Hash(ContratoTablet.Serializar(new {p.Id,p.Situacao,p.Data,p.Hora,p.AtualizadoEm,p.EncerradaEm,p.OrigemEnfermagem,p.OrientacaoExterna,p.RegistradaPorUsuarioId,
         Itens=p.Itens.OrderBy(i=>i.Id).Select(i=>new {i.Id,i.Descricao,i.DescricaoFormatada,i.Dose,i.Via,i.Diluente,i.Volume,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.ObservacoesFormatadas,i.SuspensoEm,i.MotivoSuspensao,Checagens=i.Checagens.OrderBy(c=>c.Id).Select(c=>new {c.Id,c.Situacao,c.DataRealizacao,Hora=c.HoraRealizacao,c.Justificativa,c.RetificaChecagemId})})}));

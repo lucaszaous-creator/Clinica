@@ -36,6 +36,7 @@ public sealed partial class PostoTabletService
                 GuiasSemBaixa=a.Atendimento.Codigos.Count(c=>c.DataBaixa==null&&c.Status!=StatusCodigo.NaoAplicavel)}).ToListAsync(ct);
         return new {Pagina=pagina,Desde=DateOnly.FromDateTime(inicio),Ate=acesso.Hoje,
             Mais=sessoes.Count>50||documentos.Count>50||recepcao.Count>50,
+            MaisDocumentos=documentos.Count>50,
             Sessoes=sessoes.Take(50),Documentos=documentos.Take(50),Recepcao=recepcao.Take(50)};
     }
 }

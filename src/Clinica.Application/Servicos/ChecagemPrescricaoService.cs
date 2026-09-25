@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -152,6 +153,12 @@ public sealed class ChecagemPrescricaoService
     public Task<IReadOnlyList<PrescricaoInterna>> AguardandoValidacaoMedicaAsync(
         int profissionalId, CancellationToken ct = default)
         => _repo.PrescricoesInternasAguardandoValidacaoMedicaAsync(profissionalId, ct);
+
+    public Task<PendenciasAssinaturasInfusao> ContarAssinaturasPendentesAsync(
+        int usuarioId, int? profissionalId, bool podeChecar, bool podePrescrever,
+        CancellationToken ct = default)
+        => _repo.ContarAssinaturasInfusaoAsync(usuarioId, profissionalId, podeChecar,
+            podePrescrever, ct);
 
     /// <summary>Quantas folhas do dia ainda têm item esperando execução.</summary>
     public Task<int> PendentesDoDiaAsync(

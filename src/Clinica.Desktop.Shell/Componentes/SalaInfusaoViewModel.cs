@@ -37,6 +37,9 @@ public sealed class LinhaSalaInfusao
     /// </summary>
     public required bool AguardaAssinatura { get; init; }
 
+    /// <summary>A assinatura já existe; falta arquivar o registro de execução.</summary>
+    public required bool RegistroPendente { get; init; }
+
     /// <summary>
     /// O dia da folha, escrito só quando NÃO é hoje. A fila mostra hoje; a folha de outro
     /// dia só entra quando deve assinatura, e sem a data ela se leria como sendo de hoje.
@@ -52,8 +55,12 @@ public sealed class LinhaSalaInfusao
         Paciente = p.Paciente?.Nome ?? "—",
         Numero = p.Numero,
         Dia = p.Data == hoje ? string.Empty : p.Data.ToString("dd/MM"),
-        AguardaAssinatura = p.AguardaAssinaturaDaExecucao
-            || p.OrigemEnfermagem && p.AssinaturaDaExecucao?.ArquivoRegistroId is null,
+        AguardaAssinatura = p.Situacao == SituacaoPrescricao.Encerrada
+            && (p.ExigeAssinaturaEletronicaDaExecucao || p.OrigemEnfermagem && p.AssinadaEm is null)
+            && p.AssinaturaDaExecucao?.ArquivoId is null,
+        RegistroPendente = p.Situacao == SituacaoPrescricao.Encerrada
+            && p.AssinaturaDaExecucao?.ArquivoId is not null
+            && p.AssinaturaDaExecucao.ArquivoRegistroId is null,
         Hora = p.Hora.ToString("HH\\:mm"),
         Prescritor = p.Profissional?.Rotulo ?? "—",
         Progresso = p.AguardaValidacaoMedica
@@ -227,6 +234,8 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             foreach (var folha in folhas.Concat(aguardando))
             {
                 if (!PodeChecar && folha.OrigemEnfermagem) continue;
+                if (folha.OrigemEnfermagem && folha.AssinadaEm is null
+                    && folha.RegistradaPorUsuarioId != SessaoUsuario.Atual.UsuarioId) continue;
                 if (vistas.Add(folha.Id))
                     linhas.Add(LinhaSalaInfusao.De(folha, hoje));
             }
@@ -236,21 +245,23 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
             Validacoes.Clear();
             foreach (var folha in validacoes) Validacoes.Add(LinhaSalaInfusao.De(folha, hoje));
-            ResumoValidacoes = $"{Validacoes.Count} infusão(ões) aguardando sua avaliação e assinatura";
+            ResumoValidacoes = Validacoes.Count == 1
+                ? "1 infusão aguardando sua avaliação e assinatura"
+                : $"{Validacoes.Count} infusões aguardando sua avaliação e assinatura";
 
             var pendentes = Folhas.Count(f => f.TemPendencia);
             var semAssinar = Folhas.Count(f => f.AguardaAssinatura);
+            var semRegistro = Folhas.Count(f => f.RegistroPendente);
 
             // O contador da assinatura é SEPARADO do de itens aguardando: um se resolve
             // administrando, o outro com o certificado. Somá-los daria um número que não
             // diz o que fazer.
-            var recado = semAssinar == 0
-                ? string.Empty
-                : $" · {semAssinar} aguardando a assinatura da enfermagem";
+            var recado = (semAssinar > 0 ? $" · {semAssinar} aguardando a assinatura da enfermagem" : string.Empty)
+                + (semRegistro > 0 ? $" · {semRegistro} com registro assinado a arquivar" : string.Empty);
 
             Resumo = Folhas.Count == 0
                 ? "Nenhuma prescrição de infusão para hoje."
-                : $"{Folhas.Count} folha(s) · {pendentes} com item aguardando{recado}.";
+                : $"{Folhas.Count} {(Folhas.Count == 1 ? "folha" : "folhas")} · {pendentes} com item aguardando{recado}.";
         }
         catch (Exception ex)
         {

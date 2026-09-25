@@ -1,4 +1,5 @@
 using Clinica.Desktop.Controls;
+using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using Clinica.Desktop.Shell.Componentes;
@@ -31,6 +32,9 @@ public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly IReadOnlyList<IModuloApp> _modulos;
     private readonly IServiceProvider _servicos;
+    private readonly SessaoUsuario? _sessaoClinica;
+    private readonly System.Windows.Threading.DispatcherTimer? _releituraInfusoes;
+    private bool _consultandoInfusoes;
 
     /// <summary>
     /// O item cuja tela está montada. Guardado para que voltar ao MESMO item composto
@@ -109,6 +113,15 @@ public sealed partial class ShellViewModel : ObservableObject
     /// </summary>
     public SnackbarService? Snackbar { get; }
 
+    // Pendências clínicas persistem até a assinatura. O histórico do snackbar informa
+    // eventos desta sessão e não substitui a contagem atual da fila.
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(TotalAssinaturasInfusao), nameof(ResumoAssinaturasInfusao))]
+    private int _assinaturasEnfermagem;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(TotalAssinaturasInfusao), nameof(ResumoAssinaturasInfusao))]
+    private int _assinaturasMedicas;
+    public int TotalAssinaturasInfusao => AssinaturasEnfermagem + AssinaturasMedicas;
+    public string ResumoAssinaturasInfusao => $"Abrir sala de infusão · assinaturas pendentes: enfermagem {AssinaturasEnfermagem}; médico responsável {AssinaturasMedicas}";
+
     public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos)
     {
         Titulo = titulo;
@@ -119,6 +132,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // menu aparece inteiro: filtrar por uma permissão que ninguém tem esconderia
         // tudo, e navegação vazia parece defeito, não segurança.
         var sessao = servicos.GetService<SessaoUsuario>();
+        _sessaoClinica = sessao;
         UsuarioRotulo = sessao?.Rotulo ?? Environment.UserName;
 
         // A MESMA instância que as ViewModels recebem por ISnackbarService — o registro é
@@ -214,6 +228,48 @@ public sealed partial class ShellViewModel : ObservableObject
         var visiveis = Grupos.SelectMany(g => g.Itens).ToList();
         var abertura = visiveis.FirstOrDefault(i => i.Inicial) ?? visiveis.FirstOrDefault();
         if (abertura is not null) Navegar(abertura);
+
+        if (sessao is { Autenticado: true } && Itens.Any(i => i.Chave == ChavesSuite.SalaInfusao)
+            && (sessao.Pode(Permissao.ChecarPrescricao)
+                || sessao.Pode(Permissao.Prescrever) && sessao.ProfissionalId is > 0))
+        {
+            _releituraInfusoes = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(1)
+            };
+            _releituraInfusoes.Tick += async (_, _) => await AtualizarAssinaturasInfusaoAsync();
+            _releituraInfusoes.Start();
+            _ = AtualizarAssinaturasInfusaoAsync();
+        }
+    }
+
+    private async Task AtualizarAssinaturasInfusaoAsync()
+    {
+        if (_consultandoInfusoes || _sessaoClinica is not { Autenticado: true } sessao) return;
+        _consultandoInfusoes = true;
+        try
+        {
+            using var scope = _servicos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
+            var pendencias = await servico.ContarAssinaturasPendentesAsync(sessao.UsuarioId,
+                sessao.ProfissionalId, sessao.Pode(Permissao.ChecarPrescricao),
+                sessao.Pode(Permissao.Prescrever));
+            AssinaturasEnfermagem = pendencias.Enfermagem;
+            AssinaturasMedicas = pendencias.Medico;
+        }
+        catch (Exception ex)
+        {
+            // Oscilação da rede não zera uma contagem confirmada nem enche o sino de erros.
+            Application.Diagnostico.Registrar("Shell — avisos de assinatura de infusão", ex);
+        }
+        finally { _consultandoInfusoes = false; }
+    }
+
+    [RelayCommand]
+    private void AbrirFilaInfusao()
+    {
+        IrPara(ChavesSuite.SalaInfusao, apenasConferir: false);
+        _ = AtualizarAssinaturasInfusaoAsync();
     }
 
     /// <summary>
