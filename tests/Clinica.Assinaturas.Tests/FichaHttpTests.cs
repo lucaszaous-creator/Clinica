@@ -30,6 +30,7 @@ public sealed class FichaHttpTests
             var agenda=(await Get("/api/clinico/dia"))["horarios"]!.AsArray();var paciente=(int)agenda[0]!["pacienteId"]!;
             var url=$"/api/posto/pacientes/{paciente}";
             var f=await Get(url);
+            Assert.NotNull(f["maisPorAba"]?["documentos"]);
             var a=new JsonObject {["idempotencia"]=Guid.NewGuid().ToString(),["versao"]=(string?)f["versaoAnamnese"],
                 ["antecedentesPessoais"]="História fictícia para teste",["motivo"]="Revisão de teste"};
             Assert.Equal(HttpStatusCode.OK,(await client.PostAsJsonAsync(url+"/anamnese",a)).StatusCode);
