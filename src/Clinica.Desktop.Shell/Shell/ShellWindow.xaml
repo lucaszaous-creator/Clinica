@@ -175,7 +175,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Assinaturas" VerticalAlignment="Center" />
                                 <Border Style="{StaticResource BadgeContador}" Margin="6,0,0,0">
-                                    <TextBlock Text="{Binding TotalAssinaturasInfusao}" />
+                                    <TextBlock Text="{Binding TotalAssinaturasInfusao}" TextTrimming="CharacterEllipsis" />
                                 </Border>
                             </StackPanel>
                         </Button>
