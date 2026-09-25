@@ -175,7 +175,10 @@ public sealed class PrescricaoInternaPdfService
                     {
                         Campo(col, "Orientação médica informada pela enfermagem", prescricao.OrientacaoExterna ?? "—");
                         Campo(col, "Responsabilidade", "A enfermagem assina a execução no campo à direita. O médico responsável assina a solicitação/validação no campo à esquerda, com a data real de cada assinatura.");
-                        Campo(col, "Registro", $"Execução informada: {prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH:mm}. Registro no sistema: {prescricao.CriadoEm:dd/MM/yyyy HH:mm}.");
+                        var execucao = prescricao.Itens.Select(i => i.ChecagemVigente).FirstOrDefault(c => c is not null);
+                        Campo(col, "Registro", $"Prescrição/orientação informada: {prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm}. "
+                            + $"Execução: {(execucao?.DataRealizacao ?? prescricao.Data):dd/MM/yyyy} às {execucao?.HoraRealizacao:HH\\:mm}. "
+                            + $"Registro no sistema: {prescricao.CriadoEm:dd/MM/yyyy HH:mm}.");
                     }
 
                     if (!string.IsNullOrWhiteSpace(prescricao.Indicacao))
@@ -319,7 +322,7 @@ public sealed class PrescricaoInternaPdfService
                     c.Item().AlignRight().PaddingTop(6)
                         .Text($"Nº {prescricao.Numero}").Bold().FontSize(11);
                     c.Item().AlignRight()
-                        .Text($"{prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm}")
+                        .Text($"Prescrita em {prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm}")
                         .FontSize(8.5f).FontColor(TextoSecundario);
                 });
             });
@@ -629,12 +632,17 @@ public sealed class PrescricaoInternaPdfService
 
         if (checagem.Situacao == SituacaoChecagem.Realizado)
         {
-            celula.Row(row =>
+            celula.Column(col =>
             {
-                row.ConstantItem(14).Text("✓").Bold().FontSize(12).FontColor(VerdeForte)
-                    .FontFamily(FamiliasDoVisto);
-                row.RelativeItem().PaddingTop(1)
-                    .Text($"{checagem.HoraRealizacao:HH\\:mm}").SemiBold().FontSize(10);
+                col.Item().Row(row =>
+                {
+                    row.ConstantItem(14).Text("✓").Bold().FontSize(12).FontColor(VerdeForte)
+                        .FontFamily(FamiliasDoVisto);
+                    row.RelativeItem().PaddingTop(1)
+                        .Text($"{checagem.HoraRealizacao:HH\\:mm}").SemiBold().FontSize(10);
+                });
+                col.Item().Text($"{(checagem.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy}")
+                    .FontSize(7.5f).FontColor(TextoSecundario);
             });
             return;
         }
@@ -649,6 +657,8 @@ public sealed class PrescricaoInternaPdfService
 
             c.Item().PaddingTop(2).Text("não realizado")
                 .FontSize(7.5f).Bold().FontColor(VermelhoForte);
+            c.Item().Text($"{(checagem.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy}")
+                .FontSize(7.5f).FontColor(TextoSecundario);
         });
     }
 

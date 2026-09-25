@@ -52,11 +52,14 @@ public sealed class LinhaSalaInfusao
         Paciente = p.Paciente?.Nome ?? "—",
         Numero = p.Numero,
         Dia = p.Data == hoje ? string.Empty : p.Data.ToString("dd/MM"),
-        AguardaAssinatura = p.AguardaAssinaturaDaExecucao,
+        AguardaAssinatura = p.AguardaAssinaturaDaExecucao
+            || p.OrigemEnfermagem && p.AssinaturaDaExecucao?.ArquivoRegistroId is null,
         Hora = p.Hora.ToString("HH\\:mm"),
         Prescritor = p.Profissional?.Rotulo ?? "—",
         Progresso = p.AguardaValidacaoMedica
-            ? (p.AguardaAssinaturaDaExecucao ? "execução registrada · falta assinatura da enfermagem" : "execução assinada · aguarda validação médica")
+            ? (p.AssinaturaDaExecucao?.ArquivoId is not null && p.AssinaturaDaExecucao.ArquivoRegistroId is null
+                ? "assinatura recebida · falta arquivar registro da execução"
+                : p.AguardaAssinaturaDaExecucao ? "execução registrada · falta assinatura da enfermagem" : "execução assinada · aguarda validação médica")
             : p.Situacao == SituacaoPrescricao.Encerrada
             ? $"encerrada · {p.Realizados} realizados, {p.NaoRealizados} não realizados"
             : $"{p.Realizados} de {p.Itens.Count} realizados · {p.Pendentes} aguardando",
@@ -98,12 +101,14 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
     private readonly System.Windows.Threading.DispatcherTimer _releitura;
 
     public ObservableCollection<LinhaSalaInfusao> Folhas { get; } = [];
+    public ObservableCollection<LinhaSalaInfusao> Validacoes { get; } = [];
 
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = string.Empty;
+    [ObservableProperty] private string _resumoValidacoes = "0 infusões aguardando sua avaliação e assinatura";
 
     /// <summary>Mostra também as já encerradas — a conferência do fim do dia.</summary>
     [ObservableProperty] private bool _incluirEncerradas;
@@ -116,6 +121,8 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
+    public bool PodePrescrever => SessaoUsuario.Atual.Pode(Permissao.Prescrever)
+        && SessaoUsuario.Atual.ProfissionalId is > 0;
 
     /// <summary>
     /// Bit PRÓPRIO, e não o da checagem: checar é afirmar que aquilo entrou no paciente;
@@ -205,7 +212,10 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             // padrão e, no dia seguinte, sumia de vez. A única volta era digitar o código
             // impresso. Era o "alerta sem porta" na pior variante: o que a pessoa precisa
             // reencontrar é exatamente o que a lista escondia.
-            var aguardando = await servico.AguardandoAssinaturaAsync(profissional);
+            IReadOnlyList<PrescricaoInterna> aguardando = PodeChecar ? await servico.AguardandoAssinaturaAsync(profissional) : [];
+            IReadOnlyList<PrescricaoInterna> validacoes = PodePrescrever
+                ? await servico.AguardandoValidacaoMedicaAsync(SessaoUsuario.Atual.ProfissionalId!.Value)
+                : [];
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -215,11 +225,18 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             var linhas = new List<LinhaSalaInfusao>();
             var vistas = new HashSet<int>();
             foreach (var folha in folhas.Concat(aguardando))
+            {
+                if (!PodeChecar && folha.OrigemEnfermagem) continue;
                 if (vistas.Add(folha.Id))
                     linhas.Add(LinhaSalaInfusao.De(folha, hoje));
+            }
 
             Folhas.Clear();
             foreach (var linha in linhas) Folhas.Add(linha);
+
+            Validacoes.Clear();
+            foreach (var folha in validacoes) Validacoes.Add(LinhaSalaInfusao.De(folha, hoje));
+            ResumoValidacoes = $"{Validacoes.Count} infusão(ões) aguardando sua avaliação e assinatura";
 
             var pendentes = Folhas.Count(f => f.TemPendencia);
             var semAssinar = Folhas.Count(f => f.AguardaAssinatura);

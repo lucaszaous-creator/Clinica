@@ -962,6 +962,10 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasAguardandoAssinaturaAsync(
         int? profissionalId = null, CancellationToken ct = default);
 
+    /// <summary>Infusões externas assinadas pela enfermagem, aguardando o médico responsável.</summary>
+    Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasAguardandoValidacaoMedicaAsync(
+        int profissionalId, CancellationToken ct = default);
+
     /// <summary>Item rastreado, com a prescrição e as checagens — o alvo de checar/retificar.</summary>
     Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
         int itemId, CancellationToken ct = default);

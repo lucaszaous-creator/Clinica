@@ -23,6 +23,8 @@ public sealed partial class InfusaoExternaViewModel : ObservableObject
     [ObservableProperty] private OpcaoSessaoInfusao? _sessao;
     [ObservableProperty] private DateTime? _data = DateTime.Today;
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH:mm");
+    [ObservableProperty] private DateTime? _dataPrescricao = DateTime.Today;
+    [ObservableProperty] private string _horaPrescricao = DateTime.Now.ToString("HH:mm");
     [ObservableProperty] private string _texto = "";
     [ObservableProperty] private string _orientacao = "";
     [ObservableProperty] private string _diluente = "SF 0,9%";
@@ -78,12 +80,15 @@ public sealed partial class InfusaoExternaViewModel : ObservableObject
     {
         try {
             SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao | Permissao.RegistrarEvolucaoEnfermagem, "registrar infusão realizada");
-            if (Data is not { } data || !TimeOnly.TryParse(Hora, out var hora) || Medico is null)
-                throw new InvalidOperationException("Informe a data, a hora real da execução e o médico responsável.");
+            if (Data is not { } data || !TimeOnly.TryParse(Hora, out var hora)
+                || DataPrescricao is not { } dataPrescricao || !TimeOnly.TryParse(HoraPrescricao, out var horaPrescricao)
+                || Medico is null)
+                throw new InvalidOperationException("Informe as datas e horas da prescrição e da execução e o médico responsável.");
             using var scope = _escopos.CreateScope();
             var p = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().RegistrarExecucaoExternaAsync(
                 new(_pacienteId, Medico.Id, Sessao?.Id, DateOnly.FromDateTime(data), hora, Texto, Orientacao,
-                    Volume, Diluente, Tempo, ConfirmouAlergia: ConfirmouAlergia), SessaoUsuario.Atual.UsuarioId);
+                    Volume, Diluente, Tempo, ConfirmouAlergia: ConfirmouAlergia,
+                    DataPrescricao: DateOnly.FromDateTime(dataPrescricao), HoraPrescricao: horaPrescricao), SessaoUsuario.Atual.UsuarioId);
             PrescricaoId = p.Id;
             Salvou?.Invoke();
         } catch (Exception ex) { Mensagem = ex.Message; }

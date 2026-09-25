@@ -1187,6 +1187,7 @@ public class ClinicaDbContext : DbContext
         b.Entity<ChecagemPrescricao>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.DataRealizacao).HasColumnType("date");
             e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Justificativa).HasMaxLength(1000);
             e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);

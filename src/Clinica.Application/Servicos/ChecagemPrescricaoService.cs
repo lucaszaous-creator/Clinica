@@ -149,6 +149,10 @@ public sealed class ChecagemPrescricaoService
         int? profissionalId = null, CancellationToken ct = default)
         => _repo.PrescricoesInternasAguardandoAssinaturaAsync(profissionalId, ct);
 
+    public Task<IReadOnlyList<PrescricaoInterna>> AguardandoValidacaoMedicaAsync(
+        int profissionalId, CancellationToken ct = default)
+        => _repo.PrescricoesInternasAguardandoValidacaoMedicaAsync(profissionalId, ct);
+
     /// <summary>Quantas folhas do dia ainda têm item esperando execução.</summary>
     public Task<int> PendentesDoDiaAsync(
         DateOnly data, int? profissionalId = null, CancellationToken ct = default)
@@ -190,7 +194,8 @@ public sealed class ChecagemPrescricaoService
         string? justificativa = null,
         string? alergiaObservada = null,
         bool confirmouAlergia = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        DateOnly? dataRealizacao = null)
     {
         var item = await ExigirItemChecavel(itemId, ct);
 
@@ -201,7 +206,7 @@ public sealed class ChecagemPrescricaoService
 
         await ConferirAlergiaDoItem(item, situacao, confirmouAlergia, ct);
 
-        var checagem = Montar(item, situacao, hora, executante, justificativa);
+        var checagem = Montar(item, situacao, hora, executante, justificativa, dataRealizacao);
         item.Checagens.Add(checagem);
 
         await RegistrarAlergiaSePedido(item, alergiaObservada, executante, ct);
@@ -238,7 +243,8 @@ public sealed class ChecagemPrescricaoService
         string motivoRetificacao,
         string? justificativa = null,
         bool confirmouAlergia = false,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        DateOnly? dataRealizacao = null)
     {
         if (string.IsNullOrWhiteSpace(motivoRetificacao))
             throw new InvalidOperationException(
@@ -256,7 +262,7 @@ public sealed class ChecagemPrescricaoService
         // caminho de volta pelo qual a recusa não vale nada.
         await ConferirAlergiaDoItem(item, situacao, confirmouAlergia, ct);
 
-        var checagem = Montar(item, situacao, hora, executante, justificativa);
+        var checagem = Montar(item, situacao, hora, executante, justificativa, dataRealizacao);
         checagem.RetificaChecagemId = anterior.Id;
         checagem.MotivoRetificacao = motivoRetificacao.Trim();
         item.Checagens.Add(checagem);
@@ -419,7 +425,7 @@ public sealed class ChecagemPrescricaoService
 
     private ChecagemPrescricao Montar(
         ItemPrescricaoInterna item, SituacaoChecagem situacao, TimeOnly hora,
-        IdentificacaoExecutante executante, string? justificativa)
+        IdentificacaoExecutante executante, string? justificativa, DateOnly? dataRealizacao)
     {
         executante.Exigir("checar a execução");
 
@@ -431,12 +437,14 @@ public sealed class ChecagemPrescricaoService
                 + "medicação não entrou no paciente e não diz por quê — que é a pior linha "
                 + "possível de um prontuário.");
 
-        ExigirHoraPlausivel(item, hora);
+        var data = dataRealizacao ?? DateOnly.FromDateTime(_agora());
+        ExigirHoraPlausivel(data, hora);
 
         return new ChecagemPrescricao
         {
             ItemPrescricaoInternaId = item.Id,
             Situacao = situacao,
+            DataRealizacao = data,
             HoraRealizacao = hora,
             Justificativa = limpa,
             ExecutanteUsuarioId = executante.UsuarioId,
@@ -448,17 +456,11 @@ public sealed class ChecagemPrescricaoService
     }
 
     /// <summary>
-    /// Recusa hora no futuro. Só faz sentido conferir na folha de HOJE: numa folha de
-    /// ontem qualquer horário do dia já passou, e numa folha lançada com atraso a
-    /// comparação com o relógio de agora não diria nada.
+    /// Recusa a data e hora de execução no futuro, inclusive em checagem tardia.
     /// </summary>
-    private void ExigirHoraPlausivel(ItemPrescricaoInterna item, TimeOnly hora)
+    private void ExigirHoraPlausivel(DateOnly data, TimeOnly hora)
     {
         var agora = _agora();
-        var hoje = DateOnly.FromDateTime(agora);
-        var data = item.Prescricao?.Data ?? hoje;
-        if (data != hoje) return;
-
         var momento = data.ToDateTime(hora);
         if (momento <= agora + FolgaDeRelogio) return;
 

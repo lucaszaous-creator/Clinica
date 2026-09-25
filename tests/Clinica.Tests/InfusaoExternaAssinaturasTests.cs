@@ -14,7 +14,11 @@ public partial class SegundaAssinaturaExecucaoTests
         var medico=new UsuarioSistema {Nome="Médica",Login="medica",Perfil=PerfilAcesso.Profissional,ProfissionalId=c.ProfissionalMedicaId};
         _db.Usuarios.Add(medico);await _db.SaveChangesAsync();
         var p=await _prescricoes.RegistrarExecucaoExternaAsync(new(c.PacienteId,c.ProfissionalMedicaId,null,
-            DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),new(9,30),"Infusão de teste","Orientação externa descrita pela executante"),c.UsuarioEnfermeiraId);
+            DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),new(9,30),"Infusão de teste","Orientação externa descrita pela executante",
+            DataPrescricao:DateOnly.FromDateTime(DateTime.Today.AddDays(-2)),HoraPrescricao:new(8,15)),c.UsuarioEnfermeiraId);
+        p.Data.Should().Be(DateOnly.FromDateTime(DateTime.Today.AddDays(-2)));
+        p.Hora.Should().Be(new TimeOnly(8,15));
+        p.Itens.Single().ChecagemVigente!.DataRealizacao.Should().Be(DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
         p.AguardaValidacaoMedica.Should().BeTrue();
         (await _db.Atendimentos.CountAsync()).Should().Be(0);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>_orquestra.AssinarPrescricaoAsync(p.Id,ECpfDeTeste("Médica",CpfMedica),usuarioId:medico.Id));
@@ -29,6 +33,12 @@ public partial class SegundaAssinaturaExecucaoTests
         (await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.RegistroExecucao)).Pdf.Should().Equal(final.Pdf);
         p.Situacao.Should().Be(SituacaoPrescricao.Encerrada);
         (await _db.Atendimentos.CountAsync()).Should().Be(0);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>_prescricoes.CorrigirHorariosInfusaoExternaAsync(
+            p.Id,c.UsuarioEnfermeiraId,DateOnly.FromDateTime(DateTime.Today),new(8,15),
+            DateOnly.FromDateTime(DateTime.Today),new(9,30),"Correção após assinatura"));
+        await _prescricoes.CancelarAsync(p.Id,"Registro lançado para paciente incorreto", "enfermeira");
+        p.Cancelada.Should().BeTrue();
+        p.Assinaturas.Should().HaveCount(2);
         Despejar("infusao-externa-duas-assinaturas.pdf",final.Pdf);
     }
 }
