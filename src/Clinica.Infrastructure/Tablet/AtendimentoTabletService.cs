@@ -247,7 +247,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 var p = await prescricoes.CriarAsync(paciente, u.ProfissionalId, agendamento, evolucao, Operador(u), ct);
                 await prescricoes.SalvarRascunhoAsync(p.Id, pedido.Indicacao, pedido.Observacoes, pedido.Itens is {Length:>0} ? pedido.Itens.Select(i=>new ItemPrescricaoInterna {Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,SeNecessario=i.SeNecessario,HoraPrevista=i.HoraPrevista,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray() : [new ItemPrescricaoInterna {
                     Descricao = pedido.Texto, DescricaoFormatada=pedido.CorpoFormatado, Diluente = pedido.Diluente, Volume = pedido.Volume,
-                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct,pedido.IndicacaoFormatada,pedido.ObservacoesFormatadas);
+                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct,pedido.IndicacaoFormatada,pedido.ObservacoesFormatadas,pedido.DataPrescricao,pedido.HoraPrescricao);
                 await Auditar(u, paciente, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
                 return new(p.Id, "infusao", p.Numero);
             }

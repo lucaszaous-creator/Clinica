@@ -1958,7 +1958,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
-            .Where(p => p.Data == data);
+            .Where(p => p.Data == data || (p.Data < data && p.Situacao == SituacaoPrescricao.Assinada));
 
         // Rascunho e cancelada NUNCA aparecem na sala: a primeira ninguém assinou, e a
         // segunda foi desfeita. Mostrar qualquer uma das duas convidaria a técnica a
@@ -1966,7 +1966,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         q = incluirEncerradas
             ? q.Where(p => p.Situacao == SituacaoPrescricao.Assinada
                         || p.Situacao == SituacaoPrescricao.Encerrada || (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada))
-            : q.Where(p => p.Situacao == SituacaoPrescricao.Assinada || (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada));
+            : q.Where(p => p.Situacao == SituacaoPrescricao.Assinada || (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
+                        && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoId != null && a.ArquivoRegistroId != null)));
 
         if (profissionalId is int pid)
             q = q.Where(p => p.ProfissionalId == pid);
@@ -1985,9 +1986,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(p => p.Profissional)
             .Include(p => p.Itens).ThenInclude(i => i.Checagens)
             .Include(p => p.Assinaturas)
-            .Where(p => (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada) || p.Situacao == SituacaoPrescricao.Encerrada
+            .Where(p => (p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
+                            && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoId != null && a.ArquivoRegistroId != null)) || p.Situacao == SituacaoPrescricao.Encerrada
                         && p.ExigeAssinaturaEletronicaDaExecucao
-                        && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante));
+                        && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoRegistroId != null));
 
         if (profissionalId is int pid)
             q = q.Where(p => p.ProfissionalId == pid);
@@ -1997,6 +1999,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await q.OrderBy(p => p.Data).ThenBy(p => p.Hora).ThenBy(p => p.Id)
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasAguardandoValidacaoMedicaAsync(
+        int profissionalId, CancellationToken ct = default)
+        => await _db.PrescricoesInternas.AsNoTracking()
+            .Include(p => p.Paciente).Include(p => p.Profissional)
+            .Include(p => p.Itens).ThenInclude(i => i.Checagens).Include(p => p.Assinaturas)
+            .Where(p => p.ProfissionalId == profissionalId && p.CanceladaEm == null
+                && p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
+                && p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante && a.ArquivoId != null && a.ArquivoRegistroId != null))
+            .OrderBy(p => p.Data).ThenBy(p => p.Hora).ThenBy(p => p.Id).ToListAsync(ct);
 
     public Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
         int itemId, CancellationToken ct = default)

@@ -21,7 +21,9 @@
                 <TextBlock Text="{Binding Alertas}" TextWrapping="Wrap" Margin="0,0,0,12" />
                 <WrapPanel>
                     <StackPanel Margin="0,0,12,12"><TextBlock Text="Data da execução" /><DatePicker SelectedDate="{Binding Data}" Width="150" /></StackPanel>
-                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Hora" /><TextBox Text="{Binding Hora}" Width="90" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Hora da execução" /><TextBox Text="{Binding Hora}" Width="90" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Data da prescrição" /><DatePicker SelectedDate="{Binding DataPrescricao}" Width="150" /></StackPanel>
+                    <StackPanel Margin="0,0,12,12"><TextBlock Text="Hora da prescrição" /><TextBox Text="{Binding HoraPrescricao}" Width="90" /></StackPanel>
                     <StackPanel Margin="0,0,12,12"><TextBlock Text="Diluente" /><TextBox Text="{Binding Diluente}" Width="150" MaxLength="120" /></StackPanel>
                     <StackPanel Margin="0,0,12,12"><TextBlock Text="Volume" /><TextBox Text="{Binding Volume}" Width="100" MaxLength="60" /></StackPanel>
                     <StackPanel Margin="0,0,12,12"><TextBlock Text="Tempo" /><TextBox Text="{Binding Tempo}" Width="90" MaxLength="60" /></StackPanel>

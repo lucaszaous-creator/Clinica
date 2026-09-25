@@ -20,8 +20,12 @@ public sealed record IniciarAvulsoTablet(Guid Idempotencia, ModalidadeAtendiment
     string? Motivo = null, string? EspecialidadeConsultaCodigo = null);
 public sealed record ResultadoAvulsoTablet(int AgendamentoId, bool Existente);
 public sealed record ChecarInfusaoTablet(Guid Idempotencia, int ItemId, string Versao, SituacaoChecagem Situacao,
-    TimeOnly Hora, string? Justificativa = null, string? AlergiaObservada = null, bool ConfirmouAlergia = false, string? MotivoRetificacao = null);
+    TimeOnly Hora, string? Justificativa = null, string? AlergiaObservada = null, bool ConfirmouAlergia = false, string? MotivoRetificacao = null,
+    DateOnly? Data = null);
 public sealed record EncerrarInfusaoTablet(Guid Idempotencia, string Versao);
+public sealed record CancelarInfusaoTablet(Guid Idempotencia, string Versao, string Motivo);
+public sealed record CorrigirHorariosInfusaoTablet(Guid Idempotencia, string Versao,
+    DateOnly DataPrescricao, TimeOnly HoraPrescricao, DateOnly DataExecucao, TimeOnly HoraExecucao, string Motivo);
 public sealed record ResultadoEnfermagemTablet(int Id, string Situacao);
 
 public sealed class RecursoClinicoIndisponivel : Exception;
@@ -47,6 +51,7 @@ public sealed record EmitirDocumentoTablet(Guid Idempotencia, string Tipo, strin
     string? Observacoes = null, int? DiasAfastamento = null, string? Diluente = "SF 0,9%",
     string? Volume = null, string? TempoInfusao = "1h", bool AssinaturaEnfermagem = true,
     ViaAdministracao Via = ViaAdministracao.Endovenosa,string? CorpoFormatado=null,
-    string? ObservacoesFormatadas=null,ItemInfusaoTablet[]? Itens=null,string? Indicacao=null,string? IndicacaoFormatada=null);
+    string? ObservacoesFormatadas=null,ItemInfusaoTablet[]? Itens=null,string? Indicacao=null,string? IndicacaoFormatada=null,
+    DateOnly? DataPrescricao=null,TimeOnly? HoraPrescricao=null);
 public sealed record ResultadoGravacaoTablet(int EvolucaoId, string Versao, bool Finalizado, int? AtendimentoId, int Guias, string[] Avisos);
 public sealed record ResultadoDocumentoTablet(int Id, string Tipo, string Numero);

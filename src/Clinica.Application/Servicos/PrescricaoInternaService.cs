@@ -135,7 +135,8 @@ public sealed partial class PrescricaoInternaService
         IReadOnlyList<ItemPrescricaoInterna> itens,
         string? operador = null,
         bool? exigeAssinaturaEletronicaDaExecucao = null, CancellationToken ct = default,
-        string? indicacaoFormatada = null, string? observacoesFormatadas = null)
+        string? indicacaoFormatada = null, string? observacoesFormatadas = null,
+        DateOnly? dataPrescricao = null, TimeOnly? horaPrescricao = null)
     {
         var prescricao = await Exigir(prescricaoId, ct);
 
@@ -143,6 +144,16 @@ public sealed partial class PrescricaoInternaService
             throw new InvalidOperationException(
                 $"A prescrição {prescricao.Numero} já foi assinada e não se edita. Para "
                 + "corrigir, suspenda o item e prescreva outro — é o que deixa rastro dos dois.");
+
+        if (dataPrescricao.HasValue != horaPrescricao.HasValue)
+            throw new InvalidOperationException("Informe data e hora da prescrição juntas.");
+        if (dataPrescricao is { } data && horaPrescricao is { } hora)
+        {
+            if (data.ToDateTime(hora) > DateTime.Now.AddMinutes(5))
+                throw new InvalidOperationException("A prescrição não pode ter data e hora futuras.");
+            prescricao.Data = data;
+            prescricao.Hora = hora;
+        }
 
         prescricao.Indicacao = Limpar(indicacao);
         prescricao.IndicacaoFormatada = TextoFormatado.Normalizar(prescricao.Indicacao, indicacaoFormatada ?? prescricao.IndicacaoFormatada);
@@ -224,7 +235,8 @@ public sealed partial class PrescricaoInternaService
         if (prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} já está assinada.");
 
-        if (prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is null)
+        if (prescricao.OrigemEnfermagem && (prescricao.AssinaturaDaExecucao?.ArquivoId is null
+            || prescricao.AssinaturaDaExecucao.ArquivoRegistroId is null))
             throw new InvalidOperationException("A enfermagem precisa assinar o registro da execução antes da validação médica.");
 
         if (prescricao.Itens.Count == 0)
@@ -376,9 +388,9 @@ public sealed partial class PrescricaoInternaService
     /// <summary>
     /// Cancela a folha inteira. Não apaga: ela pode ter sido impressa e estar na sala.
     ///
-    /// Folha com item JÁ CHECADO não se cancela — cancelar apagaria o contexto de uma
-    /// administração que aconteceu, e o registro da enfermagem ficaria pendurado numa
-    /// prescrição que o sistema diz que nunca valeu.
+    /// Folha normal com item já checado não se cancela. O registro externo, que já nasce
+    /// executado, pode ser marcado como cancelado por erro com motivo e auditoria;
+    /// suas assinaturas e os arquivos selados continuam preservados.
     /// </summary>
     public async Task CancelarAsync(
         int prescricaoId, string motivo, string? operador = null, CancellationToken ct = default)
@@ -391,12 +403,12 @@ public sealed partial class PrescricaoInternaService
         if (prescricao.Cancelada)
             throw new InvalidOperationException("A prescrição já está cancelada.");
 
-        if (prescricao.Situacao == SituacaoPrescricao.Encerrada)
+        if (prescricao.Situacao == SituacaoPrescricao.Encerrada && !prescricao.OrigemEnfermagem)
             throw new InvalidOperationException(
                 "A execução desta folha já foi encerrada. Ela é "
                 + "registro do que aconteceu com o paciente e não se cancela.");
 
-        if (prescricao.Itens.Any(i => i.ChecagemVigente is not null))
+        if (!prescricao.OrigemEnfermagem && prescricao.Itens.Any(i => i.ChecagemVigente is not null))
             throw new InvalidOperationException(
                 "Já há item checado nesta folha. Cancelá-la deixaria o registro da "
                 + "enfermagem preso a uma prescrição que o sistema diz que nunca valeu — "

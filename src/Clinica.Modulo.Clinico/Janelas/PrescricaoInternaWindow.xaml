@@ -107,6 +107,16 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
 
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Data e hora da prescrição" Style="{StaticResource H3}" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <DatePicker SelectedDate="{Binding DataPrescricao}" Width="160" Margin="0,0,12,0" />
+                            <TextBox Text="{Binding HoraPrescricao, UpdateSourceTrigger=PropertyChanged}" Width="90" ToolTip="Hora da prescrição, no formato HH:mm" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
                 <StackPanel Margin="0,0,0,12">
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                         <StackPanel IsEnabled="{Binding PodePrescrever}">

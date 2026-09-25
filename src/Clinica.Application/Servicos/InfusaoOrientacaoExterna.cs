@@ -5,10 +5,42 @@ namespace Clinica.Application.Servicos;
 public sealed record RegistroInfusaoExterna(int PacienteId, int MedicoId, int? AgendamentoId,
     DateOnly Data, TimeOnly Hora, string Texto, string Orientacao,
     string? Volume = null, string? Diluente = "SF 0,9%", string? Tempo = "1h",
-    ViaAdministracao Via = ViaAdministracao.Endovenosa, bool ConfirmouAlergia = false);
+    ViaAdministracao Via = ViaAdministracao.Endovenosa, bool ConfirmouAlergia = false,
+    DateOnly? DataPrescricao = null, TimeOnly? HoraPrescricao = null);
 
 public sealed partial class PrescricaoInternaService
 {
+    /// <summary>Corrige horários de um registro externo antes da primeira assinatura, mantendo auditoria.</summary>
+    public async Task CorrigirHorariosInfusaoExternaAsync(int prescricaoId, int usuarioId,
+        DateOnly dataPrescricao, TimeOnly horaPrescricao, DateOnly dataExecucao, TimeOnly horaExecucao,
+        string motivo, CancellationToken ct = default)
+    {
+        var p = await Exigir(prescricaoId, ct);
+        if (!p.OrigemEnfermagem || p.RegistradaPorUsuarioId != usuarioId || p.Cancelada
+            || p.AssinadaEm is not null || p.Assinaturas.Count > 0)
+            throw new InvalidOperationException("Os horários só podem ser corrigidos pela enfermagem antes da primeira assinatura.");
+        if (motivo?.Trim().Length is not (>= 5 and <= 500))
+            throw new InvalidOperationException("Informe o motivo da correção (5 a 500 caracteres).");
+        var agora = DateTime.Now;
+        if (dataPrescricao.ToDateTime(horaPrescricao) > agora.AddMinutes(5)
+            || dataExecucao.ToDateTime(horaExecucao) > agora.AddMinutes(5))
+            throw new InvalidOperationException("Os horários informados não podem estar no futuro.");
+        var checagem = p.Itens.Single().ChecagemVigente
+            ?? throw new InvalidOperationException("Não há execução para corrigir.");
+        var anterior = $"prescrição {p.Data:dd/MM/yyyy} {p.Hora:HH\\:mm}; execução "
+            + $"{(checagem.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} {checagem.HoraRealizacao:HH\\:mm}";
+        p.Data = dataPrescricao; p.Hora = horaPrescricao;
+        checagem.DataRealizacao = dataExecucao; checagem.HoraRealizacao = horaExecucao;
+        p.AtualizadoEm = agora;
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);
+        p.AtualizadoPor = usuario?.Login;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria { PacienteId = p.PacienteId,
+            Operador = usuario?.Login ?? "?", Acao = "InfusaoExternaHorariosCorrigidos",
+            Detalhe = $"{p.Numero}: {anterior} → prescrição {dataPrescricao:dd/MM/yyyy} {horaPrescricao:HH\\:mm}; execução {dataExecucao:dd/MM/yyyy} {horaExecucao:HH\\:mm}. Motivo: {motivo.Trim()}"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Profissional>> MedicosParaValidacaoAsync(CancellationToken ct = default)
         => (await _repo.UsuariosAsync(ct))
             .Where(u => u.Ativo && u.Profissional?.Ativo == true
@@ -38,6 +70,11 @@ public sealed partial class PrescricaoInternaService
             throw new InvalidOperationException("Confira volume, diluente, tempo e via de administração.");
         if (dados.Data.ToDateTime(dados.Hora) > DateTime.Now.AddMinutes(5))
             throw new InvalidOperationException("A execução registrada não pode estar no futuro.");
+        if (dados.DataPrescricao.HasValue != dados.HoraPrescricao.HasValue)
+            throw new InvalidOperationException("Informe data e hora da prescrição juntas.");
+        if (dados.DataPrescricao is { } dataPrescricao && dados.HoraPrescricao is { } horaPrescricao
+            && dataPrescricao.ToDateTime(horaPrescricao) > DateTime.Now.AddMinutes(5))
+            throw new InvalidOperationException("A data e a hora da prescrição não podem estar no futuro.");
         if (dados.AgendamentoId is { } id)
         {
             var sessao = await _repo.ObterAgendamentoAsync(id, ct);
@@ -53,13 +90,13 @@ public sealed partial class PrescricaoInternaService
         var p = new PrescricaoInterna {
             Numero = $"PRE {agora.Year}/{numero:0000}", CodigoVerificacao = GerarCodigo(),
             PacienteId = dados.PacienteId, ProfissionalId = dados.MedicoId, AgendamentoId = dados.AgendamentoId,
-            Data = dados.Data, Hora = dados.Hora, OrigemEnfermagem = true,
+            Data = dados.DataPrescricao ?? dados.Data, Hora = dados.HoraPrescricao ?? dados.Hora, OrigemEnfermagem = true,
             OrientacaoExterna = dados.Orientacao.Trim(), RegistradaPorUsuarioId = usuario.Id,
             Situacao = SituacaoPrescricao.Encerrada, ExigeAssinaturaEletronicaDaExecucao = true,
             CriadoPor = usuario.Login, CriadoEm = agora, EncerradaEm = agora,
             Itens = [new() { Ordem = 1, Descricao = dados.Texto.Trim(), Volume = Limpar(dados.Volume),
                 Diluente = Limpar(dados.Diluente), TempoInfusao = Limpar(dados.Tempo), Via = dados.Via,
-                Checagens = [new() { Situacao = SituacaoChecagem.Realizado, HoraRealizacao = dados.Hora,
+                Checagens = [new() { Situacao = SituacaoChecagem.Realizado, DataRealizacao = dados.Data, HoraRealizacao = dados.Hora,
                     ExecutanteUsuarioId = usuario.Id, ExecutanteNome = autor.Nome, ExecutanteConselho = autor.Conselho,
                     RegistradoEm = agora }] }]
         };

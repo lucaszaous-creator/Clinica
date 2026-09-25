@@ -25,9 +25,13 @@ public sealed partial class PostoTabletService
             .OrderBy(d=>d.Id).Skip(pagina*50).Take(51)
             .Select(d=>new {d.Id,d.PacienteId,Paciente=d.Paciente!.Nome,d.Data,d.Numero,Tipo=d.Tipo.ToString()}).ToListAsync(ct);
         var infusoes=await db.PrescricoesInternas.AsNoTracking()
-            .Where(p=>podePrescrever&&p.ProfissionalId==u.ProfissionalId&&p.CanceladaEm==null&&(p.Situacao==SituacaoPrescricao.Rascunho||(p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada)))
+            .Where(p=>podePrescrever&&p.ProfissionalId==u.ProfissionalId&&p.CanceladaEm==null&&(p.Situacao==SituacaoPrescricao.Rascunho||(p.OrigemEnfermagem && p.AssinadaEm == null && p.Situacao == SituacaoPrescricao.Encerrada
+                &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))))
             .OrderBy(p=>p.Id).Skip(pagina*50).Take(51)
-            .Select(p=>new {p.Id,p.PacienteId,Paciente=p.Paciente!.Nome,p.Data,p.Numero,Situacao=p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada?"AguardaMedico":p.Situacao.ToString()}).ToListAsync(ct);
+            .Select(p=>new {p.Id,p.PacienteId,Paciente=p.Paciente!.Nome,p.Data,p.Hora,p.Numero,Situacao=p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada?"AguardaMedico":p.Situacao.ToString()}).ToListAsync(ct);
+        var totalInfusoes=await db.PrescricoesInternas.AsNoTracking().CountAsync(p=>podePrescrever&&p.ProfissionalId==u.ProfissionalId&&p.CanceladaEm==null
+            &&(p.Situacao==SituacaoPrescricao.Rascunho||(p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
+                &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null))),ct);
         var recepcao=await db.Agendamentos.AsNoTracking()
             .Where(a=>PoliticaAtendimentoTablet.PodeAtender(u)&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim
                 &&a.FimAtendimentoEm!=null&&a.Atendimento!=null&&a.Atendimento.EstornadoEm==null
@@ -40,6 +44,6 @@ public sealed partial class PostoTabletService
                 GuiasSemBaixa=a.Atendimento.Codigos.Count(c=>c.DataBaixa==null&&c.Status!=StatusCodigo.NaoAplicavel)}).ToListAsync(ct);
         return new {Pagina=pagina,Desde=DateOnly.FromDateTime(inicio),Ate=acesso.Hoje,
             Mais=sessoes.Count>50||documentos.Count>50||infusoes.Count>50||recepcao.Count>50,
-            Sessoes=sessoes.Take(50),Documentos=documentos.Take(50),Infusoes=infusoes.Take(50),Recepcao=recepcao.Take(50),PodeExecutar=u.Pode(Permissao.ChecarPrescricao)};
+            Sessoes=sessoes.Take(50),Documentos=documentos.Take(50),Infusoes=infusoes.Take(50),TotalInfusoes=totalInfusoes,Recepcao=recepcao.Take(50),PodeExecutar=u.Pode(Permissao.ChecarPrescricao)};
     }
 }

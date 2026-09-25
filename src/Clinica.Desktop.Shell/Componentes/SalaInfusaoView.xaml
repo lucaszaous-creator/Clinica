@@ -47,6 +47,32 @@
             <Button Content="Registrar infusão com orientação externa" Command="{Binding RegistrarInfusaoCommand}"
                     Visibility="{Binding PodeRegistrarEnfermagem, Converter={StaticResource BoolParaVisibilidade}}" />
         </WrapPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,12"
+                Visibility="{Binding PodePrescrever, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="Avaliação médica de infusões externas" Style="{StaticResource H3}" />
+                <TextBlock Text="{Binding ResumoValidacoes}" Style="{StaticResource TextoSuave}" Margin="0,4,0,8" />
+                <ItemsControl ItemsSource="{Binding Validacoes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0" Padding="0,10">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Avaliar e assinar" Margin="12,0,0,0"
+                                            Command="{Binding DataContext.AbrirCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Numero}" Style="{StaticResource TextoSuave}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
         <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
              visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"

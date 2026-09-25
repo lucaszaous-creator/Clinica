@@ -36,7 +36,7 @@ public sealed partial class PostoTabletService
         object resultado;
         if(tipo=="infusao") {
             var p=await RascunhoInfusao(u,paciente,id,ct);
-            resultado=new {p.Id,p.Numero,Tipo=tipo,Versao=Versao(p),p.Indicacao,p.IndicacaoFormatada,p.Observacoes,p.ObservacoesFormatadas,AssinaturaEnfermagem=p.ExigeAssinaturaEletronicaDaExecucao,
+            resultado=new {p.Id,p.Numero,Tipo=tipo,Versao=Versao(p),p.Data,p.Hora,p.Indicacao,p.IndicacaoFormatada,p.Observacoes,p.ObservacoesFormatadas,AssinaturaEnfermagem=p.ExigeAssinaturaEletronicaDaExecucao,
                 Itens=p.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemInfusaoTablet(i.Descricao,i.Dose,i.Diluente,i.Volume,i.Via,i.TempoInfusao,i.HoraPrevista,i.SeNecessario,i.Observacoes,i.DescricaoFormatada,i.ObservacoesFormatadas))};
         } else if(tipo=="documento") {
             var d=await RascunhoDocumento(u,paciente,id,ct);
@@ -59,7 +59,8 @@ public sealed partial class PostoTabletService
                 var nova=await Prescricoes.CriarAsync(paciente,u.ProfissionalId,anterior.AgendamentoId,anterior.EvolucaoId,u.Login,ct);
                 await Prescricoes.SalvarRascunhoAsync(nova.Id,p.Indicacao,p.Observacoes,p.Itens.Select(i=>new ItemPrescricaoInterna {
                     Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,
-                    HoraPrevista=i.HoraPrevista,SeNecessario=i.SeNecessario,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray(),u.Login,p.AssinaturaEnfermagem,ct,p.IndicacaoFormatada,p.ObservacoesFormatadas);
+                    HoraPrevista=i.HoraPrevista,SeNecessario=i.SeNecessario,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray(),u.Login,p.AssinaturaEnfermagem,ct,p.IndicacaoFormatada,p.ObservacoesFormatadas,
+                    p.DataPrescricao??anterior.Data,p.HoraPrescricao??anterior.Hora);
                 await Prescricoes.CancelarAsync(id,$"Substituída pela prescrição {nova.Numero}: {p.Motivo}",u.Login,ct);
                 return new ResultadoDocumentoTablet(nova.Id,tipo,nova.Numero);
             }

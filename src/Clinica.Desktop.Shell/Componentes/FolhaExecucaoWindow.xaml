@@ -67,16 +67,21 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="90" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="Hora da administração"
+                <TextBlock Grid.Column="0" Text="Data da administração"
                            VerticalAlignment="Center" Margin="0,0,10,0"
                            Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
-                <TextBox Grid.Column="1" Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                <DatePicker Grid.Column="1" SelectedDate="{Binding DataRealizacao}" IsEnabled="{Binding PodeMexer}" />
+                <TextBlock Grid.Column="2" Text="Hora" VerticalAlignment="Center" Margin="12,0,10,0"
+                           Style="{StaticResource Rotulo}" />
+                <TextBox Grid.Column="3" Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
                          IsEnabled="{Binding PodeMexer}" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="2" Style="{StaticResource TextoSuave}"
+                <TextBlock Grid.Column="4" Style="{StaticResource TextoSuave}"
                            VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"
                            Text="Escreva o horário em que o item foi de fato administrado. O sistema guarda ao lado a hora em que você registrou." />
             </Grid>
@@ -138,6 +143,14 @@
                     <Button Content="Validar e assinar como médico" Margin="8,0,0,0"
                             Visibility="{Binding PodeValidarMedico, Converter={StaticResource BoolParaVisibilidade}}"
                             Command="{Binding ValidarMedicoCommand}" />
+                    <Button Content="Corrigir horários" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoSecundario}"
+                            Visibility="{Binding PodeCorrigirHorarios, Converter={StaticResource BoolParaVisibilidade}}"
+                            Command="{Binding CorrigirHorariosCommand}" />
+                    <Button Content="Cancelar registro" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoSecundario}"
+                            Visibility="{Binding PodeCancelarInfusao, Converter={StaticResource BoolParaVisibilidade}}"
+                            Command="{Binding CancelarInfusaoCommand}" />
                     <Button Content="Assinar execução" Margin="8,0,0,0" MinWidth="160"
                             VerticalAlignment="Center"
                             IsEnabled="{Binding PodeAssinarExecucao}"

@@ -531,6 +531,9 @@ public class ChecagemPrescricao
     /// </summary>
     public TimeOnly HoraRealizacao { get; set; }
 
+    /// <summary>Data informada da execução; nulo nos registros antigos, que usam a data do lançamento.</summary>
+    public DateOnly? DataRealizacao { get; set; }
+
     /// <summary>
     /// Por que não foi feito. Obrigatória quando <see cref="Situacao"/> é
     /// <see cref="SituacaoChecagem.NaoRealizado"/>; opcional no realizado (cabe a intercorrência).
@@ -573,7 +576,7 @@ public class ChecagemPrescricao
     {
         get
         {
-            var administrado = DateOnly.FromDateTime(RegistradoEm).ToDateTime(HoraRealizacao);
+            var administrado = (DataRealizacao ?? DateOnly.FromDateTime(RegistradoEm)).ToDateTime(HoraRealizacao);
             var diferenca = RegistradoEm - administrado;
             return diferenca < TimeSpan.Zero ? TimeSpan.Zero : diferenca;
         }

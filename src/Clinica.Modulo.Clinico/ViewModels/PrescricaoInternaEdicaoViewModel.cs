@@ -103,6 +103,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _indicacaoFormatada;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _observacoesFormatadas;
+    [ObservableProperty] private DateTime? _dataPrescricao = DateTime.Today;
+    [ObservableProperty] private string _horaPrescricao = DateTime.Now.ToString("HH:mm");
 
     /// <summary>
     /// O campo de 2ª assinatura (decisão da direção, 14/08/2026): marcado, a enfermagem
@@ -266,6 +268,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
             _prescricaoId = prescricao.Id;
             Numero = prescricao.Numero;
+            DataPrescricao = prescricao.Data.ToDateTime(TimeOnly.MinValue);
+            HoraPrescricao = prescricao.Hora.ToString("HH:mm");
 
             ExigirAssinaturaDaExecucao = prescricao.ExigeAssinaturaEletronicaDaExecucao;
 
@@ -465,10 +469,13 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 Numero = criada.Numero;
             }
 
+            if (DataPrescricao is not { } dataPrescricao || !TimeOnly.TryParse(HoraPrescricao, out var horaPrescricao))
+                throw new InvalidOperationException("Informe a data e a hora da prescrição.");
             var salva = await servico.SalvarRascunhoAsync(
                 _prescricaoId, Indicacao, Observacoes, itens,
                 SessaoUsuario.Atual.Operador,
-                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas);
+                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas,
+                dataPrescricao:DateOnly.FromDateTime(dataPrescricao),horaPrescricao:horaPrescricao);
 
             Mensagem = null;
             MensagemEhErro = false;

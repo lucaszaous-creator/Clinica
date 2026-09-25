@@ -66,8 +66,8 @@ public sealed class LinhaExecucaoItem
 
         var marca = situacao switch
         {
-            SituacaoItemPrescricao.Realizado => $"✓ {checagem!.HoraRealizacao:HH\\:mm}",
-            SituacaoItemPrescricao.NaoRealizado => $"○ {checagem!.HoraRealizacao:HH\\:mm}",
+            SituacaoItemPrescricao.Realizado => $"✓ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
+            SituacaoItemPrescricao.NaoRealizado => $"○ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
             SituacaoItemPrescricao.Suspenso => "suspenso",
             _ => "—"
         };
@@ -165,9 +165,16 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private string? _situacaoAssinaturaExecucao;
     [ObservableProperty] private bool _origemEnfermagem;
     [ObservableProperty] private bool _podeValidarMedico;
+    [ObservableProperty] private bool _podeCorrigirHorarios;
+    [ObservableProperty] private bool _podeCancelarInfusao;
+    private DateOnly _dataPrescricao;
+    private TimeOnly _horaPrescricao;
+    private DateOnly _dataExecucao;
+    private TimeOnly _horaExecucao;
 
     /// <summary>Hora sugerida para a próxima checagem. Sugestão — o campo é de quem executou.</summary>
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH\\:mm");
+    [ObservableProperty] private DateTime? _dataRealizacao = DateTime.Today;
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao)
@@ -274,8 +281,22 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             Numero = prescricao.Numero;
             OrigemEnfermagem = prescricao.OrigemEnfermagem;
+            var checagemExterna = prescricao.Itens.Select(i => i.ChecagemVigente).FirstOrDefault(c => c is not null);
+            _dataPrescricao = prescricao.Data;
+            _horaPrescricao = prescricao.Hora;
+            _dataExecucao = checagemExterna?.DataRealizacao ?? prescricao.Data;
+            _horaExecucao = checagemExterna?.HoraRealizacao ?? prescricao.Hora;
+            PodeCorrigirHorarios = prescricao.OrigemEnfermagem && prescricao.RegistradaPorUsuarioId == SessaoUsuario.Atual.UsuarioId
+                && prescricao.Assinaturas.Count == 0 && prescricao.AssinadaEm is null;
+            PodeCancelarInfusao = !prescricao.Cancelada
+                && ((SessaoUsuario.Atual.Pode(Permissao.Prescrever) && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId)
+                    || (prescricao.OrigemEnfermagem && prescricao.RegistradaPorUsuarioId == SessaoUsuario.Atual.UsuarioId
+                        && SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao)))
+                && (prescricao.OrigemEnfermagem || ((prescricao.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada)
+                    && !prescricao.Itens.Any(i => i.ChecagemVigente is not null)));
             PodeValidarMedico = prescricao.AguardaValidacaoMedica
-                && prescricao.AssinaturaDaExecucao is not null
+                && prescricao.AssinaturaDaExecucao?.ArquivoId is not null
+                && prescricao.AssinaturaDaExecucao.ArquivoRegistroId is not null
                 && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId
                 && SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
                 && SessaoUsuario.Atual.Pode(Permissao.Prescrever);
@@ -435,10 +456,10 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             confirmouAlergia = true;
         }
 
-        await ExecutarAsync(async (servico, executante, hora) =>
+        await ExecutarAsync(async (servico, executante, data, hora) =>
             await servico.RetificarAsync(
                 linha.ItemId, novaSituacao, hora, executante, motivo, justificativa,
-                confirmouAlergia));
+                confirmouAlergia, dataRealizacao:data));
     }
 
     /// <summary>
@@ -614,6 +635,54 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
 
+    [RelayCommand]
+    private async Task CorrigirHorariosAsync()
+    {
+        try {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "corrigir os horários da infusão");
+            if (!PodeCorrigirHorarios) throw new InvalidOperationException("Os horários ficam bloqueados após a primeira assinatura.");
+            var dataPrescricaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Data da prescrição (dd/MM/aaaa)", _dataPrescricao.ToString("dd/MM/yyyy"));
+            if (dataPrescricaoTexto is null) return;
+            var horaPrescricaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Hora da prescrição (HH:mm)", _horaPrescricao.ToString("HH\\:mm"));
+            if (horaPrescricaoTexto is null) return;
+            var dataExecucaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Data da execução (dd/MM/aaaa)", _dataExecucao.ToString("dd/MM/yyyy"));
+            if (dataExecucaoTexto is null) return;
+            var horaExecucaoTexto = _dialogo.PerguntarTexto("Corrigir infusão", "Hora da execução (HH:mm)", _horaExecucao.ToString("HH\\:mm"));
+            if (horaExecucaoTexto is null) return;
+            var motivo = _dialogo.PerguntarTexto("Corrigir infusão", "Motivo da correção (obrigatório)");
+            if (motivo is null) return;
+            var cultura = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+            if (!DateOnly.TryParseExact(dataPrescricaoTexto,"dd/MM/yyyy",cultura,System.Globalization.DateTimeStyles.None,out var dataPrescricao)
+                || !TimeOnly.TryParse(horaPrescricaoTexto,out var horaPrescricao)
+                || !DateOnly.TryParseExact(dataExecucaoTexto,"dd/MM/yyyy",cultura,System.Globalization.DateTimeStyles.None,out var dataExecucao)
+                || !TimeOnly.TryParse(horaExecucaoTexto,out var horaExecucao))
+                throw new InvalidOperationException("Confira as datas (dd/MM/aaaa) e as horas (HH:mm).");
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CorrigirHorariosInfusaoExternaAsync(
+                _prescricaoId,SessaoUsuario.Atual.UsuarioId,dataPrescricao,horaPrescricao,dataExecucao,horaExecucao,motivo);
+            await CarregarAsync();
+            Mensagem = "Horários corrigidos. Revise o PDF antes de assinar.";
+            MensagemEhErro = false;
+        } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
+    [RelayCommand]
+    private async Task CancelarInfusaoAsync()
+    {
+        try {
+            if (!PodeCancelarInfusao) throw new InvalidOperationException("Esta infusão não pode ser cancelada por este usuário.");
+            var motivo = _dialogo.PerguntarTexto("Cancelar infusão ou prescrição",
+                "Informe o motivo. O registro e as assinaturas já feitas permanecerão no histórico.");
+            if (motivo is null) return;
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CancelarAsync(
+                _prescricaoId,motivo,SessaoUsuario.Atual.Operador);
+            await CarregarAsync();
+            Mensagem = "Registro cancelado e preservado no histórico.";
+            MensagemEhErro = false;
+        } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
     /// <summary>
     /// Imprime a folha de PRESCRIÇÃO — a via que a enfermagem confere e assina à caneta.
     ///
@@ -763,10 +832,10 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             alergia = PerguntarAlergia(justificativa);
         }
 
-        await ExecutarAsync(async (servico, executante, hora) =>
+        await ExecutarAsync(async (servico, executante, data, hora) =>
             await servico.ChecarAsync(
                 linha.ItemId, situacao, hora, executante, justificativa, alergia,
-                confirmouAlergia));
+                confirmouAlergia, dataRealizacao:data));
     }
 
     /// <summary>
@@ -801,8 +870,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
     /// <summary>Roda a checagem com as guardas comuns e recarrega a folha.</summary>
     private async Task ExecutarAsync(
-        Func<ChecagemPrescricaoService, IdentificacaoExecutante, TimeOnly, Task> acao)
+        Func<ChecagemPrescricaoService, IdentificacaoExecutante, DateOnly, TimeOnly, Task> acao)
     {
+        if (DataRealizacao is not { } diaExecucao)
+        {
+            Mensagem = "Informe a data em que a execução ocorreu.";
+            MensagemEhErro = true;
+            return;
+        }
         if (!TimeOnly.TryParse(Hora, out var hora))
         {
             Mensagem = $"Hora inválida (\"{Hora}\"). Escreva no formato 14:30 — é o horário "
@@ -818,7 +893,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
 
-            await acao(servico, Executante(), hora);
+            await acao(servico, Executante(), DateOnly.FromDateTime(diaExecucao), hora);
 
             Mensagem = null;
             MensagemEhErro = false;
