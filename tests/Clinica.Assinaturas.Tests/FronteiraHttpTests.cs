@@ -22,6 +22,10 @@ public sealed class FronteiraHttpTests
     {
         var pasta=Path.Combine(Path.GetTempPath(),"clinica-tablet-test-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(pasta);await File.WriteAllTextAsync(Path.Combine(pasta,"index.html"),"<!doctype html><title>Teste fictício</title>");
+        var aulas=Path.Combine(pasta,"profissional","treinamento");Directory.CreateDirectory(aulas);
+        await File.WriteAllTextAsync(Path.Combine(aulas,"catalogo.json"),"[]");
+        var videos=Path.Combine(aulas,"videos");Directory.CreateDirectory(videos);
+        await File.WriteAllBytesAsync(Path.Combine(videos,"exemplo.mp4"),[0,0,0,0]);
         await using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(b=>
         {
             b.UseEnvironment("Development");b.UseSetting("Portal:Demo","true");
@@ -64,6 +68,18 @@ public sealed class FronteiraHttpTests
         using var resposta=await client.GetAsync("/");Assert.Contains("no-store",resposta.Headers.CacheControl!.ToString());
         Assert.Contains("noindex",string.Join("",resposta.Headers.GetValues("X-Robots-Tag")));
         Assert.Contains("frame-ancestors 'none'",string.Join("",resposta.Headers.GetValues("Content-Security-Policy")));
+        Assert.Contains("media-src 'self'",string.Join("",resposta.Headers.GetValues("Content-Security-Policy")));
+        using(var catalogo=await client.GetAsync("/profissional/treinamento/catalogo.json"))
+        {
+            Assert.Equal(HttpStatusCode.OK,catalogo.StatusCode);
+            Assert.Equal("application/json",catalogo.Content.Headers.ContentType?.MediaType);
+        }
+        using(var video=await client.GetAsync("/profissional/treinamento/videos/exemplo.mp4"))
+        {
+            Assert.Equal(HttpStatusCode.OK,video.StatusCode);
+            Assert.Equal("video/mp4",video.Content.Headers.ContentType?.MediaType);
+        }
+        Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/profissional/treinamento/videos/exemplo.env")).StatusCode);
         // Pasta única com somente dados fictícios. A fábrica fecha o SQLite antes da limpeza.
         await factory.DisposeAsync();Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         Directory.Delete(pasta,true);
