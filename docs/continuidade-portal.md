@@ -26,8 +26,8 @@ recepção; presença confirmada não equivale a evolução concluída.
 ## Infusão: médico e enfermagem
 
 `GET /api/posto/infusoes` devolve a fila do perfil autenticado, `total` antes da
-paginação e um `resumo` com cinco contagens: `execucaoEnfermagem`,
-`assinaturaEnfermagem`, `assinaturaMedica`, `registroPendente` e
+paginação e um `resumo` com seis contagens: `execucaoEnfermagem`,
+`assinaturaEnfermagem`, `assinaturaMedica`, `devolvidasEnfermagem`, `registroPendente` e
 `rascunhosMedicos`. Cada linha traz `acaoPendente`, `hora` e
 `origemEnfermagem`. A infusão externa só entra na fila de assinatura da
 enfermagem para o usuário que registrou a execução; após arquivar ambas as vias,
@@ -67,7 +67,9 @@ acomodar a codificação base64 do arquivo de até 5 MiB.
 O papel PostgreSQL do portal recebe somente as operações necessárias nas tabelas
 clínicas existentes. Em Lancamentos, recebe leitura de quatro colunas operacionais
 (AtendimentoId, CodigoFaturamentoId, Tipo e Status), sem valores nem escrita.
-Não há migration nova, alteração de senha, mudança no túnel ou privilégio de DDL.
+A devolução de infusão externa adiciona a migration
+`20260926120000_DevolucaoInfusaoExterna`. Não há alteração de senha, mudança no
+túnel nem privilégio permanente de DDL para o papel do portal.
 
 ## Verificação e aceite
 
