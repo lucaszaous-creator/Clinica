@@ -21,8 +21,9 @@ public sealed class DevolucaoInfusaoExterna : Migration
             type: "integer", nullable: true);
         migrationBuilder.CreateIndex("IX_PrescricoesInternas_RetificaPrescricaoId",
             "PrescricoesInternas", "RetificaPrescricaoId", unique: true);
-        migrationBuilder.AddForeignKey("FK_PrescricoesInternas_PrescricoesInternas_RetificaPrescricaoId",
-            "PrescricoesInternas", "RetificaPrescricaoId", "PrescricoesInternas", "Id",
+        migrationBuilder.AddForeignKey(name: "FK_PrescricoesInternas_PrescricoesInternas_RetificaPrescricaoId",
+            table: "PrescricoesInternas", column: "RetificaPrescricaoId",
+            principalTable: "PrescricoesInternas", principalColumn: "Id",
             onDelete: ReferentialAction.Restrict);
     }
 

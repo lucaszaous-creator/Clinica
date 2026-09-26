@@ -96,13 +96,8 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+            <StackPanel>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,0,8">
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                Text="Encerrar fecha a folha: ela sai da sala e não pode mais ser checada." />
 
@@ -115,7 +110,7 @@
                                             Converter={StaticResource TextoParaVisibilidade}}" />
                 </StackPanel>
 
-                <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
+                <WrapPanel HorizontalAlignment="Right">
                     <Button Content="Imprimir folha" MinWidth="130"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
@@ -174,7 +169,7 @@
                             ToolTip="Assina a MESMA prescrição que o prescritor assinou, com o SEU certificado (e-CPF ou SafeID) — a assinatura dele não é tocada. O CPF do certificado é conferido contra o seu cadastro."
                             Command="{Binding AssinarExecucaoCommand}" />
                 </WrapPanel>
-            </Grid>
+            </StackPanel>
         </Border>
 
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
