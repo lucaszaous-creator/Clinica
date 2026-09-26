@@ -88,6 +88,10 @@ nem substitui a aprovação dos titulares das assinaturas reais.
 
 1. Com ambos os checkouts limpos, executar `tools/empacotar-continuidade-tablet.ps1
    -Site CAMINHO_CLINICA_SITE`. O pacote inclui hashes e revisões dos dois repos.
+   Para a devolução de infusão externa, o pacote inclui a migration aditiva
+   `20260926120000_DevolucaoInfusaoExterna` em SQL idempotente. Antes de instalar,
+   conferir que a base está em `20260925170000_DataRealizacaoInfusao` ou já nessa
+   migration; o instalador recusa outra versão.
 2. Enviar o pacote para `/home/clinica-admin/tablet-stage/` e conferir seu SHA-256.
 3. Executar como root `atualizar-posto.py hml PACOTE SHA RELEASE_ANTERIOR`.
    O instalador confere ambiente, migration existente, backup e escopo de acesso.
