@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Ferramenta de QA com banco fictício; os executáveis publicados não recebem SQLite. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
     <ProjectReference Include="../../src/Clinica.Modulo.Faturamento/Clinica.Modulo.Faturamento.csproj" />
     <ProjectReference Include="../../src/Clinica.Modulo.Clinico/Clinica.Modulo.Clinico.csproj" />
     <ProjectReference Include="../../src/Clinica.Modulo.Recepcao/Clinica.Modulo.Recepcao.csproj" />
