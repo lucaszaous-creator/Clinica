@@ -24,6 +24,7 @@ public sealed record ChecarInfusaoTablet(Guid Idempotencia, int ItemId, string V
     DateOnly? Data = null);
 public sealed record EncerrarInfusaoTablet(Guid Idempotencia, string Versao);
 public sealed record CancelarInfusaoTablet(Guid Idempotencia, string Versao, string Motivo);
+public sealed record DevolverInfusaoTablet(Guid Idempotencia, string Versao, string Motivo);
 public sealed record CorrigirHorariosInfusaoTablet(Guid Idempotencia, string Versao,
     DateOnly DataPrescricao, TimeOnly HoraPrescricao, DateOnly DataExecucao, TimeOnly HoraExecucao, string Motivo);
 public sealed record ResultadoEnfermagemTablet(int Id, string Situacao);

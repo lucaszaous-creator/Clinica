@@ -77,12 +77,18 @@ with tarfile.open(pacote) as tar:
     anteriores_migracao={
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
         '20260923190924_EdicaoEnfermagemExclusiva':'20260922231000_HabilitacoesDoProfissional',
+        '20260926120000_DevolucaoInfusaoExterna':'20260925170000_DataRealizacaoInfusao',
+    }
+    arquivos_migracao={
+        '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'migracao-enfermagem.sql',
+        '20260923190924_EdicaoEnfermagemExclusiva':'migracao-enfermagem.sql',
+        '20260926120000_DevolucaoInfusaoExterna':'migracao-infusao.sql',
     }
     assert migracao is False or (manifest['contrato']==3 and migracao in anteriores_migracao)
     if migracao:
         ultima=sql('SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY "MigrationId" DESC LIMIT 1')
         assert ultima in (anteriores_migracao[migracao],migracao),'Base mudou; conferir antes de migrar'
-        assert 'migracao-enfermagem.sql' in manifest['arquivos']
+        assert arquivos_migracao[migracao] in manifest['arquivos']
     assert nome==f"tablet-continuidade-{manifest['backend'][:12]}-{manifest['interface'][:12]}"
     assert {m.name[len(nome)+1:] for m in membros if m.isfile()} == set(manifest['arquivos']) | {'manifesto.json'}
     for rel,digest in manifest['arquivos'].items():
@@ -164,7 +170,7 @@ aplicado=False;mudou=False
 try:
     if migracao:
         # Migration aditiva e idempotente. O recuo preserva as colunas e todos os registros.
-        schema=(release/'migracao-enfermagem.sql').read_text(encoding='utf-8-sig')
+        schema=(release/arquivos_migracao[migracao]).read_text(encoding='utf-8-sig')
         assert migracao in schema and not re.search(r'\b(?:DROP|TRUNCATE)\s|\bDELETE\s+FROM\b',schema,re.I)
         sql("SET lock_timeout='5s'; SET statement_timeout='60s';\n"+schema)
         assert sql(f'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId"=\'{migracao}\'')=='1'

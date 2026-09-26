@@ -165,6 +165,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private string? _situacaoAssinaturaExecucao;
     [ObservableProperty] private bool _origemEnfermagem;
     [ObservableProperty] private bool _podeValidarMedico;
+    [ObservableProperty] private bool _podeDevolverMedico;
+    [ObservableProperty] private bool _podeRevisarDevolucao;
+    [ObservableProperty] private string? _motivoDevolucao;
     [ObservableProperty] private bool _podeCorrigirHorarios;
     [ObservableProperty] private bool _podeCancelarInfusao;
     private DateOnly _dataPrescricao;
@@ -300,9 +303,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId
                 && SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
                 && SessaoUsuario.Atual.Pode(Permissao.Prescrever);
+            PodeDevolverMedico = PodeValidarMedico;
+            PodeRevisarDevolucao = prescricao.DevolvidaEm is not null && prescricao.Retificacao is null
+                && prescricao.RegistradaPorUsuarioId == SessaoUsuario.Atual.UsuarioId
+                && SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
+            MotivoDevolucao = prescricao.MotivoDevolucao;
             _pacienteId = prescricao.PacienteId;
             Paciente = prescricao.Paciente?.Nome ?? "—";
-            Cabecalho = $"{(prescricao.AguardaValidacaoMedica ? "Aguarda validação médica" : RotulosEnum.De(prescricao.Situacao))} · "
+            Cabecalho = $"{(prescricao.DevolvidaEm is not null ? "Devolvida à enfermagem" : prescricao.AguardaValidacaoMedica ? "Aguarda validação médica" : RotulosEnum.De(prescricao.Situacao))} · "
                       + $"{prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm} · "
                       + $"{(prescricao.OrigemEnfermagem ? "médico responsável" : "prescrita por")} {prescricao.Profissional?.Nome ?? "—"}";
             Resumo = $"{prescricao.Realizados} realizados · {prescricao.NaoRealizados} não "
@@ -631,6 +639,38 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 _prescricaoId, certificado, confirmou, SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
             await CarregarAsync();
             Mensagem = "Infusão validada pelo médico. O PDF com as duas assinaturas está arquivado no paciente.";
+            MensagemEhErro = false;
+        } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
+    [RelayCommand]
+    private async Task DevolverMedicoAsync()
+    {
+        try {
+            if (!PodeDevolverMedico) throw new InvalidOperationException("Somente o médico responsável pode devolver esta pendência.");
+            var motivo = _dialogo.PerguntarTexto("Devolver infusão à enfermagem",
+                "Explique o que precisa ser revisto. A execução assinada permanecerá no histórico.");
+            if (motivo is null) return;
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
+                .DevolverInfusaoExternaAsync(_prescricaoId, SessaoUsuario.Atual.UsuarioId, motivo);
+            await CarregarAsync();
+            Mensagem = "Devolvida à enfermagem com motivo registrado. A folha original permanece arquivada.";
+            MensagemEhErro = false;
+        } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
+    [RelayCommand]
+    private async Task RevisarDevolucaoAsync()
+    {
+        try {
+            if (!PodeRevisarDevolucao) throw new InvalidOperationException("Esta devolução não está pendente para este executante.");
+            var vm = new InfusaoExternaViewModel(_escopos, _pacienteId, Paciente,
+                retificaPrescricaoId: _prescricaoId);
+            var janela = new InfusaoExternaWindow(vm) { Owner = JanelaAtiva() };
+            if (janela.ShowDialog() != true || vm.PrescricaoId is not { } novoId) return;
+            await CarregarAsync();
+            Mensagem = $"Nova versão #{novoId} registrada. Abra-a na fila para revisar e assinar a execução.";
             MensagemEhErro = false;
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }

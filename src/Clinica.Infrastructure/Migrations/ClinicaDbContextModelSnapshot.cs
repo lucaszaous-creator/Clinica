@@ -4253,6 +4253,12 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateOnly>("Data")
                         .HasColumnType("date");
 
+                    b.Property<DateTime?>("DevolvidaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("DevolvidaPorUsuarioId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("EncerradaEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -4271,6 +4277,10 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<string>("IndicacaoFormatada")
                         .HasColumnType("text");
+
+                    b.Property<string>("MotivoDevolucao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("MotivoCancelamento")
                         .HasMaxLength(500)
@@ -4301,6 +4311,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int?>("ProfissionalId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("RetificaPrescricaoId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("RegistradaPorUsuarioId")
                         .HasColumnType("integer");
 
@@ -4322,6 +4335,9 @@ namespace Clinica.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("ProfissionalId");
+
+                    b.HasIndex("RetificaPrescricaoId")
+                        .IsUnique();
 
                     b.HasIndex("Data", "Situacao");
 
@@ -6210,6 +6226,13 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Paciente");
 
                     b.Navigation("Profissional");
+
+                    b.HasOne("Clinica.Domain.Entities.PrescricaoInterna", "Retificacao")
+                        .WithOne()
+                        .HasForeignKey("Clinica.Domain.Entities.PrescricaoInterna", "RetificaPrescricaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Retificacao");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ProblemaPaciente", b =>

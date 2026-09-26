@@ -1120,6 +1120,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Indicacao).HasMaxLength(500);
             e.Property(x => x.OrientacaoExterna).HasMaxLength(2000);
+            e.Property(x => x.MotivoDevolucao).HasMaxLength(500);
             e.Property(x => x.Observacoes).HasMaxLength(2000);
             e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
@@ -1129,6 +1130,11 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.AssinadaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.EncerradaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.DevolvidaEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Retificacao).WithOne()
+                .HasForeignKey<PrescricaoInterna>(x => x.RetificaPrescricaoId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
             e.HasOne(x => x.Profissional).WithMany()

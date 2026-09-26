@@ -224,6 +224,13 @@ public class PrescricaoInterna
     public bool OrigemEnfermagem { get; set; }
     public string? OrientacaoExterna { get; set; }
     public int? RegistradaPorUsuarioId { get; set; }
+    /// <summary>A devolução conserva a folha e as assinaturas da execução como evidência.</summary>
+    public DateTime? DevolvidaEm { get; set; }
+    public string? MotivoDevolucao { get; set; }
+    public int? DevolvidaPorUsuarioId { get; set; }
+    /// <summary>Uma nova folha corrige a devolvida sem reescrever o PDF já assinado.</summary>
+    public int? RetificaPrescricaoId { get; set; }
+    public PrescricaoInterna? Retificacao { get; set; }
 
     /// <summary>Indicação/motivo — o que se está tratando com esta infusão.</summary>
     public string? Indicacao { get; set; }
@@ -306,8 +313,8 @@ public class PrescricaoInterna
 
     /// <summary>Só rascunho se edita. Depois de assinada, corrige-se suspendendo e prescrevendo.</summary>
     // Usa um estado já reconhecido pelas versões instaladas. A pendência médica é independente da execução encerrada.
-    public bool AguardaValidacaoMedica => OrigemEnfermagem && AssinadaEm is null && Situacao == SituacaoPrescricao.Encerrada;
-    public string SituacaoParaExibicao => AguardaValidacaoMedica ? "AguardaMedico" : Situacao.ToString();
+    public bool AguardaValidacaoMedica => OrigemEnfermagem && DevolvidaEm is null && AssinadaEm is null && Situacao == SituacaoPrescricao.Encerrada;
+    public string SituacaoParaExibicao => DevolvidaEm is not null ? "Devolvida" : AguardaValidacaoMedica ? "AguardaMedico" : Situacao.ToString();
 
     public bool PodeEditar => Situacao == SituacaoPrescricao.Rascunho;
 

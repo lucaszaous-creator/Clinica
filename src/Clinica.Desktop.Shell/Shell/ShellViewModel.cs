@@ -119,8 +119,10 @@ public sealed partial class ShellViewModel : ObservableObject
     private int _assinaturasEnfermagem;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(TotalAssinaturasInfusao), nameof(ResumoAssinaturasInfusao))]
     private int _assinaturasMedicas;
-    public int TotalAssinaturasInfusao => AssinaturasEnfermagem + AssinaturasMedicas;
-    public string ResumoAssinaturasInfusao => $"Abrir sala de infusão · assinaturas pendentes: enfermagem {AssinaturasEnfermagem}; médico responsável {AssinaturasMedicas}";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(TotalAssinaturasInfusao), nameof(ResumoAssinaturasInfusao))]
+    private int _infusoesDevolvidas;
+    public int TotalAssinaturasInfusao => AssinaturasEnfermagem + AssinaturasMedicas + InfusoesDevolvidas;
+    public string ResumoAssinaturasInfusao => $"Abrir fila de infusões · assinaturas: enfermagem {AssinaturasEnfermagem}; médico responsável {AssinaturasMedicas}; devolvidas {InfusoesDevolvidas}";
 
     public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos)
     {
@@ -256,6 +258,7 @@ public sealed partial class ShellViewModel : ObservableObject
                 sessao.Pode(Permissao.Prescrever));
             AssinaturasEnfermagem = pendencias.Enfermagem;
             AssinaturasMedicas = pendencias.Medico;
+            InfusoesDevolvidas = pendencias.Devolvidas;
         }
         catch (Exception ex)
         {
