@@ -287,6 +287,13 @@ public sealed class AcessoService
             return ResultadoAutenticacao.Falha(CredencialInvalida);
         }
 
+        if (HashSenha.PrecisaRehash(usuario.SenhaHash))
+        {
+            if (senha.Length < HashSenha.TamanhoMinimoSenha)
+                usuario.DeveTrocarSenha = true;
+            else
+                (usuario.SenhaHash, usuario.SenhaSalt) = HashSenha.Gerar(senha);
+        }
         usuario.TentativasFalhas = 0;
         usuario.BloqueadoAte = null;
         usuario.UltimoAcessoEm = instante;

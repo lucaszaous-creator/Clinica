@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace Clinica.Application.Abstracoes;
 
 /// <summary>
@@ -60,11 +62,27 @@ public sealed record OpcoesArmazenamento(
         // Endereço escrito errado é recusado AQUI, e não na hora de publicar: o erro do SDK
         // para uma URL malformada não diz nada sobre esta tela.
         if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
+            || !EndpointPermitido(uri))
             return null;
 
         return new OpcoesArmazenamento(
             endpoint, Limpar(regiao) ?? RegiaoPadrao, bucket, chave, segredo);
+    }
+
+    private static bool EndpointPermitido(Uri uri)
+    {
+#if DEBUG
+        // O servidor S3 falso dos testes escuta somente no loopback.
+        if (uri.Scheme == Uri.UriSchemeHttp && uri.Host == "127.0.0.1") return true;
+#endif
+        if (uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo) || uri.AbsolutePath != "/"
+            || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+            return false;
+
+        var host = uri.IdnHost;
+        return host.Contains('.') && !host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
+            && !IPAddress.TryParse(host, out _);
     }
 
     /// <summary>

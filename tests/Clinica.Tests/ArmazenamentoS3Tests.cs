@@ -120,7 +120,8 @@ public class ArmazenamentoS3Tests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
-        _parametros = new ParametrosService(new ClinicaRepositorio(_db));
+        _parametros = new ParametrosService(new ClinicaRepositorio(_db),
+            new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
     }
 
     private async Task<ArmazenamentoS3> ConfiguradoAsync()

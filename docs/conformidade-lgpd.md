@@ -67,7 +67,7 @@ Cada pessoa tem login próprio (`UsuarioSistema`). Não existe senha compartilha
 
 | O quê | Como |
 |---|---|
-| Senha guardada | **PBKDF2-HMAC-SHA256, 210.000 iterações**, sal de 128 bits por usuário. Nunca em claro, nem no banco nem no log. |
+| Senha guardada | **PBKDF2-HMAC-SHA256, 600.000 iterações** em hashes novos e migrados no login, sal de 128 bits por usuário. Hashes legados de 210.000 iterações são verificados para permitir a troca. Nunca em claro, nem no banco nem no log. |
 | Força da senha | Recusada na criação e na troca (`HashSenha.Criticar`). |
 | Tentativa e erro | Trava a conta após N tentativas; o travamento vai para a trilha. |
 | Enumeração de usuários | Mensagem única para login inexistente **e** senha errada — não dá para descobrir quem tem conta. |

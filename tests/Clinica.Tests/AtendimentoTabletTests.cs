@@ -82,7 +82,27 @@ public sealed partial class AtendimentoTabletTests : IDisposable
     [Fact] public async Task Senha_alterada_invalida_sessao()
     {await Preparar();usuario.SenhaHash="senha-alterada";await db.SaveChangesAsync();await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>svc.DiaAsync(sessao,null,default));}
     [Fact] public async Task Quinze_minutos_sem_atividade_exigem_entrada()
-    {await Preparar();tempo.Avancar(TimeSpan.FromMinutes(16));await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>svc.DiaAsync(sessao,null,default));}
+    {await Preparar();tempo.Avancar(TimeSpan.FromMinutes(15));await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>svc.DiaAsync(sessao,null,default));}
+    [Fact] public async Task Consultas_automaticas_nao_renovam_atividade_clinica()
+    {
+        await Preparar();
+        var entrada=sessao.AtividadeClinicaEm;
+        tempo.Avancar(TimeSpan.FromMinutes(1));
+        await svc.AutorizarAsync(sessao,default,Permissao.VerProntuario);
+        Assert.Equal(entrada,sessao.AtividadeClinicaEm);
+        tempo.Avancar(TimeSpan.FromMinutes(14));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>svc.DiaAsync(sessao,null,default));
+    }
+    [Fact] public async Task Ping_de_interacao_renova_atividade_clinica()
+    {
+        await Preparar();
+        tempo.Avancar(TimeSpan.FromMinutes(10));
+        await svc.AutorizarAsync(sessao,default,Permissao.VerProntuario,renovarAtividade:true);
+        var ultima=sessao.AtividadeClinicaEm;
+        tempo.Avancar(TimeSpan.FromMinutes(10));
+        await svc.DiaAsync(sessao,null,default);
+        Assert.Equal(ultima,sessao.AtividadeClinicaEm);
+    }
     [Fact] public async Task Duplo_envio_salva_uma_evolucao_e_um_mapa()
     {
         await Preparar();var pedido=await Pedido();pedido=pedido with {Evolucao=pedido.Evolucao with {Mapa=new([new(FaceCorpo.Frente,.4,.6,"IG4",TecnicaPonto.Agulha)],"Mapa fictício")}};
