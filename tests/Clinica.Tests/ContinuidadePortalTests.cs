@@ -223,4 +223,30 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal("assinarEnfermagem",itens[assinarEnfermagem.Id].GetProperty("acaoPendente").GetString());
         Assert.Equal("regularizarRegistro",itens[regularizar.Id].GetProperty("acaoPendente").GetString());
     }
+
+    [Fact] public async Task Medico_devolve_folha_assinada_e_enfermagem_recebe_pendencia_de_revisao()
+    {
+        await Preparar();
+        var p=await Folha(SituacaoPrescricao.Encerrada);
+        p.OrigemEnfermagem=true;
+        p.RegistradaPorUsuarioId=usuario.Id;
+        p.Assinaturas.Add(new() {Papel=PapelAssinatura.Executante,
+            Arquivo=new ArquivoAssinado {Conteudo=[1],NomeArquivo="execucao.pdf"},
+            ArquivoRegistro=new ArquivoAssinado {Conteudo=[2],NomeArquivo="registro.pdf"}});
+        await db.SaveChangesAsync();
+        var pedido=new DevolverInfusaoTablet(Guid.NewGuid(),PostoTabletService.Versao(p),"Corrigir horário da execução");
+        var resultado=await Posto.DevolverInfusaoAsync(sessao,p.Id,pedido,default);
+        Assert.Equal("Devolvida",resultado.Situacao);
+        Assert.Equal("Corrigir horário da execução",p.MotivoDevolucao);
+        Assert.Empty(Json(await Posto.FilaAsync(sessao,0,default)).GetProperty("itens").EnumerateArray());
+        await Enfermeira();
+        var fila=Json(await Posto.FilaAsync(sessao,0,default));
+        Assert.Equal(1,fila.GetProperty("resumo").GetProperty("devolvidasEnfermagem").GetInt32());
+        var item=Assert.Single(fila.GetProperty("itens").EnumerateArray());
+        Assert.Equal("revisarDevolucao",item.GetProperty("acaoPendente").GetString());
+        Assert.Equal("Devolvida",item.GetProperty("situacao").GetString());
+        var detalhes=Json(await Posto.InfusaoAsync(sessao,p.Id,default));
+        Assert.True(detalhes.GetProperty("podeRetificar").GetBoolean());
+        Assert.False(detalhes.GetProperty("podeAssinarExecucao").GetBoolean());
+    }
 }

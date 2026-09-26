@@ -6,10 +6,37 @@ public sealed record RegistroInfusaoExterna(int PacienteId, int MedicoId, int? A
     DateOnly Data, TimeOnly Hora, string Texto, string Orientacao,
     string? Volume = null, string? Diluente = "SF 0,9%", string? Tempo = "1h",
     ViaAdministracao Via = ViaAdministracao.Endovenosa, bool ConfirmouAlergia = false,
-    DateOnly? DataPrescricao = null, TimeOnly? HoraPrescricao = null);
+    DateOnly? DataPrescricao = null, TimeOnly? HoraPrescricao = null,
+    int? RetificaPrescricaoId = null);
 
 public sealed partial class PrescricaoInternaService
 {
+    /// <summary>Devolve a avaliação ao executante, mantendo imutável a folha já assinada.</summary>
+    public async Task DevolverInfusaoExternaAsync(int prescricaoId, int usuarioId, string motivo,
+        CancellationToken ct = default)
+    {
+        var p = await Exigir(prescricaoId, ct);
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct);
+        if (usuario is null || !usuario.Ativo || !usuario.Pode(Permissao.Prescrever)
+            || usuario.ProfissionalId != p.ProfissionalId)
+            throw new UnauthorizedAccessException("Somente o médico responsável pode devolver esta infusão.");
+        if (!p.AguardaValidacaoMedica || p.AssinaturaDaExecucao?.ArquivoId is null
+            || p.AssinaturaDaExecucao.ArquivoRegistroId is null)
+            throw new InvalidOperationException("A devolução exige a execução assinada e uma pendência médica aberta.");
+        if (motivo?.Trim().Length is not (>= 5 and <= 500))
+            throw new InvalidOperationException("Descreva o motivo da devolução (5 a 500 caracteres).");
+        p.DevolvidaEm = DateTime.Now;
+        p.DevolvidaPorUsuarioId = usuarioId;
+        p.MotivoDevolucao = motivo.Trim();
+        p.AtualizadoEm = p.DevolvidaEm;
+        p.AtualizadoPor = usuario.Login;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria { PacienteId = p.PacienteId,
+            Operador = usuario.Login, Acao = "InfusaoExternaDevolvida",
+            Detalhe = $"{p.Numero}: devolvida à enfermagem. Motivo: {p.MotivoDevolucao}"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     /// <summary>Corrige horários de um registro externo antes da primeira assinatura, mantendo auditoria.</summary>
     public async Task CorrigirHorariosInfusaoExternaAsync(int prescricaoId, int usuarioId,
         DateOnly dataPrescricao, TimeOnly horaPrescricao, DateOnly dataExecucao, TimeOnly horaExecucao,
@@ -63,6 +90,15 @@ public sealed partial class PrescricaoInternaService
             throw new InvalidOperationException("Escolha o médico responsável pela orientação, diferente do executante.");
         if (await _repo.ObterPacienteAsync(dados.PacienteId, ct) is null)
             throw new InvalidOperationException("Paciente não encontrado.");
+        PrescricaoInterna? anterior = null;
+        if (dados.RetificaPrescricaoId is { } anteriorId)
+        {
+            anterior = await Exigir(anteriorId, ct);
+            if (!anterior.OrigemEnfermagem || anterior.DevolvidaEm is null
+                || anterior.Retificacao is not null || anterior.PacienteId != dados.PacienteId
+                || anterior.ProfissionalId != dados.MedicoId || anterior.RegistradaPorUsuarioId != usuarioId)
+                throw new InvalidOperationException("A correção deve partir de uma infusão devolvida a este executante e ainda sem nova versão.");
+        }
         if (string.IsNullOrWhiteSpace(dados.Texto) || dados.Texto.Length > 20000
             || string.IsNullOrWhiteSpace(dados.Orientacao) || dados.Orientacao.Length > 2000)
             throw new InvalidOperationException("Descreva a infusão realizada e a orientação médica recebida fora do sistema.");
@@ -92,6 +128,7 @@ public sealed partial class PrescricaoInternaService
             PacienteId = dados.PacienteId, ProfissionalId = dados.MedicoId, AgendamentoId = dados.AgendamentoId,
             Data = dados.DataPrescricao ?? dados.Data, Hora = dados.HoraPrescricao ?? dados.Hora, OrigemEnfermagem = true,
             OrientacaoExterna = dados.Orientacao.Trim(), RegistradaPorUsuarioId = usuario.Id,
+            RetificaPrescricaoId = anterior?.Id,
             Situacao = SituacaoPrescricao.Encerrada, ExigeAssinaturaEletronicaDaExecucao = true,
             CriadoPor = usuario.Login, CriadoEm = agora, EncerradaEm = agora,
             Itens = [new() { Ordem = 1, Descricao = dados.Texto.Trim(), Volume = Limpar(dados.Volume),
@@ -101,9 +138,12 @@ public sealed partial class PrescricaoInternaService
                     RegistradoEm = agora }] }]
         };
         await _repo.AdicionarPrescricaoInternaAsync(p, ct);
+        if (anterior is not null) anterior.Retificacao = p;
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria { PacienteId = p.PacienteId,
             Operador = usuario.Login, Acao = "InfusaoExternaRegistrada",
-            Detalhe = $"{p.Numero}: execução registrada; responsável {dados.MedicoId}; aguarda assinaturas. A sessão e as guias não foram alteradas."
+            Detalhe = $"{p.Numero}: execução registrada; responsável {dados.MedicoId}; aguarda assinaturas."
+                + (anterior is null ? "" : $" Retifica a folha devolvida {anterior.Numero}.")
+                + " A sessão e as guias não foram alteradas."
         }, ct);
         await _repo.SalvarAsync(ct);
         return p;

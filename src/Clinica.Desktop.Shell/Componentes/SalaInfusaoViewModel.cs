@@ -26,6 +26,7 @@ public sealed class LinhaSalaInfusao
     public required string Itens { get; init; }
     public required bool TemPendencia { get; init; }
     public required bool Encerrada { get; init; }
+    public required bool Devolvida { get; init; }
 
     /// <summary>
     /// A folha encerrou e ainda deve a assinatura eletrônica da enfermagem.
@@ -55,7 +56,9 @@ public sealed class LinhaSalaInfusao
         Paciente = p.Paciente?.Nome ?? "—",
         Numero = p.Numero,
         Dia = p.Data == hoje ? string.Empty : p.Data.ToString("dd/MM"),
+        Devolvida = p.DevolvidaEm is not null,
         AguardaAssinatura = p.Situacao == SituacaoPrescricao.Encerrada
+            && p.DevolvidaEm is null
             && (p.ExigeAssinaturaEletronicaDaExecucao || p.OrigemEnfermagem && p.AssinadaEm is null)
             && p.AssinaturaDaExecucao?.ArquivoId is null,
         RegistroPendente = p.Situacao == SituacaoPrescricao.Encerrada
@@ -63,7 +66,8 @@ public sealed class LinhaSalaInfusao
             && p.AssinaturaDaExecucao.ArquivoRegistroId is null,
         Hora = p.Hora.ToString("HH\\:mm"),
         Prescritor = p.Profissional?.Rotulo ?? "—",
-        Progresso = p.AguardaValidacaoMedica
+        Progresso = p.DevolvidaEm is not null ? $"devolvida pelo médico · {p.MotivoDevolucao}"
+            : p.AguardaValidacaoMedica
             ? (p.AssinaturaDaExecucao?.ArquivoId is not null && p.AssinaturaDaExecucao.ArquivoRegistroId is null
                 ? "assinatura recebida · falta arquivar registro da execução"
                 : p.AguardaAssinaturaDaExecucao ? "execução registrada · falta assinatura da enfermagem" : "execução assinada · aguarda validação médica")
@@ -252,12 +256,14 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             var pendentes = Folhas.Count(f => f.TemPendencia);
             var semAssinar = Folhas.Count(f => f.AguardaAssinatura);
             var semRegistro = Folhas.Count(f => f.RegistroPendente);
+            var devolvidas = Folhas.Count(f => f.Devolvida);
 
             // O contador da assinatura é SEPARADO do de itens aguardando: um se resolve
             // administrando, o outro com o certificado. Somá-los daria um número que não
             // diz o que fazer.
             var recado = (semAssinar > 0 ? $" · {semAssinar} aguardando a assinatura da enfermagem" : string.Empty)
-                + (semRegistro > 0 ? $" · {semRegistro} com registro assinado a arquivar" : string.Empty);
+                + (semRegistro > 0 ? $" · {semRegistro} com registro assinado a arquivar" : string.Empty)
+                + (devolvidas > 0 ? $" · {devolvidas} devolvida(s) à enfermagem" : string.Empty);
 
             Resumo = Folhas.Count == 0
                 ? "Nenhuma prescrição de infusão para hoje."

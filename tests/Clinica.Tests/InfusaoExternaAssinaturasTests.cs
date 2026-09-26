@@ -8,6 +8,40 @@ namespace Clinica.Tests;
 
 public partial class SegundaAssinaturaExecucaoTests
 {
+    [Fact] public async Task Medico_devolve_enfermagem_retifica_e_assinaturas_antigas_permanecem()
+    {
+        var c=await CenarioAsync();
+        var medico=new UsuarioSistema {Nome="Médica",Login="medica",Perfil=PerfilAcesso.Profissional,ProfissionalId=c.ProfissionalMedicaId};
+        _db.Usuarios.Add(medico);await _db.SaveChangesAsync();
+        var ontem=DateOnly.FromDateTime(DateTime.Today.AddDays(-1));
+        var dados=new RegistroInfusaoExterna(c.PacienteId,c.ProfissionalMedicaId,null,
+            ontem,new(9,30),"Infusão realizada","Orientação externa",
+            DataPrescricao:ontem,HoraPrescricao:new(8,15));
+        var original=await _prescricoes.RegistrarExecucaoExternaAsync(dados,c.UsuarioEnfermeiraId);
+        await _orquestra.AssinarExecucaoAsync(original.Id,ECpfDeTeste("Enfermagem",CpfEnfermeira),c.UsuarioEnfermeiraId);
+        var pdfOriginal=(await _orquestra.FolhaAsync(original.Id,FolhaPrescricao.RegistroExecucao)).Pdf;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>_prescricoes.DevolverInfusaoExternaAsync(
+            original.Id,c.UsuarioEnfermeiraId,"Rever horário"));
+        await _prescricoes.DevolverInfusaoExternaAsync(original.Id,medico.Id,"Rever o horário da execução");
+        original.SituacaoParaExibicao.Should().Be("Devolvida");
+        original.MotivoDevolucao.Should().Be("Rever o horário da execução");
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>_orquestra.AssinarPrescricaoAsync(
+            original.Id,ECpfDeTeste("Médica",CpfMedica),usuarioId:medico.Id));
+
+        var revisada=await _prescricoes.RegistrarExecucaoExternaAsync(dados with {
+            Hora=new TimeOnly(9,45),RetificaPrescricaoId=original.Id
+        },c.UsuarioEnfermeiraId);
+        revisada.RetificaPrescricaoId.Should().Be(original.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>_prescricoes.RegistrarExecucaoExternaAsync(
+            dados with {RetificaPrescricaoId=original.Id},c.UsuarioEnfermeiraId));
+        (await _orquestra.FolhaAsync(original.Id,FolhaPrescricao.RegistroExecucao)).Pdf.Should().Equal(pdfOriginal);
+        await _orquestra.AssinarExecucaoAsync(revisada.Id,ECpfDeTeste("Enfermagem",CpfEnfermeira),c.UsuarioEnfermeiraId);
+        await _orquestra.AssinarPrescricaoAsync(revisada.Id,ECpfDeTeste("Médica",CpfMedica),usuarioId:medico.Id);
+        _assinador.ConferirTodas((await _orquestra.FolhaAsync(revisada.Id,FolhaPrescricao.Prescricao)).Pdf)
+            .Should().HaveCount(2).And.OnlyContain(a=>a.Conferida);
+    }
+
     [Fact] public async Task Infusao_externa_assina_enfermagem_primeiro_e_medico_valida_mesmo_pdf()
     {
         var c=await CenarioAsync();

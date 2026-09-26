@@ -13,6 +13,7 @@ public sealed partial class InfusaoExternaViewModel : ObservableObject
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
     private readonly int? _sessaoInicial;
+    private readonly int? _retificaPrescricaoId;
     private int _geracao;
     public string Paciente { get; }
     public int? PrescricaoId { get; private set; }
@@ -34,9 +35,11 @@ public sealed partial class InfusaoExternaViewModel : ObservableObject
     [ObservableProperty] private string? _alertas;
     [ObservableProperty] private bool _confirmouAlergia;
     [ObservableProperty] private bool _carregando;
-    public InfusaoExternaViewModel(IServiceScopeFactory escopos, int pacienteId, string paciente, int? agendamentoId = null)
+    public InfusaoExternaViewModel(IServiceScopeFactory escopos, int pacienteId, string paciente,
+        int? agendamentoId = null, int? retificaPrescricaoId = null)
     {
-        _escopos = escopos; _pacienteId = pacienteId; Paciente = paciente; _sessaoInicial = agendamentoId;
+        _escopos = escopos; _pacienteId = pacienteId; Paciente = paciente;
+        _sessaoInicial = agendamentoId; _retificaPrescricaoId = retificaPrescricaoId;
     }
     partial void OnDataChanged(DateTime? value) { if (Medicos.Count > 0) _ = CarregarSessoesAsync(); }
     partial void OnSessaoChanged(OpcaoSessaoInfusao? value)
@@ -49,13 +52,35 @@ public sealed partial class InfusaoExternaViewModel : ObservableObject
             Carregando = true;
             using var scope = _escopos.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            PrescricaoInterna? anterior = null;
+            if (_retificaPrescricaoId is { } idAnterior)
+            {
+                anterior = await repo.ObterPrescricaoInternaAsync(idAnterior)
+                    ?? throw new InvalidOperationException("Folha devolvida não encontrada.");
+                if (anterior.DevolvidaEm is null || anterior.Retificacao is not null
+                    || anterior.PacienteId != _pacienteId || anterior.RegistradaPorUsuarioId != SessaoUsuario.Atual.UsuarioId)
+                    throw new InvalidOperationException("Esta devolução já foi revisada ou não pertence a este executante.");
+                var checagem = anterior.Itens.Single().ChecagemVigente;
+                Data = (checagem?.DataRealizacao ?? anterior.Data).ToDateTime(TimeOnly.MinValue);
+                Hora = (checagem?.HoraRealizacao ?? anterior.Hora).ToString("HH\\:mm");
+                DataPrescricao = anterior.Data.ToDateTime(TimeOnly.MinValue);
+                HoraPrescricao = anterior.Hora.ToString("HH\\:mm");
+                Texto = anterior.Itens.Single().Descricao;
+                Orientacao = anterior.OrientacaoExterna ?? "";
+                Diluente = anterior.Itens.Single().Diluente ?? "";
+                Volume = anterior.Itens.Single().Volume ?? "";
+                Tempo = anterior.Itens.Single().TempoInfusao ?? "";
+                Mensagem = $"Devolvida pelo médico: {anterior.MotivoDevolucao}. A folha anterior permanecerá assinada no histórico.";
+            }
             var profissionais = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().MedicosParaValidacaoAsync();
             Medicos.Clear();
             foreach (var medico in profissionais.Where(p => p.Ativo && p.Id != SessaoUsuario.Atual.ProfissionalId)) Medicos.Add(medico);
+            if (anterior is not null) Medico = Medicos.FirstOrDefault(m => m.Id == anterior.ProfissionalId);
             var contexto = await scope.ServiceProvider.GetRequiredService<PrescricaoService>().ContextoAsync(_pacienteId);
             Alertas = contexto.Alergias.Count == 0 ? "Nenhuma alergia cadastrada. Confira com o paciente." : "Alergias: " + string.Join("; ", contexto.Alergias.Select(a => a.Descricao));
             if (_sessaoInicial is { } id && await repo.ObterAgendamentoAsync(id) is { } horario) Data = horario.DataHora.Date;
             await CarregarSessoesAsync();
+            if (anterior?.AgendamentoId is { } sessaoId) Sessao = Sessoes.FirstOrDefault(s => s.Id == sessaoId) ?? Sessoes.FirstOrDefault();
         } catch (Exception ex) { Mensagem = ex.Message; }
         finally { Carregando = false; }
     }
@@ -88,7 +113,8 @@ public sealed partial class InfusaoExternaViewModel : ObservableObject
             var p = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().RegistrarExecucaoExternaAsync(
                 new(_pacienteId, Medico.Id, Sessao?.Id, DateOnly.FromDateTime(data), hora, Texto, Orientacao,
                     Volume, Diluente, Tempo, ConfirmouAlergia: ConfirmouAlergia,
-                    DataPrescricao: DateOnly.FromDateTime(dataPrescricao), HoraPrescricao: horaPrescricao), SessaoUsuario.Atual.UsuarioId);
+                    DataPrescricao: DateOnly.FromDateTime(dataPrescricao), HoraPrescricao: horaPrescricao,
+                    RetificaPrescricaoId: _retificaPrescricaoId), SessaoUsuario.Atual.UsuarioId);
             PrescricaoId = p.Id;
             Salvou?.Invoke();
         } catch (Exception ex) { Mensagem = ex.Message; }

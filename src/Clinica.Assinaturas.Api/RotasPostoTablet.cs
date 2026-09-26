@@ -95,6 +95,8 @@ internal static class RotasPostoTablet
             =>Results.Ok(await svc.EncerrarAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
         g.MapPost("/infusoes/{id:int}/cancelar",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,CancelarInfusaoTablet pedido)
             =>Results.Ok(await svc.CancelarInfusaoAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
+        g.MapPost("/infusoes/{id:int}/devolver",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,DevolverInfusaoTablet pedido)
+            =>Results.Ok(await svc.DevolverInfusaoAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
         g.MapPost("/infusoes/{id:int}/horarios",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,CorrigirHorariosInfusaoTablet pedido)
             =>Results.Ok(await svc.CorrigirHorariosInfusaoAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
     }

@@ -231,6 +231,8 @@ public sealed partial class PrescricaoInternaService
 
         if (prescricao.Cancelada)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} foi cancelada.");
+        if (prescricao.DevolvidaEm is not null)
+            throw new InvalidOperationException("A infusão foi devolvida. Revise e assine uma nova versão.");
 
         if (prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} já está assinada.");
@@ -402,6 +404,8 @@ public sealed partial class PrescricaoInternaService
 
         if (prescricao.Cancelada)
             throw new InvalidOperationException("A prescrição já está cancelada.");
+        if (prescricao.DevolvidaEm is not null)
+            throw new InvalidOperationException("A infusão devolvida permanece no histórico; revise em uma nova versão.");
 
         if (prescricao.Situacao == SituacaoPrescricao.Encerrada && !prescricao.OrigemEnfermagem)
             throw new InvalidOperationException(
