@@ -85,8 +85,8 @@ internal static class RotasPostoTablet
             =>Results.Ok(await svc.IniciarAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/documentos",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,EmitirDocumentoTablet pedido)
             =>Results.Ok(await svc.EmitirAsync(await sessao(c,portal),id,pedido,c.RequestAborted)));
-        g.MapGet("/infusoes",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int? pagina)
-            =>Results.Ok(await svc.FilaAsync(await sessao(c,portal),pagina??0,c.RequestAborted)));
+        g.MapGet("/infusoes",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int? pagina,string? etapa)
+            =>Results.Ok(await svc.FilaAsync(await sessao(c,portal),pagina??0,c.RequestAborted,etapa)));
         g.MapGet("/infusoes/{id:int}",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id)
             =>Results.Ok(await svc.InfusaoAsync(await sessao(c,portal),id,c.RequestAborted)));
         g.MapPost("/infusoes/{id:int}/checar",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,ChecarInfusaoTablet pedido)
