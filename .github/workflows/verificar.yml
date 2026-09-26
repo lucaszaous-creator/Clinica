@@ -64,7 +64,9 @@ jobs:
       # que o CI não compila — e o `dotnet test` não a alcança porque a suíte de testes
       # não a referencia (só o modelo dela, que mora na Application).
       - name: Testar fronteira HTTP do tablet
-        run: dotnet test tests/Clinica.Assinaturas.Tests/Clinica.Assinaturas.Tests.csproj -c Release
+        # O servidor falso usa a demonstração SQLite, disponível somente no build Debug.
+        # O release da API é compilado separadamente, sem SQLite.
+        run: dotnet test tests/Clinica.Assinaturas.Tests/Clinica.Assinaturas.Tests.csproj -c Debug
 
       - name: Conferir preparação isolada e proxy SafeID
         run: |

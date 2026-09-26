@@ -860,7 +860,7 @@ public class UsuarioSistema
     /// <summary>Identificador de entrada, sempre em minúsculas e sem espaço.</summary>
     public string Login { get; set; } = string.Empty;
 
-    /// <summary>Hash PBKDF2 da senha, em Base64. Nunca a senha.</summary>
+    /// <summary>Hash PBKDF2 versionado da senha; hashes antigos são Base64 puro. Nunca a senha.</summary>
     public string SenhaHash { get; set; } = string.Empty;
 
     /// <summary>Sal do hash, em Base64. Um por usuário — duas senhas iguais não colidem.</summary>

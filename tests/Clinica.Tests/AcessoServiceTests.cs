@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -34,7 +35,7 @@ public class AcessoServiceTests : IDisposable
     }
 
     private Task<UsuarioSistema> CriarGerenteAsync(string login = "direcao")
-        => _acesso.CriarAsync("Direção", login, "segredo123", PerfilAcesso.Gerente);
+        => _acesso.CriarAsync("Direção", login, "SenhaFicticia#2026", PerfilAcesso.Gerente);
 
     // ===== A junção acesso → profissional → certificado (parcela 45) =====
 
@@ -48,10 +49,10 @@ public class AcessoServiceTests : IDisposable
         _db.Profissionais.Add(profissional);
         await _db.SaveChangesAsync();
 
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Gerente, profissional.Id);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Gerente, profissional.Id);
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _acesso.CriarAsync("Ana 2", "ana2", "segredo123", PerfilAcesso.Gerente, profissional.Id));
+            () => _acesso.CriarAsync("Ana 2", "ana2", "SenhaFicticia#2026", PerfilAcesso.Gerente, profissional.Id));
 
         erro.Message.Should().Contain("ana");
     }
@@ -66,7 +67,7 @@ public class AcessoServiceTests : IDisposable
         await _db.SaveChangesAsync();
 
         var antigo = await _acesso.CriarAsync(
-            "Ana", "ana", "segredo123", PerfilAcesso.Gerente, profissional.Id);
+            "Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Gerente, profissional.Id);
 
         await CriarGerenteAsync("suporte");   // não deixa a base sem gestor
         await _acesso.AtualizarAsync(
@@ -74,7 +75,7 @@ public class AcessoServiceTests : IDisposable
             Permissao.Nenhuma, Permissao.Nenhuma, ativo: false);
 
         var novo = await _acesso.CriarAsync(
-            "Ana nova", "ana2", "segredo123", PerfilAcesso.Profissional, profissional.Id);
+            "Ana nova", "ana2", "SenhaFicticia#2026", PerfilAcesso.Profissional, profissional.Id);
 
         novo.ProfissionalId.Should().Be(profissional.Id);
     }
@@ -92,7 +93,7 @@ public class AcessoServiceTests : IDisposable
         await _db.SaveChangesAsync();
 
         var usuario = await _acesso.CriarAsync(
-            "Dra. Ana Souza", "ana", "segredo123", PerfilAcesso.Gerente);
+            "Dra. Ana Souza", "ana", "SenhaFicticia#2026", PerfilAcesso.Gerente);
 
         var rastreado = await _db.Usuarios.FirstAsync(u => u.Id == usuario.Id);
         rastreado.ProfissionalId = profissional.Id;
@@ -181,19 +182,19 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public void Hash_NuncaGuardaASenhaEmClaro()
     {
-        var (hash, sal) = HashSenha.Gerar("segredo123");
+        var (hash, sal) = HashSenha.Gerar("SenhaFicticia#2026");
 
-        hash.Should().NotContain("segredo123");
+        hash.Should().NotContain("SenhaFicticia#2026");
         sal.Should().NotBeNullOrWhiteSpace();
-        HashSenha.Confere("segredo123", hash, sal).Should().BeTrue();
+        HashSenha.Confere("SenhaFicticia#2026", hash, sal).Should().BeTrue();
         HashSenha.Confere("Segredo123", hash, sal).Should().BeFalse();
     }
 
     [Fact]
     public void Hash_DuasSenhasIguais_GeramHashesDiferentes()
     {
-        var (hash1, _) = HashSenha.Gerar("segredo123");
-        var (hash2, _) = HashSenha.Gerar("segredo123");
+        var (hash1, _) = HashSenha.Gerar("SenhaFicticia#2026");
+        var (hash2, _) = HashSenha.Gerar("SenhaFicticia#2026");
 
         // Sal por usuário: sem ele, quem visse o banco saberia quem repetiu senha.
         hash1.Should().NotBe(hash2);
@@ -202,14 +203,49 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public void Hash_ParGravadoCorrompido_NaoLanca()
     {
-        HashSenha.Confere("segredo123", "isto-não-é-base64!", "nem-isto").Should().BeFalse();
+        HashSenha.Confere("SenhaFicticia#2026", "isto-não-é-base64!", "nem-isto").Should().BeFalse();
     }
 
     [Fact]
     public void Criticar_RecusaSenhaCurta()
     {
         HashSenha.Criticar("123").Should().NotBeNull();
-        HashSenha.Criticar("segredo123").Should().BeNull();
+        HashSenha.Criticar("segredo123").Should().NotBeNull();
+        HashSenha.Criticar("SenhaFicticia#2026").Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Hash_legado_com_senha_longa_e_atualizado_no_login()
+    {
+        const string senha = "SenhaFicticia#2026";
+        var usuario = await _acesso.CriarAsync("Ana", "ana", senha, PerfilAcesso.Recepcao);
+        DefinirHashLegado(usuario, senha);
+        await _db.SaveChangesAsync();
+
+        (await _acesso.AutenticarAsync("ana", senha)).Sucesso.Should().BeTrue();
+        usuario.SenhaHash.Should().StartWith("pbkdf2-sha256:600000:");
+        usuario.DeveTrocarSenha.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Hash_legado_com_senha_curta_exige_troca_no_login()
+    {
+        const string senha = "segredo123";
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
+        DefinirHashLegado(usuario, senha);
+        await _db.SaveChangesAsync();
+
+        (await _acesso.AutenticarAsync("ana", senha)).Sucesso.Should().BeTrue();
+        usuario.DeveTrocarSenha.Should().BeTrue();
+        HashSenha.Confere(senha, usuario.SenhaHash, usuario.SenhaSalt).Should().BeTrue();
+    }
+
+    private static void DefinirHashLegado(UsuarioSistema usuario, string senha)
+    {
+        var sal = RandomNumberGenerator.GetBytes(16);
+        usuario.SenhaSalt = Convert.ToBase64String(sal);
+        usuario.SenhaHash = Convert.ToBase64String(Rfc2898DeriveBytes.Pbkdf2(
+            senha, sal, 210_000, HashAlgorithmName.SHA256, 32));
     }
 
     // ===== Cadastro =====
@@ -218,7 +254,7 @@ public class AcessoServiceTests : IDisposable
     public async Task Criar_NormalizaOLoginEGuardaOPerfil()
     {
         var usuario = await _acesso.CriarAsync(
-            "Ana Souza", "  ANA  ", "segredo123", PerfilAcesso.Recepcao);
+            "Ana Souza", "  ANA  ", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
         usuario.Login.Should().Be("ana");
         usuario.Perfil.Should().Be(PerfilAcesso.Recepcao);
@@ -234,7 +270,7 @@ public class AcessoServiceTests : IDisposable
     public async Task Criar_RespeitaEstadoAtivoEControlaLogin(PerfilAcesso perfil, bool ativo)
     {
         var usuario = await _acesso.CriarAsync(
-            "Acesso clínico", "acesso.clinico", "segredo123", perfil, ativo: ativo);
+            "Acesso clínico", "acesso.clinico", "SenhaFicticia#2026", perfil, ativo: ativo);
 
         // Releitura do banco, sem depender do objeto devolvido pelo cadastro.
         _db.ChangeTracker.Clear();
@@ -242,7 +278,7 @@ public class AcessoServiceTests : IDisposable
         salvo!.Ativo.Should().Be(ativo);
         salvo.Perfil.Should().Be(perfil);
         salvo.Efetivas.Should().Be(PerfisAcesso.Padrao(perfil));
-        var login = await _acesso.AutenticarAsync("acesso.clinico", "segredo123");
+        var login = await _acesso.AutenticarAsync("acesso.clinico", "SenhaFicticia#2026");
         login.Sucesso.Should().Be(ativo);
         var eventos = await _repo.EventosAuditoriaAsync();
         eventos.Should().Contain(e => e.Acao == "UsuarioCriado"
@@ -252,9 +288,9 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Criar_LoginRepetido_EhRecusado()
     {
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
-        var acao = () => _acesso.CriarAsync("Outra Ana", "ANA", "segredo123", PerfilAcesso.Recepcao);
+        var acao = () => _acesso.CriarAsync("Outra Ana", "ANA", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
@@ -284,7 +320,7 @@ public class AcessoServiceTests : IDisposable
         await _db.SaveChangesAsync();
 
         var usuario = await _acesso.CriarAsync(
-            "Ana", "ana", "segredo123", PerfilAcesso.Profissional, profissional.Id);
+            "Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Profissional, profissional.Id);
 
         usuario.ProfissionalId.Should().Be(profissional.Id);
     }
@@ -353,7 +389,7 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Atualizar_GravaExtrasENegadas()
     {
-        var usuario = await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
         await CriarGerenteAsync();
 
         await _acesso.AtualizarAsync(
@@ -399,9 +435,9 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Autenticar_ComSenhaCerta_Entra()
     {
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
-        var r = await _acesso.AutenticarAsync("ANA", "segredo123");
+        var r = await _acesso.AutenticarAsync("ANA", "SenhaFicticia#2026");
 
         r.Sucesso.Should().BeTrue();
         r.Usuario!.Login.Should().Be("ana");
@@ -411,9 +447,9 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Autenticar_LoginInexistenteESenhaErrada_DaoAMesmaResposta()
     {
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
-        var inexistente = await _acesso.AutenticarAsync("ninguem", "segredo123");
+        var inexistente = await _acesso.AutenticarAsync("ninguem", "SenhaFicticia#2026");
         var senhaErrada = await _acesso.AutenticarAsync("ana", "outra-coisa");
 
         // Distinguir os dois entregaria a lista de logins válidos a quem tentasse adivinhar.
@@ -425,13 +461,13 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Autenticar_UsuarioDesativado_NaoEntra()
     {
-        var usuario = await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
         await CriarGerenteAsync();
         await _acesso.AtualizarAsync(
             usuario.Id, "Ana", PerfilAcesso.Recepcao, null,
             Permissao.Nenhuma, Permissao.Nenhuma, ativo: false);
 
-        var r = await _acesso.AutenticarAsync("ana", "segredo123");
+        var r = await _acesso.AutenticarAsync("ana", "SenhaFicticia#2026");
 
         r.Sucesso.Should().BeFalse();
     }
@@ -439,14 +475,14 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Autenticar_CincoErrosSeguidos_TravamOLogin()
     {
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
         var agora = new DateTime(2026, 8, 3, 9, 0, 0);
 
         for (var i = 0; i < AcessoService.TentativasAteTravar; i++)
             await _acesso.AutenticarAsync("ana", "errada", agora);
 
         // Agora nem a senha CERTA entra: é o travamento, não a senha.
-        var comSenhaCerta = await _acesso.AutenticarAsync("ana", "segredo123", agora);
+        var comSenhaCerta = await _acesso.AutenticarAsync("ana", "SenhaFicticia#2026", agora);
         comSenhaCerta.Sucesso.Should().BeFalse();
         comSenhaCerta.Erro.Should().Contain("tentativas");
     }
@@ -454,14 +490,14 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Autenticar_DepoisDoTravamentoExpirar_VoltaAEntrar()
     {
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
         var agora = new DateTime(2026, 8, 3, 9, 0, 0);
 
         for (var i = 0; i < AcessoService.TentativasAteTravar; i++)
             await _acesso.AutenticarAsync("ana", "errada", agora);
 
         var depois = agora.Add(AcessoService.DuracaoDoTravamento).AddMinutes(1);
-        var r = await _acesso.AutenticarAsync("ana", "segredo123", depois);
+        var r = await _acesso.AutenticarAsync("ana", "SenhaFicticia#2026", depois);
 
         r.Sucesso.Should().BeTrue();
     }
@@ -469,10 +505,10 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Autenticar_AcertoZeraAsTentativas()
     {
-        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
         await _acesso.AutenticarAsync("ana", "errada");
-        await _acesso.AutenticarAsync("ana", "segredo123");
+        await _acesso.AutenticarAsync("ana", "SenhaFicticia#2026");
 
         var usuario = await _repo.ObterUsuarioPorLoginAsync("ana");
         usuario!.TentativasFalhas.Should().Be(0);
@@ -483,7 +519,7 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task TrocarSenha_ExigeASenhaAtual()
     {
-        var usuario = await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
         var acao = () => _acesso.TrocarSenhaAsync(usuario.Id, "chute", "novasenha1");
 
@@ -493,11 +529,11 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task DefinirSenha_ProvisoriaObrigaATrocarNoProximoAcesso()
     {
-        var usuario = await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
-        await _acesso.DefinirSenhaAsync(usuario.Id, "provisoria1", deveTrocar: true);
+        await _acesso.DefinirSenhaAsync(usuario.Id, "SenhaTemporaria#2026", deveTrocar: true);
 
-        var r = await _acesso.AutenticarAsync("ana", "provisoria1");
+        var r = await _acesso.AutenticarAsync("ana", "SenhaTemporaria#2026");
         r.Sucesso.Should().BeTrue();
         r.Usuario!.DeveTrocarSenha.Should().BeTrue();
     }
@@ -508,8 +544,8 @@ public class AcessoServiceTests : IDisposable
     public async Task Excluir_UsuarioQueJaEntrou_EhRecusado()
     {
         await CriarGerenteAsync();
-        var usuario = await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
-        await _acesso.AutenticarAsync("ana", "segredo123");
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
+        await _acesso.AutenticarAsync("ana", "SenhaFicticia#2026");
 
         var acao = () => _acesso.ExcluirAsync(usuario.Id);
 
@@ -522,7 +558,7 @@ public class AcessoServiceTests : IDisposable
     public async Task Excluir_UsuarioQueNuncaEntrou_Funciona()
     {
         await CriarGerenteAsync();
-        var usuario = await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Recepcao);
+        var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
 
         await _acesso.ExcluirAsync(usuario.Id);
 

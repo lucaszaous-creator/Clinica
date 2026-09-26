@@ -19,7 +19,8 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime);
     private static string Operador(UsuarioSistema u) => u.Login;
 
-    public async Task<UsuarioSistema> AutorizarAsync(SessaoTablet sessao, CancellationToken ct, Permissao? permissao = null)
+    public async Task<UsuarioSistema> AutorizarAsync(SessaoTablet sessao, CancellationToken ct, Permissao? permissao = null,
+        bool renovarAtividade = false)
     {
         // Releitura: revogação, troca de senha, permissão e vínculo têm efeito imediato.
         var s = await db.SessoesTablet.AsNoTracking().Include(x => x.Usuario).ThenInclude(u => u!.Profissional)
@@ -28,13 +29,18 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
             || !(permissao is {} requerida ? PoliticaAtendimentoTablet.PodeUsarPosto(u) && u.Pode(requerida) : PoliticaAtendimentoTablet.PodeAtender(u)) || u.Profissional?.Ativo != true
             || u.Travado(DateTime.Now) || s.CredencialVersao != ContratoTablet.Hash(u.SenhaHash))
             throw new UnauthorizedAccessException();
-        if (s.AtividadeClinicaEm is {} ultima && Agora - ultima > 900_000)
+        if (s.AtividadeClinicaEm is not {} ultima || Agora - ultima >= 900_000)
             throw new UnauthorizedAccessException();
-        sessao.AtividadeClinicaEm = Agora;
-        // O contexto recebido pertence ao DbContext da requisição.
-        if (db.Entry(sessao).State == EntityState.Detached) db.Attach(sessao);
-        db.Entry(sessao).Property(x => x.AtividadeClinicaEm).IsModified = true;
-        await db.SaveChangesAsync(ct);
+        // Consultas automáticas da página não comprovam interação humana. Só o ping
+        // explícito de pointer/teclado renova o prazo clínico.
+        if (renovarAtividade)
+        {
+            sessao.AtividadeClinicaEm = Agora;
+            // O contexto recebido pertence ao DbContext da requisição.
+            if (db.Entry(sessao).State == EntityState.Detached) db.Attach(sessao);
+            db.Entry(sessao).Property(x => x.AtividadeClinicaEm).IsModified = true;
+            await db.SaveChangesAsync(ct);
+        }
         return u;
     }
 

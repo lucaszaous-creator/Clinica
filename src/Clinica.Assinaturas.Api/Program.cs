@@ -19,11 +19,12 @@ var builder=WebApplication.CreateBuilder(args);
 var demo=builder.Configuration.GetValue<bool>("Portal:Demo");
 var homologacao=builder.Configuration.GetValue<bool>("Portal:Homologacao");
 var socketPortal=builder.Configuration["Portal:Socket"];
-if(!demo && !string.IsNullOrWhiteSpace(socketPortal))
+var socketPrivado=!demo && !string.IsNullOrWhiteSpace(socketPortal);
+if(socketPrivado)
 {
-    if(!OperatingSystem.IsLinux() || !Path.IsPathFullyQualified(socketPortal))
+    if(!OperatingSystem.IsLinux() || !Path.IsPathFullyQualified(socketPortal!))
         throw new InvalidOperationException("O socket privado do portal exige Linux e caminho absoluto.");
-    builder.WebHost.ConfigureKestrel(o=>o.ListenUnixSocket(socketPortal));
+    builder.WebHost.ConfigureKestrel(o=>o.ListenUnixSocket(socketPortal!));
 }
 if(demo && !builder.Environment.IsDevelopment()) throw new InvalidOperationException("Demonstração só é permitida em Development.");
 var codigoTablet=builder.Configuration["Portal:CodigoTablet"] ?? "";
@@ -37,10 +38,14 @@ if(!demo && !builder.Configuration.GetValue<bool>("Portal:Habilitado"))
 var conexao=builder.Configuration.GetConnectionString("Clinica");
 if(demo)
 {
+#if DEBUG
     if(!string.IsNullOrEmpty(conexao)) throw new InvalidOperationException("Demonstração não aceita conexão clínica.");
     builder.WebHost.UseUrls("http://127.0.0.1:18120");
     var arquivo=builder.Configuration["Portal:BancoDemo"] ?? Path.Combine(builder.Environment.ContentRootPath,"tablet-demo.db");
     builder.Services.AddDbContext<ClinicaDbContext>(o=>o.UseSqlite($"Data Source={arquivo}"));
+#else
+    throw new InvalidOperationException("Demonstração indisponível no executável de produção.");
+#endif
 }
 else
 {
@@ -112,8 +117,8 @@ builder.Services.AddRateLimiter(o=>
     o.RejectionStatusCode=429;
     o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(ctx=>RateLimitPartition.GetFixedWindowLimiter(
         ctx.Request.Path.StartsWithSegments("/api/entrar")
-            ? "login:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo:"+(ctx.Connection.RemoteIpAddress?.ToString() ?? "local"))
-            : "api:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo:"+(ctx.Connection.RemoteIpAddress?.ToString() ?? "local")),
+            ? "login:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo:"+(OrigemRateLimitTablet.Obter(ctx,socketPrivado) ?? "origem-ausente"))
+            : "api:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo:"+(OrigemRateLimitTablet.Obter(ctx,socketPrivado) ?? "origem-ausente")),
         _=>new FixedWindowRateLimiterOptions {PermitLimit=ctx.Request.Path.StartsWithSegments("/api/entrar") ? 30 : 240,
             Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
 });
@@ -162,6 +167,9 @@ app.Use(async(ctx,next)=>
     }
     if((demo && ctx.Connection.RemoteIpAddress is { } ip && !IPAddress.IsLoopback(ip))
         || (!demo && !ctx.Request.IsHttps)) {ctx.Response.StatusCode=403; return;}
+    if(socketPrivado && ctx.Request.Path.StartsWithSegments("/api")
+        && OrigemRateLimitTablet.Obter(ctx,true) is null)
+    {ctx.Response.StatusCode=403;return;}
     try
     {
         if(ctx.Request.Path.StartsWithSegments("/api") && HttpMethods.IsPost(ctx.Request.Method))
@@ -169,7 +177,10 @@ app.Use(async(ctx,next)=>
         if(HttpMethods.IsPost(ctx.Request.Method) && System.Text.RegularExpressions.Regex.IsMatch(
             ctx.Request.Path.Value??"",@"^/api/posto/pacientes/[0-9]+/anexos$"))
         {
-            // Apenas a rota autenticada de anexos recebe o limite maior (5 MiB em base64).
+            // Autenticar antes de aceitar e desserializar o corpo maior (5 MiB em base64).
+            var sessaoAnexo=await Sessao(ctx,ctx.RequestServices.GetRequiredService<PortalTabletService>(),true);
+            await ctx.RequestServices.GetRequiredService<AtendimentoTabletService>()
+                .AutorizarAsync(sessaoAnexo,ctx.RequestAborted,Permissao.VerFichaPaciente|Permissao.VerProntuario);
             var limite=ctx.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
             if(limite is {IsReadOnly:false})limite.MaxRequestBodySize=7_100_000;
         }

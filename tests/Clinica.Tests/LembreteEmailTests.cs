@@ -42,7 +42,8 @@ public class LembreteEmailTests : IDisposable
         _db.Database.EnsureCreated();
         _repo = new ClinicaRepositorio(_db);
         _campanhas = new CampanhaService(_repo);
-        _parametros = new ParametrosService(_repo);
+        _parametros = new ParametrosService(_repo,
+            new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
     }
 
     public void Dispose()
