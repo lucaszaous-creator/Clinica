@@ -421,6 +421,7 @@ public class PublicacaoDocumentoTests : IDisposable
 
     [Theory]
     [InlineData("http://objetos.example.com")]
+    [InlineData("http://127.0.0.1")]
     [InlineData("https://127.0.0.1")]
     [InlineData("https://servidor.local")]
     [InlineData("https://objetos.example.com:8443")]

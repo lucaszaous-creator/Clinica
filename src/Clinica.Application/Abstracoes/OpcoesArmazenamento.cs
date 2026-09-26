@@ -71,10 +71,6 @@ public sealed record OpcoesArmazenamento(
 
     private static bool EndpointPermitido(Uri uri)
     {
-#if DEBUG
-        // O servidor S3 falso dos testes escuta somente no loopback.
-        if (uri.Scheme == Uri.UriSchemeHttp && uri.Host == "127.0.0.1") return true;
-#endif
         if (uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort
             || !string.IsNullOrEmpty(uri.UserInfo) || uri.AbsolutePath != "/"
             || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))

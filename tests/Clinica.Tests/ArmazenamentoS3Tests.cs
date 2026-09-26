@@ -135,7 +135,11 @@ public class ArmazenamentoS3Tests : IDisposable
         await _parametros.SalvarCredenciaisArmazenamentoAsync(
             _servidor.Url, Regiao, Bucket, "a-chave", "o-segredo");
 
-        return new ArmazenamentoS3(new ProvedorOpcoesArmazenamento(_parametros));
+        // O servidor falso usa HTTP loopback. Só este teste injeta opções diretamente;
+        // configuração de produção passa sempre pela validação HTTPS do provedor.
+        var opcoesTeste = new OpcoesArmazenamento(_servidor.Url, Regiao, Bucket,
+            "a-chave", "o-segredo");
+        return new ArmazenamentoS3(new ProvedorOpcoesArmazenamento(_parametros, opcoesTeste));
     }
 
     private RequisicaoS3 Unica(string metodo)
