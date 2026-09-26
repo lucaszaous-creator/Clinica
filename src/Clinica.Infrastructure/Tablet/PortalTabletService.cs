@@ -45,8 +45,7 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         && u.Pode(Permissao.ColherAssinaturaPaciente) && u.Pode(Permissao.VerAgenda);
 
     public bool PodeEntrar(UsuarioSistema u) => PodeColher(u)
-        || (opcoes.AtendimentoHabilitado && (PoliticaAtendimentoTablet.PodeUsarPosto(u)
-            || GestaoRegistrosPortalService.PodeGerenciar(u)));
+        || (opcoes.AtendimentoHabilitado && PoliticaAtendimentoTablet.PodeUsarPosto(u));
 
     public async Task<SessaoTablet> AutorizarAsync(string? token, string dispositivo, bool equipe, CancellationToken ct)
     {

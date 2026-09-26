@@ -68,11 +68,6 @@ builder.Services.AddScoped<PoliticaConclusaoService>();
 builder.Services.AddScoped<ConclusaoAutomaticaService>();
 builder.Services.AddScoped<PrescricaoService>();
 builder.Services.AddScoped<PrescricaoInternaService>();
-builder.Services.AddScoped<PacoteService>();
-builder.Services.AddScoped<FinanceiroService>();
-builder.Services.AddScoped<EstoqueService>();
-builder.Services.AddScoped<EstornoAtendimentoService>();
-builder.Services.AddScoped<GestaoRegistrosPortalService>();
 builder.Services.AddScoped<PrescricaoInternaPdfService>();
 builder.Services.AddScoped<Clinica.Application.Assinatura.AssinaturaDigitalService>();
 builder.Services.AddScoped<AssinaturaDeDocumentoClinicoService>();
@@ -217,7 +212,6 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
         return Results.Ok(new {csrf=token,modo=s.Modo,demo,homologacao,operadora=s.Modo=="equipe" ? s.Usuario!.Nome : null,
             expiraEm=s.ExpiraEm,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id),
             atendimento=atendimentoHabilitado && s.Modo=="equipe" && PoliticaAtendimentoTablet.PodeUsarPosto(s.Usuario!),
-            gestaoRegistros=atendimentoHabilitado && s.Modo=="equipe" && GestaoRegistrosPortalService.PodeGerenciar(s.Usuario),
             coleta=s.Modo=="equipe" && PortalTabletService.PodeColher(s.Usuario!)});
     }
     catch(UnauthorizedAccessException) {return Results.Ok(new {csrf=token,modo="entrada",demo,homologacao});}
@@ -281,7 +275,6 @@ if(atendimentoHabilitado)
 {
     RotasAtendimentoTablet.Mapear(app,(ctx,svc)=>Sessao(ctx,svc,false));
     RotasPostoTablet.Mapear(app,(ctx,svc)=>Sessao(ctx,svc,false));
-    RotasGestaoRegistrosPortal.Mapear(app,(ctx,svc)=>Sessao(ctx,svc,false));
 }
 app.MapGet("/health",()=>Results.Ok(new {status="ok",contrato=1}));
 var interfaceDir=Path.GetFullPath(builder.Configuration["Portal:Interface"] ?? Path.Combine(app.Environment.ContentRootPath,"wwwroot"));
