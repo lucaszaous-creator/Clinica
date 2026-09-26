@@ -124,7 +124,7 @@ var app=builder.Build();
 var cookieSessao=demo ? "clinica.tablet" : "__Host-clinica.tablet";
 var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("DispositivoTablet.v1");
 var extensoesPublicas=new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {".html",".css",".js",".mjs",".png",".woff2",".bcmap",".pfb",".ttf",".txt"};
+    {".html",".css",".js",".mjs",".json",".mp4",".png",".woff2",".bcmap",".pfb",".ttf",".txt"};
 CookieOptions Cookie(int horas)=>new() {HttpOnly=true,Secure=!demo,SameSite=SameSiteMode.Strict,Path="/",MaxAge=TimeSpan.FromHours(horas)};
 string Dispositivo(HttpContext ctx)
     => DispositivoRegistrado(ctx) ?? throw new UnauthorizedAccessException();
@@ -149,7 +149,7 @@ app.Use(async(ctx,next)=>
     ctx.Response.Headers["X-Robots-Tag"]="noindex, nofollow, noarchive";
     ctx.Response.Headers["Referrer-Policy"]="no-referrer";
     ctx.Response.Headers["X-Frame-Options"]="DENY";
-    ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+    ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
     ctx.Response.Headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()";
     if(!demo) ctx.Response.Headers["Strict-Transport-Security"]="max-age=31536000";
     if(!ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/health"))
