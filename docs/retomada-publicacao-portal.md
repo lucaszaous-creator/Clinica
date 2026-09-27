@@ -1,6 +1,6 @@
 # Publicação direta do portal em produção, sem HML
 
-**Estado registrado em:** 26/09/2026
+**Estado registrado em:** 27/09/2026
 
 **Decisão do responsável:** publicar sem aguardar HML nesta liberação.
 
@@ -40,7 +40,7 @@ O atualizador `deploy/tablet/atualizar-posto.py` foi ajustado nesta PR para perm
 6. Verificar health, rotas protegidas, sessões, upload autenticado, fila de infusões e pendências em produção. Não criar ou alterar registros clínicos reais.
 7. Registrar o relatório de produção e reverter se as verificações de saúde ou de proteção falharem.
 
-A PR #218 tem corte de pendências configurado para 27/09/2026. Confirmar que essa data ainda corresponde à regra desejada antes da liberação.
+A PR #218 inicia a contagem de novas pendências em 27/09/2026, hoje. Após a publicação, conferir que sessões anteriores a essa data continuam fora do indicador e que omissões a partir dela entram na contagem.
 
 O fluxo detalhado de criptografia e os requisitos de proxy estão em [implantacao-seguranca-portal.md](implantacao-seguranca-portal.md). Este roteiro trata da publicação do código; não autoriza nem inclui exclusão de dados de produção.
 
