@@ -132,6 +132,7 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     [ObservableProperty] private bool _ativo = true;
     [ObservableProperty] private string _senha = string.Empty;
     [ObservableProperty] private bool _deveTrocarSenha = true;
+    private bool _deveTrocarSenhaOriginal = true;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _salvando;
@@ -267,6 +268,8 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
                 Login = usuario.Login;
                 PerfilSelecionado = Perfis.First(o => o.Valor == usuario.Perfil);
                 Ativo = usuario.Ativo;
+                DeveTrocarSenha = usuario.DeveTrocarSenha;
+                _deveTrocarSenhaOriginal = usuario.DeveTrocarSenha;
                 // Atribuir Profissional dispara OnProfissionalChanged, que traz o CPF do
                 // banco — por isso não é preciso lê-lo aqui de novo.
                 Profissional = Profissionais.FirstOrDefault(o => o.Id == usuario.ProfissionalId)
@@ -375,6 +378,8 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
                 // faria a direção trocar a senha de alguém sem querer, em toda edição.
                 if (!string.IsNullOrEmpty(Senha))
                     await acesso.DefinirSenhaAsync(id, Senha, DeveTrocarSenha, _sessao.Operador);
+                else if (DeveTrocarSenha != _deveTrocarSenhaOriginal)
+                    await acesso.DefinirTrocaObrigatoriaAsync(id, DeveTrocarSenha, _sessao.Operador);
             }
             else
             {

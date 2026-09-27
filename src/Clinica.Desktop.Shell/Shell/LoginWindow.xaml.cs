@@ -269,6 +269,7 @@ public partial class LoginWindow : Window
             _autenticado!.Id, TxtTrocaSenha.Password, deveTrocar: false,
             operador: _autenticado.Login);
 
+        _autenticado.DeveTrocarSenha = false;
         Usuario = _autenticado;
         DialogResult = true;
         Close();

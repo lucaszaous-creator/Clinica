@@ -195,6 +195,21 @@ public sealed class AcessoService
         await _repo.SalvarAsync(ct);
     }
 
+    /// <summary>Altera a exigência de troca sem redefinir a senha existente.</summary>
+    public async Task DefinirTrocaObrigatoriaAsync(
+        int usuarioId, bool deveTrocar, string? operador = null, CancellationToken ct = default)
+    {
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct)
+            ?? throw new InvalidOperationException("Usuário não encontrado.");
+
+        if (usuario.DeveTrocarSenha == deveTrocar) return;
+
+        usuario.DeveTrocarSenha = deveTrocar;
+        await AuditarAsync("ObrigacaoTrocaSenhaAlterada",
+            $"{usuario.Login} — {(deveTrocar ? "exigida" : "removida")}", operador, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     /// <summary>
     /// Troca de senha pelo próprio usuário: exige a senha atual. Sem isso, uma estação
     /// deixada aberta viraria a senha de outra pessoa.
