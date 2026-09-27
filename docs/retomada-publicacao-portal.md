@@ -1,6 +1,7 @@
 # Retomada da publicação do portal
 
-**Estado registrado em:** 26/09/2026  
+**Estado registrado em:** 26/09/2026
+
 **Situação:** publicação em produção adiada até que seja possível acessar e atualizar todas as máquinas desktop envolvidas.
 
 ## Estado atual
