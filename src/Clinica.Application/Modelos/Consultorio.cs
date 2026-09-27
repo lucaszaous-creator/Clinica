@@ -5,6 +5,16 @@ using Clinica.Domain.Entities;
 namespace Clinica.Application.Modelos;
 
 /// <summary>
+/// Desde quando sessões realizadas sem evolução passam a gerar pendência ativa.
+/// O histórico anterior permanece no prontuário; este corte só controla cobranças e
+/// contadores de evolução pendente. A comparação usa a data local da sessão.
+/// </summary>
+public static class PoliticaRegistroPendente
+{
+    public static readonly DateOnly DataInicio = new(2026, 9, 27);
+}
+
+/// <summary>
 /// Um horário do dia visto do lado de QUEM ATENDE — não de quem marca.
 ///
 /// A recepção olha a mesma linha para saber se o paciente chegou; o consultório olha para
@@ -81,11 +91,14 @@ public sealed record SessaoDoDia(
     public bool EvolucaoEscrita => EvolucaoId is not null;
 
     /// <summary>
-    /// O horário já aconteceu e continua sem evolução escrita — a pendência do
-    /// consultório. Cancelado e falta não entram: não houve sessão para descrever.
+    /// O horário já aconteceu, é a partir do início do controle e continua sem evolução
+    /// escrita — a pendência do consultório. O corte preserva o histórico anterior sem
+    /// transformá-lo em cobrança recorrente. Cancelado e falta não entram.
     /// </summary>
     public bool RegistroPendente
-        => Status == StatusAgendamento.Realizado && EvolucaoId is null;
+        => Status == StatusAgendamento.Realizado
+           && DateOnly.FromDateTime(DataHora) >= PoliticaRegistroPendente.DataInicio
+           && EvolucaoId is null;
 }
 
 /// <summary>

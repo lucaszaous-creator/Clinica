@@ -39,12 +39,10 @@ public sealed class ConsultorioService
     private readonly IClinicaRepositorio _repo;
 
     /// <summary>
-    /// Até quantos dias para trás procurar sessão sem evolução escrita. Não é limite
-    /// técnico: passado disso o registro não se escreve mais de memória, e uma lista que
-    /// cresce sem fim vira ruído que a pessoa aprende a fechar sem ler.
+    /// Sessões sem evolução passam a ser acompanhadas a partir de
+    /// <see cref="PoliticaRegistroPendente.DataInicio"/> e permanecem na lista até que a
+    /// evolução seja vinculada. O corte evita transformar o histórico antigo em fila nova.
     /// </summary>
-    public const int JanelaRegistroPendenteDias = 30;
-
     public ConsultorioService(IClinicaRepositorio repo) => _repo = repo;
 
     /// <summary>
@@ -154,7 +152,7 @@ public sealed class ConsultorioService
     public async Task<IReadOnlyList<RegistroPendente>> RegistrosPendentesAsync(
         DateOnly hoje, int? profissionalId, CancellationToken ct = default)
     {
-        var inicio = hoje.AddDays(-JanelaRegistroPendenteDias);
+        var inicio = PoliticaRegistroPendente.DataInicio;
         var ontem = hoje.AddDays(-1);
         if (ontem < inicio) return [];
 

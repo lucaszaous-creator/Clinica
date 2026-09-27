@@ -206,8 +206,10 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             DividaProntuario = pendentes.Count switch
             {
                 0 => "Nenhuma sessão em aberto — prontuário em dia.",
-                1 => "1 sessão dos últimos dias continua sem evolução escrita.",
-                var n => $"{n} sessões dos últimos dias continuam sem evolução escrita."
+                1 => $"1 sessão desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} "
+                     + "continua sem evolução escrita.",
+                var n => $"{n} sessões desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} "
+                         + "continuam sem evolução escrita."
             };
         }
         catch (Exception ex)
