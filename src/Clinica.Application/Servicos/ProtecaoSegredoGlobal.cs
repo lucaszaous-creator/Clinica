@@ -7,8 +7,12 @@ namespace Clinica.Application.Servicos;
 public sealed class ProtecaoSegredoGlobal
 {
     public const string VariavelChave = "CLINICA_CREDENCIAIS_CHAVE";
+    public const string VariavelHabilitacao = "CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA";
     private const string Prefixo = "enc:v1:";
     private readonly byte[] chave;
+
+    public static bool HabilitadaNoAmbiente
+        => string.Equals(Environment.GetEnvironmentVariable(VariavelHabilitacao), "true", StringComparison.OrdinalIgnoreCase);
 
     public ProtecaoSegredoGlobal(string? chaveBase64)
     {

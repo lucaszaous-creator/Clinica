@@ -1,0 +1,55 @@
+name: Empacotar portal para publicação
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_sha:
+        description: Commit exato de clinica-site a incluir no pacote
+        required: true
+        type: string
+        default: ae0f19ea3e1b37013730d9139645b6895f89ff56
+
+permissions:
+  contents: read
+
+jobs:
+  empacotar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Obter a revisão exata do portal
+        shell: pwsh
+        env:
+          SITE_SHA: ${{ inputs.site_sha }}
+        run: |
+          if ($env:SITE_SHA -notmatch '^[0-9a-f]{40}$') { throw 'SITE_SHA deve ser um commit SHA completo.' }
+          $site = Join-Path $env:RUNNER_TEMP 'clinica-site'
+          git clone --no-checkout https://github.com/lucaszaous-creator/clinica-site.git $site
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao obter clinica-site.' }
+          git -C $site checkout --detach $env:SITE_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao selecionar o commit do portal.' }
+          $actual = (git -C $site rev-parse HEAD).Trim()
+          if ($actual -ne $env:SITE_SHA) { throw "Revisão inesperada: $actual" }
+          & (Join-Path $env:GITHUB_WORKSPACE 'tools/empacotar-continuidade-tablet.ps1') -Site $site
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao criar o pacote do portal.' }
+          $pacotes = @(Get-ChildItem -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'artifacts') -Filter 'tablet-continuidade-*.tar.gz' -File)
+          if ($pacotes.Count -ne 1) { throw "Esperado um pacote; encontrados $($pacotes.Count)." }
+          $sha = (Get-FileHash -LiteralPath $pacotes[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "Pacote: $($pacotes[0].Name)`nSHA-256: $sha`nBackend: $((git -C $env:GITHUB_WORKSPACE rev-parse HEAD).Trim())`nPortal: $actual" |
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pacote-portal-${{ github.sha }}
+          path: artifacts/tablet-continuidade-*.tar.gz
+          if-no-files-found: error
+          retention-days: 7

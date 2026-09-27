@@ -74,12 +74,15 @@ public sealed class ParametrosService
     {
         var valor = await _repo.ObterConfiguracaoAsync(nome, ct);
         if (string.IsNullOrEmpty(valor)) return valor;
-        var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
-        if (ProtecaoSegredoGlobal.EstaProtegido(valor)) return protetor.Revelar(nome, valor);
+        if (ProtecaoSegredoGlobal.EstaProtegido(valor))
+            return (_protecao ?? ProtecaoSegredoGlobal.DoAmbiente()).Revelar(nome, valor);
         if (valor.StartsWith("enc:", StringComparison.Ordinal))
             throw new InvalidOperationException("Formato desconhecido de credencial protegida.");
+        if (!ProtecaoAtiva) return valor;
 
-        // Migração gradual: a leitura de um valor antigo o cifra antes de devolvê-lo.
+        var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
+
+        // A migração só ocorre após ativação explícita e coordenada da proteção.
         await _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
         await _repo.SalvarAsync(ct);
         return valor;
@@ -89,9 +92,13 @@ public sealed class ParametrosService
     {
         if (string.IsNullOrEmpty(valor))
             return _repo.SalvarConfiguracaoAsync(nome, string.Empty, ct);
+        if (!ProtecaoAtiva)
+            return _repo.SalvarConfiguracaoAsync(nome, valor, ct);
         var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
         return _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
     }
+
+    private bool ProtecaoAtiva => _protecao is not null || ProtecaoSegredoGlobal.HabilitadaNoAmbiente;
 
     /// <summary>Snapshot com os valores efetivos: defaults do código + overrides salvos.</summary>
     public async Task<ParametrosSnapshot> ObterAsync(CancellationToken ct = default)

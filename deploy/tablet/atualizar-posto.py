@@ -1,12 +1,16 @@
 """Atualização do posto: valida pacote, salva backup e recua o serviço se falhar.
 
-Uso: python3 atualizar-posto.py hml|producao pacote.tar.gz sha256 release-anterior
-O relatório de homologação do MESMO pacote é obrigatório antes da produção.
+Uso: python3 atualizar-posto.py hml|producao pacote.tar.gz sha256 release-anterior [--pular-hml motivo]
+Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita registrada.
 """
 import hashlib, json, os, pathlib, pwd, re, shutil, subprocess, sys, tarfile, time
 
-assert os.geteuid() == 0 and len(sys.argv) == 5
-ambiente, arquivo, sha, anterior = sys.argv[1:]
+assert os.geteuid() == 0 and len(sys.argv) in (5, 7)
+ambiente, arquivo, sha, anterior = sys.argv[1:5]
+pular_hml = len(sys.argv) == 7 and sys.argv[5] == '--pular-hml' and bool(sys.argv[6].strip())
+motivo_dispensa_hml = sys.argv[6].strip() if pular_hml else None
+assert len(sys.argv) == 5 or (ambiente == 'producao' and pular_hml)
+assert motivo_dispensa_hml is None or (len(motivo_dispensa_hml) <= 240 and not any(ord(c) < 32 for c in motivo_dispensa_hml))
 assert ambiente in ('hml', 'producao') and re.fullmatch('[a-f0-9]{64}', sha)
 assert re.fullmatch('[a-zA-Z0-9._-]+', anterior)
 servico = 'clinica-posto-hml' if ambiente == 'hml' else 'clinica-tablet'
@@ -38,6 +42,17 @@ def run(args, **kwargs):
 
 def sql(query):
     return run(['runuser','-u','postgres','--','psql','-p','45432','-d',database,'-XAt','-v','ON_ERROR_STOP=1'],input=query)
+
+if ambiente=='producao' and pular_hml:
+    # Esta via de publicação mantém credenciais no formato legado para não exigir
+    # chave ou atualização de desktops. Recusar se a base já contiver valor cifrado.
+    ativacao=re.search(rb'(?mi)^\s*CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA\s*=\s*([^\r\n]+)',config)
+    assert not ativacao or ativacao.group(1).strip().strip(b'"').lower()!='true',\
+        'A cifra de credenciais está ativada; a publicação sem chave não é compatível'
+    cifradas=sql('''SELECT count(*) FROM "Configuracoes"
+        WHERE "Chave" IN ('SafeIDClientSecret','PublicacaoAccessKey','PublicacaoSecretKey','EmailSmtpSenha')
+        AND "Valor" LIKE 'enc:%' ''')
+    assert cifradas=='0','Base possui credencial cifrada; a publicação sem chave não é compatível'
 
 def ident(n):
     return '"' + n.replace('"','""') + '"'
@@ -93,7 +108,7 @@ with tarfile.open(pacote) as tar:
     assert {m.name[len(nome)+1:] for m in membros if m.isfile()} == set(manifest['arquivos']) | {'manifesto.json'}
     for rel,digest in manifest['arquivos'].items():
         assert hashlib.sha256(tar.extractfile(nome+'/'+rel).read()).hexdigest()==digest
-    if ambiente=='producao':
+    if ambiente=='producao' and not pular_hml:
         aceite=json.loads((stage/(nome+'-hml.json')).read_text())
         assert aceite['saudavel'] and aceite['sha256']==sha
         teste=json.loads((stage/(nome+'-aceite-hml.json')).read_text())
@@ -185,7 +200,8 @@ try:
     assert (conf/'portal.env').read_bytes()==config
     assert {s:status(s) for s in protegidos}==antes
     relatorio={'ambiente':ambiente,'sha256':sha,'release':str(release),'anterior':anterior,'backup':str(backup),
-        'saudavel':True,'servicos_preservados':True,'migracao_nova':migracao,'concessoes':len(conceder)}
+        'saudavel':True,'servicos_preservados':True,'migracao_nova':migracao,'concessoes':len(conceder),
+        'hml_ignorada':pular_hml,'motivo_dispensa_hml':motivo_dispensa_hml}
     destino=stage/(nome+('-hml.json' if ambiente=='hml' else '-producao.json'))
     privado(destino,json.dumps(relatorio,ensure_ascii=False,indent=2))
     usuario=pwd.getpwnam('clinica-admin');os.chown(destino,usuario.pw_uid,usuario.pw_gid)

@@ -4,25 +4,26 @@ Esta versão exige publicação conjunta da API e da interface `clinica-site`: a
 envia `POST /api/clinico/atividade`, e a API deixa de renovar o prazo clínico por leituras.
 Não publicar apenas um dos dois repositórios.
 
-## Chave das credenciais compartilhadas
+## Proteção opcional das credenciais compartilhadas
 
-As senhas de SMTP, SafeID e armazenamento S3 passam a ser cifradas no banco com
-AES-256-GCM. A variável `CLINICA_CREDENCIAIS_CHAVE` deve conter **32 bytes aleatórios
-em Base64**, gerados por fonte criptográfica. Guardar a chave em cofre separado dos
-backups do banco. Nunca colocá-la no repositório, pacote, log ou interface pública.
+Para manter compatibilidade com desktops existentes, a cifra AES-256-GCM só é ativada
+quando `CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA=true` estiver configurada junto
+com `CLINICA_CREDENCIAIS_CHAVE` (32 bytes aleatórios em Base64). Com a ativação ausente,
+leituras e gravações continuam no formato legado e nenhuma migração automática ocorre.
+Esta liberação mantém a ativação ausente; não exige senha nem chave nos computadores dos
+operadores.
 
-Antes de iniciar a versão nova, distribuir **a mesma chave** para a API e para todos
-os postos desktop que leem ou editam essas integrações. Restringir o acesso aos
-arquivos de ambiente e parar os clientes antigos durante a troca. A primeira leitura
-de cada credencial antiga a migra para `enc:v1:`. Um cliente antigo não entende esse
-formato; por isso, a atualização dos clientes deve ser coordenada. Sem a chave, a
-leitura ou gravação de uma credencial não vazia falha de modo explícito.
+Planejar a ativação da cifra para uma janela futura: distribuir a mesma chave para API
+e todos os desktops que leem ou editam SMTP, SafeID ou S3; atualizar e fechar clientes
+antigos antes de ativar. Um cliente antigo não entende `enc:v1:`. Depois da ativação,
+preservar a chave em cofre separado dos backups do banco; sem ela, valores cifrados não
+podem ser lidos. Nunca colocar chave em repositório, pacote, log ou interface pública.
 
-Conferir em homologação o envio de e-mail, SafeID e publicação S3 com valores
-fictícios. Após a migração, conferir no banco somente que os quatro campos sensíveis
-começam com `enc:v1:`; não exibir os valores. Preservar a chave para restauração de
-backups. A rotação exige decifrar e cifrar novamente com uma chave nova em uma janela
-controlada; substituir a variável sem recifrar torna as credenciais ilegíveis.
+Para esta publicação sem HML, o atualizador aceita a opção explícita
+`--pular-hml motivo`, registra a dispensa no relatório de produção e recusa prosseguir
+se encontrar credenciais já cifradas na base. Não fabricar relatórios HML nem tratar a
+dispensa como aceite funcional. O caminho normal sem essa opção continua exigindo os
+relatórios de saúde e aceite HML do mesmo pacote.
 
 ## Túnel e limite de requisições
 
@@ -34,13 +35,14 @@ restrito, pois esse cabeçalho só é confiável nessa fronteira privada.
 
 ## Verificações antes da troca
 
-1. Publicar API e site na homologação, testar login, expiração clínica após 15 minutos,
+1. No caminho normal, publicar API e site na homologação, testar login, expiração clínica após 15 minutos,
    gesto real que renova o prazo e saída após inatividade em duas abas.
 2. Testar upload com usuário autenticado e confirmar que tentativa anônima recebe
    recusa antes do limite maior de corpo.
 3. Conferir que o pacote público não contém `manifesto.json` nem credenciais e que
    o release da API não contém `SQLitePCLRaw` ou `e_sqlite3`.
-4. Confirmar a atualização de todos os postos e a disponibilidade da chave antes de
-   migrar as credenciais existentes ou abrir o serviço ao público.
+4. Para ativar a cifra, confirmar a atualização de todos os postos e a disponibilidade
+   da chave antes de migrar credenciais. Na publicação atual, manter a cifra desativada
+   para preservar compatibilidade com os desktops existentes.
 
 Nenhuma dessas etapas substitui o aceite assistido dos titulares SafeID em produção.
