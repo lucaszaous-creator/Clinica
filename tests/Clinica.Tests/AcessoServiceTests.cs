@@ -228,7 +228,7 @@ public class AcessoServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Hash_legado_com_senha_curta_exige_troca_no_login()
+    public async Task Hash_legado_com_senha_curta_e_atualizado_sem_reativar_troca_no_login()
     {
         const string senha = "segredo123";
         var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
@@ -236,7 +236,8 @@ public class AcessoServiceTests : IDisposable
         await _db.SaveChangesAsync();
 
         (await _acesso.AutenticarAsync("ana", senha)).Sucesso.Should().BeTrue();
-        usuario.DeveTrocarSenha.Should().BeTrue();
+        usuario.SenhaHash.Should().StartWith("pbkdf2-sha256:600000:");
+        usuario.DeveTrocarSenha.Should().BeFalse();
         HashSenha.Confere(senha, usuario.SenhaHash, usuario.SenhaSalt).Should().BeTrue();
     }
 

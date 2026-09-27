@@ -131,8 +131,8 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
         : "Vincule um profissional acima para poder cadastrar o CPF de assinatura.";
     [ObservableProperty] private bool _ativo = true;
     [ObservableProperty] private string _senha = string.Empty;
-    [ObservableProperty] private bool _deveTrocarSenha = true;
-    private bool _deveTrocarSenhaOriginal = true;
+    [ObservableProperty] private bool _deveTrocarSenha;
+    private bool _deveTrocarSenhaOriginal;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _salvando;

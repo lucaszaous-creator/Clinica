@@ -304,10 +304,10 @@ public sealed class AcessoService
 
         if (HashSenha.PrecisaRehash(usuario.SenhaHash))
         {
-            if (senha.Length < HashSenha.TamanhoMinimoSenha)
-                usuario.DeveTrocarSenha = true;
-            else
-                (usuario.SenhaHash, usuario.SenhaSalt) = HashSenha.Gerar(senha);
+            // Login migra hashes antigos sem alterar a política de troca de senha.
+            // O tamanho mínimo continua valendo ao criar ou substituir uma senha, mas
+            // reativar a trava aqui prende contas do portal, que não tem troca própria.
+            (usuario.SenhaHash, usuario.SenhaSalt) = HashSenha.Gerar(senha);
         }
         usuario.TentativasFalhas = 0;
         usuario.BloqueadoAte = null;
