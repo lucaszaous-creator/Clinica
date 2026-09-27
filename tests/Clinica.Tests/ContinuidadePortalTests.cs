@@ -224,6 +224,35 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal("regularizarRegistro",itens[regularizar.Id].GetProperty("acaoPendente").GetString());
     }
 
+    [Fact] public async Task Filtro_da_fila_encontra_assinatura_medica_apos_cinquenta_rascunhos()
+    {
+        await Preparar();
+        for (var i=0;i<51;i++) db.PrescricoesInternas.Add(new PrescricaoInterna {
+            PacienteId=horario.PacienteId,ProfissionalId=horario.ProfissionalId,Data=svc.Hoje.AddDays(-1),
+            Numero=$"FICTICIA-{i:D3}",CodigoVerificacao=$"FICTICIA-{i:D3}",Situacao=SituacaoPrescricao.Rascunho,
+            Itens=[new ItemPrescricaoInterna {Descricao="Item fictício",Ordem=1,Via=ViaAdministracao.Endovenosa}]
+        });
+        await db.SaveChangesAsync();
+        var assinar=await Folha(SituacaoPrescricao.Encerrada);
+        assinar.OrigemEnfermagem=true;
+        assinar.Assinaturas.Add(new() {Papel=PapelAssinatura.Executante,
+            Arquivo=new ArquivoAssinado {Conteudo=[1],NomeArquivo="execucao.pdf"},
+            ArquivoRegistro=new ArquivoAssinado {Conteudo=[2],NomeArquivo="registro.pdf"}});
+        await db.SaveChangesAsync();
+
+        var geral=Json(await Posto.FilaAsync(sessao,0,default));
+        Assert.Equal(52,geral.GetProperty("total").GetInt32());
+        Assert.Equal(1,geral.GetProperty("resumo").GetProperty("assinaturaMedica").GetInt32());
+        Assert.DoesNotContain(geral.GetProperty("itens").EnumerateArray(),x=>x.GetProperty("id").GetInt32()==assinar.Id);
+
+        var filtrada=Json(await Posto.FilaAsync(sessao,0,default,"assinarMedico"));
+        Assert.Equal(1,filtrada.GetProperty("total").GetInt32());
+        Assert.Equal("assinarMedico",filtrada.GetProperty("etapa").GetString());
+        Assert.Equal(assinar.Id,Assert.Single(filtrada.GetProperty("itens").EnumerateArray()).GetProperty("id").GetInt32());
+        var erro=await Assert.ThrowsAsync<InvalidOperationException>(()=>Posto.FilaAsync(sessao,0,default,"invalida"));
+        Assert.True(ErroFormularioTablet.EhPublico(erro));
+    }
+
     [Fact] public async Task Medico_devolve_folha_assinada_e_enfermagem_recebe_pendencia_de_revisao()
     {
         await Preparar();

@@ -142,13 +142,15 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
         => Escrever(s,paciente,pedido.Idempotencia,pedido,"TabletDocumentoAvulso",Permissao.Prescrever,
             u=>acesso.EmitirConteudoAsync(u,paciente,null,null,pedido,ct),ct);
 
-    public async Task<object> FilaAsync(SessaoTablet s,int pagina,CancellationToken ct)
+    public async Task<object> FilaAsync(SessaoTablet s,int pagina,CancellationToken ct,string? etapa=null)
     {
         var u=await Autorizar(s,ct);
         var podeExecutar=u.Pode(Permissao.ChecarPrescricao);
         var podePrescrever=u.Pode(Permissao.Prescrever);
         if(!podeExecutar&&!podePrescrever)throw new UnauthorizedAccessException("Esta fila exige permissão de enfermagem ou prescrição.");
         if(pagina is <0 or >10000)throw ErroFormularioTablet.Criar("Página inválida.");
+        if(etapa is not null && etapa is not ("revisarDevolucao" or "assinarEnfermagem" or "assinarMedico" or "executar" or "regularizarRegistro" or "revisarRascunho"))
+            throw ErroFormularioTablet.Criar("Etapa da fila inválida.");
         var pendencias=db.PrescricoesInternas.AsNoTracking().Where(p=>p.CanceladaEm==null&&(
                 podeExecutar&&((p.OrigemEnfermagem&&p.RegistradaPorUsuarioId==u.Id&&p.DevolvidaEm!=null&&p.Retificacao==null)
                     ||(p.OrigemEnfermagem&&p.DevolvidaEm==null&&p.RegistradaPorUsuarioId==u.Id&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
@@ -177,10 +179,25 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
             &&(p.ExigeAssinaturaEletronicaDaExecucao||p.OrigemEnfermagem&&p.AssinadaEm==null)
             &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId==null),ct);
         var rascunhosMedicos=await pendencias.CountAsync(p=>p.Situacao==SituacaoPrescricao.Rascunho,ct);
-        var total=await pendencias.CountAsync(ct);
-        var folhas=await pendencias.Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
+        // Filtrar antes de paginar: os indicadores acima continuam globais, enquanto
+        // cada etapa tem suas próprias páginas e nunca fica escondida por outras ações.
+        var filtradas=etapa switch
+        {
+            "revisarDevolucao" => pendencias.Where(p=>p.DevolvidaEm!=null),
+            "revisarRascunho" => pendencias.Where(p=>p.DevolvidaEm==null&&p.Situacao==SituacaoPrescricao.Rascunho),
+            "executar" => pendencias.Where(p=>p.DevolvidaEm==null&&p.Situacao==SituacaoPrescricao.Assinada),
+            "assinarEnfermagem" => pendencias.Where(p=>p.DevolvidaEm==null&&p.Situacao!=SituacaoPrescricao.Rascunho&&p.Situacao!=SituacaoPrescricao.Assinada
+                &&!p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null)),
+            "regularizarRegistro" => pendencias.Where(p=>p.DevolvidaEm==null&&p.Situacao!=SituacaoPrescricao.Rascunho&&p.Situacao!=SituacaoPrescricao.Assinada
+                &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId==null)),
+            "assinarMedico" => pendencias.Where(p=>p.DevolvidaEm==null&&p.Situacao!=SituacaoPrescricao.Rascunho&&p.Situacao!=SituacaoPrescricao.Assinada
+                &&p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoRegistroId!=null)),
+            _ => pendencias
+        };
+        var total=await filtradas.CountAsync(ct);
+        var folhas=await filtradas.Include(p=>p.Paciente).Include(p=>p.Itens).ThenInclude(i=>i.Checagens).Include(p=>p.Assinaturas)
             .OrderBy(p=>p.Data).ThenBy(p=>p.Id).Skip(pagina*50).Take(51).ToListAsync(ct);
-        return new {Pagina=pagina,Mais=folhas.Count>50,Total=total,
+        return new {Pagina=pagina,Etapa=etapa,Mais=folhas.Count>50,Total=total,
             Resumo=new {ExecucaoEnfermagem=execucaoEnfermagem,AssinaturaEnfermagem=assinaturaEnfermagem,
                 AssinaturaMedica=assinaturaMedica,DevolvidasEnfermagem=devolvidasEnfermagem,
                 RegistroPendente=registroPendente,RascunhosMedicos=rascunhosMedicos},
