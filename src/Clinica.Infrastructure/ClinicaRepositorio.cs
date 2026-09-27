@@ -1028,8 +1028,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (existe is null)
             await _db.Configuracoes.AddAsync(new ConfiguracaoGlobal { Chave = chave, Valor = valor }, ct);
         else
+        {
+            // A coluna Valor também protege credenciais por comparação otimista. Para
+            // configurações comuns, atualize o original rastreado ao valor persistido:
+            // uma tela pode reler JSON atualizado enquanto o mesmo escopo ainda retém
+            // uma entidade antiga (por exemplo, cadastro da clínica e tabela TUSS).
+            if (!EhCredencialGlobal(chave) && _db.Entry(existe).State != EntityState.Added)
+            {
+                var valorPersistido = await _db.Configuracoes.AsNoTracking()
+                    .Where(c => c.Chave == chave)
+                    .Select(c => c.Valor)
+                    .SingleOrDefaultAsync(ct);
+                if (valorPersistido is not null)
+                    _db.Entry(existe).Property(c => c.Valor).OriginalValue = valorPersistido;
+            }
             existe.Valor = valor;
+        }
     }
+
+    private static bool EhCredencialGlobal(string chave)
+        => chave is "SafeIDClientSecret" or "PublicacaoAccessKey" or "PublicacaoSecretKey" or "EmailSmtpSenha";
 
     public async Task SalvarConfiguracaoSeValorIgualAsync(
         string chave, string valorEsperado, string novoValor, CancellationToken ct = default)
