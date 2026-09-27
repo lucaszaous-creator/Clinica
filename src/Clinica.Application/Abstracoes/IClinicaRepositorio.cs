@@ -304,6 +304,10 @@ public interface IClinicaRepositorio
     /// <summary>Valor da configuração global (chave/valor no banco), ou nulo se nunca salva.</summary>
     Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default);
     Task SalvarConfiguracaoAsync(string chave, string valor, CancellationToken ct = default);
+    /// <summary>Atualiza a configuração apenas se ainda contiver o valor lido anteriormente.</summary>
+    Task SalvarConfiguracaoSeValorIgualAsync(string chave, string valorEsperado, string novoValor, CancellationToken ct = default);
+    /// <summary>Grava segredo legado só se a linha atual não estiver protegida; a decisão é atômica no banco.</summary>
+    Task SalvarSegredoSemRebaixarProtecaoAsync(string chave, string valor, CancellationToken ct = default);
 
     /// <summary>Catálogo de convênios (todos, ativos e inativos).</summary>
     Task<IReadOnlyList<ConvenioCadastro>> ConveniosAsync(CancellationToken ct = default);

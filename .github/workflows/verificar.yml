@@ -56,6 +56,9 @@ jobs:
       - name: Conferir a suíte multi-exe (XAML, pack URIs, projetos)
         run: python3 tools/verificar-suite.py
 
+      - name: Testar guardas do atualizador do portal
+        run: python3 -m unittest discover -s deploy/tablet -p 'test_*.py'
+
       - name: Testes
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 

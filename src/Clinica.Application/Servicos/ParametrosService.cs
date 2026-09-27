@@ -83,19 +83,35 @@ public sealed class ParametrosService
         var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
 
         // A migração só ocorre após ativação explícita e coordenada da proteção.
-        await _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
+        await _repo.SalvarConfiguracaoSeValorIgualAsync(
+            nome, valor, protetor.Proteger(nome, valor), ct);
         await _repo.SalvarAsync(ct);
         return valor;
     }
 
-    private Task SalvarSegredoAsync(string nome, string? valor, CancellationToken ct)
+    private async Task SalvarSegredoAsync(string nome, string? valor, CancellationToken ct)
     {
-        if (string.IsNullOrEmpty(valor))
-            return _repo.SalvarConfiguracaoAsync(nome, string.Empty, ct);
         if (!ProtecaoAtiva)
-            return _repo.SalvarConfiguracaoAsync(nome, valor, ct);
+        {
+            await _repo.SalvarSegredoSemRebaixarProtecaoAsync(nome, valor ?? string.Empty, ct);
+            return;
+        }
+
         var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
-        return _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
+        if (string.IsNullOrEmpty(valor))
+        {
+            var atual = await _repo.ObterConfiguracaoAsync(nome, ct);
+            if (atual?.StartsWith("enc:", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                if (!ProtecaoSegredoGlobal.EstaProtegido(atual))
+                    throw new InvalidOperationException("Formato desconhecido de credencial protegida.");
+                _ = protetor.Revelar(nome, atual);
+            }
+            await _repo.SalvarConfiguracaoAsync(nome, string.Empty, ct);
+            return;
+        }
+
+        await _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
     }
 
     private bool ProtecaoAtiva => _protecao is not null || ProtecaoSegredoGlobal.HabilitadaNoAmbiente;

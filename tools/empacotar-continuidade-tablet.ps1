@@ -18,6 +18,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar API.' }
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar interface.' }
 Copy-Item -LiteralPath (Join-Path $sitePortal 'artifacts/portal-release') -Destination (Join-Path $saidaPortal 'portal') -Recurse
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/atualizar-posto.py') -Destination $saidaPortal
+Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/regras_publicacao.py') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/migracao-infusao.sql') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'docs/continuidade-portal.md') -Destination $saidaPortal
 $hashesPortal = [ordered]@{}

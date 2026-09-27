@@ -3,14 +3,25 @@
 Uso: python3 atualizar-posto.py hml|producao pacote.tar.gz sha256 release-anterior [--pular-hml motivo]
 Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita registrada.
 """
-import hashlib, json, os, pathlib, pwd, re, shutil, subprocess, sys, tarfile, time
+import hashlib, json, os, pathlib, pwd, re, shutil, stat, subprocess, sys, tarfile, time
+from regras_publicacao import (
+    incluir_flag_false_se_ausente,
+    verificar_criptografia_desativada,
+    verificar_flag_desativada_no_processo,
+)
+
+# Python -O remove todos os assert usados como guardas neste atualizador. Não
+# executar uma troca de produção com validações compiladas fora.
+if not __debug__:
+    raise RuntimeError('Atualizador não pode ser executado com python -O ou PYTHONOPTIMIZE.')
 
 assert os.geteuid() == 0 and len(sys.argv) in (5, 7)
 ambiente, arquivo, sha, anterior = sys.argv[1:5]
 pular_hml = len(sys.argv) == 7 and sys.argv[5] == '--pular-hml' and bool(sys.argv[6].strip())
 motivo_dispensa_hml = sys.argv[6].strip() if pular_hml else None
 assert len(sys.argv) == 5 or (ambiente == 'producao' and pular_hml)
-assert motivo_dispensa_hml is None or (len(motivo_dispensa_hml) <= 240 and not any(ord(c) < 32 for c in motivo_dispensa_hml))
+if motivo_dispensa_hml is not None and (len(motivo_dispensa_hml) > 240 or any(ord(c) < 32 for c in motivo_dispensa_hml)):
+    raise ValueError('O motivo da dispensa deve ter até 240 caracteres e não pode conter controles.')
 assert ambiente in ('hml', 'producao') and re.fullmatch('[a-f0-9]{64}', sha)
 assert re.fullmatch('[a-zA-Z0-9._-]+', anterior)
 servico = 'clinica-posto-hml' if ambiente == 'hml' else 'clinica-tablet'
@@ -23,14 +34,39 @@ pacote = pathlib.Path(arquivo).resolve()
 assert pacote.is_relative_to(stage) and hashlib.sha256(pacote.read_bytes()).hexdigest() == sha
 assert (base / 'current').resolve() == base / 'releases' / anterior
 config = (conf / 'portal.env').read_bytes()
+config_publicacao = config
 assert f'Database={database};' in config.decode()
 assert f'/opt/{servico}/current/portal' in config.decode()
 backup = pathlib.Path('/var/backups') / f'{servico}-continuidade-{time.strftime("%Y%m%d-%H%M%S")}'
 backup.mkdir(mode=0o700)
 
 def privado(path, value):
-    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as f:
-        f.write(value)
+    descritor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    identidade = os.fstat(descritor)
+    try:
+        with os.fdopen(descritor, 'w') as f:
+            f.write(value)
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception:
+        try:
+            atual = os.lstat(path)
+            if (atual.st_dev, atual.st_ino) == (identidade.st_dev, identidade.st_ino):
+                path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+    return identidade.st_dev, identidade.st_ino
+
+def remover_se_igual(path, identidade):
+    if identidade is None:
+        return
+    try:
+        atual = os.lstat(path)
+    except FileNotFoundError:
+        return
+    if (atual.st_dev, atual.st_ino) == identidade:
+        path.unlink()
 
 def run(args, **kwargs):
     r = subprocess.run(args, capture_output=True, text=True, **kwargs)
@@ -43,22 +79,57 @@ def run(args, **kwargs):
 def sql(query):
     return run(['runuser','-u','postgres','--','psql','-p','45432','-d',database,'-XAt','-v','ON_ERROR_STOP=1'],input=query)
 
+def status(s):
+    return run(['systemctl','show',s,'-p','MainPID','--value'])
+
+consulta_credenciais_cifradas='''SELECT count(*) FROM "Configuracoes"
+    WHERE "Chave" IN ('SafeIDClientSecret','PublicacaoAccessKey','PublicacaoSecretKey','EmailSmtpSenha')
+    AND "Valor" LIKE 'enc:%' '''
+
+def verificar_sem_credenciais_cifradas():
+    if sql(consulta_credenciais_cifradas)!='0':
+        raise RuntimeError('A base contém credenciais protegidas; dispensa recusada sem exibir valores.')
+
 if ambiente=='producao' and pular_hml:
+    # Registrar a tentativa antes de qualquer consulta de elegibilidade, migration,
+    # grant, troca de symlink ou reinício. O diretório/arquivo são privados.
+    ator=os.environ.get('SUDO_USER') or pwd.getpwuid(os.getuid()).pw_name
+    tentativa={'ambiente':ambiente,'status':'iniciada','sha256':sha,'anterior':anterior,
+        'motivo_dispensa_hml':motivo_dispensa_hml,'ator_unix':ator,
+        'registrada_em':time.strftime('%Y-%m-%dT%H:%M:%S%z')}
+    privado(backup/'dispensa-hml-tentativa.json',json.dumps(tentativa,ensure_ascii=False,indent=2))
+
+    # O EnvironmentFile do serviço vem depois do ambiente global do systemd. Validamos
+    # em memória o false explícito; só gravamos no portal.env após backup e pré-voo.
+    config_publicacao=incluir_flag_false_se_ausente(config)
+
     # Esta via de publicação mantém credenciais no formato legado para não exigir
-    # chave ou atualização de desktops. Recusar se a base já contiver valor cifrado.
-    ativacao=re.search(rb'(?mi)^\s*CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA\s*=\s*([^\r\n]+)',config)
-    assert not ativacao or ativacao.group(1).strip().strip(b'"').lower()!='true',\
-        'A cifra de credenciais está ativada; a publicação sem chave não é compatível'
-    cifradas=sql('''SELECT count(*) FROM "Configuracoes"
-        WHERE "Chave" IN ('SafeIDClientSecret','PublicacaoAccessKey','PublicacaoSecretKey','EmailSmtpSenha')
-        AND "Valor" LIKE 'enc:%' ''')
-    assert cifradas=='0','Base possui credencial cifrada; a publicação sem chave não é compatível'
+    # chave ou atualização de desktops. Examinar todas as fontes da unidade systemd
+    # evita divergências de aspas, valores duplicados e arquivos de override.
+    unidade=subprocess.run(['systemctl','cat',servico],capture_output=True,text=True)
+    if unidade.returncode:
+        raise RuntimeError('Não foi possível verificar a configuração efetiva do serviço.')
+    if run(['systemctl','show',servico,'-p','NeedDaemonReload','--value']).lower()!='no':
+        raise RuntimeError('A unidade systemd foi alterada sem daemon-reload; dispensa recusada.')
+    if run(['systemctl','is-active',servico])!='active':
+        raise RuntimeError('O serviço de produção precisa estar ativo para validar o processo atual.')
+    pid_atual=status(servico)
+    if not pid_atual.isdigit() or int(pid_atual)<=1:
+        raise RuntimeError('Não foi possível validar o processo atual do serviço de produção.')
+    try:
+        verificar_flag_desativada_no_processo(
+            (pathlib.Path('/proc')/pid_atual/'environ').read_bytes())
+    except (OSError,ValueError) as erro:
+        raise RuntimeError('O processo atual não comprova a cifra desativada; dispensa recusada.') from erro
+    try:
+        verificar_criptografia_desativada(
+            conf/'portal.env', unidade.stdout, config_publicacao.decode('utf-8'))
+    except (OSError,UnicodeError,ValueError) as erro:
+        raise RuntimeError('A cifra de credenciais não está comprovadamente desativada; dispensa recusada.') from erro
+    verificar_sem_credenciais_cifradas()
 
 def ident(n):
     return '"' + n.replace('"','""') + '"'
-
-def status(s):
-    return run(['systemctl','show',s,'-p','MainPID','--value'])
 
 def http(path):
     return run(['curl','--silent','--show-error','--max-time','4','--unix-socket',f'/run/{servico}/portal.sock',
@@ -71,6 +142,39 @@ def saude():
         if r.returncode==0:return True
         time.sleep(1)
     return False
+
+def substituir_portal_env(esperado,novo):
+    caminho=conf/'portal.env'
+    estado=os.lstat(caminho)
+    if not stat.S_ISREG(estado.st_mode) or estado.st_uid!=0 or caminho.read_bytes()!=esperado:
+        raise RuntimeError('portal.env mudou desde o pré-voo; não será sobrescrito.')
+    temporario=conf/('.portal.env-publicacao-'+str(time.time_ns()))
+    flags=os.O_WRONLY|os.O_CREAT|os.O_EXCL
+    if hasattr(os,'O_NOFOLLOW'):flags|=os.O_NOFOLLOW
+    descritor=os.open(temporario,flags,0o600)
+    try:
+        os.fchown(descritor,estado.st_uid,estado.st_gid)
+        os.fchmod(descritor,0o600)
+        with os.fdopen(descritor,'wb',closefd=False) as f:
+            f.write(novo);f.flush();os.fsync(f.fileno())
+        os.fchmod(descritor,stat.S_IMODE(estado.st_mode))
+        os.fsync(descritor)
+    except Exception:
+        temporario.unlink(missing_ok=True)
+        raise
+    finally:
+        os.close(descritor)
+    try:
+        os.replace(temporario,caminho)
+    except Exception:
+        temporario.unlink(missing_ok=True)
+        raise
+    portal_env_estado['alterado']=True
+    pasta_fd=os.open(conf,os.O_RDONLY|getattr(os,'O_DIRECTORY',0))
+    try:
+        try:os.fsync(pasta_fd)
+        except OSError:pass
+    finally:os.close(pasta_fd)
 
 assert sql(f"SELECT count(*) FROM pg_roles WHERE rolname='{role}' AND NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)") == '1'
 assert sql(f"SELECT count(*) FROM pg_class WHERE relnamespace='public'::regnamespace AND relowner=(SELECT oid FROM pg_roles WHERE rolname='{role}')") == '0'
@@ -181,7 +285,9 @@ elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
 privado(backup/'permissoes-aplicar.sql','\n'.join(conceder))
 privado(backup/'permissoes-recuar.sql','\n'.join(revogar))
 privado(backup/'release-anterior.txt',anterior)
+portal_env_estado={'alterado':False}
 aplicado=False;mudou=False
+relatorio_identidade=None
 try:
     if migracao:
         # Migration aditiva e idempotente. O recuo preserva as colunas e todos os registros.
@@ -190,6 +296,10 @@ try:
         sql("SET lock_timeout='5s'; SET statement_timeout='60s';\n"+schema)
         assert sql(f'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId"=\'{migracao}\'')=='1'
     sql('BEGIN;\n'+'\n'.join(conceder)+'\nCOMMIT;');aplicado=True
+    if pular_hml:
+        verificar_sem_credenciais_cifradas()
+    if config_publicacao!=config:
+        substituir_portal_env(config,config_publicacao)
     link=base/'current-novo'
     assert not link.exists() and not link.is_symlink()
     link.symlink_to(release);os.replace(link,base/'current');mudou=True
@@ -197,19 +307,40 @@ try:
     assert http('/api/posto/pendencias').endswith('\n401')
     assert http('/api/posto/modelos-documento').endswith('\n401')
     pagina=http('/profissional/');assert pagina.endswith('\n200') and 'nav-pendencias' in pagina
-    assert (conf/'portal.env').read_bytes()==config
+    pid=status(servico)
+    assert pid.isdigit() and int(pid)>1
+    if pular_hml:
+        verificar_flag_desativada_no_processo((pathlib.Path('/proc')/pid/'environ').read_bytes())
+        verificar_sem_credenciais_cifradas()
+    assert (conf/'portal.env').read_bytes()==config_publicacao
     assert {s:status(s) for s in protegidos}==antes
     relatorio={'ambiente':ambiente,'sha256':sha,'release':str(release),'anterior':anterior,'backup':str(backup),
         'saudavel':True,'servicos_preservados':True,'migracao_nova':migracao,'concessoes':len(conceder),
         'hml_ignorada':pular_hml,'motivo_dispensa_hml':motivo_dispensa_hml}
     destino=stage/(nome+('-hml.json' if ambiente=='hml' else '-producao.json'))
-    privado(destino,json.dumps(relatorio,ensure_ascii=False,indent=2))
+    relatorio_identidade=privado(destino,json.dumps(relatorio,ensure_ascii=False,indent=2))
     usuario=pwd.getpwnam('clinica-admin');os.chown(destino,usuario.pw_uid,usuario.pw_gid)
     print('Atualização saudável. Relatório: '+str(destino))
-except Exception:
+except Exception as causa:
+    erros_recuo=[]
+    if relatorio_identidade is not None:
+        try:remover_se_igual(destino,relatorio_identidade)
+        except Exception as erro:erros_recuo.append(erro)
     if mudou:
-        link=base/'current-recuo';assert not link.exists() and not link.is_symlink()
-        link.symlink_to(base/'releases'/anterior);os.replace(link,base/'current')
-    if aplicado:sql('BEGIN;\n'+'\n'.join(revogar)+'\nCOMMIT;')
-    if mudou:run(['systemctl','restart',servico]);assert saude()
+        try:
+            link=base/'current-recuo';assert not link.exists() and not link.is_symlink()
+            link.symlink_to(base/'releases'/anterior);os.replace(link,base/'current')
+        except Exception as erro:erros_recuo.append(erro)
+    if aplicado:
+        try:sql('BEGIN;\n'+'\n'.join(revogar)+'\nCOMMIT;')
+        except Exception as erro:erros_recuo.append(erro)
+    if portal_env_estado['alterado']:
+        try:substituir_portal_env(config_publicacao,config)
+        except Exception as erro:erros_recuo.append(erro)
+    if mudou:
+        try:
+            run(['systemctl','restart',servico]);assert saude()
+        except Exception as erro:erros_recuo.append(erro)
+    if erros_recuo:
+        raise RuntimeError(f'Publicação falhou e o recuo teve {len(erros_recuo)} erro(s); conferir backup privado {backup}.') from causa
     raise

@@ -119,6 +119,122 @@ public class ParametrosServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Credencial_cifrada_nao_pode_ser_rebaixada_sem_a_chave()
+    {
+        var habilitacaoAnterior = Environment.GetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao);
+        try
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
+            var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
+                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-original");
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+            await _repo.SalvarAsync();
+
+            var gravar = () => _parametros.SalvarCredenciaisSafeIDAsync("id", "novo-segredo", "producao");
+            await gravar.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*credencial protegida*");
+
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+                .Should().Be(protegida);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, habilitacaoAnterior);
+        }
+    }
+
+    [Fact]
+    public async Task Credencial_cifrada_nao_pode_ser_apagada_sem_a_chave_mesmo_com_flag_ativa()
+    {
+        var habilitacaoAnterior = Environment.GetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao);
+        var chaveAnterior = Environment.GetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelChave);
+        try
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
+            var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
+                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-original");
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+            await _repo.SalvarAsync();
+
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, "true");
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelChave, null);
+            Func<Task> limpar = () => _parametros.SalvarCredenciaisSafeIDAsync("id", "", "producao");
+            await limpar.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*chave de proteção*");
+
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+                .Should().Be(protegida);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, habilitacaoAnterior);
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelChave, chaveAnterior);
+        }
+    }
+
+    [Fact]
+    public async Task Credencial_cifrada_por_outra_conexao_nao_e_sobrescrita_por_gravacao_obsoleta()
+    {
+        var habilitacaoAnterior = Environment.GetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao);
+        try
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");
+            await _repo.SalvarAsync();
+
+            // A primeira conexão prepara a edição em texto legado, mas ainda não a salva.
+            await _repo.SalvarSegredoSemRebaixarProtecaoAsync(
+                ParametrosService.ChaveSafeIDClientSecret, "segredo-editado-sem-chave");
+
+            // Outra conexão protege a mesma credencial antes do SaveChanges da primeira.
+            using var outroDb = new ClinicaDbContext(
+                new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options);
+            var outroRepo = new ClinicaRepositorio(outroDb);
+            var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
+                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-protegido");
+            await outroRepo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+            await outroRepo.SalvarAsync();
+
+            Func<Task> salvar = () => _repo.SalvarAsync();
+            var conflito = await salvar.Should().ThrowAsync<InvalidOperationException>();
+            conflito.Which.InnerException.Should().BeOfType<DbUpdateConcurrencyException>();
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+                .Should().Be(protegida);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, habilitacaoAnterior);
+        }
+    }
+
+    [Fact]
+    public async Task Migracao_de_credencial_nao_sobrescreve_valor_alterado_apos_leitura()
+    {
+        const string chave = ParametrosService.ChaveSafeIDClientSecret;
+        await _repo.SalvarConfiguracaoAsync(chave, "credencial-lida");
+        await _repo.SalvarAsync();
+        var valorLido = await _repo.ObterConfiguracaoAsync(chave);
+
+        using var outroDb = new ClinicaDbContext(
+            new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options);
+        var outroRepo = new ClinicaRepositorio(outroDb);
+        await outroRepo.SalvarConfiguracaoAsync(chave, "credencial-nova");
+        await outroRepo.SalvarAsync();
+
+        var cifradaAntiga = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
+            .Proteger(chave, valorLido!);
+        async Task MigrarAsync()
+        {
+            await _repo.SalvarConfiguracaoSeValorIgualAsync(chave, valorLido!, cifradaAntiga);
+            await _repo.SalvarAsync();
+        }
+        Func<Task> migrar = MigrarAsync;
+        await migrar.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Outro computador alterou*");
+        (await _repo.ObterConfiguracaoAsync(chave)).Should().Be("credencial-nova");
+    }
+
+    [Fact]
     public async Task Credencial_antiga_e_migrada_na_primeira_leitura()
     {
         await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");
