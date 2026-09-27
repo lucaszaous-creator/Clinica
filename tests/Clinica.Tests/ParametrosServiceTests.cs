@@ -77,6 +77,50 @@ public class ParametrosServiceTests : IDisposable
         (await _parametros.ObterTelaDoPacienteAsync()).Should().BeNull();
     }
 
+    [Fact]
+    public async Task Credenciais_de_integracao_ficam_cifradas_e_sao_lidas_com_a_chave()
+    {
+        var chave = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]));
+        var servico = new ParametrosService(_repo, chave);
+        await servico.SalvarCredenciaisSafeIDAsync("id", "segredo-safeid", "producao");
+        await servico.SalvarCredenciaisArmazenamentoAsync("https://objetos.example.com", "regiao",
+            "bucket", "chave-s3", "segredo-s3");
+        await servico.SalvarCamposEmailAsync(new CamposEmail("smtp.example.com", "587",
+            "usuario", "senha-smtp", "remetente@example.com", "Clínica", true));
+
+        foreach (var nome in new[] { ParametrosService.ChaveSafeIDClientSecret,
+                     ParametrosService.ChaveArmazenamentoChave,
+                     ParametrosService.ChaveArmazenamentoSegredo,
+                     ParametrosService.ChaveEmailSmtpSenha })
+            (await _repo.ObterConfiguracaoAsync(nome)).Should().StartWith("enc:v1:");
+
+        (await servico.ObterCredenciaisSafeIDAsync()).ClientSecret.Should().Be("segredo-safeid");
+        (await servico.ObterCredenciaisArmazenamentoAsync()).Segredo.Should().Be("segredo-s3");
+        (await servico.ObterCamposEmailAsync()).Senha.Should().Be("senha-smtp");
+    }
+
+    [Fact]
+    public async Task Credencial_antiga_e_migrada_na_primeira_leitura()
+    {
+        await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");
+        await _repo.SalvarAsync();
+        var servico = new ParametrosService(_repo,
+            new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
+
+        (await servico.ObterCredenciaisSafeIDAsync()).ClientSecret.Should().Be("legado");
+        (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+            .Should().StartWith("enc:v1:");
+    }
+
+    [Fact]
+    public void Credencial_nao_pode_ser_movida_para_outro_campo()
+    {
+        var protetor = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]));
+        var cifrado = protetor.Proteger("CampoA", "segredo");
+        Action lerCampoErrado = () => protetor.Revelar("CampoB", cifrado);
+        lerCampoErrado.Should().Throw<InvalidOperationException>();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

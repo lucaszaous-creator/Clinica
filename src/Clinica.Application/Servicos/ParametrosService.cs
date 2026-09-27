@@ -62,8 +62,36 @@ public sealed class ParametrosSnapshot
 public sealed class ParametrosService
 {
     private readonly IClinicaRepositorio _repo;
+    private readonly ProtecaoSegredoGlobal? _protecao;
 
-    public ParametrosService(IClinicaRepositorio repo) => _repo = repo;
+    public ParametrosService(IClinicaRepositorio repo, ProtecaoSegredoGlobal? protecao = null)
+    {
+        _repo = repo;
+        _protecao = protecao;
+    }
+
+    private async Task<string?> ObterSegredoAsync(string nome, CancellationToken ct)
+    {
+        var valor = await _repo.ObterConfiguracaoAsync(nome, ct);
+        if (string.IsNullOrEmpty(valor)) return valor;
+        var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
+        if (ProtecaoSegredoGlobal.EstaProtegido(valor)) return protetor.Revelar(nome, valor);
+        if (valor.StartsWith("enc:", StringComparison.Ordinal))
+            throw new InvalidOperationException("Formato desconhecido de credencial protegida.");
+
+        // Migração gradual: a leitura de um valor antigo o cifra antes de devolvê-lo.
+        await _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
+        await _repo.SalvarAsync(ct);
+        return valor;
+    }
+
+    private Task SalvarSegredoAsync(string nome, string? valor, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(valor))
+            return _repo.SalvarConfiguracaoAsync(nome, string.Empty, ct);
+        var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
+        return _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
+    }
 
     /// <summary>Snapshot com os valores efetivos: defaults do código + overrides salvos.</summary>
     public async Task<ParametrosSnapshot> ObterAsync(CancellationToken ct = default)
@@ -316,8 +344,8 @@ public sealed class ParametrosService
         => (await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoEndpoint, ct),
             await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoRegiao, ct),
             await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoBucket, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoChave, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoSegredo, ct));
+            await ObterSegredoAsync(ChaveArmazenamentoChave, ct),
+            await ObterSegredoAsync(ChaveArmazenamentoSegredo, ct));
 
     public async Task SalvarCredenciaisArmazenamentoAsync(
         string? endpoint, string? regiao, string? bucket, string? chave, string? segredo,
@@ -326,17 +354,14 @@ public sealed class ParametrosService
         await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoEndpoint, (endpoint ?? string.Empty).Trim(), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoRegiao, (regiao ?? string.Empty).Trim(), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoBucket, (bucket ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoChave, (chave ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoSegredo, (segredo ?? string.Empty).Trim(), ct);
+        await SalvarSegredoAsync(ChaveArmazenamentoChave, (chave ?? string.Empty).Trim(), ct);
+        await SalvarSegredoAsync(ChaveArmazenamentoSegredo, (segredo ?? string.Empty).Trim(), ct);
         await _repo.SalvarAsync(ct);
     }
 
     // ---- Lembretes por e-mail (set/2026) ----
     //
-    // No BANCO, pela regra da parcela 53 (credencial de serviço externo mora no banco): o
-    // lembrete sai da Recepção E do Gerente, e configuração por máquina falharia calada no
-    // posto em que ninguém a digitou. A senha fica em claro como o client_secret do SafeID —
-    // é o problema aberto do segredo-no-backup, separado e conhecido, não uma novidade daqui.
+    // A configuração é compartilhada no banco; a senha é cifrada antes de ser gravada.
 
     public const string ChaveEmailSmtpHost = "EmailSmtpHost";
     public const string ChaveEmailSmtpPorta = "EmailSmtpPorta";
@@ -358,7 +383,7 @@ public sealed class ParametrosService
             await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpHost, ct),
             await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpPorta, ct),
             await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpUsuario, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveEmailSmtpSenha, ct),
+            await ObterSegredoAsync(ChaveEmailSmtpSenha, ct),
             await _repo.ObterConfiguracaoAsync(ChaveEmailRemetente, ct),
             await _repo.ObterConfiguracaoAsync(ChaveEmailRemetenteNome, ct),
             UsarTls: !string.Equals(tls, "false", StringComparison.OrdinalIgnoreCase));
@@ -378,7 +403,7 @@ public sealed class ParametrosService
         await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpPorta, (campos.Porta ?? string.Empty).Trim(), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpUsuario, (campos.Usuario ?? string.Empty).Trim(), ct);
         // A senha NÃO passa por Trim: espaço no fim de uma senha é parte dela.
-        await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpSenha, campos.Senha ?? string.Empty, ct);
+        await SalvarSegredoAsync(ChaveEmailSmtpSenha, campos.Senha, ct);
         await _repo.SalvarConfiguracaoAsync(ChaveEmailRemetente, (campos.Remetente ?? string.Empty).Trim(), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveEmailRemetenteNome, (campos.NomeRemetente ?? string.Empty).Trim(), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveEmailSmtpTls, campos.UsarTls ? "true" : "false", ct);
@@ -607,23 +632,21 @@ public sealed class ParametrosService
     /// As credenciais da APLICAÇÃO no PSC, cadastradas uma vez pela direção e lidas por
     /// todas as máquinas.
     ///
-    /// Por que no banco, e não numa variável de ambiente por máquina
+    /// Por que há uma linha de configuração compartilhada no banco
     /// -------------------------------------------------------------
-    /// Porque senão instalar o sistema numa máquina nova passaria por abrir o Prompt de
-    /// Comando e digitar quatro <c>setx</c> — e uma clínica não faz isso. Configuração que
-    /// depende de ritual de instalação é configuração que um dia falta, e o sintoma seria a
-    /// médica sem conseguir assinar num consultório específico, sem ninguém saber por quê.
+    /// A configuração precisa chegar a todas as máquinas. O segredo é cifrado com uma chave
+    /// de instalação separada do banco; cada posto que o usa precisa ter essa chave.
     ///
     /// O <c>client_secret</c> identifica a APLICAÇÃO, não a titular: sozinho ele não assina
     /// nada. Para assinar é preciso, ainda, a médica aprovar no celular (ou o PIN dela) e o
     /// CPF de dentro do certificado bater com o do cadastro — as duas barreiras que
-    /// <c>TitularDoCertificado.Exigir</c> guarda. É por isso que ele pode morar aqui, ao
-    /// lado da URL da ACT, e a connection string não pode: aquela É a chave de tudo.
+    /// <c>TitularDoCertificado.Exigir</c> guarda. Ainda assim, o segredo não fica em claro
+    /// na tabela nem nos backups do banco.
     /// </summary>
     public async Task<(string? ClientId, string? ClientSecret, string? Ambiente)>
         ObterCredenciaisSafeIDAsync(CancellationToken ct = default)
         => (await _repo.ObterConfiguracaoAsync(ChaveSafeIDClientId, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveSafeIDClientSecret, ct),
+            await ObterSegredoAsync(ChaveSafeIDClientSecret, ct),
             await _repo.ObterConfiguracaoAsync(ChaveSafeIDAmbiente, ct));
 
     public async Task SalvarCredenciaisSafeIDAsync(
@@ -631,7 +654,7 @@ public sealed class ParametrosService
         CancellationToken ct = default)
     {
         await _repo.SalvarConfiguracaoAsync(ChaveSafeIDClientId, (clientId ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSafeIDClientSecret, (clientSecret ?? string.Empty).Trim(), ct);
+        await SalvarSegredoAsync(ChaveSafeIDClientSecret, (clientSecret ?? string.Empty).Trim(), ct);
         await _repo.SalvarConfiguracaoAsync(ChaveSafeIDAmbiente, (ambiente ?? string.Empty).Trim(), ct);
         await _repo.SalvarAsync(ct);
     }

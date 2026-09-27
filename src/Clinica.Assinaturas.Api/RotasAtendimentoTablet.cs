@@ -15,6 +15,11 @@ internal static class RotasAtendimentoTablet
     internal static void Mapear(WebApplication app, Func<HttpContext, PortalTabletService, Task<SessaoTablet>> sessao)
     {
         var grupo = app.MapGroup("/api/clinico");
+        grupo.MapPost("/atividade", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc) =>
+        {
+            await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario,renovarAtividade:true);
+            return Results.NoContent();
+        });
         grupo.MapGet("/acesso",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc,ClinicaDbContext db)=>
         {var u=await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);
             var catalogo=await db.Especialidades.AsNoTracking()

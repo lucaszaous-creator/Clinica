@@ -12,8 +12,15 @@ namespace Clinica.Application.Servicos;
 public sealed class ProvedorOpcoesArmazenamento
 {
     private readonly ParametrosService _parametros;
+    private readonly OpcoesArmazenamento? _opcoesTeste;
 
     public ProvedorOpcoesArmazenamento(ParametrosService parametros) => _parametros = parametros;
+
+    internal ProvedorOpcoesArmazenamento(ParametrosService parametros, OpcoesArmazenamento opcoesTeste)
+    {
+        _parametros = parametros;
+        _opcoesTeste = opcoesTeste;
+    }
 
     /// <summary>
     /// As opções em vigor, ou <c>null</c> quando a clínica ainda não contratou armazenamento.
@@ -23,6 +30,7 @@ public sealed class ProvedorOpcoesArmazenamento
     /// </summary>
     public async Task<OpcoesArmazenamento?> ObterAsync(CancellationToken ct = default)
     {
+        if (_opcoesTeste is not null) return _opcoesTeste;
         if (OpcoesArmazenamento.DoAmbiente() is { } doAmbiente) return doAmbiente;
 
         var (endpoint, regiao, bucket, chave, segredo) =

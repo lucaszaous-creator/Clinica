@@ -120,7 +120,8 @@ public class ArmazenamentoS3Tests : IDisposable
         var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
         _db = new ClinicaDbContext(options);
         _db.Database.EnsureCreated();
-        _parametros = new ParametrosService(new ClinicaRepositorio(_db));
+        _parametros = new ParametrosService(new ClinicaRepositorio(_db),
+            new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
     }
 
     private async Task<ArmazenamentoS3> ConfiguradoAsync()
@@ -134,7 +135,11 @@ public class ArmazenamentoS3Tests : IDisposable
         await _parametros.SalvarCredenciaisArmazenamentoAsync(
             _servidor.Url, Regiao, Bucket, "a-chave", "o-segredo");
 
-        return new ArmazenamentoS3(new ProvedorOpcoesArmazenamento(_parametros));
+        // O servidor falso usa HTTP loopback. Só este teste injeta opções diretamente;
+        // configuração de produção passa sempre pela validação HTTPS do provedor.
+        var opcoesTeste = new OpcoesArmazenamento(_servidor.Url, Regiao, Bucket,
+            "a-chave", "o-segredo");
+        return new ArmazenamentoS3(new ProvedorOpcoesArmazenamento(_parametros, opcoesTeste));
     }
 
     private RequisicaoS3 Unica(string metodo)

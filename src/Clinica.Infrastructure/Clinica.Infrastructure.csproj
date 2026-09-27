@@ -11,7 +11,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+    <!-- SQLite serve apenas à demonstração e aos testes locais; não vai nos executáveis publicados. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" Condition="'$(Configuration)' != 'Release'" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
     <!-- AddHttpClient: o cliente do SafeID precisa de fábrica, não de `new HttpClient()` por
          chamada (esgotamento de portas). -->

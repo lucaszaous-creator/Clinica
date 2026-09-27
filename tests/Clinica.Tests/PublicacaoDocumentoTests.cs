@@ -419,6 +419,17 @@ public class PublicacaoDocumentoTests : IDisposable
         => OpcoesArmazenamento.De("br-se1.magaluobjects.com", null, "b", "c", "s")
             .Should().BeNull("sem esquema o SDK erra com uma mensagem que não fala desta tela");
 
+    [Theory]
+    [InlineData("http://objetos.example.com")]
+    [InlineData("http://127.0.0.1")]
+    [InlineData("https://127.0.0.1")]
+    [InlineData("https://servidor.local")]
+    [InlineData("https://objetos.example.com:8443")]
+    [InlineData("https://usuario@objetos.example.com")]
+    [InlineData("https://objetos.example.com/caminho")]
+    public void Endpoint_inseguro_de_armazenamento_e_recusado(string endpoint)
+        => OpcoesArmazenamento.De(endpoint, null, "b", "c", "s").Should().BeNull();
+
     [Fact]
     public void Sem_regiao_informada_cai_no_padrao_que_os_provedores_aceitam()
         => OpcoesArmazenamento.De("https://br-se1.magaluobjects.com", null, "b", "c", "s")!

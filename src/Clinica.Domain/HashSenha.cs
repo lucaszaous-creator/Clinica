@@ -14,23 +14,25 @@ namespace Clinica.Domain;
 /// </summary>
 public static class HashSenha
 {
-    /// <summary>Iterações do PBKDF2. Subir o número é seguro: o valor não vai no hash gravado.</summary>
-    public const int Iteracoes = 210_000;
+    /// <summary>O custo novo acompanha o hash; os hashes antigos continuam verificáveis.</summary>
+    public const int Iteracoes = 600_000;
+    private const int IteracoesLegadas = 210_000;
+    private const string PrefixoAtual = "pbkdf2-sha256:600000:";
 
     private const int TamanhoSal = 16;   // 128 bits
     private const int TamanhoHash = 32;  // 256 bits
 
     /// <summary>Tamanho mínimo aceito — abaixo disso, iteração nenhuma salva a senha.</summary>
-    public const int TamanhoMinimoSenha = 6;
+    public const int TamanhoMinimoSenha = 15;
 
-    /// <summary>Gera hash e sal (ambos em Base64) para uma senha nova.</summary>
+    /// <summary>Gera hash versionado e sal em Base64 para uma senha nova.</summary>
     public static (string Hash, string Sal) Gerar(string senha)
     {
         ArgumentNullException.ThrowIfNull(senha);
 
         var sal = RandomNumberGenerator.GetBytes(TamanhoSal);
         var hash = Derivar(senha, sal);
-        return (Convert.ToBase64String(hash), Convert.ToBase64String(sal));
+        return (PrefixoAtual + Convert.ToBase64String(hash), Convert.ToBase64String(sal));
     }
 
     /// <summary>
@@ -43,11 +45,14 @@ public static class HashSenha
         if (string.IsNullOrEmpty(senha) || string.IsNullOrEmpty(hash) || string.IsNullOrEmpty(sal))
             return false;
 
+        var atual = hash.StartsWith(PrefixoAtual, StringComparison.Ordinal);
+        if (!atual && hash.Contains(':')) return false;
+        var valorHash = atual ? hash[PrefixoAtual.Length..] : hash;
         byte[] esperado;
         byte[] bytesSal;
         try
         {
-            esperado = Convert.FromBase64String(hash);
+            esperado = Convert.FromBase64String(valorHash);
             bytesSal = Convert.FromBase64String(sal);
         }
         catch (FormatException)
@@ -55,11 +60,14 @@ public static class HashSenha
             return false;
         }
 
-        if (esperado.Length != TamanhoHash || bytesSal.Length == 0) return false;
+        if (esperado.Length != TamanhoHash || bytesSal.Length != TamanhoSal) return false;
 
-        var calculado = Derivar(senha, bytesSal);
+        var calculado = Derivar(senha, bytesSal, atual ? Iteracoes : IteracoesLegadas);
         return CryptographicOperations.FixedTimeEquals(calculado, esperado);
     }
+
+    public static bool PrecisaRehash(string? hash)
+        => hash is not null && !hash.StartsWith(PrefixoAtual, StringComparison.Ordinal);
 
     /// <summary>
     /// Critica a senha escolhida. Devolve null quando serve, ou a explicação para a
@@ -76,6 +84,6 @@ public static class HashSenha
         return null;
     }
 
-    private static byte[] Derivar(string senha, byte[] sal)
-        => Rfc2898DeriveBytes.Pbkdf2(senha, sal, Iteracoes, HashAlgorithmName.SHA256, TamanhoHash);
+    private static byte[] Derivar(string senha, byte[] sal, int iteracoes = Iteracoes)
+        => Rfc2898DeriveBytes.Pbkdf2(senha, sal, iteracoes, HashAlgorithmName.SHA256, TamanhoHash);
 }

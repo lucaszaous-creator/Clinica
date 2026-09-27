@@ -1,4 +1,5 @@
 using System.Windows;
+using Clinica.Domain;
 using Clinica.Gerente.ViewModels;
 
 namespace Clinica.Gerente.Janelas;
@@ -23,7 +24,7 @@ public partial class UsuarioWindow : Window
         DataContext = vm;
 
         TxtAjudaSenha.Text = vm.EhNovo
-            ? "Mínimo de 6 caracteres."
+            ? $"Mínimo de {HashSenha.TamanhoMinimoSenha} caracteres."
             : "Deixe em branco para manter a senha atual.";
 
         void AoConcluir()
