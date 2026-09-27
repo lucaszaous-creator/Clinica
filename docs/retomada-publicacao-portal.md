@@ -25,14 +25,14 @@ Registro histórico: a atualização em HML informou estado saudável, mas **nã
 
 Para esta publicação, a proteção de credenciais compartilhadas fica **desativada** pelo padrão compatível. Não distribuir chave nem senha, não alterar os computadores dos operadores e não migrar credenciais para `enc:v1:`. O atualizador verifica que a base não contém credenciais cifradas antes de aceitar essa rota. A proteção poderá ser planejada em outra liberação quando houver acesso às máquinas.
 
-1. **Acesso verificado à VPS:** a aba Locaweb observada mostra administração e dados de conexão, não um console de shell. A chave SSH conhecida divergiu da chave atualmente apresentada pelo host. Não remover a verificação nem aceitar uma chave nova sem conferir o fingerprint por um console root ou canal oficial da Locaweb.
-2. **Pré-voo de produção:** confirmar SHA e conteúdo do pacote, migration esperada, backup restaurável, release anterior e plano de rollback antes de alterar o serviço.
+1. **Console root disponível:** o console da Locaweb foi aberto no navegador e respondeu a comandos simples; `clinica-tablet` informou estado ativo. As tentativas de confirmar o link `current` e o banco não produziram um pré-voo confiável. O caminho `/opt/clinica-tablet/current` não foi encontrado, portanto é necessário identificar a estrutura real antes da atualização. O arquivo `/etc/ssh/ssh_host_ed25519_key.pub` também não foi encontrado; nenhuma chave SSH foi aceita ou alterada.
+2. **Pré-voo de produção pendente:** confirmar o caminho do release, a migration esperada, o estado de credenciais cifradas, SHA e conteúdo do pacote, backup restaurável, release anterior e plano de rollback antes de alterar o serviço.
 
 O atualizador `deploy/tablet/atualizar-posto.py` foi ajustado nesta PR para permitir uma dispensa explícita e auditável de HML via `--pular-hml motivo`. Sem essa opção, a exigência normal de relatórios HML do mesmo pacote continua ativa. O relatório de produção registra que HML foi ignorada e o motivo informado; essa opção não equivale a aceite funcional.
 
 ## Roteiro de publicação direta
 
-1. Acessar a VPS por console root ou SSH com fingerprint confirmado e verificar a configuração de produção sem expor segredos.
+1. Usar o console root já aberto na Locaweb e verificar a configuração de produção sem expor segredos. SSH só deve ser usado se o fingerprint puder ser confirmado por fonte confiável.
 2. Confirmar que `CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA` não está ativa e que a base não possui credenciais `enc:v1:`; o instalador verifica os valores sem exibi-los.
 3. Confirmar o estado da migration no banco, release ativo, SHA-256 e conteúdo do pacote. Se o pacote mudar, repetir o pré-voo para o novo artefato.
 4. Fazer backup privado e confirmar o rollback.
@@ -46,4 +46,4 @@ O fluxo detalhado de criptografia e os requisitos de proxy estão em [implantaca
 
 ## Critério para considerar concluído
 
-Só marcar a publicação como concluída quando o acesso e fingerprint da VPS estiverem verificados, o modo compatível de credenciais estiver confirmado, o backup/rollback estiver confirmado e os smoke tests de produção tiverem passado. A dispensa de HML deve constar no relatório como dispensa, nunca como aprovação.
+Só marcar a publicação como concluída quando o console root permitir confirmar o estado do release e do banco, o modo compatível de credenciais estiver confirmado, o backup/rollback estiver confirmado e os smoke tests de produção tiverem passado. A dispensa de HML deve constar no relatório como dispensa, nunca como aprovação.
