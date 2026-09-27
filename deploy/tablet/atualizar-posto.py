@@ -4,13 +4,20 @@ Uso: python3 atualizar-posto.py hml|producao pacote.tar.gz sha256 release-anteri
 Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita registrada.
 """
 import hashlib, json, os, pathlib, pwd, re, shutil, subprocess, sys, tarfile, time
+from regras_publicacao import verificar_criptografia_desativada
+
+# Python -O remove todos os assert usados como guardas neste atualizador. Não
+# executar uma troca de produção com validações compiladas fora.
+if not __debug__:
+    raise RuntimeError('Atualizador não pode ser executado com python -O ou PYTHONOPTIMIZE.')
 
 assert os.geteuid() == 0 and len(sys.argv) in (5, 7)
 ambiente, arquivo, sha, anterior = sys.argv[1:5]
 pular_hml = len(sys.argv) == 7 and sys.argv[5] == '--pular-hml' and bool(sys.argv[6].strip())
 motivo_dispensa_hml = sys.argv[6].strip() if pular_hml else None
 assert len(sys.argv) == 5 or (ambiente == 'producao' and pular_hml)
-assert motivo_dispensa_hml is None or (len(motivo_dispensa_hml) <= 240 and not any(ord(c) < 32 for c in motivo_dispensa_hml))
+if motivo_dispensa_hml is not None and (len(motivo_dispensa_hml) > 240 or any(ord(c) < 32 for c in motivo_dispensa_hml)):
+    raise ValueError('O motivo da dispensa deve ter até 240 caracteres e não pode conter controles.')
 assert ambiente in ('hml', 'producao') and re.fullmatch('[a-f0-9]{64}', sha)
 assert re.fullmatch('[a-zA-Z0-9._-]+', anterior)
 servico = 'clinica-posto-hml' if ambiente == 'hml' else 'clinica-tablet'
@@ -44,15 +51,29 @@ def sql(query):
     return run(['runuser','-u','postgres','--','psql','-p','45432','-d',database,'-XAt','-v','ON_ERROR_STOP=1'],input=query)
 
 if ambiente=='producao' and pular_hml:
+    # Registrar a tentativa antes de qualquer consulta de elegibilidade, migration,
+    # grant, troca de symlink ou reinício. O diretório/arquivo são privados.
+    ator=os.environ.get('SUDO_USER') or pwd.getpwuid(os.getuid()).pw_name
+    tentativa={'ambiente':ambiente,'status':'iniciada','sha256':sha,'anterior':anterior,
+        'motivo_dispensa_hml':motivo_dispensa_hml,'ator_unix':ator,
+        'registrada_em':time.strftime('%Y-%m-%dT%H:%M:%S%z')}
+    privado(backup/'dispensa-hml-tentativa.json',json.dumps(tentativa,ensure_ascii=False,indent=2))
+
     # Esta via de publicação mantém credenciais no formato legado para não exigir
-    # chave ou atualização de desktops. Recusar se a base já contiver valor cifrado.
-    ativacao=re.search(rb'(?mi)^\s*CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA\s*=\s*([^\r\n]+)',config)
-    assert not ativacao or ativacao.group(1).strip().strip(b'"').lower()!='true',\
-        'A cifra de credenciais está ativada; a publicação sem chave não é compatível'
+    # chave ou atualização de desktops. Examinar todas as fontes da unidade systemd
+    # evita divergências de aspas, valores duplicados e arquivos de override.
+    unidade=subprocess.run(['systemctl','cat',servico],capture_output=True,text=True)
+    if unidade.returncode:
+        raise RuntimeError('Não foi possível verificar a configuração efetiva do serviço.')
+    try:
+        verificar_criptografia_desativada(conf/'portal.env',unidade.stdout)
+    except (OSError,UnicodeError,ValueError) as erro:
+        raise RuntimeError('A cifra de credenciais não está comprovadamente desativada; dispensa recusada.') from erro
     cifradas=sql('''SELECT count(*) FROM "Configuracoes"
         WHERE "Chave" IN ('SafeIDClientSecret','PublicacaoAccessKey','PublicacaoSecretKey','EmailSmtpSenha')
         AND "Valor" LIKE 'enc:%' ''')
-    assert cifradas=='0','Base possui credencial cifrada; a publicação sem chave não é compatível'
+    if cifradas!='0':
+        raise RuntimeError('A base contém credenciais protegidas; dispensa recusada sem exibir valores.')
 
 def ident(n):
     return '"' + n.replace('"','""') + '"'

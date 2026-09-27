@@ -88,14 +88,26 @@ public sealed class ParametrosService
         return valor;
     }
 
-    private Task SalvarSegredoAsync(string nome, string? valor, CancellationToken ct)
+    private async Task SalvarSegredoAsync(string nome, string? valor, CancellationToken ct)
     {
+        var atual = await _repo.ObterConfiguracaoAsync(nome, ct);
+        if (!ProtecaoAtiva && atual?.StartsWith("enc:", StringComparison.Ordinal) == true)
+            throw new InvalidOperationException(
+                "Não é possível substituir uma credencial protegida sem habilitar a proteção e fornecer a chave.");
+
         if (string.IsNullOrEmpty(valor))
-            return _repo.SalvarConfiguracaoAsync(nome, string.Empty, ct);
+        {
+            await _repo.SalvarConfiguracaoAsync(nome, string.Empty, ct);
+            return;
+        }
+
         if (!ProtecaoAtiva)
-            return _repo.SalvarConfiguracaoAsync(nome, valor, ct);
+        {
+            await _repo.SalvarConfiguracaoAsync(nome, valor, ct);
+            return;
+        }
         var protetor = _protecao ?? ProtecaoSegredoGlobal.DoAmbiente();
-        return _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
+        await _repo.SalvarConfiguracaoAsync(nome, protetor.Proteger(nome, valor), ct);
     }
 
     private bool ProtecaoAtiva => _protecao is not null || ProtecaoSegredoGlobal.HabilitadaNoAmbiente;

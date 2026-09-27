@@ -20,10 +20,12 @@ preservar a chave em cofre separado dos backups do banco; sem ela, valores cifra
 podem ser lidos. Nunca colocar chave em repositório, pacote, log ou interface pública.
 
 Para esta publicação sem HML, o atualizador aceita a opção explícita
-`--pular-hml motivo`, registra a dispensa no relatório de produção e recusa prosseguir
-se encontrar credenciais já cifradas na base. Não fabricar relatórios HML nem tratar a
-dispensa como aceite funcional. O caminho normal sem essa opção continua exigindo os
-relatórios de saúde e aceite HML do mesmo pacote.
+`--pular-hml motivo`, registra a tentativa em arquivo privado antes das alterações e
+registra a dispensa no relatório de produção quando termina. A rota é recusada se a
+unidade systemd ou qualquer `EnvironmentFile` não confirmar que a cifra está ausente ou
+desativada, ou se a base contiver credenciais cifradas. Não fabricar relatórios HML nem
+tratar a dispensa como aceite funcional. O caminho normal sem essa opção continua
+exigindo os relatórios de saúde e aceite HML do mesmo pacote.
 
 ## Túnel e limite de requisições
 

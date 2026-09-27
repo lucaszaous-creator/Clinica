@@ -119,6 +119,31 @@ public class ParametrosServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Credencial_cifrada_nao_pode_ser_rebaixada_sem_a_chave()
+    {
+        var habilitacaoAnterior = Environment.GetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao);
+        try
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
+            var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
+                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-original");
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+            await _repo.SalvarAsync();
+
+            var gravar = () => _parametros.SalvarCredenciaisSafeIDAsync("id", "novo-segredo", "producao");
+            await gravar.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*credencial protegida*");
+
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+                .Should().Be(protegida);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, habilitacaoAnterior);
+        }
+    }
+
+    [Fact]
     public async Task Credencial_antiga_e_migrada_na_primeira_leitura()
     {
         await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");
