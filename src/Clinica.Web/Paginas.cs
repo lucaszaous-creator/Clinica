@@ -236,7 +236,8 @@ public static class Paginas
                 <div class="valor">{p.GuiasSemReceita}</div></div>
               <div class="cartao"><div class="rotulo">Sessões sem evolução</div>
                 <div class="valor">{p.SessoesSemEvolucao}</div>
-                <div class="suave">{p.SessoesSemEvolucaoComGuia} já com guia</div></div>
+                <div class="suave">Controle desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} ·
+                  {p.SessoesSemEvolucaoComGuia} já com guia</div></div>
             </div>
             {alertas}
             """;

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Shell;
@@ -77,7 +78,8 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
 
     /// <summary>O estado vazio muda de frase quando há filtro — vazio filtrado não é "prontuário em dia".</summary>
     [ObservableProperty] private string _vazioDescricao =
-        "Toda sessão atendida nos últimos dias já tem evolução escrita.";
+        $"Toda sessão atendida desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} "
+        + "já tem evolução escrita.";
 
     [ObservableProperty] private bool _carregando;
 
@@ -206,18 +208,18 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
         // O resumo DIZ que está filtrado: a dívida é fila de trabalho, e "3 sessões" que
         // eram 20 faria alguém dar o prontuário por quase em dia.
         Resumo = _todas.Count == 0
-            ? $"Nenhuma sessão dos últimos {ConsultorioService.JanelaRegistroPendenteDias} "
-              + "dias está sem evolução escrita."
+            ? $"Nenhuma sessão desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} "
+              + "está sem evolução escrita."
             : FiltroAtivo
                 ? $"{Pendentes.Count} de {_todas.Count} sessão(ões) sem evolução no filtro. "
                   + "A mais antiga primeiro."
-                : $"{_todas.Count} sessão(ões) atendida(s) nos últimos "
-                  + $"{ConsultorioService.JanelaRegistroPendenteDias} dias continuam sem "
-                  + "evolução escrita. A mais antiga primeiro.";
+                : $"{_todas.Count} sessão(ões) desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} "
+                  + "continuam sem evolução escrita. A mais antiga primeiro.";
 
         VazioDescricao = FiltroAtivo
             ? "Nenhuma sessão bate com o filtro — limpe-o para ver a dívida inteira."
-            : "Toda sessão atendida nos últimos dias já tem evolução escrita.";
+            : $"Toda sessão atendida desde {PoliticaRegistroPendente.DataInicio:dd/MM/yyyy} "
+              + "já tem evolução escrita.";
     }
 
     /// <summary>

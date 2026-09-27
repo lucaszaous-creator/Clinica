@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Avaliacoes;
@@ -30,6 +31,7 @@ public class ConsultorioTests : IDisposable
     private readonly AvaliacaoClinicaService _avaliacoes;
 
     private static readonly DateOnly Hoje = new(2026, 8, 10);
+    private static readonly DateOnly HojeComControle = new(2026, 9, 28);
 
     public ConsultorioTests()
     {
@@ -136,9 +138,9 @@ public class ConsultorioTests : IDisposable
     {
         var ana = await CriarProfissionalAsync();
         var paciente = await CriarPacienteAsync();
-        await AgendarAsync(paciente, ana, Hoje, 9);
+        await AgendarAsync(paciente, ana, PoliticaRegistroPendente.DataInicio, 9);
 
-        var dia = await _consultorio.DoDiaAsync(Hoje, ana);
+        var dia = await _consultorio.DoDiaAsync(PoliticaRegistroPendente.DataInicio, ana);
 
         dia.Atendidos.Should().Be(1);
         dia.RegistrosPendentes.Should().Be(1);
@@ -202,29 +204,52 @@ public class ConsultorioTests : IDisposable
         var ana = await CriarProfissionalAsync();
         var paciente = await CriarPacienteAsync();
 
-        await AgendarAsync(paciente, ana, Hoje, 9);
-        await AgendarAsync(paciente, ana, Hoje.AddDays(-3), 9);
+        await AgendarAsync(paciente, ana, HojeComControle, 9);
+        await AgendarAsync(paciente, ana, PoliticaRegistroPendente.DataInicio, 9);
 
-        var pendentes = await _consultorio.RegistrosPendentesAsync(Hoje, ana);
+        var pendentes = await _consultorio.RegistrosPendentesAsync(HojeComControle, ana);
 
         pendentes.Should().HaveCount(1);
-        pendentes[0].DiasEmAberto(Hoje).Should().Be(3);
+        pendentes[0].DiasEmAberto(HojeComControle).Should().Be(1);
     }
 
     [Fact]
-    public async Task Pendencia_nao_alcanca_o_que_e_velho_demais()
+    public async Task Corte_de_27_de_setembro_preserva_historico_e_inicia_novas_pendencias()
     {
-        // Passada a janela o registro não se escreve mais de memória, e uma lista que
-        // cresce sem fim vira ruído que a pessoa aprende a fechar sem ler.
+        var ana = await CriarProfissionalAsync();
+        var pacienteAntigo = await CriarPacienteAsync("Histórico anterior ao corte");
+        var pacienteNovo = await CriarPacienteAsync("Sessão a partir do corte");
+        var diaAnteriorAoCorte = PoliticaRegistroPendente.DataInicio.AddDays(-1);
+
+        await AgendarAsync(pacienteAntigo, ana, diaAnteriorAoCorte, 9);
+        await AgendarAsync(pacienteNovo, ana, PoliticaRegistroPendente.DataInicio, 10);
+
+        var diaAntigo = await _consultorio.DoDiaAsync(diaAnteriorAoCorte, ana);
+        var diaDoCorte = await _consultorio.DoDiaAsync(PoliticaRegistroPendente.DataInicio, ana);
+        var pendentes = await _consultorio.RegistrosPendentesAsync(HojeComControle, ana);
+
+        diaAntigo.Atendidos.Should().Be(1, "o histórico continua preservado");
+        diaAntigo.RegistrosPendentes.Should().Be(0, "o corte remove a cobrança antiga");
+        diaDoCorte.RegistrosPendentes.Should().Be(1, "o controle começa no próprio dia do corte");
+        pendentes.Should().ContainSingle(p => p.PacienteId == pacienteNovo);
+    }
+
+    [Fact]
+    public async Task Pendencia_continua_aberta_apos_30_dias_ate_vincular_evolucao()
+    {
+        // O corte inicial limpa o legado, mas uma pendência nova não desaparece só porque
+        // passou um mês: ela fica aberta até a evolução ser vinculada.
         var ana = await CriarProfissionalAsync();
         var paciente = await CriarPacienteAsync();
 
-        await AgendarAsync(paciente, ana,
-            Hoje.AddDays(-ConsultorioService.JanelaRegistroPendenteDias - 5), 9);
+        var hojePosterior = new DateOnly(2026, 11, 10);
+        var diaSessao = hojePosterior.AddDays(-35);
+        await AgendarAsync(paciente, ana, diaSessao, 9);
 
-        var pendentes = await _consultorio.RegistrosPendentesAsync(Hoje, ana);
+        var pendentes = await _consultorio.RegistrosPendentesAsync(hojePosterior, ana);
 
-        pendentes.Should().BeEmpty();
+        pendentes.Should().ContainSingle();
+        pendentes[0].DiasEmAberto(hojePosterior).Should().Be(35);
     }
 
     // ---------------------------------------------------------------- carteira

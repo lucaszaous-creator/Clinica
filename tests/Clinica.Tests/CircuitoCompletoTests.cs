@@ -43,6 +43,7 @@ public class CircuitoCompletoTests : IDisposable
     private readonly ReceitaGlosadaService _receitaGlosada;
 
     private static readonly DateOnly Dia = new(2026, 8, 12);
+    private static readonly DateOnly DiaComCorte = new(2026, 9, 28);
 
 
     /// <summary>
@@ -501,7 +502,7 @@ public class CircuitoCompletoTests : IDisposable
         var paciente = await CriarPacienteAsync();
 
         // Uma sessão ONTEM, atendida: hoje ela já é dívida de registro.
-        var ontem = Dia.AddDays(-1);
+        var ontem = DiaComCorte.AddDays(-1);
         var agendamento = new Agendamento
         {
             PacienteId = paciente,
@@ -513,7 +514,7 @@ public class CircuitoCompletoTests : IDisposable
         _db.Agendamentos.Add(agendamento);
         await _db.SaveChangesAsync();
 
-        var painel = await MontarPainel().MontarAsync(Dia);
+        var painel = await MontarPainel().MontarAsync(DiaComCorte);
 
         painel.SessoesSemEvolucao.Should().Be(1,
             "a direção é a única que enxerga a clínica inteira");
@@ -532,7 +533,7 @@ public class CircuitoCompletoTests : IDisposable
             Conduta = "IG4, VB20"
         }, "dra.ana");
 
-        var depois = await MontarPainel().MontarAsync(Dia);
+        var depois = await MontarPainel().MontarAsync(DiaComCorte);
 
         depois.SessoesSemEvolucao.Should().Be(0,
             "a sessão sai da lista por TER evolução, não porque alguém a marcou");
@@ -550,7 +551,7 @@ public class CircuitoCompletoTests : IDisposable
     public async Task Guia_faturada_sem_evolucao_sobe_como_perigo()
     {
         var paciente = await CriarPacienteAsync();
-        var ontem = Dia.AddDays(-1);
+        var ontem = DiaComCorte.AddDays(-1);
 
         // O caminho real: a recepção confirma a presença e a guia nasce pelas regras do
         // convênio. É o mesmo fluxo do circuito 1 — aqui só não se escreve a evolução.
@@ -559,7 +560,7 @@ public class CircuitoCompletoTests : IDisposable
             ModalidadeAtendimento.AcupunturaComEletro, null, profissionalId: _profPadrao);
         await _agenda.ConfirmarPresencaAsync(agendamento.Id);
 
-        var painel = await MontarPainel().MontarAsync(Dia);
+        var painel = await MontarPainel().MontarAsync(DiaComCorte);
 
         painel.SessoesSemEvolucaoComGuia.Should().Be(1);
         painel.Alertas.Should().Contain(a =>

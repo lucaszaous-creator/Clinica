@@ -203,7 +203,7 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
                        + $"({cheio.Sessoes.Count})");
 
         // "NESTA semana", e não "sem evolução" solto: o botão do Meu dia conta a fila de
-        // trabalho (30 dias para trás, sem hoje) e este número conta a SEMANA exibida —
+        // trabalho (desde o corte, sem hoje) e este número conta a SEMANA exibida —
         // são perguntas diferentes, e dois números com a mesma frase se leem como o mesmo
         // número errado (parcela 69).
         if (semana.RegistrosPendentes > 0)

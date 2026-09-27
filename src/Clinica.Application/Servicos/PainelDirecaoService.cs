@@ -119,9 +119,9 @@ public sealed record PainelDirecao(
     IReadOnlyList<MetaApurada> Metas,
 
     /// <summary>
-    /// Sessões atendidas nos últimos dias, da clínica inteira, ainda sem evolução escrita
-    /// (parcela 36). Vem do <c>ConsultorioService</c>, dono da leitura — o painel não
-    /// recalcula.
+    /// Sessões atendidas desde a data de corte, da clínica inteira, ainda sem evolução
+    /// escrita (parcela 36). Vem do <c>ConsultorioService</c>, dono da leitura — o painel
+    /// não recalcula.
     /// </summary>
     int SessoesSemEvolucao,
 

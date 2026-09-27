@@ -558,10 +558,10 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             //
             // Aqui só se conta. A LISTA mora na tela dela.
             //
-            // ⚠️ E a batida do relógio NÃO reconta: são os agendamentos e as evoluções de
-            // 30 dias relidos a cada batida para atualizar um número que só muda quando
-            // alguém escreve uma evolução — e quem escreve está NESTA máquina, que
-            // recarrega ao voltar para a tela. A recarga silenciosa relê só o quadro de
+            // ⚠️ E a batida do relógio NÃO reconta: são os agendamentos e as evoluções
+            // desde a data de corte relidos a cada batida para atualizar um número que só
+            // muda quando alguém escreve uma evolução — e quem escreve está NESTA máquina,
+            // que recarrega ao voltar para a tela. A recarga silenciosa relê só o quadro de
             // hoje, que é o que a outra máquina muda por baixo.
             if (!silencioso)
             {

@@ -26,7 +26,7 @@ namespace Clinica.Clinico.ViewModels;
 public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAoAbrir
 {
     /// <summary>A janela das ESCRITAS (evoluções e anamneses); o resumo DIZ o recorte.
-    /// As pendências têm a janela própria do serviço (30 dias).</summary>
+    /// As pendências de sessão começam na data de corte definida pela política.</summary>
     public const int JanelaDias = 90;
 
     private readonly IServiceScopeFactory _escopos;
@@ -145,7 +145,8 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
         var recorte = SoAssinaturasPendentes || !string.IsNullOrWhiteSpace(Termo)
             ? $"{lista.Count} de {_todas.Count} registro(s)"
             : $"{_todas.Count} registro(s)";
-        Resumo = $"{recorte} · escritas dos últimos {JanelaDias} dias · sessões sem evolução dos últimos 30";
+        Resumo = $"{recorte} · escritas dos últimos {JanelaDias} dias · sessões sem evolução desde "
+                 + $"{PoliticaRegistroPendente.DataInicio:dd/MM/yyyy}";
     }
 
     /// <summary>"Novo prontuário" = escrever um atendimento — a tela de sempre, que abre
