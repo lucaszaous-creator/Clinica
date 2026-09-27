@@ -1031,6 +1031,41 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             existe.Valor = valor;
     }
 
+    public async Task SalvarConfiguracaoSeValorIgualAsync(
+        string chave, string valorEsperado, string novoValor, CancellationToken ct = default)
+    {
+        var existente = await _db.Configuracoes
+            .SingleOrDefaultAsync(c => c.Chave == chave, ct);
+        if (existente is null || !string.Equals(existente.Valor, valorEsperado, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "A credencial mudou durante a migração para proteção. Leia novamente e tente outra vez.");
+        // Valor é concurrency token; uma mudança após esta leitura falha atomicamente no SaveChanges.
+        existente.Valor = novoValor;
+    }
+
+    public async Task SalvarSegredoSemRebaixarProtecaoAsync(
+        string chave, string valor, CancellationToken ct = default)
+    {
+        var existente = await _db.Configuracoes
+            .SingleOrDefaultAsync(c => c.Chave == chave, ct);
+        if (existente is not null)
+        {
+            if (existente.Valor.StartsWith("enc:", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Não é possível substituir uma credencial protegida sem habilitar a proteção e fornecer a chave.");
+            // A coluna Valor é concurrency token. Se outra conexão proteger o segredo
+            // antes do SaveChanges, o UPDATE com o valor original afeta zero linhas e
+            // o EF reverte toda a gravação do formulário.
+            existente.Valor = valor;
+        }
+        else
+        {
+            // Uma inserção concorrente de qualquer valor falha por chave duplicada; não
+            // há caminho de UPSERT que possa sobrescrever uma credencial cifrada.
+            await _db.Configuracoes.AddAsync(new ConfiguracaoGlobal { Chave = chave, Valor = valor }, ct);
+        }
+    }
+
     // ---- Consultas ----
 
     public async Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default)

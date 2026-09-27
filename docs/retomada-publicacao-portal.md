@@ -33,7 +33,7 @@ O atualizador `deploy/tablet/atualizar-posto.py` permite uma dispensa explícita
 ## Roteiro de publicação direta
 
 1. Usar o console root já aberto na Locaweb e verificar a configuração de produção sem expor segredos. SSH só deve ser usado se o fingerprint puder ser confirmado por fonte confiável.
-2. Confirmar que `CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA` não está ativa e que a base não possui credenciais `enc:v1:`; o instalador verifica os valores sem exibi-los.
+2. O instalador verifica que a base não possui credenciais `enc:v1:` sem exibir valores. Se o `portal.env` não declarar a proteção, o instalador prepara `...=false` em memória e grava essa linha somente depois do pré-voo e do backup privado; se a publicação falhar, restaura o arquivo original. Uma definição existente `true`, outra fonte ativa ou qualquer credencial cifrada bloqueia a publicação. Isso mantém compatibilidade sem chaves nas máquinas dos operadores.
 3. Gerar o pacote com checkouts limpos nas revisões exatas de `Clinica` e `clinica-site`, usando `tools/empacotar-continuidade-tablet.ps1 -Site <caminho-do-checkout-do-site>`. Conferir manifesto, SHA-256, migration esperada e release ativo; se o pacote mudar, repetir o pré-voo. O site é privado, então o empacotamento deve usar o checkout local autorizado, sem token adicional de acesso entre repositórios.
 4. Fazer backup privado e confirmar o rollback.
 5. Publicar API e `clinica-site` juntos sem atualizar desktops. Usar `--pular-hml` somente nesta liberação autorizada e informar o motivo; não criar relatórios HML fictícios.

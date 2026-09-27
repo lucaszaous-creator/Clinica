@@ -277,6 +277,9 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(c => c.Chave);
             e.Property(c => c.Chave).HasMaxLength(60);
+            // A comparação com o valor original impede que uma escrita obsoleta substitua
+            // uma credencial cifrada, sem coluna nova nem migration.
+            e.Property(c => c.Valor).IsConcurrencyToken();
             // Sem limite: guarda também estruturas serializadas (ex.: dados do prestador em JSON).
         });
 

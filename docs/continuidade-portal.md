@@ -95,11 +95,14 @@ nem substitui a aprovação dos titulares das assinaturas reais.
    conferir que a base está em `20260925170000_DataRealizacaoInfusao` ou já nessa
    migration; o instalador recusa outra versão.
 2. Enviar o pacote para `/home/clinica-admin/tablet-stage/` e conferir seu SHA-256.
-3. Executar como root `atualizar-posto.py hml PACOTE SHA RELEASE_ANTERIOR`.
-   O instalador confere ambiente, migration existente, backup e escopo de acesso.
-4. Validar a API real em homologação, guardar o relatório de aceite do mesmo SHA.
-5. Executar `atualizar-posto.py producao PACOTE SHA RELEASE_ANTERIOR`.
-   A promoção exige os relatórios de saúde e aceite da homologação do mesmo pacote.
+3. Para esta publicação autorizada sem HML, executar como root
+   `atualizar-posto.py producao PACOTE SHA RELEASE_ANTERIOR --pular-hml MOTIVO`.
+   O instalador registra a dispensa; ela não é um aceite funcional. O modo normal
+   continua exigindo os relatórios de HML do mesmo SHA.
+4. O instalador confere a migration, o backup e o escopo de acesso; mantém a cifra
+   desativada nesta liberação para não exigir chaves nos desktops dos operadores.
+5. Validar health, rotas protegidas e a interface em produção sem criar registros
+   clínicos. Não declarar homologação funcional quando ela não ocorreu.
 
 O instalador salva backup privado, concessões novas e comandos para revertê-las;
 troca o link da versão atomicamente e verifica saúde, proteção das rotas, página
