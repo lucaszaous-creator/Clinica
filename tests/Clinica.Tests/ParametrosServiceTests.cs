@@ -100,6 +100,25 @@ public class ParametrosServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Credenciais_sem_habilitacao_explicita_preservam_formato_compativel_com_desktops_atuais()
+    {
+        var habilitacaoAnterior = Environment.GetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao);
+        try
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
+            await _parametros.SalvarCredenciaisSafeIDAsync("id", "segredo-legado", "producao");
+
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+                .Should().Be("segredo-legado");
+            (await _parametros.ObterCredenciaisSafeIDAsync()).ClientSecret.Should().Be("segredo-legado");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, habilitacaoAnterior);
+        }
+    }
+
+    [Fact]
     public async Task Credencial_antiga_e_migrada_na_primeira_leitura()
     {
         await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");

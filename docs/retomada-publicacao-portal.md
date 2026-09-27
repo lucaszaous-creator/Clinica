@@ -1,8 +1,10 @@
-# Retomada da publicação do portal
+# Publicação direta do portal em produção, sem HML
 
 **Estado registrado em:** 26/09/2026
 
-**Situação:** publicação em produção adiada até que seja possível acessar e atualizar todas as máquinas desktop envolvidas.
+**Decisão do responsável:** publicar sem aguardar HML nesta liberação.
+
+**Situação:** pacote ainda não aplicado em produção; permanecem pré-requisitos de acesso administrativo verificado à VPS e pré-voo do pacote/base.
 
 ## Estado atual
 
@@ -15,28 +17,33 @@ Foi preparado um pacote conjunto para homologação, com SHA-256 `ac7455f3865fa5
 
 `/home/clinica-admin/tablet-stage/tablet-continuidade-029938b6d819-ae0f19ea3e1b-hml.json`
 
-Isso confirma a atualização saudável, mas **não confirma o aceite funcional de HML**. A primeira verificação recebeu HTTP 403 do Cloudflare porque o cliente de teste não enviava um `User-Agent` aceito. O verificador local foi ajustado para enviar um agente de navegador; a nova tentativa não pôde concluir porque o script executor e o arquivo temporário de acesso HML não estavam presentes na VPS. Portanto, ainda não existe relatório final de aceite funcional para esse pacote.
+Registro histórico: a atualização em HML informou estado saudável, mas **não houve aceite funcional de HML**. A primeira verificação recebeu HTTP 403 do Cloudflare porque o cliente de teste não enviava um `User-Agent` aceito. O verificador local foi ajustado; a nova tentativa não concluiu porque o executor e o arquivo temporário de acesso HML não estavam presentes na VPS. Por decisão do responsável, essa verificação fica dispensada como etapa de liberação deste pacote. Nenhum relatório de aceite deve ser fabricado ou tratado como aprovado.
 
-**Produção não foi atualizada.** Não iniciar a publicação de produção usando apenas o relatório de saúde de HML.
+**Produção ainda não foi atualizada.** A dispensa de HML não dispensa os pré-requisitos técnicos abaixo.
 
-## Por que a publicação foi adiada
+## Escopo sem acesso às máquinas dos operadores
 
-A aplicação usa configurações de credenciais compartilhadas entre a API e os postos desktop. Não há acesso a todas as máquinas de uso para confirmar versões, distribuir a mesma chave de criptografia com segurança e coordenar a atualização. Clientes antigos podem não conseguir ler credenciais cifradas no novo formato. O adiamento evita uma troca parcial que deixe integrações indisponíveis.
+Para esta publicação, a proteção de credenciais compartilhadas fica **desativada** pelo padrão compatível. Não distribuir chave nem senha, não alterar os computadores dos operadores e não migrar credenciais para `enc:v1:`. O atualizador verifica que a base não contém credenciais cifradas antes de aceitar essa rota. A proteção poderá ser planejada em outra liberação quando houver acesso às máquinas.
 
-## Roteiro para retomar
+1. **Acesso verificado à VPS:** a aba Locaweb observada mostra administração e dados de conexão, não um console de shell. A chave SSH conhecida divergiu da chave atualmente apresentada pelo host. Não remover a verificação nem aceitar uma chave nova sem conferir o fingerprint por um console root ou canal oficial da Locaweb.
+2. **Pré-voo de produção:** confirmar SHA e conteúdo do pacote, migration esperada, backup restaurável, release anterior e plano de rollback antes de alterar o serviço.
 
-1. **Agendar a janela e inventariar os postos.** Identificar cada máquina que usa o aplicativo desktop, quem consegue acessá-la e a versão instalada. Confirmar o acesso aos titulares SafeID necessários ao aceite assistido.
-2. **Preparar a atualização coordenada.** Garantir que todos os postos que leem ou editam credenciais SMTP, SafeID ou S3 receberão a versão compatível. Fechar os clientes antigos durante a troca.
-3. **Preparar a chave fora do repositório.** Gerar `CLINICA_CREDENCIAIS_CHAVE` com 32 bytes aleatórios codificados em Base64 e instalar o mesmo valor na API e em todos os postos aplicáveis. Guardar em cofre/armazenamento protegido, restringir permissões e não registrar o valor em documentação, comandos compartilhados, logs ou pacotes. Preservar a chave separada dos backups do banco.
-4. **Refazer a verificação funcional de HML para o pacote exato.** Disponibilizar novamente, por procedimento protegido, o executor e as credenciais temporárias necessários. Confirmar o SHA-256 do pacote antes de executar. O teste precisa gerar um relatório de aceite funcional vinculado ao mesmo pacote e complementar o relatório de saúde existente. Se o pacote mudar, repetir os testes para o novo SHA.
-5. **Completar os testes de HML.** Validar login, expiração e renovação de sessão, duas abas, upload autenticado e recusa anônima, encaminhamento de IP pelo `CF-Connecting-IP`, e-mail, SafeID e S3 com valores fictícios. Conferir que os dados sensíveis no banco permanecem cifrados sem exibir seus valores. Testar também os fluxos de portal e desktop afetados pelas PRs.
-6. **Rever o corte de pendências de evolução.** A PR #218 tinha data efetiva configurada para 27/09/2026. Confirmar que essa data ainda corresponde à regra desejada antes de publicar; se a implantação ocorrer depois ou a regra mudar, ajustar a configuração e repetir as verificações pertinentes.
-7. **Preparar backup e retorno.** Confirmar backup restaurável e procedimento de rollback para API, site, banco/configurações e clientes desktop. Manter a chave necessária para restaurar credenciais cifradas, protegida e separada do backup.
-8. **Publicar em conjunto.** Depois dos aceites, atualizar API e `clinica-site` como uma única mudança coordenada e atualizar os postos necessários. Não publicar um dos repositórios isoladamente.
-9. **Verificar produção.** Executar smoke tests dos fluxos críticos, observar logs e integrações e registrar o resultado. Fazer o aceite assistido de SafeID com seus titulares. Se uma verificação crítica falhar, aplicar o rollback planejado.
+O atualizador `deploy/tablet/atualizar-posto.py` foi ajustado nesta PR para permitir uma dispensa explícita e auditável de HML via `--pular-hml motivo`. Sem essa opção, a exigência normal de relatórios HML do mesmo pacote continua ativa. O relatório de produção registra que HML foi ignorada e o motivo informado; essa opção não equivale a aceite funcional.
+
+## Roteiro de publicação direta
+
+1. Acessar a VPS por console root ou SSH com fingerprint confirmado e verificar a configuração de produção sem expor segredos.
+2. Confirmar que `CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA` não está ativa e que a base não possui credenciais `enc:v1:`; o instalador verifica os valores sem exibi-los.
+3. Confirmar o estado da migration no banco, release ativo, SHA-256 e conteúdo do pacote. Se o pacote mudar, repetir o pré-voo para o novo artefato.
+4. Fazer backup privado e confirmar o rollback.
+5. Publicar API e `clinica-site` juntos sem atualizar desktops. Usar `--pular-hml` somente nesta liberação autorizada e informar o motivo; não criar relatórios HML fictícios.
+6. Verificar health, rotas protegidas, sessões, upload autenticado, fila de infusões e pendências em produção. Não criar ou alterar registros clínicos reais.
+7. Registrar o relatório de produção e reverter se as verificações de saúde ou de proteção falharem.
+
+A PR #218 tem corte de pendências configurado para 27/09/2026. Confirmar que essa data ainda corresponde à regra desejada antes da liberação.
 
 O fluxo detalhado de criptografia e os requisitos de proxy estão em [implantacao-seguranca-portal.md](implantacao-seguranca-portal.md). Este roteiro trata da publicação do código; não autoriza nem inclui exclusão de dados de produção.
 
 ## Critério para considerar concluído
 
-Só marcar a publicação como concluída quando todas as máquinas e integrações aplicáveis tiverem sido consideradas, os relatórios de saúde e aceite funcional de HML corresponderem ao mesmo pacote, a chave estiver configurada de modo consistente e protegido, o aceite assistido tiver sido realizado e os smoke tests de produção tiverem passado.
+Só marcar a publicação como concluída quando o acesso e fingerprint da VPS estiverem verificados, o modo compatível de credenciais estiver confirmado, o backup/rollback estiver confirmado e os smoke tests de produção tiverem passado. A dispensa de HML deve constar no relatório como dispensa, nunca como aprovação.
