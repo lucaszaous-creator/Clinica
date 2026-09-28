@@ -26,6 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AulaTreinamento.cs" Link="Treinamento/AulaTreinamento.cs" />
+    <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs" Link="Treinamento/AcervoTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/DownloadComPrazo.cs" Link="Atualizacao/DownloadComPrazo.cs" />
     <ProjectReference Include="..\..\src\Clinica.Domain\Clinica.Domain.csproj" />

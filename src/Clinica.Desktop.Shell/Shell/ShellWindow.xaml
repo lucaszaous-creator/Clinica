@@ -87,11 +87,12 @@
         <!-- ==================== CONTEÚDO ==================== -->
         <DockPanel>
             <!-- Identidade da clínica, pesquisa e sessão do usuário. -->
-            <Border DockPanel.Dock="Top" Height="56"
+            <Border x:Name="Cabecalho" DockPanel.Dock="Top" Height="56"
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
 
                 <Grid Margin="12,0">
+                    <Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -101,10 +102,15 @@
                     </Grid.ColumnDefinitions>
                     <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png" Width="72" Height="28" Margin="0,0,12,0"
                            VerticalAlignment="Center" AutomationProperties.Name="Clínica SemDor" />
-                    <Menu x:Name="Categorias" Grid.Column="1" ItemsSource="{Binding Grupos}"
+                    <StackPanel x:Name="NavegacaoSuperior" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Menu x:Name="Categorias" ItemsSource="{Binding Grupos}"
                           ItemContainerStyle="{StaticResource CategoriaSuperior}" Background="Transparent"
                           VerticalAlignment="Center" KeyboardNavigation.TabNavigation="Once"
                           AutomationProperties.Name="Navegação principal" />
+                    <Button Content="Treinamento" Command="{Binding AbrirTreinamentoCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" Padding="10,6"
+                            ToolTip="Videoaulas das telas deste módulo" AutomationProperties.Name="Abrir treinamento"/>
+                    </StackPanel>
                     <Grid Grid.Column="2" VerticalAlignment="Center" Margin="8,0" MinWidth="80" MaxWidth="320">
                         <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisaPilula}"
                                  ctrl:Ajudantes.Placeholder="Pesquisar"
