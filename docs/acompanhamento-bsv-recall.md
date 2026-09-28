@@ -15,7 +15,7 @@ Na configuração da tela, a gerente seleciona o cadastro profissional do Gustav
 
 ## Recall
 
-Em **Mais filtros e atualização do recall**, escolha a modalidade e o número de dias sem retornar (60 inicialmente), e use **Atualizar candidatos ao recall**. São consideradas sessões realmente realizadas, não estornadas, por paciente e modalidade. Consulta recente não mascara ausência de BSV. Uma sessão futura da modalidade impede nova inclusão.
+Ao abrir o recall, a lista busca automaticamente pacientes sem retornar há pelo menos 60 dias. Na tela principal, escolha o número de dias, a modalidade e use **Buscar pacientes** para outro período. A busca remove filtros antigos de prazo/responsável para não esconder os novos resultados. **Mais filtros** refina os acompanhamentos já existentes. São consideradas sessões realmente realizadas, não estornadas, por paciente e modalidade. Consulta recente não mascara ausência de BSV. Uma sessão futura da modalidade impede nova inclusão.
 
 O histórico permanece entre os meses e entre ciclos. Contatos enviados no recall anterior são preservados na criação do acompanhamento. Abrir o WhatsApp não conta como contato: depois da conversa, a funcionária registra canal, resultado, responsável e próxima data. A autorização de contato do cadastro continua obrigatória.
 
@@ -29,10 +29,12 @@ A lista se atualiza a cada minuto enquanto está aberta, sem interromper a ediç
 2. Com backup, aplicar `20260928123100_AcompanhamentoPacientesBsvRecall` a partir de `20260926120000_DevolucaoInfusaoExterna`. A migration acrescenta três tabelas, índices e motivos iniciais; não altera os registros existentes. `deploy/tablet/migracao-acompanhamento.sql` é o script idempotente gerado pelo EF.
 3. Publicar API e portal juntos com `tools/empacotar-continuidade-tablet.ps1`. O atualizador concede ao usuário restrito do portal somente leitura/inclusão nas tabelas necessárias. Seguir a homologação e o aceite do pacote previstos pelo atualizador.
 4. Publicar os aplicativos **Recepção, Faturamento, Gerente e Clínico**. Evitar distribuir os novos aplicativos antes da atualização do banco/API. Os outros aplicativos não precisam mudar para este recurso.
-5. Na gerência, selecionar o cadastro real do Gustavo; gerar o primeiro recall conforme o período desejado pela clínica.
+5. Na gerência, selecionar o cadastro real do Gustavo. Conferir que a seleção permanece ao sair e reabrir a configuração; a lista inicial de recall é preparada automaticamente, com busca por outro período na tela principal.
 6. Conferir com paciente fictício: indicar → assumir → agendar BSV → sair dos pendentes → cancelar → voltar; repetir com BSV + acupuntura, remarcação válida e não conformidade. Confirmar acesso nos três perfis e ausência de alterações na evolução.
 
 Em recuo, voltar API/portal/aplicativos ao pacote anterior e manter as novas tabelas e o histórico. Não executar a migration `Down` em produção. O atualizador protege o backup e registra as concessões que precisam ser revertidas.
+
+O atualizador concede também as operações de recall ao proprietário da tabela de configurações do desktop: leitura/inclusão/alteração de acompanhamentos, leitura/inclusão de contatos e motivos, uso/leitura das três sequências. O portal permanece sem alteração de acompanhamentos. Conferir esses acessos após migrations aplicadas como administrador; ter acesso de leitura não prova que o Windows consegue salvar.
 
 ## Validação automatizada
 

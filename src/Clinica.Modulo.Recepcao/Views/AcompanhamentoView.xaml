@@ -7,76 +7,83 @@
  <UserControl.Resources>
   <BooleanToVisibilityConverter x:Key="Bool"/>
   <Style x:Key="Campo" TargetType="StackPanel"><Setter Property="Margin" Value="0,0,16,10"/><Setter Property="MinWidth" Value="180"/></Style>
-  <Style x:Key="Acao" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}"><Setter Property="Margin" Value="0,0,8,6"/></Style>
+  <Style x:Key="Acao" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}"><Setter Property="Margin" Value="0,0,8,6"/><Setter Property="MinHeight" Value="34"/><Setter Property="Padding" Value="10,6"/></Style>
  </UserControl.Resources>
  <DockPanel Margin="24,20">
-  <TextBlock DockPanel.Dock="Bottom" Text="{Binding Mensagem}" TextWrapping="Wrap" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite"/>
+  <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Suave}" CornerRadius="8" Padding="8" Margin="0,0,0,8"><Border.Style><Style TargetType="Border"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding Mensagem}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></Border.Style><TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/></Border>
   <ProgressBar DockPanel.Dock="Bottom" Height="3" IsIndeterminate="True" Visibility="{Binding Carregando, Converter={StaticResource Bool}}"/>
   <Grid IsEnabled="{Binding PodeInteragir}">
    <DockPanel Visibility="{Binding ListaVisivel, Converter={StaticResource Bool}}">
     <StackPanel DockPanel.Dock="Top">
      <WrapPanel>
-      <Button Content="Recall" Command="{Binding TrocarAbaCommand}" CommandParameter="Recall" Style="{StaticResource Acao}"/>
-      <Button Content="Novos pacientes BSV" Command="{Binding TrocarAbaCommand}" CommandParameter="BSV" Style="{StaticResource Acao}"/>
+      <Button Content="Recall · pacientes sem retorno" Command="{Binding TrocarAbaCommand}" CommandParameter="Recall" Style="{StaticResource Acao}"/>
+      <Button Content="Novos BSV · primeira sessão" Command="{Binding TrocarAbaCommand}" CommandParameter="BSV" Style="{StaticResource Acao}"/>
       <Button Content="Atualizar" Command="{Binding RecarregarCommand}" Style="{StaticResource Acao}"/>
       <Button Content="Configurar acompanhamento" Command="{Binding ConfigurarCommand}" Style="{StaticResource Acao}" Visibility="{Binding Gestor, Converter={StaticResource Bool}}"/>
      </WrapPanel>
-     <TextBlock TextWrapping="Wrap" Text="{Binding Titulo}" Style="{StaticResource H1}"/>
-     <TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+     <TextBlock TextWrapping="Wrap" Text="{Binding Titulo}" FontSize="{StaticResource Fonte.H1}" FontWeight="Bold" Margin="0,2,0,4"/>
+
+     <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,0,0,8" Visibility="{Binding EhRecall, Converter={StaticResource Bool}}">
+      <WrapPanel VerticalAlignment="Center">
+       <TextBlock Text="Buscar pacientes sem retornar há" VerticalAlignment="Center" Margin="0,0,12,0"/>
+       <TextBox Width="70" Height="36" MinHeight="36" Padding="10,2" Text="{Binding DiasRecall, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" AutomationProperties.Name="Dias sem retornar para buscar"/>
+       <TextBlock Text="dias ou mais" VerticalAlignment="Center" Margin="10,0,14,0"/>
+       <Button Content="Buscar pacientes" Command="{Binding GerarCommand}" MinHeight="36" Padding="12,6" Margin="0,0,8,0"/>
+      </WrapPanel>
+     </Border>
      <WrapPanel>
       <Button Content="{Binding AAssumirTexto}" Command="{Binding AtalhoCommand}" CommandParameter="assumir" Style="{StaticResource Acao}"/><Button Content="{Binding HojeTexto}" Command="{Binding AtalhoCommand}" CommandParameter="hoje" Style="{StaticResource Acao}"/>
       <Button Content="{Binding AtrasadosTexto}" Command="{Binding AtalhoCommand}" CommandParameter="atrasados" Style="{StaticResource Acao}"/>
       <Button Content="{Binding SemContatoTexto}" Command="{Binding AtalhoCommand}" CommandParameter="sem-contato" Style="{StaticResource Acao}"/>
-      <Button Content="Sem resposta" Command="{Binding AtalhoCommand}" CommandParameter="sem-resposta" Style="{StaticResource Acao}"/>
-      <Button Content="{Binding CanceladosTexto}" Command="{Binding AtalhoCommand}" CommandParameter="cancelados" Style="{StaticResource Acao}"/>
+
+
      </WrapPanel>
-     <WrapPanel>
-      <StackPanel Style="{StaticResource Campo}"><Label Content="Paciente" Target="{Binding ElementName=BuscaPaciente}"/><TextBox x:Name="BuscaPaciente" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" MinWidth="220"/></StackPanel>
-      <StackPanel Style="{StaticResource Campo}"><Label Content="Situação" Target="{Binding ElementName=SituacaoFiltro}"/><ComboBox x:Name="SituacaoFiltro" ItemsSource="{Binding EstadosFila}" SelectedItem="{Binding Situacao}"/></StackPanel>
-      <StackPanel Style="{StaticResource Campo}"><Label Content="Modalidade" Target="{Binding ElementName=ModalidadeFiltro}"/><ComboBox x:Name="ModalidadeFiltro" ItemsSource="{Binding Modalidades}" DisplayMemberPath="Nome" SelectedValuePath="Codigo" SelectedValue="{Binding Modalidade}"/></StackPanel>
+     <WrapPanel Margin="0,4,0,6">
+      <TextBox x:Name="BuscaPaciente" ctrl:Ajudantes.Placeholder="Buscar paciente pelo nome" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" Width="220" Height="36" MinHeight="36" Padding="10,2" Margin="0,0,8,6" AutomationProperties.Name="Buscar paciente pelo nome" ToolTip="Buscar paciente pelo nome"/>
+      <ComboBox x:Name="SituacaoFiltro" ItemsSource="{Binding EstadosFila}" SelectedItem="{Binding Situacao}" Width="175" MinHeight="36" Margin="0,0,8,6" AutomationProperties.Name="Situação do acompanhamento"/>
+      <ComboBox x:Name="ModalidadeFiltro" ItemsSource="{Binding Modalidades}" DisplayMemberPath="Nome" SelectedValuePath="Codigo" SelectedValue="{Binding Modalidade}" Width="180" MinHeight="36" Margin="0,0,8,6" AutomationProperties.Name="Modalidade do recall"/>
+      <Button Content="Mais filtros" Command="{Binding AbrirFiltrosCommand}" Style="{StaticResource Acao}"/>
+      <Button Content="Limpar filtros" Command="{Binding LimparFiltrosCommand}" Style="{StaticResource Acao}"/>
      </WrapPanel>
-     <Button Content="Mais filtros e atualização do recall" Command="{Binding AbrirFiltrosCommand}" Style="{StaticResource Acao}" HorizontalAlignment="Left"/>
-     <Expander Header="Legendas e próximos passos" Margin="0,0,0,10">
-      <TextBlock TextWrapping="Wrap" Text="A contatar: primeira tentativa • Sem resposta: tentar novamente no prazo • Retornar na data combinada: respeitar a data • Aguardando plano: acompanhar autorização • Pronto para agendar: escolher a data • Agendado: fora dos pendentes • Cancelou / Faltou: retomar contato • Conferir comparecimento: verificar a sessão passada na agenda • Encerrado: justificativa registrada.&#10;Contato atrasado: prazo vencido • Pacote com saldo: há sessões disponíveis • Sem telefone / Contato não autorizado: regularizar o cadastro. Cores sempre acompanham textos."/>
-     </Expander>
-     <Expander Header="Visão da gestão — responsáveis e motivos" Visibility="{Binding Gestor, Converter={StaticResource Bool}}" Margin="0,0,0,10">
-      <ItemsControl ItemsSource="{Binding VisaoGestao}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-     </Expander>
+     <TextBlock Text="{Binding FiltrosAtivos}" TextWrapping="Wrap" Margin="0,4,0,8" FontWeight="SemiBold"/>
+     <TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,0,0,8"/>
     </StackPanel>
     <Grid>
-     <ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding Pacientes}" Carregando="{Binding Carregando}" NaoVerificado="{Binding NaoVerificado}" Titulo="Nenhum paciente neste filtro" Descricao="Limpe os filtros ou atualize os candidatos ao recall."/>
+     <ctrl:EstadoDaTela Panel.ZIndex="1" Itens="{Binding Pacientes}" Carregando="{Binding Carregando}" NaoVerificado="{Binding NaoVerificado}" Titulo="Nenhum paciente corresponde aos filtros" Descricao="Use Limpar filtros para ampliar a lista. No recall, informe os dias sem retornar e clique em Buscar pacientes."/>
      <DataGrid ItemsSource="{Binding Pacientes}" RowHeight="{x:Static sys:Double.NaN}" MinRowHeight="36" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" EnableRowVirtualization="True" EnableColumnVirtualization="True" SelectionMode="Single" HeadersVisibility="Column" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
 
       <DataGrid.Columns>
        <DataGridTemplateColumn Header="Paciente / modalidade" Width="2*" MinWidth="220"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="8"><TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding ModalidadeTexto}" TextWrapping="Wrap"/><TextBlock Text="{Binding Convenio}" TextWrapping="Wrap"/><TextBlock TextWrapping="Wrap" Text="{Binding Telefone}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-       <DataGridTemplateColumn Header="Situação / prazo" Width="2*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="8"><TextBlock Text="{Binding Situacao}" FontWeight="SemiBold" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}"/><Style.Triggers><DataTrigger Binding="{Binding Situacao}" Value="Agendado"><Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}"/></DataTrigger><DataTrigger Binding="{Binding Situacao}" Value="Sessão realizada"><Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}"/></DataTrigger><DataTrigger Binding="{Binding Atrasado}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Erro}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock TextWrapping="Wrap" Text="{Binding ProximoContato, StringFormat='Próximo contato: {0:dd/MM/yyyy}'}"/><TextBlock Text="{Binding Marcadores}" TextWrapping="Wrap"/><TextBlock TextWrapping="Wrap" Text="{Binding AgendadoPara, StringFormat='Sessão: {0:dd/MM/yyyy HH:mm}'}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-       <DataGridTemplateColumn Header="Acompanhamento" Width="*" MinWidth="175"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="8"><TextBlock Text="{Binding Responsavel}" TextWrapping="Wrap"/><TextBlock TextWrapping="Wrap" Text="{Binding Dias, StringFormat='{}{0} dias aguardando'}"/><TextBlock TextWrapping="Wrap" Text="{Binding Tentativas, StringFormat='{}{0} tentativas'}"/><TextBlock TextWrapping="Wrap" Text="{Binding UltimoContato, StringFormat='Último: {0:dd/MM HH:mm}'}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-       <DataGridTemplateColumn Header="Ação" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="Acompanhar" Command="{Binding DataContext.AbrirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="8"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+       <DataGridTemplateColumn Header="Situação / prazo" Width="2*" MinWidth="200"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="8"><TextBlock Text="{Binding Situacao}" FontWeight="SemiBold" TextWrapping="Wrap"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}"/><Style.Triggers><DataTrigger Binding="{Binding Situacao}" Value="Agendado"><Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}"/></DataTrigger><DataTrigger Binding="{Binding Situacao}" Value="Sessão realizada"><Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}"/></DataTrigger><DataTrigger Binding="{Binding Atrasado}" Value="True"><Setter Property="Foreground" Value="{StaticResource Brush.Erro}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><TextBlock TextWrapping="Wrap" Text="{Binding ProximoContato, StringFormat='Próximo contato: {0:dd/MM/yyyy}'}"/><TextBlock Text="{Binding ProximoPasso}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Marcadores}" TextWrapping="Wrap"/><TextBlock TextWrapping="Wrap" Text="{Binding AgendadoPara, StringFormat='Sessão: {0:dd/MM/yyyy HH:mm}'}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+       <DataGridTemplateColumn Header="Acompanhamento" Width="*" MinWidth="175"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="8"><TextBlock Text="{Binding Responsavel}" TextWrapping="Wrap"/><TextBlock TextWrapping="Wrap" Text="{Binding DiasTexto}"/><TextBlock TextWrapping="Wrap" Text="{Binding Tentativas, StringFormat='{}{0} tentativas'}"/><TextBlock TextWrapping="Wrap" Text="{Binding UltimoContato, StringFormat='Último: {0:dd/MM HH:mm}'}"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+       <DataGridTemplateColumn Header="Ação" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="{Binding AcaoTexto}" Command="{Binding DataContext.AbrirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Margin="8"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
       </DataGrid.Columns>
      </DataGrid>
 
     </Grid>
    </DockPanel>
-   <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding Filtrando, Converter={StaticResource Bool}}"><StackPanel><Button Content="Aplicar filtros e voltar" Command="{Binding VoltarCommand}" Style="{StaticResource Acao}" HorizontalAlignment="Left"/><TextBlock TextWrapping="Wrap" Text="Filtros do acompanhamento" Style="{StaticResource H1}"/><TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+   <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding Filtrando, Converter={StaticResource Bool}}"><StackPanel MaxWidth="1200" HorizontalAlignment="Left"><Button Content="Aplicar filtros e voltar" Command="{Binding VoltarCommand}" Style="{StaticResource Acao}" HorizontalAlignment="Left"/><TextBlock TextWrapping="Wrap" Text="Filtros do acompanhamento" Style="{StaticResource H1}"/><TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,8,0,16"/>
        <WrapPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Próximo contato"/><ComboBox AutomationProperties.Name="Prazo do próximo contato" ItemsSource="{Binding Prazos}" SelectedItem="{Binding Prazo}"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Condição especial"/><ComboBox AutomationProperties.Name="Condição especial" ItemsSource="{Binding Condicoes}" SelectedItem="{Binding Condicao}"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Convênio"/><ComboBox AutomationProperties.Name="Convênio" ItemsSource="{Binding Convenios}" SelectedItem="{Binding Convenio}"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Profissional"/><ComboBox AutomationProperties.Name="Profissional" ItemsSource="{Binding ProfissionaisFiltro}" SelectedItem="{Binding Profissional}"/></StackPanel>
-        <StackPanel Style="{StaticResource Campo}"><Label Content="Funcionária responsável"/><ComboBox AutomationProperties.Name="Funcionária responsável" ItemsSource="{Binding Responsaveis}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding ResponsavelFiltro}"/></StackPanel>
+        <StackPanel Style="{StaticResource Campo}"><Label Content="Funcionária responsável"/><ComboBox AutomationProperties.Name="Funcionária responsável" ItemsSource="{Binding ResponsaveisFiltro}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding ResponsavelFiltro}"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Dias sem retornar — mínimo"/><TextBox AutomationProperties.Name="Dias mínimos" Text="{Binding DiasMinimos, UpdateSourceTrigger=PropertyChanged}" MaxLength="5"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Dias sem retornar — máximo"/><TextBox AutomationProperties.Name="Dias máximos" Text="{Binding DiasMaximos, UpdateSourceTrigger=PropertyChanged}" MaxLength="5"/></StackPanel>
-        <StackPanel Style="{StaticResource Campo}"><Label Content="Legenda especial / motivo"/><ComboBox AutomationProperties.Name="Filtrar motivo" ItemsSource="{Binding Motivos}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding MotivoFiltro}"/></StackPanel>
+        <StackPanel Style="{StaticResource Campo}"><Label Content="Legenda especial / motivo"/><ComboBox AutomationProperties.Name="Filtrar motivo" ItemsSource="{Binding MotivosFiltro}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding MotivoFiltro}"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Tentativas — mínimo"/><TextBox AutomationProperties.Name="Mínimo de tentativas" Text="{Binding TentativasMinimas, UpdateSourceTrigger=PropertyChanged}" MaxLength="4"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Último contato — de"/><DatePicker AutomationProperties.Name="Último contato desde" SelectedDate="{Binding ContatoDesde}"/></StackPanel>
         <StackPanel Style="{StaticResource Campo}"><Label Content="Último contato — até"/><DatePicker AutomationProperties.Name="Último contato até" SelectedDate="{Binding ContatoAte}"/></StackPanel>
        </WrapPanel>
        <WrapPanel><CheckBox Content="Somente meus pacientes" IsChecked="{Binding SomenteMeus}" Margin="0,8,16,8"/><Button Content="Limpar filtros" Command="{Binding LimparFiltrosCommand}" Style="{StaticResource Acao}"/></WrapPanel>
-       <WrapPanel Visibility="{Binding EhRecall, Converter={StaticResource Bool}}">
-        <StackPanel Style="{StaticResource Campo}"><Label Content="Incluir quem não retorna há (dias)"/><TextBox Text="{Binding DiasRecall}" MaxLength="4" AutomationProperties.Name="Dias para incluir no recall"/></StackPanel>
-        <Button Content="Atualizar candidatos ao recall" Command="{Binding GerarCommand}" VerticalAlignment="Center"/>
-       </WrapPanel>
-       <TextBlock Text="A atualização considera a modalidade selecionada; os outros filtros apenas organizam a lista. Novos casos ficam A assumir, visíveis à recepção, ao faturamento e à gestão. Ao salvar o primeiro contato, a responsável é registrada. O histórico continua entre os meses." TextWrapping="Wrap"/>
+       <TextBlock Text="Estes filtros organizam os acompanhamentos existentes. Para buscar pacientes por dias sem retornar, use Buscar pacientes na tela principal. Contato atrasado significa que a data de contato venceu; é diferente de estar há muitos dias sem realizar uma sessão." TextWrapping="Wrap" MaxWidth="900" HorizontalAlignment="Left" Margin="0,16"/>
+     <Expander Header="Entenda as situações e os próximos passos" Margin="0,0,0,8">
+      <TextBlock TextWrapping="Wrap" Text="A contatar: primeira tentativa • Sem resposta: tentar novamente no prazo • Retornar na data combinada: respeitar a data • Aguardando plano: acompanhar autorização • Pronto para agendar: escolher a data • Agendado: fora dos pendentes • Cancelou / Faltou: retomar contato • Conferir comparecimento: verificar a sessão passada na agenda • Encerrado: justificativa registrada.&#10;Contato atrasado: prazo vencido • Pacote com saldo: há sessões disponíveis • Sem telefone / Contato não autorizado: regularizar o cadastro. Cores sempre acompanham textos."/>
+     </Expander>
+     <Expander Header="Visão da gestão — responsáveis e motivos" Visibility="{Binding Gestor, Converter={StaticResource Bool}}" Margin="0,0,0,10">
+      <ItemsControl ItemsSource="{Binding VisaoGestao}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,3"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     </Expander>
       </StackPanel></ScrollViewer>
    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding DetalheVisivel, Converter={StaticResource Bool}}">
     <StackPanel>
@@ -92,7 +99,7 @@
       <StackPanel Style="{StaticResource Campo}"><Label Content="Resultado / próxima etapa"/><ComboBox ItemsSource="{Binding Etapas}" DisplayMemberPath="Nome" SelectedValuePath="Codigo" SelectedValue="{Binding EtapaEdicao}" AutomationProperties.Name="Resultado do contato"/></StackPanel>
       <StackPanel Style="{StaticResource Campo}"><Label Content="Canal utilizado"/><ComboBox ItemsSource="{Binding Canais}" DisplayMemberPath="Nome" SelectedValuePath="Codigo" SelectedValue="{Binding CanalEdicao}" AutomationProperties.Name="Canal utilizado"/></StackPanel>
       <StackPanel Style="{StaticResource Campo}"><Label Content="Próximo contato"/><DatePicker SelectedDate="{Binding ProximoContato}" AutomationProperties.Name="Data do próximo contato"/></StackPanel>
-      <StackPanel Style="{StaticResource Campo}"><Label Content="Motivo / legenda especial"/><ComboBox ItemsSource="{Binding Motivos}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding MotivoEdicao}" AutomationProperties.Name="Motivo do acompanhamento"/></StackPanel>
+      <StackPanel Style="{StaticResource Campo}"><Label Content="Motivo / legenda especial"/><ComboBox ItemsSource="{Binding MotivosEdicao}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding MotivoEdicao}" AutomationProperties.Name="Motivo do acompanhamento"/></StackPanel>
      </WrapPanel>
      <Label Content="Resultado do contato, motivo e próximo passo" Target="{Binding ElementName=ObservacaoContato}"/>
      <TextBox x:Name="ObservacaoContato" Text="{Binding Observacao, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxLength="2000" VerticalScrollBarVisibility="Auto"/>
@@ -103,11 +110,12 @@
     </StackPanel>
    </ScrollViewer>
    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding Configurando, Converter={StaticResource Bool}}">
-    <StackPanel>
+    <StackPanel MaxWidth="960" HorizontalAlignment="Left">
      <Button Content="Voltar à lista" Command="{Binding VoltarCommand}" Style="{StaticResource Acao}" HorizontalAlignment="Left"/>
      <TextBlock TextWrapping="Wrap" Text="Configurar acompanhamento" Style="{StaticResource H1}"/>
      <TextBlock Text="Escolha o cadastro do Gustavo. Os novos casos ficam A assumir na fila compartilhada com recepção, faturamento e gerente. Cada contato registra quem assumiu o acompanhamento." TextWrapping="Wrap"/>
-     <Label Content="Profissional autorizado a indicar novos pacientes BSV"/><ComboBox ItemsSource="{Binding Profissionais}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding ProfissionalBsv}" AutomationProperties.Name="Profissional das indicações BSV"/>
+     <Border Background="{StaticResource Brush.Acento.Suave}" CornerRadius="8" Padding="12" Margin="0,12"><TextBlock Text="{Binding ConfiguracaoTexto}" TextWrapping="Wrap" FontWeight="SemiBold"/></Border>
+     <Label Content="Profissional autorizado a indicar novos pacientes BSV"/><ComboBox MinWidth="300" MaxWidth="650" HorizontalAlignment="Left" ItemsSource="{Binding Profissionais}" DisplayMemberPath="Nome" SelectedValuePath="Id" SelectedValue="{Binding ProfissionalBsv, Mode=TwoWay}" AutomationProperties.Name="Profissional das indicações BSV"/>
      <Button Content="Salvar configuração" Command="{Binding SalvarConfiguracaoCommand}" HorizontalAlignment="Left" Margin="0,16"/>
      <Separator/><TextBlock TextWrapping="Wrap" Text="Motivos e legendas especiais" Style="{StaticResource H2}" Margin="0,16,0,0"/>
      <TextBlock Text="Exemplos: plano negou autorização, paciente pediu adiamento, desistência informada, telefone desatualizado. Cadastre rótulos que ajudem a equipe a decidir o próximo passo." TextWrapping="Wrap"/>

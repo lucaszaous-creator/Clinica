@@ -5,6 +5,7 @@ using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace Clinica.Tests;
@@ -148,5 +149,38 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
         var atual = await Linha();
         Assert.Equal(anterior.Id, atual.Id); Assert.True(atual.Pendente);
         Assert.Equal(2, (await svc.HistoricoAsync(recepcao.Id, atual.Id)).Count);
+    }
+
+    [Fact] public async Task Duas_recepcoes_geram_recall_ao_mesmo_tempo_sem_duplicar_o_ciclo()
+    {
+        if (!BancoDosTestes.NoPostgres) return; // PostgreSQL: two connections and the real unique index.
+        Atendimento(ModalidadeAtendimento.BsvApenas, -90);
+        var pausa = new DuasGravacoes();
+        var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(pausa).Options;
+        await using var primeira = new ClinicaDbContext(options);
+        await using var segunda = new ClinicaDbContext(options);
+        var r1 = new ClinicaRepositorio(primeira); var r2 = new ClinicaRepositorio(segunda);
+        var s1 = new AcompanhamentoPacienteService(primeira, r1, new(r1));
+        var s2 = new AcompanhamentoPacienteService(segunda, r2, new(r2));
+        var resultados = await Task.WhenAll(s1.GerarRecallAsync(recepcao.Id, 60), s2.GerarRecallAsync(recepcao.Id, 60));
+        Assert.Equal(1, resultados.Sum());
+        Assert.Single(await db.Acompanhamentos.AsNoTracking().ToListAsync());
+        Assert.Single(await db.ContatosAcompanhamento.AsNoTracking().ToListAsync());
+    }
+
+    private sealed class DuasGravacoes : SaveChangesInterceptor
+    {
+        private int _chegadas;
+        private readonly TaskCompletionSource _ambas = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context!.ChangeTracker.Entries<AcompanhamentoPaciente>().Any(e => e.State == EntityState.Added))
+            {
+                if (Interlocked.Increment(ref _chegadas) == 2) _ambas.TrySetResult();
+                await _ambas.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+            return result;
+        }
     }
 }

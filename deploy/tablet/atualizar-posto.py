@@ -252,10 +252,10 @@ protegidos=['postgresql@16-main','pgweb','cloudflared-site','clinica-safeid','cl
 antes={s:status(s) for s in protegidos}
 conceder=[];revogar=[]
 
-def grant(priv,table):
-    if sql(f"SELECT has_table_privilege('{role}','\"{table}\"','{priv}')")=='t':return
-    conceder.append(f'GRANT {priv} ON {ident(table)} TO {ident(role)};')
-    revogar.append(f'REVOKE {priv} ON {ident(table)} FROM {ident(role)};')
+def grant(priv,table,destinatario=role):
+    if sql(f"SELECT has_table_privilege('{destinatario}','\"{table}\"','{priv}')")=='t':return
+    conceder.append(f'GRANT {priv} ON {ident(table)} TO {ident(destinatario)};')
+    revogar.append(f'REVOKE {priv} ON {ident(table)} FROM {ident(destinatario)};')
 
 inserir='Anamneses VersoesAnamnese MedidasClinicas AnexosPaciente ArquivosAnexoPaciente ResultadosExame EvolucoesEnfermagem ModelosDocumento'.split()
 grant('SELECT','VersoesAnamnese')
@@ -286,6 +286,23 @@ elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
     conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
 if migracao=='20260928123100_AcompanhamentoPacientesBsvRecall':
+    # A migration é aplicada como postgres. O dono das tabelas do desktop também
+    # precisa gravar o recall; conceder só ao portal deixa o Windows sem INSERT.
+    desktop=sql('SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid=\'"Configuracoes"\'::regclass')
+    assert re.fullmatch(r'[a-zA-Z0-9_-]+',desktop) and desktop != role
+    for tabela,privilegios in {'Acompanhamentos':('SELECT','INSERT','UPDATE'),
+            'ContatosAcompanhamento':('SELECT','INSERT'),'MotivosAcompanhamento':('SELECT','INSERT')}.items():
+        existe=sql(f"SELECT to_regclass('{ident(tabela)}') IS NOT NULL")=='t'
+        for priv in privilegios:
+            if existe:grant(priv,tabela,desktop)
+            else:
+                conceder.append(f'GRANT {priv} ON {ident(tabela)} TO {ident(desktop)};')
+                revogar.append(f'REVOKE {priv} ON {ident(tabela)} FROM {ident(desktop)};')
+        sequence=ident(tabela+'_Id_seq')
+        for priv in ('USAGE','SELECT'):
+            if not existe or sql(f"SELECT has_sequence_privilege('{desktop}','{sequence}','{priv}')")!='t':
+                conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(desktop)};')
+                revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(desktop)};')
     # O portal somente indica e consulta. Alteração do recall fica nos desktops.
     for tabela in ('Acompanhamentos','ContatosAcompanhamento','MotivosAcompanhamento'):
         existe=sql(f"SELECT to_regclass('{ident(tabela)}') IS NOT NULL")=='t'

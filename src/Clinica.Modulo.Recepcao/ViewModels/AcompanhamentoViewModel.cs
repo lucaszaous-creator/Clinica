@@ -17,11 +17,15 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
 {
     private IReadOnlyList<LinhaAcompanhamento> _todos = [];
     private Guid _idempotencia = Guid.NewGuid();
+    private bool _recallInicializado;
     public ObservableCollection<LinhaAcompanhamento> Pacientes { get; } = [];
     public ObservableCollection<ContatoAcompanhamento> Historico { get; } = [];
     public ObservableCollection<OpcaoAcompanhamento> Responsaveis { get; } = [];
     public ObservableCollection<OpcaoAcompanhamento> Profissionais { get; } = [];
     public ObservableCollection<OpcaoAcompanhamento> Motivos { get; } = [];
+    public ObservableCollection<OpcaoAcompanhamento> ResponsaveisFiltro { get; } = [];
+    public ObservableCollection<OpcaoAcompanhamento> MotivosFiltro { get; } = [];
+    public ObservableCollection<OpcaoAcompanhamento> MotivosEdicao { get; } = [];
     public ObservableCollection<string> Convenios { get; } = [];
     public ObservableCollection<string> ProfissionaisFiltro { get; } = [];
     public IReadOnlyList<EscolhaRecall> Modalidades { get; } = new[] { new EscolhaRecall("", "Todas as modalidades") }
@@ -40,6 +44,19 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     public bool DetalheVisivel => Selecionado != null && !Configurando && !Filtrando;
     public bool EhRecall => Aba == "Recall";
     public string Titulo => EhRecall ? "Recall de pacientes" : "Novos pacientes BSV";
+    public string DescricaoFila => EhRecall ? "Encontre quem está sem retornar e organize o próximo contato." : "Acompanhe cada indicação até o agendamento da primeira sessão de bloqueio.";
+    public string FiltrosAtivos => string.Join(" · ", new[] {
+        Situacao != "Pendentes" ? Situacao : "Pendentes", Prazo != "Todos os prazos" ? "Contato: " + Prazo.ToLowerInvariant() : null,
+        Condicao != "Todas as condições" ? Condicao : null, Convenio != "Todos os convênios" ? Convenio : null,
+        Profissional != "Todos os profissionais" ? Profissional : null, ResponsavelFiltro > 0 ? Responsaveis.FirstOrDefault(x => x.Id == ResponsavelFiltro)?.Nome : null,
+        MotivoFiltro > 0 ? Motivos.FirstOrDefault(x => x.Id == MotivoFiltro)?.Nome : null, SomenteMeus ? "Somente meus" : null,
+        DiasMinimos != "0" ? "Sem retornar há " + DiasMinimos + " dias ou mais" : null,
+        !string.IsNullOrWhiteSpace(DiasMaximos) ? "Até " + DiasMaximos + " dias" : null,
+        TentativasMinimas != "0" ? TentativasMinimas + "+ tentativas" : null,
+        ContatoDesde != null || ContatoAte != null ? "Período de contato aplicado" : null }.Where(x => x != null));
+    public string ConfiguracaoTexto => ProfissionalBsv is > 0 ? "Indicações BSV: " + Profissionais.FirstOrDefault(x => x.Id == ProfissionalBsv)?.Nome : "Selecione o profissional que indicará os novos pacientes BSV.";
+    public string UltimaAtualizacaoTexto => _ultimaAtualizacao is {} em ? $"Lista atualizada às {em:HH:mm}" : "Carregando pacientes…";
+    private DateTime? _ultimaAtualizacao;
     public string Resumo => $"{Pacientes.Count} de {_todos.Count(x => x.Tipo == Tipo)} no filtro · {_todos.Count(x => x.Tipo == Tipo && x.Pendente)} pendentes · {_todos.Count(x => x.Tipo == Tipo && x.Atrasado)} atrasados · {_todos.Count(x => x.Tipo == Tipo && x.Situacao == "Agendado")} agendados · {_todos.Count(x => x.Tipo == Tipo && x.Situacao == "Sessão realizada")} realizados";
     public string HojeTexto => $"Meus contatos de hoje ({_todos.Count(x => x.Tipo == Tipo && x.Pendente && x.ResponsavelId == SessaoUsuario.Atual.UsuarioId && x.ProximoContato <= Hoje)})";
     public string AtrasadosTexto => $"Atrasados ({_todos.Count(x => x.Tipo == Tipo && x.Atrasado)})";
@@ -79,11 +96,12 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     [ObservableProperty] private bool _encerrar;
     [ObservableProperty] private bool _reabrir;
     [ObservableProperty] private int _motivoEdicao;
-    [ObservableProperty] private int _profissionalBsv;
+    [ObservableProperty] private int? _profissionalBsv;
     [ObservableProperty] private int _responsavelPadrao;
     [ObservableProperty] private string _novoMotivo = "";
     public ObservableCollection<string> VisaoGestao { get; } = [];
-    partial void OnAbaChanged(string value) { OnPropertyChanged(nameof(EhRecall)); OnPropertyChanged(nameof(Titulo)); Refiltrar(); }
+    partial void OnAbaChanged(string value) { OnPropertyChanged(nameof(EhRecall)); OnPropertyChanged(nameof(Titulo)); OnPropertyChanged(nameof(DescricaoFila)); Refiltrar(); }
+    partial void OnProfissionalBsvChanged(int? value) => OnPropertyChanged(nameof(ConfiguracaoTexto));
     partial void OnBuscaChanged(string value) => Refiltrar();
     partial void OnModalidadeChanged(string value) => Refiltrar();
     partial void OnSituacaoChanged(string value) => Refiltrar();
@@ -111,10 +129,19 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
         await Executar(async svc =>
         {
             var config = await svc.ConfiguracaoAsync(SessaoUsuario.Atual.UsuarioId);
-            Responsaveis.Clear(); foreach (var x in config.Responsaveis) Responsaveis.Add(x);
-            Profissionais.Clear(); foreach (var x in config.Profissionais) Profissionais.Add(x);
-            Motivos.Clear(); foreach (var x in config.Motivos) Motivos.Add(x);
-            ProfissionalBsv = config.ProfissionalBsvId; ResponsavelPadrao = config.ResponsavelPadraoId;
+            AtualizarOpcoes(Responsaveis, config.Responsaveis);
+            AtualizarOpcoes(Profissionais, config.Profissionais);
+            AtualizarOpcoes(Motivos, config.Motivos);
+            AtualizarOpcoes(ResponsaveisFiltro, new[] { new OpcaoAcompanhamento(0, "Todas as responsáveis") }.Concat(config.Responsaveis));
+            AtualizarOpcoes(MotivosFiltro, new[] { new OpcaoAcompanhamento(0, "Todos os motivos") }.Concat(config.Motivos));
+            AtualizarOpcoes(MotivosEdicao, new[] { new OpcaoAcompanhamento(0, "Sem motivo especial") }.Concat(config.Motivos));
+            ProfissionalBsv = config.ProfissionalBsvId > 0 ? config.ProfissionalBsvId : null; ResponsavelPadrao = config.ResponsavelPadraoId;
+            OnPropertyChanged(nameof(ProfissionalBsv)); OnPropertyChanged(nameof(ConfiguracaoTexto));
+            if (!_recallInicializado && EhRecall)
+            {
+                await svc.GerarRecallAsync(SessaoUsuario.Atual.UsuarioId, 60);
+                _recallInicializado = true;
+            }
             _todos = await svc.ListarAsync(SessaoUsuario.Atual.UsuarioId);
             var convenioAtual = Convenio; var profissionalAtual = Profissional;
             Convenios.Clear(); Convenios.Add("Todos os convênios"); foreach (var x in _todos.Select(x => x.Convenio).Distinct().Order()) Convenios.Add(x);
@@ -122,9 +149,21 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
             Convenio = Convenios.Contains(convenioAtual) ? convenioAtual : "Todos os convênios";
             Profissional = ProfissionaisFiltro.Contains(profissionalAtual) ? profissionalAtual : "Todos os profissionais";
             Refiltrar();
-            if (ProfissionalBsv == 0) Mensagem = "A gestão precisa selecionar o cadastro do Gustavo em Configurar acompanhamento. A fila é compartilhada com recepção, faturamento e gerente.";
+            _ultimaAtualizacao = DateTime.Now; OnPropertyChanged(nameof(UltimaAtualizacaoTexto));
         });
         NaoVerificado = _falhou;
+    }
+    private static void AtualizarOpcoes(ObservableCollection<OpcaoAcompanhamento> destino, IEnumerable<OpcaoAcompanhamento> origem)
+    {
+        var novas = origem.ToList();
+        // Preserve the selected item while refreshing; Clear() can erase WPF SelectedValue.
+        for (var i = 0; i < novas.Count; i++)
+        {
+            if (i < destino.Count && destino[i] == novas[i]) continue;
+            var existente = destino.IndexOf(novas[i]);
+            if (existente >= 0) destino.Move(existente, i); else destino.Insert(i, novas[i]);
+        }
+        while (destino.Count > novas.Count) destino.RemoveAt(destino.Count - 1);
     }
     private void Refiltrar()
     {
@@ -149,7 +188,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
             && (Prazo switch { "Hoje" => x.Pendente && x.ProximoContato <= Hoje, "Atrasados" => x.Atrasado, "Próximos 7 dias" => x.Pendente && x.ProximoContato >= Hoje && x.ProximoContato <= Hoje.AddDays(7), _ => true })
             && (Condicao switch { "A assumir" => x.ResponsavelId == null, "Sem primeiro contato" => x.Tentativas == 0, "Com tentativas" => x.Tentativas > 0, "Pacote com saldo" => x.PacoteComSaldo, "Sem telefone" => string.IsNullOrWhiteSpace(x.Telefone), "Contato não autorizado" => !x.Consentimento, "Cancelou ou faltou" => x.Cancelou || x.Faltou, _ => true }));
         Pacientes.Clear(); foreach (var x in lista) Pacientes.Add(x);
-        foreach (var nome in new[] { nameof(Resumo), nameof(HojeTexto), nameof(AtrasadosTexto), nameof(AAssumirTexto), nameof(SemContatoTexto), nameof(CanceladosTexto) }) OnPropertyChanged(nome);
+        foreach (var nome in new[] { nameof(Resumo), nameof(HojeTexto), nameof(AtrasadosTexto), nameof(AAssumirTexto), nameof(SemContatoTexto), nameof(CanceladosTexto), nameof(FiltrosAtivos) }) OnPropertyChanged(nome);
         VisaoGestao.Clear();
         foreach (var g in _todos.Where(x => x.Tipo == Tipo).GroupBy(x => x.Responsavel))
             VisaoGestao.Add($"{g.Key}: {g.Count(x => x.Pendente)} pendentes · {g.Count(x => x.Atrasado)} atrasados · {g.Count(x => x.Situacao == "Agendado")} agendados · {g.Count(x => x.Situacao == "Sessão realizada")} realizados");
@@ -161,12 +200,15 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     [RelayCommand] private void Atalho(string atalho) { LimparFiltros(); if (atalho == "hoje") { SomenteMeus = true; Prazo = "Hoje"; } else if (atalho == "assumir") Condicao = "A assumir"; else if (atalho == "atrasados") Prazo = "Atrasados"; else if (atalho == "sem-contato") Condicao = "Sem primeiro contato"; else if (atalho == "cancelados") Condicao = "Cancelou ou faltou"; else if (atalho == "sem-resposta") Situacao = "Sem resposta"; }
     [RelayCommand] private async Task GerarAsync()
     {
-        if (!int.TryParse(DiasRecall, out var dias)) { Mensagem = "Informe o número de dias para o recall."; return; }
+        if (!int.TryParse(DiasRecall, out var dias) || dias is < 1 or > 3650) { Mensagem = "Informe de 1 a 3650 dias sem retornar."; return; }
         var quantidade = 0;
         await Executar(async svc => quantidade = await svc.GerarRecallAsync(SessaoUsuario.Atual.UsuarioId, dias,
             Enum.TryParse<ModalidadeAtendimento>(Modalidade, out var m) ? m : null));
         if (_falhou) return;
-        await VoltarAsync(); Mensagem = $"{quantidade} acompanhamento(s) incluído(s). Histórico e contatos anteriores preservados.";
+        _recallInicializado = true;
+        var modalidade = Modalidade; LimparFiltros(); Modalidade = modalidade; DiasMinimos = dias.ToString();
+        await VoltarAsync();
+        if (!_falhou) Mensagem = $"{Pacientes.Count} paciente(s)/modalidade(s) sem retornar há {dias} dias ou mais. {quantidade} novo(s) acompanhamento(s).";
     }
     [RelayCommand] private async Task AbrirAsync(LinhaAcompanhamento? linha)
     {
@@ -233,8 +275,9 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     [RelayCommand] private void Configurar() { if (Gestor) { ResponsavelPadrao = 0; Configurando = true; } }
     [RelayCommand] private async Task SalvarConfiguracaoAsync()
     {
-        await Executar(svc => svc.ConfigurarAsync(SessaoUsuario.Atual.UsuarioId, ProfissionalBsv, ResponsavelPadrao));
-        if (!_falhou) { await VoltarAsync(); Mensagem = "Configuração salva."; }
+        if (ProfissionalBsv is not > 0) { Mensagem = "Selecione o profissional das indicações de BSV antes de salvar."; return; }
+        await Executar(svc => svc.ConfigurarAsync(SessaoUsuario.Atual.UsuarioId, ProfissionalBsv.Value, ResponsavelPadrao));
+        if (!_falhou) { await VoltarAsync(); if (!_falhou) Mensagem = "Configuração salva. O profissional selecionado permanece vinculado às indicações de BSV."; }
     }
     [RelayCommand] private async Task AdicionarMotivoAsync()
     {
@@ -247,7 +290,13 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
         if (Carregando) return;
         Carregando = true; _falhou = false; Mensagem = "";
         try { using var scope = escopos.CreateScope(); await acao(scope.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>()); }
-        catch (Exception ex) { _falhou = true; Mensagem = ex.Message; }
+        catch (Exception ex)
+        {
+            _falhou = true;
+            Clinica.Application.Diagnostico.Registrar("Acompanhamento de pacientes — operação não concluída", ex);
+            Mensagem = ex is InvalidOperationException or UnauthorizedAccessException ? ex.Message
+                : "Não foi possível concluir a operação. Os dados anteriores foram preservados. Tente novamente; se persistir, informe o suporte. O detalhe foi registrado no diagnóstico.";
+        }
         finally { Carregando = false; }
     }
 }

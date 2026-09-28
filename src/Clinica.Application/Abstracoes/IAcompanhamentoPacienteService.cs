@@ -20,6 +20,15 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
     string? MotivoEncerramento, string? Motivo)
 {
     public string ModalidadeTexto => Tipo == TipoAcompanhamento.NovoBsv ? "BSV / BSV + acupuntura" : RotulosEnum.De(Modalidade);
+    public string DiasTexto => Tipo == TipoAcompanhamento.Recall ? $"{Dias} dias sem retornar" : $"Indicado há {Dias} dias";
+    public string AcaoTexto => Pendente ? "Registrar contato" : "Ver acompanhamento";
+    public string ProximoPasso => !Pendente ? Situacao == "Agendado" ? "Aguardar a sessão agendada" : "Consultar histórico"
+        : string.IsNullOrWhiteSpace(Telefone) ? "Atualizar telefone"
+        : !Consentimento ? "Conferir autorização de contato"
+        : Situacao == "Conferir comparecimento" ? "Conferir a presença na agenda"
+        : Etapa == EtapaAcompanhamento.AguardandoPlano ? "Acompanhar autorização do plano"
+        : Etapa == EtapaAcompanhamento.ProntoParaAgendar ? "Agendar a sessão"
+        : Tentativas == 0 ? "Fazer o primeiro contato" : "Retomar contato com o paciente";
     public bool PodeContatar => !string.IsNullOrWhiteSpace(Telefone) && Consentimento && Pendente;
     public string Marcadores => string.Join(" · ", new[] { Atrasado ? "Contato atrasado" : null,
         PacoteComSaldo ? "Pacote com saldo" : null, string.IsNullOrWhiteSpace(Telefone) ? "Sem telefone" : null,
