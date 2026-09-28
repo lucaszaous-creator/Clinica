@@ -103,6 +103,19 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
 
     public async Task<int> GerarRecallAsync(int usuarioId, int dias, ModalidadeAtendimento? modalidade = null, CancellationToken ct = default)
     {
+        try { return await GerarRecallCoreAsync(usuarioId, dias, modalidade, ct); }
+        catch (DbUpdateException ex) when (ex is DbUpdateConcurrencyException ||
+            ex.GetBaseException() is Npgsql.PostgresException { SqlState: "23505", ConstraintName: "IX_Acompanhamentos_PacienteId_Tipo_Modalidade" })
+        {
+            // Two desks may open recall together. SaveChanges rolled back the batch;
+            // re-read once, preserving the journey created by the other operator.
+            db.ChangeTracker.Clear();
+            return await GerarRecallCoreAsync(usuarioId, dias, modalidade, ct);
+        }
+    }
+
+    private async Task<int> GerarRecallCoreAsync(int usuarioId, int dias, ModalidadeAtendimento? modalidade, CancellationToken ct)
+    {
         var u = await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
         if (dias is < 1 or > 3650 || modalidade is {} m && !Enum.IsDefined(m)) throw new InvalidOperationException("Informe de 1 a 3650 dias e uma modalidade válida.");
         var corte = Hoje.AddDays(-dias);

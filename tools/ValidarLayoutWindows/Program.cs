@@ -316,6 +316,39 @@ static class Program
         await vm.AbrirCommand.ExecuteAsync(vm.Pacientes[0]);
         await ConferirJanela(win, "acompanhamento-contato", [880, 1024, 1366]);
         await vm.VoltarCommand.ExecuteAsync(null); vm.ConfigurarCommand.Execute(null);
+        var medicoCombo = Descendentes(view).OfType<ComboBox>().Single(c => System.Windows.Automation.AutomationProperties.GetName(c) == "Profissional das indicações BSV");
+        medicoCombo.SelectedValue = usuario.ProfissionalId!.Value;
+        await vm.SalvarConfiguracaoCommand.ExecuteAsync(null);
+        for (var volta = 0; volta < 3; volta++)
+        {
+            vm.ConfigurarCommand.Execute(null); await Task.Delay(80); win.UpdateLayout();
+            if (medicoCombo.SelectedValue is not int id || id != usuario.ProfissionalId || Validation.GetHasError(medicoCombo))
+                throw new Exception("Configuração perdeu o médico salvo ao reabrir: " + vm.Mensagem);
+            await vm.VoltarCommand.ExecuteAsync(null);
+        }
+        var antigo = new Paciente { Nome = "Paciente fictício sem retorno", Convenio = Convenio.UnimedPadrao };
+        db.Pacientes.Add(antigo); await db.SaveChangesAsync();
+        db.Atendimentos.Add(new() { PacienteId = antigo.Id, Modalidade = ModalidadeAtendimento.BsvApenas,
+            Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-100)), RealizadoEm = DateTime.Today.AddDays(-100) });
+        await db.SaveChangesAsync();
+        vm.AtalhoCommand.Execute("atrasados"); vm.DiasRecall = "60";
+        await vm.GerarCommand.ExecuteAsync(null);
+        if (!vm.Pacientes.Any(p => p.PacienteId == antigo.Id) || vm.Prazo != "Todos os prazos")
+            throw new Exception("Buscar pacientes deixou o novo recall oculto pelo filtro anterior: " + vm.Mensagem);
+        var vmNovo = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
+        db.Atendimentos.Add(new() { PacienteId = antigo.Id, Modalidade = ModalidadeAtendimento.BsvComAcupuntura,
+            Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-80)), RealizadoEm = DateTime.Today.AddDays(-80) });
+        await db.SaveChangesAsync();
+        await vmNovo.CarregarAsync();
+        if (!vmNovo.Pacientes.Any(p => p.PacienteId == antigo.Id && p.Modalidade == ModalidadeAtendimento.BsvComAcupuntura))
+            throw new Exception("Recall não busca pacientes elegíveis automaticamente ao abrir a tela.");
+        await ConferirJanela(win, "acompanhamento-busca-recall", [880, 1024, 1366]);
+        win.Height = 600;
+        await ConferirJanela(win, "acompanhamento-lista-compacta", [880, 1024, 1366]);
+        var gradeRecall = Descendentes(win).OfType<DataGrid>().Single(g => g.IsVisible);
+        if (gradeRecall.ActualHeight < 130) throw new Exception("Cabeçalho deixou pouco espaço para pacientes.");
+        win.Height = 768;
+        vm.ConfigurarCommand.Execute(null);
         await ConferirJanela(win, "acompanhamento-configuracao", [880, 1024, 1366]);
         win.Close();
     }
@@ -501,8 +534,12 @@ static class Program
         {
             janela.Width = largura; janela.UpdateLayout(); await Task.Delay(120); janela.UpdateLayout();
             foreach (var grade in Descendentes(janela).OfType<DataGrid>().Where(g => g.IsVisible))
+            {
+                if (nome == "acompanhamento-lista-compacta" && grade.ActualHeight < 180)
+                    throw new Exception($"Lista de pacientes com altura insuficiente: {largura} {grade.ActualHeight}");
                 if (Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault()?.ScrollableWidth > 0.1)
                     throw new Exception($"Tabela ultrapassa a tela: {nome} {largura}");
+            }
             foreach (var botao in Descendentes(janela).OfType<Button>().Where(b => b.IsVisible && b.Content is string))
             {
                 var ponto = botao.TranslatePoint(new Point(), janela);
