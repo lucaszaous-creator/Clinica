@@ -47,11 +47,13 @@ public sealed class LinhaSalaInfusao
     /// </summary>
     public required string Dia { get; init; }
 
+    public IReadOnlyList<EtapaInfusao> Etapas { get; init; } = [];
     public bool DeOutroDia => Dia.Length > 0;
 
     public static LinhaSalaInfusao De(PrescricaoInterna p, DateOnly hoje) => new()
     {
         PrescricaoId = p.Id,
+        Etapas = EtapasInfusao.Da(p),
         PacienteId = p.PacienteId,
         Paciente = p.Paciente?.Nome ?? "—",
         Numero = p.Numero,

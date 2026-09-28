@@ -119,6 +119,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
+    [ObservableProperty] private string _textoOperacao = "Carregando prescrição…";
     [ObservableProperty] private bool _temAlertas;
 
     /// <summary>A folha já foi assinada nesta janela — quem abriu recarrega a lista.</summary>
@@ -216,6 +217,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     private async Task GuardarModeloAsync(string? nome,int id) {
         if(Ocupado||!Exigir(Permissao.Prescrever,"salvar modelos"))return;
         try {
+            TextoOperacao = "Salvando modelo…";
             Ocupado=true;
             var itens=Itens.Where(i=>!string.IsNullOrWhiteSpace(i.Descricao)).Select(i=>i.Para()).ToArray();
             var config=new ModeloInfusao(Indicacao,Observacoes,itens.Select(ModeloInfusao.De).ToArray(),IndicacaoFormatada,ObservacoesFormatadas).Guardar();
@@ -333,7 +335,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         if (!Exigir(Permissao.Prescrever, "salvar a prescrição de infusão")) return;
 
         if (await GravarAsync() is null) return;
-        Mensagem = "Rascunho salvo. Ele ainda NÃO aparece na sala de infusão — só a "
+        Mensagem = "✓ Rascunho salvo. Ele ainda NÃO aparece na sala de infusão — só a "
                  + "assinatura o põe lá.";
         MensagemEhErro = false;
     }
@@ -363,6 +365,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
             if (await GravarAsync() is null) return;
 
+            TextoOperacao = "Assinando e arquivando prescrição…";
             Ocupado = true;
 
             var confirmouAlergia = false;
@@ -453,6 +456,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
         try
         {
+            TextoOperacao = "Salvando prescrição de infusão…";
             Ocupado = true;
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();

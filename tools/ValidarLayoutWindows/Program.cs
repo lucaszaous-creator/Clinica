@@ -49,7 +49,7 @@ static class Program
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
         var usuario = new UsuarioSistema { Nome = prof.Nome, Login = "qa", Perfil = PerfilAcesso.Gerente, ProfissionalId = prof.Id, Profissional = prof }; db.Add(usuario); await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
         if (somenteAcompanhamento) { await ValidarAcompanhamento(sp, db, pac, usuario); return; }
-        if (somenteInfusao) { await AuditarInfusao(sp, usuario); return; }
+        if (somenteInfusao) { await AuditarInfusao(sp, usuario); await ConferirProgressoInfusao(sp, pac, prof); return; }
         if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
         if (somenteRetornos) { await ValidarRetornos(sp, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
@@ -211,6 +211,50 @@ static class Program
         }
         janelaEnfermagem.Close();
     }
+    static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
+    {
+        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
+        var dialogo = sp.GetRequiredService<IDialogoService>();
+        var folha = new FolhaExecucaoViewModel(escopos, dialogo, 0);
+        await folha.CarregarAsync();
+        folha.Paciente = paciente.Nome;
+        folha.Mensagem = null;
+        var janela = new FolhaExecucaoWindow(folha) { ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
+        janela.Show();
+        folha.Carregando = true;
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        janela.UpdateLayout();
+        if (!Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate))
+            throw new Exception("Folha sem progresso visível.");
+        if (Descendentes(janela).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
+            throw new Exception("Folha aceita ações durante carregamento.");
+        Foto(janela, "infusao-folha-carregando");
+        folha.Carregando = false;
+        folha.Mensagem = "✓ Registro confirmado. A checagem foi salva no prontuário.";
+        folha.MensagemEhErro = false;
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        janela.UpdateLayout();
+        if (Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible))
+            throw new Exception("Folha permanece carregando ao concluir.");
+        Foto(janela, "infusao-folha-confirmada");
+        janela.Close();
+        var prescricao = new PrescricaoInternaEdicaoViewModel(escopos, dialogo, paciente.Id, paciente.Nome, medico.Id);
+        var editor = new Clinica.Clinico.Janelas.PrescricaoInternaWindow(prescricao) { ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
+        editor.Show();
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        prescricao.Ocupado = true; prescricao.TextoOperacao = "Assinando e arquivando prescrição…";
+        editor.UpdateLayout();
+        if (!Descendentes(editor).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate)
+            || Descendentes(editor).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
+            throw new Exception("Editor de infusão não protege a operação em andamento.");
+        Foto(editor, "infusao-prescricao-assinando");
+        prescricao.Ocupado = false;
+        editor.Close();
+        Console.WriteLine("INFUSÃO: progresso visível, ações protegidas e confirmação sem indicador preso.");
+    }
+
     static async Task AuditarInfusao(ServiceProvider sp, UsuarioSistema usuario)
     {
         usuario.Perfil = PerfilAcesso.Profissional;
@@ -219,6 +263,8 @@ static class Program
         await vm.CarregarAsync();
         for (int i = 1; i <= 12; i++) vm.Validacoes.Add(new LinhaSalaInfusao {
             PrescricaoId = i, PacienteId = i, Paciente = $"Paciente fictício {i:00} com nome comprido",
+            Etapas = EtapasInfusao.Da(new PrescricaoInterna { OrigemEnfermagem = true, Situacao = SituacaoPrescricao.Encerrada,
+                Assinaturas = [new() { Papel = PapelAssinatura.Executante, ArquivoId = 1, ArquivoRegistroId = 1 }] }),
             Numero = $"PRE TESTE/{i:000}", Hora = "09:30", Prescritor = "Médico fictício", Progresso = "Aguardando avaliação médica",
             Itens = "Infusão fictícia", TemPendencia = false, Encerrada = true, Devolvida = false,
             AguardaAssinatura = false, RegistroPendente = false, Dia = "" });

@@ -225,6 +225,9 @@ public sealed partial class AtendimentoTabletTests
         var itensMedico=medico.GetProperty("itens").EnumerateArray().ToDictionary(x=>x.GetProperty("id").GetInt32());
         Assert.Equal("revisarRascunho",itensMedico[rascunho.Id].GetProperty("acaoPendente").GetString());
         Assert.Equal("assinarMedico",itensMedico[assinarMedico.Id].GetProperty("acaoPendente").GetString());
+        var etapasMedico=itensMedico[assinarMedico.Id].GetProperty("etapas").EnumerateArray().ToArray();
+        Assert.Equal("medico",Assert.Single(etapasMedico.Where(e=>e.GetProperty("atual").GetBoolean())).GetProperty("codigo").GetString());
+        Assert.Equal(2,etapasMedico.Count(e=>e.GetProperty("concluida").GetBoolean()));
 
         await Enfermeira();
         var avisosEnfermagem=await new ChecagemPrescricaoService(repo).ContarAssinaturasPendentesAsync(

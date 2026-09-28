@@ -205,7 +205,7 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
                 Situacao=p.DevolvidaEm!=null?"Devolvida":p.OrigemEnfermagem&&p.AssinadaEm==null&&p.Situacao==SituacaoPrescricao.Encerrada
                     ?p.Assinaturas.Any(a=>a.Papel==PapelAssinatura.Executante&&a.ArquivoId!=null&&a.ArquivoRegistroId!=null)?"AguardaMedico":"AguardaEnfermagem"
                     :p.Situacao.ToString(),AcaoPendente=AcaoPendenteInfusao(p),p.OrigemEnfermagem,
-                p.MotivoDevolucao,p.DevolvidaEm,p.RetificaPrescricaoId,
+                p.MotivoDevolucao,p.DevolvidaEm,p.RetificaPrescricaoId,Etapas=EtapasInfusao.Da(p),
                 p.Pendentes,p.ExigeAssinaturaEletronicaDaExecucao,RegistroSemAssinatura=p.AssinaturaDaExecucao is {} a&&a.ArquivoRegistroId is null})};
     }
 
