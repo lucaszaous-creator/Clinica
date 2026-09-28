@@ -133,7 +133,8 @@ def ident(n):
 
 def http(path):
     return run(['curl','--silent','--show-error','--max-time','4','--unix-socket',f'/run/{servico}/portal.sock',
-                '--header','X-Forwarded-Proto: https','--write-out','\n%{http_code}','http://localhost'+path])
+                '--header','X-Forwarded-Proto: https','--header','CF-Connecting-IP: 127.0.0.1',
+                '--write-out','\n%{http_code}','http://localhost'+path])
 
 def saude():
     for _ in range(20):
