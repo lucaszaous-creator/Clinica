@@ -55,10 +55,19 @@ public partial class SegundaAssinaturaExecucaoTests
         p.Itens.Single().ChecagemVigente!.DataRealizacao.Should().Be(DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
         p.AguardaValidacaoMedica.Should().BeTrue();
         (await _db.Atendimentos.CountAsync()).Should().Be(0);
+        (await _checagens.AguardandoValidacaoMedicaAsync(c.ProfissionalMedicaId)).Should().BeEmpty();
+        (await _checagens.AguardandoAssinaturaAsync()).Should().Contain(x => x.Id == p.Id);
+        await _prescricoes.CorrigirHorariosInfusaoExternaAsync(p.Id,c.UsuarioEnfermeiraId,p.Data,new(8,20),
+            DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),new(9,35),"Horário real conferido antes da assinatura");
+        p.Hora.Should().Be(new TimeOnly(8,20));
+        p.Itens.Single().ChecagemVigente!.HoraRealizacao.Should().Be(new TimeOnly(9,35));
         await Assert.ThrowsAsync<InvalidOperationException>(()=>_orquestra.AssinarPrescricaoAsync(p.Id,ECpfDeTeste("Médica",CpfMedica),usuarioId:medico.Id));
         await _orquestra.AssinarExecucaoAsync(p.Id,ECpfDeTeste("Enfermagem",CpfEnfermeira),c.UsuarioEnfermeiraId);
         var parcial=await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.RegistroExecucao);
+        Despejar("infusao-apenas-enfermagem.pdf",parcial.Pdf);
         _assinador.ConferirTodas(parcial.Pdf).Should().HaveCount(1).And.OnlyContain(a=>a.Conferida);
+        (await _checagens.AguardandoAssinaturaAsync()).Should().NotContain(x => x.Id == p.Id);
+        (await _checagens.AguardandoValidacaoMedicaAsync(c.ProfissionalMedicaId)).Should().Contain(x => x.Id == p.Id);
         p.AguardaValidacaoMedica.Should().BeTrue();
         await _orquestra.AssinarPrescricaoAsync(p.Id,ECpfDeTeste("Médica",CpfMedica),usuarioId:medico.Id);
         var final=await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.Prescricao);
@@ -66,6 +75,7 @@ public partial class SegundaAssinaturaExecucaoTests
         final.Pdf.Take(parcial.Pdf.Length).Should().Equal(parcial.Pdf);
         (await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.RegistroExecucao)).Pdf.Should().Equal(final.Pdf);
         p.Situacao.Should().Be(SituacaoPrescricao.Encerrada);
+        (await _checagens.AguardandoValidacaoMedicaAsync(c.ProfissionalMedicaId)).Should().BeEmpty();
         (await _db.Atendimentos.CountAsync()).Should().Be(0);
         await Assert.ThrowsAsync<InvalidOperationException>(()=>_prescricoes.CorrigirHorariosInfusaoExternaAsync(
             p.Id,c.UsuarioEnfermeiraId,DateOnly.FromDateTime(DateTime.Today),new(8,15),

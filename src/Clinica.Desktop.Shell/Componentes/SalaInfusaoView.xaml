@@ -49,11 +49,14 @@
         </WrapPanel>
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,12"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,12" MaxHeight="360"
                 Visibility="{Binding PodePrescrever, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
-                <TextBlock Text="Avaliação médica de infusões externas" Style="{StaticResource H3}" />
-                <TextBlock Text="{Binding ResumoValidacoes}" Style="{StaticResource TextoSuave}" Margin="0,4,0,8" />
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock Text="Avaliação médica de infusões externas" Style="{StaticResource H3}" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="1" Text="{Binding ResumoValidacoes}" Style="{StaticResource TextoSuave}" Margin="0,4,0,8" TextWrapping="Wrap" />
+                <ScrollViewer x:Name="RolagemValidacoes" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.Name="Infusões aguardando avaliação médica">
                 <ItemsControl ItemsSource="{Binding Validacoes}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -71,7 +74,8 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Border>
         <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
              visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
