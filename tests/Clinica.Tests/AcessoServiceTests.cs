@@ -209,8 +209,9 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public void Criticar_RecusaSenhaCurta()
     {
-        HashSenha.Criticar("123").Should().NotBeNull();
-        HashSenha.Criticar("segredo123").Should().NotBeNull();
+        HashSenha.Criticar("12345").Should().NotBeNull();
+        HashSenha.Criticar("123456").Should().BeNull();
+        HashSenha.Criticar("segredo123").Should().BeNull();
         HashSenha.Criticar("SenhaFicticia#2026").Should().BeNull();
     }
 
@@ -230,7 +231,7 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Hash_legado_com_senha_curta_e_atualizado_sem_reativar_troca_no_login()
     {
-        const string senha = "segredo123";
+        const string senha = "12345";
         var usuario = await _acesso.CriarAsync("Ana", "ana", "SenhaFicticia#2026", PerfilAcesso.Recepcao);
         DefinirHashLegado(usuario, senha);
         await _db.SaveChangesAsync();
@@ -299,7 +300,7 @@ public class AcessoServiceTests : IDisposable
     [Fact]
     public async Task Criar_SenhaCurta_EhRecusada()
     {
-        var acao = () => _acesso.CriarAsync("Ana", "ana", "123", PerfilAcesso.Recepcao);
+        var acao = () => _acesso.CriarAsync("Ana", "ana", "12345", PerfilAcesso.Recepcao);
 
         await acao.Should().ThrowAsync<ArgumentException>();
     }

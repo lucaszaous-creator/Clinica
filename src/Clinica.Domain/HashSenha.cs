@@ -23,7 +23,7 @@ public static class HashSenha
     private const int TamanhoHash = 32;  // 256 bits
 
     /// <summary>Tamanho mínimo aceito — abaixo disso, iteração nenhuma salva a senha.</summary>
-    public const int TamanhoMinimoSenha = 15;
+    public const int TamanhoMinimoSenha = 6;
 
     /// <summary>Gera hash versionado e sal em Base64 para uma senha nova.</summary>
     public static (string Hash, string Sal) Gerar(string senha)
