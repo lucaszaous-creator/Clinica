@@ -126,6 +126,9 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         return new {Agendamento = new {a.Id, a.DataHora, a.PacienteId, a.AtendimentoId, a.InicioAtendimentoEm,
                 Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm},
             Paciente = new {a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento},
+            NovoBsv = u.Pode(Permissao.EditarProntuario)
+                ? await new AcompanhamentoPacienteService(db, repo, new PacoteService(repo)).EstadoBsvAsync(u.Id, id, ct)
+                : new EstadoIndicacaoBsv(false, false),
             Faturamento = await ResumoFaturamentoAsync(a, ct),
             MateriaisHabilitados = await MateriaisHabilitadosAsync(a, ct),
             ExigeConferenciaEnfermagem = await agenda.ExigeConferenciaEnfermagemAsync(a.Id, ct),

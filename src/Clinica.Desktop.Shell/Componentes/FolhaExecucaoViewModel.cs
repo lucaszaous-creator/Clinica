@@ -144,6 +144,17 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _carregando;
+
+    private (IAsyncRelayCommand Comando, string Texto)[] _etapas = [];
+    public bool EmOperacao => Carregando || _etapas.Any(e => e.Comando.IsRunning);
+    public string TextoOperacao => _etapas.FirstOrDefault(e => e.Comando.IsRunning).Texto ?? "Atualizando a folha de infusão…";
+    partial void OnCarregandoChanged(bool value) => AtualizarProgresso();
+    private void AtualizarProgresso()
+    {
+        OnPropertyChanged(nameof(EmOperacao));
+        OnPropertyChanged(nameof(TextoOperacao));
+    }
+
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private bool _temAlertas;
 
@@ -243,6 +254,25 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         _escopos = escopos;
         _dialogo = dialogo;
         _prescricaoId = prescricaoId;
+        _etapas = [
+            (AssinarExecucaoCommand, "Assinando e arquivando execução…"),
+            (ValidarMedicoCommand, "Validando e assinando infusão…"),
+            (EncerrarCommand, "Encerrando execução…"),
+            (RealizadoCommand, "Registrando realização…"),
+            (NaoRealizadoCommand, "Registrando não realização…"),
+            (RetificarCommand, "Retificando execução…"),
+            (CorrigirHorariosCommand, "Salvando horários…"),
+            (DevolverMedicoCommand, "Devolvendo à enfermagem…"),
+            (CancelarInfusaoCommand, "Cancelando registro…"),
+            (SuspenderCommand, "Atualizando item…"),
+            (ImprimirCommand, "Preparando folha da infusão…"),
+            (ImprimirRegistroCommand, "Preparando registro de execução…")
+        ];
+        foreach (var etapa in _etapas)
+            etapa.Comando.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(IAsyncRelayCommand.IsRunning)) AtualizarProgresso();
+            };
         _ = CarregarAsync();
     }
 
@@ -526,14 +556,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     "Esta folha pede a assinatura eletrônica da enfermagem. Assinar agora, "
                     + "com o seu certificado?"))
             {
-                await AssinarExecucaoAsync();
+                await AssinarExecucaoCommand.ExecuteAsync(null);
                 return;
             }
 
             Mensagem = ExigeAssinaturaEletronica
-                ? "Execução encerrada. Falta a assinatura eletrônica da enfermagem — o "
+                ? "✓ Execução encerrada. Falta a assinatura eletrônica da enfermagem — o "
                   + "botão \"Assinar execução\" fica nesta folha."
-                : "Execução encerrada. Confira e assine a via impressa.";
+                : "✓ Execução encerrada. Confira e assine a via impressa.";
             MensagemEhErro = false;
         }
         catch (Exception ex)
@@ -598,9 +628,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // Falhar ao selar o registro não desfaz a assinatura da prescrição — mas ficar
             // calado faria a enfermeira imprimir uma folha de execução sem carimbo achando
             // que ela está selada.
-            Mensagem = OrigemEnfermagem ? "Execução assinada. Aguarda a validação do médico responsável. A situação do atendimento não foi alterada."
+            Mensagem = OrigemEnfermagem ? "✓ Execução assinada. Aguarda a validação do médico responsável. A situação do atendimento não foi alterada."
                 : registroSelado
-                ? "Execução assinada. A PRESCRIÇÃO passa a sair com as duas assinaturas, e "
+                ? "✓ Execução assinada. A PRESCRIÇÃO passa a sair com as duas assinaturas, e "
                   + "o REGISTRO DE EXECUÇÃO — a folha que mostra o que foi feito — saiu "
                   + "selado com o seu certificado."
                 : "Execução assinada na PRESCRIÇÃO, que agora sai com as duas assinaturas. "
@@ -638,7 +668,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().AssinarPrescricaoAsync(
                 _prescricaoId, certificado, confirmou, SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
             await CarregarAsync();
-            Mensagem = "Infusão validada pelo médico. O PDF com as duas assinaturas está arquivado no paciente.";
+            Mensagem = "✓ Infusão validada pelo médico. O PDF com as duas assinaturas está arquivado no paciente.";
             MensagemEhErro = false;
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
@@ -655,7 +685,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>()
                 .DevolverInfusaoExternaAsync(_prescricaoId, SessaoUsuario.Atual.UsuarioId, motivo);
             await CarregarAsync();
-            Mensagem = "Devolvida à enfermagem com motivo registrado. A folha original permanece arquivada.";
+            Mensagem = "✓ Devolvida à enfermagem com motivo registrado. A folha original permanece arquivada.";
             MensagemEhErro = false;
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
@@ -701,7 +731,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CorrigirHorariosInfusaoExternaAsync(
                 _prescricaoId,SessaoUsuario.Atual.UsuarioId,dataPrescricao,horaPrescricao,dataExecucao,horaExecucao,motivo);
             await CarregarAsync();
-            Mensagem = "Horários corrigidos. Revise o PDF antes de assinar.";
+            Mensagem = "✓ Horários corrigidos. Revise o PDF antes de assinar.";
             MensagemEhErro = false;
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
@@ -718,7 +748,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().CancelarAsync(
                 _prescricaoId,motivo,SessaoUsuario.Atual.Operador);
             await CarregarAsync();
-            Mensagem = "Registro cancelado e preservado no histórico.";
+            Mensagem = "✓ Registro cancelado e preservado no histórico.";
             MensagemEhErro = false;
         } catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
     }
@@ -803,7 +833,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             await servico.SuspenderItemAsync(
                 linha.ItemId, motivo, SessaoUsuario.Atual.Operador);
 
-            Mensagem = null;
+            Mensagem = "✓ Item suspenso. O motivo foi salvo no prontuário.";
             MensagemEhErro = false;
             await CarregarAsync();
         }
@@ -935,7 +965,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             await acao(servico, Executante(), DateOnly.FromDateTime(diaExecucao), hora);
 
-            Mensagem = null;
+            Mensagem = "✓ Registro confirmado. A checagem foi salva no prontuário.";
             MensagemEhErro = false;
             await CarregarAsync();
         }

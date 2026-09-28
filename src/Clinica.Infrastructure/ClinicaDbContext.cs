@@ -5,6 +5,9 @@ namespace Clinica.Infrastructure;
 
 public class ClinicaDbContext : DbContext
 {
+    public DbSet<AcompanhamentoPaciente> Acompanhamentos => Set<AcompanhamentoPaciente>();
+    public DbSet<ContatoAcompanhamento> ContatosAcompanhamento => Set<ContatoAcompanhamento>();
+    public DbSet<MotivoAcompanhamento> MotivosAcompanhamento => Set<MotivoAcompanhamento>();
     public DbSet<ParcelaRecebivelCartao> ParcelasRecebiveisCartao => Set<ParcelaRecebivelCartao>();
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
 
@@ -127,6 +130,42 @@ public class ClinicaDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<AcompanhamentoPaciente>(e =>
+        {
+            e.HasIndex(x => new { x.PacienteId, x.Tipo, x.Modalidade }).IsUnique();
+            e.HasIndex(x => new { x.ResponsavelId, x.ProximoContato });
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Modalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Etapa).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.ReferenciaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EncerradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.EncerradoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoEncerramento).HasMaxLength(2000);
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Responsavel).WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Motivo).WithMany().HasForeignKey(x => x.MotivoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoOrigemId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Profissional>().WithMany().HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<ContatoAcompanhamento>(e =>
+        {
+            e.HasIndex(x => new { x.AcompanhamentoPacienteId, x.Idempotencia }).IsUnique();
+            e.Property(x => x.Em).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Canal).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Operador).HasMaxLength(80);
+            e.Property(x => x.Resultado).HasMaxLength(100);
+            e.Property(x => x.Observacao).HasMaxLength(2000);
+            e.HasOne(x => x.AcompanhamentoPaciente).WithMany(x => x.Contatos).HasForeignKey(x => x.AcompanhamentoPacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<MotivoAcompanhamento>(e =>
+        {
+            e.Property(x => x.Nome).HasMaxLength(100);
+            e.HasIndex(x => x.Nome).IsUnique();
+        });
         Tablet.MapeamentoTablet.Aplicar(b);
         b.Entity<EtapaFechamentoSessao>(e =>
         {

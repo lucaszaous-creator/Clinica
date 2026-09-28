@@ -14,7 +14,19 @@
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
-    <DockPanel Margin="24">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <StackPanel Margin="24,16,24,0" AutomationProperties.LiveSetting="Polite">
+            <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers><DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+            </Style></StackPanel.Style>
+            <TextBlock Text="{Binding TextoOperacao}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <ProgressBar IsIndeterminate="True" Height="4" AutomationProperties.Name="Operação em andamento"/>
+        </StackPanel>
+    <DockPanel Grid.Row="1" Margin="24">
+        <DockPanel.Style><Style TargetType="DockPanel"><Style.Triggers>
+            <DataTrigger Binding="{Binding Ocupado}" Value="True"><Setter Property="IsEnabled" Value="False"/></DataTrigger>
+        </Style.Triggers></Style></DockPanel.Style>
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <TextBlock Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap">
@@ -249,4 +261,5 @@
             </StackPanel>
         </ScrollViewer>
     </DockPanel>
+    </Grid>
 </Window>

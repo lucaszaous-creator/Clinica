@@ -54,6 +54,8 @@ else
     builder.Services.AddDbContext<ClinicaDbContext>(o=>o.UseNpgsql(conexao,n=>n.CommandTimeout(20)));
 }
 builder.Services.AddScoped<IClinicaRepositorio,ClinicaRepositorio>();
+builder.Services.AddScoped<PacoteService>();
+builder.Services.AddScoped<IAcompanhamentoPacienteService,AcompanhamentoPacienteService>();
 builder.Services.AddScoped<AcessoService>();
 builder.Services.AddScoped<DocumentoClinicoService>();
 builder.Services.AddScoped<ProntuarioService>();

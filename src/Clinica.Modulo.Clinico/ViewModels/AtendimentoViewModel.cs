@@ -76,6 +76,28 @@ public sealed record FolhaDeHoje(
 /// </summary>
 public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 {
+    [ObservableProperty] private bool _podeIndicarBsv;
+    [ObservableProperty] private bool _bsvIndicado;
+    public string RotuloBsv => BsvIndicado ? "Em acompanhamento BSV" : "Novo paciente de BSV";
+    partial void OnBsvIndicadoChanged(bool value) => OnPropertyChanged(nameof(RotuloBsv));
+
+    [RelayCommand]
+    private async Task IndicarBsvAsync()
+    {
+        if (_foco.AgendamentoId is not {} id || BsvIndicado) return;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>()
+                .IndicarBsvAsync(SessaoUsuario.Atual.UsuarioId, id);
+            if (_foco.AgendamentoId != id) return;
+            BsvIndicado = true;
+            MensagemEhErro = false;
+            Mensagem = "Paciente incluído no acompanhamento BSV da recepção.";
+        }
+        catch (Exception ex) { Mensagem = ex.Message; MensagemEhErro = true; }
+    }
+
     public sealed record RegistroParaVincular(int Id, string Rotulo);
     public ObservableCollection<RegistroParaVincular> RegistrosParaVincular { get; } = [];
     [ObservableProperty] private RegistroParaVincular? _registroSelecionadoParaVincular;
@@ -786,6 +808,8 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
     public async Task CarregarAsync()
     {
         var geracao = ++_geracaoCarga;
+        PodeIndicarBsv = false;
+        BsvIndicado = false;
 
         if (PacienteId == 0)
         {
@@ -832,6 +856,15 @@ public sealed partial class AtendimentoViewModel : FolhaDaSessaoViewModel
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            if (_foco.AgendamentoId is {} horarioBsv && SessaoUsuario.Atual.Pode(Permissao.Prescrever | Permissao.EditarProntuario))
+            {
+                var bsv = await scope.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>()
+                    .EstadoBsvAsync(SessaoUsuario.Atual.UsuarioId, horarioBsv);
+                if (geracao != _geracaoCarga) return;
+                PodeIndicarBsv = bsv.PodeIndicar;
+                BsvIndicado = bsv.Indicado;
+            }
 
             // A trilha de LEITURA (parcela 52), registrada na troca de paciente.
             if (_acessoRegistradoDe != PacienteId)
