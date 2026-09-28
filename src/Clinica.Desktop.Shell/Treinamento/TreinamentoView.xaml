@@ -27,7 +27,7 @@
     <ItemsControl x:Name="Aulas"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
      <ItemsControl.ItemTemplate><DataTemplate>
       <Button Click="Abrir" Tag="{Binding}" Width="325" MinHeight="176" Margin="0,0,14,14" Padding="16" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Top" Style="{StaticResource BotaoSecundario}">
-       <StackPanel><TextBlock Text="{Binding Categoria}" Foreground="{StaticResource Brush.Acento}" FontWeight="SemiBold"/><TextBlock Text="{Binding Titulo}" FontSize="{StaticResource Fonte.H2}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,8"/><TextBlock Text="{Binding Descricao}" TextWrapping="Wrap" MaxHeight="58" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding DuracaoTexto}" Margin="0,12,0,0"/><TextBlock Text="{Binding Estado}" FontWeight="SemiBold" Margin="0,4,0,0"/></StackPanel>
+       <StackPanel><TextBlock Text="{Binding Categoria}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Acento}" FontWeight="SemiBold"/><TextBlock Text="{Binding Titulo}" FontSize="{StaticResource Fonte.H2}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,8"/><TextBlock Text="{Binding Descricao}" TextWrapping="Wrap" MaxHeight="58" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding DuracaoTexto}" TextWrapping="Wrap" Margin="0,12,0,0"/><TextBlock Text="{Binding Estado}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,4,0,0"/></StackPanel>
       </Button>
      </DataTemplate></ItemsControl.ItemTemplate>
     </ItemsControl>
