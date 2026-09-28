@@ -87,6 +87,8 @@ public sealed class PortalTabletTests : IDisposable
     [Fact] public async Task Situacao_da_busca_e_agenda_confirma_arquivo_e_respeita_validade_diaria()
     {
         var s=await Preparar(true);
+        db.Agendamentos.Add(new(){PacienteId=paciente.Id,DataHora=svc.Hoje.ToDateTime(new TimeOnly(10,0)),ModalidadePrevista=ModalidadeAtendimento.BsvApenas});
+        await db.SaveChangesAsync();
         static JsonElement Json(object valor)=>JsonSerializer.SerializeToElement(valor,ContratoTablet.Json);
         async Task<JsonElement[]> Buscar()=>Json(await svc.BuscarAsync("paciente FICTÍCIO",default))[0]
             .GetProperty("termos").EnumerateArray().ToArray();
@@ -102,13 +104,13 @@ public sealed class PortalTabletTests : IDisposable
         await svc.ReceberAsync(s.Sessao,coletas[1].Id,Envio(coletas[1]),default);
         await svc.FinalizarAsync(coletas[1].Id,default);
         Assert.All(await Buscar(),t=>{Assert.Equal("arquivado",t.GetProperty("estado").GetString());Assert.True(t.GetProperty("arquivado").GetBoolean());});
-        Assert.Empty(await db.Agendamentos.ToListAsync());
-        db.Agendamentos.Add(new(){PacienteId=paciente.Id,DataHora=svc.Hoje.ToDateTime(new TimeOnly(10,0))});
-        await db.SaveChangesAsync();
+
         var dia=Json(await svc.DiaAsync(default)).GetProperty("pacientes")[0];
         Assert.Equal(paciente.Id,dia.GetProperty("pacienteId").GetInt32());
         Assert.All(dia.GetProperty("termos").EnumerateArray(),t=>Assert.Equal("arquivado",t.GetProperty("estado").GetString()));
         relogio.Adiantar(86400);
+        db.Agendamentos.Add(new(){PacienteId=paciente.Id,DataHora=svc.Hoje.ToDateTime(new TimeOnly(10,0)),ModalidadePrevista=ModalidadeAtendimento.BsvApenas});
+        await db.SaveChangesAsync();
         var amanha=await Buscar();
         Assert.Equal("arquivado",amanha.Single(t=>!t.GetProperty("diario").GetBoolean()).GetProperty("estado").GetString());
         Assert.Equal("pendente",amanha.Single(t=>t.GetProperty("diario").GetBoolean()).GetProperty("estado").GetString());
@@ -247,6 +249,64 @@ public sealed class PortalTabletTests : IDisposable
         Assert.Equal(1,await db.DocumentosClinicos.CountAsync());Assert.Equal("equipe",outra.Sessao.Modo);
     }
 
+
+    [Fact] public async Task Retorno_sem_login_revoga_token_isola_coletas_e_nao_estende_validade()
+    {
+        var s=await Preparar(true);var prazo=s.Sessao.ExpiraEm;
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.RetornarEquipeAsync(s.Sessao,default));
+        foreach(var c in await db.ColetasTablet.ToListAsync())await svc.ReceberAsync(s.Sessao,c.Id,Envio(c),default);
+        var volta=await svc.RetornarEquipeAsync(s.Sessao,default);
+        Assert.Equal("equipe",volta.Sessao.Modo);Assert.Equal(prazo,volta.Sessao.ExpiraEm);
+        Assert.Equal(usuario.Id,volta.Sessao.UsuarioId);Assert.NotEqual(s.Token,volta.Token);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>svc.AutorizarAsync(s.Token,"tablet",true,default));
+        Assert.Equal(volta.Sessao.Id,(await svc.AutorizarAsync(volta.Token,"tablet",true,default)).Id);
+        Assert.Empty(await db.ColetasTablet.Where(c=>c.SessaoId==volta.Sessao.Id).ToListAsync());
+        foreach(var c in await db.ColetasTablet.ToListAsync())await svc.FinalizarAsync(c.Id,default);
+        Assert.Equal(2,await db.ViasAssinadasPaciente.CountAsync());
+    }
+
+    [Fact] public async Task Lista_e_busca_incluem_somente_bsv_do_dia()
+    {
+        await Preparar();
+        var consulta=new Paciente {Nome="Paciente consulta"};var amanha=new Paciente {Nome="Paciente amanhã"};
+        var cancelado=new Paciente {Nome="Paciente cancelado"};db.Pacientes.AddRange(consulta,amanha,cancelado);await db.SaveChangesAsync();
+        var hoje=svc.Hoje.ToDateTime(new TimeOnly(10,0));
+        db.Agendamentos.AddRange(new Agendamento {PacienteId=paciente.Id,DataHora=hoje,ModalidadePrevista=ModalidadeAtendimento.BsvApenas},
+            new Agendamento {PacienteId=consulta.Id,DataHora=hoje,ModalidadePrevista=ModalidadeAtendimento.Consulta},
+            new Agendamento {PacienteId=amanha.Id,DataHora=hoje.AddDays(1),ModalidadePrevista=ModalidadeAtendimento.BsvApenas},
+            new Agendamento {PacienteId=cancelado.Id,DataHora=hoje,ModalidadePrevista=ModalidadeAtendimento.BsvComAcupuntura,Status=StatusAgendamento.Cancelado});
+        await db.SaveChangesAsync();
+        var dia=JsonSerializer.SerializeToElement(await svc.DiaAsync(default),ContratoTablet.Json).GetProperty("pacientes");
+        Assert.Equal(1,dia.GetArrayLength());Assert.Equal(paciente.Id,dia[0].GetProperty("pacienteId").GetInt32());
+        var busca=JsonSerializer.SerializeToElement(await svc.BuscarAsync("Paciente",default),ContratoTablet.Json);
+        Assert.Equal(1,busca.GetArrayLength());Assert.Equal(paciente.Id,busca[0].GetProperty("id").GetInt32());
+    }
+
+    [Fact] public async Task Alergia_reutilizada_no_segundo_termo_registrada_uma_vez_e_editavel()
+    {
+        var s=await Preparar(true);var coletas=await db.ColetasTablet.OrderBy(c=>c.DocumentoId).ToListAsync();
+        await svc.ReceberAsync(s.Sessao,coletas[0].Id,Envio(coletas[0],"Sim"),default);
+        var lista=JsonSerializer.SerializeToElement(await svc.ColetasAsync(s.Sessao,default),ContratoTablet.Json);
+        Assert.Equal("Sim",lista[1].GetProperty("alergiaAnterior").GetProperty("resposta").GetString());
+        Assert.Equal("Relato fictício",lista[1].GetProperty("alergiaAnterior").GetProperty("detalhes").GetString());
+        await svc.ReceberAsync(s.Sessao,coletas[1].Id,Envio(coletas[1],"Sim"),default);
+        var alergia=await db.ProblemasPaciente.SingleAsync();Assert.Equal(NaturezaProblema.Alergia,alergia.Natureza);
+        Assert.Equal("Relato fictício",alergia.Descricao);
+        alergia.Situacao=SituacaoProblema.Descartado;alergia.MotivoDescarte="Revisto com o paciente";await db.SaveChangesAsync();
+        foreach(var c in coletas)await svc.FinalizarAsync(c.Id,default);
+        Assert.Single(await db.ProblemasPaciente.ToListAsync());Assert.False(alergia.EhAlertaDeAtendimento);
+        Assert.Equal(2,await db.ViasAssinadasPaciente.CountAsync());
+    }
+
+    [Fact] public async Task Tcle_assinado_nao_e_cobrado_novamente_em_outro_dia()
+    {
+        var s=await Preparar();var c=await db.ColetasTablet.SingleAsync();
+        await svc.ReceberAsync(s.Sessao,c.Id,Envio(c),default);await svc.FinalizarAsync(c.Id,default);
+        relogio.Adiantar(86400*30);var entrada=await svc.EntrarAsync(usuario,"tablet",null,default);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(entrada.Sessao,new(paciente.Id,[1],paciente.DataNascimento!.Value,"Documento conferido"),default));
+        Assert.Single(await db.DocumentosClinicos.ToListAsync());
+    }
+
     private sealed class FalharArquivo : SaveChangesInterceptor
     {
         public bool Ativa {get;set;}
@@ -274,6 +334,29 @@ public sealed class PortalTabletTests : IDisposable
             for(int y=0;y<100;y++){z.WriteByte(0);for(int x=0;x<300;x++){byte color=(byte)(traco&&x>20&&x<270&&Math.Abs(y-(50+25*Math.Sin(x/17.0)))<3?20:255);z.Write(new[]{color,color,color,(byte)255});}}
         Chunk("IDAT",raw.ToArray());Chunk("IEND",[]);return output.ToArray();
     }
+    [Fact]
+    public async Task Coleta_na_evolucao_isola_documentos_sem_trocar_acesso_da_enfermagem()
+    {
+        var antigo=await Preparar(true);await svc.EncerrarAsync(antigo.Sessao,false,null,default);
+        var equipe=await svc.RetornarEquipeAsync(antigo.Sessao,default);
+        var medico=new Profissional {Nome="Médico fictício"};db.Profissionais.Add(medico);await db.SaveChangesAsync();
+        var ag=new Agendamento {PacienteId=paciente.Id,ProfissionalId=medico.Id,DataHora=svc.Hoje.ToDateTime(new TimeOnly(10,0)),ModalidadePrevista=ModalidadeAtendimento.BsvComAcupuntura};
+        db.Agendamentos.Add(ag);await db.SaveChangesAsync();
+        var pedido=new PrepararTablet(paciente.Id,[1,2],paciente.DataNascimento!.Value,"Documento conferido");
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararNaEvolucaoAsync(equipe.Sessao,ag.Id,pedido with {PacienteId=paciente.Id+100},default));
+        var token=await svc.PrepararNaEvolucaoAsync(equipe.Sessao,ag.Id,pedido,default);
+        var coleta=await svc.AutorizarAsync(token,"tablet",false,default);
+        Assert.Equal("paciente",coleta.Modo);Assert.Equal("equipe",(await svc.AutorizarAsync(equipe.Token,"tablet",true,default)).Modo);
+        Assert.NotEqual(equipe.Sessao.Id,coleta.Id);Assert.True(coleta.ExpiraEm<=equipe.Sessao.ExpiraEm);
+        await Assert.ThrowsAsync<AcessoTabletBloqueado>(()=>svc.AutorizarAsync(token,"tablet",true,default));
+        foreach(var c in await db.ColetasTablet.Where(c=>c.SessaoId==coleta.Id).ToListAsync())await svc.ReceberAsync(coleta,c.Id,Envio(c),default);
+        await svc.EncerrarAsync(coleta,false,null,default);
+        Assert.Equal("equipe",(await svc.AutorizarAsync(equipe.Token,"tablet",true,default)).Modo);
+        Assert.All(await db.ColetasTablet.Where(c=>c.SessaoId==coleta.Id).ToListAsync(),c=>Assert.Equal("recebido",c.Estado));
+        ag.DataHora=ag.DataHora.AddDays(-1);await db.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararNaEvolucaoAsync(equipe.Sessao,ag.Id,pedido,default));
+    }
+
     private sealed class Relogio : TimeProvider
     {
         private DateTimeOffset agora=DateTimeOffset.UtcNow;

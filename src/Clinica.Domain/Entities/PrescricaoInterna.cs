@@ -50,7 +50,8 @@ public enum SituacaoChecagem
     /// Prescrito e NÃO feito. No papel é a "rodela": a técnica circula o horário para dizer
     /// que aquilo não aconteceu. Exige justificativa escrita.
     /// </summary>
-    NaoRealizado
+    NaoRealizado,
+    NaoExecutavel
 }
 
 /// <summary>
@@ -68,7 +69,8 @@ public enum SituacaoItemPrescricao
     NaoRealizado,
 
     /// <summary>O prescritor tirou o item antes de ele ser executado.</summary>
-    Suspenso
+    Suspenso,
+    NaoExecutavel
 }
 
 /// <summary>
@@ -232,6 +234,11 @@ public class PrescricaoInterna
     public int? RetificaPrescricaoId { get; set; }
     public PrescricaoInterna? Retificacao { get; set; }
 
+    /// <summary>Diluição única da folha. Falso conserva a interpretação dos itens legados.</summary>
+    public bool DiluicaoUnica { get; set; }
+    public string? DiluenteGlobal { get; set; }
+    public string? VolumeTotal { get; set; }
+
     /// <summary>Indicação/motivo — o que se está tratando com esta infusão.</summary>
     public string? Indicacao { get; set; }
     public string? IndicacaoFormatada { get; set; }
@@ -335,7 +342,7 @@ public class PrescricaoInterna
         => Itens.Count(i => i.Situacao == SituacaoItemPrescricao.Realizado);
 
     public int NaoRealizados
-        => Itens.Count(i => i.Situacao == SituacaoItemPrescricao.NaoRealizado);
+        => Itens.Count(i => i.Situacao is SituacaoItemPrescricao.NaoRealizado or SituacaoItemPrescricao.NaoExecutavel);
 
     /// <summary>
     /// Todo item já teve destino (feito, não feito ou suspenso). É o que habilita encerrar:
@@ -466,10 +473,12 @@ public class ItemPrescricaoInterna
         {
             if (Suspenso) return SituacaoItemPrescricao.Suspenso;
 
+            if (ChecagemVigente?.NaoExecutavel == true) return SituacaoItemPrescricao.NaoExecutavel;
             return ChecagemVigente?.Situacao switch
             {
                 SituacaoChecagem.Realizado => SituacaoItemPrescricao.Realizado,
                 SituacaoChecagem.NaoRealizado => SituacaoItemPrescricao.NaoRealizado,
+                SituacaoChecagem.NaoExecutavel => SituacaoItemPrescricao.NaoExecutavel,
                 _ => SituacaoItemPrescricao.Pendente
             };
         }
@@ -531,6 +540,7 @@ public class ChecagemPrescricao
     public ItemPrescricaoInterna? Item { get; set; }
 
     public SituacaoChecagem Situacao { get; set; }
+    public bool NaoExecutavel { get; set; }
 
     /// <summary>
     /// Hora em que foi (ou seria) administrado, digitada por quem executou. Nos itens não

@@ -153,9 +153,20 @@
                 </StackPanel>
 
                 <TextBlock Text="Prescrição" Style="{StaticResource Rotulo}" Margin="0,0,0,6" />
-                <TextBlock Text="Escreva ou cole o texto livremente. Use um bloco por item de checagem. Diluente e tempo já vêm preenchidos e podem ser ajustados."
+                <TextBlock Text="Use um bloco por medicamento. O diluente e o volume total valem para toda a infusão."
                            Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10" />
 
+                <WrapPanel Margin="0,0,0,12">
+                    <StackPanel Width="250" Margin="0,0,16,0">
+                        <TextBlock Text="Diluente da infusão" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding DiluenteGlobal, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
+                    </StackPanel>
+                    <StackPanel Width="180">
+                        <TextBlock Text="Volume total (mL)" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding VolumeTotal, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
+                    </StackPanel>
+                    <CheckBox Content="Diluição única para todos os itens" Margin="16,20,0,0" IsChecked="{Binding DiluicaoUnica}" />
+                </WrapPanel>
                 <ItemsControl ItemsSource="{Binding Itens}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -204,12 +215,12 @@
                                             <ColumnDefinition Width="90" />
                                         </Grid.ColumnDefinitions>
 
-                                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                        <StackPanel Grid.Column="0" Margin="0,0,10,0" Visibility="{Binding DataContext.DiluicaoPorItem, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolParaVisibilidade}}">
                                             <TextBlock Text="Diluente" Style="{StaticResource Rotulo}" />
                                             <TextBox Text="{Binding Diluente, UpdateSourceTrigger=PropertyChanged}" />
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                        <StackPanel Grid.Column="1" Margin="0,0,10,0" Visibility="{Binding DataContext.DiluicaoPorItem, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BoolParaVisibilidade}}">
                                             <TextBlock Text="Volume" Style="{StaticResource Rotulo}" />
                                             <TextBox Text="{Binding Volume, UpdateSourceTrigger=PropertyChanged}" />
                                         </StackPanel>
@@ -239,9 +250,9 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                            <TextBlock Text="Cuidados" Style="{StaticResource Rotulo}" />
-                                            <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}"  />
+                                        <StackPanel Grid.Column="0" Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}}">
+                                            <TextBlock Text="Observação do item (registro anterior)" Style="{StaticResource Rotulo}" />
+                                            <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}" />
                                         </StackPanel>
 
                                         <CheckBox Grid.Column="1" Content="Se necessário (SOS)"
@@ -255,7 +266,7 @@
                 </ItemsControl>
 
                 <StackPanel Margin="0,4,0,0">
-                    <TextBlock Text="Orientações gerais" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
                     <ctrl:EditorTextoClinico Texto="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}" Formato="{Binding ObservacoesFormatadas, UpdateSourceTrigger=PropertyChanged}" MinHeight="60"  />
                 </StackPanel>
             </StackPanel>

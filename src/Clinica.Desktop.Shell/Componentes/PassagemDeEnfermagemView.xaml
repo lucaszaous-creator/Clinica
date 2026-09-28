@@ -58,14 +58,15 @@
                              Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="A hora do FATO, não a de agora. A técnica observa às 14h20 e digita às 14h50 — o relógio do sistema fica gravado ao lado, e a diferença entre os dois é o que uma auditoria de enfermagem procura." />
                 </StackPanel>
-                <!-- A PA como se anota no papel: "120/80" num campo só (aceita x, hífen e
-                     espaço). O serviço continua recebendo dois números —
-                     `PressaoArterialTexto`, na Application, é quem separa. -->
                 <StackPanel Margin="0,0,14,6">
-                    <TextBlock Text="PA (mmHg)" Style="{StaticResource TextoSuave}" />
-                    <TextBox Width="92" Text="{Binding PressaoArterial, UpdateSourceTrigger=PropertyChanged}"
-                             ctrl:Ajudantes.Placeholder="120/80"
-                             ToolTip="Sistólica/diastólica, como se anota: 120/80 (ou 120x80)." />
+                    <TextBlock Text="PA sistólica" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="90" Text="{Binding Sistolica, UpdateSourceTrigger=PropertyChanged}"
+                             ctrl:Ajudantes.Placeholder="110" ToolTip="Pressão sistólica em mmHg" />
+                </StackPanel>
+                <StackPanel Margin="0,0,14,6">
+                    <TextBlock Text="PA diastólica" Style="{StaticResource TextoSuave}" />
+                    <TextBox Width="90" Text="{Binding Diastolica, UpdateSourceTrigger=PropertyChanged}"
+                             ctrl:Ajudantes.Placeholder="70" ToolTip="Pressão diastólica em mmHg" />
                 </StackPanel>
                 <StackPanel Margin="0,0,14,6">
                     <TextBlock Text="FC (bpm)" Style="{StaticResource TextoSuave}" />

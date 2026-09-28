@@ -195,12 +195,14 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20260928211121_ChecagemNaoExecutavel':'20260926120000_DevolucaoInfusaoExterna',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
         '20260923190924_EdicaoEnfermagemExclusiva':'20260922231000_HabilitacoesDoProfissional',
         '20260926120000_DevolucaoInfusaoExterna':'20260925170000_DataRealizacaoInfusao',
         '20260928123100_AcompanhamentoPacientesBsvRecall':'20260926120000_DevolucaoInfusaoExterna',
     }
     arquivos_migracao={
+        '20260928211121_ChecagemNaoExecutavel':'migracao-fluxos-enfermagem.sql',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'migracao-enfermagem.sql',
         '20260923190924_EdicaoEnfermagemExclusiva':'migracao-enfermagem.sql',
         '20260926120000_DevolucaoInfusaoExterna':'migracao-infusao.sql',
@@ -209,7 +211,10 @@ with tarfile.open(pacote) as tar:
     assert migracao is False or (manifest['contrato']==3 and migracao in anteriores_migracao)
     if migracao:
         ultima=sql('SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY "MigrationId" DESC LIMIT 1')
-        assert ultima in (anteriores_migracao[migracao],migracao),'Base mudou; conferir antes de migrar'
+        permitidas={anteriores_migracao[migracao],migracao}
+        if migracao=='20260928211121_ChecagemNaoExecutavel':
+            permitidas.update({'20260928123100_AcompanhamentoPacientesBsvRecall','20260928210520_DiluicaoUnicaInfusao'})
+        assert ultima in permitidas,'Base mudou; conferir antes de migrar'
         assert arquivos_migracao[migracao] in manifest['arquivos']
     assert nome==f"tablet-continuidade-{manifest['backend'][:12]}-{manifest['interface'][:12]}"
     assert {m.name[len(nome)+1:] for m in membros if m.isfile()} == set(manifest['arquivos']) | {'manifesto.json'}
@@ -285,7 +290,7 @@ if sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
 elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
     conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
-if migracao=='20260928123100_AcompanhamentoPacientesBsvRecall':
+if migracao in ('20260928123100_AcompanhamentoPacientesBsvRecall','20260928211121_ChecagemNaoExecutavel'):
     # A migration é aplicada como postgres. O dono das tabelas do desktop também
     # precisa gravar o recall; conceder só ao portal deixa o Windows sem INSERT.
     desktop=sql('SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid=\'"Configuracoes"\'::regclass')

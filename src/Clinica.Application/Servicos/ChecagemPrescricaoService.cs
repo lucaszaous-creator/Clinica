@@ -416,7 +416,7 @@ public sealed class ChecagemPrescricaoService
         if (item.Prescricao is null) return;
 
         var conferencia = await _conferencia.ConferirAsync(
-            item.Prescricao.PacienteId, [item.TextoCompleto], ct);
+            item.Prescricao.PacienteId, [item.TextoCompleto + " " + item.Prescricao.DiluenteGlobal], ct);
 
         if (!conferencia.ExigeConfirmacao) return;
 
@@ -436,9 +436,10 @@ public sealed class ChecagemPrescricaoService
     {
         executante.Exigir("checar a execução");
 
+        if (!Enum.IsDefined(situacao)) throw new InvalidOperationException("Situação de execução inválida.");
         var limpa = string.IsNullOrWhiteSpace(justificativa) ? null : justificativa.Trim();
 
-        if (situacao == SituacaoChecagem.NaoRealizado && limpa is null)
+        if (situacao != SituacaoChecagem.Realizado && limpa is null)
             throw new InvalidOperationException(
                 "Item não realizado exige justificativa. Sem ela, a folha registra que a "
                 + "medicação não entrou no paciente e não diz por quê — que é a pior linha "
@@ -450,7 +451,9 @@ public sealed class ChecagemPrescricaoService
         return new ChecagemPrescricao
         {
             ItemPrescricaoInternaId = item.Id,
-            Situacao = situacao,
+            // Mantém o enum persistido legível para desktops de versões anteriores.
+            Situacao = situacao == SituacaoChecagem.NaoExecutavel ? SituacaoChecagem.NaoRealizado : situacao,
+            NaoExecutavel = situacao == SituacaoChecagem.NaoExecutavel,
             DataRealizacao = data,
             HoraRealizacao = hora,
             Justificativa = limpa,
