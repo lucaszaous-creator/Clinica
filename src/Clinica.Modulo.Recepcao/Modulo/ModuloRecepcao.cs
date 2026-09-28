@@ -408,8 +408,9 @@ public sealed class ModuloRecepcao : IModuloApp
         // Direção está carregada.
         new ItemMenuModulo
         {
-            Chave = ChaveRetorno, Rotulo = "Retorno de pacientes", Glifo = "\uE8AF", Icone = "volta",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.GerenciarCampanhas
+            Chave = ChaveRetorno, Rotulo = "Acompanhamento de pacientes", Glifo = "\uE8AF", Icone = "volta",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
+            RequerAlgum = Permissao.GerenciarCampanhas | Permissao.VerFaturamento
         },
 
         // AJUDA E SUPORTE \u2014 sem `Requer` de prop\u00F3sito (o padr\u00E3o \u00E9 "sempre vis\u00EDvel"):
@@ -445,6 +446,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<LancamentosViewModel>();
         servicos.AddTransient<RetornosAMarcarViewModel>();
         servicos.AddTransient<RetornoViewModel>();
+        servicos.AddTransient<AcompanhamentoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
@@ -490,7 +492,7 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             DataContext = servicos.GetRequiredService<RetornosAMarcarViewModel>()
         },
-        ChaveRetorno => new RetornoView { DataContext = servicos.GetRequiredService<RetornoViewModel>() },
+        ChaveRetorno => new AcompanhamentoView { DataContext = servicos.GetRequiredService<AcompanhamentoViewModel>() },
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()

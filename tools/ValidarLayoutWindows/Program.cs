@@ -27,9 +27,11 @@ static class Program
     static bool completo;
     static bool somenteRetornos;
     static bool somenteGestao;
+    static bool somenteAcompanhamento;
     [STAThread]
     static int Main(string[] args)
     {
+        somenteAcompanhamento = args.Contains("--acompanhamento");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
@@ -44,6 +46,7 @@ static class Program
         using var sp = services.BuildServiceProvider(); using var scope = sp.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>(); db.Database.EnsureCreated();
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
         var usuario = new UsuarioSistema { Nome = prof.Nome, Login = "qa", Perfil = PerfilAcesso.Gerente, ProfissionalId = prof.Id, Profissional = prof }; db.Add(usuario); await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        if (somenteAcompanhamento) { await ValidarAcompanhamento(sp, db, pac, usuario); return; }
         if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
         if (somenteRetornos) { await ValidarRetornos(sp, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
@@ -205,6 +208,30 @@ static class Program
         }
         janelaEnfermagem.Close();
     }
+    static async Task ValidarAcompanhamento(ServiceProvider sp, ClinicaDbContext db, Paciente paciente, UsuarioSistema usuario)
+    {
+        db.Acompanhamentos.Add(new() { PacienteId = paciente.Id, Tipo = TipoAcompanhamento.Recall,
+            Modalidade = ModalidadeAtendimento.BsvApenas, ReferenciaEm = DateTime.Today.AddDays(-90),
+            CriadoEm = DateTime.Today, CriadoPor = usuario.Login, ResponsavelId = usuario.Id,
+            ProximoContato = DateOnly.FromDateTime(DateTime.Today.AddDays(-2)) });
+        await db.SaveChangesAsync();
+        var vm = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
+        var view = new Clinica.Recepcao.Views.AcompanhamentoView { DataContext = vm };
+        var win = new Window { Content = view, ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1024, Height = 768 };
+        win.Show(); await vm.CarregarAsync();
+        if (vm.Pacientes.Count != 1 || vm.NaoVerificado) throw new Exception("Acompanhamento não carregou o paciente fictício: " + vm.Mensagem);
+        await ConferirJanela(win, "acompanhamento-lista", [880, 1024, 1366]);
+        vm.AbrirFiltrosCommand.Execute(null);
+        await ConferirJanela(win, "acompanhamento-filtros", [880, 1024, 1366]);
+        await vm.VoltarCommand.ExecuteAsync(null);
+        await vm.AbrirCommand.ExecuteAsync(vm.Pacientes[0]);
+        await ConferirJanela(win, "acompanhamento-contato", [880, 1024, 1366]);
+        await vm.VoltarCommand.ExecuteAsync(null); vm.ConfigurarCommand.Execute(null);
+        await ConferirJanela(win, "acompanhamento-configuracao", [880, 1024, 1366]);
+        win.Close();
+    }
+
     static async Task ValidarRetornos(ServiceProvider sp, UsuarioSistema usuario)
     {
         foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Gerente })

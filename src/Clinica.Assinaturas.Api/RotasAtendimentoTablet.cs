@@ -15,6 +15,13 @@ internal static class RotasAtendimentoTablet
     internal static void Mapear(WebApplication app, Func<HttpContext, PortalTabletService, Task<SessaoTablet>> sessao)
     {
         var grupo = app.MapGroup("/api/clinico");
+        grupo.MapPost("/atendimentos/{id:int}/novo-bsv", async(HttpContext c, PortalTabletService portal,
+            AtendimentoTabletService acesso, IAcompanhamentoPacienteService acompanhamento, int id) =>
+        {
+            var usuario = await acesso.AutorizarAsync(await sessao(c, portal), c.RequestAborted);
+            await acompanhamento.IndicarBsvAsync(usuario.Id, id, c.RequestAborted);
+            return Results.Ok(await acompanhamento.EstadoBsvAsync(usuario.Id, id, c.RequestAborted));
+        });
         grupo.MapPost("/atividade", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc) =>
         {
             await svc.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario,renovarAtividade:true);

@@ -87,10 +87,9 @@ internal static partial class Program
             var visiveis = shell.Grupos.SelectMany(g => g.Itens).ToList();
             if (nome.StartsWith("Faturamento"))
             {
-                Conferir(shell.Grupos.Count == 1 && shell.Grupos[0].Grupo == GrupoSidebar.Financeiro,
-                    $"{nome}: somente grupo Financeiro");
-                Conferir(visiveis.Count == 1 && visiveis[0].Chave == ChavesSuite.FaturamentoTiss,
-                    $"{nome}: somente Faturamento de guias no menu");
+                Conferir(visiveis.Count == 2 && visiveis.Any(i => i.Chave == ChavesSuite.FaturamentoTiss)
+                    && visiveis.Any(i => i.Chave == ChavesSuite.RetornoPacientes),
+                    $"{nome}: guias e acompanhamento compartilhado no menu");
                 Conferir(shell.TituloTela == "Faturamento de guias" && shell.TelaAtual is Clinica.Desktop.Shell.Componentes.TelaComAbas,
                     $"{nome}: abertura direta no faturamento");
                 var composta = (Clinica.Desktop.Shell.Componentes.TelaComAbas)shell.TelaAtual!;
@@ -109,7 +108,7 @@ internal static partial class Program
                         $"{nome}: rota alheia recusada {chave}");
                     Conferir(modulos[0].CriarTela(chave, provider) is null, $"{nome}: fábrica recusa {chave}");
                 }
-                foreach (var termo in new[] { "Agenda", "Confirmações", "Retornos", "Paciente", "Acessos" })
+                foreach (var termo in new[] { "Agenda", "Confirmações", "Retornos", "Acessos" })
                 {
                     shell.TextoPesquisa = termo;
                     Conferir(shell.ResultadosPesquisa.Count == 0, $"{nome}: busca não oferece {termo}");

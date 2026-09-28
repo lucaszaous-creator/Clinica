@@ -164,7 +164,7 @@ public sealed class ModuloGerente : IModuloApp
             [
                 new AbaMenu("Campanhas", ChaveCampanhas),
                 new AbaMenu("Quem parou de vir", ChaveRetencao),
-                new AbaMenu("Retorno de pacientes", ChavesSuite.RetornoPacientes),
+                new AbaMenu("Acompanhamento de pacientes", ChavesSuite.RetornoPacientes),
                 new AbaMenu("De onde vêm os pacientes", ChaveOrigens)
             ]
         },
