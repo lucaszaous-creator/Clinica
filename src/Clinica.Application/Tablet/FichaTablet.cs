@@ -45,7 +45,8 @@ public sealed record NovoModeloDocumentoTablet(Guid Idempotencia,string Nome,Tip
 public sealed record RascunhoTablet(Guid Idempotencia, string Versao, string Motivo, string? Corpo,
     string? Observacoes, int? DiasAfastamento, string? Indicacao, bool AssinaturaEnfermagem,
     ItemInfusaoTablet[]? Itens,string? CorpoFormatado=null,string? ObservacoesFormatadas=null,string? IndicacaoFormatada=null,
-    DateOnly? DataPrescricao=null,TimeOnly? HoraPrescricao=null);
+    DateOnly? DataPrescricao=null,TimeOnly? HoraPrescricao=null,
+    bool? DiluicaoUnica=null,string? DiluenteGlobal=null,string? VolumeTotal=null);
 public sealed record ItemInfusaoTablet(string Descricao, string? Dose, string? Diluente, string? Volume,
     ViaAdministracao Via, string? TempoInfusao, TimeOnly? HoraPrevista, bool SeNecessario, string? Observacoes,
     string? DescricaoFormatada=null,string? ObservacoesFormatadas=null);

@@ -53,6 +53,7 @@ public sealed record EmitirDocumentoTablet(Guid Idempotencia, string Tipo, strin
     string? Volume = null, string? TempoInfusao = "1h", bool AssinaturaEnfermagem = true,
     ViaAdministracao Via = ViaAdministracao.Endovenosa,string? CorpoFormatado=null,
     string? ObservacoesFormatadas=null,ItemInfusaoTablet[]? Itens=null,string? Indicacao=null,string? IndicacaoFormatada=null,
-    DateOnly? DataPrescricao=null,TimeOnly? HoraPrescricao=null);
+    DateOnly? DataPrescricao=null,TimeOnly? HoraPrescricao=null,
+    bool? DiluicaoUnica=null,string? DiluenteGlobal=null,string? VolumeTotal=null);
 public sealed record ResultadoGravacaoTablet(int EvolucaoId, string Versao, bool Finalizado, int? AtendimentoId, int Guias, string[] Avisos);
 public sealed record ResultadoDocumentoTablet(int Id, string Tipo, string Numero);

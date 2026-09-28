@@ -221,6 +221,7 @@ public static class RotulosEnum
             SituacaoItemPrescricao.Pendente => "Aguardando",
             SituacaoItemPrescricao.Realizado => "Realizado",
             SituacaoItemPrescricao.NaoRealizado => "Não realizado",
+            SituacaoItemPrescricao.NaoExecutavel => "Não executável",
             _ => "Suspenso"
         },
 

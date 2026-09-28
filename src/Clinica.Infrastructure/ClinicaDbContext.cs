@@ -1156,6 +1156,8 @@ public class ClinicaDbContext : DbContext
         // ---- Prescrição de execução interna e checagem de enfermagem (parcela 42) ----
         b.Entity<PrescricaoInterna>(e =>
         {
+            e.Property(x => x.DiluenteGlobal).HasMaxLength(120);
+            e.Property(x => x.VolumeTotal).HasMaxLength(60);
             e.HasKey(x => x.Id);
             e.Property(x => x.Numero).IsRequired().HasMaxLength(20);
             e.Property(x => x.CodigoVerificacao).IsRequired().HasMaxLength(20);

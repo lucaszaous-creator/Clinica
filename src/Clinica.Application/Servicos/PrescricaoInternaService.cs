@@ -84,7 +84,7 @@ public sealed partial class PrescricaoInternaService
         PrescricaoInterna prescricao, CancellationToken ct = default)
         => _conferencia.ConferirAsync(
             prescricao.PacienteId,
-            prescricao.Itens.Where(i => !i.Suspenso).Select(i => i.TextoCompleto),
+            prescricao.Itens.Where(i => !i.Suspenso).Select(i => i.TextoCompleto + " " + prescricao.DiluenteGlobal),
             ct);
 
     // ---- Escrita ----
@@ -136,7 +136,8 @@ public sealed partial class PrescricaoInternaService
         string? operador = null,
         bool? exigeAssinaturaEletronicaDaExecucao = null, CancellationToken ct = default,
         string? indicacaoFormatada = null, string? observacoesFormatadas = null,
-        DateOnly? dataPrescricao = null, TimeOnly? horaPrescricao = null)
+        DateOnly? dataPrescricao = null, TimeOnly? horaPrescricao = null,
+        bool? diluicaoUnica = null, string? diluenteGlobal = null, string? volumeTotal = null)
     {
         var prescricao = await Exigir(prescricaoId, ct);
 
@@ -155,6 +156,14 @@ public sealed partial class PrescricaoInternaService
             prescricao.Hora = hora;
         }
 
+        if (diluicaoUnica is { } unica)
+        {
+            if (diluenteGlobal?.Length > 120 || volumeTotal?.Length > 60)
+                throw new InvalidOperationException("Confira o diluente e o volume total da infusão.");
+            prescricao.DiluicaoUnica = unica;
+            prescricao.DiluenteGlobal = unica ? Limpar(diluenteGlobal) : null;
+            prescricao.VolumeTotal = unica ? Limpar(volumeTotal) : null;
+        }
         prescricao.Indicacao = Limpar(indicacao);
         prescricao.IndicacaoFormatada = TextoFormatado.Normalizar(prescricao.Indicacao, indicacaoFormatada ?? prescricao.IndicacaoFormatada);
         prescricao.Observacoes = Limpar(observacoes);
@@ -180,8 +189,8 @@ public sealed partial class PrescricaoInternaService
                 Descricao = entrada.Descricao.Trim(),
                 DescricaoFormatada = TextoFormatado.Normalizar(entrada.Descricao.Trim(), entrada.DescricaoFormatada),
                 Dose = Limpar(entrada.Dose),
-                Diluente = Limpar(entrada.Diluente),
-                Volume = Limpar(entrada.Volume),
+                Diluente = prescricao.DiluicaoUnica ? null : Limpar(entrada.Diluente),
+                Volume = prescricao.DiluicaoUnica ? null : Limpar(entrada.Volume),
                 Via = entrada.Via,
                 TempoInfusao = Limpar(entrada.TempoInfusao),
                 HoraPrevista = entrada.HoraPrevista,

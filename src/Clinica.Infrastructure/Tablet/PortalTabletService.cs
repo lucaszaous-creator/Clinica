@@ -4,6 +4,7 @@ using System.Text.Json;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Application.Tablet;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Prontuario;
 using Microsoft.EntityFrameworkCore;
@@ -64,6 +65,7 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     {
         var de=Hoje.ToDateTime(TimeOnly.MinValue); var ate=de.AddDays(1);
         var agenda=await db.Agendamentos.AsNoTracking().Where(a=>(profissionalId==null || a.ProfissionalId==profissionalId) && a.DataHora>=de && a.DataHora<ate
+            && (a.ModalidadePrevista==ModalidadeAtendimento.BsvApenas || a.ModalidadePrevista==ModalidadeAtendimento.BsvComAcupuntura)
             && a.Status!=StatusAgendamento.Cancelado && a.Status!=StatusAgendamento.Faltou)
             .OrderBy(a=>a.DataHora).Take(300).Select(a=>new {
                 a.Id,a.PacienteId,Nome=a.Paciente!.Nome,Nascimento=a.Paciente.DataNascimento,
@@ -77,9 +79,12 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     {
         var q=busca?.Trim();
         if (q?.Length is not (>=3 and <=80)) return Array.Empty<object>();
+        var de=Hoje.ToDateTime(TimeOnly.MinValue); var ate=de.AddDays(1);
         var pacientes=await db.Pacientes.AsNoTracking().Where(p=>p.Nome.ToLower().Contains(q.ToLower())
-            && (profissionalId==null || db.Agendamentos.Any(a=>a.PacienteId==p.Id && a.ProfissionalId==profissionalId
-                && (a.Status==StatusAgendamento.Agendado || a.Status==StatusAgendamento.Realizado))))
+            && db.Agendamentos.Any(a=>a.PacienteId==p.Id && (profissionalId==null || a.ProfissionalId==profissionalId)
+                && a.DataHora>=de && a.DataHora<ate
+                && (a.ModalidadePrevista==ModalidadeAtendimento.BsvApenas || a.ModalidadePrevista==ModalidadeAtendimento.BsvComAcupuntura)
+                && a.Status!=StatusAgendamento.Cancelado && a.Status!=StatusAgendamento.Faltou))
             .OrderBy(p=>p.Nome).Take(20).Select(p=>new {p.Id,p.Nome,Nascimento=p.DataNascimento}).ToListAsync(ct);
         var termos=await SituacoesAsync(pacientes.Select(p=>p.Id).ToArray(),ct);
         return pacientes.Select(p=>new {p.Id,p.Nome,p.Nascimento,Termos=termos[p.Id]});
@@ -149,6 +154,22 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         return new { p.Id,p.Nome,Nascimento=p.DataNascimento,Modelos=modelos,Documentos=historico,Termos=termos[id] };
     }
 
+    public async Task<string> PrepararNaEvolucaoAsync(SessaoTablet equipe,int agendamentoId,PrepararTablet pedido,CancellationToken ct)
+    {
+        if(equipe.Modo!="equipe" || !PodeColher(equipe.Usuario!) || !equipe.Usuario!.Pode(Permissao.RegistrarEvolucaoEnfermagem))
+            throw new AcessoTabletBloqueado();
+        var a=await db.Agendamentos.AsNoTracking().SingleOrDefaultAsync(a=>a.Id==agendamentoId && a.PacienteId==pedido.PacienteId,ct);
+        if(a is null || DateOnly.FromDateTime(a.DataHora)!=Hoje || a.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado)
+            || a.ModalidadePrevista is not (ModalidadeAtendimento.BsvApenas or ModalidadeAtendimento.BsvComAcupuntura))
+            throw ErroFormularioTablet.Criar("A coleta deve pertencer à sessão BSV ou BSV + acupuntura de hoje deste paciente.");
+        var token=Token();
+        var coleta=new SessaoTablet {Id=ContratoTablet.Hash(token),UsuarioId=equipe.UsuarioId,Usuario=equipe.Usuario,
+            Dispositivo=equipe.Dispositivo,CredencialVersao=equipe.CredencialVersao,ExpiraEm=Math.Min(equipe.ExpiraEm,Agora+3_600_000)};
+        db.SessoesTablet.Add(coleta);
+        await PrepararAsync(coleta,pedido,ct);
+        return token; // Só na memória da coleta; nunca substitui o cookie da equipe.
+    }
+
     public async Task PrepararAsync(SessaoTablet s, PrepararTablet pedido, CancellationToken ct)
     {
         if(s.Modo!="equipe") throw new AcessoTabletBloqueado();
@@ -185,10 +206,27 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
                 ConteudoJson=conteudo,ConteudoHash=ContratoTablet.Hash(conteudo),ChaveAtiva=chave,
                 PreparadoEm=Agora,ExpiraEm=Agora+3_600_000 });
         }
-        s.Modo="paciente"; s.ExpiraEm=Agora+3_600_000;
+        s.Modo="paciente"; // Preserva a validade original do acesso da equipe.
         await Auditar("TabletEntregue",p.Id,Operador(s.Usuario!),"Acesso restrito aos documentos preparados; identidade conferida",ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+    }
+
+    public async Task<(string Token, SessaoTablet Sessao)> RetornarEquipeAsync(SessaoTablet s, CancellationToken ct)
+    {
+        // AutorizarAsync revalida usuário, senha, dispositivo e prazo antes desta operação.
+        if (s.Modo is not ("paciente" or "encerrada") || !PodeColher(s.Usuario!))
+            throw new AcessoTabletBloqueado();
+        if (await db.ColetasTablet.AnyAsync(c=>c.SessaoId==s.Id && c.Estado=="preparado",ct))
+            throw ErroFormularioTablet.Criar("Conclua a assinatura ou encerre a leitura antes de retornar à equipe.");
+        var token=Token();
+        var nova=new SessaoTablet { Id=ContratoTablet.Hash(token),UsuarioId=s.UsuarioId,Usuario=s.Usuario,
+            Dispositivo=s.Dispositivo,CredencialVersao=s.CredencialVersao,ExpiraEm=s.ExpiraEm,AtividadeClinicaEm=Agora };
+        db.SessoesTablet.Add(nova);
+        s.Modo="revogada";s.ExpiraEm=Agora;
+        await Auditar("TabletRetornoEquipe",null,Operador(s.Usuario!),"Retorno após coleta; prazo original preservado",ct);
+        await db.SaveChangesAsync(ct);
+        return (token,nova);
     }
 
     public async Task<object> ColetasAsync(SessaoTablet s,CancellationToken ct)
@@ -196,12 +234,30 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         if(s.Modo!="paciente") throw new AcessoTabletBloqueado();
         var coletas=await db.ColetasTablet.AsNoTracking().Where(c=>c.SessaoId==s.Id)
             .OrderBy(c=>c.PreparadoEm).ThenBy(c=>c.DocumentoId)
-            .Select(c=>new {c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,c.ConteudoJson,c.Falha,c.RecebidoEm}).ToListAsync(ct);
+            .Select(c=>new {c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,c.ConteudoJson,c.Falha,c.RecebidoEm,c.PacienteId,c.SubmissaoJson}).ToListAsync(ct);
+        var pacienteIds=coletas.Select(c=>c.PacienteId).Distinct().ToArray();
+        var alergias=await db.ProblemasPaciente.AsNoTracking().Where(p=>pacienteIds.Contains(p.PacienteId)
+            && p.Natureza==NaturezaProblema.Alergia && p.Situacao!=SituacaoProblema.Descartado)
+            .Select(p=>new {p.PacienteId,p.Descricao}).ToListAsync(ct);
+        // A sugestão vem apenas do mesmo paciente. A assinatura confirma a resposta visível.
         // Não expor documento de identidade completo no modo paciente.
         return coletas.Select(c=>
         {
             var documento=JsonSerializer.Deserialize<DocumentoTablet>(c.ConteudoJson,ContratoTablet.Json)!;
+            var anterior=coletas.Where(x=>x.Id!=c.Id && x.PacienteId==c.PacienteId && x.SubmissaoJson!=null)
+                .OrderByDescending(x=>x.RecebidoEm).FirstOrDefault();
+            string? respostaAnterior=null,detalhes=null;
+            if(anterior is not null) {
+                var respostas=JsonSerializer.Deserialize<RespostasTablet>(anterior.SubmissaoJson!,ContratoTablet.Json)!;
+                var docAnterior=JsonSerializer.Deserialize<DocumentoTablet>(anterior.ConteudoJson,ContratoTablet.Json)!;
+                var ordem=docAnterior.Itens.Single(i=>i.Codigo==RespostaDeclaracao.CodigoAlergiasTablet).Ordem;
+                respostaAnterior=respostas.Respostas[ordem];detalhes=respostas.AlergiasDetalhes;
+            } else {
+                var relatos=alergias.Where(a=>a.PacienteId==c.PacienteId).Select(a=>a.Descricao).ToArray();
+                if(relatos.Length>0){respostaAnterior="Sim";detalhes=string.Join("; ",relatos);}
+            }
             return new { c.Id,c.DocumentoId,c.Estado,c.ConteudoHash,c.ExpiraEm,c.RecebidoEm,
+                AlergiaAnterior=respostaAnterior is null ? null : new {Resposta=respostaAnterior,Detalhes=detalhes,Origem=anterior is null?"ficha do paciente":"outro termo desta coleta"},
                 documento.Titulo,documento.Numero,
                 Documento=c.Estado=="preparado" ? documento with {Identificacao=null} : null,
                 PrecisaEquipe=c.Estado=="falha" };
@@ -231,6 +287,23 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             throw ErroFormularioTablet.Criar("O documento foi alterado. Chame a enfermeira para preparar uma nova coleta.");
         c.SubmissaoJson=json; c.SubmissaoHash=hash; c.TracoPng=png; c.Idempotencia=envio.Idempotencia;
         c.RecebidoEm=Agora; c.Estado="recebido";
+        var pergunta=d.Itens.Single(i=>i.Codigo==RespostaDeclaracao.CodigoAlergiasTablet);
+        if(respostas.Respostas[pergunta.Ordem]=="Sim")
+        {
+            var relato=respostas.AlergiasDetalhes ?? "Alergia relatada pelo paciente — agente não informado";
+            var descricao=relato.Length<=300?relato:relato[..297]+"…";
+            var existentes=await db.ProblemasPaciente.Where(p=>p.PacienteId==c.PacienteId && p.Natureza==NaturezaProblema.Alergia).ToListAsync(ct);
+            var origem=$"Coleta de termos {s.Id[..12]}";
+            var ativos=string.Join("; ",existentes.Where(p=>p.Situacao!=SituacaoProblema.Descartado).Select(p=>p.Descricao));
+            if(!string.Equals(ativos,relato,StringComparison.OrdinalIgnoreCase) && !existentes.Any(p=>string.Equals(p.Descricao,descricao,StringComparison.OrdinalIgnoreCase)
+                && (p.Situacao!=SituacaoProblema.Descartado || p.Observacoes!=null && p.Observacoes.Contains(origem))))
+            {
+                db.ProblemasPaciente.Add(new ProblemaPaciente {PacienteId=c.PacienteId,Natureza=NaturezaProblema.Alergia,
+                    Descricao=descricao,Observacoes=$"Relato do paciente: {relato}. {origem}; documento {c.DocumentoId}.",
+                    CriadoPor=s.Usuario!.Login,CriadoEm=DateTime.Now});
+                await Auditar("TabletAlergiaRegistrada",c.PacienteId,c.Operadora,$"Relato confirmado no documento {c.DocumentoId}",ct);
+            }
+        }
         // Concorre também com a reentrada da equipe: a sessão lida antes da entrega
         // ou revogação não pode autorizar uma escrita depois dela.
         db.Entry(s).Property(x=>x.Versao).IsModified=true;

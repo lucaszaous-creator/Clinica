@@ -38,6 +38,8 @@
                        Foreground="{StaticResource Brush.Texto.Primario}" />
             <TextBlock Text="{Binding Cabecalho}" TextWrapping="Wrap" Margin="0,4,0,0"
                        Style="{StaticResource TextoSuave}" />
+                <TextBlock Text="{Binding DiluicaoTotal}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,8,0,4"
+                           Visibility="{Binding DiluicaoTotal, Converter={StaticResource TextoParaVisibilidade}}" />
             <TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,2,0,0"
                        Style="{StaticResource TextoSuave}" />
 
@@ -97,7 +99,7 @@
                            VerticalAlignment="Center" Margin="0,0,10,0"
                            Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
                 <DatePicker Grid.Column="1" SelectedDate="{Binding DataRealizacao}" IsEnabled="{Binding PodeMexer}" />
-                <TextBlock Grid.Column="2" Text="Hora" VerticalAlignment="Center" Margin="12,0,10,0"
+                <TextBlock Grid.Column="2" Text="Hora para os itens" VerticalAlignment="Center" Margin="12,0,10,0"
                            Style="{StaticResource Rotulo}" />
                 <TextBox Grid.Column="3" Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
                          IsEnabled="{Binding PodeMexer}" VerticalAlignment="Center" />
@@ -290,19 +292,24 @@
                                             <StackPanel Orientation="Horizontal"
                                                         IsEnabled="{Binding DataContext.PodeMexer,
                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}">
-                                                <Button Content="✓ Realizado" Margin="0,0,6,0"
+                                                <Button Content="☐ Sim" Margin="0,0,6,0"
                                                         Style="{StaticResource BotaoAcaoGrid}"
                                                         Visibility="{Binding Pendente,
                                                                      Converter={StaticResource BoolParaVisibilidade}}"
                                                         Command="{Binding DataContext.RealizadoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="○ Não realizado" Margin="0,0,6,0"
+                                                <Button Content="☐ Não" Margin="0,0,6,0"
                                                         Style="{StaticResource BotaoSecundarioPerigo}"
                                                         Visibility="{Binding Pendente,
                                                                      Converter={StaticResource BoolParaVisibilidade}}"
                                                         Command="{Binding DataContext.NaoRealizadoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="☐ Não executável" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Visibility="{Binding Pendente, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.NaoExecutavelCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Retificar"
                                                         Style="{StaticResource BotaoAcaoGridSecundario}"

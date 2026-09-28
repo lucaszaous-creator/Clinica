@@ -67,7 +67,7 @@ public sealed class LinhaExecucaoItem
         var marca = situacao switch
         {
             SituacaoItemPrescricao.Realizado => $"✓ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
-            SituacaoItemPrescricao.NaoRealizado => $"○ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
+            SituacaoItemPrescricao.NaoRealizado or SituacaoItemPrescricao.NaoExecutavel => $"○ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
             SituacaoItemPrescricao.Suspenso => "suspenso",
             _ => "—"
         };
@@ -89,7 +89,7 @@ public sealed class LinhaExecucaoItem
                     .Where(p => !string.IsNullOrWhiteSpace(p))),
             Pendente = situacao == SituacaoItemPrescricao.Pendente,
             Realizado = situacao == SituacaoItemPrescricao.Realizado,
-            NaoRealizado = situacao == SituacaoItemPrescricao.NaoRealizado,
+            NaoRealizado = situacao is SituacaoItemPrescricao.NaoRealizado or SituacaoItemPrescricao.NaoExecutavel,
             Suspenso = item.Suspenso,
             SeNecessario = item.SeNecessario,
             AlertaAlergia = alertaAlergia
@@ -140,6 +140,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private string _numero = string.Empty;
     [ObservableProperty] private string _paciente = string.Empty;
     [ObservableProperty] private string _cabecalho = string.Empty;
+    [ObservableProperty] private string? _diluicaoTotal;
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -343,6 +344,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             Cabecalho = $"{(prescricao.DevolvidaEm is not null ? "Devolvida à enfermagem" : prescricao.AguardaValidacaoMedica ? "Aguarda validação médica" : RotulosEnum.De(prescricao.Situacao))} · "
                       + $"{prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm} · "
                       + $"{(prescricao.OrigemEnfermagem ? "médico responsável" : "prescrita por")} {prescricao.Profissional?.Nome ?? "—"}";
+            DiluicaoTotal=prescricao.DiluicaoUnica?$"Diluente: {prescricao.DiluenteGlobal ?? "Não informado"} · Volume total: {prescricao.VolumeTotal ?? "Não informado"} (toda a infusão)":null;
             Resumo = $"{prescricao.Realizados} realizados · {prescricao.NaoRealizados} não "
                    + $"realizados · {prescricao.Pendentes} aguardando";
 
@@ -436,6 +438,10 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [RelayCommand]
     private Task NaoRealizadoAsync(LinhaExecucaoItem? linha)
         => ChecarAsync(linha, SituacaoChecagem.NaoRealizado);
+
+    [RelayCommand]
+    private Task NaoExecutavelAsync(LinhaExecucaoItem? linha)
+        => ChecarAsync(linha, SituacaoChecagem.NaoExecutavel);
 
     /// <summary>
     /// Corrige uma checagem SEM apagá-la: grava outra apontando a anterior, com motivo.
@@ -888,7 +894,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             confirmouAlergia = true;
         }
 
-        if (situacao == SituacaoChecagem.NaoRealizado)
+        if (situacao != SituacaoChecagem.Realizado)
         {
             justificativa = _dialogo.PerguntarTexto(
                 "Por que não foi realizado?",
