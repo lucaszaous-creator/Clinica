@@ -88,7 +88,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     [ObservableProperty] private bool _configurando;
     [ObservableProperty] private bool _filtrando;
     [ObservableProperty] private LinhaAcompanhamento? _selecionado;
-    [ObservableProperty] private int _responsavelEdicao;
+    public string ResponsavelContato => SessaoUsuario.Atual.Nome + " (usuário conectado)";
     [ObservableProperty] private DateTime? _proximoContato;
     [ObservableProperty] private string _etapaEdicao = nameof(EtapaAcompanhamento.AContatar);
     [ObservableProperty] private string _canalEdicao = "";
@@ -216,7 +216,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
         await Executar(async svc =>
         {
             var historico = await svc.HistoricoAsync(SessaoUsuario.Atual.UsuarioId, linha.Id);
-            Selecionado = linha; ResponsavelEdicao = linha.ResponsavelId ?? SessaoUsuario.Atual.UsuarioId; ProximoContato = (linha.ProximoContato < Hoje ? Hoje : linha.ProximoContato).ToDateTime(TimeOnly.MinValue);
+            Selecionado = linha; OnPropertyChanged(nameof(ResponsavelContato)); ProximoContato = (linha.ProximoContato < Hoje ? Hoje : linha.ProximoContato).ToDateTime(TimeOnly.MinValue);
             EtapaEdicao = linha.Etapa.ToString(); CanalEdicao = ""; Observacao = ""; Encerrar = false; Reabrir = false; MotivoEdicao = Motivos.FirstOrDefault(m => m.Nome == linha.Motivo)?.Id ?? 0;
             _idempotencia = Guid.NewGuid(); Historico.Clear(); foreach (var c in historico) Historico.Add(c);
         });
@@ -227,7 +227,7 @@ public sealed partial class AcompanhamentoViewModel(IServiceScopeFactory escopos
     {
         if (Selecionado is not {} linha) return;
         await Executar(svc => svc.AtualizarAsync(SessaoUsuario.Atual.UsuarioId, linha.Id, new(_idempotencia, linha.Versao,
-            ResponsavelEdicao, ProximoContato is {} data ? DateOnly.FromDateTime(data) : null,
+            SessaoUsuario.Atual.UsuarioId, ProximoContato is {} data ? DateOnly.FromDateTime(data) : null,
             Enum.Parse<EtapaAcompanhamento>(EtapaEdicao), Enum.TryParse<CanalContato>(CanalEdicao, out var canal) ? canal : null,
             Observacao, Encerrar, MotivoEdicao > 0 ? MotivoEdicao : null, Reabrir)));
         if (_falhou) return;

@@ -8,6 +8,7 @@ public sealed record ConfiguracaoAcompanhamento(int ProfissionalBsvId, int Respo
     IReadOnlyList<OpcaoAcompanhamento> Profissionais, IReadOnlyList<OpcaoAcompanhamento> Responsaveis,
     IReadOnlyList<OpcaoAcompanhamento> Motivos);
 public sealed record EstadoIndicacaoBsv(bool PodeIndicar, bool Indicado);
+// ResponsavelId permanece no contrato por compatibilidade; a gravação usa o usuário da sessão validada.
 public sealed record AtualizarAcompanhamento(Guid Idempotencia, Guid Versao, int ResponsavelId,
     DateOnly? ProximoContato, EtapaAcompanhamento Etapa, CanalContato? Canal, string Observacao,
     bool Encerrar = false, int? MotivoId = null, bool Reabrir = false);

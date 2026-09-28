@@ -306,15 +306,21 @@ static class Program
         var vm = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
         var view = new Clinica.Recepcao.Views.AcompanhamentoView { DataContext = vm };
         var win = new Window { Content = view, ShowInTaskbar = false, ShowActivated = false,
-            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1024, Height = 768 };
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1920, Height = 1080 };
         win.Show(); await vm.CarregarAsync();
         if (vm.Pacientes.Count != 1 || vm.NaoVerificado) throw new Exception("Acompanhamento não carregou o paciente fictício: " + vm.Mensagem);
+        await ConferirJanela(win, "acompanhamento-primeira-abertura", [1920]);
+        win.Height = 768;
         await ConferirJanela(win, "acompanhamento-lista", [880, 1024, 1366]);
         vm.AbrirFiltrosCommand.Execute(null);
         await ConferirJanela(win, "acompanhamento-filtros", [880, 1024, 1366]);
         await vm.VoltarCommand.ExecuteAsync(null);
         await vm.AbrirCommand.ExecuteAsync(vm.Pacientes[0]);
         await ConferirJanela(win, "acompanhamento-contato", [880, 1024, 1366]);
+        if (Descendentes(view).OfType<ComboBox>().Any(c => c.IsVisible && System.Windows.Automation.AutomationProperties.GetName(c).Contains("Responsável")))
+            throw new Exception("Contato ainda permite selecionar outra responsável.");
+        if (!Descendentes(view).OfType<TextBlock>().Any(t => t.IsVisible && t.Text == usuario.Nome + " (usuário conectado)"))
+            throw new Exception("Contato não identifica o usuário conectado.");
         await vm.VoltarCommand.ExecuteAsync(null); vm.ConfigurarCommand.Execute(null);
         var medicoCombo = Descendentes(view).OfType<ComboBox>().Single(c => System.Windows.Automation.AutomationProperties.GetName(c) == "Profissional das indicações BSV");
         medicoCombo.SelectedValue = usuario.ProfissionalId!.Value;
@@ -350,6 +356,14 @@ static class Program
         win.Height = 768;
         vm.ConfigurarCommand.Execute(null);
         await ConferirJanela(win, "acompanhamento-configuracao", [880, 1024, 1366]);
+        await vm.VoltarCommand.ExecuteAsync(null);
+        var exemplo = vm.Pacientes[0];
+        for (var i = 0; i < 180; i++) vm.Pacientes.Add(exemplo with { Paciente = $"Paciente fictício de teste {i:000}", Pendente = i % 2 == 0 });
+        win.Height = 1080;
+        await ConferirJanela(win, "acompanhamento-lista-longa", [1920, 880, 1366]);
+        var grade = Descendentes(win).OfType<DataGrid>().Single(g => g.IsVisible);
+        grade.ScrollIntoView(vm.Pacientes.Last());
+        await ConferirJanela(win, "acompanhamento-lista-rolada", [1366, 880, 1920]);
         win.Close();
     }
 
@@ -542,6 +556,14 @@ static class Program
             }
             foreach (var botao in Descendentes(janela).OfType<Button>().Where(b => b.IsVisible && b.Content is string))
             {
+                if (nome.StartsWith("acompanhamento-") && botao.Content is "Registrar contato" or "Ver acompanhamento")
+                {
+                    var texto = new FormattedText((string)botao.Content, System.Globalization.CultureInfo.CurrentUICulture,
+                        botao.FlowDirection, new Typeface(botao.FontFamily, botao.FontStyle, botao.FontWeight, botao.FontStretch),
+                        botao.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(botao).PixelsPerDip);
+                    if (botao.ActualWidth + 1 < texto.WidthIncludingTrailingWhitespace + botao.Padding.Left + botao.Padding.Right)
+                        throw new Exception($"Texto do botão de contato cortado: {nome} {largura} {botao.ActualWidth}");
+                }
                 var ponto = botao.TranslatePoint(new Point(), janela);
                 if (ponto.X < -1 || ponto.X + botao.ActualWidth > janela.ActualWidth + 1)
                     throw new Exception($"Ação cortada: {nome} {largura} {botao.Content}");
