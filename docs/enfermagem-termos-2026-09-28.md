@@ -1,6 +1,6 @@
 # Evolução, termos e infusão
 
-O portal da enfermagem apresenta Agenda, Execução de enfermagem e Pacientes. A evolução abre a coleta dos termos do mesmo paciente em uma área interna, preservando o formulário preenchido e o acesso da profissional. O paciente continua sendo o signatário.
+O portal da enfermagem apresenta Agenda e Execução de enfermagem. A evolução abre a coleta dos termos do mesmo paciente em uma área interna, preservando o formulário preenchido e o acesso da profissional. O paciente continua sendo o signatário.
 
 A preparação na evolução exige sessão BSV ou BSV + acupuntura do dia. O token temporário da coleta fica somente na memória da página interna; não substitui o cookie da equipe. Toda operação com esse token exige também o acesso atual da mesma profissional. Termos recebidos continuam sendo arquivados ao voltar à evolução; apenas os pendentes são encerrados. TCLE já assinado não é reemitido. A alergia confirmada acompanha o outro termo e é registrada na ficha, preservando documentos assinados e o histórico de alterações.
 
