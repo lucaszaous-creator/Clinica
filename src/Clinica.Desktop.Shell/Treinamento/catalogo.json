@@ -1,0 +1,777 @@
+[
+  {
+    "Id": "agenda-confirmacoes",
+    "Titulo": "Confirmações de agenda",
+    "Categoria": "Recepção",
+    "Descricao": "Esta tela organiza as confirmações dos horários de um dia.",
+    "Telas": [
+      "agenda-confirmacoes"
+    ],
+    "Funcoes": [
+      "Mostrar Calendário",
+      "Amanhã",
+      "Gerar rodada",
+      "Enviar e-mails",
+      "Atualizar"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.4,
+        "Titulo": "1. Confirmações de agenda",
+        "Texto": "Confirmações de agenda. Esta tela organiza as confirmações dos horários de um dia. Escolha a data ou use Amanhã e clique em Gerar rodada. Confira os pacientes e os contatos disponíveis antes de enviar qualquer lembrete."
+      },
+      {
+        "Inicio": 17.05,
+        "Titulo": "2. Enviar e-mails dispara os lembretes configurados para a rodada",
+        "Texto": "Enviar e-mails dispara os lembretes configurados para a rodada. Atualizar relê o resultado. Acompanhe quem confirmou, quem ainda precisa de resposta e os registros de cada tentativa. Se o cadastro estiver incompleto, corrija os dados antes de tentar novamente."
+      }
+    ],
+    "Duracao": 35.68,
+    "Sha256": "7d983e85bc300f8ef789c9f67418fe01424b87d662fb42a0fa008e311db2db4c"
+  },
+  {
+    "Id": "pagamentos-recepcao",
+    "Titulo": "Recebimentos de pacientes",
+    "Categoria": "Recepção",
+    "Descricao": "Comece procurando o paciente e confira o nome antes de registrar uma cobrança.",
+    "Telas": [
+      "pagamentos-recepcao"
+    ],
+    "Funcoes": [
+      "Todos os pacientes"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Recebimentos de pacientes",
+        "Texto": "Recebimentos de pacientes. Comece procurando o paciente e confira o nome antes de registrar uma cobrança. Todos os pacientes amplia a pesquisa quando a pessoa não aparece no recorte inicial."
+      },
+      {
+        "Inicio": 14.59,
+        "Titulo": "2. No paciente escolhido, confira o atendimento, o valor e a forma de pagamento",
+        "Texto": "No paciente escolhido, confira o atendimento, o valor e a forma de pagamento. Registre o recebimento correspondente e acompanhe a confirmação. Consulte o histórico para conferir o que já foi recebido antes de fazer outro lançamento. A cobrança do paciente e o faturamento de guias são processos diferentes no sistema."
+      }
+    ],
+    "Duracao": 37.24,
+    "Sha256": "571ff32f653cd5ff76d96813e8f391c8dbbd28ef0d0637f974b4356d69834df8"
+  },
+  {
+    "Id": "painel-recepcao",
+    "Titulo": "Início",
+    "Categoria": "Recepção",
+    "Descricao": "O painel resume o movimento do dia e ajuda a escolher a próxima tarefa.",
+    "Telas": [
+      "painel-recepcao"
+    ],
+    "Funcoes": [
+      "◀",
+      "▶",
+      "Hoje",
+      "Atualizar"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Início da recepção",
+        "Texto": "Início da recepção. O painel resume o movimento do dia e ajuda a escolher a próxima tarefa. As setas mudam a data consultada; Hoje retorna ao dia atual. Atualizar busca novamente os dados."
+      },
+      {
+        "Inicio": 14.79,
+        "Titulo": "2. Leia os indicadores e os alertas antes de abrir a agenda",
+        "Texto": "Leia os indicadores e os alertas antes de abrir a agenda. Use os acessos da navegação superior para localizar pacientes, horários e recebimentos. Um período sem movimento pode aparecer vazio. Confira a data selecionada antes de concluir que um paciente ou atendimento está faltando."
+      }
+    ],
+    "Duracao": 36.28,
+    "Sha256": "9eefa646d733577078e0f1590511917f711744bf76075b71f73d6fa222e5d4e2"
+  },
+  {
+    "Id": "fila",
+    "Titulo": "Agenda do dia",
+    "Categoria": "Recepção",
+    "Descricao": "Escolha a data usando as setas ou o botão Hoje.",
+    "Telas": [
+      "fila"
+    ],
+    "Funcoes": [
+      "◀",
+      "▶",
+      "Hoje",
+      "Atualizar",
+      "Marcar atendimento",
+      "Novo horário",
+      "HORÁRIO",
+      "PACIENTE / ATENDIMENTO",
+      "PROFISSIONAL",
+      "STATUS",
+      "AÇÕES",
+      "Editar",
+      "⋯",
+      "Chegou"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Agenda do dia",
+        "Texto": "Agenda do dia. Escolha a data usando as setas ou o botão Hoje. A lista organiza horário, paciente, modalidade, profissional e situação. Atualizar relê os horários. Marcar atendimento abre a marcação de um novo horário."
+      },
+      {
+        "Inicio": 18.5,
+        "Titulo": "2. Acompanhe a mudança de situação desde a chegada até a conclusão do atendimento",
+        "Texto": "Acompanhe a mudança de situação desde a chegada até a conclusão do atendimento. Use as ações da linha correspondente ao paciente e confira a identidade antes de alterar sua presença. Cancelamento e falta devem refletir o que aconteceu. Eles não substituem o registro de um atendimento realizado."
+      }
+    ],
+    "Duracao": 39.86,
+    "Sha256": "a22e58de2d95a06dfae4ad4a84cab596b897df1b1e83ac338bb5645d81746109"
+  },
+  {
+    "Id": "consultorio-sala-infusao",
+    "Titulo": "Sala de infusão",
+    "Categoria": "Recepção",
+    "Descricao": "Esta fila reúne as folhas de infusão e suas pendências.",
+    "Telas": [
+      "consultorio-sala-infusao"
+    ],
+    "Funcoes": [
+      "Abrir pelo código",
+      "Mostrar encerradas",
+      "Atualizar",
+      "Registrar infusão com orientação externa"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Sala de infusão",
+        "Texto": "Sala de infusão. Esta fila reúne as folhas de infusão e suas pendências. Use Atualizar para reler a fila, Abrir pelo código para localizar uma folha e Mostrar encerradas para consultar o histórico."
+      },
+      {
+        "Inicio": 14.79,
+        "Titulo": "2. O médico prescreve, assina e emite a infusão para a enfermagem avaliar e executar",
+        "Texto": "O médico prescreve, assina e emite a infusão para a enfermagem avaliar e executar. A enfermagem também pode registrar uma infusão com orientação externa; depois da execução e da sua assinatura, a folha segue para avaliação e assinatura médica."
+      },
+      {
+        "Inicio": 32.76,
+        "Titulo": "3. Abra a folha para conferir a etapa, a data, a hora e as pendências",
+        "Texto": "Abra a folha para conferir a etapa, a data, a hora e as pendências. As mensagens de andamento mostram o processamento. Confira a confirmação antes de avançar. A folha pode ser consultada após cada assinatura e, ao final, deve apresentar as duas. A autorização com certificado deve ser feita pelo próprio profissional."
+      }
+    ],
+    "Duracao": 57.16,
+    "Sha256": "cc5c97a05b2e5c538e08bf8cf836aafcd3c770e2791a85028e1ca429b9f4a53e"
+  },
+  {
+    "Id": "enfermagem",
+    "Titulo": "Enfermagem",
+    "Categoria": "Recepção",
+    "Descricao": "Use Na clínica hoje para trabalhar com os pacientes do dia ou Todos os pacientes para ampliar a pesquisa.",
+    "Telas": [
+      "enfermagem"
+    ],
+    "Funcoes": [
+      "Na clínica hoje",
+      "Todos os pacientes",
+      "Atender"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.76,
+        "Titulo": "1. Enfermagem",
+        "Texto": "Enfermagem. Use Na clínica hoje para trabalhar com os pacientes do dia ou Todos os pacientes para ampliar a pesquisa. Localize a pessoa e confira sua identificação antes de abrir a passagem."
+      },
+      {
+        "Inicio": 15.13,
+        "Titulo": "2. Registre as informações da assistência nos campos da sessão e consulte os registros a",
+        "Texto": "Registre as informações da assistência nos campos da sessão e consulte os registros anteriores quando necessário. A passagem de enfermagem documenta o atendimento; a Sala de infusão organiza a execução e as assinaturas das folhas. Use o caminho correspondente ao trabalho que precisa realizar e confira o resultado depois de salvar."
+      }
+    ],
+    "Duracao": 38.72,
+    "Sha256": "01ee814afb15aee3a8ee18c6e7a2e97269e4518ef3347519ec8e8f95d9ef80d7"
+  },
+  {
+    "Id": "equipe",
+    "Titulo": "Profissionais e salas",
+    "Categoria": "Recepção",
+    "Descricao": "Esta tela reúne o cadastro da equipe, as salas e os bloqueios de agenda.",
+    "Telas": [
+      "equipe"
+    ],
+    "Funcoes": [
+      "Novo profissional",
+      "Editar",
+      "Excluir",
+      "Nova sala",
+      "Fechar agenda…"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.4,
+        "Titulo": "1. Profissionais e salas",
+        "Texto": "Profissionais e salas. Esta tela reúne o cadastro da equipe, as salas e os bloqueios de agenda. Em Profissionais, use Novo profissional para cadastrar e Editar para atualizar o registro selecionado. Confira os dados de identificação e o conselho profissional."
+      },
+      {
+        "Inicio": 19.68,
+        "Titulo": "2. Na aba Salas, Nova sala cria um local de atendimento",
+        "Texto": "Na aba Salas, Nova sala cria um local de atendimento. Na aba Bloqueios, Fechar agenda define o período indisponível. Confira profissional, sala e datas antes de confirmar. O bloqueio deve ser acompanhado da revisão dos horários já marcados; ele não comunica automaticamente uma remarcação ao paciente."
+      }
+    ],
+    "Duracao": 42.42,
+    "Sha256": "99698838e0b43259aa10fa01c21c06b7f97a3697cdc2c83857d5bf658d9857f2"
+  },
+  {
+    "Id": "prontuario",
+    "Titulo": "Prontuário",
+    "Categoria": "Recepção",
+    "Descricao": "Comece pela busca da pessoa.",
+    "Telas": [
+      "prontuario"
+    ],
+    "Funcoes": [
+      "Ver todos",
+      "Novo paciente"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Prontuário e localização de pacientes",
+        "Texto": "Prontuário e localização de pacientes. Comece pela busca da pessoa. Ver todos amplia o conjunto exibido; Novo paciente abre o cadastro. Confira nome e demais dados de identificação para evitar escolher pessoas com nomes semelhantes."
+      },
+      {
+        "Inicio": 16.43,
+        "Titulo": "2. A ficha aberta reúne as informações disponíveis para o seu acesso",
+        "Texto": "A ficha aberta reúne as informações disponíveis para o seu acesso. Consulte as seções necessárias e mantenha os dados cadastrais atualizados. Informações clínicas dependem das permissões do usuário. Use a navegação do paciente para continuar o trabalho e confira novamente o nome ao trocar de ficha."
+      }
+    ],
+    "Duracao": 38.34,
+    "Sha256": "69c60ce62409b7ec5495433870447c781c0dd7ef8731dc77ca52d27ea2f0ba1a"
+  },
+  {
+    "Id": "documentos",
+    "Titulo": "Documentos",
+    "Categoria": "Recepção",
+    "Descricao": "Na área de emissão, escolha o paciente e o documento que precisa preparar.",
+    "Telas": [
+      "documentos"
+    ],
+    "Funcoes": [
+      "Escolher",
+      "Mostrar Calendário",
+      "Atualizar",
+      "Conferir"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Documentos",
+        "Texto": "Documentos. Na área de emissão, escolha o paciente e o documento que precisa preparar. Confira os dados preenchidos antes de concluir a emissão. Modelos e campos devem corresponder ao documento solicitado."
+      },
+      {
+        "Inicio": 15.11,
+        "Titulo": "2. A aba O que já saiu permite consultar documentos emitidos",
+        "Texto": "A aba O que já saiu permite consultar documentos emitidos. Use o período, Atualizar e Conferir para localizar e verificar um registro. Abrir um documento antigo serve para consulta; uma correção deve seguir o fluxo de emissão ou substituição disponível, preservando o histórico e as assinaturas existentes."
+      }
+    ],
+    "Duracao": 37.36,
+    "Sha256": "795ef6ef52a4ecdd28960992587d5bd03f013ccbbc126815503a06453f4a16fb"
+  },
+  {
+    "Id": "agenda-recepcao",
+    "Titulo": "Agenda",
+    "Categoria": "Recepção",
+    "Descricao": "Use o calendário e Ir para hoje para escolher a data.",
+    "Telas": [
+      "agenda-recepcao"
+    ],
+    "Funcoes": [
+      "Horários e travas",
+      "Agendar",
+      "Próximas vagas",
+      "Botão Anterior",
+      "setembro de 2026",
+      "Botão Próximo",
+      "30",
+      "31",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "Ir para hoje",
+      "‹",
+      "Mostrar Calendário",
+      "›",
+      "Dia",
+      "Semana",
+      "Por sala",
+      "Atualizar",
+      "+",
+      "Ver mais dias e horários"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Agenda",
+        "Texto": "Agenda. Use o calendário e Ir para hoje para escolher a data. Os modos Dia, Semana e Por sala mudam a organização dos mesmos horários. As setas avançam ou retornam no período."
+      },
+      {
+        "Inicio": 14.97,
+        "Titulo": "2. Agendar inicia uma marcação",
+        "Texto": "Agendar inicia uma marcação. Próximas vagas ajuda a procurar disponibilidade, e Ver mais dias e horários amplia a busca. Horários e travas reúne a disponibilidade e os bloqueios. Antes de confirmar, confira paciente, profissional, sala, modalidade e horário. Atualizar relê a agenda depois das alterações."
+      }
+    ],
+    "Duracao": 39.4,
+    "Sha256": "b0eca430fc334de22f63c29ed21b91027b785c7f81df6cb8e79c2922ecc4460e"
+  },
+  {
+    "Id": "pacientes-recepcao",
+    "Titulo": "Pacientes / CRM",
+    "Categoria": "Recepção",
+    "Descricao": "Procure a pessoa pelo nome e confira os dados de identificação.",
+    "Telas": [
+      "pacientes-recepcao"
+    ],
+    "Funcoes": [
+      "Ver todos",
+      "Novo paciente"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Pacientes e cadastro",
+        "Texto": "Pacientes e cadastro. Procure a pessoa pelo nome e confira os dados de identificação. Ver todos amplia a lista. Novo paciente abre um cadastro; use a pesquisa primeiro para evitar duplicidades."
+      },
+      {
+        "Inicio": 16.36,
+        "Titulo": "2. Na ficha, confira convênio, modalidade, contatos e demais informações administrativas",
+        "Texto": "Na ficha, confira convênio, modalidade, contatos e demais informações administrativas. As seções de relacionamento, termos e privacidade ajudam a acompanhar o cadastro. Registre apenas informações correspondentes ao paciente escolhido. Depois de salvar uma alteração, confira a ficha atualizada antes de seguir para agendamento, cobrança ou atendimento."
+      }
+    ],
+    "Duracao": 40.56,
+    "Sha256": "da971ecd4225838d684903e6405dc16bfb5f6c8badaab311c79bafd5a02aaaf7"
+  },
+  {
+    "Id": "pacotes",
+    "Titulo": "Pacotes",
+    "Categoria": "Recepção",
+    "Descricao": "A lista acompanha os pacotes vendidos e o saldo de sessões.",
+    "Telas": [
+      "pacotes"
+    ],
+    "Funcoes": [
+      "Catálogo…",
+      "Orçamento…",
+      "Só ativos",
+      "Limpar filtro",
+      "Atualizar",
+      "Vender pacote…"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Pacotes",
+        "Texto": "Pacotes. A lista acompanha os pacotes vendidos e o saldo de sessões. Use Só ativos para reduzir o resultado e Limpar filtro para voltar à visão ampla. Atualizar relê os dados."
+      },
+      {
+        "Inicio": 14.09,
+        "Titulo": "2. Catálogo reúne os tipos de pacote",
+        "Texto": "Catálogo reúne os tipos de pacote. Orçamento prepara a proposta, e Vender pacote inicia o registro da venda para um paciente. Confira modalidade, quantidade, valor e condições antes de concluir. Acompanhe consumo e saldo no pacote correspondente, evitando vender ou utilizar sessões na ficha de outra pessoa."
+      }
+    ],
+    "Duracao": 37.86,
+    "Sha256": "7efd093a94c755ee9be3b2d04094849114e3fb0d7cb0d9aae2c5c7e0a72cd575"
+  },
+  {
+    "Id": "precos-particular",
+    "Titulo": "Preços do particular",
+    "Categoria": "Recepção",
+    "Descricao": "Esta tela organiza os valores particulares e sua vigência.",
+    "Telas": [
+      "precos-particular"
+    ],
+    "Funcoes": [
+      "Só o que vale hoje",
+      "Novo preço",
+      "Atualizar"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.4,
+        "Titulo": "1. Preços do particular",
+        "Texto": "Preços do particular. Esta tela organiza os valores particulares e sua vigência. Só o que vale hoje limita a lista aos preços atuais. Atualizar relê o catálogo."
+      },
+      {
+        "Inicio": 11.76,
+        "Titulo": "2. Novo preço abre o cadastro de um valor",
+        "Texto": "Novo preço abre o cadastro de um valor. Confira a modalidade, o preço e o início da vigência antes de salvar. Mantenha o histórico para saber qual valor correspondia a cada período. Ao revisar uma cobrança, compare a data do atendimento com a regra de preço aplicável, em vez de presumir que o valor atual vale para todos os registros antigos."
+      }
+    ],
+    "Duracao": 35.16,
+    "Sha256": "3f9d561d7bf120568a2e55da9bdaaa598d7846cada12975d28b2e90b31419849"
+  },
+  {
+    "Id": "marcar-horario",
+    "Titulo": "Marcar atendimento",
+    "Categoria": "Recepção",
+    "Descricao": "Primeiro, encontre o paciente.",
+    "Telas": [
+      "marcar-horario"
+    ],
+    "Funcoes": [
+      "Com horário hoje",
+      "Todos os pacientes"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Marcar atendimento",
+        "Texto": "Marcar atendimento. Primeiro, encontre o paciente. Com horário hoje mostra o recorte do dia; Todos os pacientes amplia a pesquisa. Confira a pessoa antes de prosseguir."
+      },
+      {
+        "Inicio": 13.63,
+        "Titulo": "2. Defina modalidade, profissional, data e horário",
+        "Texto": "Defina modalidade, profissional, data e horário. Revise sala, duração e demais campos apresentados pelo formulário. Confira os avisos de disponibilidade antes de confirmar a marcação. Depois de salvar, localize o horário na agenda para verificar o resultado. Para corrigir uma marcação existente, trabalhe sobre o registro correspondente e evite criar um segundo horário por engano."
+      }
+    ],
+    "Duracao": 41.28,
+    "Sha256": "145fcabf634dc8f59d298d19a287cd778ad92752f6a1eeae6ea812f3e4c68b54"
+  },
+  {
+    "Id": "consultas",
+    "Titulo": "Consultas (convênio)",
+    "Categoria": "Recepção",
+    "Descricao": "Esta tela acompanha as consultas e os prazos que precisam de renovação.",
+    "Telas": [
+      "consultas"
+    ],
+    "Funcoes": [
+      "Atualizar",
+      "Limpar filtro",
+      "Renovar"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Consultas de convênio",
+        "Texto": "Consultas de convênio. Esta tela acompanha as consultas e os prazos que precisam de renovação. Use a pesquisa e os filtros para localizar o paciente, e Atualizar para reler a situação."
+      },
+      {
+        "Inicio": 13.49,
+        "Titulo": "2. Renovar deve ser usado sobre a consulta correta, depois de conferir as informações ex",
+        "Texto": "Renovar deve ser usado sobre a consulta correta, depois de conferir as informações exigidas pelo convênio. Limpar filtro retorna à lista mais ampla. A renovação registra uma nova condição ou período da consulta; confira o resultado salvo antes de orientar a equipe sobre a liberação do atendimento."
+      }
+    ],
+    "Duracao": 34.24,
+    "Sha256": "040b20aff764d11d46eacea5acef4b6c70d0411a089ddf445cbd76ac46e83e79"
+  },
+  {
+    "Id": "lancamentos",
+    "Titulo": "Conferir atendimentos",
+    "Categoria": "Recepção",
+    "Descricao": "Escolha o período e examine a lista por dia, paciente, modalidade, operador, guias e convênio.",
+    "Telas": [
+      "lancamentos"
+    ],
+    "Funcoes": [
+      "Mostrar Calendário",
+      "Só com guia por liberar",
+      "Atualizar",
+      "DIA",
+      "PACIENTE / MODALIDADE / QUEM LANÇOU",
+      "GUIAS",
+      "ATENDIMENTO",
+      "CONVÊNIO"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Conferir atendimentos",
+        "Texto": "Conferir atendimentos. Escolha o período e examine a lista por dia, paciente, modalidade, operador, guias e convênio. O filtro Só com guia por liberar ajuda a concentrar o trabalho nas pendências."
+      },
+      {
+        "Inicio": 16.58,
+        "Titulo": "2. Atualizar busca novamente os registros",
+        "Texto": "Atualizar busca novamente os registros. Compare o atendimento com suas guias antes de tomar qualquer providência. Um horário marcado, a presença do paciente e a liberação da guia representam etapas distintas. A conferência permite localizar divergências sem lançar novamente um atendimento que já existe."
+      }
+    ],
+    "Duracao": 37.04,
+    "Sha256": "93606772a6b3bd2744f310a30d00dceac5820e9b38b866d78c42b9eb9eb70112"
+  },
+  {
+    "Id": "retornos-a-marcar",
+    "Titulo": "Retornos solicitados pelo profissional",
+    "Categoria": "Recepção",
+    "Descricao": "A lista reúne as solicitações de retorno que precisam ser organizadas pela recepção.",
+    "Telas": [
+      "retornos-a-marcar"
+    ],
+    "Funcoes": [
+      "Atualizar",
+      "AÇÕES",
+      "RETORNO",
+      "PACIENTE",
+      "SESSÃO / QUEM PEDIU"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Retornos solicitados pelo profissional",
+        "Texto": "Retornos solicitados pelo profissional. A lista reúne as solicitações de retorno que precisam ser organizadas pela recepção. Confira a data sugerida, o paciente, a sessão de origem e quem pediu."
+      },
+      {
+        "Inicio": 14.74,
+        "Titulo": "2. Use a ação da linha para continuar a marcação do retorno",
+        "Texto": "Use a ação da linha para continuar a marcação do retorno. Confirme a disponibilidade do paciente e do profissional antes de escolher a data. Atualizar relê a lista depois do trabalho. Uma solicitação de retorno ainda precisa virar um horário confirmado na agenda; a presença da solicitação, sozinha, não significa que o retorno já foi marcado."
+      }
+    ],
+    "Duracao": 38.22,
+    "Sha256": "2fd849a13f13addd3bf05723eea51c30ece090789954715aeecdf4e40ae32333"
+  },
+  {
+    "Id": "retorno-pacientes",
+    "Titulo": "Acompanhamento de pacientes",
+    "Categoria": "Recepção",
+    "Descricao": "Em Recall, informe há quantos dias o paciente está sem retornar e use Buscar pacientes.",
+    "Telas": [
+      "retorno-pacientes"
+    ],
+    "Funcoes": [
+      "Recall · pacientes sem retorno",
+      "Novos BSV · primeira sessão",
+      "Atualizar",
+      "Configurar acompanhamento",
+      "Buscar pacientes",
+      "A assumir (2)",
+      "Meus contatos de hoje (1)",
+      "Atrasados (1)",
+      "Sem primeiro contato (3)",
+      "Mais filtros",
+      "Limpar filtros",
+      "Paciente / modalidade",
+      "Situação / prazo",
+      "Acompanhamento",
+      "Ação",
+      "Registrar contato"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Acompanhamento de pacientes",
+        "Texto": "Acompanhamento de pacientes. Em Recall, informe há quantos dias o paciente está sem retornar e use Buscar pacientes. Os atalhos A assumir, Meus contatos de hoje, Atrasados e Sem primeiro contato organizam o trabalho. Mais filtros permite combinar prazo, convênio, profissional, motivo e tentativas."
+      },
+      {
+        "Inicio": 25.03,
+        "Titulo": "2. Registrar contato abre o acompanhamento",
+        "Texto": "Registrar contato abre o acompanhamento. O responsável fica vinculado ao usuário conectado. Confira a autorização de contato, registre o canal, o resultado, a próxima data e a observação. Salvar acompanhamento mantém o histórico."
+      },
+      {
+        "Inicio": 42.78,
+        "Titulo": "3. Novos BSV reúne os pacientes indicados pelo profissional configurado",
+        "Texto": "Novos BSV reúne os pacientes indicados pelo profissional configurado. Um agendamento válido de BSV ou BSV com acupuntura retira o caso dos pendentes. Se a sessão for cancelada e não houver outra válida, o paciente volta ao acompanhamento. Encerrar por não conformidade exige motivo e justificativa."
+      }
+    ],
+    "Duracao": 66.8,
+    "Sha256": "ef6f12702cc5ca98a3f4891e05d98a85acb973e659bfb51b04bffd115a5ff735"
+  },
+  {
+    "Id": "ajuda",
+    "Titulo": "Ajuda e suporte",
+    "Categoria": "Recepção",
+    "Descricao": "Esta tela reúne dúvidas frequentes sobre o funcionamento da suíte.",
+    "Telas": [
+      "ajuda"
+    ],
+    "Funcoes": [],
+    "Capitulos": [
+      {
+        "Inicio": 0.4,
+        "Titulo": "1. Ajuda e suporte",
+        "Texto": "Ajuda e suporte. Esta tela reúne dúvidas frequentes sobre o funcionamento da suíte. Abra o assunto que corresponde à sua dúvida e leia a orientação antes de repetir uma ação."
+      },
+      {
+        "Inicio": 13.32,
+        "Titulo": "2. A ajuda explica situações como números não medidos, permissões, bloqueios de agenda, ",
+        "Texto": "A ajuda explica situações como números não medidos, permissões, bloqueios de agenda, guias e glosas. Se uma tela não aparecer, confira o módulo aberto e o acesso do usuário. Para falar com o suporte, informe a tela, a ação realizada e a mensagem recebida. Evite enviar dados de pacientes que não sejam necessários para investigar o problema."
+      }
+    ],
+    "Duracao": 38.58,
+    "Sha256": "f0cd7eddfc66d115ffbf2d889835c2ac7e3795b4ef6a2cb4baf1fbf80b5914ae"
+  },
+  {
+    "Id": "consultorio-sessoes-enfermagem",
+    "Titulo": "Sessões de enfermagem",
+    "Categoria": "Consultório",
+    "Descricao": "Defina o período e os filtros para localizar os atendimentos.",
+    "Telas": [
+      "consultorio-sessoes-enfermagem"
+    ],
+    "Funcoes": [
+      "Mostrar Calendário",
+      "Filtrar / atualizar",
+      "Limpar filtros",
+      "Anterior",
+      "Próxima",
+      "Ação",
+      "Data / hora",
+      "Paciente",
+      "Médico",
+      "Modalidade",
+      "Enfermagem",
+      "Atendimento médico"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Sessões de enfermagem",
+        "Texto": "Sessões de enfermagem. Defina o período e os filtros para localizar os atendimentos. Filtrar e atualizar executa a consulta, enquanto Limpar filtros amplia a lista. Anterior e Próxima percorrem as páginas."
+      },
+      {
+        "Inicio": 14.85,
+        "Titulo": "2. Confira data, paciente, médico, modalidade e situação dos registros médico e de enfer",
+        "Texto": "Confira data, paciente, médico, modalidade e situação dos registros médico e de enfermagem. A ação da linha abre o atendimento correspondente. Use essa relação para identificar o que está registrado e o que ainda precisa de conferência, sempre verificando a identidade do paciente e a sessão escolhida."
+      }
+    ],
+    "Duracao": 37.12,
+    "Sha256": "5ef310e91361d4f49a0a850873138f899759e8666a6a5217b30c032304cf2c2f"
+  },
+  {
+    "Id": "consultorio-meu-dia",
+    "Titulo": "Meu dia",
+    "Categoria": "Consultório",
+    "Descricao": "Esta é a agenda do profissional.",
+    "Telas": [
+      "consultorio-meu-dia"
+    ],
+    "Funcoes": [
+      "<",
+      "Mostrar Calendário",
+      ">",
+      "Hoje",
+      "Atualizar",
+      "Prontuário em dia",
+      "HORÁRIO",
+      "PACIENTE",
+      "STATUS",
+      "PRONTUÁRIO",
+      "AÇÕES",
+      "Atender"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Meu dia",
+        "Texto": "Meu dia. Esta é a agenda do profissional. As setas mudam a data, Hoje retorna ao dia atual e Atualizar relê os horários. A lista mostra paciente, situação e estado do prontuário."
+      },
+      {
+        "Inicio": 15.4,
+        "Titulo": "2. Use a ação do horário para abrir o paciente da sessão",
+        "Texto": "Use a ação do horário para abrir o paciente da sessão. O acesso Prontuário em dia ajuda a acompanhar registros pendentes. Antes de escrever, confira paciente e data do atendimento. Ao concluir, verifique a situação do registro para distinguir uma sessão apenas aberta de uma evolução efetivamente salva."
+      }
+    ],
+    "Duracao": 37.12,
+    "Sha256": "731b902057c89c06dca94f2f9999ab7cc686a2876129c21355dde2341ddce2c0"
+  },
+  {
+    "Id": "consultorio-registros-pendentes",
+    "Titulo": "Sessões sem evolução",
+    "Categoria": "Consultório",
+    "Descricao": "Esta tela reúne sessões que precisam de conferência do registro clínico.",
+    "Telas": [
+      "consultorio-registros-pendentes"
+    ],
+    "Funcoes": [
+      "Atualizar",
+      "Limpar filtro"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Sessões sem evolução",
+        "Texto": "Sessões sem evolução. Esta tela reúne sessões que precisam de conferência do registro clínico. Atualizar refaz a consulta e Limpar filtro amplia o resultado."
+      },
+      {
+        "Inicio": 11.54,
+        "Titulo": "2. Abra a sessão correspondente e confira a data, o paciente e o que já foi registrado",
+        "Texto": "Abra a sessão correspondente e confira a data, o paciente e o que já foi registrado. Quando houver atendimento sem evolução, complete o registro no contexto correto. Se a sessão não aconteceu, confira a situação na agenda. Não crie uma evolução apenas para retirar um item da lista; a informação deve corresponder ao atendimento realizado."
+      }
+    ],
+    "Duracao": 35.9,
+    "Sha256": "89e77f1b5e82d66ed59c25967e6ae9f936711418967a6de8ab512c8c7dd93317"
+  },
+  {
+    "Id": "consultorio-semana",
+    "Titulo": "Minha semana",
+    "Categoria": "Consultório",
+    "Descricao": "Use as setas e a data para escolher o período.",
+    "Telas": [
+      "consultorio-semana"
+    ],
+    "Funcoes": [
+      "<",
+      "Mostrar Calendário",
+      ">",
+      "Esta semana",
+      "Atualizar"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Minha semana",
+        "Texto": "Minha semana. Use as setas e a data para escolher o período. Esta semana retorna à semana atual, e Atualizar relê os horários."
+      },
+      {
+        "Inicio": 9.56,
+        "Titulo": "2. A visão semanal ajuda a comparar a distribuição dos atendimentos e localizar um compr",
+        "Texto": "A visão semanal ajuda a comparar a distribuição dos atendimentos e localizar um compromisso. Abra o horário do paciente para continuar o trabalho na sessão certa. Antes de interpretar um espaço vazio como disponibilidade, confira o profissional, o período e os bloqueios da agenda. A marcação deve ser feita pelo fluxo de agendamento disponível para o seu acesso."
+      }
+    ],
+    "Duracao": 34.9,
+    "Sha256": "b0d09de7d1add8e306c7ffcdac886db002c1fc3437ddc4727468fe2358c25970"
+  },
+  {
+    "Id": "consultorio-pacientes",
+    "Titulo": "Pacientes",
+    "Categoria": "Consultório",
+    "Descricao": "Use a pesquisa para encontrar a pessoa e confira sua identificação antes de abrir a ficha.",
+    "Telas": [
+      "consultorio-pacientes"
+    ],
+    "Funcoes": [
+      "Novo paciente"
+    ],
+    "Capitulos": [
+      {
+        "Inicio": 0.52,
+        "Titulo": "1. Pacientes do consultório",
+        "Texto": "Pacientes do consultório. Use a pesquisa para encontrar a pessoa e confira sua identificação antes de abrir a ficha. Novo paciente inicia um cadastro quando ele ainda não existe."
+      },
+      {
+        "Inicio": 14.59,
+        "Titulo": "2. A partir do paciente, acesse atendimento, histórico, exames, prescrições e acompanham",
+        "Texto": "A partir do paciente, acesse atendimento, histórico, exames, prescrições e acompanhamento conforme suas permissões. A busca localiza a pessoa; o horário de origem identifica a sessão. Quando o atendimento vier da agenda, prefira abrir pelo horário correspondente para manter essa relação e evitar registros vinculados à data errada."
+      }
+    ],
+    "Duracao": 37.64,
+    "Sha256": "619490efd9c3b5b3b0019b06126c01552ac85d392932b0a07c6060d9368592af"
+  }
+]
