@@ -21,7 +21,7 @@
       <Button Content="Atualizar" Command="{Binding RecarregarCommand}" Style="{StaticResource Acao}"/>
       <Button Content="Configurar acompanhamento" Command="{Binding ConfigurarCommand}" Style="{StaticResource Acao}" Visibility="{Binding Gestor, Converter={StaticResource Bool}}"/>
      </WrapPanel>
-     <TextBlock TextWrapping="Wrap" Text="{Binding Titulo}" FontSize="24" FontWeight="Bold" Margin="0,2,0,4"/>
+     <TextBlock TextWrapping="Wrap" Text="{Binding Titulo}" FontSize="{StaticResource Fonte.H1}" FontWeight="Bold" Margin="0,2,0,4"/>
 
      <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,0,0,8" Visibility="{Binding EhRecall, Converter={StaticResource Bool}}">
       <WrapPanel VerticalAlignment="Center">
