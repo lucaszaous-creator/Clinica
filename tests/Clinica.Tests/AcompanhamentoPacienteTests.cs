@@ -138,6 +138,25 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
         Assert.Single(await svc.ListarAsync(gestora.Id));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ListarAsync(medico.Id));
     }
+    [Fact] public async Task Contato_usa_usuario_autenticado_mesmo_quando_pedido_indica_outra_pessoa()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id);
+        await Consentir();
+        var linha = await Linha();
+        await svc.AtualizarAsync(recepcao.Id, linha.Id, new(Guid.NewGuid(), linha.Versao, gestora.Id,
+            DateOnly.FromDateTime(DateTime.Today), EtapaAcompanhamento.SemResposta, CanalContato.WhatsApp, "Contato realizado pela recepção."));
+        linha = await Linha();
+        Assert.Equal(recepcao.Id, linha.ResponsavelId);
+        var primeiro = Assert.Single(await db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null).ToListAsync());
+        Assert.Equal(recepcao.Id, primeiro.ResponsavelId); Assert.Equal(recepcao.Login, primeiro.Operador);
+        await svc.AtualizarAsync(gestora.Id, linha.Id, new(Guid.NewGuid(), linha.Versao, recepcao.Id,
+            DateOnly.FromDateTime(DateTime.Today), EtapaAcompanhamento.RetornarNaData, CanalContato.WhatsApp, "Novo contato realizado pela gestora."));
+        Assert.Equal(gestora.Id, (await Linha()).ResponsavelId);
+        var contatos = await db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null).OrderBy(c => c.Id).ToListAsync();
+        Assert.Equal(recepcao.Id, contatos[0].ResponsavelId); Assert.Equal(recepcao.Login, contatos[0].Operador);
+        Assert.Equal(gestora.Id, contatos[1].ResponsavelId); Assert.Equal(gestora.Login, contatos[1].Operador);
+    }
+
     [Fact] public async Task Novo_ciclo_de_recall_preserva_historico_sem_duplicar_paciente()
     {
         Atendimento(ModalidadeAtendimento.BsvApenas, -180);

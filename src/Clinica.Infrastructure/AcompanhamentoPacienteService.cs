@@ -243,14 +243,14 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         if (caso.EncerradoEm != null && !pedido.Reabrir) throw new InvalidOperationException("Reabra o acompanhamento antes de registrar novas ações.");
         var observacao = pedido.Observacao?.Trim() ?? "";
         if (observacao.Length is < 5 or > 2000) throw new InvalidOperationException("Registre o resultado ou a justificativa (5 a 2000 caracteres).");
-        await Usuario(pedido.ResponsavelId, Permissao.GerenciarCampanhas, ct);
+        // A autoria vem da sessão validada, inclusive para clientes antigos que enviem outro responsável.
         if (!pedido.Encerrar && (pedido.ProximoContato == null || pedido.ProximoContato < Hoje)) throw new InvalidOperationException("Defina o próximo contato para hoje ou uma data futura.");
         if (pedido.MotivoId is {} motivo && !await db.MotivosAcompanhamento.AnyAsync(m => m.Id == motivo && m.Ativo, ct)) throw new InvalidOperationException("Escolha um motivo ativo.");
         if (pedido.Encerrar && pedido.MotivoId == null) throw new InvalidOperationException("Selecione o motivo da não conformidade.");
         if (pedido.Canal != null) await ValidarContatoAsync(usuarioId, id, ct);
         if (pedido.Encerrar && pedido.Canal == null && !await db.ContatosAcompanhamento.AnyAsync(c => c.AcompanhamentoPacienteId == id && c.Canal != null && c.Em >= caso.ReferenciaEm, ct)
             && u.Perfil != PerfilAcesso.Gerente) throw new InvalidOperationException("Registre uma tentativa de contato antes de encerrar. Casos sem possibilidade de contato devem ser avaliados pela gestão.");
-        caso.ResponsavelId = pedido.ResponsavelId;
+        caso.ResponsavelId = u.Id;
         caso.ProximoContato = pedido.ProximoContato ?? caso.ProximoContato;
         caso.Etapa = pedido.Etapa; caso.MotivoId = pedido.MotivoId;
         caso.EncerradoEm = pedido.Encerrar ? Agora : null;
@@ -259,7 +259,7 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         caso.Versao = Guid.NewGuid();
         caso.Contatos.Add(new() { Idempotencia = pedido.Idempotencia, Em = Agora, Operador = u.Login, Canal = pedido.Canal,
             Resultado = pedido.Encerrar ? "Não conformidade — encerrado" : pedido.Reabrir ? "Reaberto" : RegrasAcompanhamento.Rotulo(pedido.Etapa),
-            Observacao = observacao, ResponsavelId = pedido.ResponsavelId, ProximoContato = pedido.Encerrar ? null : pedido.ProximoContato });
+            Observacao = observacao, ResponsavelId = u.Id, ProximoContato = pedido.Encerrar ? null : pedido.ProximoContato });
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { throw new InvalidOperationException("Outra pessoa atualizou este acompanhamento. Atualize a lista antes de salvar."); }
     }
