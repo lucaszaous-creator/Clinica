@@ -11,7 +11,6 @@ public sealed partial class PostoTabletService
         SessaoTablet s, int paciente, ObservacoesEnfermagemTablet p, CancellationToken ct)
         => Escrever(s, paciente, p.Idempotencia, p, "TabletObservacoesEnfermagem",
             Permissao.RegistrarEvolucaoEnfermagem, async u => {
-                await ConferirEdicaoEnfermagem(s, u, p.AgendamentoId, p.EditorId, ct);
                 if (p.AgendamentoId <= 0 || p.Observacoes is not { Length: >= 1 and <= 20 })
                     throw ErroFormularioTablet.Criar("Escolha a sessão e informe de 1 a 20 observações por envio.");
                 var autor = new IdentificacaoExecutante(u.Id, u.Nome, u.Profissional!.RegistroConselho);
@@ -78,7 +77,6 @@ public sealed partial class PostoTabletService
         => Escrever(s,paciente,p.Idempotencia,p,"TabletEvolucaoEnfermagem",Permissao.RegistrarEvolucaoEnfermagem,async u=> {
             var agendamento = p.AgendamentoId ?? (p.RetificaId is {} anteriorId
                 ? await db.EvolucoesEnfermagem.Where(e => e.Id == anteriorId && e.PacienteId == paciente).Select(e => e.AgendamentoId).SingleOrDefaultAsync(ct) : null);
-            if (agendamento is {} agendaId) await ConferirEdicaoEnfermagem(s, u, agendaId, null, ct);
             Textos(4000,p.Texto);Textos(300,p.AlergiaObservada);Textos(500,p.Motivo);
             var autor=new IdentificacaoExecutante(u.Id,u.Nome,u.Profissional!.RegistroConselho);autor.Exigir("registrar a evolução de enfermagem");
             var servico=new EvolucaoEnfermagemService(repo);
@@ -102,7 +100,6 @@ public sealed partial class PostoTabletService
     public Task<ResultadoFichaTablet> VincularEnfermagemAsync(SessaoTablet s, int paciente, int evolucao,
         VinculoEnfermagemTablet p, CancellationToken ct)
         => Escrever(s,paciente,p.Idempotencia,new {evolucao,p},"TabletVinculoEnfermagem",Permissao.RegistrarEvolucaoEnfermagem,async u=> {
-            await ConferirEdicaoEnfermagem(s, u, p.AgendamentoId, null, ct);
             var e=await repo.ObterEvolucaoEnfermagemAsync(evolucao,ct)??throw new RecursoClinicoIndisponivel();
             if(e.PacienteId!=paciente)throw new RecursoClinicoIndisponivel();
             await new EvolucaoEnfermagemService(repo).VincularSessaoAsync(evolucao,p.AgendamentoId,u.Id,p.Motivo,ct);
