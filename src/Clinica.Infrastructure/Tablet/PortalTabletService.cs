@@ -189,8 +189,23 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
             var diario=await DiarioAsync(m.Id,ct);
             if(await CobertoAsync(p.Id,m.Id,diario,ct)) throw ErroFormularioTablet.Criar("Este termo já está assinado e vigente no prontuário.");
             var chave=$"{p.Id}:{m.Id}:{(diario ? Hoje.ToString("yyyy-MM-dd") : "continuo")}";
-            if(await db.ColetasTablet.AnyAsync(c=>c.ChaveAtiva==chave,ct))
-                throw ErroFormularioTablet.Criar("Já existe coleta deste termo em andamento. Conclua ou encerre a coleta anterior.");
+            var anterior=await db.ColetasTablet.SingleOrDefaultAsync(c=>c.ChaveAtiva==chave,ct);
+            if(anterior is not null)
+            {
+                if(anterior.Estado!="preparado" || anterior.RecebidoEm is not null || anterior.SubmissaoJson is not null || anterior.TracoPng is not null)
+                    throw ErroFormularioTablet.Criar("A assinatura deste termo já foi recebida. Aguarde o arquivamento ou use Retomar arquivamento no histórico.");
+                anterior.Estado="encerrado"; anterior.ChaveAtiva=null;
+                var antigo=await repo.ObterDocumentoAsync(anterior.DocumentoId,ct);
+                if(antigo is not null && antigo.PacienteAssinadoEm==null && antigo.CanceladoEm==null)
+                {
+                    antigo.CanceladoEm=DateTime.Now;
+                    antigo.MotivoCancelamento="Coleta reiniciada pela equipe antes da assinatura";
+                }
+                await Auditar("TabletColetaReiniciada",p.Id,Operador(s.Usuario!),$"Documento {anterior.DocumentoId}: nova tentativa sem assinatura anterior",ct);
+                // Libera a chave única antes da inserção. A transação e a versão da
+                // coleta impedem descartar uma rubrica recebida simultaneamente.
+                await db.SaveChangesAsync(ct);
+            }
             var itens=m.Itens.OrderBy(i=>i.Ordem).Select(i=>new ItemDocumento
                 {Descricao=i.Descricao,Detalhe=i.Detalhe}).ToList();
             itens.Add(new ItemDocumento { Codigo=RespostaDeclaracao.CodigoAlergiasTablet,

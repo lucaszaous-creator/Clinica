@@ -161,6 +161,33 @@ public sealed class PortalTabletTests : IDisposable
         Assert.Equal(3,await db.DocumentosClinicos.CountAsync());
     }
 
+    [Fact] public async Task Nova_tentativa_encerra_so_termo_pendente_e_permite_assinar()
+    {
+        var antiga=await Preparar(true);var anteriores=await db.ColetasTablet.OrderBy(c=>c.DocumentoId).ToListAsync();
+        var equipe=await svc.EntrarAsync(usuario,"outro",null,default);
+        await svc.PrepararAsync(equipe.Sessao,new(paciente.Id,[1],paciente.DataNascimento!.Value,"Documento conferido"),default);
+        Assert.Equal("encerrado",anteriores[0].Estado);Assert.Null(anteriores[0].ChaveAtiva);
+        Assert.NotNull((await repo.ObterDocumentoAsync(anteriores[0].DocumentoId))!.CanceladoEm);
+        Assert.Equal("preparado",anteriores[1].Estado);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.ReceberAsync(antiga.Sessao,anteriores[0].Id,Envio(anteriores[0]),default));
+        var nova=await db.ColetasTablet.SingleAsync(c=>c.SessaoId==equipe.Sessao.Id);
+        await svc.ReceberAsync(equipe.Sessao,nova.Id,Envio(nova),default);await svc.FinalizarAsync(nova.Id,default);
+        Assert.Equal("arquivado",nova.Estado);Assert.Equal(1,await db.ViasAssinadasPaciente.CountAsync());
+    }
+
+    [Theory][InlineData("recebido")][InlineData("finalizando")][InlineData("falha")]
+    public async Task Nova_tentativa_preserva_rubrica_recebida(string estado)
+    {
+        var antiga=await Preparar();var coleta=await db.ColetasTablet.SingleAsync();
+        await svc.ReceberAsync(antiga.Sessao,coleta.Id,Envio(coleta),default);
+        coleta.Estado=estado;await db.SaveChangesAsync();var traco=coleta.TracoPng;
+        var equipe=await svc.EntrarAsync(usuario,"outro",null,default);
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(equipe.Sessao,new(paciente.Id,[1],paciente.DataNascimento!.Value,"Documento conferido"),default));
+        Assert.Equal(estado,coleta.Estado);Assert.Equal(traco,coleta.TracoPng);
+        Assert.Null((await repo.ObterDocumentoAsync(coleta.DocumentoId))!.CanceladoEm);
+        Assert.Equal(1,await db.ColetasTablet.CountAsync());
+    }
+
     [Fact] public async Task Modo_paciente_revogacao_e_dispositivo_barram_acesso()
     {
         var s=await Preparar();
@@ -240,12 +267,12 @@ public sealed class PortalTabletTests : IDisposable
         db.ChangeTracker.Clear();Assert.Equal(primeiro.Idempotencia,(await db.ColetasTablet.SingleAsync()).Idempotencia);
     }
 
-    [Fact] public async Task Identidade_errada_e_segundo_tablet_nao_emitem_termos_duplicados()
+    [Fact] public async Task Identidade_errada_nao_encerra_coleta_pendente()
     {
         var s=await Preparar();var outra=await svc.EntrarAsync(usuario,"outro",null,default);
         var validacao=await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id,[1],new DateOnly(1981,1,15),"Documento conferido"),default));
         Assert.True(ErroFormularioTablet.EhPublico(validacao));
-        await Assert.ThrowsAsync<InvalidOperationException>(()=>svc.PrepararAsync(outra.Sessao,new(paciente.Id,[1],paciente.DataNascimento!.Value,"Documento conferido"),default));
+        Assert.Equal("preparado",(await db.ColetasTablet.SingleAsync()).Estado);
         Assert.Equal(1,await db.DocumentosClinicos.CountAsync());Assert.Equal("equipe",outra.Sessao.Modo);
     }
 

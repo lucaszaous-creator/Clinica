@@ -23,7 +23,6 @@ internal static class RotasPostoTablet
         g.MapPost("/pacientes/{id:int}/enfermagem/observacoes",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,ObservacoesEnfermagemTablet p)
             => {
                 var s = await sessao(c,portal);
-                if(p.EditorId is null || p.EditorId == Guid.Empty) throw ErroFormularioTablet.Criar("Esta tela precisa ser atualizada para reservar a edição. Copie seu texto antes de recarregar o portal.");
                 return Results.Ok(await svc.RegistrarObservacoesEnfermagemAsync(s,id,p,c.RequestAborted));
             });
         g.MapPost("/pacientes/{id:int}/enfermagem/edicao",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,ReservarEdicaoEnfermagemTablet p)

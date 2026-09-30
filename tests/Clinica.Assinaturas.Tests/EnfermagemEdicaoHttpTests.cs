@@ -21,7 +21,7 @@ public sealed class EnfermagemEdicaoHttpTests
     { public override DateTimeOffset GetUtcNow() => new(2026,9,23,16,0,0,TimeSpan.Zero); }
 
     [Fact]
-    public async Task Edicao_exclusiva_preserva_texto_validacoes_e_reenvio_sem_duplicar()
+    public async Task Reabrir_sem_reserva_preserva_validacoes_e_reenvio_sem_duplicar()
     {
         var dir=Path.Combine(Path.GetTempPath(),"enfermagem-http-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
         await File.WriteAllTextAsync(Path.Combine(dir,"index.html"),"<!doctype html><title>Teste fictício</title>");
@@ -52,8 +52,15 @@ public sealed class EnfermagemEdicaoHttpTests
             var ea=Guid.NewGuid();var eb=Guid.NewGuid();
             Assert.Equal(HttpStatusCode.OK,(await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=ea})).StatusCode);
             var blocked=await b.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=eb});
-            Assert.Equal(HttpStatusCode.Conflict,blocked.StatusCode);Assert.Contains("Enfermeira — demonstração",(string?)JsonNode.Parse(await blocked.Content.ReadAsStringAsync())!["erro"]);
-            Assert.Equal(HttpStatusCode.Conflict,(await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=Guid.NewGuid()})).StatusCode);
+            Assert.Equal(HttpStatusCode.OK,blocked.StatusCode);
+            Assert.Equal(HttpStatusCode.OK,(await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=Guid.NewGuid()})).StatusCode);
+            using(var scope=app.Services.CreateScope()){
+                var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+                var antiga=await db.SessoesTablet.FirstAsync(x=>x.Modo=="equipe");
+                db.Add(new EdicaoEnfermagemTablet {AgendamentoId=agendamento,PacienteId=paciente,
+                    UsuarioId=antiga.UsuarioId,SessaoId=antiga.Id,EditorId=Guid.NewGuid(),ExpiraEm=long.MaxValue});
+                await db.SaveChangesAsync();
+            }
             ObservacoesEnfermagemTablet Pedido(string fase="Chegada",SinaisVitais? sinais=null)=>new(Guid.NewGuid(),new(2026,9,23),agendamento,
                 [new(new(8,0),"Evolução inteiramente fictícia",false,sinais??new(120,80,72,18,SaturacaoOxigenio:98),NegaAlergia:true,FaseAtendimento:fase)],ea);
             var invalido=await a.PostAsJsonAsync(root+"/observacoes",Pedido(sinais:new(120,80,0,18,SaturacaoOxigenio:98)));
@@ -71,16 +78,17 @@ public sealed class EnfermagemEdicaoHttpTests
             Assert.True((bool)item["chegadaRegistrada"]!);Assert.False((bool)item["aposAplicacaoRegistrada"]!);
             Assert.False((bool)item["registrada"]!);Assert.False((bool)item["registroLegado"]!);
             Assert.Equal(await first.Content.ReadAsStringAsync(),await (await a.PostAsJsonAsync(root+"/observacoes",pedido)).Content.ReadAsStringAsync());
-            Assert.Equal(HttpStatusCode.OK,(await a.PostAsJsonAsync(root+"/observacoes",Pedido("AposAplicacao"))).StatusCode);
+            var saida=await b.PostAsJsonAsync(root+"/observacoes",Pedido("AposAplicacao") with {EditorId=null});
+            Assert.True(saida.IsSuccessStatusCode,await saida.Content.ReadAsStringAsync());
             using(var scope=app.Services.CreateScope()){
                 var db=scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
                 Assert.Equal(3,await db.EvolucoesEnfermagem.CountAsync());Assert.Equal(0,await db.Codigos.CountAsync());
-                (await db.Set<EdicaoEnfermagemTablet>().SingleAsync()).ExpiraEm=0;await db.SaveChangesAsync();
+                Assert.Equal(1,await db.Set<EdicaoEnfermagemTablet>().CountAsync());
             }
             Assert.Equal(HttpStatusCode.OK,(await b.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=eb})).StatusCode);
-            Assert.Equal(HttpStatusCode.Conflict,(await a.PostAsJsonAsync(root+"/observacoes",Pedido())).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest,(await a.PostAsJsonAsync(root+"/observacoes",Pedido())).StatusCode);
             await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=ea,liberar=true});
-            Assert.Equal(HttpStatusCode.Conflict,(await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=ea})).StatusCode);
+            Assert.Equal(HttpStatusCode.OK,(await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=ea})).StatusCode);
             await b.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=eb,liberar=true});
             Assert.Equal(HttpStatusCode.OK,(await a.PostAsJsonAsync(root+"/edicao",new{agendamentoId=agendamento,editorId=ea})).StatusCode);
         }finally{await app.DisposeAsync();Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();Directory.Delete(dir,true);}
