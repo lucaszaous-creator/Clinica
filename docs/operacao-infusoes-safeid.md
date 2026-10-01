@@ -62,3 +62,19 @@ Os horários são Unix em milissegundos. Banco de produção `clinica`, PostgreS
 ## Caso PRE 2026/0017
 
 Registro de produção id 43: execução encerrada e duas assinaturas com arquivos presentes. A pendência vinha da exigência da folha secundária. O PDF original foi preservado; seu SHA-256 é `971dbd0f92b951fe929687b1b98e2b0fa12ec43afb613ec12f8fa6f312ab09b5`. Um horário ausente em um PDF histórico já assinado não foi inserido por reescrita do documento; a correção vale para a geração de novos PDFs.
+
+O desktop Windows instalado ainda usa a regra antiga: `LinhaSalaInfusao.RegistroPendente` considera pendente uma execução com `ArquivoId` preenchido e `ArquivoRegistroId` nulo. Atualizar o portal não substitui o executável Windows. Para compatibilidade com esse desktop, o vínculo da assinatura executante id 50 foi reconciliado: `ArquivoRegistroId: null → 75`, apontando ao MESMO `ArquivoId=75` que já continha as duas assinaturas. Isso corresponde ao documento unificado; não foi gerada uma folha nova, não foi assinado novamente e não foram alterados situação clínica, horários, hash ou bytes do PDF.
+
+A transação conferiu prescrição encerrada/não cancelada/não devolvida, presença da assinatura médica e SHA-256 exato do arquivo, bloqueou as linhas envolvidas e incluiu o evento `UnificarDocumentoInfusao` em `Auditoria`. Valores anterior/posterior: `/home/clinica-admin/tablet-stage/infusao43-vinculo-verificado.json`; backup anterior privado: `infusao43-vinculo-antes.json` na mesma pasta. Depois de clicar “Atualizar” no desktop, esse vínculo já satisfaz a regra antiga; não é preciso atualizar o executável para corrigir essa linha específica. A tela do desktop em si não foi substituída.
+
+Se for necessário desfazer apenas esse vínculo, conferir primeiro que a assinatura 50 ainda pertence à prescrição 43, que ambos os campos apontam ao arquivo 75 e que o SHA-256 permanece o acima. Uma transação administrativa pode restaurar apenas `ArquivoRegistroId` para nulo, registrando NOVO evento de auditoria com o motivo. Isso fará a pendência da versão antiga reaparecer. Não excluir o arquivo 75, a assinatura ou o evento anterior de auditoria.
+
+## Publicação efetivada
+
+- Produção e homologação: `tablet-continuidade-59dfa87abfc0-a8bb98989d90`.
+- Código backend: `59dfa87abfc0456150467bcda9f59ffa45e38f08`; interface: `a8bb98989d90d1100cf6d6e0cb4a4a6e2beb28d7`.
+- SHA-256 do pacote: `9a33f8bf0e4508f6c6ae16a4a48518192b737ce008af4cf5a84c2072e4a598f7`.
+- Release anterior de produção: `tablet-continuidade-28fe45bcc3c7-624fdbe8e0b9`.
+- Backup de produção: `/var/backups/clinica-tablet-continuidade-20260930-234806` (nome emitido pelo servidor).
+- Flag de conclusão automática confirmada no ambiente efetivo do processo. Arquivos HTTP conferidos contra o manifesto. Serviço saudável; demais serviços preservados pelo instalador.
+- O relatório registra `aceite_certificado_real=false`: publicação solicitada expressamente pelo usuário após ciência desse limite. Não apresentar esta publicação como teste real concluído.
