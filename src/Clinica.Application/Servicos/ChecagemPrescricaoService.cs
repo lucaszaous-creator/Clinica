@@ -438,9 +438,13 @@ public sealed class ChecagemPrescricaoService
 
         var limpa = string.IsNullOrWhiteSpace(justificativa) ? null : justificativa.Trim();
 
-        if (situacao == SituacaoChecagem.NaoRealizado && limpa is null)
+        if (!Enum.IsDefined(situacao))
+            throw new InvalidOperationException("Situação de execução inválida.");
+        if (justificativa?.Length > 1000)
+            throw new InvalidOperationException("A justificativa deve ter até 1000 caracteres.");
+        if (situacao != SituacaoChecagem.Realizado && limpa is null)
             throw new InvalidOperationException(
-                "Item não realizado exige justificativa. Sem ela, a folha registra que a "
+                "Item não realizado ou não executável exige justificativa. Sem ela, a folha registra que a "
                 + "medicação não entrou no paciente e não diz por quê — que é a pior linha "
                 + "possível de um prontuário.");
 
@@ -515,5 +519,5 @@ public sealed class ChecagemPrescricaoService
     }
 
     private static string RotularSituacao(SituacaoChecagem situacao)
-        => situacao == SituacaoChecagem.Realizado ? "realizado" : "NÃO realizado";
+        => RotulosEnum.De(situacao);
 }

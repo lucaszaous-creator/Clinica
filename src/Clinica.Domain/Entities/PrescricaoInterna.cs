@@ -50,7 +50,10 @@ public enum SituacaoChecagem
     /// Prescrito e NÃO feito. No papel é a "rodela": a técnica circula o horário para dizer
     /// que aquilo não aconteceu. Exige justificativa escrita.
     /// </summary>
-    NaoRealizado
+    NaoRealizado,
+
+    /// <summary>Não foi possível executar; exige justificativa.</summary>
+    NaoExecutavel
 }
 
 /// <summary>
@@ -68,7 +71,9 @@ public enum SituacaoItemPrescricao
     NaoRealizado,
 
     /// <summary>O prescritor tirou o item antes de ele ser executado.</summary>
-    Suspenso
+    Suspenso,
+
+    NaoExecutavel
 }
 
 /// <summary>
@@ -335,7 +340,7 @@ public class PrescricaoInterna
         => Itens.Count(i => i.Situacao == SituacaoItemPrescricao.Realizado);
 
     public int NaoRealizados
-        => Itens.Count(i => i.Situacao == SituacaoItemPrescricao.NaoRealizado);
+        => Itens.Count(i => i.Situacao is SituacaoItemPrescricao.NaoRealizado or SituacaoItemPrescricao.NaoExecutavel);
 
     /// <summary>
     /// Todo item já teve destino (feito, não feito ou suspenso). É o que habilita encerrar:
@@ -470,6 +475,7 @@ public class ItemPrescricaoInterna
             {
                 SituacaoChecagem.Realizado => SituacaoItemPrescricao.Realizado,
                 SituacaoChecagem.NaoRealizado => SituacaoItemPrescricao.NaoRealizado,
+                SituacaoChecagem.NaoExecutavel => SituacaoItemPrescricao.NaoExecutavel,
                 _ => SituacaoItemPrescricao.Pendente
             };
         }
@@ -530,7 +536,20 @@ public class ChecagemPrescricao
     public int ItemPrescricaoInternaId { get; set; }
     public ItemPrescricaoInterna? Item { get; set; }
 
-    public SituacaoChecagem Situacao { get; set; }
+    // A coluna histórica continua usando os valores conhecidos pelos aplicativos antigos.
+    // O detalhe novo é aditivo: versões anteriores leem uma não administração justificada.
+    public SituacaoChecagem SituacaoPersistida { get; private set; }
+    public bool NaoExecutavel { get; private set; }
+    public SituacaoChecagem Situacao
+    {
+        get => NaoExecutavel && SituacaoPersistida == SituacaoChecagem.NaoRealizado
+            ? SituacaoChecagem.NaoExecutavel : SituacaoPersistida;
+        set
+        {
+            NaoExecutavel = value == SituacaoChecagem.NaoExecutavel;
+            SituacaoPersistida = NaoExecutavel ? SituacaoChecagem.NaoRealizado : value;
+        }
+    }
 
     /// <summary>
     /// Hora em que foi (ou seria) administrado, digitada por quem executou. Nos itens não
@@ -685,19 +704,10 @@ public class AssinaturaDocumento
     public ArquivoAssinado? Arquivo { get; set; }
 
     /// <summary>
-    /// O <b>REGISTRO DE EXECUÇÃO</b> selado no mesmo ato (decisão da direção, 20/08/2026).
-    ///
-    /// A folha da prescrição é selada pela médica ANTES da execução, então ela nunca poderá
-    /// mostrar o que foi feito — e acrescentar-lhe uma página faz o validador de fora
-    /// acusar modificação ilegal na assinatura DELA (medido). Quem mostra o ✓, a rodela e o
-    /// suspenso é o registro; para ele valer como prova, ele precisa ser selado também.
-    ///
-    /// São DOIS arquivos de UM ato: a enfermeira escolhe o certificado uma vez e o sistema
-    /// sela a prescrição (revisão incremental, o carimbo dela ao lado do da médica) e o
-    /// registro (assinatura própria, um carimbo). Nulo quando a selagem do registro falhou
-    /// — e aí o registro é montado na hora e DIZ que não é assinado, apontando a folha que
-    /// é. Falha na segunda não desfaz a primeira: o ato irreversível não depende do passo
-    /// que veio depois dele.
+    /// Arquivo que contém a execução assinada. Nas prescrições com campos digitais,
+    /// aponta para o mesmo arquivo de ArquivoId: horários, justificativas e as duas
+    /// assinaturas estão na prescrição única. Documentos anteriores preservam sua
+    /// referência separada (ou nula), sem reescrever PDFs já assinados.
     /// </summary>
     public int? ArquivoRegistroId { get; set; }
     public ArquivoAssinado? ArquivoRegistro { get; set; }

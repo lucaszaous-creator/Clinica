@@ -212,16 +212,16 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal(1,avisosEnfermagem.Enfermagem);
         Assert.Equal(0,avisosEnfermagem.Medico);
         var enfermagem=Json(await Posto.FilaAsync(sessao,0,default));
-        Assert.Equal(3,enfermagem.GetProperty("total").GetInt32());
+        Assert.Equal(2,enfermagem.GetProperty("total").GetInt32());
         var resumo=enfermagem.GetProperty("resumo");
         Assert.Equal(1,resumo.GetProperty("execucaoEnfermagem").GetInt32());
         Assert.Equal(1,resumo.GetProperty("assinaturaEnfermagem").GetInt32());
-        Assert.Equal(1,resumo.GetProperty("registroPendente").GetInt32());
+        Assert.Equal(0,resumo.GetProperty("registroPendente").GetInt32());
         Assert.Equal(0,resumo.GetProperty("assinaturaMedica").GetInt32());
         var itens=enfermagem.GetProperty("itens").EnumerateArray().ToDictionary(x=>x.GetProperty("id").GetInt32());
         Assert.Equal("executar",itens[executar.Id].GetProperty("acaoPendente").GetString());
         Assert.Equal("assinarEnfermagem",itens[assinarEnfermagem.Id].GetProperty("acaoPendente").GetString());
-        Assert.Equal("regularizarRegistro",itens[regularizar.Id].GetProperty("acaoPendente").GetString());
+        Assert.False(itens.ContainsKey(regularizar.Id)); // a prescrição já está arquivada; não se cobra o PDF duplicado
     }
 
     [Fact] public async Task Filtro_da_fila_encontra_assinatura_medica_apos_cinquenta_rascunhos()

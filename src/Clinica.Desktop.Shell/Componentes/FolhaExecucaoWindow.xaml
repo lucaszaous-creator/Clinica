@@ -121,6 +121,7 @@
                             Style="{StaticResource BotaoSecundario}"
                             IsEnabled="{Binding TemRegistroExecucao}"
                             ToolTip="O espelho eletrônico do que já foi checado. Habilita depois da primeira checagem."
+                            Visibility="{Binding ExibirRegistroSeparado, Converter={StaticResource BoolParaVisibilidade}}"
                             Command="{Binding ImprimirRegistroCommand}" />
                     <!-- A SEGUNDA porta da evolução de enfermagem, para quem já está
                          aqui. ⚠️ FORA do IsEnabled do bloco de PodeMexer, de propósito: o

@@ -67,7 +67,7 @@ public sealed class LinhaExecucaoItem
         var marca = situacao switch
         {
             SituacaoItemPrescricao.Realizado => $"✓ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
-            SituacaoItemPrescricao.NaoRealizado => $"○ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
+            SituacaoItemPrescricao.NaoRealizado or SituacaoItemPrescricao.NaoExecutavel => $"○ {(checagem!.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy} às {checagem.HoraRealizacao:HH\\:mm}",
             SituacaoItemPrescricao.Suspenso => "suspenso",
             _ => "—"
         };
@@ -89,7 +89,7 @@ public sealed class LinhaExecucaoItem
                     .Where(p => !string.IsNullOrWhiteSpace(p))),
             Pendente = situacao == SituacaoItemPrescricao.Pendente,
             Realizado = situacao == SituacaoItemPrescricao.Realizado,
-            NaoRealizado = situacao == SituacaoItemPrescricao.NaoRealizado,
+            NaoRealizado = situacao is SituacaoItemPrescricao.NaoRealizado or SituacaoItemPrescricao.NaoExecutavel,
             Suspenso = item.Suspenso,
             SeNecessario = item.SeNecessario,
             AlertaAlergia = alertaAlergia
@@ -154,6 +154,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
     /// <summary>Já houve checagem — o registro de execução tem o que mostrar.</summary>
     [ObservableProperty] private bool _temRegistroExecucao;
+    [ObservableProperty] private bool _exibirRegistroSeparado;
 
     /// <summary>A folha nasceu pedindo a 2ª assinatura (a eletrônica da enfermagem).</summary>
     [ObservableProperty] private bool _exigeAssinaturaEletronica;
@@ -319,6 +320,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             EmExecucao = prescricao.PodeChecar;
             ExecucaoCompleta = prescricao.ExecucaoCompleta;
             TemRegistroExecucao = prescricao.Realizados + prescricao.NaoRealizados > 0;
+            ExibirRegistroSeparado = !prescricao.ExigeAssinaturaEletronicaDaExecucao;
 
             ExigeAssinaturaEletronica = prescricao.ExigeAssinaturaEletronicaDaExecucao;
             AguardaAssinaturaExecucao = prescricao.AguardaAssinaturaDaExecucao;
@@ -500,10 +502,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     $"Encerrar a execução da prescrição {Numero}? Depois disso a folha não "
                     + "pode mais ser checada.\n\n"
                     + (ExigeAssinaturaEletronica
-                        ? "Esta folha pede a assinatura ELETRÔNICA da enfermagem — ela é "
-                          + "colhida logo depois de encerrar, e sela DOIS documentos: a "
-                          + "prescrição (que fica com as duas assinaturas) e o registro de "
-                          + "execução (a folha que mostra o que foi feito)."
+                        ? "Após encerrar, assine eletronicamente a prescrição para arquivar a execução."
                         : "Lembre de assinar a via impressa — é ela que responde pela "
                           + "execução.")))
                 return;
@@ -578,7 +577,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 
-            var registroSelado = false;
+            var documentoArquivado = false;
+            var documentoUnificado = false;
 
             using (var scope = _escopos.CreateScope())
             {
@@ -589,24 +589,21 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     _prescricaoId, certificado,
                     SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
 
-                registroSelado = assinada.AssinaturaDaExecucao?.ArquivoRegistroId is not null;
+                var execucao = assinada.AssinaturaDaExecucao;
+                documentoArquivado = execucao?.ArquivoId is not null;
+                documentoUnificado = documentoArquivado && execucao!.ArquivoId == execucao.ArquivoRegistroId;
             }
 
             await CarregarAsync();
 
-            // ⚠️ São DOIS documentos de UM ato, e a tela tem de dizer qual dos dois saiu.
-            // Falhar ao selar o registro não desfaz a assinatura da prescrição — mas ficar
-            // calado faria a enfermeira imprimir uma folha de execução sem carimbo achando
-            // que ela está selada.
-            Mensagem = OrigemEnfermagem ? "Execução assinada. Aguarda a validação do médico responsável. A situação do atendimento não foi alterada."
-                : registroSelado
-                ? "Execução assinada. A PRESCRIÇÃO passa a sair com as duas assinaturas, e "
-                  + "o REGISTRO DE EXECUÇÃO — a folha que mostra o que foi feito — saiu "
-                  + "selado com o seu certificado."
-                : "Execução assinada na PRESCRIÇÃO, que agora sai com as duas assinaturas. "
-                  + "O registro de execução NÃO pôde ser selado: ele sai como espelho, "
-                  + "apontando esta folha. Avise o suporte.";
-            MensagemEhErro = !registroSelado;
+            Mensagem = OrigemEnfermagem
+                ? "Execução assinada. Aguarda a validação do médico responsável."
+                : !documentoArquivado
+                    ? "A assinatura foi recebida, mas o arquivo não está disponível. Avise o suporte."
+                    : documentoUnificado
+                        ? "Prescrição arquivada com as duas assinaturas, horários e justificativas da execução."
+                        : "Prescrição arquivada com as duas assinaturas. Esta via antiga mantém os dados da execução no registro eletrônico.";
+            MensagemEhErro = !documentoArquivado;
         }
         catch (Exception ex)
         {
@@ -858,7 +855,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             confirmouAlergia = true;
         }
 
-        if (situacao == SituacaoChecagem.NaoRealizado)
+        if (situacao != SituacaoChecagem.Realizado)
         {
             justificativa = _dialogo.PerguntarTexto(
                 "Por que não foi realizado?",

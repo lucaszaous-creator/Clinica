@@ -183,6 +183,21 @@ public sealed class AssinaturaDePrescricaoService
                 + $"(id {idDoArquivo}). A folha NÃO foi assinada — a via em papel continua "
                 + "valendo.");
 
+        // Prescrições novas reservam os campos antes da primeira assinatura. O
+        // preenchimento é incremental e a segunda assinatura cobre a execução inteira.
+        if (CamposExecucaoPdf.TemCampos(doPrescritor))
+        {
+            var preenchido = CamposExecucaoPdf.Preencher(doPrescritor, prescricao);
+            var final = await AnexarAsync(preenchido, certificado,
+                $"Execução da prescrição {prescricao.Numero}", executante.Nome, executante.RegistroConselho, ct);
+            var unico = await GuardarAsync(final.Pdf, $"{prescricao.Numero.Replace('/', '-')} assinada.pdf", ct);
+            var assinaturaUnica = Montar(certificado, final, unico, usuarioId, executante.Nome, executante.RegistroConselho);
+            assinaturaUnica.ArquivoRegistroId = unico.Id;
+            return await _prescricoes.AssinarExecucaoAsync(prescricaoId, assinaturaUnica, operador, ct);
+        }
+
+        // Compatibilidade: folhas médicas emitidas antes dos campos de execução não
+        // podem ser redesenhadas depois de assinadas. Preserve o circuito antigo nelas.
         // ⚠️ O REGISTRO é gerado ANTES de a assinatura ser registrada, e a ordem é a regra:
         // depois dela, o rodapé passaria a escrever "este arquivo NÃO é assinado — a
         // assinatura está na folha X", que é o texto da via MONTADA NA HORA. Selar esse

@@ -1197,7 +1197,9 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.DataRealizacao).HasColumnType("date");
-            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Ignore(x => x.Situacao);
+            e.Property(x => x.SituacaoPersistida).HasColumnName("Situacao").HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.NaoExecutavel).HasDefaultValue(false);
             e.Property(x => x.Justificativa).HasMaxLength(1000);
             e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);
             e.Property(x => x.ExecutanteConselho).HasMaxLength(60);

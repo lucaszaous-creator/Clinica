@@ -194,11 +194,13 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20260930190000_JustificativaNaoExecutavel':'20260926120000_DevolucaoInfusaoExterna',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
         '20260923190924_EdicaoEnfermagemExclusiva':'20260922231000_HabilitacoesDoProfissional',
         '20260926120000_DevolucaoInfusaoExterna':'20260925170000_DataRealizacaoInfusao',
     }
     arquivos_migracao={
+        '20260930190000_JustificativaNaoExecutavel':'migracao-infusao.sql',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'migracao-enfermagem.sql',
         '20260923190924_EdicaoEnfermagemExclusiva':'migracao-enfermagem.sql',
         '20260926120000_DevolucaoInfusaoExterna':'migracao-infusao.sql',
