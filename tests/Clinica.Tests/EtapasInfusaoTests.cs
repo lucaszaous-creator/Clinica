@@ -15,10 +15,6 @@ public sealed class EtapasInfusaoTests
         p.Situacao = SituacaoPrescricao.Encerrada;
         Assert.Equal("enfermagem", Assert.Single(EtapasInfusao.Da(p).Where(e => e.Atual)).Codigo);
         p.Assinaturas.Add(new() { Papel = PapelAssinatura.Executante, ArquivoId = 2 });
-        var incompleta = Assert.Single(EtapasInfusao.Da(p).Where(e => e.Atual));
-        Assert.Equal("Arquivar folha da execução", incompleta.Titulo); Assert.True(incompleta.Atencao);
-        Assert.False(EtapasInfusao.Da(p).Last().Concluida);
-        p.AssinaturaDaExecucao!.ArquivoRegistroId = 3;
         Assert.All(EtapasInfusao.Da(p), e => Assert.True(e.Concluida));
         Assert.DoesNotContain(EtapasInfusao.Da(p), e => e.Atual);
     }

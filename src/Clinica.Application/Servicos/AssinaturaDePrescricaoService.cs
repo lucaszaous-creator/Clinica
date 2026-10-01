@@ -183,6 +183,21 @@ public sealed class AssinaturaDePrescricaoService
                 + $"(id {idDoArquivo}). A folha NÃO foi assinada — a via em papel continua "
                 + "valendo.");
 
+        // Prescrições novas reservam os campos antes da primeira assinatura. O
+        // preenchimento é incremental e a segunda assinatura cobre a execução inteira.
+        if (CamposExecucaoPdf.TemCampos(doPrescritor))
+        {
+            var preenchido = CamposExecucaoPdf.Preencher(doPrescritor, prescricao);
+            var final = await AnexarAsync(preenchido, certificado,
+                $"Execução da prescrição {prescricao.Numero}", executante.Nome, executante.RegistroConselho, ct);
+            var unico = await GuardarAsync(final.Pdf, $"{prescricao.Numero.Replace('/', '-')} assinada.pdf", ct);
+            var assinaturaUnica = Montar(certificado, final, unico, usuarioId, executante.Nome, executante.RegistroConselho);
+            assinaturaUnica.ArquivoRegistroId = unico.Id;
+            return await _prescricoes.AssinarExecucaoAsync(prescricaoId, assinaturaUnica, operador, ct);
+        }
+
+        // Compatibilidade: folhas médicas emitidas antes dos campos de execução não
+        // podem ser redesenhadas depois de assinadas. Preserve o circuito antigo nelas.
         // ⚠️ O REGISTRO é gerado ANTES de a assinatura ser registrada, e a ordem é a regra:
         // depois dela, o rodapé passaria a escrever "este arquivo NÃO é assinado — a
         // assinatura está na folha X", que é o texto da via MONTADA NA HORA. Selar esse
@@ -265,6 +280,24 @@ public sealed class AssinaturaDePrescricaoService
     /// mesma regra da Prescrição: devolvem-se os bytes GUARDADOS, porque a assinatura
     /// cobre uma faixa de bytes e um arquivo regerado sairia inválido.
     /// </summary>
+    public async Task<FolhaAssinada> DocumentoInfusaoAsync(int prescricaoId, CancellationToken ct = default)
+    {
+        var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
+            ?? throw new InvalidOperationException("Prescrição não encontrada.");
+        var assinatura = prescricao.OrigemEnfermagem
+            ? prescricao.AssinaturaDoPrescritor ?? prescricao.AssinaturaDaExecucao
+            : prescricao.AssinaturaDaExecucao ?? prescricao.AssinaturaDoPrescritor;
+        // Uma assinatura registrada nunca pode virar silenciosamente um PDF regenerado.
+        if (assinatura is not null && (assinatura.ArquivoId is not { } id
+            || await _repo.ObterArquivoAssinadoAsync(id, ct) is null))
+            throw new InvalidOperationException("O documento assinado está indisponível. Contate o suporte para recuperá-lo.");
+        var regimePapelComExecucao = !prescricao.ExigeAssinaturaEletronicaDaExecucao
+            && !prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao is null
+            && prescricao.Itens.Any(i => i.ChecagemVigente is not null);
+        return await FolhaAsync(prescricaoId,
+            regimePapelComExecucao ? FolhaPrescricao.RegistroExecucao : FolhaPrescricao.Prescricao, ct);
+    }
+
     public async Task<FolhaAssinada> FolhaAsync(
         int prescricaoId, FolhaPrescricao folhaPedida, CancellationToken ct = default)
     {

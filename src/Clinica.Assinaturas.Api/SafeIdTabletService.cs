@@ -15,10 +15,12 @@ namespace Clinica.Assinaturas.Api;
 public sealed class SafeIdTabletService(IConfiguration configuration, AtendimentoTabletService acesso,
     AutorizacoesSafeIdTablet autorizacoes, IClinicaRepositorio repo, ClinicaDbContext db,
     PrescricaoInternaService prescricoes, AssinaturaDeDocumentoClinicoService assinadorDocumento,
-    AssinaturaDePrescricaoService assinadorInfusao, ILogger<SafeIdTabletService> logger)
+    AssinaturaDePrescricaoService assinadorInfusao, ILogger<SafeIdTabletService> logger,
+    RegistroAssinaturaTablet registro, IHttpClientFactory clientes)
 {
     public bool Habilitado => configuration.GetValue<bool>("Portal:SafeId:Habilitado")
         && !configuration.GetValue<bool>("Portal:Demo");
+    public bool ConclusaoAutomatica => Habilitado && configuration.GetValue<bool>("Portal:SafeId:ConclusaoAutomatica");
     private (OpcoesSafeID Opcoes, Uri Retorno) Configuracao()
     {
         if(!Habilitado) throw ErroFormularioTablet.Criar("A assinatura SafeID no tablet ainda não foi habilitada pela clínica.");
@@ -68,20 +70,77 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         Paciente=p is null ? null : new {p.Id,p.Nome,p.Documento,p.DataNascimento,p.Endereco,p.Telefone,p.Email,p.Carteirinha,p.ConvenioCodigo},
         Profissional=profissional is null ? null : new {profissional.Id,profissional.Nome,profissional.Cpf,profissional.RegistroConselho,profissional.EspecialidadeCodigo,profissional.Ativo}
     };
-    public async Task<object> IniciarAsync(SessaoTablet s,int agendamento,string tipo,int id,bool confirmou,CancellationToken ct)
+    public async Task<object> PendenciaAsync(SessaoTablet s,int agendamento,string tipo,int id,CancellationToken ct)
     {
+        await acesso.ExigirDocumentoAsync(s,agendamento,tipo,id,true,ct);
+        var documento=tipo is "infusao" or "execucao"
+            ? (await repo.ObterPrescricaoInternaAsync(id,ct))!.Numero
+            : (await repo.ObterDocumentoAsync(id,ct))!.Numero;
+        var a=autorizacoes.Ativa(s.Id,tipo,id);
+        var op=await registro.AtivaAsync(tipo,id,ct);
+        var situacao=op?.Situacao??a?.Situacao;
+        var propria=op is null || op.SessaoId==s.Id;
+        return new {documento,situacao,expiraEm=op?.ExpiraEm??a?.ExpiraEm,
+            podeRetomar=propria && situacao=="aguardando" && a?.Situacao=="aguardando",
+            operacao=propria ? op?.Id??a?.Id : null};
+    }
+    public async Task<object> IniciarAsync(SessaoTablet s,int agendamento,string tipo,int id,bool confirmou,CancellationToken ct,bool concluirAutomaticamente = false)
+    {
+        if(concluirAutomaticamente && (!ConclusaoAutomatica || !confirmou || tipo is not ("infusao" or "execucao")))
+            throw ErroFormularioTablet.Criar("Confira a infusão antes de autorizar a conclusão automática.");
         var (u,_)=await acesso.ExigirDocumentoAsync(s,agendamento,tipo,id,true,ct);
         var (opcoes,retorno)=Configuracao();
         if(string.IsNullOrWhiteSpace(u.Profissional!.Cpf)) throw ErroFormularioTablet.Criar("Cadastre o CPF do profissional no sistema antes de assinar.");
         var hash=ContratoTablet.Hash(await Conferir(tipo,id,confirmou,ct)+ContratoTablet.Serializar(Cadastro(null,u.Profissional)));
-        using var http=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false}) {Timeout=TimeSpan.FromSeconds(30)};
+        var ativa=autorizacoes.Ativa(s.Id,tipo,id);
+        if(ativa is not null)
+        {
+            if(ativa.Situacao!="aguardando" || ativa.ConteudoHash!=hash || ativa.ConclusaoAutomatica!=concluirAutomaticamente)
+                throw new ConflitoClinicoTablet("A tentativa deste documento não pode ser retomada. Consulte seu andamento; outras infusões continuam disponíveis.");
+            var existente=await registro.AtivaAsync(tipo,id,ct);
+            if(concluirAutomaticamente && (existente?.Id!=ativa.Id || existente.Situacao!="aguardando"))
+                throw new ConflitoClinicoTablet("Confira o resultado da tentativa deste documento antes de autorizar novamente.");
+            var escopoAtivo=EscopoSafeID.ParaAto(tipo=="execucao"?2:1);
+            using var httpAtivo=clientes.CreateClient("SafeIdTablet");
+            return new {ativa.Id,Url=new ClienteSafeID(httpAtivo,opcoes).UrlDeAutorizacao(ativa.Pkce,retorno,escopoAtivo.Escopo,
+                cpf:u.Profissional.Cpf,estado:ativa.Estado,duracaoSegundos:escopoAtivo.DuracaoSegundos).AbsoluteUri};
+        }
+        using var http=clientes.CreateClient("SafeIdTablet"); http.Timeout=TimeSpan.FromSeconds(30);
         var cliente=new ClienteSafeID(http,opcoes);
         try {await cliente.TokenDaAplicacaoAsync(ct);}
         catch {throw ErroFormularioTablet.Criar("Não foi possível autorizar a aplicação no SafeID. Confira a configuração da clínica.");}
-        var a=autorizacoes.Criar(s.Id,agendamento,id,tipo,hash,confirmou);
+        var a=autorizacoes.Criar(s.Id,agendamento,id,tipo,hash,confirmou,concluirAutomaticamente);
+        if(concluirAutomaticamente)
+        {
+            try { await registro.CriarAsync(a,ct); }
+            catch { autorizacoes.Concluir(a,false); throw; }
+        }
         var escopo=EscopoSafeID.ParaAto(tipo=="execucao"?2:1);
         return new {a.Id,Url=cliente.UrlDeAutorizacao(a.Pkce,retorno,escopo.Escopo,
             cpf:u.Profissional.Cpf,estado:a.Estado,duracaoSegundos:escopo.DuracaoSegundos).AbsoluteUri};
+    }
+    public async Task<Guid> ReceberRetornoAsync(string estado,string? codigo,string? erro)
+    {
+        // A intenção foi confirmada no POST autenticado com CSRF antes do SafeID.
+        // Só o state imprevisível, vigente e de uso único pode acionar essa intenção.
+        var a=autorizacoes.ReceberRetorno(estado,codigo,erro);
+        if(!a.ConclusaoAutomatica)return a.Id; // Autorizações de telas antigas conservam o contrato.
+        using var prazo=new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        try
+        {
+            if(a.Situacao=="autorizado")
+                await ConcluirAsync(new SessaoTablet {Id=a.Sessao},a.Id,prazo.Token);
+            else await registro.FalharAsync(a.Id,false,prazo.Token);
+        }
+        catch
+        {
+            // O POST já classifica a falha. Uma rejeição anterior ao consumo também
+            // precisa deixar resultado consultável, sem expor parâmetros do provedor.
+            try { await registro.FalharAsync(a.Id,a.Situacao is "assinando" or "falha",CancellationToken.None); }
+            catch { logger.LogWarning("SafeID: resultado deve ser conferido pela referência {Referencia}",a.Id); }
+            if(a.Situacao is "autorizado" or "assinando")autorizacoes.Concluir(a,false);
+        }
+        return a.Id;
     }
     public async Task<object> ConcluirAsync(SessaoTablet s,Guid id,CancellationToken ct)
     {
@@ -96,8 +155,10 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
         using var prazo=new CancellationTokenSource(TimeSpan.FromMinutes(2));
         ct=prazo.Token;
         var etapa = "transacao";
+        var atoRemotoIniciado = false;
         try
         {
+            if(a.ConclusaoAutomatica)await registro.IniciarAsync(a.Id,ct);
             await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
             if(db.Database.IsNpgsql())
             {
@@ -111,7 +172,7 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
             etapa = "conferencia";
             if(ContratoTablet.Hash(await Conferir(a.Tipo,a.Documento,a.ConfirmouAlergia,ct)+ContratoTablet.Serializar(Cadastro(null,u.Profissional)))!=a.ConteudoHash)
                 throw new ConflitoClinicoTablet("O documento ou as alergias mudaram. Confira o conteúdo e autorize novamente.");
-            using var http=new HttpClient(new HttpClientHandler {AllowAutoRedirect=false}) {Timeout=TimeSpan.FromSeconds(45)};
+            using var http=clientes.CreateClient("SafeIdTablet"); http.Timeout=TimeSpan.FromSeconds(45);
             var cliente=new ClienteSafeID(http,opcoes);
             etapa = "token";
             var token=await cliente.TokenPorCodigoAsync(a.Codigo!,a.Pkce,retorno,ct);
@@ -125,18 +186,27 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
             TitularDoCertificado.Exigir(escolhido.Certificado,u.Profissional!.Cpf,u.Profissional.Nome);
             var certificado=escolhido.Certificado with {AssinadorRemoto=new AssinadorSafeID(cliente,token.AccessToken,escolhido,"Documento clínico")};
             etapa = "assinatura-arquivo";
+            atoRemotoIniciado = true;
             if(a.Tipo=="infusao") await assinadorInfusao.AssinarPrescricaoAsync(a.Documento,certificado,a.ConfirmouAlergia,u.Id,u.Login,ct);
             else if(a.Tipo=="execucao")await assinadorInfusao.AssinarExecucaoAsync(a.Documento,certificado,u.Id,u.Login,ct);
             else await assinadorDocumento.AssinarAsync(a.Documento,certificado,u.Id,u.Login,ct);
             etapa = "confirmacao-banco";
+            if(a.ConclusaoAutomatica)await registro.ConfirmarAsync(a.Id,ct);
             await tx.CommitAsync(ct);
             autorizacoes.Concluir(a,true);
             return new {estado="concluido",a.Documento,a.Tipo};
         }
-        catch(ConflitoClinicoTablet) {autorizacoes.Concluir(a,false);throw;}
         catch(Exception ex)
         {
+            if(a.ConclusaoAutomatica)
+            {
+                // Se COMMIT aconteceu mas sua resposta se perdeu, a linha concluída
+                // não é sobrescrita; uma falha incerta conserva o bloqueio de repetição.
+                try { await registro.FalharAsync(a.Id,atoRemotoIniciado,CancellationToken.None); }
+                catch { logger.LogWarning("SafeID: persistência do resultado indisponível, referência {Referencia}",a.Id); }
+            }
             autorizacoes.Concluir(a,false);
+            if(ex is ConflitoClinicoTablet)throw;
             var falha = FalhaSafeIdTablet.Classificar(ex);
             // Nunca passar a exceção ao logger: mensagens do PSC podem conter tokens,
             // CPF ou conteúdo da resposta. Só códigos e nomes de métodos controlados.

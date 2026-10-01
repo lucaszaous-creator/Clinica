@@ -149,7 +149,8 @@ public sealed class PrescricaoInternaPdfService
         var itens = prescricao.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id).ToList();
         var assinatura = prescricao.AssinaturaDoPrescritor;
 
-        return Document.Create(container =>
+        var camposDigitais = prescricao.ExigeAssinaturaEletronicaDaExecucao && !prescricao.OrigemEnfermagem;
+        var pdf = Document.Create(container =>
         {
             container.Page(page =>
             {
@@ -186,8 +187,15 @@ public sealed class PrescricaoInternaPdfService
 
                     if (prescricao.DiluicaoUnica)
                         Campo(col, "Diluição para toda a infusão", $"Diluente: {prescricao.DiluenteGlobal ?? "Não informado"} · Volume total: {prescricao.VolumeTotal ?? "Não informado"}");
-                    TabelaDaPrescricao(col, itens);
-                    if (prescricao.OrigemEnfermagem) TabelaDaExecucao(col, itens);
+                    TabelaDaPrescricao(col, itens, camposDigitais);
+                    if (camposDigitais)
+                        foreach (var item in itens)
+                            col.Item().ShowEntire().Column(c =>
+                            {
+                                c.Item().Text($"Execução do item {item.Ordem} — data, situação, executante e justificativa").Bold().FontSize(8);
+                                c.Item().Border(.5f).BorderColor(Borda).Hyperlink(CamposExecucaoPdf.Prefixo + $"detalhe_{item.Id}").Height(160).Text("");
+                            });
+                    if (prescricao.OrigemEnfermagem) { TabelaDaExecucao(col, itens); Justificativas(col, itens); Retificacoes(col, itens); }
 
                     if (!string.IsNullOrWhiteSpace(prescricao.Observacoes))
                         Campo(col, "Observações", prescricao.Observacoes!,prescricao.ObservacoesFormatadas);
@@ -200,6 +208,7 @@ public sealed class PrescricaoInternaPdfService
                     paraAssinaturaEletronica: paraAssinaturaEletronica);
             });
         }).GeneratePdf();
+        return camposDigitais ? CamposExecucaoPdf.Preparar(pdf) : pdf;
     }
 
     // ==================== Folha 2 · o registro de execução ====================
@@ -437,7 +446,7 @@ public sealed class PrescricaoInternaPdfService
     /// eles são pré-impressos do formulário, como no talão de papel. Ela atesta o que
     /// mandou fazer; o que foi feito entra por cima, à mão.
     /// </summary>
-    private static void TabelaDaPrescricao(ColumnDescriptor col, List<ItemPrescricaoInterna> itens)
+    private static void TabelaDaPrescricao(ColumnDescriptor col, List<ItemPrescricaoInterna> itens, bool camposDigitais = false)
     {
         col.Item().Table(tabela =>
         {
@@ -495,11 +504,24 @@ public sealed class PrescricaoInternaPdfService
                 // Em branco DE PROPÓSITO: é aqui que a enfermeira escreve a hora e faz o
                 // "chequezinho" (ou circula a hora, quando não foi feito). Item suspenso não
                 // ganha campo — dar espaço para checar o que foi suspenso é convidar o erro.
-                Celula(tabela).Element(c => CampoParaCaneta(c, apagado));
-                Celula(tabela).Element(c => CampoParaCaneta(c, apagado));
+                if (camposDigitais)
+                {
+                    Celula(tabela).Hyperlink(CamposExecucaoPdf.Prefixo + $"hora_{item.Id}").Height(24).Text("");
+                    Celula(tabela).Hyperlink(CamposExecucaoPdf.Prefixo + $"situacao_{item.Id}").Height(24).Text("");
+                }
+                else
+                {
+                    Celula(tabela).Element(c => CampoParaCaneta(c, apagado));
+                    Celula(tabela).Element(c => CampoParaCaneta(c, apagado));
+                }
             }
         });
 
+        if (camposDigitais)
+        {
+            col.Item().Text("Execução preenchida no sistema e assinada pela enfermagem. Visto: Sim = realizado; Não = não realizado; NE = não executável; SUSP = suspenso; SOS = não indicado. Os campos vazios aguardam execução.").FontSize(7.5f);
+            return;
+        }
         col.Item().PaddingTop(4).Text(
                 "A enfermagem anota nas duas últimas colunas: a hora em que administrou e o "
                 + "visto. Quando NÃO foi realizado, circule a hora e escreva o motivo abaixo.")
@@ -659,7 +681,7 @@ public sealed class PrescricaoInternaPdfService
                 .Text($"{checagem.HoraRealizacao:HH\\:mm}")
                 .SemiBold().FontSize(10).FontColor(VermelhoForte);
 
-            c.Item().PaddingTop(2).Text(checagem.NaoExecutavel ? "não executável" : "não realizado")
+            c.Item().PaddingTop(2).Text(checagem.NaoExecutavel ? "Não executável" : RotulosEnum.De(checagem.Situacao))
                 .FontSize(7.5f).Bold().FontColor(VermelhoForte);
             c.Item().Text($"{(checagem.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy}")
                 .FontSize(7.5f).FontColor(TextoSecundario);

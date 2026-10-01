@@ -235,7 +235,7 @@ public static class RevisaoIncrementalPdf
     // xref
     // ---------------------------------------------------------------------------------
 
-    private static string MontarXref(
+    internal static string MontarXref(
         List<(int Numero, int Offset)> objetos, EstruturaPdf doc)
     {
         // ⚠️ O /Size sai dos objetos REALMENTE escritos, nunca de uma conta à mão.

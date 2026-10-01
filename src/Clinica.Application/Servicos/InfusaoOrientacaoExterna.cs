@@ -20,8 +20,7 @@ public sealed partial class PrescricaoInternaService
         if (usuario is null || !usuario.Ativo || !usuario.Pode(Permissao.Prescrever)
             || usuario.ProfissionalId != p.ProfissionalId)
             throw new UnauthorizedAccessException("Somente o médico responsável pode devolver esta infusão.");
-        if (!p.AguardaValidacaoMedica || p.AssinaturaDaExecucao?.ArquivoId is null
-            || p.AssinaturaDaExecucao.ArquivoRegistroId is null)
+        if (!p.AguardaValidacaoMedica || p.AssinaturaDaExecucao?.ArquivoId is null)
             throw new InvalidOperationException("A devolução exige a execução assinada e uma pendência médica aberta.");
         if (motivo?.Trim().Length is not (>= 5 and <= 500))
             throw new InvalidOperationException("Descreva o motivo da devolução (5 a 500 caracteres).");

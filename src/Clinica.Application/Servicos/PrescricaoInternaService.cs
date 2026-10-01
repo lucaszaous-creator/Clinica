@@ -246,8 +246,7 @@ public sealed partial class PrescricaoInternaService
         if (prescricao.EstaAssinada && !prescricao.AguardaValidacaoMedica)
             throw new InvalidOperationException($"A prescrição {prescricao.Numero} já está assinada.");
 
-        if (prescricao.OrigemEnfermagem && (prescricao.AssinaturaDaExecucao?.ArquivoId is null
-            || prescricao.AssinaturaDaExecucao.ArquivoRegistroId is null))
+        if (prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is null)
             throw new InvalidOperationException("A enfermagem precisa assinar o registro da execução antes da validação médica.");
 
         if (prescricao.Itens.Count == 0)

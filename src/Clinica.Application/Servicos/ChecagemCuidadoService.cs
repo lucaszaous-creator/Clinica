@@ -217,6 +217,8 @@ public sealed class ChecagemCuidadoService
         CuidadoEnfermagem cuidado, SituacaoChecagem situacao, DateOnly data, TimeOnly hora,
         string? justificativa)
     {
+        if (situacao is not (SituacaoChecagem.Realizado or SituacaoChecagem.NaoRealizado))
+            throw new InvalidOperationException("Situação inválida para a checagem de cuidado.");
         if (cuidado.Evolucao is { Cancelada: true })
             throw new InvalidOperationException(
                 "O registro de enfermagem que prescreveu este cuidado foi cancelado. "
@@ -224,7 +226,7 @@ public sealed class ChecagemCuidadoService
 
         // A rodela do papel: circular o horário sem dizer por quê é a mesma coisa que não
         // registrar nada. É a recusa que dá valor ao "não realizado".
-        if (situacao == SituacaoChecagem.NaoRealizado && string.IsNullOrWhiteSpace(justificativa))
+        if (situacao != SituacaoChecagem.Realizado && string.IsNullOrWhiteSpace(justificativa))
             throw new InvalidOperationException(
                 "Diga por que o cuidado não foi realizado (paciente recusou, ausente, "
                 + "material em falta, condição não ocorreu). Sem isso a linha só diz que "

@@ -214,7 +214,7 @@ public static class RotulosEnum
             _ => "Cancelada"
         },
 
-        SituacaoChecagem s => s == SituacaoChecagem.Realizado ? "Realizado" : "Não realizado",
+        SituacaoChecagem s => s switch { SituacaoChecagem.Realizado => "Realizado", SituacaoChecagem.NaoExecutavel => "Não executável", _ => "Não realizado" },
 
         SituacaoItemPrescricao s => s switch
         {
