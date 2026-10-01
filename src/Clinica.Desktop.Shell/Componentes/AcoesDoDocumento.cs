@@ -269,7 +269,7 @@ public static class AcoesDoDocumento
             // quem tinha `Prescrever` sem o bit do tipo passava direto.
             SessaoUsuario.Atual.Exigir(doc.AcessoParaMexer, "assinar documento clínico");
 
-            var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar {doc.Rotulo.ToLowerInvariant()} {doc.Numero}",
                 JanelaDona.Atual(), escopos);
 

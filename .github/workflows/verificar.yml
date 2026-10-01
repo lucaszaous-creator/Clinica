@@ -71,10 +71,9 @@ jobs:
         # O release da API é compilado separadamente, sem SQLite.
         run: dotnet test tests/Clinica.Assinaturas.Tests/Clinica.Assinaturas.Tests.csproj -c Debug
 
-      - name: Conferir preparação isolada e proxy SafeID
+      - name: Conferir preparação isolada
         run: |
           dotnet build deploy/tablet/homologacao/PrepararHomologacao.csproj -c Release
-          python3 deploy/tablet/homologacao/test_proxy.py
 
       - name: Compilar a web de leitura
         run: dotnet build src/Clinica.Web/Clinica.Web.csproj -c Release --nologo

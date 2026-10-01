@@ -408,6 +408,11 @@ Para não deixar dúvida sobre o que este documento não cobre:
 
 ## Fontes
 
+O fluxo opcional de A1 acrescenta custódia de credenciais cifradas no portal.
+Controles, limites, retenção em backups e requisitos de ativação estão em
+[Assinatura A1](assinatura-a1.md). A senha não é persistida e a remoção da credencial
+preserva os documentos assinados; essa implementação não representa certificação regulatória.
+
 - [LGPD — Lei 13.709/2018](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm)
 - [Lei 13.787/2018 — digitalização e guarda de prontuários](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13787.htm)
 - [ANPD — cláusulas-padrão contratuais para transferência internacional](https://www.gov.br/anpd/pt-br/assuntos/noticias/anpd-aprova-clausulas-contratuais-padrao-para-transferencia-internacional-de-dados)

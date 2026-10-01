@@ -247,23 +247,6 @@ public sealed class ParametrosService
 
     public const string ChaveTelaDoPaciente = "TelaDoPacienteDispositivo";
 
-    /// <summary>
-    /// O monitor virado para o paciente, onde a área de assinar aparece — o nome do
-    /// dispositivo do Windows (<c>\\.\DISPLAY2</c>).
-    ///
-    /// Vazio = a clínica não tem segunda tela, e a coleta acontece numa janela só, como
-    /// antes. Não é um estado degradado: é o modo de quem só tem um monitor, e ele precisa
-    /// continuar funcionando por inteiro.
-    ///
-    /// ⚠️ Grava o NOME do dispositivo, nunca o índice na lista. O índice muda quando alguém
-    /// desliga um cabo ou o Windows reordena as telas depois de um reinício — e a tela do
-    /// paciente passaria a ser a da recepcionista, com o termo em tela cheia por cima do
-    /// trabalho dela, sem ninguém ter mexido em nada.
-    ///
-    /// A configuração é por MÁQUINA, mas mora no banco como todo o resto: o balcão tem uma
-    /// máquina só, e mandar a clínica editar arquivo local em cada posto é o ritual de
-    /// instalação que o projeto recusou no SafeID.
-    /// </summary>
     public async Task<string?> ObterTelaDoPacienteAsync(CancellationToken ct = default)
     {
         var valor = await _repo.ObterConfiguracaoAsync(ChaveTelaDoPaciente, ct);
@@ -281,34 +264,6 @@ public sealed class ParametrosService
 
     public const string ChaveUrlPublicacao = "PublicacaoUrlBase";
 
-    /// <summary>
-    /// Domínio onde os documentos assinados ficam acessíveis (ex.:
-    /// <c>https://receita.clinicasemdor.com.br</c>). Null = publicação DESLIGADA, e o
-    /// sistema funciona como antes: o QR aponta para o validador do ITI.
-    ///
-    /// É o DOMÍNIO DA CLÍNICA, nunca o endereço do provedor — a URL fica selada dentro da
-    /// assinatura, e trocar de armazenamento um dia tem de ser repontar o DNS, não matar o
-    /// QR de toda receita já assinada.
-    /// </summary>
-    /// <remarks>
-    /// <b>Correção da parcela 53.</b> A primeira versão deste comentário dizia que as
-    /// credenciais do armazenamento iriam por variável de ambiente, "porque segredo em
-    /// tabela de configuração é segredo que sai no backup". Estava errado por duas vias.
-    ///
-    /// Primeiro, contradiz o que o projeto já decidiu: o
-    /// <c>ProvedorOpcoesSafeID</c> saiu de variável de ambiente na parcela 44 com o motivo
-    /// escrito — variável de ambiente é ritual de instalação, e uma clínica não abre o
-    /// Prompt de Comando em cada máquina. Aqui seria pior: quem assina documento é o
-    /// Consultório E a Recepção, então a publicação funcionaria onde alguém digitou e
-    /// falharia CALADA nas outras.
-    ///
-    /// Segundo, descrevia como seguro um padrão que o sistema não segue: o
-    /// <c>client_secret</c> do SafeID já está gravado em claro nesta mesma tabela.
-    ///
-    /// As credenciais ficam no banco, com o ambiente podendo sobrepor — igual ao SafeID. O
-    /// segredo dentro do backup é problema real e SEPARADO, que já existe hoje e merece
-    /// decisão própria; resolvê-lo por acidente aqui só o esconderia.
-    /// </remarks>
     public async Task<string?> ObterUrlPublicacaoAsync(CancellationToken ct = default)
     {
         var valor = await _repo.ObterConfiguracaoAsync(ChaveUrlPublicacao, ct);
@@ -342,10 +297,6 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Credenciais do armazenamento de objetos (parcela 53) ----
-    //
-    // Banco, com o ambiente podendo sobrepor — o precedente do SafeID. Ver o <remarks> de
-    // ObterUrlPublicacaoAsync para por que NÃO é variável de ambiente apenas.
 
     public const string ChaveArmazenamentoEndpoint = "PublicacaoEndpoint";
     public const string ChaveArmazenamentoRegiao = "PublicacaoRegiao";
@@ -642,43 +593,6 @@ public sealed class ParametrosService
     {
         await _repo.SalvarConfiguracaoAsync(
             ChaveCarimbadoraDeTempo, (url ?? string.Empty).Trim(), ct);
-        await _repo.SalvarAsync(ct);
-    }
-
-    // ---- Credenciais da aplicação no SafeID (parcela 44) ----
-
-    public const string ChaveSafeIDClientId = "SafeIDClientId";
-    public const string ChaveSafeIDClientSecret = "SafeIDClientSecret";
-    public const string ChaveSafeIDAmbiente = "SafeIDAmbiente";
-
-    /// <summary>
-    /// As credenciais da APLICAÇÃO no PSC, cadastradas uma vez pela direção e lidas por
-    /// todas as máquinas.
-    ///
-    /// Por que há uma linha de configuração compartilhada no banco
-    /// -------------------------------------------------------------
-    /// A configuração precisa chegar a todas as máquinas. O segredo é cifrado com uma chave
-    /// de instalação separada do banco; cada posto que o usa precisa ter essa chave.
-    ///
-    /// O <c>client_secret</c> identifica a APLICAÇÃO, não a titular: sozinho ele não assina
-    /// nada. Para assinar é preciso, ainda, a médica aprovar no celular (ou o PIN dela) e o
-    /// CPF de dentro do certificado bater com o do cadastro — as duas barreiras que
-    /// <c>TitularDoCertificado.Exigir</c> guarda. Ainda assim, o segredo não fica em claro
-    /// na tabela nem nos backups do banco.
-    /// </summary>
-    public async Task<(string? ClientId, string? ClientSecret, string? Ambiente)>
-        ObterCredenciaisSafeIDAsync(CancellationToken ct = default)
-        => (await _repo.ObterConfiguracaoAsync(ChaveSafeIDClientId, ct),
-            await ObterSegredoAsync(ChaveSafeIDClientSecret, ct),
-            await _repo.ObterConfiguracaoAsync(ChaveSafeIDAmbiente, ct));
-
-    public async Task SalvarCredenciaisSafeIDAsync(
-        string? clientId, string? clientSecret, string? ambiente,
-        CancellationToken ct = default)
-    {
-        await _repo.SalvarConfiguracaoAsync(ChaveSafeIDClientId, (clientId ?? string.Empty).Trim(), ct);
-        await SalvarSegredoAsync(ChaveSafeIDClientSecret, (clientSecret ?? string.Empty).Trim(), ct);
-        await _repo.SalvarConfiguracaoAsync(ChaveSafeIDAmbiente, (ambiente ?? string.Empty).Trim(), ct);
         await _repo.SalvarAsync(ct);
     }
 

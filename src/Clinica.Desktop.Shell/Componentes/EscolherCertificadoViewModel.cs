@@ -1,8 +1,5 @@
 using System.Collections.ObjectModel;
-using System.Net.Http;
 using Clinica.Application.Assinatura;
-using Clinica.Application.Assinatura.SafeID;
-using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,7 +18,7 @@ public sealed class LinhaCertificado
     public required bool Vigente { get; init; }
     public required bool EhECpf { get; init; }
 
-    /// <summary>"SafeID — nuvem" ou "nesta máquina". A linha DIZ de onde o certificado veio.</summary>
+    /// <summary>Certificado importado de arquivo para este ato.</summary>
     public required string Procedencia { get; init; }
 
     /// <summary>Vencido não se escolhe: assinar com ele produz documento inválido.</summary>
@@ -48,266 +45,82 @@ public sealed class LinhaCertificado
     };
 }
 
-/// <summary>
-/// A escolha do certificado ICP-Brasil na hora de assinar (parcela 42; subiu para o shell
-/// na 43).
-///
-/// Mora no SHELL pelo mesmo argumento que já trouxe para cá o mapa corporal, a emissão de
-/// documento e a conferência de alergia: quem assina é quem atende, mas quem emite também
-/// é o balcão — e nenhum módulo conhece o outro. Deixá-la no Consultório obrigaria a
-/// Recepção a ter uma cópia, e duas cópias divergem na primeira correção.
-///
-/// Por que uma tela, e não "usa o primeiro que achar"
-/// --------------------------------------------------
-/// Numa máquina de consultório é comum haver mais de um certificado instalado — o e-CPF do
-/// profissional, o e-CNPJ da clínica, o do contador que já usou aquele computador —, e
-/// escolher sozinho acertaria na maioria das vezes e erraria em silêncio nas outras. A
-/// escolha é do signatário, e o resto do sistema já confere se o escolhido é mesmo dele
-/// (<c>AssinaturaDePrescricaoService</c>).
-///
-/// A lista mostra o IMPEDIMENTO ao lado de cada linha em vez de apenas apagar o item:
-/// descobrir o requisito errando é o que faz a pessoa desistir da tela — mesma razão do
-/// <c>FolhaCatalogo.Exigencia</c> da central de documentos.
-/// </summary>
+/// <summary>Importa o A1 individual somente para a operação atual.</summary>
 public sealed partial class EscolherCertificadoViewModel : ObservableObject
 {
     public ObservableCollection<LinhaCertificado> Certificados { get; } = [];
-
     [ObservableProperty] private LinhaCertificado? _selecionado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
-
-    /// <summary>Nenhum certificado utilizável — a janela diz o que fazer.</summary>
-    [ObservableProperty] private bool _vazio;
-
-    /// <summary>O que a janela devolve. Null enquanto ninguém confirmou.</summary>
-    public CertificadoAssinatura? Escolhido { get; private set; }
-
-    /// <summary>A janela pergunta isto para fechar com <c>DialogResult = true</c>.</summary>
-    public bool Confirmou { get; private set; }
-
-    /// <summary>Frase do cabeçalho, dita pelo chamador ("Assinar a prescrição PRE 2026/0001").</summary>
-    public string Assunto { get; }
-
-    private readonly IServiceScopeFactory? _escopos;
-    private readonly string? _cpfDeQuemAssina;
-
-    /// <summary>
-    /// Quantos documentos este ato vai selar com o MESMO certificado. Um é o caso normal;
-    /// dois é o encerramento da execução, que sela a prescrição e o registro.
-    /// </summary>
-    private readonly int _assinaturasDoAto;
-
-
-    /// <summary>Está buscando na nuvem — a janela desabilita os botões e diz o que fazer.</summary>
+    [ObservableProperty] private bool _vazio = true;
     [ObservableProperty] private bool _autorizando;
-
-    /// <summary>
-    /// A clínica cadastrou o SafeID. Metade visível da regra: sem isto o botão nem aparece,
-    /// em vez de aparecer e explicar depois do clique.
-    /// </summary>
-    [ObservableProperty] private bool _nuvemDisponivel;
-
-    /// <param name="escopos">
-    /// Null desliga a busca em nuvem. É o caso de quem chama sem DI à mão — e desligar é
-    /// melhor que oferecer um botão que não teria como funcionar.
-    /// </param>
-    public EscolherCertificadoViewModel(
-        string assunto, IServiceScopeFactory? escopos = null, string? cpfDeQuemAssina = null,
-        int assinaturasDoAto = 1)
-    {
-        Assunto = assunto;
-        _escopos = escopos;
-        _cpfDeQuemAssina = cpfDeQuemAssina;
-        _assinaturasDoAto = assinaturasDoAto;
-        Carregar();
-        _ = VerificarNuvemAsync();
-    }
-
-    private async Task VerificarNuvemAsync()
-    {
-        if (_escopos is null) return;
-
-        try
-        {
-            using var escopo = _escopos.CreateScope();
-            NuvemDisponivel = await escopo.ServiceProvider
-                .GetRequiredService<ProvedorOpcoesSafeID>().ObterAsync() is not null;
-        }
-        catch (Exception ex)
-        {
-            // Sem SafeID a janela segue servindo para os certificados da máquina. Sumir sem
-            // rastro faria "o botão não aparece" virar mistério na hora do suporte.
-            LogSuite.Registrar("EscolherCertificado.VerificarNuvem", ex);
-        }
-    }
-
-    /// <summary>
-    /// Busca os certificados em nuvem: manda a médica ao QR Code e traz o que ela autorizar.
-    ///
-    /// Os certificados encontrados entram na MESMA lista dos da máquina, com a procedência
-    /// escrita na linha. Substituir a lista esconderia o token de quem ainda usa os dois, e
-    /// escolher sozinho acertaria na maioria das vezes e erraria em silêncio nas outras.
-    /// </summary>
-    [RelayCommand]
-    private async Task BuscarNaNuvemAsync()
-    {
-        if (_escopos is null || !NuvemDisponivel)
-        {
-            Mensagem = "O SafeID não está configurado. A direção cadastra o client_id e o "
-                     + "client_secret em Configurações → Operação.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        if (Autorizando) return;   // reentrância: "já estou fazendo", não "não dá"
-
-        Autorizando = true;
-        Mensagem = "Abrimos a página do SafeID no navegador. Leia o QR Code com o aplicativo "
-                 + "e confirme no celular — esta janela espera.";
-        MensagemEhErro = false;
-
-        try
-        {
-            OpcoesSafeID? opcoes;
-            using (var escopo = _escopos.CreateScope())
-                opcoes = await escopo.ServiceProvider
-                    .GetRequiredService<ProvedorOpcoesSafeID>().ObterAsync();
-
-            if (opcoes is null)
-                throw new InvalidOperationException(
-                    "O SafeID não está configurado nesta clínica.");
-
-            // O HttpClient vem da fábrica (singleton) e sobrevive ao escopo de propósito: o
-            // assinador guardado na linha vai usá-lo DEPOIS que esta janela fechar.
-            IHttpClientFactory fabrica;
-            using (var escopo = _escopos.CreateScope())
-                fabrica = escopo.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-
-            var cliente = new ClienteSafeID(
-                fabrica.CreateClient(DependencyInjection.NomeHttpSafeID), opcoes);
-
-            var autorizacao = new AutorizacaoSafeIDService(
-                _ => Task.FromResult<OpcoesSafeID?>(opcoes),
-                _ => cliente,
-                AbrirNoNavegador);
-
-            // ⚠️ O ESCOPO É ESCOLHIDO PELO ATO, e errar aqui só aparece na segunda
-            // assinatura. O padrão do PSC é "single_signature" — e o próprio
-            // EscopoSafeID diz o que isso significa: "um hash só; o token MORRE NO USO".
-            // Um ato que sela DOIS documentos (a execução: a prescrição e o registro)
-            // teria a primeira assinatura aceita e a segunda recusada, sempre, em toda
-            // folha da clínica — e a tela cairia no caminho degradado todo dia.
-            //
-            // A sessão é encurtada de propósito: o padrão do PSC para pessoa física vai a
-            // sete dias, e autorizar uma semana para assinar duas folhas é abrir muito
-            // mais do que o ato pede.
-            var (escopoDoAto, duracao) = EscopoSafeID.ParaAto(_assinaturasDoAto);
-
-            var sessao = await autorizacao.AutorizarAsync(
-                cpf: _cpfDeQuemAssina, escopo: escopoDoAto, duracaoSegundos: duracao);
-
-            foreach (var daNuvem in sessao.Certificados)
-            {
-                var assinador = new AssinadorSafeID(
-                    cliente, sessao.Token.AccessToken, daNuvem, Assunto);
-
-                Certificados.Insert(0, LinhaCertificado.De(
-                    daNuvem.Certificado with { AssinadorRemoto = assinador }));
-            }
-
-            Vazio = Certificados.Count == 0;
-            Selecionado = Certificados.FirstOrDefault(c => c.PodeEscolher);
-
-            Mensagem = sessao.Certificados.Count == 0
-                ? "O SafeID autorizou, mas não devolveu nenhum certificado."
-                : null;
-            MensagemEhErro = sessao.Certificados.Count == 0;
-        }
-        catch (Exception ex)
-        {
-            LogSuite.Registrar("EscolherCertificado.BuscarNaNuvem", ex);
-            Mensagem = ex.Message;
-            MensagemEhErro = true;
-        }
-        finally
-        {
-            Autorizando = false;
-        }
-    }
-
-    /// <summary>
-    /// Abre a página do PSC no navegador padrão. <c>UseShellExecute</c> é obrigatório: sem
-    /// ele o .NET tenta executar a URL como programa e falha.
-    /// </summary>
-    private static void AbrirNoNavegador(Uri url)
-        => System.Diagnostics.Process.Start(
-            new System.Diagnostics.ProcessStartInfo(url.ToString()) { UseShellExecute = true });
-
-    private void Carregar()
-    {
-        Certificados.Clear();
-
-        foreach (var certificado in CertificadoIcpBrasil.DoRepositorioDoUsuario())
-            Certificados.Add(LinhaCertificado.De(certificado));
-
-        Vazio = Certificados.Count == 0;
-
-        if (Vazio)
-            Mensagem = "Nenhum certificado encontrado nesta máquina. Se for um A3, conecte o "
-                     + "token ou o cartão; se for um A1, importe o arquivo .pfx no Windows "
-                     + "(Gerenciador de Certificados → Pessoal).";
-
-        Selecionado = Certificados.FirstOrDefault(c => c.PodeEscolher);
-    }
-
-    /// <summary>Metade visível da regra; a guarda em <see cref="ConfirmarAsync"/> é a que impede.</summary>
-    public bool PodeConfirmar => Selecionado?.PodeEscolher == true;
-
-    /// <summary>
-    /// Falso enquanto a autorização em nuvem está em curso. Não é "não dá" — é "já estou
-    /// fazendo": clicar de novo abriria uma segunda página de QR e a médica confirmaria a
-    /// que não está sendo esperada.
-    /// </summary>
+    private readonly IServiceScopeFactory? _escopos;
+    public string Assunto { get; }
+    public CertificadoAssinatura? Escolhido { get; private set; }
+    public bool Confirmou { get; private set; }
+    public Action? Fechar { get; set; }
+    public bool PodeConfirmar => !Autorizando && Selecionado?.PodeEscolher == true;
     public bool PodeInteragir => !Autorizando;
 
-    partial void OnAutorizandoChanged(bool value) => OnPropertyChanged(nameof(PodeInteragir));
+    public EscolherCertificadoViewModel(string assunto, IServiceScopeFactory? escopos = null)
+    { Assunto = assunto; _escopos = escopos; }
 
-    partial void OnSelecionadoChanged(LinhaCertificado? value)
-        => OnPropertyChanged(nameof(PodeConfirmar));
+    partial void OnAutorizandoChanged(bool value)
+    { OnPropertyChanged(nameof(PodeInteragir)); OnPropertyChanged(nameof(PodeConfirmar)); }
+    partial void OnSelecionadoChanged(LinhaCertificado? value) => OnPropertyChanged(nameof(PodeConfirmar));
 
-    [RelayCommand]
-    private void Atualizar() => Carregar();
-
-    /// <summary>
-    /// Confirma a escolha.
-    ///
-    /// A guarda DIZ por que não dá, em vez de voltar calada — botão que não faz nada é o
-    /// defeito que a parcela 41 corrigiu, e a regra vale para toda pré-condição, não só
-    /// para permissão.
-    /// </summary>
     [RelayCommand]
     private void Confirmar()
     {
-        if (Selecionado is null)
-        {
-            Mensagem = "Escolha um certificado na lista.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        if (!Selecionado.PodeEscolher)
-        {
-            Mensagem = $"Este certificado não pode assinar: {Selecionado.Impedimento!.ToLowerInvariant()}.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        Escolhido = Selecionado.Certificado;
-        Confirmou = true;
-        Fechar?.Invoke();
+        if (Autorizando) return;
+        if (Selecionado?.PodeEscolher != true)
+        { Mensagem = "Carregue seu certificado A1 e confira o titular antes de assinar."; MensagemEhErro = true; return; }
+        Escolhido = Selecionado.Certificado; Confirmou = true; Fechar?.Invoke();
     }
 
-    /// <summary>A janela liga isto ao próprio fechamento — o VM não conhece WPF.</summary>
-    public Action? Fechar { get; set; }
+    public async Task CarregarA1Async(byte[] arquivo, string senha)
+    {
+        if (Autorizando) return;
+        Selecionado = null;
+        Autorizando = true;
+        Mensagem = "Conferindo seu certificado A1…";
+        MensagemEhErro = false;
+        CertificadoAssinatura? certificado = null;
+        try
+        {
+            if (_escopos is null || !Domain.Entities.SessaoUsuario.Atual.Autenticado)
+                throw new InvalidOperationException("Entre com seu usuário profissional para carregar o A1.");
+            var usuarioId = Domain.Entities.SessaoUsuario.Atual.UsuarioId;
+            using var escopo = _escopos.CreateScope();
+            var usuario = await escopo.ServiceProvider.GetRequiredService<Application.Abstracoes.IClinicaRepositorio>()
+                .ObterUsuarioAsync(usuarioId);
+            if (usuario?.Ativo != true || usuario.Profissional?.Ativo != true)
+                throw new InvalidOperationException("Seu usuário precisa estar vinculado a um profissional ativo.");
+            certificado = await Task.Run(() =>
+            {
+                var c = CertificadoA1.Abrir(arquivo, senha, usuario.Profissional.Cpf);
+                try { new ConfiancaCertificadoA1().Exigir(c.Certificado); return c; }
+                catch { c.Dispose(); throw; }
+            });
+            if (Domain.Entities.SessaoUsuario.Atual.UsuarioId != usuarioId)
+                throw new InvalidOperationException("O acesso mudou. Abra novamente a assinatura.");
+            var linha = LinhaCertificado.De(certificado);
+            LiberarNaoEscolhidos(); Certificados.Clear();
+            Certificados.Add(linha); Selecionado = linha; Vazio = false;
+            certificado = null; // a janela transfere somente o escolhido ao chamador
+            Mensagem = "A1 carregado para esta operação. Confira o titular e clique em Assinar. O arquivo não foi instalado e a senha não foi salva.";
+        }
+        catch (Exception e)
+        {
+            Mensagem = e is InvalidOperationException ? e.Message : "Não foi possível carregar o A1. Confira o arquivo e tente novamente.";
+            MensagemEhErro = true;
+        }
+        finally { certificado?.Dispose(); Autorizando = false; }
+    }
+
+    public void LiberarNaoEscolhidos()
+    {
+        foreach (var linha in Certificados)
+            if (!ReferenceEquals(linha.Certificado, Escolhido)) linha.Certificado.Dispose();
+    }
 }

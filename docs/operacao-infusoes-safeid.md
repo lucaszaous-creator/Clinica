@@ -1,3 +1,5 @@
+> Registro histórico da integração anterior. O fluxo ativo agora usa A1; não executar as instruções antigas de ativação. Consulte [assinatura A1](assinatura-a1.md).
+
 # Infusões e SafeID — operação e recuperação
 
 Registro de 30/09/2026 (America/Sao_Paulo). Implementação: [conclusão automática](safeid-conclusao-automatica.md). Revisões: PR Clinica #231 e clinica-site #48, branch `codex/infusao-documento-unico`.

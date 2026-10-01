@@ -13,6 +13,7 @@ namespace Clinica.Desktop.Shell.Componentes;
 public partial class EscolherCertificadoWindow : Window
 {
     private readonly EscolherCertificadoViewModel _vm;
+    private string? _arquivoA1;
 
     public EscolherCertificadoWindow(EscolherCertificadoViewModel vm)
     {
@@ -21,42 +22,50 @@ public partial class EscolherCertificadoWindow : Window
         DataContext = vm;
 
         vm.Fechar = () => DialogResult = true;
-        Closed += (_, _) => vm.Fechar = null;
+        Closing += (_, e) => { if (vm.Autorizando) e.Cancel = true; };
+        Closed += (_, _) => { vm.Fechar = null; SenhaA1.Clear(); vm.LiberarNaoEscolhidos(); };
     }
 
-    /// <summary>
-    /// Abre e devolve o certificado escolhido, ou null se o usuário desistiu.
-    ///
-    /// Estático porque as três telas que assinam fazem exatamente a mesma coisa aqui, e
-    /// repetir o `ShowDialog` em cada uma é como se perde a comparação com `Confirmou`.
-    /// </summary>
-    /// <param name="escopos">
-    /// Habilita a busca de certificado em NUVEM (SafeID). Null a desliga — e desligar é
-    /// melhor que mostrar um botão que não teria como funcionar.
-    /// </param>
-    /// <param name="cpfDeQuemAssina">
-    /// Vai como <c>login_hint</c> para a página do PSC já abrir no CPF certo, poupando a
-    /// médica de digitá-lo a cada documento.
-    /// </param>
-    /// <param name="assinaturasDoAto">
-    /// Quantos documentos este ato vai selar com o MESMO certificado. ⚠️ Em nuvem isso
-    /// escolhe o ESCOPO da autorização: o padrão do SafeID é "um hash só; o token morre no
-    /// uso", e um ato de duas selagens teria a segunda recusada SEMPRE. Quem sela dois
-    /// documentos precisa dizer que são dois.
-    /// </param>
-    public static CertificadoAssinatura? Perguntar(
-        string assunto, Window? dono,
-        Microsoft.Extensions.DependencyInjection.IServiceScopeFactory? escopos = null,
-        string? cpfDeQuemAssina = null,
-        int assinaturasDoAto = 1)
+    private void EscolherArquivoA1(object sender, RoutedEventArgs e)
     {
-        var janela = new EscolherCertificadoWindow(
-            new EscolherCertificadoViewModel(
-                assunto, escopos, cpfDeQuemAssina, assinaturasDoAto))
-        {
-            Owner = dono
-        };
+        var dialogo = new Microsoft.Win32.OpenFileDialog { Filter = "Certificado A1 (*.pfx;*.p12)|*.pfx;*.p12", CheckFileExists = true };
+        if (dialogo.ShowDialog(this) != true) return;
+        _vm.Selecionado = null;
+        _arquivoA1 = dialogo.FileName;
+        NomeArquivoA1.Text = System.IO.Path.GetFileName(_arquivoA1);
+        SenhaA1.Clear(); SenhaA1.Focus();
+    }
 
+    private async void CarregarArquivoA1(object sender, RoutedEventArgs e)
+    {
+        if (_vm.Autorizando) return;
+        _vm.Selecionado = null;
+        byte[]? arquivo = null;
+        try
+        {
+            if (_arquivoA1 is null) throw new InvalidOperationException("Escolha o arquivo do certificado A1.");
+            using var stream = System.IO.File.OpenRead(_arquivoA1);
+            if (stream.Length is <= 0 or > CertificadoA1.LimiteBytes)
+                throw new InvalidOperationException("Escolha um arquivo A1 de até 128 KB.");
+            arquivo = new byte[(int)stream.Length];
+            stream.ReadExactly(arquivo);
+            var senha = SenhaA1.Password; SenhaA1.Clear();
+            await _vm.CarregarA1Async(arquivo, senha);
+        }
+        catch (Exception ex)
+        {
+            _vm.Mensagem = ex is InvalidOperationException ? ex.Message : "Não foi possível ler o arquivo A1.";
+            _vm.MensagemEhErro = true;
+        }
+        finally { SenhaA1.Clear(); if (arquivo is not null) System.Security.Cryptography.CryptographicOperations.ZeroMemory(arquivo); }
+    }
+
+
+    /// <summary>Abre o importador A1 e transfere somente o certificado confirmado ao chamador.</summary>
+    public static CertificadoAssinatura? Perguntar(string assunto, Window? dono,
+        Microsoft.Extensions.DependencyInjection.IServiceScopeFactory? escopos = null)
+    {
+        var janela = new EscolherCertificadoWindow(new EscolherCertificadoViewModel(assunto, escopos)) { Owner = dono };
         return janela.ShowDialog() == true ? janela._vm.Escolhido : null;
     }
 }

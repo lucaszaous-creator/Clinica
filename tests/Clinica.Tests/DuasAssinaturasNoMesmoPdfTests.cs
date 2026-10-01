@@ -12,21 +12,6 @@ using Xunit;
 
 namespace Clinica.Tests;
 
-/// <summary>
-/// DUAS assinaturas no MESMO PDF — a prescritora e a enfermagem (parcela 68).
-///
-/// A premissa antiga ("duas assinaturas no mesmo PDF não existem") foi MEDIDA antes de ser
-/// derrubada, e ela estava certa pela metade: o PDFsharp de fato reescreve o arquivo ao
-/// salvar, então assinar por cima do assinado quebra a primeira. O que estava errado era a
-/// conclusão — a limitação é da biblioteca, não do formato. O PDF prevê exatamente este
-/// caso, e o mecanismo é a atualização incremental.
-///
-/// ⚠️ <b>Estes testes existem porque cada tentativa de assinatura no SafeID é COBRADA.</b>
-/// A conferência tem de fechar aqui, de graça, antes de a clínica gastar uma. E o teste
-/// central não é "o nosso Conferir aprovou": é que o arquivo continue íntegro para quem
-/// não conhece o nosso código — a lição da 7ª rodada da parcela 67, em que a nossa
-/// conferência aprovava um BER que o Adobe podia recusar.
-/// </summary>
 public class DuasAssinaturasNoMesmoPdfTests
 {
     /// <summary>
@@ -203,14 +188,6 @@ public class DuasAssinaturasNoMesmoPdfTests
 
     // ---- Apoio ----
 
-    /// <summary>
-    /// Grava o arquivo quando <c>CLINICA_DUMP_PDF</c> aponta uma pasta, para conferir com
-    /// um validador de FORA (o pyhanko, o Adobe, o do ITI).
-    ///
-    /// Não é conforto: cada tentativa de assinatura no SafeID é COBRADA, e a lição da 7ª
-    /// rodada da parcela 67 é que a nossa conferência pode aprovar o que o mundo lá fora
-    /// recusa. Conferir de graça, antes, é o que evita a próxima rodada paga.
-    /// </summary>
     private static void Despejar(string nome, byte[] pdf)
     {
         var pasta = Environment.GetEnvironmentVariable("CLINICA_DUMP_PDF");

@@ -1,3 +1,5 @@
+> Registro histórico da integração anterior. O fluxo ativo agora usa A1; não executar as instruções antigas de ativação. Consulte [assinatura A1](assinatura-a1.md).
+
 # Conclusão automática de infusões no SafeID
 
 A enfermeira revisa os dados e autoriza assinar e salvar no diálogo ANTES de sair para o SafeID. O retorno válido conclui o mesmo serviço de assinatura no servidor; não exige outro clique nem a aba aberta. Apenas infusão e execução aderem. Receitas e autorizações iniciadas pela interface antiga conservam o fluxo anterior.

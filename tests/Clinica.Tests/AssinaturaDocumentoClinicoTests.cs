@@ -157,12 +157,6 @@ public class AssinaturaDocumentoClinicoTests : IDisposable
         Despejar("receita-assinada.pdf", assinado.Pdf);
     }
 
-    /// <summary>
-    /// Grava a receita assinada quando <c>CLINICA_DUMP_PDF</c> aponta uma pasta — é como se
-    /// confere, de graça, o que só a folha montada mostra: onde o carimbo caiu e se ele
-    /// sobrevive à impressão. É o papel que vai à farmácia, e cada tentativa de assinatura
-    /// no SafeID é COBRADA.
-    /// </summary>
     private static void Despejar(string nome, byte[] pdf)
     {
         var pasta = Environment.GetEnvironmentVariable("CLINICA_DUMP_PDF");

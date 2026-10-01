@@ -98,35 +98,6 @@ public sealed class AssinaturaDePrescricaoService
             prescricaoId, assinatura, confirmouAlergia, operador, ct);
     }
 
-    /// <summary>
-    /// A 2ª ASSINATURA — a da enfermagem, sobre o REGISTRO DE EXECUÇÃO (decisão da direção,
-    /// 14/08/2026). Método NOVO ao lado do fluxo do prescritor, que não muda: o motor
-    /// congelado (<c>AssinaturaDigitalService</c>, SafeID) é reusado tal e qual.
-    ///
-    /// A regra que faz esta assinatura valer é a MESMA do prescritor, apontada para outra
-    /// pessoa: <b>o CPF do certificado tem de bater com o CPF de quem está ASSINANDO</b> —
-    /// a enfermeira logada, resolvida pelo vínculo <c>UsuarioSistema → Profissional</c>.
-    /// Sem essa conferência, o e-CPF da médica assinaria a execução da técnica e o
-    /// documento diria que quem executou foi quem não executou.
-    ///
-    /// ⚠️ <b>É a MESMA prescrição, e isso mudou na 2ª rodada (16/08/2026).</b> A primeira
-    /// versão fazia a enfermagem selar o Registro de execução — outro arquivo —, porque a
-    /// premissa da parcela 42 dizia que duas assinaturas no mesmo PDF não existiam. A
-    /// premissa foi medida e derrubada: o que não faz atualização incremental é o PDFsharp,
-    /// não o PDF. A clínica descreveu o fluxo real — *"a infusão vai pra enfermagem e ela
-    /// também assina a prescrição que já foi assinada pelo médico"* —, e é o que a
-    /// legalidade pede: <b>uma folha com as duas assinaturas</b>, não duas folhas com uma
-    /// cada.
-    ///
-    /// Por isso aqui não se gera PDF nenhum: parte-se dos BYTES que a médica assinou e
-    /// anexa-se uma revisão. Regerar a folha produziria um arquivo diferente do que ela
-    /// selou, e a assinatura dela abriria como inválida.
-    /// </summary>
-    /// <param name="usuarioId">
-    /// Quem está assinando — obrigatório aqui, ao contrário do prescritor: lá o signatário
-    /// é o profissional DA FOLHA; aqui é quem fez login, e sem ele não há CPF contra o qual
-    /// conferir o certificado.
-    /// </param>
     public async Task<PrescricaoInterna> AssinarExecucaoAsync(
         int prescricaoId, CertificadoAssinatura certificado, int usuarioId,
         string? operador = null, CancellationToken ct = default)

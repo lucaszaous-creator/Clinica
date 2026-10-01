@@ -132,6 +132,13 @@
                             Style="{StaticResource BotaoSecundario}"
                             ToolTip="Abre o documento da infusão. Quando assinado, preserva o PDF e as assinaturas guardadas."
                             Command="{Binding ImprimirCommand}" />
+                    <Button Content="Registro histórico" Margin="8,0,0,0" MinWidth="150"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding TemRegistroExecucao}"
+                            ToolTip="Abre o PDF de execução separado, arquivado no formato anterior."
+                            Visibility="{Binding ExibirRegistroSeparado, Converter={StaticResource BoolParaVisibilidade}}"
+                            Command="{Binding ImprimirRegistroCommand}" />
                     <!-- A SEGUNDA porta da evolução de enfermagem, para quem já está
                          aqui. ⚠️ FORA do IsEnabled do bloco de PodeMexer, de propósito: o
                          bit é outro, e a folha ENCERRADA continua aceitando registro — a
@@ -176,7 +183,7 @@
                             IsEnabled="{Binding PodeAssinarExecucao}"
                             Visibility="{Binding AguardaAssinaturaExecucao,
                                          Converter={StaticResource BoolParaVisibilidade}}"
-                            ToolTip="Assina a MESMA prescrição que o prescritor assinou, com o SEU certificado (e-CPF ou SafeID) — a assinatura dele não é tocada. O CPF do certificado é conferido contra o seu cadastro."
+                            ToolTip="Assina a MESMA prescrição que o prescritor assinou, com o SEU certificado A1 individual — a assinatura dele não é tocada. O CPF do certificado é conferido contra o seu cadastro."
                             Command="{Binding AssinarExecucaoCommand}" />
                 </WrapPanel>
             </StackPanel>

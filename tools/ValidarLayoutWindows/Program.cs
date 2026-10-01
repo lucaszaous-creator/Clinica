@@ -29,11 +29,13 @@ static class Program
     static bool somenteGestao;
     static bool somenteAcompanhamento;
     static bool somenteInfusao;
+    static bool somenteA1;
     [STAThread]
     static int Main(string[] args)
     {
         somenteAcompanhamento = args.Contains("--acompanhamento");
         somenteInfusao = args.Contains("--infusao");
+        somenteA1 = args.Contains("--a1");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
@@ -41,6 +43,7 @@ static class Program
     }
     static async Task Executar()
     {
+        if (somenteA1) { await ConferirA1(); return; }
         var pausaAgenda = new PausaLeituraAgenda();
         using var conexao = new SqliteConnection("Data Source=:memory:"); conexao.Open(); var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(pausaAgenda).Options;
         IModuloApp[] modulos = [new Clinica.Recepcao.Modulo.ModuloRecepcao(), new ModuloClinico(), new Clinica.Financeiro.Modulo.ModuloFinanceiro(), new Clinica.Faturamento.Modulo.ModuloFaturamento(), new Clinica.Gerente.Modulo.ModuloGerente()];
@@ -564,6 +567,42 @@ static class Program
             if (pagamentos.PodeReceber != (perfil == PerfilAcesso.Recepcao)) throw new Exception("Permissão de pagamentos fora do perfil.");
         }
         Console.WriteLine("GESTÃO: saldos, alertas, permissões, pagamentos e compras conferidos.");
+    }
+
+    static async Task ConferirA1()
+    {
+        var vm = new EscolherCertificadoViewModel("Assinar relatório clínico fictício");
+        if (vm.Certificados.Count != 0 || !vm.Vazio || vm.Selecionado is not null)
+            throw new InvalidOperationException("A assinatura deve iniciar sem certificados: somente importação A1 explícita.");
+        // A captura usa somente a tela; não apresenta certificados locais nem acessa a clínica.
+        foreach (var linha in vm.Certificados) linha.Certificado.Dispose();
+        vm.Certificados.Clear(); vm.Selecionado = null; vm.Vazio = true; vm.Mensagem = null;
+        using var rsa = System.Security.Cryptography.RSA.Create(2048);
+        var pedido = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=Fictício",
+            rsa, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        var certificado = pedido.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(1));
+        var anterior = LinhaCertificado.De(new Clinica.Application.Assinatura.CertificadoAssinatura(
+            certificado, "Fictício", "Fictício", "1", certificado.NotBefore, certificado.NotAfter, "52998224725"));
+        vm.Certificados.Add(anterior); vm.Selecionado = anterior;
+        if (!vm.PodeConfirmar) throw new Exception("Pré-condição: certificado anterior não selecionável.");
+        await vm.CarregarA1Async([1, 2, 3], "senha-incorreta");
+        if (!vm.MensagemEhErro || vm.PodeConfirmar || vm.Selecionado is not null)
+            throw new Exception("Falha de importação A1 manteve certificado anterior autorizado sem nova escolha.");
+        vm.ConfirmarCommand.Execute(null);
+        if (vm.Confirmou || vm.Escolhido is not null) throw new Exception("Falha de A1 confirmou certificado anterior.");
+        // A opção anterior permanece disponível, mas exige seleção explícita.
+        vm.Selecionado = anterior;
+        if (!vm.PodeConfirmar) throw new Exception("Certificado anterior não permite nova escolha explícita.");
+        vm.Selecionado = null; vm.LiberarNaoEscolhidos(); vm.Certificados.Clear(); vm.Mensagem = null;
+        var janela = new EscolherCertificadoWindow(vm) { ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000 };
+        janela.Show(); janela.UpdateLayout();
+        Descendentes(janela).OfType<Expander>().Single().IsExpanded = true;
+        await ConferirJanela(janela, "certificado-a1", [780, 960]);
+        var campo = Descendentes(janela).OfType<PasswordBox>().Single();
+        campo.Password = "senha-ficticia";
+        janela.Close();
+        if (campo.Password.Length != 0) throw new Exception("Senha permaneceu no formulário fechado.");
     }
 
     static async Task ConferirJanela(Window janela, string nome, int[] larguras)

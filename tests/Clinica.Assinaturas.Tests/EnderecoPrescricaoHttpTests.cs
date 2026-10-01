@@ -5,7 +5,6 @@ using Clinica.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -43,22 +42,15 @@ public sealed class EnderecoPrescricaoHttpTests
                 (await db.Pacientes.SingleAsync(p=>p.Id==paciente)).Endereco=null;
                 await db.SaveChangesAsync();
             }
-            var url=$"/api/clinico/atendimentos/0/documento/{doc}/safeid/endereco";
+            var url=$"/api/clinico/atendimentos/0/documento/{doc}/assinatura/endereco";
             Assert.True((bool)(await Get(url))["precisaEndereco"]!);
 
-            // Só habilita a leitura da configuração do serviço. A conferência falha
-            // antes de qualquer chamada ao PSC; não há credencial/certificado real.
-            var config=app.Services.GetRequiredService<IConfiguration>();
-            config["Portal:Demo"]="false"; config["Portal:SafeId:Habilitado"]="true";
-            config["Portal:SafeId:ClientId"]="ficticio-sem-credencial";
-            config["Portal:SafeId:ClientSecret"]="segredo-ficticio-nao-exibir";
-            config["Portal:SafeId:Retorno"]="https://portal.clinicasemdormacae.com.br/safeid/retorno";
-            var inicio=await client.PostAsJsonAsync(url.Replace("/endereco",""),new {confirmouAlergia=true});
-            Assert.Equal(HttpStatusCode.BadRequest,inicio.StatusCode);
-            var mensagem=(string?)JsonNode.Parse(await inicio.Content.ReadAsStringAsync())!["erro"];
-            Assert.Contains("endereço residencial",mensagem);
-            Assert.DoesNotContain("segredo-ficticio",mensagem);
-            config["Portal:Demo"]="true";
+            // A revisão do documento exige endereço mesmo sem provedor externo.
+            using (var scope=app.Services.CreateScope()) {
+                var conferir=scope.ServiceProvider.GetRequiredService<Clinica.Assinaturas.Api.ConferenciaAssinaturaTablet>();
+                var erro=await Assert.ThrowsAsync<InvalidOperationException>(()=>conferir.Conferir("documento",doc,true,default));
+                Assert.Contains("endereço residencial",erro.Message);
+            }
 
             foreach(var invalido in new[]{"", "abc", new string('x',301), "Rua\nInválida"})
                 Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync(url,new {endereco=invalido})).StatusCode);

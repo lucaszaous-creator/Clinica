@@ -33,7 +33,7 @@ conferência e inclusão explícita da cadeia oficial correspondente.
 ```powershell
 dotnet run --project deploy/tablet/cadeia/InstalarCadeia.csproj -c Release -- validar deploy/tablet/cadeia/certificados
 dotnet publish deploy/tablet/cadeia/InstalarCadeia.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/instalar-cadeia-linux
-tar -czf artifacts/cadeia-safeid-v5.tar.gz -C artifacts/instalar-cadeia-linux InstalarCadeia -C ../../deploy/tablet/cadeia certificados
+tar -czf artifacts/cadeia-icp-v5.tar.gz -C artifacts/instalar-cadeia-linux InstalarCadeia -C ../../deploy/tablet/cadeia certificados
 ```
 
 Transferir o pacote para `/home/clinica-admin/tablet-stage/`, conferir SHA-256

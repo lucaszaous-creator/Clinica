@@ -74,7 +74,7 @@ assert aberto['faturamento']['guias'] and aberto['faturamento']['conclusaoClinic
 api('/posto/pendencias');api('/sair',{})
 relatorio={'aprovado':True,'sha256':sha,'ambiente':'hml','dados_ficticios':True,
     'validado':['HTTP autenticado/CSRF','idempotencia','anamnese e histórico','medidas/cancelamento','alergia/descarte','exame','anexo >1MB e integridade','modelo','rascunhos documento/infusao','conclusão/protocolo/guias','pendências e situação operacional'],
-    'pendente':['assinaturas SafeID reais de médico e enfermagem','aceite operacional da recepção em produção'],
+    'pendente':['assinaturas A1 reais de médico e enfermagem','aceite operacional da recepção em produção'],
     'agendamento_ficticio':horario,'atendimento_ficticio':salvo['atendimentoId'],'guias':salvo['guias']}
 pathlib.Path(destino).write_text(json.dumps(relatorio,ensure_ascii=False,indent=2),encoding='utf-8')
 print('Aceite HTTP de homologação aprovado; relatório sem dados pessoais salvo.')

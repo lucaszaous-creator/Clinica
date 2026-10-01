@@ -35,4 +35,8 @@
     <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../../deploy/tablet/migracao-a1.sql" Link="Implantacao/migracao-a1.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Clinica.Assinaturas.Tests/Fixtures/duas-assinaturas-anteriores.pdf" Link="Implantacao/documento-historico.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

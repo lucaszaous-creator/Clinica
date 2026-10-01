@@ -1,6 +1,6 @@
 namespace Clinica.Domain.Entities;
 
-/// <summary>Recibo durÃ¡vel do ato; cÃ³digos OAuth, tokens e PKCE nunca sÃ£o persistidos.</summary>
+/// <summary>Histórico das operações anteriores. Mantém o mapeamento para preservar a tabela nas migrations; não inicia novas assinaturas.</summary>
 public sealed class OperacaoAssinaturaTablet
 {
     public Guid Id { get; set; }

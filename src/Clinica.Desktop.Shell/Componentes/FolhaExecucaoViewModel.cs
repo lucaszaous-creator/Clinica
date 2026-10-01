@@ -163,6 +163,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private bool _emExecucao;
     [ObservableProperty] private bool _execucaoCompleta;
 
+    /// <summary>Já houve checagem — o registro de execução tem o que mostrar.</summary>
+    [ObservableProperty] private bool _temRegistroExecucao;
+    [ObservableProperty] private bool _exibirRegistroSeparado;
     [ObservableProperty] private string? _avisoPdfHistorico;
     private int? _arquivoConferido;
 
@@ -348,6 +351,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             EmExecucao = prescricao.PodeChecar;
             ExecucaoCompleta = prescricao.ExecucaoCompleta;
+            TemRegistroExecucao = prescricao.Realizados + prescricao.NaoRealizados > 0;
+            ExibirRegistroSeparado = prescricao.AssinaturaDaExecucao is { ArquivoRegistroId: not null } antiga
+                && antiga.ArquivoRegistroId != antiga.ArquivoId;
             // PDFs anteriores aos campos reservados não podem receber dados retroativamente:
             // as assinaturas existentes cobrem o conteúdo original, que deve ser preservado.
             if (!prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is { } arquivoId
@@ -588,13 +594,6 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// A 2ª ASSINATURA (decisão da direção, 14/08/2026): a enfermagem sela o registro de
-    /// execução com o certificado DELA — o e-CPF ou o SafeID de quem está logado, nunca o
-    /// do prescritor. Quem confere a titularidade é o serviço; quem valida o estado da
-    /// folha (encerrada, campo marcado, ainda sem assinatura) é o domínio. Aqui só se
-    /// escolhe o certificado e se diz o que aconteceu.
-    /// </summary>
     [RelayCommand]
     private async Task AssinarExecucaoAsync()
     {
@@ -612,11 +611,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 return;
             }
 
-            // Preserva o limite da autorização já usado pelo desktop; a unificação da
-            // impressão não altera parâmetros do PSC. O serviço guarda um documento único.
-            var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos,
-                assinaturasDoAto: OrigemEnfermagem ? 1 : 2);
+            using var certificado = EscolherCertificadoWindow.Perguntar(
+                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 
@@ -673,7 +669,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             var conferencia = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().ConferirParaAssinaturaAsync(_prescricaoId);
             var confirmou = conferencia.ExigeConfirmacao && _dialogo.Confirmar("Revisar alergias", "Há alerta de alergia relacionado à infusão registrada. Confirma que revisou o caso antes de assinar?");
             if (conferencia.ExigeConfirmacao && !confirmou) return;
-            var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
+            using var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
             if (certificado is null) return;
             await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().AssinarPrescricaoAsync(
                 _prescricaoId, certificado, confirmou, SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
@@ -772,7 +768,12 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// a assinatura cobre bytes, e um PDF "igual" regerado agora abriria como inválido.
     /// </summary>
     [RelayCommand]
-    private async Task ImprimirAsync()
+    private Task ImprimirAsync() => ImprimirFolhaAsync(false);
+
+    [RelayCommand]
+    private Task ImprimirRegistroAsync() => ImprimirFolhaAsync(true);
+
+    private async Task ImprimirFolhaAsync(bool registroHistorico)
     {
         try
         {
@@ -781,7 +782,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             {
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDePrescricaoService>();
-                folha = await assinaturas.DocumentoInfusaoAsync(_prescricaoId);
+                folha = registroHistorico
+                    ? await assinaturas.FolhaAsync(_prescricaoId, FolhaPrescricao.RegistroExecucao)
+                    : await assinaturas.DocumentoInfusaoAsync(_prescricaoId);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(

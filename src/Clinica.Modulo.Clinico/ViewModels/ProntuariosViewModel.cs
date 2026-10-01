@@ -241,7 +241,7 @@ public sealed partial class ProntuariosViewModel : ObservableObject, ICarregarAo
                 CentralDocumentosService.AcessoParaEmitir(TipoDocumentoClinico.Anamnese),
                 "assinar documento clínico");
 
-            var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar anamnese {linha.Numero}", JanelaDona.Atual(), _escopos);
             if (certificado is null) return;
 

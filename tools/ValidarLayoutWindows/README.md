@@ -10,6 +10,10 @@ Use `--retornos` para conferir somente “Retornos a marcar”, com dados fictí
 nos perfis Recepção e Gerente, em 880, 1024, 1366 e 1920 pixels. A verificação
 exige os botões Marcar horário e WhatsApp visíveis, sem cortes ou rolagem horizontal.
 
+Use `--a1` para capturar a escolha do arquivo A1 com o formulário expandido em 780 e
+960 pixels, verificar ações visíveis e limpeza da senha ao fechar. Nenhuma assinatura
+é realizada e os certificados da máquina não são exibidos nas capturas.
+
 `--completo` percorre todas as telas e subabas publicadas pelos quatro módulos que usam o shell.
 O faturamento tem janela e recursos próprios e precisa de conferência separada.
 

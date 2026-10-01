@@ -111,12 +111,6 @@ public class AssinaturaDigitalTests
         AssinaturaDigitalService.RecortarAsn1(entrada).Should().BeNull();
     }
 
-    /// <summary>
-    /// ⚠️ O caso que a clínica levou em 14/08/2026: o SafeID devolve o CMS em <b>BER com
-    /// comprimento INDEFINIDO</b> (<c>30 80 … 00 00</c>) — legal em CMS (RFC 5652) e recusado
-    /// pela primeira versão do recorte, que lia o cabeçalho à mão e tratava o <c>0x80</c>
-    /// como erro. Os bytes estavam perfeitos; quem não sabia lê-los era o recorte.
-    /// </summary>
     [Fact]
     public void CMS_em_BER_com_comprimento_INDEFINIDO_e_aceito()
     {
@@ -133,7 +127,7 @@ public class AssinaturaDigitalTests
     /// </summary>
     [Theory]
     [InlineData(false)]
-    [InlineData(true)]   // BER indefinido — o que o SafeID devolve
+    [InlineData(true)]
     public void Um_CMS_de_verdade_com_enchimento_volta_inteiro(bool indefinido)
     {
         var conteudo = "os bytes cobertos pelo ByteRange"u8.ToArray();
@@ -158,10 +152,6 @@ public class AssinaturaDigitalTests
         relido.CheckSignature(verifySignatureOnly: true);   // não lança = fechou
     }
 
-    /// <summary>
-    /// Reescreve o SEQUENCE de fora na forma INDEFINIDA (<c>30 80 … 00 00</c>), que é como o
-    /// SafeID entrega. O miolo continua igual — muda só o cabeçalho e o marcador de fim.
-    /// </summary>
     private static byte[] ParaComprimentoIndefinido(byte[] der)
     {
         AsnDecoder.ReadEncodedValue(
