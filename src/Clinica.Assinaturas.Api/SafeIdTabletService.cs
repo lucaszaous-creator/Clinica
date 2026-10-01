@@ -74,7 +74,7 @@ public sealed class SafeIdTabletService(IConfiguration configuration, Atendiment
     {
         await acesso.ExigirDocumentoAsync(s,agendamento,tipo,id,true,ct);
         var documento=tipo is "infusao" or "execucao"
-            ? "PRE "+(await repo.ObterPrescricaoInternaAsync(id,ct))!.Numero
+            ? (await repo.ObterPrescricaoInternaAsync(id,ct))!.Numero
             : (await repo.ObterDocumentoAsync(id,ct))!.Numero;
         var a=autorizacoes.Ativa(s.Id,tipo,id);
         var op=await registro.AtivaAsync(tipo,id,ct);

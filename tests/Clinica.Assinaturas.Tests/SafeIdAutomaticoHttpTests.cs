@@ -109,6 +109,7 @@ public sealed class SafeIdAutomaticoHttpTests
             var pendencia=await Get(caminho+"/pendencia");
             Assert.Equal("aguardando",(string?)pendencia["situacao"]);Assert.True((bool)pendencia["podeRetomar"]!);
             Assert.StartsWith("PRE ",(string?)pendencia["documento"]);
+            Assert.DoesNotContain("PRE PRE ",(string?)pendencia["documento"]);
             var retomada=await client.PostAsJsonAsync(caminho,new {confirmouAlergia=true,concluirAutomaticamente=true});
             Assert.Equal(HttpStatusCode.OK,retomada.StatusCode);
             Assert.Equal(pedido.ToJsonString(),JsonNode.Parse(await retomada.Content.ReadAsStringAsync())!.ToJsonString());
