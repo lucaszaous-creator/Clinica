@@ -195,7 +195,7 @@
                                                     Visibility="{Binding RegistroPendente,
                                                                  Converter={StaticResource BoolParaVisibilidade}}">
                                                 <TextBlock TextWrapping="Wrap"
-                                                           Text="Assinatura recebida · falta arquivar o registro da execução" />
+                                                           Text="Documento assinado indisponível · contate o suporte" />
                                             </Border>
 
                                             <!-- Folha de OUTRO dia: ela só entra na fila de

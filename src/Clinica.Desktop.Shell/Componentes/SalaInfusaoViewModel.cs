@@ -38,7 +38,7 @@ public sealed class LinhaSalaInfusao
     /// </summary>
     public required bool AguardaAssinatura { get; init; }
 
-    /// <summary>A assinatura já existe; falta arquivar o registro de execução.</summary>
+    /// <summary>A assinatura está registrada, mas o documento principal está indisponível.</summary>
     public required bool RegistroPendente { get; init; }
 
     /// <summary>
@@ -64,15 +64,12 @@ public sealed class LinhaSalaInfusao
             && (p.ExigeAssinaturaEletronicaDaExecucao || p.OrigemEnfermagem && p.AssinadaEm is null)
             && p.AssinaturaDaExecucao?.ArquivoId is null,
         RegistroPendente = p.Situacao == SituacaoPrescricao.Encerrada
-            && p.AssinaturaDaExecucao?.ArquivoId is not null
-            && p.AssinaturaDaExecucao.ArquivoRegistroId is null,
+            && p.AssinaturaDaExecucao is { ArquivoId: null },
         Hora = p.Hora.ToString("HH\\:mm"),
         Prescritor = p.Profissional?.Rotulo ?? "—",
         Progresso = p.DevolvidaEm is not null ? $"devolvida pelo médico · {p.MotivoDevolucao}"
             : p.AguardaValidacaoMedica
-            ? (p.AssinaturaDaExecucao?.ArquivoId is not null && p.AssinaturaDaExecucao.ArquivoRegistroId is null
-                ? "assinatura recebida · falta arquivar registro da execução"
-                : p.AguardaAssinaturaDaExecucao ? "execução registrada · falta assinatura da enfermagem" : "execução assinada · aguarda validação médica")
+            ? (p.AguardaAssinaturaDaExecucao ? "execução registrada · falta assinatura da enfermagem" : "execução assinada · aguarda validação médica")
             : p.Situacao == SituacaoPrescricao.Encerrada
             ? $"encerrada · {p.Realizados} realizados, {p.NaoRealizados} não realizados"
             : $"{p.Realizados} de {p.Itens.Count} realizados · {p.Pendentes} aguardando",
@@ -264,7 +261,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             // administrando, o outro com o certificado. Somá-los daria um número que não
             // diz o que fazer.
             var recado = (semAssinar > 0 ? $" · {semAssinar} aguardando a assinatura da enfermagem" : string.Empty)
-                + (semRegistro > 0 ? $" · {semRegistro} com registro assinado a arquivar" : string.Empty)
+                + (semRegistro > 0 ? $" · {semRegistro} com documento assinado a conferir" : string.Empty)
                 + (devolvidas > 0 ? $" · {devolvidas} devolvida(s) à enfermagem" : string.Empty);
 
             Resumo = Folhas.Count == 0
@@ -390,14 +387,13 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             {
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDePrescricaoService>();
-                folha = await assinaturas.FolhaAsync(
-                    linha.PrescricaoId, FolhaPrescricao.Prescricao);
+                folha = await assinaturas.DocumentoInfusaoAsync(linha.PrescricaoId);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 folha.Pdf, ImpressaoPdf.NomeSeguro(folha.NomeArquivo));
 
-            Mensagem = erro ?? folha.Conferencia?.Frase;
+            Mensagem = erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.";
             MensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
         }
         catch (Exception ex)

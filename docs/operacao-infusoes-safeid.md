@@ -78,3 +78,29 @@ Se for necessário desfazer apenas esse vínculo, conferir primeiro que a assina
 - Backup de produção: `/var/backups/clinica-tablet-continuidade-20260930-234806` (nome emitido pelo servidor).
 - Flag de conclusão automática confirmada no ambiente efetivo do processo. Arquivos HTTP conferidos contra o manifesto. Serviço saudável; demais serviços preservados pelo instalador.
 - O relatório registra `aceite_certificado_real=false`: publicação solicitada expressamente pelo usuário após ciência desse limite. Não apresentar esta publicação como teste real concluído.
+
+## Desktop — correção de 01/10/2026
+
+A atualização do portal não substitui o executável Windows. A instalação examinada era Gerente 1.2.47; ainda oferecia “Imprimir folha” e “Imprimir registro”. Entrega preparada para Gerente 1.2.48 e Consultório 1.2.50; os links e resultados da publicação devem ser registrados abaixo depois da conclusão.
+
+- Uma ação “Imprimir infusão” na folha; a lista do paciente e a sala usam a mesma seleção `DocumentoInfusaoAsync`.
+- Com assinatura da execução, retorna o documento principal guardado. Ausência de `ArquivoRegistroId` não cria uma pendência adicional. Assinatura registrada sem arquivo principal bloqueia a impressão com mensagem de recuperação; não é substituída silenciosamente por PDF regenerado.
+- No regime antigo em papel, depois de checagem, a impressão única entrega o registro de execução explicitamente sem assinatura digital. Antes da execução, entrega a prescrição.
+- PDFs novos reservam os campos antes da assinatura médica e incluem horário informado, resultado (“Sim”, “Não” ou “NE”), data, executante e justificativa na revisão assinada pela enfermagem. Não há mudança do protocolo, credenciais ou parâmetros SafeID nesta correção do desktop.
+- PDF histórico sem campos reservados recebe aviso na folha. Seus bytes e suas assinaturas não são reescritos.
+
+Nos arquivos enviados da PRE 2026/0017, o espelho `execucao.pdf` mostra execução às **19:16** e visto, mas não tem assinatura digital. O `assinada.pdf` tem duas assinaturas e campos de execução vazios; contém apenas os campos `Signature1` e `AssinaturaExecucao`, sem reserva de execução. O horário foi persistido; não foi incorporado ao PDF histórico. Os quatro nomes de medicamentos pertencem a um único item cadastrado, com uma checagem. Não desmembrar retrospectivamente nem inventar horários ou resultados individuais. Incorporar dados a uma nova via assinada exigiria um fluxo explícito de retificação e novas assinaturas dos profissionais; esta atualização não faz isso.
+
+### Revisão e evidências do desktop
+
+Jev `jev-1.13.0`, pela API TypeSafe, recebeu apenas código e cenários fictícios. A primeira revisão indicou risco de perder a impressão de execução no regime em papel. O caso foi confirmado e corrigido com seleção única e teste de regressão. A segunda revisão recomendou prosseguir com validação; não é uma certificação ou aceite de produção.
+
+- 40 testes direcionados aprovados: PDF unificado nos três resultados, duas assinaturas íntegras, horário digitado, justificativas, arquivo principal ausente, fila sem documento secundário e regime em papel.
+- Compilação Windows real e `tools/ValidarLayoutWindows --infusao`: impressão única, aviso histórico, ações protegidas durante processamento e fila sem falsa pendência; telas conferidas em 880, 1024 e 1366 pixels.
+- PDFs fictícios dos três resultados foram renderizados e conferidos visualmente.
+- Evidências locais privadas em `tmp/infusao-review/desktop-*.log` e `jev-desktop*-resposta.json`; amostras fictícias em `tmp/pdfs/desktop-infusao/qa`. Não versionar documentos de pacientes.
+- O workflow de release fixa `--targetCommitish` ao SHA compilado, para as tags de publicação corresponderem ao código entregue mesmo quando iniciado pela branch da correção.
+
+### Recuperação do desktop
+
+Preservar o PDF original e os eventos de auditoria. Se houver falha após a atualização, registrar versão do aplicativo, número PRE, ação e mensagem. O Gerente 1.2.47 e o Consultório 1.2.49 são as versões anteriores desta entrega, mas restaurá-las reapresenta as regras antigas de impressão/pendência. O auto-update só avança versões: uma reversão operacional preferencial republica o código anterior em uma nova versão, sem restaurar banco nem apagar assinaturas. A release do portal permanece independente desta atualização Windows.

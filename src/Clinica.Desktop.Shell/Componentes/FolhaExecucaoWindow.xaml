@@ -112,6 +112,8 @@
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <StackPanel>
                 <StackPanel VerticalAlignment="Center" Margin="0,0,0,8">
+                    <TextBlock Text="{Binding AvisoPdfHistorico}" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Visibility="{Binding AvisoPdfHistorico, Converter={StaticResource TextoParaVisibilidade}}" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                Text="Encerrar fecha a folha: ela sai da sala e não pode mais ser checada." />
 
@@ -125,18 +127,11 @@
                 </StackPanel>
 
                 <WrapPanel HorizontalAlignment="Right">
-                    <Button Content="Imprimir folha" MinWidth="130"
+                    <Button Content="Imprimir infusão" MinWidth="130"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
-                            ToolTip="A via que a enfermagem confere e assina à caneta. Com assinatura eletrônica, sai o arquivo guardado."
+                            ToolTip="Abre o documento da infusão. Quando assinado, preserva o PDF e as assinaturas guardadas."
                             Command="{Binding ImprimirCommand}" />
-                    <Button Content="Imprimir registro" Margin="8,0,0,0" MinWidth="150"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            IsEnabled="{Binding TemRegistroExecucao}"
-                            ToolTip="O espelho eletrônico do que já foi checado. Habilita depois da primeira checagem."
-                            Visibility="{Binding ExibirRegistroSeparado, Converter={StaticResource BoolParaVisibilidade}}"
-                            Command="{Binding ImprimirRegistroCommand}" />
                     <!-- A SEGUNDA porta da evolução de enfermagem, para quem já está
                          aqui. ⚠️ FORA do IsEnabled do bloco de PodeMexer, de propósito: o
                          bit é outro, e a folha ENCERRADA continua aceitando registro — a
