@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using Clinica.Application.Assinatura;
-using Clinica.Application.Assinatura.SafeID;
 using FluentAssertions;
 using PdfSharp.Pdf.Signatures;
 using QuestPDF.Fluent;
@@ -13,43 +12,20 @@ using Xunit;
 
 namespace Clinica.Tests;
 
-/// <summary>
-/// A assinatura em NUVEM de ponta a ponta — o caminho que só existia em pedaços.
-///
-/// Por que este arquivo precisou existir
-/// -------------------------------------
-/// Havia teste para a montagem da requisição ao PSC, para a leitura da resposta, para o
-/// recorte do PKCS#7 e para a conferência com certificado LOCAL. Não havia um só que
-/// fizesse o circuito inteiro <b>com o assinador de nuvem</b>: assinar um PDF de verdade
-/// pedindo a assinatura a um "PSC" e depois CONFERIR o arquivo produzido.
-///
-/// Foi nesse vão que morava o pior defeito da integração. O <c>RangedStream</c> que o
-/// PDFsharp entrega ao assinador chega <b>sem posição</b> — <c>Position</c> nem getter
-/// utilizável tem (lança <c>NullReferenceException</c>) — e ler antes de posicionar devolve
-/// <b>zero bytes</b>, calado. O que subia para o PSC era o SHA-256 de NADA
-/// (<c>e3b0c442…b7852b855</c>), a mesma constante em toda folha da clínica. O PSC assinava
-/// esse hash corretamente e devolvia um PKCS#7 impecável: build verde, teste verde, e um
-/// documento cuja assinatura não cobre coisa alguma.
-///
-/// É a regra do projeto aplicada ao lugar onde ela mais custa: <b>garantia aparente é pior
-/// que ausência de garantia</b>.
-/// </summary>
-public class AssinaturaEmNuvemFimAFimTests
+/// <summary>Produz e confere PDFs com CMS em DER e BER, incluindo folga no Contents.
+/// O assinador sintético cobre a leitura do RangedStream, que exige posicionamento
+/// explícito para não calcular o hash de conteúdo vazio.</summary>
+public class AssinaturaCmsFimAFimTests
 {
-    /// <summary>
-    /// Faz o papel do PSC: assina de verdade o conteúdo coberto e devolve um CMS destacado,
-    /// como o SafeID faz com <c>signature_format: CMS</c>.
-    /// </summary>
-    private sealed class PscDeMentira(
+    private sealed class AssinadorCmsDeTeste(
         X509Certificate2 certificado, int reservado, bool comprimentoIndefinido = false)
         : IDigitalSigner
     {
-        public string CertificateName => "PSC de mentira";
+        public string CertificateName => "CMS de teste";
         public Task<int> GetSignatureSizeAsync() => Task.FromResult(reservado);
 
         public async Task<byte[]> GetSignatureAsync(Stream conteudoCoberto)
         {
-            // O MESMO cuidado do AssinadorSafeID: sem posicionar, o stream lê vazio.
             conteudoCoberto.Position = 0;
 
             var cobertos = await LerTudoAsync(conteudoCoberto);
@@ -61,28 +37,18 @@ public class AssinaturaEmNuvemFimAFimTests
         }
     }
 
-    /// <summary>
-    /// O teste que faltava. Roda também com os 32 KB do SafeID, que é o tamanho reservado
-    /// em produção — o enchimento grande é o que exercita o recorte do DER.
-    /// </summary>
     [Theory]
     [InlineData(2048, false)]
-    [InlineData(AssinadorSafeID.TamanhoReservado, false)]
-    // ⚠️ O formato REAL do SafeID: CMS em BER com comprimento INDEFINIDO (30 80 … 00 00).
-    // Foi ele que a clínica levou em 14/08/2026, e o recorte à mão o recusava.
-    [InlineData(AssinadorSafeID.TamanhoReservado, true)]
-    public async Task Documento_assinado_em_nuvem_CONFERE(int reservado, bool indefinido)
+    [InlineData(32768, false)]
+    [InlineData(32768, true)]
+    public async Task Documento_assinado_com_CMS_CONFERE(int reservado, bool indefinido)
     {
         using var cert = CertificadoComChave();
         var servico = new AssinaturaDigitalService(exigirCadeiaConfiavel: false);
 
         var assinado = await servico.AssinarAsync(
             PdfDeTeste(),
-            CertificadoIcpBrasil.Ler(cert) with
-            {
-                AssinadorRemoto = new PscDeMentira(cert, reservado, indefinido)
-            },
-            Pedido());
+            CertificadoIcpBrasil.Ler(cert), Pedido(), new AssinadorCmsDeTeste(cert, reservado, indefinido));
 
         var conferencia = servico.Conferir(assinado.Pdf);
 
@@ -90,12 +56,6 @@ public class AssinaturaEmNuvemFimAFimTests
         conferencia.Integra.Should().BeTrue(conferencia.Frase);
     }
 
-    /// <summary>
-    /// O defeito exato, fixado: um assinador que NÃO posiciona o stream recebe zero bytes.
-    /// Se um dia o PDFsharp passar a entregar o stream já posicionado, este teste passa a
-    /// falhar — e aí a linha `Position = 0` do AssinadorSafeID pode sair com segurança.
-    /// Enquanto ele falhar, ela é obrigatória.
-    /// </summary>
     [Fact]
     public async Task Ler_o_conteudo_coberto_SEM_posicionar_devolve_vazio()
     {
@@ -103,8 +63,7 @@ public class AssinaturaEmNuvemFimAFimTests
         var espiao = new EspiaoDeStream(cert);
 
         await new AssinaturaDigitalService(exigirCadeiaConfiavel: false).AssinarAsync(
-            PdfDeTeste(), CertificadoIcpBrasil.Ler(cert) with { AssinadorRemoto = espiao },
-            Pedido());
+            PdfDeTeste(), CertificadoIcpBrasil.Ler(cert), Pedido(), espiao);
 
         espiao.HashSemPosicionar.Should().Equal(
             SHA256.HashData([]),
@@ -138,7 +97,7 @@ public class AssinaturaEmNuvemFimAFimTests
     // ---- Apoio ----
 
     /// <summary>
-    /// Reescreve o SEQUENCE de fora na forma INDEFINIDA, que é como o PSC entrega. O miolo
+    /// Reescreve o SEQUENCE de fora na forma INDEFINIDA, permitida no CMS em BER. O miolo
     /// não muda — muda o cabeçalho e o <c>00 00</c> que marca o fim.
     /// </summary>
     private static byte[] EmBerIndefinido(byte[] der)

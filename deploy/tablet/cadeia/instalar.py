@@ -15,9 +15,9 @@ assert sys.argv[1] in ('homologacao', 'producao')
 assert re.fullmatch('[a-f0-9]{64}', sys.argv[2])
 service = 'clinica-posto-hml' if sys.argv[1] == 'homologacao' else 'clinica-tablet'
 other = 'clinica-tablet' if service == 'clinica-posto-hml' else 'clinica-posto-hml'
-archive = pathlib.Path('/home/clinica-admin/tablet-stage/cadeia-safeid-v5.tar.gz')
+archive = pathlib.Path('/home/clinica-admin/tablet-stage/cadeia-icp-v5.tar.gz')
 assert hashlib.sha256(archive.read_bytes()).hexdigest() == sys.argv[2]
-target = pathlib.Path('/opt', service, 'cadeia-safeid-v5-20260916')
+target = pathlib.Path('/opt', service, 'cadeia-icp-v5-20260916')
 assert target.resolve() == target
 existed = target.exists()
 target.mkdir(mode=0o755, exist_ok=True)

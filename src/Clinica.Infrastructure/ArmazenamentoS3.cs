@@ -184,9 +184,6 @@ public sealed class ArmazenamentoS3 : IArmazenamentoPublico
 
             AuthenticationRegion = opcoes.Regiao,
 
-            // Curto de propósito: quem publica tem um paciente na frente. Falhar em 30 s
-            // dizendo o motivo é melhor que travar a tela de assinatura por dois minutos —
-            // a mesma escolha do HttpClient do SafeID.
             Timeout = TimeSpan.FromSeconds(30),
             MaxErrorRetry = 2,
         };

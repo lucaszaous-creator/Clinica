@@ -5,56 +5,9 @@ using PdfSharp.Pdf.Signatures;
 
 namespace Clinica.Application.Assinatura;
 
-/// <summary>
-/// A SEGUNDA assinatura no MESMO PDF, por atualização incremental.
-///
-/// O problema, e por que a resposta antiga estava errada pela metade
-/// -----------------------------------------------------------------
-/// O comentário do <see cref="AssinaturaDigitalService"/> dizia, desde a parcela 42, que
-/// "duas assinaturas no mesmo PDF não existem". Medido (16/08/2026): o PDFsharp de fato
-/// REESCREVE o arquivo ao salvar — assinar por cima do já assinado devolve um arquivo cujo
-/// prefixo mudou, e a assinatura de quem assinou primeiro deixa de fechar. Até aí a
-/// premissa estava certa.
-///
-/// O que estava errado era a CONCLUSÃO. A limitação é da biblioteca, não do formato: o PDF
-/// prevê múltiplas assinaturas exatamente para este caso, e o mecanismo é a <b>atualização
-/// incremental</b> — os bytes já assinados não se tocam, e a revisão nova é ANEXADA ao fim
-/// do arquivo. A assinatura da médica cobre os bytes 0..N; a da enfermeira cobre 0..M, com
-/// M &gt; N. As duas continuam fechando, porque nenhuma delas teve um byte alterado.
-///
-/// É o que a clínica pediu e é o fluxo real: o médico prescreve e assina, a folha vai para
-/// a sala, a enfermagem executa e assina A MESMA prescrição — que é o que a legalidade e o
-/// fluxo de trabalho pedem.
-///
-/// O que este arquivo NÃO faz, de propósito
-/// ----------------------------------------
-/// Ele não calcula assinatura nenhuma. Quem produz o PKCS#7 continua sendo o
-/// <see cref="IDigitalSigner"/> — o mesmo do token e o mesmo do SafeID, sem uma linha de
-/// diferença. É o que garante que a segunda assinatura tenha exatamente as propriedades da
-/// primeira (inclusive a normalização para DER e a recusa do hash vazio), e é o que permite
-/// mexer aqui sem encostar no motor congelado.
-///
-/// A forma do arquivo de entrada é CONFERIDA, não adivinhada
-/// ---------------------------------------------------------
-/// Um meio-parser de PDF que "dá um jeito" quando não reconhece a estrutura produziria um
-/// arquivo que a nossa conferência aprova e o Adobe recusa — a garantia aparente que este
-/// projeto recusa desde a parcela 3. Aqui, o que não bate com o esperado <b>recusa e diz o
-/// quê</b>: a via em papel continua valendo, e ninguém fica com um PDF que parece assinado.
-/// </summary>
+/// <summary>Adiciona objetos e uma revisão ao final do PDF sem regravar a revisão assinada anterior.</summary>
 public static class RevisaoIncrementalPdf
 {
-    /// <summary>
-    /// Anexa uma revisão com um campo de assinatura novo e devolve os bytes do PDF com as
-    /// DUAS assinaturas.
-    /// </summary>
-    /// <param name="pdfAssinado">O PDF que já tem pelo menos uma assinatura.</param>
-    /// <param name="assinador">
-    /// Quem faz a conta: <c>PdfSharpDefaultSigner</c> (token/arquivo) ou
-    /// <c>AssinadorSafeID</c> (nuvem). O mesmo dos dois caminhos de sempre.
-    /// </param>
-    /// <exception cref="InvalidOperationException">
-    /// O arquivo não tem a forma que esta função sabe estender com segurança.
-    /// </exception>
     public static async Task<byte[]> AnexarAssinaturaAsync(
         byte[] pdfAssinado,
         PedidoAssinatura pedido,

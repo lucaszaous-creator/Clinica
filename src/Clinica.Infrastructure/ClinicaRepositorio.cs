@@ -1047,7 +1047,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     }
 
     private static bool EhCredencialGlobal(string chave)
-        => chave is "SafeIDClientSecret" or "PublicacaoAccessKey" or "PublicacaoSecretKey" or "EmailSmtpSenha";
+        => chave is "PublicacaoAccessKey" or "PublicacaoSecretKey" or "EmailSmtpSenha";
 
     public async Task SalvarConfiguracaoSeValorIgualAsync(
         string chave, string valorEsperado, string novoValor, CancellationToken ct = default)

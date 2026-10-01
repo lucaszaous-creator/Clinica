@@ -82,19 +82,16 @@ public class ParametrosServiceTests : IDisposable
     {
         var chave = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]));
         var servico = new ParametrosService(_repo, chave);
-        await servico.SalvarCredenciaisSafeIDAsync("id", "segredo-safeid", "producao");
         await servico.SalvarCredenciaisArmazenamentoAsync("https://objetos.example.com", "regiao",
             "bucket", "chave-s3", "segredo-s3");
         await servico.SalvarCamposEmailAsync(new CamposEmail("smtp.example.com", "587",
             "usuario", "senha-smtp", "remetente@example.com", "Clínica", true));
 
-        foreach (var nome in new[] { ParametrosService.ChaveSafeIDClientSecret,
-                     ParametrosService.ChaveArmazenamentoChave,
+        foreach (var nome in new[] { ParametrosService.ChaveArmazenamentoChave,
                      ParametrosService.ChaveArmazenamentoSegredo,
                      ParametrosService.ChaveEmailSmtpSenha })
             (await _repo.ObterConfiguracaoAsync(nome)).Should().StartWith("enc:v1:");
 
-        (await servico.ObterCredenciaisSafeIDAsync()).ClientSecret.Should().Be("segredo-safeid");
         (await servico.ObterCredenciaisArmazenamentoAsync()).Segredo.Should().Be("segredo-s3");
         (await servico.ObterCamposEmailAsync()).Senha.Should().Be("senha-smtp");
     }
@@ -106,11 +103,11 @@ public class ParametrosServiceTests : IDisposable
         try
         {
             Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
-            await _parametros.SalvarCredenciaisSafeIDAsync("id", "segredo-legado", "producao");
+            await _parametros.SalvarCredenciaisArmazenamentoAsync("https://objetos.example.com", "regiao", "bucket", "chave", "segredo-legado");
 
-            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo))
                 .Should().Be("segredo-legado");
-            (await _parametros.ObterCredenciaisSafeIDAsync()).ClientSecret.Should().Be("segredo-legado");
+            (await _parametros.ObterCredenciaisArmazenamentoAsync()).Segredo.Should().Be("segredo-legado");
         }
         finally
         {
@@ -126,15 +123,15 @@ public class ParametrosServiceTests : IDisposable
         {
             Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
             var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
-                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-original");
-            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+                .Proteger(ParametrosService.ChaveArmazenamentoSegredo, "segredo-original");
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo, protegida);
             await _repo.SalvarAsync();
 
-            var gravar = () => _parametros.SalvarCredenciaisSafeIDAsync("id", "novo-segredo", "producao");
+            var gravar = () => _parametros.SalvarCredenciaisArmazenamentoAsync("https://objetos.example.com", "regiao", "bucket", "chave", "novo-segredo");
             await gravar.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("*credencial protegida*");
 
-            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo))
                 .Should().Be(protegida);
         }
         finally
@@ -152,17 +149,17 @@ public class ParametrosServiceTests : IDisposable
         {
             Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
             var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
-                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-original");
-            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+                .Proteger(ParametrosService.ChaveArmazenamentoSegredo, "segredo-original");
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo, protegida);
             await _repo.SalvarAsync();
 
             Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, "true");
             Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelChave, null);
-            Func<Task> limpar = () => _parametros.SalvarCredenciaisSafeIDAsync("id", "", "producao");
+            Func<Task> limpar = () => _parametros.SalvarCredenciaisArmazenamentoAsync("https://objetos.example.com", "regiao", "bucket", "chave", "");
             await limpar.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("*chave de proteção*");
 
-            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo))
                 .Should().Be(protegida);
         }
         finally
@@ -179,26 +176,26 @@ public class ParametrosServiceTests : IDisposable
         try
         {
             Environment.SetEnvironmentVariable(ProtecaoSegredoGlobal.VariavelHabilitacao, null);
-            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");
+            await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo, "legado");
             await _repo.SalvarAsync();
 
             // A primeira conexão prepara a edição em texto legado, mas ainda não a salva.
             await _repo.SalvarSegredoSemRebaixarProtecaoAsync(
-                ParametrosService.ChaveSafeIDClientSecret, "segredo-editado-sem-chave");
+                ParametrosService.ChaveArmazenamentoSegredo, "segredo-editado-sem-chave");
 
             // Outra conexão protege a mesma credencial antes do SaveChanges da primeira.
             using var outroDb = new ClinicaDbContext(
                 new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options);
             var outroRepo = new ClinicaRepositorio(outroDb);
             var protegida = new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))
-                .Proteger(ParametrosService.ChaveSafeIDClientSecret, "segredo-protegido");
-            await outroRepo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, protegida);
+                .Proteger(ParametrosService.ChaveArmazenamentoSegredo, "segredo-protegido");
+            await outroRepo.SalvarConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo, protegida);
             await outroRepo.SalvarAsync();
 
             Func<Task> salvar = () => _repo.SalvarAsync();
             var conflito = await salvar.Should().ThrowAsync<InvalidOperationException>();
             conflito.Which.InnerException.Should().BeOfType<DbUpdateConcurrencyException>();
-            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+            (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo))
                 .Should().Be(protegida);
         }
         finally
@@ -210,7 +207,7 @@ public class ParametrosServiceTests : IDisposable
     [Fact]
     public async Task Migracao_de_credencial_nao_sobrescreve_valor_alterado_apos_leitura()
     {
-        const string chave = ParametrosService.ChaveSafeIDClientSecret;
+        const string chave = ParametrosService.ChaveArmazenamentoSegredo;
         await _repo.SalvarConfiguracaoAsync(chave, "credencial-lida");
         await _repo.SalvarAsync();
         var valorLido = await _repo.ObterConfiguracaoAsync(chave);
@@ -237,13 +234,13 @@ public class ParametrosServiceTests : IDisposable
     [Fact]
     public async Task Credencial_antiga_e_migrada_na_primeira_leitura()
     {
-        await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret, "legado");
+        await _repo.SalvarConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo, "legado");
         await _repo.SalvarAsync();
         var servico = new ParametrosService(_repo,
             new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32])));
 
-        (await servico.ObterCredenciaisSafeIDAsync()).ClientSecret.Should().Be("legado");
-        (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveSafeIDClientSecret))
+        (await servico.ObterCredenciaisArmazenamentoAsync()).Segredo.Should().Be("legado");
+        (await _repo.ObterConfiguracaoAsync(ParametrosService.ChaveArmazenamentoSegredo))
             .Should().StartWith("enc:v1:");
     }
 

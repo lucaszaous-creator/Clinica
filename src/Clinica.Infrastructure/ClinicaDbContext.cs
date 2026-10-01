@@ -5,6 +5,7 @@ namespace Clinica.Infrastructure;
 
 public class ClinicaDbContext : DbContext
 {
+    public DbSet<CertificadoA1Profissional> CertificadosA1 => Set<CertificadoA1Profissional>();
     public DbSet<AcompanhamentoPaciente> Acompanhamentos => Set<AcompanhamentoPaciente>();
     public DbSet<ContatoAcompanhamento> ContatosAcompanhamento => Set<ContatoAcompanhamento>();
     public DbSet<MotivoAcompanhamento> MotivosAcompanhamento => Set<MotivoAcompanhamento>();
@@ -130,6 +131,18 @@ public class ClinicaDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<CertificadoA1Profissional>(e =>
+        {
+            e.ToTable("CertificadosA1");
+            e.HasKey(x => x.UsuarioId);
+            e.Property(x => x.UsuarioId).ValueGeneratedNever();
+            e.Property(x => x.ImpressaoDigital).HasMaxLength(64);
+            e.Property(x => x.Titular).HasMaxLength(300);
+            e.Property(x => x.ValidoAte).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Profissional>().WithMany().HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Restrict);
+        });
         b.Entity<AcompanhamentoPaciente>(e =>
         {
             e.HasIndex(x => new { x.PacienteId, x.Tipo, x.Modalidade }).IsUnique();

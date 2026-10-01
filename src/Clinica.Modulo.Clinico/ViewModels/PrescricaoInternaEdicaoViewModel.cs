@@ -405,7 +405,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 }
             }
 
-            var certificado = EscolherCertificadoWindow.Perguntar(
+            using var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Prescrição {Numero} — {Paciente}",
                 System.Windows.Application.Current?.MainWindow, _escopos);
 

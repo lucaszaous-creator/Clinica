@@ -79,8 +79,11 @@ builder.Services.AddScoped<PrescricaoInternaPdfService>();
 builder.Services.AddScoped<Clinica.Application.Assinatura.AssinaturaDigitalService>();
 builder.Services.AddScoped<AssinaturaDeDocumentoClinicoService>();
 builder.Services.AddScoped<AssinaturaDePrescricaoService>();
-builder.Services.AddSingleton<AutorizacoesSafeIdTablet>();
-builder.Services.AddScoped<SafeIdTabletService>();
+builder.Services.AddScoped<ConferenciaAssinaturaTablet>();
+builder.Services.AddScoped<CofreA1Tablet>();
+builder.Services.AddScoped<A1TabletService>();
+builder.Services.AddSingleton<AutorizacoesA1Tablet>();
+builder.Services.AddSingleton<Clinica.Application.Assinatura.IConfiancaCertificadoA1, Clinica.Application.Assinatura.ConfiancaCertificadoA1>();
 builder.Services.AddScoped<EnderecoPrescricaoTabletService>();
 builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);
@@ -116,6 +119,9 @@ string? DispositivoRegistrado(HttpContext ctx)
 }
 builder.Services.AddRateLimiter(o=>
 {
+    o.AddPolicy("a1", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        DispositivoRegistrado(ctx) ?? "sem-dispositivo", _ => new FixedWindowRateLimiterOptions
+        { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     o.RejectionStatusCode=429;
     o.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(ctx=>RateLimitPartition.GetFixedWindowLimiter(
         ctx.Request.Path.StartsWithSegments("/api/entrar")

@@ -581,13 +581,6 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// A 2ª ASSINATURA (decisão da direção, 14/08/2026): a enfermagem sela o registro de
-    /// execução com o certificado DELA — o e-CPF ou o SafeID de quem está logado, nunca o
-    /// do prescritor. Quem confere a titularidade é o serviço; quem valida o estado da
-    /// folha (encerrada, campo marcado, ainda sem assinatura) é o domínio. Aqui só se
-    /// escolhe o certificado e se diz o que aconteceu.
-    /// </summary>
     [RelayCommand]
     private async Task AssinarExecucaoAsync()
     {
@@ -608,9 +601,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // DOIS documentos, um certificado: a prescrição (revisão incremental) e o
             // registro de execução. Em nuvem isso muda o escopo da autorização — com o
             // padrão do PSC a segunda selagem seria recusada sempre.
-            var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos,
-                assinaturasDoAto: OrigemEnfermagem ? 1 : 2);
+            using var certificado = EscolherCertificadoWindow.Perguntar(
+                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 
@@ -669,7 +661,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             var conferencia = await scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>().ConferirParaAssinaturaAsync(_prescricaoId);
             var confirmou = conferencia.ExigeConfirmacao && _dialogo.Confirmar("Revisar alergias", "Há alerta de alergia relacionado à infusão registrada. Confirma que revisou o caso antes de assinar?");
             if (conferencia.ExigeConfirmacao && !confirmou) return;
-            var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
+            using var certificado = EscolherCertificadoWindow.Perguntar($"Validar infusão {Numero} · {Paciente}", JanelaAtiva(), _escopos);
             if (certificado is null) return;
             await scope.ServiceProvider.GetRequiredService<AssinaturaDePrescricaoService>().AssinarPrescricaoAsync(
                 _prescricaoId, certificado, confirmou, SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);

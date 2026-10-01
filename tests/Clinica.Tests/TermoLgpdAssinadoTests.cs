@@ -378,7 +378,6 @@ public class TermoLgpdAssinadoTests : IDisposable
                 documentoConferido: "CPF 123.456.789-00",
                 testemunha: "ana"));
 
-        // A frase diz o que houve E o que fazer — a lição das rodadas do SafeID.
         erro.Message.Should().Contain("versão anterior");
         erro.Message.Should().Contain("Emita um novo");
 

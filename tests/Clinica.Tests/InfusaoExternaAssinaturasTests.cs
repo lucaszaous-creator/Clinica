@@ -48,7 +48,7 @@ public partial class SegundaAssinaturaExecucaoTests
         var medico=new UsuarioSistema {Nome="Médica",Login="medica",Perfil=PerfilAcesso.Profissional,ProfissionalId=c.ProfissionalMedicaId};
         _db.Usuarios.Add(medico);await _db.SaveChangesAsync();
         var p=await _prescricoes.RegistrarExecucaoExternaAsync(new(c.PacienteId,c.ProfissionalMedicaId,null,
-            DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),new(9,30),"Infusão de teste","Orientação externa descrita pela executante",
+            DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),new(9,30),"TESTE FICTÍCIO - SEM VALIDADE CLÍNICA.","Demonstração com certificados fictícios, sem confiança ICP-Brasil.",
             DataPrescricao:DateOnly.FromDateTime(DateTime.Today.AddDays(-2)),HoraPrescricao:new(8,15)),c.UsuarioEnfermeiraId);
         p.Data.Should().Be(DateOnly.FromDateTime(DateTime.Today.AddDays(-2)));
         p.Hora.Should().Be(new TimeOnly(8,15));
@@ -71,7 +71,7 @@ public partial class SegundaAssinaturaExecucaoTests
         p.AguardaValidacaoMedica.Should().BeTrue();
         await _orquestra.AssinarPrescricaoAsync(p.Id,ECpfDeTeste("Médica",CpfMedica),usuarioId:medico.Id);
         var final=await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.Prescricao);
-        _assinador.ConferirTodas(final.Pdf).Should().HaveCount(2).And.OnlyContain(a=>a.Conferida);
+        _assinador.ConferirTodas(final.Pdf).Should().HaveCount(2).And.OnlyContain(a=>a.Conferida && a.Integra);
         final.Pdf.Take(parcial.Pdf.Length).Should().Equal(parcial.Pdf);
         (await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.RegistroExecucao)).Pdf.Should().Equal(final.Pdf);
         p.Situacao.Should().Be(SituacaoPrescricao.Encerrada);

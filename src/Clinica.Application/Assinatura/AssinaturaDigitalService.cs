@@ -123,37 +123,19 @@ public sealed class AssinaturaDigitalService
     public static string Hash(byte[] conteudo)
         => Convert.ToHexString(SHA256.HashData(conteudo)).ToLowerInvariant();
 
-    /// <summary>
-    /// Assina o PDF. Devolve bytes NOVOS — os originais não servem mais para nada, porque
-    /// é sobre estes que a assinatura foi calculada.
-    /// </summary>
-    /// <param name="assinadorEmNuvem">
-    /// Quando informado, quem faz a conta da assinatura é um PSC (o SafeID), e a chave
-    /// privada <b>não está nesta máquina</b> — sobe o hash, desce o PKCS#7. Nulo mantém o
-    /// caminho de sempre: o certificado do token ou do arquivo, com a chave em mãos.
-    ///
-    /// Note que só isto muda. O desenho da folha, o carimbo visual, o posicionamento e o
-    /// <see cref="Conferir"/> são os mesmos nos dois caminhos — é o que garante que uma
-    /// folha assinada em nuvem seja indistinguível de uma assinada no token, inclusive na
-    /// hora de conferir.
-    /// </param>
-    /// <exception cref="InvalidOperationException">
-    /// Certificado sem chave privada (só no caminho local), vencido, ou com cadeia que não
-    /// valida.
-    /// </exception>
     public async Task<ResultadoAssinatura> AssinarAsync(
         byte[] pdf, CertificadoAssinatura certificado, PedidoAssinatura pedido,
-        IDigitalSigner? assinadorEmNuvem = null)
+        IDigitalSigner? assinadorPersonalizado = null)
     {
         ArgumentNullException.ThrowIfNull(pdf);
         ArgumentNullException.ThrowIfNull(certificado);
         ArgumentNullException.ThrowIfNull(pedido);
 
-        // O certificado carrega o próprio assinador quando está em nuvem; o parâmetro
-        // continua existindo para quem quiser mandar um explicitamente (os testes).
-        var remoto = assinadorEmNuvem ?? certificado.AssinadorRemoto;
+        // Ponto de extensão do motor para conferir formatos CMS nos testes.
+        // O fluxo clínico usa a chave privada do A1 importado.
+        var personalizado = assinadorPersonalizado;
 
-        Criticar(certificado, exigirChaveLocal: remoto is null);
+        Criticar(certificado, exigirChaveLocal: personalizado is null);
         GarantirFonte();
 
         using var entrada = new MemoryStream(pdf, writable: false);
@@ -195,16 +177,14 @@ public sealed class AssinaturaDigitalService
             Rectangle = new XRect(0, 0, 0, 0)
         };
 
-        var assinador = remoto ?? new PdfSharpDefaultSigner(
+        var assinador = personalizado ?? new PdfSharpDefaultSigner(
             certificado.Certificado, PdfMessageDigestType.SHA256, pedido.CarimbadoraDeTempo);
 
         DigitalSignatureHandler.ForDocument(documento, assinador, opcoes);
 
         using var saida = new MemoryStream();
 
-        // SaveAsync, e não Save: é durante o salvamento que o PDFsharp chama o assinador,
-        // e no caminho da nuvem essa chamada é uma requisição HTTP. Salvar de forma síncrona
-        // bloquearia a thread da tela enquanto a médica confirma no celular.
+        // O PDFsharp conclui a assinatura ao salvar; aguardar a operação antes de arquivar.
         await documento.SaveAsync(saida, false);
         var assinado = saida.ToArray();
 
@@ -221,33 +201,21 @@ public sealed class AssinaturaDigitalService
             carimbo is null ? null : pedido.CarimbadoraDeTempo?.ToString());
     }
 
-    /// <summary>
-    /// Acrescenta uma SEGUNDA assinatura a um PDF que já tem a primeira, por atualização
-    /// incremental — os bytes já assinados não se tocam.
-    ///
-    /// É o fluxo da clínica: o médico prescreve e assina, a folha vai para a sala, a
-    /// enfermagem executa e assina A MESMA prescrição. Por legalidade e por fluxo de
-    /// trabalho, o documento precisa das duas.
-    ///
-    /// Note o que NÃO muda em relação a <see cref="AssinarAsync"/>: as críticas do
-    /// certificado são as mesmas, e quem faz a conta da assinatura é o mesmo
-    /// <see cref="IDigitalSigner"/> — token ou SafeID, sem uma linha de diferença. O que
-    /// muda é só COMO os bytes entram no arquivo.
-    /// </summary>
+    /// <summary>Acrescenta uma assinatura por revisão incremental, preservando todos os bytes já assinados.</summary>
     public async Task<ResultadoAssinatura> AnexarAssinaturaAsync(
         byte[] pdfAssinado, CertificadoAssinatura certificado, PedidoAssinatura pedido,
-        string nomeCampo, IDigitalSigner? assinadorEmNuvem = null)
+        string nomeCampo, IDigitalSigner? assinadorPersonalizado = null)
     {
         ArgumentNullException.ThrowIfNull(pdfAssinado);
         ArgumentNullException.ThrowIfNull(certificado);
         ArgumentNullException.ThrowIfNull(pedido);
 
-        var remoto = assinadorEmNuvem ?? certificado.AssinadorRemoto;
+        var personalizado = assinadorPersonalizado;
 
-        Criticar(certificado, exigirChaveLocal: remoto is null);
+        Criticar(certificado, exigirChaveLocal: personalizado is null);
         GarantirFonte();
 
-        var assinador = remoto ?? new PdfSharpDefaultSigner(
+        var assinador = personalizado ?? new PdfSharpDefaultSigner(
             certificado.Certificado, PdfMessageDigestType.SHA256, pedido.CarimbadoraDeTempo);
 
         var anexado = await RevisaoIncrementalPdf.AnexarAssinaturaAsync(
@@ -362,13 +330,7 @@ public sealed class AssinaturaDigitalService
         = System.Security.Cryptography.X509Certificates.X509NameType.SimpleName;
 
     /// <summary>Recusa o que não pode assinar, com a frase que a tela mostra.</summary>
-    /// <param name="exigirChaveLocal">
-    /// Falso quando quem assina é um PSC: em nuvem a chave privada <b>nunca</b> está nesta
-    /// máquina — é esse o ponto do produto —, e cobrar <c>HasPrivateKey</c> ali recusaria
-    /// justamente o certificado que funciona. As outras duas críticas continuam valendo
-    /// iguais nos dois caminhos: vencido é vencido, e cadeia que não valida produz documento
-    /// que abre como inválido venha a assinatura de onde vier.
-    /// </param>
+    /// <param name="exigirChaveLocal">Exigido no fluxo clínico A1; o motor de testes pode fornecer um assinador CMS próprio.</param>
     private void Criticar(CertificadoAssinatura certificado, bool exigirChaveLocal)
     {
         if (exigirChaveLocal && !certificado.Certificado.HasPrivateKey)
@@ -465,37 +427,8 @@ public sealed class AssinaturaDigitalService
                      + $"{comFolga.Length} bytes disponíveis)");
     }
 
-    /// <summary>
-    /// Recorta o PKCS#7 do que veio com folga: o <c>/Contents</c> é dimensionado para o pior
-    /// caso ANTES de assinar e completado com zeros à direita.
-    ///
-    /// ⚠️ Quem diz onde o DER termina é o CABEÇALHO DELE — tag e comprimento —, nunca o
-    /// enchimento. A primeira versão cortava com <c>TrimEnd('0')</c>, que tira CARACTERES
-    /// '0' e não BYTES zero: uma assinatura terminada em <c>0x00</c> perdia o último byte
-    /// (os dois caracteres sumiam, o comprimento continuava par e o remendo de nibble ímpar
-    /// não repunha nada), e o <c>SignedCms.Decode</c> respondia <b>"ASN1 corrupted data"</b>
-    /// — indistinguível de arquivo adulterado.
-    ///
-    /// O último byte de um CMS é o último byte da assinatura RSA, ou seja é sorteado: dava
-    /// <b>uma folha a cada 256</b>. Raro o bastante para nunca cair num teste, frequente o
-    /// bastante para acontecer na clínica — e nada a ver com o certificado ser em nuvem ou
-    /// de token, embora tenha sido no SafeID que apareceu (14/08/2026), porque é a primeira
-    /// vez que este caminho roda fora dos testes.
-    /// </summary>
-    /// ⚠️ <b>E o PKCS#7 nem sempre vem em DER.</b> A primeira versão desta função lia o
-    /// cabeçalho à mão e RECUSAVA o comprimento indefinido (<c>30 80 … 00 00</c>), com um
-    /// comentário dizendo que "existe em BER, não em DER". A premissa estava errada onde
-    /// importa: o CMS é definido sobre <b>BER</b> (RFC 5652), e o SafeID devolve exatamente
-    /// assim — foi o que a clínica levou em 14/08/2026, com o cabeçalho
-    /// <c>30 80 06 09 2A 86 48 86…</c> (SEQUENCE indefinida, OID <c>1.2.840.113549.1.7.2</c>,
-    /// signedData). Os bytes estavam perfeitos; quem não sabia lê-los era este recorte.
-    ///
-    /// Por isso quem conta os bytes agora é o <see cref="AsnDecoder"/> do próprio .NET, em
-    /// BER: ele percorre a estrutura, acha o fim (inclusive o <c>00 00</c> do comprimento
-    /// indefinido) e devolve quantos bytes consumiu. Parser de ASN.1 escrito à mão é onde se
-    /// erra o caso que o fornecedor usa — e foi o que aconteceu.
-    /// </summary>
-    /// <returns>Os bytes exatos do PKCS#7, ou null quando a estrutura não é legível.</returns>
+    /// <summary>Recorta o CMS pelo comprimento ASN.1, aceitando BER e DER dos PDFs arquivados.
+    /// Não remover zeros finais: eles podem pertencer à própria assinatura.</summary>
     public static byte[]? RecortarAsn1(byte[] comFolga)
     {
         if (comFolga is null || comFolga.Length < 2) return null;

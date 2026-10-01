@@ -950,7 +950,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     private async Task<DocumentoAssinado?> AssinarAsync(
         IServiceScope scope, int documentoId, string numero)
     {
-        var certificado = EscolherCertificado?.Invoke(
+        using var certificado = EscolherCertificado?.Invoke(
             $"Assinar {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()} {numero}");
 
         if (certificado is null)

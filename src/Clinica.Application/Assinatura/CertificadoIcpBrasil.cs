@@ -18,26 +18,10 @@ public sealed record CertificadoAssinatura(
     string NumeroSerie,
     DateTime ValidoDe,
     DateTime ValidoAte,
-    string? Cpf)
+    string? Cpf) : IDisposable
 {
-    /// <summary>
-    /// Quem faz a conta da assinatura quando a chave NÃO está nesta máquina — o SafeID
-    /// (parcela 44). Nulo é o caminho de sempre: token ou arquivo, com a chave em mãos.
-    ///
-    /// Mora aqui, e não como parâmetro de quem manda assinar, porque é propriedade DESTE
-    /// certificado: um certificado em nuvem não vira local dependendo de quem o usa. A
-    /// alternativa era um parâmetro opcional atravessando dois serviços e quatro telas,
-    /// quase sempre nulo — e bastaria uma delas esquecer de repassá-lo para a assinatura
-    /// cair em silêncio no caminho local e morrer com "certificado sem chave privada", que
-    /// é a mensagem que menos ajuda a achar o defeito.
-    /// </summary>
-    public PdfSharp.Pdf.Signatures.IDigitalSigner? AssinadorRemoto { get; init; }
-
-    /// <summary>Está em nuvem: a chave privada não existe nesta máquina.</summary>
-    public bool EmNuvem => AssinadorRemoto is not null;
-
-    /// <summary>De onde ele veio — o seletor escreve isto na linha.</summary>
-    public string Procedencia => EmNuvem ? "SafeID — nuvem" : "nesta máquina";
+    public void Dispose() => Certificado.Dispose();
+    public string Procedencia => "arquivo A1";
 
     public bool Vigente => DateTime.Now >= ValidoDe && DateTime.Now <= ValidoAte;
 
@@ -88,39 +72,6 @@ public static class CertificadoIcpBrasil
     public const string OidResponsavelPj = "2.16.76.1.3.4";
 
     private const string OidSubjectAltName = "2.5.29.17";
-
-    /// <summary>
-    /// Certificados de assinatura instalados para o usuário do Windows — inclui o A1
-    /// (arquivo importado) e o A3 (token/cartão), porque o Windows expõe os dois pelo
-    /// mesmo repositório.
-    ///
-    /// Em Linux o repositório vem vazio, e isso é correto: os testes assinam com um
-    /// certificado construído na memória, e a suíte roda em Windows.
-    /// </summary>
-    public static IReadOnlyList<CertificadoAssinatura> DoRepositorioDoUsuario()
-    {
-        try
-        {
-            using var repositorio = new X509Store(StoreName.My, StoreLocation.CurrentUser);
-            repositorio.Open(OpenFlags.ReadOnly);
-
-            return repositorio.Certificates
-                .Where(PodeAssinar)
-                .Select(Ler)
-                .OrderByDescending(c => c.Vigente)
-                .ThenBy(c => c.Titular)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            // Degradar é certo (a máquina pode não ter repositório), sumir não é: sem o
-            // registro, "nenhum certificado encontrado" seria indistinguível de
-            // "nenhum certificado instalado", e o profissional procuraria o token na
-            // gaveta enquanto o problema é outro.
-            Diagnostico.Registrar("CertificadoIcpBrasil.DoRepositorioDoUsuario", ex);
-            return [];
-        }
-    }
 
     /// <summary>Certificado A1 vindo de arquivo <c>.pfx</c>/<c>.p12</c>.</summary>
     public static CertificadoAssinatura DeArquivo(string caminho, string senha)
@@ -262,7 +213,7 @@ public static class CertificadoIcpBrasil
     /// PrintableString ou UTF8String — aceitar os três custa três linhas e evita que o
     /// sistema recuse o certificado de uma AC inteira.
     /// </summary>
-    private static string? LerOtherName(byte[] extensaoSan, string oidAlvo)
+    internal static string? LerOtherName(byte[] extensaoSan, string oidAlvo)
     {
         var nomes = new AsnReader(extensaoSan, AsnEncodingRules.DER).ReadSequence();
 

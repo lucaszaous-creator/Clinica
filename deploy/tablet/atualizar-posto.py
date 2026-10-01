@@ -83,8 +83,7 @@ def status(s):
     return run(['systemctl','show',s,'-p','MainPID','--value'])
 
 consulta_credenciais_cifradas='''SELECT count(*) FROM "Configuracoes"
-    WHERE "Chave" IN ('SafeIDClientSecret','PublicacaoAccessKey','PublicacaoSecretKey','EmailSmtpSenha')
-    AND "Valor" LIKE 'enc:%' '''
+    WHERE "Valor" LIKE 'enc:%' '''
 
 def verificar_sem_credenciais_cifradas():
     if sql(consulta_credenciais_cifradas)!='0':
@@ -195,6 +194,7 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20261001140452_CertificadosA1Profissionais':'20260928211121_ChecagemNaoExecutavel',
         '20260928211121_ChecagemNaoExecutavel':'20260926120000_DevolucaoInfusaoExterna',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
         '20260923190924_EdicaoEnfermagemExclusiva':'20260922231000_HabilitacoesDoProfissional',
@@ -202,6 +202,7 @@ with tarfile.open(pacote) as tar:
         '20260928123100_AcompanhamentoPacientesBsvRecall':'20260926120000_DevolucaoInfusaoExterna',
     }
     arquivos_migracao={
+        '20261001140452_CertificadosA1Profissionais':'migracao-a1.sql',
         '20260928211121_ChecagemNaoExecutavel':'migracao-fluxos-enfermagem.sql',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'migracao-enfermagem.sql',
         '20260923190924_EdicaoEnfermagemExclusiva':'migracao-enfermagem.sql',
@@ -252,7 +253,7 @@ with open(dump,'xb') as f:
     dump.chmod(0o600)
     result=subprocess.run(['runuser','-u','postgres','--','pg_dump','-p','45432','-Fc','-d',database],stdout=f,stderr=subprocess.PIPE)
 assert result.returncode==0 and dump.stat().st_size>0
-protegidos=['postgresql@16-main','pgweb','cloudflared-site','clinica-safeid','clinica-safeid-hml','ssh','fail2ban',
+protegidos=['postgresql@16-main','pgweb','cloudflared-site','ssh','fail2ban',
             'clinica-tablet' if ambiente=='hml' else 'clinica-posto-hml']
 antes={s:status(s) for s in protegidos}
 conceder=[];revogar=[]
@@ -290,6 +291,11 @@ if sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
 elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
     conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
+if sql('SELECT to_regclass(\'"CertificadosA1"\') IS NOT NULL')=='t':
+    for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'CertificadosA1')
+elif migracao=='20261001140452_CertificadosA1Profissionais':
+    conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" TO {ident(role)};')
+    revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" FROM {ident(role)};')
 if migracao in ('20260928123100_AcompanhamentoPacientesBsvRecall','20260928211121_ChecagemNaoExecutavel'):
     # A migration é aplicada como postgres. O dono das tabelas do desktop também
     # precisa gravar o recall; conceder só ao portal deixa o Windows sem INSERT.

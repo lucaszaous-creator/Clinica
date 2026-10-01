@@ -12,23 +12,6 @@ using Xunit;
 
 namespace Clinica.Tests;
 
-/// <summary>
-/// A 2ª ASSINATURA — a eletrônica da ENFERMAGEM sobre o registro de execução (decisão da
-/// direção, 14/08/2026).
-///
-/// O que mudou, e o que NÃO mudou
-/// ------------------------------
-/// Até aqui a execução era assinada só à caneta, na via impressa — e nas folhas sem o
-/// campo marcado continua sendo (o teste do regime padrão mora em
-/// <c>PrescricaoInternaPdfTests</c>). O que a direção pediu é a ESCOLHA, folha a folha:
-/// marcada, a enfermeira sela o registro de execução com o certificado DELA, no
-/// encerramento.
-///
-/// A restrição que desenhou tudo: em PDF não se assina incrementalmente, então a 2ª
-/// assinatura NUNCA é no mesmo arquivo — são dois documentos encadeados, um por
-/// signatário. O motor congelado (AssinaturaDigitalService, SafeID) é reusado tal e qual;
-/// estes testes provam a ORQUESTRAÇÃO em volta dele.
-/// </summary>
 public partial class SegundaAssinaturaExecucaoTests : IDisposable
 {
     private readonly SqliteConnection _conn;
@@ -794,11 +777,6 @@ public partial class SegundaAssinaturaExecucaoTests : IDisposable
         return new X509Extension("2.5.29.17", escritor.Encode(), critical: false);
     }
 
-    /// <summary>
-    /// Grava a folha REAL quando <c>CLINICA_DUMP_PDF</c> aponta uma pasta — é como se
-    /// confere, de graça, o que só a folha montada mostra: onde cada carimbo caiu e se ele
-    /// sobrevive à impressão. Cada tentativa de assinatura no SafeID é COBRADA.
-    /// </summary>
     private static void Despejar(string nome, byte[] pdf)
     {
         var pasta = Environment.GetEnvironmentVariable("CLINICA_DUMP_PDF");

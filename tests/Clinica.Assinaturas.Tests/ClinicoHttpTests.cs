@@ -91,7 +91,7 @@ public sealed class ClinicoHttpTests
             Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/salvar",salvar)).StatusCode);
             var receita=await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/documentos",new {idempotencia=Guid.NewGuid(),tipo="receita",texto="Prescrição fictícia para teste"});
             Assert.Equal(HttpStatusCode.OK,receita.StatusCode);var doc=JsonNode.Parse(await receita.Content.ReadAsStringAsync())!;
-            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/documento/{doc["id"]}/safeid",new{confirmouAlergia=true})).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync($"/api/clinico/atendimentos/{id}/documento/{doc["id"]}/a1",new{confirmouAlergia=true})).StatusCode);
             var pdf=await client.GetAsync($"/api/clinico/atendimentos/{id}/documento/{doc["id"]}/pdf");
             Assert.Equal(HttpStatusCode.OK,pdf.StatusCode);Assert.Equal("application/pdf",pdf.Content.Headers.ContentType!.MediaType);
             Assert.Contains("no-store",pdf.Headers.CacheControl!.ToString());
@@ -131,7 +131,7 @@ public sealed class ClinicoHttpTests
                 var u=await db.Usuarios.SingleAsync(u=>u.Login=="medica.demo");u.PermissoesNegadas=Permissao.VerProntuario;await db.SaveChangesAsync();
             }
             Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync($"/api/clinico/atendimentos/{id}")).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/safeid/retorno?state="+new string('0',64)+"&code=ficticio")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync("/api/clinico/a1/00000000-0000-0000-0000-000000000000")).StatusCode);
         }
         finally
         {

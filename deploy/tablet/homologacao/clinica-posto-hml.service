@@ -1,7 +1,6 @@
 [Unit]
 Description=Posto clinico de homologacao - dados ficticios
-After=network.target postgresql.service clinica-safeid-hml.service
-Requires=clinica-safeid-hml.service
+After=network.target postgresql.service
 
 [Service]
 User=clinica-posto-hml
@@ -9,7 +8,6 @@ Group=clinica-tablet-proxy
 WorkingDirectory=/opt/clinica-posto-hml/current/app
 ExecStart=/opt/clinica-posto-hml/current/app/Clinica.Assinaturas.Api
 EnvironmentFile=/etc/clinica-posto-hml/portal.env
-EnvironmentFile=/etc/clinica-posto-hml/safeid.env
 Restart=on-failure
 RestartSec=15
 StateDirectory=clinica-posto-hml

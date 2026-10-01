@@ -1,3 +1,5 @@
+> Registro histórico. A integração descrita foi retirada em 01/10/2026. Para o fluxo atual, consulte [assinatura A1](assinatura-a1.md) e [relatório de remoção](remocao-provedor-assinatura.md).
+
 # Endereço na assinatura do portal
 
 A autorização de uma receita sem endereço no cadastro era bloqueada pela conferência de conteúdo. As mensagens controladas do serviço SafeID não usavam o marcador de validação pública, por isso a API devolvia uma frase genérica.

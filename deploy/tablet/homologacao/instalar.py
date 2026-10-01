@@ -21,7 +21,6 @@ pacote = pathlib.Path(sys.argv[1]).resolve()
 assert pacote.is_relative_to('/home/clinica-admin/tablet-stage')
 assert re.fullmatch('[a-f0-9]{64}', sys.argv[2])
 assert hashlib.sha256(pacote.read_bytes()).hexdigest() == sys.argv[2]
-assert CONF.joinpath('safeid.env').stat().st_mode & 0o777 == 0o600
 
 def run(args, **kw):
     result = subprocess.run(args, capture_output=True, text=True, **kw)
@@ -104,6 +103,8 @@ for privilege, tables in [('SELECT',leitura),('INSERT',inserir),('UPDATE',atuali
 commands.append(f'GRANT UPDATE ("UltimoAcessoEm","TentativasFalhas","BloqueadoAte") ON "Usuarios" TO "{ROLE}";')
 commands.append(f'GRANT SELECT ("Id") ON "Auditoria" TO "{ROLE}";') # INSERT RETURNING do EF, sem leitura do conteúdo de auditoria.
 commands.append(f'GRANT UPDATE ("Categoria") ON "Pacientes" TO "{ROLE}";') # Categoria recalculada pelo núcleo ao concluir e gerar guias.
+if sql(DB, 'SELECT to_regclass(\'"CertificadosA1"\') IS NOT NULL') == 't':
+    commands.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" TO "{ROLE}";')
 sql(DB,'\n'.join(commands))
 for table in inserir:
     sequence = sql(DB,f"SELECT pg_get_serial_sequence('\"{table}\"','Id');") if table not in ('EtapasFechamentoSessao','ViasAssinadasPaciente') else ''
@@ -122,15 +123,13 @@ Portal__Demo=false
 Portal__Homologacao=true
 Portal__Habilitado=true
 Portal__AtendimentoHabilitado=true
-Portal__SafeId__Habilitado=false
+Portal__A1__Habilitado=false
 Portal__Socket=/run/clinica-posto-hml/portal.sock
 Portal__Interface=/opt/clinica-posto-hml/current/portal
 Portal__DiretorioChaves=/var/lib/clinica-posto-hml/chaves
 Portal__CodigoTablet={code}
 Portal__Modelos__0=1
 Portal__Modelos__1=2
-HTTPS_PROXY=http://127.0.0.1:18743
-NO_PROXY=localhost,127.0.0.1
 ConnectionStrings__Clinica="Host=/var/run/postgresql;Port=45432;Database={DB};Username={ROLE};Timeout=10;Maximum Pool Size=5;Include Error Detail=false"
 ''')
 current=BASE/'current'
@@ -138,7 +137,7 @@ if current.is_symlink():
     assert current.resolve()==release
 else:
     current.symlink_to(release, target_is_directory=True)
-for unit in ('clinica-safeid-hml.service','clinica-posto-hml.service'):
+for unit in ('clinica-posto-hml.service',):
     pathlib.Path('/etc/systemd/system',unit).write_bytes((release/'configuracao/homologacao'/unit).read_bytes())
 run(['systemctl','daemon-reload'])
 run(['systemctl','enable','--now','clinica-posto-hml.service'])
@@ -149,6 +148,6 @@ for _ in range(30):
 assert health.returncode==0
 assert pathlib.Path('/opt/clinica-tablet/current').resolve()==production
 assert antes=={s:pid(s) for s in antes}
-report={'estado':'HOMOLOGACAO_PRIVADA_INSTALADA','banco':DB,'backend':manifest['backend'],'interface':manifest['interface'],'producao_preservada':True,'safeid_ativo':False}
+report={'estado':'HOMOLOGACAO_PRIVADA_INSTALADA','banco':DB,'backend':manifest['backend'],'interface':manifest['interface'],'producao_preservada':True,'a1_ativo':False}
 pathlib.Path('/home/clinica-admin/tablet-stage/resultado-posto.json').write_text(json.dumps(report))
 print(json.dumps(report))

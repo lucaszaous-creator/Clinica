@@ -2,13 +2,6 @@ using Clinica.Application.Abstracoes;
 
 namespace Clinica.Application.Servicos;
 
-/// <summary>
-/// De onde as credenciais do armazenamento saem em tempo de execução (parcela 53).
-///
-/// Gêmeo do <c>ProvedorOpcoesSafeID</c>, e de propósito: são o mesmo problema — segredo de
-/// serviço externo que precisa alcançar várias máquinas sem ritual de instalação em cada
-/// uma. Ambiente vence banco; ausência é resposta, não falha.
-/// </summary>
 public sealed class ProvedorOpcoesArmazenamento
 {
     private readonly ParametrosService _parametros;

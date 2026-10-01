@@ -927,6 +927,42 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("CategoriasFinanceiras");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.CertificadoA1Profissional", b =>
+                {
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("ArquivoProtegido")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ImpressaoDigital")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Titular")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("ValidoAte")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UsuarioId");
+
+                    b.HasIndex("ProfissionalId");
+
+                    b.ToTable("CertificadosA1", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.ChecagemCuidado", b =>
                 {
                     b.Property<int>("Id")
@@ -5690,6 +5726,21 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Profissional");
 
                     b.Navigation("Sala");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.CertificadoA1Profissional", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Profissional", null)
+                        .WithMany()
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ChecagemCuidado", b =>

@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Email;
-using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Application.Servicos;
@@ -107,24 +106,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string? _carimbadoraDeTempo;
 
-    // SafeID (parcela 44): as credenciais da APLICAÇÃO no PSC, cadastradas aqui uma vez e
-    // lidas por todas as máquinas. É o que evita ter de configurar cada consultório à mão.
-    [ObservableProperty] private string? _safeIdClientId;
-    [ObservableProperty] private string? _safeIdClientSecret;
-    [ObservableProperty] private bool _safeIdHomologacao;
 
-    /// <summary>
-    /// As credenciais estão vindo de variável de ambiente, que vence o banco. Enquanto for
-    /// verdade, os campos desta tela são só leitura e a tela DIZ por quê — deixar editar o
-    /// que não terá efeito, e ainda confirmar "salvo", é pior do que não oferecer o campo.
-    /// </summary>
-    [ObservableProperty] private bool _safeIdVemDoAmbiente;
-
-    /// <summary>Negado para o XAML amarrar `IsEnabled` sem precisar de conversor.</summary>
-    public bool SafeIdEditavel => !SafeIdVemDoAmbiente;
-
-    partial void OnSafeIdVemDoAmbienteChanged(bool value)
-        => OnPropertyChanged(nameof(SafeIdEditavel));
 
     // ---- Publicação do documento assinado (parcela 53) ----
     //
@@ -150,7 +132,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     [ObservableProperty] private string? _armazenamentoChave;
     [ObservableProperty] private string? _armazenamentoSegredo;
 
-    /// <summary>Mesma regra do SafeID: ambiente em vigor deixa os campos só de leitura.</summary>
     [ObservableProperty] private bool _armazenamentoVemDoAmbiente;
 
     /// <summary>Negado para o XAML amarrar `IsEnabled` sem precisar de conversor.</summary>
@@ -168,11 +149,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
 
     [ObservableProperty] private bool _testandoConexao;
 
-    /// <summary>
-    /// Negado para o XAML, pela mesma razão de <c>SafeIdEditavel</c>: a suíte não tem
-    /// conversor de booleano invertido, e inventar um para um botão só espalharia peça de
-    /// design system que ninguém mais usa.
-    /// </summary>
     public bool PodeTestarConexao => !TestandoConexao;
 
     /// <summary>
@@ -293,27 +269,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             GuiaNoAgendamento = _guiaNoAgendamentoGravada = await p.GuiaNoAgendamentoAsync();
             await CarregarConclusaoAsync();
 
-            // A variável de ambiente VENCE o banco (caminho de teste). Quando ela está em
-            // vigor, esta tela passa a mostrar o que o ambiente manda e avisa que é assim —
-            // senão a direção desmarcaria a caixa, salvaria, e nada mudaria: campo que
-            // aceita edição e não tem efeito é a pior variante do botão que não faz nada,
-            // porque o sistema confirma que salvou.
-            var doAmbiente = ConfiguracaoSafeID.DoAmbiente();
-            SafeIdVemDoAmbiente = doAmbiente is not null;
-
-            if (doAmbiente is not null)
-            {
-                SafeIdClientId = doAmbiente.ClientId;
-                SafeIdClientSecret = "(definido por variável de ambiente)";
-                SafeIdHomologacao = doAmbiente.Base == OpcoesSafeID.BaseHomologacao;
-            }
-            else
-            {
-                var safeId = await p.ObterCredenciaisSafeIDAsync();
-                SafeIdClientId = safeId.ClientId;
-                SafeIdClientSecret = safeId.ClientSecret;
-                SafeIdHomologacao = ConfiguracaoSafeID.EhHomologacao(safeId.Ambiente);
-            }
             await CarregarPublicacaoAsync(p);
             await CarregarTelasAsync(p);
             await CarregarEmailAsync(p);
@@ -385,17 +340,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
                     + "(ex.: https://act.exemplo.com.br/tsa). Deixe em branco se a clínica "
                     + "não tiver ACT contratada.");
 
-            // Meia credencial do SafeID é recusada aqui. Aceitá-la faria a opção de assinar
-            // em nuvem aparecer na tela de quem assina e falhar no clique — e o profissional
-            // não tem como adivinhar que o problema mora numa tela do Gerente.
-            var clientId = Limpar(SafeIdClientId);
-            var clientSecret = Limpar(SafeIdClientSecret);
-
-            if (!SafeIdVemDoAmbiente && clientId is null != (clientSecret is null))
-                throw new InvalidOperationException(
-                    "O SafeID precisa do client_id E do client_secret. Preencha os dois, ou "
-                    + "deixe os dois em branco para assinar apenas com certificado da máquina.");
-
             await p.SalvarJornadaDiariaAsync(jornada);
             await p.SalvarDiasInatividadeRecallAsync(recall);
             await p.SalvarCarimbadoraDeTempoAsync(carimbadora);
@@ -408,17 +352,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
                 await p.DefinirGuiaNoAgendamentoAsync(GuiaNoAgendamento);
                 _guiaNoAgendamentoGravada = GuiaNoAgendamento;
             }
-            // Com a variável de ambiente em vigor, os campos mostram o que ELA manda — e o
-            // do segredo mostra um texto explicativo, não o segredo. Gravar isso apagaria a
-            // credencial real da clínica no banco no dia em que a variável fosse removida.
-            if (!SafeIdVemDoAmbiente)
-                await p.SalvarCredenciaisSafeIDAsync(
-                    clientId, clientSecret, SafeIdHomologacao ? "homologacao" : "producao");
-
-            return SafeIdVemDoAmbiente
-                ? "Operação e marketing salvos. O SafeID não foi alterado: ele está vindo de "
-                  + "variável de ambiente desta máquina."
-                : "Operação e marketing salvos.";
+            return "Operação e marketing salvos.";
         });
 
     private async Task CarregarPublicacaoAsync(ParametrosService p)
@@ -426,8 +360,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         DominioPublicacao = await p.ObterUrlPublicacaoAsync();
         DiasPublicacao = (await p.ObterDiasPublicacaoAsync()).ToString();
 
-        // O ambiente vence o banco, como no SafeID — e a tela precisa DIZER isso, senão a
-        // direção edita, salva, recebe "salvo" e nada muda.
         ArmazenamentoVemDoAmbiente = ProvedorOpcoesArmazenamento.VemDoAmbiente();
 
         if (OpcoesArmazenamento.DoAmbiente() is { } doAmbiente)
@@ -519,8 +451,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             var chave = Limpar(ArmazenamentoChave);
             var segredo = Limpar(ArmazenamentoSegredo);
 
-            // Meia credencial é recusada pelo mesmo motivo do SafeID: aceitá-la faria a
-            // publicação parecer ligada e falhar no clique de quem está assinando.
             var preenchidos = new[] { endpoint, bucket, chave, segredo }.Count(c => c is not null);
             if (!ArmazenamentoVemDoAmbiente && preenchidos is > 0 and < 4)
                 throw new InvalidOperationException(
@@ -530,9 +460,6 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             await p.SalvarUrlPublicacaoAsync(dominio);
             await p.SalvarDiasPublicacaoAsync(dias);
 
-            // Com o ambiente em vigor, o campo do segredo mostra um texto explicativo e não
-            // o segredo. Gravá-lo apagaria a credencial real da clínica no dia em que a
-            // variável fosse removida — a mesma armadilha do SafeID.
             if (!ArmazenamentoVemDoAmbiente)
                 await p.SalvarCredenciaisArmazenamentoAsync(
                     endpoint, Limpar(ArmazenamentoRegiao), bucket, chave, segredo);

@@ -1,3 +1,5 @@
+> Registro histórico. A integração descrita foi retirada em 01/10/2026. Para o fluxo atual, consulte [assinatura A1](assinatura-a1.md) e [relatório de remoção](remocao-provedor-assinatura.md).
+
 # ⛔ CONGELADO: SafeID e assinatura digital
 
 **Decisão da direção, 14/08/2026. Não encoste em nada relativo ao SafeID e à assinatura

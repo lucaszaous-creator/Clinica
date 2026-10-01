@@ -247,30 +247,6 @@ public class PrescricaoInterna
     public string? Observacoes { get; set; }
     public string? ObservacoesFormatadas { get; set; }
 
-    /// <summary>
-    /// O "campo de 2ª assinatura" (decisão da direção, 14/08/2026): marcado, a enfermagem
-    /// também assina eletronicamente — o REGISTRO DE EXECUÇÃO, no encerramento, com o
-    /// certificado DELA.
-    ///
-    /// Por que é uma escolha por folha, e não regra da clínica: nem toda técnica tem
-    /// e-CPF/SafeID, e uma exigência global travaria o encerramento da sala inteira no dia
-    /// em que o certificado de alguém vencesse. Quem prescreve decide, folha a folha — e
-    /// desmarcado, vale o regime de sempre: a enfermeira assina à caneta, na via impressa.
-    ///
-    /// Por que a assinatura é no ENCERRAMENTO, e nunca antes: o registro de execução MUDA
-    /// a cada item checado. Assinar antes selaria um arquivo que ainda ia mudar — a mesma
-    /// razão pela qual a prescritora não assina rascunho.
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ <b>Nasce MARCADO</b> (decisão da clínica, 20/08/2026). Ele nasceu desmarcado, e a
-    /// consequência apareceu em produção: a folha PRE 2026/0009 foi encerrada sem a
-    /// assinatura da enfermagem porque ninguém marcou a caixinha, e a clínica leu isso como
-    /// "o sistema não pede quando tem item não realizado" — que não é verdade, mas era o
-    /// que ela via. <b>Garantia que depende de alguém lembrar não é garantia.</b>
-    ///
-    /// Desmarcar continua existindo, e continua sendo de quem prescreve: é a folha que vai
-    /// ser assinada à caneta. O que mudou é o lado para o qual o esquecimento cai.
-    /// </remarks>
     public bool ExigeAssinaturaEletronicaDaExecucao { get; set; } = true;
 
     public DateTime? AssinadaEm { get; set; }

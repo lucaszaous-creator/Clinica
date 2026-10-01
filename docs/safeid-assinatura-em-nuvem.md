@@ -1,3 +1,5 @@
+> Registro histórico. A integração descrita foi retirada em 01/10/2026. Para o fluxo atual, consulte [assinatura A1](assinatura-a1.md) e [relatório de remoção](remocao-provedor-assinatura.md).
+
 # SafeID: assinar em nuvem e entrar no sistema com o certificado
 
 Projeto da integração do **SafeID** (Safeweb), o certificado A3 em nuvem que a médica já tem

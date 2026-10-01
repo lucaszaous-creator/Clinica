@@ -17,8 +17,8 @@ class RegrasPublicacaoTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.portal = self.base / "portal.env"
-        self.safeid = self.base / "safeid.env"
-        self.safeid.write_text("PORTAL_SAFEID_CLIENT_ID=id\n", encoding="utf-8")
+        self.adicional = self.base / "adicional.env"
+        self.adicional.write_text("EXEMPLO_CONFIGURACAO=valor\n", encoding="utf-8")
 
     def tearDown(self):
         self.temp.cleanup()
@@ -105,11 +105,11 @@ class RegrasPublicacaoTests(unittest.TestCase):
             self.verificar("", environment=f"PassEnvironment={FLAG_CRIPTOGRAFIA}\n")
 
     def test_environmentfile_adicional_tambem_e_verificado(self):
-        self.safeid.write_text(f"{FLAG_CRIPTOGRAFIA}=true\n", encoding="utf-8")
+        self.adicional.write_text(f"{FLAG_CRIPTOGRAFIA}=true\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "ativa"):
             self.verificar(
                 f"{FLAG_CRIPTOGRAFIA}=false\n",
-                arquivos=f"EnvironmentFile={self.safeid.as_posix()}\n",
+                arquivos=f"EnvironmentFile={self.adicional.as_posix()}\n",
             )
 
     def test_atualizador_recusa_python_otimizado(self):

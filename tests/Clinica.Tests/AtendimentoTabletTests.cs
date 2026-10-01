@@ -205,18 +205,6 @@ public sealed partial class AtendimentoTabletTests : IDisposable
         db.Evolucoes.AddRange(Enumerable.Range(0,2).Select(_=>new Evolucao {PacienteId=horario.PacienteId,AgendamentoId=horario.Id,ProfissionalId=usuario.ProfissionalId,Data=svc.Hoje,TextoEvolucao="Fictícia"}));await db.SaveChangesAsync();
         await Assert.ThrowsAsync<ConflitoClinicoTablet>(()=>svc.AbrirAsync(sessao,horario.Id,default));
     }
-    [Fact] public void Safeid_amarrado_a_sessao_state_unico_e_expiracao()
-    {
-        var store=new AutorizacoesSafeIdTablet(tempo);var a=store.Criar("sessao-A",1,2,"documento","hash",false);
-        Assert.Throws<RecursoClinicoIndisponivel>(()=>store.Obter(a.Id,"sessao-B"));
-        Assert.Throws<RecursoClinicoIndisponivel>(()=>store.Receber(new string('0',64),"codigo",null));
-        Assert.Equal(a.Id,store.Receber(a.Estado,"codigo",null));
-        Assert.Throws<RecursoClinicoIndisponivel>(()=>store.Receber(a.Estado,"codigo",null));
-        store.Obter(a.Id,"sessao-A",true);
-        Assert.Throws<ConflitoClinicoTablet>(()=>store.Obter(a.Id,"sessao-A",true));
-        store.Concluir(a,true);Assert.Null(a.Codigo);
-        tempo.Avancar(TimeSpan.FromMinutes(6));Assert.Throws<RecursoClinicoIndisponivel>(()=>store.Obter(a.Id,"sessao-A"));
-    }
     private sealed class Relogio : TimeProvider
     {private DateTimeOffset agora=new(2026,9,16,14,0,0,TimeSpan.Zero);public override DateTimeOffset GetUtcNow()=>agora;public void Avancar(TimeSpan t)=>agora+=t;}
 }

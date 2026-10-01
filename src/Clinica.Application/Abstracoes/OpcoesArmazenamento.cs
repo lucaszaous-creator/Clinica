@@ -2,31 +2,6 @@ using System.Net;
 
 namespace Clinica.Application.Abstracoes;
 
-/// <summary>
-/// As credenciais do armazenamento S3-compatível em vigor (parcela 53).
-///
-/// De onde elas saem
-/// -----------------
-/// <b>Do banco, com o ambiente podendo sobrepor</b> — o precedente do
-/// <c>ProvedorOpcoesSafeID</c> (parcela 44). Cadastrar em Configurações uma vez alcança
-/// todas as máquinas; exigir variável de ambiente obrigaria a abrir o Prompt de Comando em
-/// cada consultório, e a publicação falharia CALADA justamente na máquina que ninguém
-/// configurou.
-///
-/// O ambiente vence porque é assim que se testa um build sem escrever na base da clínica —
-/// a mesma regra de <c>ConnectionStrings__Clinica</c> (ver <c>docs/testar-sem-publicar.md</c>).
-/// </summary>
-/// <param name="Endpoint">
-/// Endereço do PROVEDOR (ex.: <c>https://br-se1.magaluobjects.com</c>). Não confundir com o
-/// domínio da clínica: aquele é o nome público que vai no QR, este é para onde o sistema
-/// escreve. São dois campos porque são duas coisas — e é justamente essa separação que
-/// permite trocar de provedor sem matar os QR já assinados.
-/// </param>
-/// <param name="Regiao">
-/// Região do provedor. Vários S3-compatíveis ignoram, mas o SDK exige um valor para assinar
-/// a requisição; por isso há padrão em vez de campo obrigatório.
-/// </param>
-/// <param name="Bucket">Balde onde os objetos são gravados.</param>
 public sealed record OpcoesArmazenamento(
     string Endpoint,
     string Regiao,
@@ -81,11 +56,6 @@ public sealed record OpcoesArmazenamento(
             && !IPAddress.TryParse(host, out _);
     }
 
-    /// <summary>
-    /// As opções vindas do ambiente, ou <c>null</c>. Responde INTEIRO ou não responde:
-    /// misturar a chave do ambiente com o segredo do banco produziria um par que não existe
-    /// em lugar nenhum — a mesma decisão do SafeID.
-    /// </summary>
     public static OpcoesArmazenamento? DoAmbiente()
         => De(Var("ENDPOINT"), Var("REGIAO"), Var("BUCKET"), Var("CHAVE"), Var("SEGREDO"));
 
