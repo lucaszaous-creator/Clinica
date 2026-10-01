@@ -108,3 +108,20 @@ compartilhado dessas autorizações antes de habilitar.
 
 Testes sintéticos e compilação não confirmam interoperabilidade com o A1 real da
 cliente, a configuração da infraestrutura ou certificação regulatória do sistema.
+
+## Compatibilidade com o ambiente de 01/10
+
+A versão A1 incorpora a correção clínica já instalada no servidor: novas prescrições
+reservam campos de execução antes da primeira assinatura e recebem a segunda assinatura
+por revisão incremental. PDFs anteriores continuam com seus bytes originais e, quando
+existente, com a folha de execução separada acessível.
+
+O atualizador reconhece explicitamente o identificador histórico
+`20261001015315_ConclusaoAutomaticaSafeId` como antecessor permitido. Essa referência
+é somente compatibilidade com a migration já aplicada: não reativa integração, serviço
+ou credencial do antigo provedor. A tabela histórica correspondente é preservada.
+
+Na infraestrutura atual, o serviço de homologação só tem acesso de rede ao localhost.
+A consulta online de revogação do A1 exige liberação dos endereços oficiais indicados
+no certificado do titular. Enquanto isso não for conferido, a aceitação real permanece
+pendente e a validação deve continuar bloqueando qualquer cadeia não verificável.

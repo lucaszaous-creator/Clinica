@@ -555,17 +555,16 @@ public partial class SegundaAssinaturaExecucaoTests : IDisposable
         daExecucao.ArquivoId.Should().NotBeNull("a prescrição leva os dois carimbos");
         daExecucao.ArquivoRegistroId.Should().NotBeNull(
             "e o registro — a folha que MOSTRA o que foi feito — sai selado também");
-        daExecucao.ArquivoRegistroId.Should().NotBe(daExecucao.ArquivoId,
-            "são dois documentos, não o mesmo arquivo gravado duas vezes");
+        daExecucao.ArquivoRegistroId.Should().Be(daExecucao.ArquivoId,
+            "a prescrição única contém também a execução assinada");
 
         // A folha do registro devolve os BYTES SELADOS e confere sozinha.
         var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
         folha.Assinatura.Should().NotBeNull();
         folha.Conferencia!.Conferida.Should().BeTrue();
         folha.Conferencia.Integra.Should().BeTrue();
-        _assinador.ConferirTodas(folha.Pdf).Should().ContainSingle(
-            "o registro é assinado UMA vez, pela enfermagem — a médica não assina um "
-            + "documento que ainda não existia quando ela assinou");
+        _assinador.ConferirTodas(folha.Pdf).Should().HaveCount(2,
+            "a via de execução é a mesma prescrição, com as duas assinaturas");
 
         // E a prescrição continua sendo a folha das DUAS.
         var daPrescricao = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);

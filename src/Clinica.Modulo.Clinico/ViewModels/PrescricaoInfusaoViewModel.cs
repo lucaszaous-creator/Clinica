@@ -28,6 +28,7 @@ public sealed class LinhaPrescricaoInterna
 
     /// <summary>Já houve execução registrada — a folha de registro tem o que mostrar.</summary>
     public required bool TemRegistroExecucao { get; init; }
+    public bool ExibirRegistroSeparado { get; init; }
 
     /// <summary>Só rascunho se cancela — depois de executada a folha é registro de um fato.</summary>
     public required bool PodeCancelar { get; init; }
@@ -58,6 +59,7 @@ public sealed class LinhaPrescricaoInterna
             Codigo = p.CodigoVerificacao,
             Cancelada = p.Cancelada,
             TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
+            ExibirRegistroSeparado = !p.ExigeAssinaturaEletronicaDaExecucao,
             // O estado da linha COMPÕE com a permissão (parcela 61): sem o bit, o botão
             // ficava aceso e o clique estourava no Exigir — botão aceso que só explode é
             // o defeito da parcela 41. O Exigir do comando continua sendo a barreira que

@@ -16,12 +16,12 @@ public static class EtapasInfusao
         var medico = p.Assinaturas.FirstOrDefault(a => a.Papel == PapelAssinatura.Prescritor);
         var enfermagem = p.AssinaturaDaExecucao;
         var assinadaEnfermagem = enfermagem?.ArquivoId is not null;
-        var arquivoExecucao = assinadaEnfermagem && enfermagem?.ArquivoRegistroId is not null;
+        var arquivoExecucao = assinadaEnfermagem;
         var encerrada = p.EncerradaEm is not null || p.Situacao == SituacaoPrescricao.Encerrada;
         var assinadaMedico = p.AssinadaEm is not null;
         var papel = !p.ExigeAssinaturaEletronicaDaExecucao && !p.OrigemEnfermagem && enfermagem is null;
         var assinaturaTitulo = papel ? "Conferir assinatura na via impressa"
-            : assinadaEnfermagem && !arquivoExecucao ? "Arquivar folha da execução"
+            : enfermagem is not null && !arquivoExecucao ? "Documento indisponível"
             : "Assinatura da enfermagem";
         var passos = new List<(string Codigo, string Titulo, bool Feita)>();
         if (p.OrigemEnfermagem)
@@ -38,14 +38,14 @@ public static class EtapasInfusao
             passos.Add(("execucao", p.ExecucaoCompleta && !encerrada ? "Encerrar execução" : "Execução e encerramento", encerrada));
             passos.Add(("enfermagem", assinaturaTitulo, arquivoExecucao));
         }
-        passos.Add(("conclusao", "Concluída · documentos arquivados", encerrada && arquivoExecucao
+        passos.Add(("conclusao", "Concluída · prescrição salva", encerrada && arquivoExecucao
             && assinadaMedico && medico?.ArquivoId is not null && p.DevolvidaEm is null && !p.Cancelada));
         bool encontrouAtual = false;
         return passos.Select(e => {
             var atual = !e.Feita && !encontrouAtual && !p.Cancelada;
             if (atual) encontrouAtual = true;
             return new EtapaInfusao(e.Codigo, e.Titulo, e.Feita, atual,
-                atual && (e.Codigo == "revisao" || e.Codigo == "enfermagem" && (papel || assinadaEnfermagem && !arquivoExecucao)));
+                atual && (e.Codigo == "revisao" || e.Codigo == "enfermagem" && (papel || enfermagem is not null && !arquivoExecucao)));
         }).ToArray();
     }
 }

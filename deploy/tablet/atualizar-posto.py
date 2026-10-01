@@ -213,6 +213,9 @@ with tarfile.open(pacote) as tar:
     if migracao:
         ultima=sql('SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY "MigrationId" DESC LIMIT 1')
         permitidas={anteriores_migracao[migracao],migracao}
+        if migracao=='20261001140452_CertificadosA1Profissionais':
+            # Identificador imutável já aplicado: preservar o histórico, sem reativar o provedor.
+            permitidas.add('20261001015315_ConclusaoAutomaticaSafeId')
         if migracao=='20260928211121_ChecagemNaoExecutavel':
             permitidas.update({'20260928123100_AcompanhamentoPacientesBsvRecall','20260928210520_DiluicaoUnicaInfusao'})
         assert ultima in permitidas,'Base mudou; conferir antes de migrar'

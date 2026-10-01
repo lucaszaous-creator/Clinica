@@ -104,3 +104,19 @@ Preservar o armazenamento de PDFs e os metadados clínicos durante essa etapa.
 
 Ainda é necessário homologar o A1 real da cliente e conferir um PDF real já
 arquivado, com autorização e acesso apropriados, antes de ativar em produção.
+
+## Preparação de homologação em 01/10/2026
+
+O pré-voo identificou uma correção clínica posterior à base da remoção. Foram
+incorporados os campos incrementais de execução, a prescrição com duas assinaturas
+e os horários individuais já disponíveis no ambiente instalado. Os testes seguintes
+passaram: 2.873 do núcleo, 21 da API e 17 de configuração de publicação.
+A compilação do aplicativo clínico e a verificação de 219 XAML também passaram.
+O Jev revisou a integridade incremental e a preservação do formato antigo sem
+apontar defeito concreto; isso não substitui o aceite do certificado real.
+
+A guarda de publicação aceita também o identificador imutável da migration
+histórica `20261001015315_ConclusaoAutomaticaSafeId`. Essa é a única referência
+de compatibilidade adicionada ao atualizador; a integração permanece retirada.
+Não se excluem migrations já aplicadas, tabelas históricas ou PDFs para remover
+uma referência textual. A varredura de código considera essa exceção explícita.

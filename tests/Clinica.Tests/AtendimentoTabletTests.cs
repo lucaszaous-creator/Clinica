@@ -205,6 +205,7 @@ public sealed partial class AtendimentoTabletTests : IDisposable
         db.Evolucoes.AddRange(Enumerable.Range(0,2).Select(_=>new Evolucao {PacienteId=horario.PacienteId,AgendamentoId=horario.Id,ProfissionalId=usuario.ProfissionalId,Data=svc.Hoje,TextoEvolucao="Fictícia"}));await db.SaveChangesAsync();
         await Assert.ThrowsAsync<ConflitoClinicoTablet>(()=>svc.AbrirAsync(sessao,horario.Id,default));
     }
+
     private sealed class Relogio : TimeProvider
     {private DateTimeOffset agora=new(2026,9,16,14,0,0,TimeSpan.Zero);public override DateTimeOffset GetUtcNow()=>agora;public void Avancar(TimeSpan t)=>agora+=t;}
 }
