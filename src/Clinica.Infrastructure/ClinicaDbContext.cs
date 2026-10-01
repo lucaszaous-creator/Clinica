@@ -121,6 +121,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
+    public DbSet<OperacaoAssinaturaTablet> OperacoesAssinaturaTablet => Set<OperacaoAssinaturaTablet>();
     public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
     public DbSet<ColetaTablet> ColetasTablet => Set<ColetaTablet>();
     public DbSet<ViaAssinadaPaciente> ViasAssinadasPaciente => Set<ViaAssinadaPaciente>();

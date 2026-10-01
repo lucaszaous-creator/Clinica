@@ -70,7 +70,7 @@ internal static class RotasAtendimentoTablet
             return Results.File(await pdf.GerarAsync(documento,await parametros.ObterPrestadorAsync(c.RequestAborted),c.RequestAborted),"application/pdf",$"documento-{documento}.pdf");
         });
         grupo.MapGet("/safeid",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService acesso,SafeIdTabletService svc)=>
-        {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {habilitado=svc.Habilitado});});
+        {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {habilitado=svc.Habilitado,conclusaoAutomatica=svc.ConclusaoAutomatica});});
         grupo.MapGet("/atendimentos/{id:int}/documento/{documento:int}/safeid/endereco",
             async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento)
                 => Results.Ok(await svc.ConferirAsync(await sessao(c,portal),id,documento,c.RequestAborted)));
@@ -79,18 +79,25 @@ internal static class RotasAtendimentoTablet
             { await svc.CompletarAsync(await sessao(c,portal),id,documento,pedido.Endereco,c.RequestAborted); return Results.NoContent(); });
         grupo.MapPost("/atendimentos/{id:int}/{tipo}/{documento:int}/safeid", async(HttpContext c,PortalTabletService portal,
             SafeIdTabletService svc,int id,string tipo,int documento,PedidoSafeIdTablet pedido)
-            => Results.Ok(await svc.IniciarAsync(await sessao(c,portal),id,tipo,documento,pedido.ConfirmouAlergia,c.RequestAborted)));
-        // O retorno não assina: state/PKCE são de uso único; assinatura exige a sessão original e CSRF em POST.
-        app.MapGet("/safeid/retorno", (HttpContext c, AutorizacoesSafeIdTablet autorizacoes, string? state,string? code,string? error) =>
+            => Results.Ok(await svc.IniciarAsync(await sessao(c,portal),id,tipo,documento,pedido.ConfirmouAlergia,c.RequestAborted,pedido.ConcluirAutomaticamente)));
+        // O retorno conclui apenas a intenção automática confirmada ANTES do SafeID.
+        // Nenhum cookie, parâmetro novo ou segundo clique é exigido no redirecionamento.
+        app.MapGet("/safeid/retorno", async(SafeIdTabletService svc,string? state,string? code,string? error) =>
         {
             if(state is null) throw new RecursoClinicoIndisponivel();
-            var id=autorizacoes.Receber(state,code,error);
+            var id=await svc.ReceberRetornoAsync(state,code,error);
             return Results.Redirect("/profissional/?assinatura="+id);
         });
         grupo.MapGet("/safeid/{id:guid}", async(HttpContext c,PortalTabletService portal,AtendimentoTabletService svc,
-            AutorizacoesSafeIdTablet autorizacoes,Guid id) =>
+            AutorizacoesSafeIdTablet autorizacoes,RegistroAssinaturaTablet registro,Guid id) =>
         {
             var s=await sessao(c,portal); await svc.AutorizarAsync(s,c.RequestAborted,Permissao.VerProntuario);
+            var op=await registro.ObterAsync(id,s.Id,c.RequestAborted);
+            if(op is not null)
+            {
+                var (_,pacienteAuto)=await svc.ExigirDocumentoAsync(s,op.Agendamento,op.Tipo,op.Documento,false,c.RequestAborted);
+                return Results.Ok(new {op.Id,op.Agendamento,op.Documento,op.Tipo,op.Situacao,PacienteId=pacienteAuto,ConclusaoAutomatica=true});
+            }
             var a=autorizacoes.Obter(id,s.Id);
             var (_,paciente)=await svc.ExigirDocumentoAsync(s,a.Agendamento,a.Tipo,a.Documento,true,c.RequestAborted);
             return Results.Ok(new {a.Id,a.Agendamento,a.Documento,a.Tipo,a.Situacao,PacienteId=paciente});
@@ -99,5 +106,5 @@ internal static class RotasAtendimentoTablet
             => Results.Ok(await svc.ConcluirAsync(await sessao(c,portal),id,c.RequestAborted)));
     }
 }
-public sealed record PedidoSafeIdTablet(bool ConfirmouAlergia);
+public sealed record PedidoSafeIdTablet(bool ConfirmouAlergia, bool ConcluirAutomaticamente = false);
 public sealed record EnderecoPrescricaoTablet(string? Endereco);

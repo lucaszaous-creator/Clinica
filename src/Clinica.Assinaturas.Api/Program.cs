@@ -81,6 +81,8 @@ builder.Services.AddScoped<AssinaturaDeDocumentoClinicoService>();
 builder.Services.AddScoped<AssinaturaDePrescricaoService>();
 builder.Services.AddSingleton<AutorizacoesSafeIdTablet>();
 builder.Services.AddScoped<SafeIdTabletService>();
+builder.Services.AddScoped<RegistroAssinaturaTablet>();
+builder.Services.AddHttpClient("SafeIdTablet").ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect=false, UseCookies=false });
 builder.Services.AddScoped<EnderecoPrescricaoTabletService>();
 builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);

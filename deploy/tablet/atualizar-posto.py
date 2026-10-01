@@ -195,6 +195,7 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20261001015315_ConclusaoAutomaticaSafeId':'20260928211121_ChecagemNaoExecutavel',
         '20260928211121_ChecagemNaoExecutavel':'20260926120000_DevolucaoInfusaoExterna',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
         '20260923190924_EdicaoEnfermagemExclusiva':'20260922231000_HabilitacoesDoProfissional',
@@ -202,6 +203,7 @@ with tarfile.open(pacote) as tar:
         '20260928123100_AcompanhamentoPacientesBsvRecall':'20260926120000_DevolucaoInfusaoExterna',
     }
     arquivos_migracao={
+        '20261001015315_ConclusaoAutomaticaSafeId':'migracao-safeid-automatico.sql',
         '20260928211121_ChecagemNaoExecutavel':'migracao-fluxos-enfermagem.sql',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'migracao-enfermagem.sql',
         '20260923190924_EdicaoEnfermagemExclusiva':'migracao-enfermagem.sql',
@@ -324,6 +326,14 @@ if migracao in ('20260928123100_AcompanhamentoPacientesBsvRecall','2026092821112
                 if not existe or sql(f"SELECT has_sequence_privilege('{role}','{sequence}','{priv}')")!='t':
                     conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(role)};')
                     revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(role)};')
+if migracao=='20261001015315_ConclusaoAutomaticaSafeId':
+    tabela='OperacoesAssinaturaTablet'
+    existe=sql(f"SELECT to_regclass('{ident(tabela)}') IS NOT NULL")=='t'
+    for priv in ('SELECT','INSERT','UPDATE'):
+        if existe:grant(priv,tabela)
+        else:
+            conceder.append(f'GRANT {priv} ON {ident(tabela)} TO {ident(role)};')
+            revogar.append(f'REVOKE {priv} ON {ident(tabela)} FROM {ident(role)};')
 privado(backup/'permissoes-aplicar.sql','\n'.join(conceder))
 privado(backup/'permissoes-recuar.sql','\n'.join(revogar))
 privado(backup/'release-anterior.txt',anterior)

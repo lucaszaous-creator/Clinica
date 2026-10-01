@@ -21,6 +21,7 @@ public sealed class AutorizacoesSafeIdTablet(TimeProvider tempo)
         public required string ConteudoHash { get; init; }
         public required long ExpiraEm { get; init; }
         public bool ConfirmouAlergia { get; init; }
+        public bool ConclusaoAutomatica { get; init; }
         public string? Codigo { get; private set; }
         public string Situacao { get; private set; } = "aguardando";
         public void Receber(string? codigo, string? erro)
@@ -31,7 +32,7 @@ public sealed class AutorizacoesSafeIdTablet(TimeProvider tempo)
         public void Consumir() { if(Situacao != "autorizado") throw new ConflitoClinicoTablet("A autorização ainda não está disponível ou já foi utilizada."); Situacao = "assinando"; }
         public void Concluir(bool sucesso) {Codigo = null; Situacao = sucesso ? "concluido" : "falha";}
     }
-    public Autorizacao Criar(string sessao, int agendamento, int documento, string tipo, string hash, bool alergia)
+    public Autorizacao Criar(string sessao, int agendamento, int documento, string tipo, string hash, bool alergia, bool conclusaoAutomatica = false)
     {
         lock(gate)
         {
@@ -41,18 +42,19 @@ public sealed class AutorizacoesSafeIdTablet(TimeProvider tempo)
             if(pendentes.Values.Any(p=>p.Sessao==sessao && p.Situacao is "aguardando" or "autorizado" or "assinando"))
                 throw new ConflitoClinicoTablet("Conclua a autorização anterior ou aguarde sua expiração antes de pedir outra.");
             var a = new Autorizacao {Sessao = sessao, Agendamento = agendamento, Documento = documento,
-                Tipo = tipo, ConteudoHash = hash, ConfirmouAlergia = alergia, ExpiraEm = agora + 300_000};
+                Tipo = tipo, ConteudoHash = hash, ConfirmouAlergia = alergia, ConclusaoAutomatica = conclusaoAutomatica, ExpiraEm = agora + 300_000};
             pendentes.Add(a.Id, a); return a;
         }
     }
-    public Guid Receber(string estado, string? codigo, string? erro)
+    public Guid Receber(string estado, string? codigo, string? erro) => ReceberRetorno(estado, codigo, erro).Id;
+    public Autorizacao ReceberRetorno(string estado, string? codigo, string? erro)
     {
         if(estado.Length != 64 || codigo?.Length > 4096 || erro?.Length > 200) throw new RecursoClinicoIndisponivel();
         lock(gate)
         {
             var a = pendentes.Values.SingleOrDefault(p=>p.Estado==estado && p.ExpiraEm>tempo.GetUtcNow().ToUnixTimeMilliseconds())
                 ?? throw new RecursoClinicoIndisponivel();
-            a.Receber(codigo,erro); return a.Id;
+            a.Receber(codigo,erro); return a;
         }
     }
     public Autorizacao Obter(Guid id, string sessao, bool consumir = false)
