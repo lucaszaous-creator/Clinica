@@ -1666,7 +1666,8 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.DataHora).HasColumnType("timestamp without time zone");
             e.Property(x => x.Operador).IsRequired().HasMaxLength(80);
             e.Property(x => x.Acao).IsRequired().HasMaxLength(40);
-            e.Property(x => x.Detalhe).HasMaxLength(500);
+            // A auditoria inclui a justificativa completa e o contexto da ação.
+            e.Property(x => x.Detalhe).HasColumnType("text");
             e.HasIndex(x => x.DataHora);
             e.HasIndex(x => x.CodigoId);
         });

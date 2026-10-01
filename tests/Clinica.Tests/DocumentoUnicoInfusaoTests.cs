@@ -132,6 +132,11 @@ public partial class SegundaAssinaturaExecucaoTests
         foreach (var item in (await _repo.ObterPrescricaoInternaAsync(p.Id))!.Itens)
             await _checagens.ChecarAsync(item.Id, SituacaoChecagem.NaoExecutavel,
                 new(10, 37), Tecnica, motivo);
+        var checagensSalvas = await _db.ChecagensPrescricao.AsNoTracking().ToListAsync();
+        checagensSalvas.Should().HaveCount(6).And.OnlyContain(c => c.Justificativa == motivo);
+        var eventos = await _db.Auditoria.AsNoTracking()
+            .Where(e => e.Acao == "PrescricaoItemNaoRealizado").ToListAsync();
+        eventos.Should().HaveCount(6).And.OnlyContain(e => e.Detalhe != null && e.Detalhe.Contains(motivo));
         await _checagens.EncerrarAsync(p.Id, Tecnica);
         await _orquestra.AssinarExecucaoAsync(p.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira), cenario.UsuarioEnfermeiraId);
         var final = (await _orquestra.FolhaAsync(p.Id, FolhaPrescricao.Prescricao)).Pdf;

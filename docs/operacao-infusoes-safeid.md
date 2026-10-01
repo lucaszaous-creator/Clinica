@@ -113,3 +113,11 @@ Jev `jev-1.13.0`, pela API TypeSafe, recebeu apenas código e cenários fictíci
 ### Recuperação do desktop
 
 Preservar o PDF original e os eventos de auditoria. Se houver falha após a atualização, registrar versão do aplicativo, número PRE, ação e mensagem. O Gerente 1.2.47 e o Consultório 1.2.49 são as versões anteriores desta entrega, mas restaurá-las reapresenta as regras antigas de impressão/pendência. O auto-update só avança versões: uma reversão operacional preferencial republica o código anterior em uma nova versão, sem restaurar banco nem apagar assinaturas. A release do portal permanece independente desta atualização Windows.
+
+### Correção da auditoria antes da integração da PR 231
+
+A execução PostgreSQL de 01/10 encontrou uma falha entre os 2.930 testes: a justificativa de 1.000 caracteres cabia em `ChecagensPrescricao`, mas seu texto junto ao contexto ultrapassava os 500 caracteres de `Auditoria.Detalhe`. A contagem aprovada acima corresponde à suíte local; não representava aprovação daquela execução PostgreSQL.
+
+A migração `20261001180000_AuditoriaPreservaDetalheCompleto` amplia `Auditoria.Detalhe` para `text`, sem cortar conteúdo nem alterar registros existentes. O teste de PDF verifica também a justificativa e a auditoria relidas do banco. Um teste PostgreSQL cobre a atualização de um banco com histórico e a recusa de reversão quando reduzir a coluna perderia conteúdo.
+
+Integrar esta correção à `main` não atualiza os pacotes já publicados. A próxima implantação deve incluir esta migração. Para reverter apenas o aplicativo, manter a coluna ampliada; não truncar nem excluir eventos para viabilizar a reversão do banco.
