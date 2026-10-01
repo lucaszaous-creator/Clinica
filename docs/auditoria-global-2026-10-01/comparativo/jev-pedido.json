@@ -1,0 +1,768 @@
+{
+  "model": "jev-1.13.0",
+  "state": {
+    "objetivo": "Revisão da comparação Antes/Depois por módulo solicitada pelo proprietário; protótipo local sem gravação real.",
+    "modulos": {
+      "recepcao": "Paciente, agenda, chegada, lançamento, convênio, documentos, termos desktop, pagamentos e pacotes separados. Ficha com abas sem repetição; recibo abre recebimento autorizado; impressão acessível com assinatura pendente; recepção acompanha pendência e profissional assina.",
+      "clinico": "Evolução continua campo livre; Salvar e concluir sessão explica efeito atual já existente, incluindo guias aplicáveis. Consulta contextual preserva rascunho. Emissão retorna documento existente para impressão/assinatura sem reemitir. Documento único de infusão da PR231 é marcado existente.",
+      "faturamento": "Retorno de lote tem guia Sem resposta se ausente do XML, sem aceite presumido. Original XML separado de nova versão. Validação separa estrutura/XSD/aceite operadora. Atalho preserva guia. Mudança da rodada bloqueante está marcada como proposta que exige aceite de regra operacional.",
+      "financeiro": "Contas com adiamento por data e motivo, +7dias como sugestão. Data real ao receber. Devolução vinculada à receita. Estoque mantido disponível sem abertura acidental. Pix ilustrado sem payload pagável; gerar código não confirma recebimento. Produzido/faturado/recebido separados.",
+      "gerente": "Destinos canônicos para preços; indicador leva ao recorte. Campanha separa abrir WhatsApp e confirmação manual, sem entrega inventada. Cadastro com Salvar/Cancelar por entidade; exclusão imediata explícita. Acesso respeita permissões, troca de usuário mantém barreira atual até provar isolamento.",
+      "crm": "Concluir conversa não conclui sessão médica. Mantém lista e contexto; falha de atualização depois de concluir aparece visível com tentar atualizar sem repetir conclusão. Modelo WhatsApp promovido quando exigido. Tarefas com tipo/origem/responsável/prazo. Registrar tratamento do pedido não afirma agenda remarcada sem ID confirmado.",
+      "escopo": "Portal web preservado e sem alternativa de redesenho. Site e web de consulta também sem mudança nesta entrega. São 97 cenas comparativas esquemáticas e 3 referências preservadas. Inventário de263arquivos consultável, componentes sem cena identificados como referência, não como telas desenhadas. Antes é reconstrução funcional do código, não captura pixel-perfect nem produção; Depois é proposta com dados fictícios. Fontes de desktop main cbde7e9 eCRM main33c9ffc verificadas. Não implementa produto."
+    },
+    "cenas": [
+      {
+        "titulo": "Atendimentos do dia",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Grade por profissional",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Semana",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Marcar atendimento",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Próximas vagas",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Lista de espera",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Confirmações",
+        "modulo": "recepcao",
+        "achados": [
+          "A25"
+        ]
+      },
+      {
+        "titulo": "Retornos solicitados",
+        "modulo": "recepcao",
+        "achados": [
+          "A25"
+        ]
+      },
+      {
+        "titulo": "Lançar atendimento",
+        "modulo": "recepcao",
+        "achados": [
+          "A24"
+        ]
+      },
+      {
+        "titulo": "Conferir atendimentos",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Consultas de convênio",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Lista de pacientes",
+        "modulo": "recepcao",
+        "achados": [
+          "A40"
+        ]
+      },
+      {
+        "titulo": "Cadastro do paciente",
+        "modulo": "recepcao",
+        "achados": [
+          "A40"
+        ]
+      },
+      {
+        "titulo": "Ficha do paciente",
+        "modulo": "recepcao",
+        "achados": [
+          "A07",
+          "A16",
+          "A56",
+          "A57"
+        ]
+      },
+      {
+        "titulo": "Autorizações e validade",
+        "modulo": "recepcao",
+        "achados": [
+          "A07"
+        ]
+      },
+      {
+        "titulo": "Documentos",
+        "modulo": "recepcao",
+        "achados": [
+          "A01",
+          "A02",
+          "A03",
+          "A04",
+          "A05",
+          "A06",
+          "A29"
+        ]
+      },
+      {
+        "titulo": "Recebimentos de pacientes",
+        "modulo": "recepcao",
+        "achados": [
+          "A05",
+          "A62"
+        ]
+      },
+      {
+        "titulo": "Pacotes",
+        "modulo": "recepcao",
+        "achados": [
+          "A08"
+        ]
+      },
+      {
+        "titulo": "Termos do paciente",
+        "modulo": "recepcao",
+        "achados": [
+          "A28"
+        ]
+      },
+      {
+        "titulo": "Privacidade e consentimentos",
+        "modulo": "recepcao",
+        "achados": [
+          "A57"
+        ]
+      },
+      {
+        "titulo": "Acompanhamento de pacientes",
+        "modulo": "recepcao",
+        "achados": [
+          "A25",
+          "A63"
+        ]
+      },
+      {
+        "titulo": "Profissionais e salas",
+        "modulo": "recepcao",
+        "achados": []
+      },
+      {
+        "titulo": "Meu dia",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Atendimento",
+        "modulo": "clinico",
+        "achados": [
+          "A24"
+        ]
+      },
+      {
+        "titulo": "Evoluções pendentes",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Prontuário",
+        "modulo": "clinico",
+        "achados": [
+          "A41"
+        ]
+      },
+      {
+        "titulo": "Anamnese",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Problemas e alertas",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Medidas",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Evolução da dor",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Avaliações",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Acompanhamento",
+        "modulo": "clinico",
+        "achados": [
+          "A63"
+        ]
+      },
+      {
+        "titulo": "Exames e anexos",
+        "modulo": "clinico",
+        "achados": [
+          "A41",
+          "A61"
+        ]
+      },
+      {
+        "titulo": "Receitas e documentos",
+        "modulo": "clinico",
+        "achados": [
+          "A01",
+          "A02",
+          "A03",
+          "A04",
+          "A29"
+        ]
+      },
+      {
+        "titulo": "Emitir documento",
+        "modulo": "clinico",
+        "achados": [
+          "A01",
+          "A02",
+          "A04",
+          "A29"
+        ]
+      },
+      {
+        "titulo": "Prescrição de infusão",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Sala de infusão",
+        "modulo": "clinico",
+        "achados": [
+          "A20"
+        ]
+      },
+      {
+        "titulo": "Folha de execução",
+        "modulo": "clinico",
+        "achados": [
+          "A20"
+        ]
+      },
+      {
+        "titulo": "Passagens de enfermagem",
+        "modulo": "clinico",
+        "achados": [
+          "A20"
+        ]
+      },
+      {
+        "titulo": "Meus números",
+        "modulo": "clinico",
+        "achados": []
+      },
+      {
+        "titulo": "Resumo do faturamento",
+        "modulo": "faturamento",
+        "achados": [
+          "A32"
+        ]
+      },
+      {
+        "titulo": "Pendências e baixas",
+        "modulo": "faturamento",
+        "achados": [
+          "A67"
+        ]
+      },
+      {
+        "titulo": "Consultar guias",
+        "modulo": "faturamento",
+        "achados": []
+      },
+      {
+        "titulo": "Faturados",
+        "modulo": "faturamento",
+        "achados": []
+      },
+      {
+        "titulo": "Glosas e recursos",
+        "modulo": "faturamento",
+        "achados": [
+          "A32",
+          "A37"
+        ]
+      },
+      {
+        "titulo": "Não conformidades",
+        "modulo": "faturamento",
+        "achados": []
+      },
+      {
+        "titulo": "Lotes e XML TISS",
+        "modulo": "faturamento",
+        "achados": [
+          "A65",
+          "A66",
+          "A68"
+        ]
+      },
+      {
+        "titulo": "Retorno do lote",
+        "modulo": "faturamento",
+        "achados": [
+          "A64"
+        ]
+      },
+      {
+        "titulo": "Rodada de pendências",
+        "modulo": "faturamento",
+        "achados": [
+          "A67"
+        ]
+      },
+      {
+        "titulo": "Relatórios de guias",
+        "modulo": "faturamento",
+        "achados": []
+      },
+      {
+        "titulo": "Regras e catálogos TISS",
+        "modulo": "faturamento",
+        "achados": [
+          "A33",
+          "A34"
+        ]
+      },
+      {
+        "titulo": "Caixa",
+        "modulo": "financeiro",
+        "achados": [
+          "A10",
+          "A35"
+        ]
+      },
+      {
+        "titulo": "Fechamento do caixa",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Fluxo de caixa",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Contas a pagar e receber",
+        "modulo": "financeiro",
+        "achados": [
+          "A27"
+        ]
+      },
+      {
+        "titulo": "Contas fixas",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Quem me deve",
+        "modulo": "financeiro",
+        "achados": [
+          "A36"
+        ]
+      },
+      {
+        "titulo": "Plano de contas",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Recebíveis de cartão",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Conciliação",
+        "modulo": "financeiro",
+        "achados": [
+          "A09",
+          "A37"
+        ]
+      },
+      {
+        "titulo": "Extrato do banco",
+        "modulo": "financeiro",
+        "achados": [
+          "A09"
+        ]
+      },
+      {
+        "titulo": "Taxas e impostos",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Repasses",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Produção",
+        "modulo": "financeiro",
+        "achados": []
+      },
+      {
+        "titulo": "Resultado do mês",
+        "modulo": "financeiro",
+        "achados": [
+          "A09"
+        ]
+      },
+      {
+        "titulo": "Estoque",
+        "modulo": "financeiro",
+        "achados": [
+          "A10"
+        ]
+      },
+      {
+        "titulo": "Cobrança Pix",
+        "modulo": "financeiro",
+        "achados": [
+          "A58"
+        ]
+      },
+      {
+        "titulo": "Painel da direção",
+        "modulo": "gerente",
+        "achados": [
+          "A22"
+        ]
+      },
+      {
+        "titulo": "Indicadores",
+        "modulo": "gerente",
+        "achados": [
+          "A22"
+        ]
+      },
+      {
+        "titulo": "Metas",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Campanhas",
+        "modulo": "gerente",
+        "achados": [
+          "A31",
+          "A39"
+        ]
+      },
+      {
+        "titulo": "Quem parou de vir",
+        "modulo": "gerente",
+        "achados": [
+          "A38"
+        ]
+      },
+      {
+        "titulo": "De onde vêm os pacientes",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Preço particular",
+        "modulo": "gerente",
+        "achados": [
+          "A08"
+        ]
+      },
+      {
+        "titulo": "Preços por convênio",
+        "modulo": "gerente",
+        "achados": [
+          "A08"
+        ]
+      },
+      {
+        "titulo": "Rentabilidade por convênio",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Custo de taxas e impostos",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Configurações",
+        "modulo": "gerente",
+        "achados": [
+          "A33",
+          "A34",
+          "A59"
+        ]
+      },
+      {
+        "titulo": "Modelos por tipo",
+        "modulo": "gerente",
+        "achados": [
+          "A21"
+        ]
+      },
+      {
+        "titulo": "Acessos",
+        "modulo": "gerente",
+        "achados": [
+          "A09",
+          "A60"
+        ]
+      },
+      {
+        "titulo": "Auditoria",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Documentos emitidos",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Guarda do prontuário",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Importar pacientes",
+        "modulo": "gerente",
+        "achados": []
+      },
+      {
+        "titulo": "Ajuda e suporte",
+        "modulo": "comum",
+        "achados": [
+          "A69",
+          "A70"
+        ]
+      },
+      {
+        "titulo": "Treinamento",
+        "modulo": "comum",
+        "achados": [
+          "A55"
+        ]
+      },
+      {
+        "titulo": "Pesquisar seções",
+        "modulo": "comum",
+        "achados": [
+          "A53",
+          "A54"
+        ]
+      },
+      {
+        "titulo": "Atendimentos",
+        "modulo": "crm",
+        "achados": [
+          "A24",
+          "A47",
+          "A48",
+          "A49"
+        ]
+      },
+      {
+        "titulo": "Meu dia",
+        "modulo": "crm",
+        "achados": [
+          "A23",
+          "A25"
+        ]
+      },
+      {
+        "titulo": "Visão geral",
+        "modulo": "crm",
+        "achados": [
+          "A23",
+          "A50"
+        ]
+      },
+      {
+        "titulo": "Contatos e funil",
+        "modulo": "crm",
+        "achados": [
+          "A25"
+        ]
+      },
+      {
+        "titulo": "Tarefas e follow-up",
+        "modulo": "crm",
+        "achados": [
+          "A25"
+        ]
+      },
+      {
+        "titulo": "Agenda e confirmações",
+        "modulo": "crm",
+        "achados": [
+          "A26",
+          "A51"
+        ]
+      },
+      {
+        "titulo": "Recall",
+        "modulo": "crm",
+        "achados": [
+          "A25",
+          "A51"
+        ]
+      },
+      {
+        "titulo": "Operação",
+        "modulo": "crm",
+        "achados": [
+          "A23",
+          "A26",
+          "A51"
+        ]
+      },
+      {
+        "titulo": "Relatórios",
+        "modulo": "crm",
+        "achados": [
+          "A23"
+        ]
+      },
+      {
+        "titulo": "Configurações e IA",
+        "modulo": "crm",
+        "achados": [
+          "A18",
+          "A19"
+        ]
+      },
+      {
+        "titulo": "Portal web preservado",
+        "modulo": "preservado",
+        "achados": [
+          "A11",
+          "A12",
+          "A13",
+          "A14",
+          "A42",
+          "A43",
+          "A44",
+          "A45"
+        ]
+      },
+      {
+        "titulo": "Web de consulta",
+        "modulo": "preservado",
+        "achados": [
+          "A52"
+        ]
+      },
+      {
+        "titulo": "Site institucional",
+        "modulo": "preservado",
+        "achados": [
+          "A46"
+        ]
+      }
+    ]
+  },
+  "questions": {
+    "recepcao": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    },
+    "clinico": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    },
+    "faturamento": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    },
+    "financeiro": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    },
+    "gerente": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    },
+    "crm": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    },
+    "escopo": {
+      "type": "choice",
+      "instructions": {
+        "pergunta": "A descrição respeita as distinções e limites declarados? Julgue somente coerência textual; não é inspeção de imagens, aprovação clínica ou teste de código."
+      },
+      "criteria": {
+        "coerente": "Estados, escopo e limites são coerentes.",
+        "revisar": "Há contradição relevante na descrição.",
+        "insuficiente": "A descrição não permite avaliar."
+      }
+    }
+  }
+}

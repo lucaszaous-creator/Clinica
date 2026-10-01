@@ -1,5 +1,9 @@
 # Escopo aprovado e propostas visuais da PR 232
 
+A [apresentação por módulo com Antes e Depois](COMPARACAO-VISUAL-POR-MODULO.md)
+amplia a seleção inicial registrada abaixo. A restrição do portal permanece integralmente
+vigente; as oito imagens deste documento são a primeira rodada desktop, não a cobertura atual completa.
+
 ## Regra obrigatória: não alterar o portal web
 
 **Decisão do proprietário em 01/10/2026: NÃO ENCOSTAR NO PORTAL WEB. A cliente está satisfeita com a experiência atual.**

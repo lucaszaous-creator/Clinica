@@ -16,6 +16,9 @@ compartilhado. A proposta de juntar evolução e consentimentos no portal foi re
 Esta restrição prevalece sobre recomendações antigas da auditoria.
 Ver [escopo obrigatório e propostas visuais para o desktop](docs/auditoria-global-2026-10-01/ESCOPO-E-PROPOSTAS-VISUAIS.md).
 
+A [comparação interativa Antes/Depois por módulo](docs/auditoria-global-2026-10-01/COMPARACAO-VISUAL-POR-MODULO.md)
+apresenta os cinco aplicativos desktop e o CRM, identifica as diferenças e preserva o portal.
+
 ## Faturamento
 
 Sistema de **faturamento** (não recebíveis) para clínica médica. Modela os fluxogramas

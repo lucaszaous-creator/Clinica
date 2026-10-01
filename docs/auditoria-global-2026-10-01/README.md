@@ -8,6 +8,11 @@ Esta entrega é uma auditoria e uma proposta de reorganização. **Nenhuma corre
 
 ## Por onde começar
 
+A [comparação visual interativa por módulo — Antes e Depois](COMPARACAO-VISUAL-POR-MODULO.md)
+reúne os cinco aplicativos desktop e o CRM, com 97 cenas comparativas, três referências
+preservadas e consulta ao inventário completo. O Antes é reconstruído do código; o Depois
+é uma proposta. O portal continua fora do escopo de mudanças.
+
 | Documento | O que contém |
 | --- | --- |
 | [Achados e propostas](ACHADOS.md) | Os 70 casos, individualmente: situação atual, efeito, sugestão, aceite e evidências imutáveis |

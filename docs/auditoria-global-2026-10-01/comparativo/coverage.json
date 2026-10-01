@@ -1,0 +1,16 @@
+{
+  "main": "cbde7e92075109de3a6a9f2415b6c84052bd136a",
+  "screens": 100,
+  "modules": 7,
+  "inventory": 263,
+  "byModule": {
+    "recepcao": 22,
+    "clinico": 18,
+    "faturamento": 11,
+    "financeiro": 16,
+    "gerente": 17,
+    "comum": 3,
+    "crm": 10,
+    "preservado": 3
+  }
+}
