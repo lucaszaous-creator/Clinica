@@ -81,7 +81,14 @@ Se for necessário desfazer apenas esse vínculo, conferir primeiro que a assina
 
 ## Desktop — correção de 01/10/2026
 
-A atualização do portal não substitui o executável Windows. A instalação examinada era Gerente 1.2.47; ainda oferecia “Imprimir folha” e “Imprimir registro”. Entrega preparada para Gerente 1.2.48 e Consultório 1.2.50; os links e resultados da publicação devem ser registrados abaixo depois da conclusão.
+A atualização do portal não substitui o executável Windows. A instalação examinada era Gerente 1.2.47; ainda oferecia “Imprimir folha” e “Imprimir registro”. Os instaladores Gerente 1.2.48 e Consultório 1.2.50 foram publicados em 01/10/2026, compilados do commit `74d9f9eb2be9349db7f56897b5e74a52e77df65a`; as tags apontam para esse mesmo commit.
+
+| Aplicativo | Release | SHA-256 do pacote de atualização |
+| --- | --- | --- |
+| Gerente 1.2.48 | [gerente-v1.2.48](https://github.com/lucaszaous-creator/Clinica/releases/tag/gerente-v1.2.48) | `40380cb65e74032c8918c7688d572169896a7a44ddbe6f10614fe924dd7bd4d1` |
+| Consultório 1.2.50 | [clinico-v1.2.50](https://github.com/lucaszaous-creator/Clinica/releases/tag/clinico-v1.2.50) | `c00747d4700e87f46d02a61ce184a2dbbe5e216dd8908378cb4aa2b489592ac9` |
+
+Os índices `releases.gerente.json` e `releases.clinico.json` foram baixados e conferidos contra versão, tamanho e hash dos assets publicados. Execuções de publicação: [Gerente](https://github.com/lucaszaous-creator/Clinica/actions/runs/36809746404) e [Consultório](https://github.com/lucaszaous-creator/Clinica/actions/runs/36809749301), ambas concluídas com sucesso, incluindo a sincronização dos canais para clientes antigos. A aplicação local não foi encerrada à força: o usuário deve salvar seu trabalho, fechar e reabrir para permitir a atualização, conferindo a versão instalada. Publicação de instalador não significa que toda estação já o instalou.
 
 - Uma ação “Imprimir infusão” na folha; a lista do paciente e a sala usam a mesma seleção `DocumentoInfusaoAsync`.
 - Com assinatura da execução, retorna o documento principal guardado. Ausência de `ArquivoRegistroId` não cria uma pendência adicional. Assinatura registrada sem arquivo principal bloqueia a impressão com mensagem de recuperação; não é substituída silenciosamente por PDF regenerado.
