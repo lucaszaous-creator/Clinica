@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001180000_AuditoriaPreservaDetalheCompleto")]
+    partial class AuditoriaPreservaDetalheCompleto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -925,42 +927,6 @@ namespace Clinica.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("CategoriasFinanceiras");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.CertificadoA1Profissional", b =>
-                {
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
-
-                    b.Property<byte[]>("ArquivoProtegido")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<string>("ImpressaoDigital")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Titular")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.Property<DateTime>("ValidoAte")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<Guid>("Versao")
-                        .IsConcurrencyToken()
-                        .HasColumnType("uuid");
-
-                    b.HasKey("UsuarioId");
-
-                    b.HasIndex("ProfissionalId");
-
-                    b.ToTable("CertificadosA1", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ChecagemCuidado", b =>
@@ -5772,21 +5738,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Profissional");
 
                     b.Navigation("Sala");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.CertificadoA1Profissional", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.Profissional", null)
-                        .WithMany()
-                        .HasForeignKey("ProfissionalId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
-                        .WithMany()
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ChecagemCuidado", b =>

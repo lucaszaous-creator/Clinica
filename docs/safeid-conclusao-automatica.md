@@ -1,0 +1,19 @@
+> Registro histórico da integração anterior. O fluxo ativo agora usa A1; não executar as instruções antigas de ativação. Consulte [assinatura A1](assinatura-a1.md).
+
+# Conclusão automática de infusões no SafeID
+
+A enfermeira revisa os dados e autoriza assinar e salvar no diálogo ANTES de sair para o SafeID. O retorno válido conclui o mesmo serviço de assinatura no servidor; não exige outro clique nem a aba aberta. Apenas infusão e execução aderem. Receitas e autorizações iniciadas pela interface antiga conservam o fluxo anterior.
+
+Uma autorização pendente bloqueia apenas o mesmo ato/documento, sem bloquear outras infusões da sessão. O diálogo identifica a prescrição, a etapa e o horário de expiração. Na sessão original, uma tentativa ainda aguardando autorização pode ser retomada com o mesmo state e PKCE, sem novo ato no provedor; o servidor revalida o conteúdo e as permissões. Outra sessão pode consultar o estado do documento autorizado, mas não recebe o identificador nem a URL da tentativa original. Tentativas em processamento ou com resultado incerto não podem ser reiniciadas por esse botão.
+
+`Portal:SafeId:ConclusaoAutomatica` é false por padrão. Habilitar primeiro na homologação. A recomendação é publicar após aceite de uma infusão fictícia pelo titular no SafeID, conferindo o PDF final e a fila. Em 30/09/2026, o usuário solicitou explicitamente a publicação após ser informado da ausência desse teste real; a dispensa e os limites da validação ficam registrados no relatório de publicação. Ver [operação e recuperação](operacao-infusoes-safeid.md). Não alterar ClientId, segredo, retorno HTTPS, ambiente SafeID, escopo, lifetime, PKCE, state nem certificados para habilitar esse recurso.
+
+O POST inicial mantém sessão, CSRF, revisão e vínculo do profissional. O callback usa o state de uso único e só conclui a intenção automática previamente confirmada. Revalida sessão, permissões, CPF, certificado e versão do documento. Fechar a conexão não cancela o processamento; prazo limitado no servidor. A integração envia o mesmo hash SHA-256/CMS, sem enviar o PDF ao provedor.
+
+A migration aditiva `20261001015315_ConclusaoAutomaticaSafeId` cria `OperacoesAssinaturaTablet`, sem códigos OAuth, tokens, PKCE ou conteúdo clínico. O recibo concluído, o PDF e a assinatura são confirmados na mesma transação. A chave ativa única impede outra autorização para o mesmo ato/documento. Falha antes do ato libera nova autorização; após início de assinatura, falha ambígua mantém bloqueio para conferência. A repetição do callback é recusada antes de qualquer novo ato.
+
+Reinício perde os segredos temporários. Intenção ainda não consumida expira em cinco minutos; não há repetição automática de ato remoto. Operação interrompida durante processamento fica `verificar` ao consultar depois do limite; o bloqueio permanece no banco. O suporte deve conferir o arquivo persistido e o resultado do provedor pela referência antes de liberar outra tentativa. A transação do banco não garante exatamente uma execução no provedor. Não apagar recibos para contornar o bloqueio.
+
+Desabilitar a flag volta o fluxo para novas autorizações, sem invalidar intenções automáticas já aceitas. Reverter aplicação não requer desfazer a migration; preservar recibos. Não ativar versão antiga para repetir uma tentativa incerta.
+
+Validação: testes HTTP com provedor fictício que emite CMS criptograficamente válido, verificando parâmetros OAuth/PKCE, retorno sem cookies, aba fechada, repetição, recusa, expiração, revogação, troca de CPF, alteração do horário, falha remota, rollback antes de commit e resposta perdida após commit. PDF resultante com duas assinaturas íntegras. Testes de navegador cobrem consentimento inicial, conclusão sem botão extra, estados de falha, consulta e compatibilidade com fluxo manual. Nenhum certificado real acionado automaticamente.

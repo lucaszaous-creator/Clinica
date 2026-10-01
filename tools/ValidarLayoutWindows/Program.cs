@@ -221,6 +221,21 @@ static class Program
         var folha = new FolhaExecucaoViewModel(escopos, dialogo, 0);
         await folha.CarregarAsync();
         folha.Paciente = paciente.Nome;
+        folha.Numero = "PRE DEMONSTRAÇÃO";
+        folha.NaoVerificado = false;
+        folha.Itens.Add(new LinhaExecucaoItem {
+            ItemId = 1, Ordem = 1, Descricao = "Medicamento fictício para conferência visual",
+            Detalhe = "Dose e via demonstrativas", Situacao = "Não executável",
+            Marca = "○ 30/09/2026 às 10:37", Justificativa = "Justificativa de teste; médico comunicado.",
+            Executante = "Profissional de teste · COREN de teste", Pendente = false,
+            Realizado = false, NaoRealizado = true, Suspenso = false, SeNecessario = false, AlertaAlergia = null
+        });
+        var encerrada = new PrescricaoInterna { Situacao = SituacaoPrescricao.Encerrada,
+            ExigeAssinaturaEletronicaDaExecucao = true };
+        encerrada.Assinaturas.Add(new AssinaturaDocumento { Papel = PapelAssinatura.Executante, ArquivoId = 1 });
+        var linhaEncerrada = LinhaSalaInfusao.De(encerrada, DateOnly.FromDateTime(DateTime.Today));
+        if (linhaEncerrada.RegistroPendente || linhaEncerrada.AguardaAssinatura)
+            throw new Exception("Documento principal assinado continua aparecendo como pendência no desktop.");
         folha.Mensagem = null;
         var janela = new FolhaExecucaoWindow(folha) { ShowInTaskbar = false, ShowActivated = false,
             WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
@@ -240,7 +255,18 @@ static class Program
         janela.UpdateLayout();
         if (Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible))
             throw new Exception("Folha permanece carregando ao concluir.");
+        var impressoes = Descendentes(janela).OfType<Button>()
+            .Where(b => b.IsVisible && b.Content is string texto && texto.StartsWith("Imprimir")).ToList();
+        if (impressoes.Count != 1 || !Equals(impressoes[0].Content, "Imprimir infusão"))
+            throw new Exception("A folha deve oferecer apenas a impressão do documento da infusão.");
         Foto(janela, "infusao-folha-confirmada");
+        folha.AvisoPdfHistorico = "PDF histórico: as assinaturas foram feitas sem incorporar os dados de execução. "
+            + "Consulte os horários, resultados e justificativas nesta tela. A impressão preserva o PDF originalmente assinado.";
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        janela.UpdateLayout();
+        if (!Descendentes(janela).OfType<TextBlock>().Any(t => t.IsVisible && t.Text == folha.AvisoPdfHistorico))
+            throw new Exception("Aviso do PDF histórico oculto.");
+        Foto(janela, "infusao-pdf-historico");
         janela.Close();
         var prescricao = new PrescricaoInternaEdicaoViewModel(escopos, dialogo, paciente.Id, paciente.Nome, medico.Id);
         var editor = new Clinica.Clinico.Janelas.PrescricaoInternaWindow(prescricao) { ShowInTaskbar = false, ShowActivated = false,

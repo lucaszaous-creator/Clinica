@@ -59,7 +59,8 @@ public sealed class LinhaPrescricaoInterna
             Codigo = p.CodigoVerificacao,
             Cancelada = p.Cancelada,
             TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
-            ExibirRegistroSeparado = !p.ExigeAssinaturaEletronicaDaExecucao,
+            ExibirRegistroSeparado = p.AssinaturaDaExecucao is { ArquivoRegistroId: not null } antiga
+                && antiga.ArquivoRegistroId != antiga.ArquivoId,
             // O estado da linha COMPÕE com a permissão (parcela 61): sem o bit, o botão
             // ficava aceso e o clique estourava no Exigir — botão aceso que só explode é
             // o defeito da parcela 41. O Exigir do comando continua sendo a barreira que
@@ -347,17 +348,17 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
     private async Task ImprimirAsync(LinhaPrescricaoInterna? linha)
     {
         if (linha is null) return;
-        await ImprimirFolhaAsync(linha, FolhaPrescricao.Prescricao);
+        await ImprimirFolhaAsync(linha, false);
     }
 
     [RelayCommand]
     private async Task ImprimirExecucaoAsync(LinhaPrescricaoInterna? linha)
     {
         if (linha is null) return;
-        await ImprimirFolhaAsync(linha, FolhaPrescricao.RegistroExecucao);
+        await ImprimirFolhaAsync(linha, true);
     }
 
-    private async Task ImprimirFolhaAsync(LinhaPrescricaoInterna linha, FolhaPrescricao folhaPedida)
+    private async Task ImprimirFolhaAsync(LinhaPrescricaoInterna linha, bool registroHistorico)
     {
         try
         {
@@ -366,7 +367,9 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
             {
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDePrescricaoService>();
-                folha = await assinaturas.FolhaAsync(linha.PrescricaoId, folhaPedida);
+                folha = registroHistorico
+                    ? await assinaturas.FolhaAsync(linha.PrescricaoId, FolhaPrescricao.RegistroExecucao)
+                    : await assinaturas.DocumentoInfusaoAsync(linha.PrescricaoId);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
@@ -375,7 +378,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
             // A conferência da assinatura é DITA, nas três respostas possíveis: íntegra,
             // alterada, ou não foi possível conferir. Abrir o PDF em silêncio faria o
             // terceiro caso passar por sucesso.
-            Mensagem = erro ?? folha.Conferencia?.Frase;
+            Mensagem = erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.";
             MensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
         }
         catch (Exception ex)

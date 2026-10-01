@@ -163,7 +163,7 @@
                                                     Command="{Binding DataContext.ImprimirCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button Content="Execução" Margin="0,0,6,0"
+                                            <Button Content="Registro histórico" Margin="0,0,6,0"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
                                                     IsEnabled="{Binding TemRegistroExecucao}"
                                                     Visibility="{Binding ExibirRegistroSeparado, Converter={StaticResource BoolParaVisibilidade}}"

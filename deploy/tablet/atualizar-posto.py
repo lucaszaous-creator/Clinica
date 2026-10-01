@@ -194,6 +194,7 @@ with tarfile.open(pacote) as tar:
     assert manifest['contrato'] in (2,3)
     migracao = manifest['migracao_nova']
     anteriores_migracao={
+        '20261001180000_AuditoriaPreservaDetalheCompleto':'20261001140452_CertificadosA1Profissionais',
         '20261001140452_CertificadosA1Profissionais':'20260928211121_ChecagemNaoExecutavel',
         '20260928211121_ChecagemNaoExecutavel':'20260926120000_DevolucaoInfusaoExterna',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'20260917133639_TravaOpcionalDaAgenda',
@@ -202,6 +203,7 @@ with tarfile.open(pacote) as tar:
         '20260928123100_AcompanhamentoPacientesBsvRecall':'20260926120000_DevolucaoInfusaoExterna',
     }
     arquivos_migracao={
+        '20261001180000_AuditoriaPreservaDetalheCompleto':'migracao-a1.sql',
         '20261001140452_CertificadosA1Profissionais':'migracao-a1.sql',
         '20260928211121_ChecagemNaoExecutavel':'migracao-fluxos-enfermagem.sql',
         '20260917185911_EnfermagemVinculadaEValidacaoInfusao':'migracao-enfermagem.sql',
@@ -213,9 +215,9 @@ with tarfile.open(pacote) as tar:
     if migracao:
         ultima=sql('SELECT "MigrationId" FROM "__EFMigrationsHistory" ORDER BY "MigrationId" DESC LIMIT 1')
         permitidas={anteriores_migracao[migracao],migracao}
-        if migracao=='20261001140452_CertificadosA1Profissionais':
+        if migracao in ('20261001140452_CertificadosA1Profissionais','20261001180000_AuditoriaPreservaDetalheCompleto'):
             # Identificador imutável já aplicado: preservar o histórico, sem reativar o provedor.
-            permitidas.add('20261001015315_ConclusaoAutomaticaSafeId')
+            permitidas.update({'20260928211121_ChecagemNaoExecutavel','20261001015315_ConclusaoAutomaticaSafeId'})
         if migracao=='20260928211121_ChecagemNaoExecutavel':
             permitidas.update({'20260928123100_AcompanhamentoPacientesBsvRecall','20260928210520_DiluicaoUnicaInfusao'})
         assert ultima in permitidas,'Base mudou; conferir antes de migrar'
@@ -296,7 +298,7 @@ elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "EdicoesEnfermagemTablet" FROM {ident(role)};')
 if sql('SELECT to_regclass(\'"CertificadosA1"\') IS NOT NULL')=='t':
     for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'CertificadosA1')
-elif migracao=='20261001140452_CertificadosA1Profissionais':
+elif migracao in ('20261001140452_CertificadosA1Profissionais','20261001180000_AuditoriaPreservaDetalheCompleto'):
     conceder.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" TO {ident(role)};')
     revogar.append(f'REVOKE SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" FROM {ident(role)};')
 if migracao in ('20260928123100_AcompanhamentoPacientesBsvRecall','20260928211121_ChecagemNaoExecutavel'):

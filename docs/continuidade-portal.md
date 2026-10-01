@@ -90,15 +90,14 @@ nem substitui a aprovação dos titulares das assinaturas reais.
 
 1. Com ambos os checkouts limpos, executar `tools/empacotar-continuidade-tablet.ps1
    -Site CAMINHO_CLINICA_SITE`. O pacote inclui hashes e revisões dos dois repos.
-   Para a devolução de infusão externa, o pacote inclui a migration aditiva
-   `20260926120000_DevolucaoInfusaoExterna` em SQL idempotente. Antes de instalar,
-   conferir que a base está em `20260925170000_DataRealizacaoInfusao` ou já nessa
-   migration; o instalador recusa outra versão.
+   O pacote atual inclui a migration aditiva
+   `20260928211121_ChecagemNaoExecutavel` em SQL idempotente. A base deve estar
+   em `20260926120000_DevolucaoInfusaoExterna` ou já nessa migration.
 2. Enviar o pacote para `/home/clinica-admin/tablet-stage/` e conferir seu SHA-256.
-3. Para esta publicação autorizada sem HML, executar como root
-   `atualizar-posto.py producao PACOTE SHA RELEASE_ANTERIOR --pular-hml MOTIVO`.
-   O instalador registra a dispensa; ela não é um aceite funcional. O modo normal
-   continua exigindo os relatórios de HML do mesmo SHA.
+3. Executar como root `atualizar-posto.py hml PACOTE SHA RELEASE_ANTERIOR`.
+   Validar o mesmo pacote em homologação e registrar o aceite antes de executar
+   `atualizar-posto.py producao PACOTE SHA RELEASE_ANTERIOR`. Uma dispensa usada
+   em publicação anterior não autoriza dispensar a homologação desta atualização.
 4. O instalador confere a migration, o backup e o escopo de acesso; mantém a cifra
    desativada nesta liberação para não exigir chaves nos desktops dos operadores.
 5. Validar health, rotas protegidas e a interface em produção sem criar registros

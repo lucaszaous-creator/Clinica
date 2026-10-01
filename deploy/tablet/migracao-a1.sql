@@ -23,4 +23,14 @@ VALUES ('20261001140452_CertificadosA1Profissionais', '8.0.11');
     END IF;
 END $EF$;
 
+-- A auditoria preserva a justificativa inteira junto ao contexto, sem truncar registros.
+DO $EF$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20261001180000_AuditoriaPreservaDetalheCompleto') THEN
+        ALTER TABLE "Auditoria" ALTER COLUMN "Detalhe" TYPE text;
+        INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+        VALUES ('20261001180000_AuditoriaPreservaDetalheCompleto', '8.0.11');
+    END IF;
+END $EF$;
+
 COMMIT;

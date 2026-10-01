@@ -192,6 +192,7 @@ jobs:
             "--publish",
             "--releaseName", "${{ steps.alvo.outputs.titulo }} ${{ steps.alvo.outputs.version }}",
             "--tag",         "${{ steps.alvo.outputs.tag }}",
+            "--targetCommitish", "${{ github.sha }}",
             "--token",       "$env:GITHUB_TOKEN"
           )
           if ($canal -ne "win") { $args += @("--channel", $canal) }

@@ -32,7 +32,7 @@ public partial class SegundaAssinaturaExecucaoTests
         var original = (await _orquestra.FolhaAsync(p.Id, FolhaPrescricao.Prescricao)).Pdf;
         var antes = await _db.ArquivosAssinados.CountAsync();
         await _orquestra.AssinarExecucaoAsync(p.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira), cenario.UsuarioEnfermeiraId);
-        var folha = await _orquestra.FolhaAsync(p.Id, FolhaPrescricao.Prescricao);
+        var folha = await _orquestra.DocumentoInfusaoAsync(p.Id);
         folha.Pdf.AsSpan(0, original.Length).SequenceEqual(original).Should().BeTrue();
         _assinador.ConferirTodas(folha.Pdf).Should().HaveCount(2).And.OnlyContain(c => c.Conferida && c.Integra);
         (await _db.ArquivosAssinados.CountAsync()).Should().Be(antes + 1);
@@ -44,6 +44,12 @@ public partial class SegundaAssinaturaExecucaoTests
         var valores = campos.Elements.OfType<PdfReference>().Select(r => r.Value).OfType<PdfSharp.Pdf.PdfDictionary>()
             .Where(f => f.Elements.GetName("/FT") == "/Tx").ToDictionary(f => f.Elements.GetString("/T"), f => f.Elements.GetString("/V"));
         valores[$"hora_{item.Id}"].Should().Be("10:37");
+        valores[$"situacao_{item.Id}"].Should().Be(situacao switch
+        {
+            SituacaoChecagem.Realizado => "Sim",
+            SituacaoChecagem.NaoRealizado => "Não",
+            _ => "NE"
+        });
         valores[$"detalhe_{item.Id}"].Should().Contain($"{data:dd/MM/yyyy}").And.Contain("Joana Técnica");
         if (situacao != SituacaoChecagem.Realizado) valores[$"detalhe_{item.Id}"].Should().Contain(checagem.Justificativa);
         if (Environment.GetEnvironmentVariable("CLINICA_DUMP_PDF") is { Length: > 0 } pasta)
@@ -52,6 +58,49 @@ public partial class SegundaAssinaturaExecucaoTests
             File.WriteAllBytes(Path.Combine(pasta, $"unico-{situacao}.pdf"), folha.Pdf);
             File.WriteAllBytes(Path.Combine(pasta, $"medico-{situacao}.pdf"), original);
         }
+    }
+
+    [Fact]
+    public async Task Documento_principal_assinado_sem_espelho_separado_nao_volta_a_fila()
+    {
+        var c = await CenarioAsync();
+        var p = await EncerradaAsync(c, exigir: true);
+        await _orquestra.AssinarExecucaoAsync(p.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira), c.UsuarioEnfermeiraId);
+        var original = (await _orquestra.FolhaAsync(p.Id, FolhaPrescricao.Prescricao)).Pdf;
+        var assinatura = await _db.AssinaturasDocumento.SingleAsync(a => a.PrescricaoInternaId == p.Id && a.Papel == PapelAssinatura.Executante);
+        assinatura.ArquivoRegistroId = null;
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+        (await _checagens.AguardandoAssinaturaAsync()).Should().NotContain(x => x.Id == p.Id);
+        (await _checagens.DoDiaAsync(p.Data)).Should().NotContain(x => x.Id == p.Id);
+        (await _orquestra.DocumentoInfusaoAsync(p.Id)).Pdf.Should().Equal(original);
+    }
+
+    [Fact]
+    public async Task Impressao_unica_no_regime_papel_com_checagem_entrega_execucao_sem_alegar_assinatura()
+    {
+        var c = await CenarioAsync();
+        var p = await EncerradaAsync(c, exigir: false);
+        var folha = await _orquestra.DocumentoInfusaoAsync(p.Id);
+        folha.NomeArquivo.Should().Contain("execucao");
+        folha.Assinatura.Should().BeNull();
+        folha.Conferencia.Should().BeNull();
+        folha.Pdf.Should().NotBeEmpty();
+        Despejar("desktop-regime-papel.pdf", folha.Pdf);
+    }
+
+    [Fact]
+    public async Task Impressao_unica_nao_regenera_documento_quando_arquivo_assinado_esta_ausente()
+    {
+        var c = await CenarioAsync();
+        var p = await EncerradaAsync(c, exigir: true);
+        await _orquestra.AssinarExecucaoAsync(p.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira), c.UsuarioEnfermeiraId);
+        var assinatura = await _db.AssinaturasDocumento.SingleAsync(a => a.PrescricaoInternaId == p.Id && a.Papel == PapelAssinatura.Executante);
+        assinatura.ArquivoId = null;
+        await _db.SaveChangesAsync();
+        (await _checagens.AguardandoAssinaturaAsync()).Should().Contain(x => x.Id == p.Id);
+        var acao = () => _orquestra.DocumentoInfusaoAsync(p.Id);
+        await acao.Should().ThrowAsync<InvalidOperationException>().WithMessage("*indisponível*");
     }
 
     [Theory]
@@ -83,6 +132,11 @@ public partial class SegundaAssinaturaExecucaoTests
         foreach (var item in (await _repo.ObterPrescricaoInternaAsync(p.Id))!.Itens)
             await _checagens.ChecarAsync(item.Id, SituacaoChecagem.NaoExecutavel,
                 new(10, 37), Tecnica, motivo);
+        var checagensSalvas = await _db.ChecagensPrescricao.AsNoTracking().ToListAsync();
+        checagensSalvas.Should().HaveCount(6).And.OnlyContain(c => c.Justificativa == motivo);
+        var eventos = await _db.Auditoria.AsNoTracking()
+            .Where(e => e.Acao == "PrescricaoItemNaoRealizado").ToListAsync();
+        eventos.Should().HaveCount(6).And.OnlyContain(e => e.Detalhe != null && e.Detalhe.Contains(motivo));
         await _checagens.EncerrarAsync(p.Id, Tecnica);
         await _orquestra.AssinarExecucaoAsync(p.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira), cenario.UsuarioEnfermeiraId);
         var final = (await _orquestra.FolhaAsync(p.Id, FolhaPrescricao.Prescricao)).Pdf;

@@ -251,6 +251,24 @@ public sealed class AssinaturaDePrescricaoService
     /// mesma regra da Prescrição: devolvem-se os bytes GUARDADOS, porque a assinatura
     /// cobre uma faixa de bytes e um arquivo regerado sairia inválido.
     /// </summary>
+    public async Task<FolhaAssinada> DocumentoInfusaoAsync(int prescricaoId, CancellationToken ct = default)
+    {
+        var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
+            ?? throw new InvalidOperationException("Prescrição não encontrada.");
+        var assinatura = prescricao.OrigemEnfermagem
+            ? prescricao.AssinaturaDoPrescritor ?? prescricao.AssinaturaDaExecucao
+            : prescricao.AssinaturaDaExecucao ?? prescricao.AssinaturaDoPrescritor;
+        // Uma assinatura registrada nunca pode virar silenciosamente um PDF regenerado.
+        if (assinatura is not null && (assinatura.ArquivoId is not { } id
+            || await _repo.ObterArquivoAssinadoAsync(id, ct) is null))
+            throw new InvalidOperationException("O documento assinado está indisponível. Contate o suporte para recuperá-lo.");
+        var regimePapelComExecucao = !prescricao.ExigeAssinaturaEletronicaDaExecucao
+            && !prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao is null
+            && prescricao.Itens.Any(i => i.ChecagemVigente is not null);
+        return await FolhaAsync(prescricaoId,
+            regimePapelComExecucao ? FolhaPrescricao.RegistroExecucao : FolhaPrescricao.Prescricao, ct);
+    }
+
     public async Task<FolhaAssinada> FolhaAsync(
         int prescricaoId, FolhaPrescricao folhaPedida, CancellationToken ct = default)
     {

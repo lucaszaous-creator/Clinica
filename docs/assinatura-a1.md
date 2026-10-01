@@ -125,3 +125,21 @@ Na infraestrutura atual, o serviço de homologação só tem acesso de rede ao l
 A consulta online de revogação do A1 exige liberação dos endereços oficiais indicados
 no certificado do titular. Enquanto isso não for conferido, a aceitação real permanece
 pendente e a validação deve continuar bloqueando qualquer cadeia não verificável.
+
+## Integração com a branch principal
+
+A integração preserva a migration histórica de operações anteriores e seu mapeamento
+apenas para retenção da tabela; não há serviço que inicie novas operações remotas.
+A migration `20261001180000_AuditoriaPreservaDetalheCompleto` amplia o detalhe da
+auditoria para texto, preservando justificativas completas. O pacote de implantação
+aplica essa ampliação e a criação do cofre A1 de forma idempotente na mesma transação.
+O retorno à versão anterior do serviço não reduz a coluna nem remove dados.
+
+A impressão principal segue a regra unificada da branch principal. Se existir um
+PDF de execução separado e diferente do documento principal, o desktop oferece
+“Registro histórico” para abrir seus bytes arquivados.
+
+O pacote de homologação instalado em 01/10, `395de12ed1ee` / `dbb4d3219544`,
+antecede essa integração. Integrar as PRs não publica automaticamente uma nova
+versão do serviço clínico ou do instalador desktop; o A1 real e a consulta de
+revogação continuam pendentes de validação.

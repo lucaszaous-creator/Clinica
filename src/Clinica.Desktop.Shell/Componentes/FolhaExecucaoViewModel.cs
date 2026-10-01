@@ -1,4 +1,6 @@
 using Clinica.Application.Servicos;
+using Clinica.Application.Abstracoes;
+using Clinica.Application.Assinatura;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
@@ -115,12 +117,9 @@ public sealed class LinhaExecucaoItem
 ///   circuito que a clínica pediu quando descreveu o caso: sem isso, "teve reação à
 ///   dipirona" morre no campo de texto e a próxima receita sai com dipirona de novo.
 ///
-/// O que esta tela NÃO faz: assinar
-/// --------------------------------
-/// Quem confere e assina a execução é a enfermeira, <b>na via impressa</b>. O que se grava
-/// aqui é o registro — prontuário, conferência do fim do dia e o circuito da alergia. Pedir
-/// um segundo certificado ICP-Brasil obrigaria a clínica a comprar um e-CPF para a técnica
-/// e produziria, com muita cerimônia, a mesma garantia que a caneta dela já dá.
+/// A execução eletrônica é assinada com o certificado da profissional responsável.
+/// O documento principal reúne prescrição e execução; o regime antigo em papel continua
+/// identificado como não assinado digitalmente.
 /// </summary>
 public sealed partial class FolhaExecucaoViewModel : ObservableObject
 {
@@ -167,6 +166,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// <summary>Já houve checagem — o registro de execução tem o que mostrar.</summary>
     [ObservableProperty] private bool _temRegistroExecucao;
     [ObservableProperty] private bool _exibirRegistroSeparado;
+    [ObservableProperty] private string? _avisoPdfHistorico;
+    private int? _arquivoConferido;
 
     /// <summary>A folha nasceu pedindo a 2ª assinatura (a eletrônica da enfermagem).</summary>
     [ObservableProperty] private bool _exigeAssinaturaEletronica;
@@ -262,13 +263,13 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             (EncerrarCommand, "Encerrando execução…"),
             (RealizadoCommand, "Registrando realização…"),
             (NaoRealizadoCommand, "Registrando não realização…"),
+            (NaoExecutavelCommand, "Registrando item não executável…"),
             (RetificarCommand, "Retificando execução…"),
             (CorrigirHorariosCommand, "Salvando horários…"),
             (DevolverMedicoCommand, "Devolvendo à enfermagem…"),
             (CancelarInfusaoCommand, "Cancelando registro…"),
             (SuspenderCommand, "Atualizando item…"),
             (ImprimirCommand, "Preparando folha da infusão…"),
-            (ImprimirRegistroCommand, "Preparando registro de execução…")
         ];
         foreach (var etapa in _etapas)
             etapa.Comando.PropertyChanged += (_, e) =>
@@ -331,7 +332,6 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     && !prescricao.Itens.Any(i => i.ChecagemVigente is not null)));
             PodeValidarMedico = prescricao.AguardaValidacaoMedica
                 && prescricao.AssinaturaDaExecucao?.ArquivoId is not null
-                && prescricao.AssinaturaDaExecucao.ArquivoRegistroId is not null
                 && prescricao.ProfissionalId == SessaoUsuario.Atual.ProfissionalId
                 && SessaoUsuario.Atual.Perfil != PerfilAcesso.Enfermagem
                 && SessaoUsuario.Atual.Pode(Permissao.Prescrever);
@@ -352,7 +352,21 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             EmExecucao = prescricao.PodeChecar;
             ExecucaoCompleta = prescricao.ExecucaoCompleta;
             TemRegistroExecucao = prescricao.Realizados + prescricao.NaoRealizados > 0;
-            ExibirRegistroSeparado = !prescricao.ExigeAssinaturaEletronicaDaExecucao;
+            ExibirRegistroSeparado = prescricao.AssinaturaDaExecucao is { ArquivoRegistroId: not null } antiga
+                && antiga.ArquivoRegistroId != antiga.ArquivoId;
+            // PDFs anteriores aos campos reservados não podem receber dados retroativamente:
+            // as assinaturas existentes cobrem o conteúdo original, que deve ser preservado.
+            if (!prescricao.OrigemEnfermagem && prescricao.AssinaturaDaExecucao?.ArquivoId is { } arquivoId
+                && _arquivoConferido != arquivoId)
+            {
+                var arquivo = await scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                    .ObterArquivoAssinadoAsync(arquivoId);
+                AvisoPdfHistorico = arquivo is not null && !CamposExecucaoPdf.TemCampos(arquivo.Conteudo)
+                    ? "PDF histórico: as assinaturas foram feitas sem incorporar os dados de execução. "
+                      + "Consulte os horários, resultados e justificativas nesta tela. A impressão preserva o PDF originalmente assinado."
+                    : null;
+                _arquivoConferido = arquivo is not null ? arquivoId : null;
+            }
 
             ExigeAssinaturaEletronica = prescricao.ExigeAssinaturaEletronicaDaExecucao;
             AguardaAssinaturaExecucao = prescricao.AguardaAssinaturaDaExecucao;
@@ -597,9 +611,6 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 return;
             }
 
-            // DOIS documentos, um certificado: a prescrição (revisão incremental) e o
-            // registro de execução. Em nuvem isso muda o escopo da autorização — com o
-            // padrão do PSC a segunda selagem seria recusada sempre.
             using var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
 
@@ -757,13 +768,12 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// a assinatura cobre bytes, e um PDF "igual" regerado agora abriria como inválido.
     /// </summary>
     [RelayCommand]
-    private Task ImprimirAsync() => ImprimirFolhaAsync(FolhaPrescricao.Prescricao);
+    private Task ImprimirAsync() => ImprimirFolhaAsync(false);
 
-    /// <summary>O espelho eletrônico do que foi checado — prontuário e conferência do fim do dia.</summary>
     [RelayCommand]
-    private Task ImprimirRegistroAsync() => ImprimirFolhaAsync(FolhaPrescricao.RegistroExecucao);
+    private Task ImprimirRegistroAsync() => ImprimirFolhaAsync(true);
 
-    private async Task ImprimirFolhaAsync(FolhaPrescricao folhaPedida)
+    private async Task ImprimirFolhaAsync(bool registroHistorico)
     {
         try
         {
@@ -772,7 +782,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             {
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDePrescricaoService>();
-                folha = await assinaturas.FolhaAsync(_prescricaoId, folhaPedida);
+                folha = registroHistorico
+                    ? await assinaturas.FolhaAsync(_prescricaoId, FolhaPrescricao.RegistroExecucao)
+                    : await assinaturas.DocumentoInfusaoAsync(_prescricaoId);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
@@ -781,7 +793,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             // A conferência da assinatura é DITA, nas três respostas possíveis: íntegra,
             // alterada, ou não foi possível conferir — abrir em silêncio faria a terceira
             // passar por sucesso.
-            Mensagem = erro ?? folha.Conferencia?.Frase;
+            Mensagem = erro ?? folha.Conferencia?.Frase ?? "Documento sem assinatura digital; confira a identificação no PDF.";
             MensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
         }
         catch (Exception ex)

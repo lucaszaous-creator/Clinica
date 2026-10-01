@@ -122,6 +122,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
+    public DbSet<OperacaoAssinaturaTablet> OperacoesAssinaturaTablet => Set<OperacaoAssinaturaTablet>();
     public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
     public DbSet<ColetaTablet> ColetasTablet => Set<ColetaTablet>();
     public DbSet<ViaAssinadaPaciente> ViasAssinadasPaciente => Set<ViaAssinadaPaciente>();
@@ -1678,7 +1679,8 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.DataHora).HasColumnType("timestamp without time zone");
             e.Property(x => x.Operador).IsRequired().HasMaxLength(80);
             e.Property(x => x.Acao).IsRequired().HasMaxLength(40);
-            e.Property(x => x.Detalhe).HasMaxLength(500);
+            // A auditoria inclui a justificativa completa e o contexto da ação.
+            e.Property(x => x.Detalhe).HasColumnType("text");
             e.HasIndex(x => x.DataHora);
             e.HasIndex(x => x.CodigoId);
         });

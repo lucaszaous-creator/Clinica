@@ -42,7 +42,10 @@ public partial class SegundaAssinaturaExecucaoTests
             .Should().HaveCount(2).And.OnlyContain(a=>a.Conferida);
     }
 
-    [Fact] public async Task Infusao_externa_assina_enfermagem_primeiro_e_medico_valida_mesmo_pdf()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Infusao_externa_assina_enfermagem_primeiro_e_medico_valida_mesmo_pdf(bool semEspelhoSeparado)
     {
         var c=await CenarioAsync();
         var medico=new UsuarioSistema {Nome="Médica",Login="medica",Perfil=PerfilAcesso.Profissional,ProfissionalId=c.ProfissionalMedicaId};
@@ -66,6 +69,11 @@ public partial class SegundaAssinaturaExecucaoTests
         var parcial=await _orquestra.FolhaAsync(p.Id,FolhaPrescricao.RegistroExecucao);
         Despejar("infusao-apenas-enfermagem.pdf",parcial.Pdf);
         _assinador.ConferirTodas(parcial.Pdf).Should().HaveCount(1).And.OnlyContain(a=>a.Conferida);
+        if (semEspelhoSeparado)
+        {
+            p.AssinaturaDaExecucao!.ArquivoRegistroId = null;
+            await _db.SaveChangesAsync();
+        }
         (await _checagens.AguardandoAssinaturaAsync()).Should().NotContain(x => x.Id == p.Id);
         (await _checagens.AguardandoValidacaoMedicaAsync(c.ProfissionalMedicaId)).Should().Contain(x => x.Id == p.Id);
         p.AguardaValidacaoMedica.Should().BeTrue();
