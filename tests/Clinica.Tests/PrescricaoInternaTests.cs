@@ -549,6 +549,30 @@ public class PrescricaoInternaTests : IDisposable
         erro.Message.Should().Contain("ALERGIA");
     }
 
+    [Fact]
+    public async Task Diluicao_unica_persiste_total_sem_repetir_em_itens()
+    {
+        var p=await RascunhoAsync();
+        await _prescricoes.SalvarRascunhoAsync(p.Id,"Teste","Observar paciente",
+            new[]{new ItemPrescricaoInterna {Descricao="Item A",Diluente="Legado",Volume="100 mL"},new ItemPrescricaoInterna {Descricao="Item B",Volume="100 mL"}},
+            diluicaoUnica:true,diluenteGlobal:"SF 0,9%",volumeTotal:"250 mL");
+        var salvo=await Carregar(p.Id);
+        salvo.DiluicaoUnica.Should().BeTrue();salvo.DiluenteGlobal.Should().Be("SF 0,9%");salvo.VolumeTotal.Should().Be("250 mL");
+        salvo.Itens.Should().OnlyContain(i=>i.Diluente==null&&i.Volume==null);
+    }
+
+    [Fact]
+    public async Task Nao_executavel_exige_motivo_e_mantem_compatibilidade_do_registro()
+    {
+        var id=await ItemAssinadoAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>_checagens.ChecarAsync(id,SituacaoChecagem.NaoExecutavel,Agora(),Tecnica));
+        await _checagens.ChecarAsync(id,SituacaoChecagem.NaoExecutavel,Agora(),Tecnica,justificativa:"Acesso indisponível");
+        _db.ChangeTracker.Clear();var item=(await _repo.ObterItemPrescricaoInternaAsync(id))!;
+        item.ChecagemVigente!.Situacao.Should().Be(SituacaoChecagem.NaoRealizado);
+        item.ChecagemVigente.NaoExecutavel.Should().BeTrue();item.Situacao.Should().Be(SituacaoItemPrescricao.NaoExecutavel);
+        item.Prescricao!.ExecucaoCompleta.Should().BeTrue();
+    }
+
     // ==================== Apoio ====================
 
     private static TimeOnly Agora() => TimeOnly.FromDateTime(MeioDia);

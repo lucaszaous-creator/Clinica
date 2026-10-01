@@ -169,6 +169,8 @@ public class BackupServiceTests : IDisposable
     public async Task O_que_sai_no_backup_volta_igual_na_restauracao()
     {
         var original = await SemearAsync();
+        _db.MotivosAcompanhamento.Add(new() { Id = 901, Nome = "Motivo personalizado de recall", Ativo = false });
+        await _db.SaveChangesAsync();
 
         using var ms = await GerarAsync();
 
@@ -177,11 +179,20 @@ public class BackupServiceTests : IDisposable
         destinoConn.Open();
         using var destino = Criar(destinoConn);
         destino.Database.EnsureCreated();
+        if (!await destino.MotivosAcompanhamento.AnyAsync())
+        {
+            destino.MotivosAcompanhamento.Add(new() { Id = 1, Nome = "Motivo semeado na instalação" });
+            await destino.SaveChangesAsync();
+        }
 
         var resultado = await new BackupService(destino)
             .RestaurarAsync(ms, confirmado: true, operador: "suporte");
 
         resultado.LinhasRestauradas.Should().BeGreaterThan(0);
+        var motivoRestaurado = await destino.MotivosAcompanhamento.AsNoTracking().SingleAsync(m => m.Id == 901);
+        motivoRestaurado.Nome.Should().Be("Motivo personalizado de recall");
+        motivoRestaurado.Ativo.Should().BeFalse();
+        (await destino.MotivosAcompanhamento.CountAsync()).Should().Be(await _db.MotivosAcompanhamento.CountAsync());
 
         var voltou = await destino.Pacientes.AsNoTracking().SingleAsync();
         voltou.Nome.Should().Be(original.Nome);

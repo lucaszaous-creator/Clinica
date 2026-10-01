@@ -7,6 +7,31 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <DataTemplate x:Key="EtapasDaInfusao">
+            <ItemsControl ItemsSource="{Binding Etapas}" Margin="0,10,0,4" AutomationProperties.Name="Etapas da infusão">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate><DataTemplate>
+                    <Border Padding="10,7" Margin="0,0,6,6" CornerRadius="6" BorderThickness="1" MaxWidth="200">
+                        <Border.Style><Style TargetType="Border">
+                            <Setter Property="Background" Value="{StaticResource Brush.Fundo}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Concluida}" Value="True"><Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Atual}" Value="True"><Setter Property="BorderBrush" Value="{StaticResource Brush.Acento}"/><Setter Property="Background" Value="{StaticResource Brush.Info.Suave}"/></DataTrigger>
+                                <DataTrigger Binding="{Binding Atencao}" Value="True"><Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}"/></DataTrigger>
+                            </Style.Triggers>
+                        </Style></Border.Style>
+                        <StackPanel>
+                            <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"><Run Text="{Binding Marca, Mode=OneWay}"/><Run Text=" "/><Run Text="{Binding Titulo, Mode=OneWay}"/></TextBlock>
+                            <TextBlock Text="{Binding Situacao}" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                            <ProgressBar Height="3" Margin="0,5,0,0" IsIndeterminate="True"
+                                         Visibility="{Binding Atual, Converter={StaticResource BoolParaVisibilidade}}"
+                                         AutomationProperties.Name="Etapa atual da infusão"/>
+                        </StackPanel>
+                    </Border>
+                </DataTemplate></ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Margin="24,20,24,24">
@@ -43,35 +68,41 @@
             </StackPanel>
         </Grid>
 
+        <TextBlock DockPanel.Dock="Top" Text="✓ Concluída   ·   ◉ Etapa atual   ·   ○ Próxima etapa   ·   ! Precisa de revisão" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"/>
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
             <Button Content="Registrar infusão com orientação externa" Command="{Binding RegistrarInfusaoCommand}"
                     Visibility="{Binding PodeRegistrarEnfermagem, Converter={StaticResource BoolParaVisibilidade}}" />
         </WrapPanel>
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,12"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,12" MaxHeight="360"
                 Visibility="{Binding PodePrescrever, Converter={StaticResource BoolParaVisibilidade}}">
-            <StackPanel>
-                <TextBlock Text="Avaliação médica de infusões externas" Style="{StaticResource H3}" />
-                <TextBlock Text="{Binding ResumoValidacoes}" Style="{StaticResource TextoSuave}" Margin="0,4,0,8" />
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock Text="Avaliação médica de infusões externas" Style="{StaticResource H3}" TextWrapping="Wrap" />
+                <TextBlock Grid.Row="1" Text="{Binding ResumoValidacoes}" Style="{StaticResource TextoSuave}" Margin="0,4,0,8" TextWrapping="Wrap" />
+                <ScrollViewer x:Name="RolagemValidacoes" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.Name="Infusões aguardando avaliação médica">
                 <ItemsControl ItemsSource="{Binding Validacoes}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0" Padding="0,10">
                                 <DockPanel>
-                                    <Button DockPanel.Dock="Right" Content="Avaliar e assinar" Margin="12,0,0,0"
+                                    <Button DockPanel.Dock="Right" Content="Avaliar e assinar" Margin="12,0,0,0" VerticalAlignment="Center"
                                             Command="{Binding DataContext.AbrirCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />
                                     <StackPanel>
                                         <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding Numero}" Style="{StaticResource TextoSuave}" TextTrimming="CharacterEllipsis" />
+                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource EtapasDaInfusao}"/>
                                     </StackPanel>
                                 </DockPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Border>
         <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
              visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
@@ -102,12 +133,14 @@
                                 <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
                                         BorderThickness="0,0,0,1">
                                     <Grid>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="60" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
+                                        <ContentControl Grid.Row="1" Grid.ColumnSpan="3" Content="{Binding}" ContentTemplate="{StaticResource EtapasDaInfusao}"/>
                                         <TextBlock Grid.Column="0" Text="{Binding Hora}"
                                                    VerticalAlignment="Center" TextWrapping="Wrap"
                                                    FontWeight="SemiBold"

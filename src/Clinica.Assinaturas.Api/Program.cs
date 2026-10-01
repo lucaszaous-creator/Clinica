@@ -54,6 +54,8 @@ else
     builder.Services.AddDbContext<ClinicaDbContext>(o=>o.UseNpgsql(conexao,n=>n.CommandTimeout(20)));
 }
 builder.Services.AddScoped<IClinicaRepositorio,ClinicaRepositorio>();
+builder.Services.AddScoped<PacoteService>();
+builder.Services.AddScoped<IAcompanhamentoPacienteService,AcompanhamentoPacienteService>();
 builder.Services.AddScoped<AcessoService>();
 builder.Services.AddScoped<DocumentoClinicoService>();
 builder.Services.AddScoped<ProntuarioService>();
@@ -136,6 +138,15 @@ string Dispositivo(HttpContext ctx)
 async Task<Clinica.Domain.Entities.SessaoTablet> Sessao(HttpContext ctx,PortalTabletService svc,bool equipe)
     => await svc.AutorizarAsync(ctx.Request.Cookies[cookieSessao],Dispositivo(ctx),equipe,ctx.RequestAborted);
 
+async Task<SessaoTablet> SessaoDaColeta(HttpContext ctx,PortalTabletService svc)
+{
+    if(!ctx.Request.Headers.TryGetValue("X-Coleta-Token",out var token))return await Sessao(ctx,svc,false);
+    var equipe=await Sessao(ctx,svc,true);
+    var coleta=await svc.AutorizarAsync(token.ToString(),Dispositivo(ctx),false,ctx.RequestAborted);
+    if(coleta.UsuarioId!=equipe.UsuarioId || coleta.Id==equipe.Id || coleta.Modo is not ("paciente" or "encerrada"))throw new UnauthorizedAccessException();
+    return coleta;
+}
+
 int? EscopoColeta(SessaoTablet s) => s.Usuario!.Perfil is PerfilAcesso.Profissional or PerfilAcesso.Psicologia
     ? s.Usuario.ProfissionalId ?? throw new UnauthorizedAccessException() : null;
 async Task ConferirPacienteColeta(HttpContext ctx,SessaoTablet s,int paciente)
@@ -153,8 +164,9 @@ app.Use(async(ctx,next)=>
     ctx.Response.Headers["X-Content-Type-Options"]="nosniff";
     ctx.Response.Headers["X-Robots-Tag"]="noindex, nofollow, noarchive";
     ctx.Response.Headers["Referrer-Policy"]="no-referrer";
-    ctx.Response.Headers["X-Frame-Options"]="DENY";
-    ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+    var coletaEmbutida=ctx.Request.Path=="/profissional/coleta.html";
+    ctx.Response.Headers["X-Frame-Options"]=coletaEmbutida?"SAMEORIGIN":"DENY";
+    ctx.Response.Headers["Content-Security-Policy"]="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self'; connect-src 'self'; font-src 'self'; worker-src 'self'; frame-src 'self'; frame-ancestors "+(coletaEmbutida?"'self'":"'none'")+"; base-uri 'none'; form-action 'self'";
     ctx.Response.Headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()";
     if(!demo) ctx.Response.Headers["Strict-Transport-Security"]="max-age=31536000";
     if(!ctx.Request.Path.StartsWithSegments("/api") && !ctx.Request.Path.StartsWithSegments("/health"))
@@ -260,20 +272,32 @@ app.MapPost("/api/sair",async(HttpContext ctx,PortalTabletService svc,ClinicaDbC
     await db.SaveChangesAsync(ctx.RequestAborted); ctx.Response.Cookies.Delete(cookieSessao,Cookie(0));
     return Results.NoContent();
 });
+app.MapPost("/api/retornar-equipe",async(HttpContext ctx,PortalTabletService svc)=>
+{
+    var s=await Sessao(ctx,svc,false);
+    var entrada=await svc.RetornarEquipeAsync(s,ctx.RequestAborted);
+    var cookie=Cookie(2);cookie.MaxAge=TimeSpan.FromMilliseconds(entrada.Sessao.ExpiraEm-svc.Agora);
+    ctx.Response.Cookies.Append(cookieSessao,entrada.Token,cookie);
+    return Results.Ok(new {modo="equipe"});
+});
 app.MapGet("/api/dia",async(HttpContext ctx,PortalTabletService svc)=>
 {var s=await Sessao(ctx,svc,true); return Results.Ok(await svc.DiaAsync(ctx.RequestAborted,EscopoColeta(s)));});
 app.MapGet("/api/pacientes",async(HttpContext ctx,PortalTabletService svc,string? q)=>
 {var s=await Sessao(ctx,svc,true); return Results.Ok(await svc.BuscarAsync(q,ctx.RequestAborted,EscopoColeta(s)));});
 app.MapGet("/api/pacientes/{id:int}",async(HttpContext ctx,PortalTabletService svc,int id)=>
 {var s=await Sessao(ctx,svc,true); await ConferirPacienteColeta(ctx,s,id); return Results.Ok(await svc.PacienteAsync(id,s.Usuario!.Login,ctx.RequestAborted));});
+app.MapPost("/api/sessoes/{id:int}/preparar-termos",async(HttpContext ctx,PortalTabletService svc,int id,PrepararTablet pedido)=>
+{var s=await Sessao(ctx,svc,true);await ConferirPacienteColeta(ctx,s,pedido.PacienteId);var token=await svc.PrepararNaEvolucaoAsync(s,id,pedido,ctx.RequestAborted);return Results.Ok(new {token,modo="paciente"});});
+app.MapGet("/api/coleta-sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletService svc)=>
+{var s=await SessaoDaColeta(ctx,svc);return Results.Ok(new {csrf=csrf.GetAndStoreTokens(ctx).RequestToken,modo=s.Modo,demo,homologacao,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id)});});
 app.MapPost("/api/preparar",async(HttpContext ctx,PortalTabletService svc,PrepararTablet pedido)=>
 {var s=await Sessao(ctx,svc,true); await ConferirPacienteColeta(ctx,s,pedido.PacienteId); await svc.PrepararAsync(s,pedido,ctx.RequestAborted); return Results.Ok(new {modo="paciente"});});
 app.MapGet("/api/coletas",async(HttpContext ctx,PortalTabletService svc)=>
-{var s=await Sessao(ctx,svc,false); return Results.Ok(await svc.ColetasAsync(s,ctx.RequestAborted));});
+{var s=await SessaoDaColeta(ctx,svc); return Results.Ok(await svc.ColetasAsync(s,ctx.RequestAborted));});
 app.MapPost("/api/coletas/{id:guid}/assinar",async(HttpContext ctx,PortalTabletService svc,Guid id,EnviarRubrica pedido)=>
-{var s=await Sessao(ctx,svc,false); await svc.ReceberAsync(s,id,pedido,ctx.RequestAborted); return Results.Accepted(value:new {estado="recebido"});});
+{var s=await SessaoDaColeta(ctx,svc); await svc.ReceberAsync(s,id,pedido,ctx.RequestAborted); return Results.Accepted(value:new {estado="recebido"});});
 app.MapPost("/api/encerrar",async(HttpContext ctx,PortalTabletService svc,Encerrar pedido)=>
-{var s=await Sessao(ctx,svc,false); await svc.EncerrarAsync(s,pedido.Recusa,pedido.Motivo,ctx.RequestAborted); return Results.NoContent();});
+{var s=await SessaoDaColeta(ctx,svc); await svc.EncerrarAsync(s,pedido.Recusa,pedido.Motivo,ctx.RequestAborted); return Results.NoContent();});
 app.MapGet("/api/documentos/{id:int}/via",async(HttpContext ctx,PortalTabletService svc,int id)=>
 {var s=await Sessao(ctx,svc,true); var p=await ctx.RequestServices.GetRequiredService<ClinicaDbContext>().DocumentosClinicos
     .Where(d=>d.Id==id).Select(d=>(int?)d.PacienteId).SingleOrDefaultAsync(ctx.RequestAborted) ?? throw new RecursoClinicoIndisponivel();

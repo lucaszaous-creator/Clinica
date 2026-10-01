@@ -175,6 +175,26 @@ public sealed partial class AtendimentoTabletTests
         Assert.Equal("Assinada",enfermagem.Single().GetProperty("situacao").GetString());
     }
 
+    [Theory]
+    [InlineData(SituacaoPrescricao.Assinada)]
+    [InlineData(SituacaoPrescricao.Encerrada)]
+    public async Task Detalhe_da_infusao_so_oferece_acoes_de_execucao_a_enfermagem(SituacaoPrescricao situacao)
+    {
+        await Preparar();
+        var folha=await Folha(situacao);
+        folha.ExigeAssinaturaEletronicaDaExecucao=true;
+        await db.SaveChangesAsync();
+        var medico=Json(await Posto.InfusaoAsync(sessao,folha.Id,default));
+        Assert.False(medico.GetProperty("podeExecutar").GetBoolean());
+        Assert.False(medico.GetProperty("podeAssinarExecucao").GetBoolean());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(()=>Posto.EncerrarAsync(sessao,folha.Id,
+            new(Guid.NewGuid(),PostoTabletService.Versao(folha)),default));
+        await Enfermeira();
+        var enfermagem=Json(await Posto.InfusaoAsync(sessao,folha.Id,default));
+        Assert.True(enfermagem.GetProperty("podeExecutar").GetBoolean());
+        Assert.Equal(situacao==SituacaoPrescricao.Encerrada,enfermagem.GetProperty("podeAssinarExecucao").GetBoolean());
+    }
+
     [Fact] public async Task Fila_de_infusoes_notifica_cada_assinatura_sem_confundir_falha_de_arquivo()
     {
         await Preparar();
@@ -205,6 +225,9 @@ public sealed partial class AtendimentoTabletTests
         var itensMedico=medico.GetProperty("itens").EnumerateArray().ToDictionary(x=>x.GetProperty("id").GetInt32());
         Assert.Equal("revisarRascunho",itensMedico[rascunho.Id].GetProperty("acaoPendente").GetString());
         Assert.Equal("assinarMedico",itensMedico[assinarMedico.Id].GetProperty("acaoPendente").GetString());
+        var etapasMedico=itensMedico[assinarMedico.Id].GetProperty("etapas").EnumerateArray().ToArray();
+        Assert.Equal("medico",Assert.Single(etapasMedico.Where(e=>e.GetProperty("atual").GetBoolean())).GetProperty("codigo").GetString());
+        Assert.Equal(2,etapasMedico.Count(e=>e.GetProperty("concluida").GetBoolean()));
 
         await Enfermeira();
         var avisosEnfermagem=await new ChecagemPrescricaoService(repo).ContarAssinaturasPendentesAsync(

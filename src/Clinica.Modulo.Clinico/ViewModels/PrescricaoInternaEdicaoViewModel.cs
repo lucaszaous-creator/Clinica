@@ -93,6 +93,11 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
     public IReadOnlyList<ViaAdministracao> Vias { get; } = Enum.GetValues<ViaAdministracao>();
 
+    [ObservableProperty] private bool _diluicaoUnica = true;
+    [ObservableProperty] private string? _diluenteGlobal = "SF 0,9%";
+    [ObservableProperty] private string? _volumeTotal;
+    public bool DiluicaoPorItem => !DiluicaoUnica;
+    partial void OnDiluicaoUnicaChanged(bool value) => OnPropertyChanged(nameof(DiluicaoPorItem));
     [ObservableProperty] private string _paciente = string.Empty;
     /// <summary>
     /// Número da série anual. Fica com o aviso até a primeira gravação, porque até lá a
@@ -119,6 +124,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
+    [ObservableProperty] private string _textoOperacao = "Carregando prescrição…";
     [ObservableProperty] private bool _temAlertas;
 
     /// <summary>A folha já foi assinada nesta janela — quem abriu recarrega a lista.</summary>
@@ -201,6 +207,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 if(!_dialogo.ConfirmarPerigo("Usar modelo","Substituir a prescrição que está em edição pelo modelo escolhido?"))return;
             Indicacao=modelo.Indicacao;IndicacaoFormatada=modelo.IndicacaoFormatada;
             Observacoes=modelo.Observacoes;ObservacoesFormatadas=modelo.ObservacoesFormatadas;
+            DiluicaoUnica=modelo.DiluicaoUnica;DiluenteGlobal=modelo.DiluenteGlobal;VolumeTotal=modelo.VolumeTotal;
             Itens.Clear();foreach(var item in modelo.Itens)Itens.Add(LinhaItemPrescricao.De(ModeloInfusao.Para(item)));
             Mensagem="Modelo aplicado. Revise a prescrição antes de salvar.";MensagemEhErro=false;
         }catch(Exception ex){Mensagem=ex.Message;MensagemEhErro=true;}
@@ -216,9 +223,10 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     private async Task GuardarModeloAsync(string? nome,int id) {
         if(Ocupado||!Exigir(Permissao.Prescrever,"salvar modelos"))return;
         try {
+            TextoOperacao = "Salvando modelo…";
             Ocupado=true;
             var itens=Itens.Where(i=>!string.IsNullOrWhiteSpace(i.Descricao)).Select(i=>i.Para()).ToArray();
-            var config=new ModeloInfusao(Indicacao,Observacoes,itens.Select(ModeloInfusao.De).ToArray(),IndicacaoFormatada,ObservacoesFormatadas).Guardar();
+            var config=new ModeloInfusao(Indicacao,Observacoes,itens.Select(ModeloInfusao.De).ToArray(),IndicacaoFormatada,ObservacoesFormatadas,DiluicaoUnica,DiluenteGlobal,VolumeTotal).Guardar();
             var texto=TextoFormatado.Juntar(itens.Select(i=>((string?)i.Descricao,i.DescricaoFormatada)));
             using var scope=_escopos.CreateScope();
             var salvo=await scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>().SalvarModeloAsync(new() {
@@ -277,6 +285,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             {
                 Indicacao = prescricao.Indicacao; IndicacaoFormatada = prescricao.IndicacaoFormatada;
                 Observacoes = prescricao.Observacoes; ObservacoesFormatadas = prescricao.ObservacoesFormatadas;
+                DiluicaoUnica=prescricao.DiluicaoUnica;DiluenteGlobal=prescricao.DiluenteGlobal;VolumeTotal=prescricao.VolumeTotal;
 
                 Itens.Clear();
                 foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem))
@@ -333,7 +342,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         if (!Exigir(Permissao.Prescrever, "salvar a prescrição de infusão")) return;
 
         if (await GravarAsync() is null) return;
-        Mensagem = "Rascunho salvo. Ele ainda NÃO aparece na sala de infusão — só a "
+        Mensagem = "✓ Rascunho salvo. Ele ainda NÃO aparece na sala de infusão — só a "
                  + "assinatura o põe lá.";
         MensagemEhErro = false;
     }
@@ -363,6 +372,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
             if (await GravarAsync() is null) return;
 
+            TextoOperacao = "Assinando e arquivando prescrição…";
             Ocupado = true;
 
             var confirmouAlergia = false;
@@ -453,6 +463,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
         try
         {
+            TextoOperacao = "Salvando prescrição de infusão…";
             Ocupado = true;
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
@@ -475,7 +486,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
                 _prescricaoId, Indicacao, Observacoes, itens,
                 SessaoUsuario.Atual.Operador,
                 exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao,indicacaoFormatada:IndicacaoFormatada,observacoesFormatadas:ObservacoesFormatadas,
-                dataPrescricao:DateOnly.FromDateTime(dataPrescricao),horaPrescricao:horaPrescricao);
+                dataPrescricao:DateOnly.FromDateTime(dataPrescricao),horaPrescricao:horaPrescricao,diluicaoUnica:DiluicaoUnica,diluenteGlobal:DiluenteGlobal,volumeTotal:VolumeTotal);
 
             Mensagem = null;
             MensagemEhErro = false;

@@ -115,7 +115,7 @@ public sealed class BackupService
     /// tem de recusar.
     /// </summary>
     public static readonly IReadOnlySet<string> TabelasSemeadasPelaInstalacao =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Convenios", "Modalidades", "Especialidades" };
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Convenios", "Modalidades", "Especialidades", "MotivosAcompanhamento" };
 
     /// <summary>Nome de cada tabela do modelo, em ordem de dependência (pai antes de filho).</summary>
     private IReadOnlyList<string> TabelasEmOrdem()

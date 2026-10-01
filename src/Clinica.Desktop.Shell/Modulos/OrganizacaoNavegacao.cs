@@ -39,7 +39,7 @@ public static class OrganizacaoNavegacao
             case "configuracoes": case "auditoria": case "conformidade":
             case "consultorio-modelos": case "importar-pacientes": case "guarda-prontuario": case "documentos-emitidos": grupo = GrupoSidebar.Gestao; break;
             case "marketing": rotulo = "Relacionamento"; grupo = GrupoSidebar.Gestao; break;
-            case "retorno-pacientes": rotulo = "Recall de pacientes"; grupo = GrupoSidebar.Gestao; break;
+            case "retorno-pacientes": rotulo = "Acompanhamento de pacientes"; grupo = GrupoSidebar.Gestao; break;
             case "retornos-a-marcar": rotulo = "Retornos solicitados pelo profissional"; grupo = GrupoSidebar.Gestao; break;
             case "marcar-horario": rotulo = "Marcar atendimento"; grupo = GrupoSidebar.Gestao; break;
             case "lancamentos": rotulo = "Conferir atendimentos"; grupo = GrupoSidebar.Gestao; break;

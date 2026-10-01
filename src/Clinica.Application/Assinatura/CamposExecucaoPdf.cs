@@ -100,13 +100,13 @@ public static class CamposExecucaoPdf
         foreach (var item in prescricao.Itens)
         {
             var c = item.ChecagemVigente;
-            var situacao = item.Suspenso ? "Suspenso" : c is null ? "Não indicado (SOS)" : RotulosEnum.De(c.Situacao);
+            var situacao = item.Suspenso ? "Suspenso" : c is null ? "Não indicado (SOS)" : c.NaoExecutavel ? "Não executável" : RotulosEnum.De(c.Situacao);
             if (c is null && !item.Suspenso && !item.SeNecessario)
                 throw new InvalidOperationException("Confira todos os itens antes de assinar a execução.");
             if (c is not null && c.Situacao != SituacaoChecagem.Realizado && string.IsNullOrWhiteSpace(c.Justificativa))
                 throw new InvalidOperationException("Não e Não executável exigem justificativa antes de assinar.");
             valores[$"hora_{item.Id}"] = c is null ? "—" : $"{c.HoraRealizacao:HH:mm}";
-            valores[$"situacao_{item.Id}"] = item.Suspenso ? "SUSP" : c is null ? "SOS" : c.Situacao switch
+            valores[$"situacao_{item.Id}"] = item.Suspenso ? "SUSP" : c is null ? "SOS" : c.NaoExecutavel ? "NE" : c.Situacao switch
             { SituacaoChecagem.Realizado => "Sim", SituacaoChecagem.NaoExecutavel => "NE", _ => "Não" };
             valores[$"detalhe_{item.Id}"] = c is null ? $"{situacao}. {item.MotivoSuspensao}" :
                 $"Situação: {situacao}\nData da execução: {(c.DataRealizacao ?? DateOnly.FromDateTime(c.RegistradoEm)):dd/MM/yyyy} — Horário: {c.HoraRealizacao:HH:mm}\n"

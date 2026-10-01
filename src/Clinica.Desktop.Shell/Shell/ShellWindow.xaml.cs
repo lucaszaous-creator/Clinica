@@ -26,12 +26,26 @@ public partial class ShellWindow : Window
     public ShellWindow()
     {
         InitializeComponent();
+        SizeChanged+=(_,_)=>AjustarCabecalho();
+        Loaded+=(_,_)=>AjustarCabecalho();
         InputBindings.Add(new KeyBinding(new RelayFoco(() => Categorias.Focus()), Key.B, ModifierKeys.Control));
 
         // Ctrl+F cai no campo de pesquisa. É atalho de janela e não de TextBox porque o
         // foco, na hora do atalho, está em qualquer lugar da tela ativa.
         InputBindings.Add(new KeyBinding(
             new RelayFoco(FocarPesquisa), Key.F, ModifierKeys.Control));
+    }
+
+    private void AjustarCabecalho()
+    {
+        // Menus and training move together to a second line on smaller windows,
+        // preserving the search, notifications and session controls at 880 px.
+        var compacto=ActualWidth<1180;
+        Cabecalho.Height=compacto?100:56;
+        Grid.SetRow(NavegacaoSuperior,compacto?1:0);
+        Grid.SetColumn(NavegacaoSuperior,compacto?0:1);
+        Grid.SetColumnSpan(NavegacaoSuperior,compacto?5:1);
+        NavegacaoSuperior.Margin=compacto?new Thickness(0,0,0,6):new Thickness(0);
     }
 
     /// <summary>Ctrl+F põe o cursor na pesquisa global.</summary>

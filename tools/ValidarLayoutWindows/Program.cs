@@ -27,9 +27,13 @@ static class Program
     static bool completo;
     static bool somenteRetornos;
     static bool somenteGestao;
+    static bool somenteAcompanhamento;
+    static bool somenteInfusao;
     [STAThread]
     static int Main(string[] args)
     {
+        somenteAcompanhamento = args.Contains("--acompanhamento");
+        somenteInfusao = args.Contains("--infusao");
         somenteGestao = args.Contains("--gestao"); completo = args.Contains("--completo"); somenteRetornos = args.Contains("--retornos"); Directory.CreateDirectory(Saida);
         using var log = new StreamWriter(Saida + "/bindings.log"); PresentationTraceSources.DataBindingSource.Listeners.Add(new TextWriterTraceListener(log)); PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
         var app = new System.Windows.Application { ShutdownMode = ShutdownMode.OnExplicitShutdown }; app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml") });
@@ -44,6 +48,8 @@ static class Program
         using var sp = services.BuildServiceProvider(); using var scope = sp.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>(); db.Database.EnsureCreated();
         var prof = new Profissional { Nome = "Profissional demonstrativo de nome comprido", RegistroConselho = "CRM-RJ 123456", Ativo = true }; var pac = new Paciente { Nome = "Paciente fictício com nome completo e sobrenomes para validar leitura", Documento = "12345678909", Telefone = "22999990000", Convenio = Convenio.UnimedIntercambio }; db.AddRange(prof, pac); await db.SaveChangesAsync();
         var usuario = new UsuarioSistema { Nome = prof.Nome, Login = "qa", Perfil = PerfilAcesso.Gerente, ProfissionalId = prof.Id, Profissional = prof }; db.Add(usuario); await db.SaveChangesAsync(); sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        if (somenteAcompanhamento) { await ValidarAcompanhamento(sp, db, pac, usuario); return; }
+        if (somenteInfusao) { await AuditarInfusao(sp, usuario); await ConferirProgressoInfusao(sp, pac, prof); return; }
         if (somenteGestao) { await ValidarGestao(sp, pac, usuario); return; }
         if (somenteRetornos) { await ValidarRetornos(sp, usuario); return; }
         for (var i = 0; i < 12; i++) db.Add(new Agendamento { PacienteId = pac.Id, ProfissionalId = prof.Id, DataHora = DateTime.Today.AddHours(8 + i / 2.0), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro }); await db.SaveChangesAsync();
@@ -205,6 +211,162 @@ static class Program
         }
         janelaEnfermagem.Close();
     }
+    static async Task ConferirProgressoInfusao(ServiceProvider sp, Paciente paciente, Profissional medico)
+    {
+        var escopos = sp.GetRequiredService<IServiceScopeFactory>();
+        var dialogo = sp.GetRequiredService<IDialogoService>();
+        var folha = new FolhaExecucaoViewModel(escopos, dialogo, 0);
+        await folha.CarregarAsync();
+        folha.Paciente = paciente.Nome;
+        folha.Mensagem = null;
+        var janela = new FolhaExecucaoWindow(folha) { ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
+        janela.Show();
+        folha.Carregando = true;
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        janela.UpdateLayout();
+        if (!Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate))
+            throw new Exception("Folha sem progresso visível.");
+        if (Descendentes(janela).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
+            throw new Exception("Folha aceita ações durante carregamento.");
+        Foto(janela, "infusao-folha-carregando");
+        folha.Carregando = false;
+        folha.Mensagem = "✓ Registro confirmado. A checagem foi salva no prontuário.";
+        folha.MensagemEhErro = false;
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        janela.UpdateLayout();
+        if (Descendentes(janela).OfType<ProgressBar>().Any(p => p.IsVisible))
+            throw new Exception("Folha permanece carregando ao concluir.");
+        Foto(janela, "infusao-folha-confirmada");
+        janela.Close();
+        var prescricao = new PrescricaoInternaEdicaoViewModel(escopos, dialogo, paciente.Id, paciente.Nome, medico.Id);
+        var editor = new Clinica.Clinico.Janelas.PrescricaoInternaWindow(prescricao) { ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 880, Height = 600 };
+        editor.Show();
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        prescricao.Ocupado = true; prescricao.TextoOperacao = "Assinando e arquivando prescrição…";
+        editor.UpdateLayout();
+        if (!Descendentes(editor).OfType<ProgressBar>().Any(p => p.IsVisible && p.IsIndeterminate)
+            || Descendentes(editor).OfType<Button>().Any(b => b.IsVisible && b.IsEnabled))
+            throw new Exception("Editor de infusão não protege a operação em andamento.");
+        Foto(editor, "infusao-prescricao-assinando");
+        prescricao.Ocupado = false;
+        editor.Close();
+        Console.WriteLine("INFUSÃO: progresso visível, ações protegidas e confirmação sem indicador preso.");
+    }
+
+    static async Task AuditarInfusao(ServiceProvider sp, UsuarioSistema usuario)
+    {
+        usuario.Perfil = PerfilAcesso.Profissional;
+        sp.GetRequiredService<SessaoUsuario>().Entrar(usuario);
+        using var vm = new SalaInfusaoViewModel(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<IDialogoService>());
+        await vm.CarregarAsync();
+        for (int i = 1; i <= 12; i++) vm.Validacoes.Add(new LinhaSalaInfusao {
+            PrescricaoId = i, PacienteId = i, Paciente = $"Paciente fictício {i:00} com nome comprido",
+            Etapas = EtapasInfusao.Da(new PrescricaoInterna { OrigemEnfermagem = true, Situacao = SituacaoPrescricao.Encerrada,
+                Assinaturas = [new() { Papel = PapelAssinatura.Executante, ArquivoId = 1, ArquivoRegistroId = 1 }] }),
+            Numero = $"PRE TESTE/{i:000}", Hora = "09:30", Prescritor = "Médico fictício", Progresso = "Aguardando avaliação médica",
+            Itens = "Infusão fictícia", TemPendencia = false, Encerrada = true, Devolvida = false,
+            AguardaAssinatura = false, RegistroPendente = false, Dia = "" });
+        vm.ResumoValidacoes = "12 infusões fictícias aguardando avaliação e assinatura";
+        var win = new Window { Content = new SalaInfusaoView { DataContext = vm }, ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1024, Height = 768 };
+        win.Show();
+        await ConferirJanela(win, "infusao-fila-medico", [880, 1024, 1366]);
+        var rolagem = Descendentes(win).OfType<ScrollViewer>().Single(s => s.Name == "RolagemValidacoes");
+        var botoes = Descendentes(win).OfType<Button>().Where(b => Equals(b.Content, "Avaliar e assinar")).ToArray();
+        if (botoes.Length != 12) throw new Exception("A fila deve manter todas as 12 pendências.");
+        foreach (var altura in new[] { 600, 768 })
+        foreach (var largura in new[] { 880, 1024, 1366 })
+        {
+            win.Width = largura; win.Height = altura; win.UpdateLayout();
+            foreach (var botao in botoes.Reverse())
+            {
+                botao.Focus(); botao.BringIntoView();
+                await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                win.UpdateLayout();
+                var ponto = botao.TranslatePoint(new Point(), rolagem);
+                if (ponto.Y < -1 || ponto.Y + botao.ActualHeight > rolagem.ActualHeight + 1)
+                    throw new Exception($"Pendência {((LinhaSalaInfusao)botao.DataContext).Numero} inacessível em {largura}x{altura}.");
+            }
+            Console.WriteLine($"INFUSÃO {largura}x{altura}: 12 ações alcançáveis por foco e rolagem.");
+        }
+        botoes[^1].BringIntoView(); await Task.Delay(50);
+        Foto(win, "infusao-fila-ultima-pendencia");
+        win.Close();
+    }
+
+    static async Task ValidarAcompanhamento(ServiceProvider sp, ClinicaDbContext db, Paciente paciente, UsuarioSistema usuario)
+    {
+        db.Acompanhamentos.Add(new() { PacienteId = paciente.Id, Tipo = TipoAcompanhamento.Recall,
+            Modalidade = ModalidadeAtendimento.BsvApenas, ReferenciaEm = DateTime.Today.AddDays(-90),
+            CriadoEm = DateTime.Today, CriadoPor = usuario.Login, ResponsavelId = usuario.Id,
+            ProximoContato = DateOnly.FromDateTime(DateTime.Today.AddDays(-2)) });
+        await db.SaveChangesAsync();
+        var vm = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
+        var view = new Clinica.Recepcao.Views.AcompanhamentoView { DataContext = vm };
+        var win = new Window { Content = view, ShowInTaskbar = false, ShowActivated = false,
+            WindowStartupLocation = WindowStartupLocation.Manual, Left = -30000, Top = -30000, Width = 1920, Height = 1080 };
+        win.Show(); await vm.CarregarAsync();
+        if (vm.Pacientes.Count != 1 || vm.NaoVerificado) throw new Exception("Acompanhamento não carregou o paciente fictício: " + vm.Mensagem);
+        await ConferirJanela(win, "acompanhamento-primeira-abertura", [1920]);
+        win.Height = 768;
+        await ConferirJanela(win, "acompanhamento-lista", [880, 1024, 1366]);
+        vm.AbrirFiltrosCommand.Execute(null);
+        await ConferirJanela(win, "acompanhamento-filtros", [880, 1024, 1366]);
+        await vm.VoltarCommand.ExecuteAsync(null);
+        await vm.AbrirCommand.ExecuteAsync(vm.Pacientes[0]);
+        await ConferirJanela(win, "acompanhamento-contato", [880, 1024, 1366]);
+        if (Descendentes(view).OfType<ComboBox>().Any(c => c.IsVisible && System.Windows.Automation.AutomationProperties.GetName(c).Contains("Responsável")))
+            throw new Exception("Contato ainda permite selecionar outra responsável.");
+        if (!Descendentes(view).OfType<TextBlock>().Any(t => t.IsVisible && t.Text == usuario.Nome + " (usuário conectado)"))
+            throw new Exception("Contato não identifica o usuário conectado.");
+        await vm.VoltarCommand.ExecuteAsync(null); vm.ConfigurarCommand.Execute(null);
+        var medicoCombo = Descendentes(view).OfType<ComboBox>().Single(c => System.Windows.Automation.AutomationProperties.GetName(c) == "Profissional das indicações BSV");
+        medicoCombo.SelectedValue = usuario.ProfissionalId!.Value;
+        await vm.SalvarConfiguracaoCommand.ExecuteAsync(null);
+        for (var volta = 0; volta < 3; volta++)
+        {
+            vm.ConfigurarCommand.Execute(null); await Task.Delay(80); win.UpdateLayout();
+            if (medicoCombo.SelectedValue is not int id || id != usuario.ProfissionalId || Validation.GetHasError(medicoCombo))
+                throw new Exception("Configuração perdeu o médico salvo ao reabrir: " + vm.Mensagem);
+            await vm.VoltarCommand.ExecuteAsync(null);
+        }
+        var antigo = new Paciente { Nome = "Paciente fictício sem retorno", Convenio = Convenio.UnimedPadrao };
+        db.Pacientes.Add(antigo); await db.SaveChangesAsync();
+        db.Atendimentos.Add(new() { PacienteId = antigo.Id, Modalidade = ModalidadeAtendimento.BsvApenas,
+            Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-100)), RealizadoEm = DateTime.Today.AddDays(-100) });
+        await db.SaveChangesAsync();
+        vm.AtalhoCommand.Execute("atrasados"); vm.DiasRecall = "60";
+        await vm.GerarCommand.ExecuteAsync(null);
+        if (!vm.Pacientes.Any(p => p.PacienteId == antigo.Id) || vm.Prazo != "Todos os prazos")
+            throw new Exception("Buscar pacientes deixou o novo recall oculto pelo filtro anterior: " + vm.Mensagem);
+        var vmNovo = sp.GetRequiredService<Clinica.Recepcao.ViewModels.AcompanhamentoViewModel>();
+        db.Atendimentos.Add(new() { PacienteId = antigo.Id, Modalidade = ModalidadeAtendimento.BsvComAcupuntura,
+            Data = DateOnly.FromDateTime(DateTime.Today.AddDays(-80)), RealizadoEm = DateTime.Today.AddDays(-80) });
+        await db.SaveChangesAsync();
+        await vmNovo.CarregarAsync();
+        if (!vmNovo.Pacientes.Any(p => p.PacienteId == antigo.Id && p.Modalidade == ModalidadeAtendimento.BsvComAcupuntura))
+            throw new Exception("Recall não busca pacientes elegíveis automaticamente ao abrir a tela.");
+        await ConferirJanela(win, "acompanhamento-busca-recall", [880, 1024, 1366]);
+        win.Height = 600;
+        await ConferirJanela(win, "acompanhamento-lista-compacta", [880, 1024, 1366]);
+        var gradeRecall = Descendentes(win).OfType<DataGrid>().Single(g => g.IsVisible);
+        if (gradeRecall.ActualHeight < 130) throw new Exception("Cabeçalho deixou pouco espaço para pacientes.");
+        win.Height = 768;
+        vm.ConfigurarCommand.Execute(null);
+        await ConferirJanela(win, "acompanhamento-configuracao", [880, 1024, 1366]);
+        await vm.VoltarCommand.ExecuteAsync(null);
+        var exemplo = vm.Pacientes[0];
+        for (var i = 0; i < 180; i++) vm.Pacientes.Add(exemplo with { Paciente = $"Paciente fictício de teste {i:000}", Pendente = i % 2 == 0 });
+        win.Height = 1080;
+        await ConferirJanela(win, "acompanhamento-lista-longa", [1920, 880, 1366]);
+        var grade = Descendentes(win).OfType<DataGrid>().Single(g => g.IsVisible);
+        grade.ScrollIntoView(vm.Pacientes.Last());
+        await ConferirJanela(win, "acompanhamento-lista-rolada", [1366, 880, 1920]);
+        win.Close();
+    }
+
     static async Task ValidarRetornos(ServiceProvider sp, UsuarioSistema usuario)
     {
         foreach (var perfil in new[] { PerfilAcesso.Recepcao, PerfilAcesso.Gerente })
@@ -386,10 +548,22 @@ static class Program
         {
             janela.Width = largura; janela.UpdateLayout(); await Task.Delay(120); janela.UpdateLayout();
             foreach (var grade in Descendentes(janela).OfType<DataGrid>().Where(g => g.IsVisible))
+            {
+                if (nome == "acompanhamento-lista-compacta" && grade.ActualHeight < 180)
+                    throw new Exception($"Lista de pacientes com altura insuficiente: {largura} {grade.ActualHeight}");
                 if (Descendentes(grade).OfType<ScrollViewer>().FirstOrDefault()?.ScrollableWidth > 0.1)
                     throw new Exception($"Tabela ultrapassa a tela: {nome} {largura}");
+            }
             foreach (var botao in Descendentes(janela).OfType<Button>().Where(b => b.IsVisible && b.Content is string))
             {
+                if (nome.StartsWith("acompanhamento-") && botao.Content is "Registrar contato" or "Ver acompanhamento")
+                {
+                    var texto = new FormattedText((string)botao.Content, System.Globalization.CultureInfo.CurrentUICulture,
+                        botao.FlowDirection, new Typeface(botao.FontFamily, botao.FontStyle, botao.FontWeight, botao.FontStretch),
+                        botao.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(botao).PixelsPerDip);
+                    if (botao.ActualWidth + 1 < texto.WidthIncludingTrailingWhitespace + botao.Padding.Left + botao.Padding.Right)
+                        throw new Exception($"Texto do botão de contato cortado: {nome} {largura} {botao.ActualWidth}");
+                }
                 var ponto = botao.TranslatePoint(new Point(), janela);
                 if (ponto.X < -1 || ponto.X + botao.ActualWidth > janela.ActualWidth + 1)
                     throw new Exception($"Ação cortada: {nome} {largura} {botao.Content}");

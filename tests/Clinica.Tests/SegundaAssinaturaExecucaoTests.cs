@@ -471,6 +471,7 @@ public partial class SegundaAssinaturaExecucaoTests : IDisposable
 
         var cenario = await CenarioAsync();
         var prescricao = await AssinadaPelaMedicaAsync(cenario, exigir: true);
+        Despejar("prescricao-apenas-medico.pdf", (await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao)).Pdf);
         var itens = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!.Itens.ToList();
 
         await _checagens.ChecarAsync(itens[0].Id, SituacaoChecagem.NaoRealizado,

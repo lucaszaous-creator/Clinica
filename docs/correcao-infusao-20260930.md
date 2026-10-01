@@ -18,8 +18,8 @@ da antiga folha separada não mantém a prescrição já arquivada na fila.
 
 ## Compatibilidade e documentos históricos
 
-A migration `20260930190000_JustificativaNaoExecutavel` adiciona apenas o indicador
-booleano `NaoExecutavel`, padrão falso. A coluna histórica `Situacao` continua
+A migration já publicada `20260928211121_ChecagemNaoExecutavel` fornece o indicador
+booleano `NaoExecutavel`, padrão falso. Não há nova migration nesta correção. A coluna histórica `Situacao` continua
 usando `Realizado`/`NaoRealizado`. Aplicativos anteriores conseguem ler a negativa
 com a justificativa completa; aplicativos atualizados distinguem Não executável.
 

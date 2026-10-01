@@ -126,6 +126,9 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         return new {Agendamento = new {a.Id, a.DataHora, a.PacienteId, a.AtendimentoId, a.InicioAtendimentoEm,
                 Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm},
             Paciente = new {a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento},
+            NovoBsv = u.Pode(Permissao.EditarProntuario)
+                ? await new AcompanhamentoPacienteService(db, repo, new PacoteService(repo)).EstadoBsvAsync(u.Id, id, ct)
+                : new EstadoIndicacaoBsv(false, false),
             Faturamento = await ResumoFaturamentoAsync(a, ct),
             MateriaisHabilitados = await MateriaisHabilitadosAsync(a, ct),
             ExigeConferenciaEnfermagem = await agenda.ExigeConferenciaEnfermagemAsync(a.Id, ct),
@@ -253,7 +256,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 var p = await prescricoes.CriarAsync(paciente, u.ProfissionalId, agendamento, evolucao, Operador(u), ct);
                 await prescricoes.SalvarRascunhoAsync(p.Id, pedido.Indicacao, pedido.Observacoes, pedido.Itens is {Length:>0} ? pedido.Itens.Select(i=>new ItemPrescricaoInterna {Descricao=i.Descricao,DescricaoFormatada=i.DescricaoFormatada,Dose=i.Dose,Diluente=i.Diluente,Volume=i.Volume,Via=i.Via,TempoInfusao=i.TempoInfusao,SeNecessario=i.SeNecessario,HoraPrevista=i.HoraPrevista,Observacoes=i.Observacoes,ObservacoesFormatadas=i.ObservacoesFormatadas}).ToArray() : [new ItemPrescricaoInterna {
                     Descricao = pedido.Texto, DescricaoFormatada=pedido.CorpoFormatado, Diluente = pedido.Diluente, Volume = pedido.Volume,
-                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct,pedido.IndicacaoFormatada,pedido.ObservacoesFormatadas,pedido.DataPrescricao,pedido.HoraPrescricao);
+                    TempoInfusao = pedido.TempoInfusao, Via = pedido.Via}], Operador(u), pedido.AssinaturaEnfermagem, ct,pedido.IndicacaoFormatada,pedido.ObservacoesFormatadas,pedido.DataPrescricao,pedido.HoraPrescricao,pedido.DiluicaoUnica,pedido.DiluenteGlobal,pedido.VolumeTotal);
                 await Auditar(u, paciente, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
                 return new(p.Id, "infusao", p.Numero);
             }

@@ -110,6 +110,10 @@
         <DockPanel>
 
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Button Content="{Binding RotuloBsv}" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,4"
+                    Command="{Binding IndicarBsvCommand}"
+                    Visibility="{Binding PodeIndicarBsv, Converter={StaticResource BoolParaVisibilidade}}"
+                    ToolTip="Inclui o paciente na lista da recepção até agendar BSV ou BSV + acupuntura. Cancelamento devolve à lista." />
             <Button Content="Consultar ficha" Style="{StaticResource BotaoSecundario}" Margin="0,0,8,4"
                     Command="{Binding DataContext.ConsultarFichaCommand, RelativeSource={RelativeSource AncestorType={x:Type views:PacienteWorkspaceView}}}"
                     ToolTip="Dados, sessões e anamnese. Ao fechar, você volta ao texto em edição." />

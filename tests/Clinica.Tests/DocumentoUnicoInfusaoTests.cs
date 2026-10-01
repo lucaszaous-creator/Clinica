@@ -24,9 +24,9 @@ public partial class SegundaAssinaturaExecucaoTests
             justificativa: situacao == SituacaoChecagem.Realizado ? null : "Paciente recusou; médico comunicado.", dataRealizacao: data);
         _db.ChangeTracker.Clear();
         var relida = await _db.ChecagensPrescricao.SingleAsync(x => x.Id == checagem.Id);
-        relida.Situacao.Should().Be(situacao);
+        relida.NaoExecutavel.Should().Be(situacao == SituacaoChecagem.NaoExecutavel);
         // Leitores antigos só conhecem Realizado e NaoRealizado: a coluna mantém esse contrato.
-        relida.SituacaoPersistida.Should().Be(situacao == SituacaoChecagem.Realizado
+        relida.Situacao.Should().Be(situacao == SituacaoChecagem.Realizado
             ? SituacaoChecagem.Realizado : SituacaoChecagem.NaoRealizado);
         await _checagens.EncerrarAsync(p.Id, Tecnica);
         var original = (await _orquestra.FolhaAsync(p.Id, FolhaPrescricao.Prescricao)).Pdf;

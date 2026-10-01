@@ -45,6 +45,7 @@
   <!-- Marca: usada via pack URI pela janela do shell. -->
   <ItemGroup>
     <Resource Include="Assets\Marca\*.png" />
+    <EmbeddedResource Include="Treinamento\catalogo.json" />
   </ItemGroup>
 
 </Project>

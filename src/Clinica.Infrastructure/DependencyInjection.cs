@@ -15,6 +15,7 @@ public static class DependencyInjection
     {
         services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql));
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
+        services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddSingleton(new RegistroRegras());
         services.AddScoped<AtendimentoService>();
         services.AddScoped<EstornoAtendimentoService>();

@@ -1,4 +1,4 @@
-START TRANSACTION;
+﻿START TRANSACTION;
 
 
 DO $EF$
@@ -48,17 +48,6 @@ BEGIN
     IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260926120000_DevolucaoInfusaoExterna') THEN
     INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
     VALUES ('20260926120000_DevolucaoInfusaoExterna', '8.0.11');
-    END IF;
-END $EF$;
-COMMIT;
-
-START TRANSACTION;
-DO $EF$
-BEGIN
-    IF NOT EXISTS(SELECT 1 FROM "__EFMigrationsHistory" WHERE "MigrationId" = '20260930190000_JustificativaNaoExecutavel') THEN
-        ALTER TABLE "ChecagensPrescricao" ADD "NaoExecutavel" boolean NOT NULL DEFAULT FALSE;
-        INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-        VALUES ('20260930190000_JustificativaNaoExecutavel', '8.0.11');
     END IF;
 END $EF$;
 COMMIT;

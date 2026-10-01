@@ -91,7 +91,7 @@ nem substitui a aprovação dos titulares das assinaturas reais.
 1. Com ambos os checkouts limpos, executar `tools/empacotar-continuidade-tablet.ps1
    -Site CAMINHO_CLINICA_SITE`. O pacote inclui hashes e revisões dos dois repos.
    O pacote atual inclui a migration aditiva
-   `20260930190000_JustificativaNaoExecutavel` em SQL idempotente. A base deve estar
+   `20260928211121_ChecagemNaoExecutavel` em SQL idempotente. A base deve estar
    em `20260926120000_DevolucaoInfusaoExterna` ou já nessa migration.
 2. Enviar o pacote para `/home/clinica-admin/tablet-stage/` e conferir seu SHA-256.
 3. Executar como root `atualizar-posto.py hml PACOTE SHA RELEASE_ANTERIOR`.

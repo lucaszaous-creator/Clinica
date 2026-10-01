@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop;
 
-/// <summary>Catálogo do executável Faturamento: apenas guias e suas operações.</summary>
+/// <summary>Guias e acompanhamento compartilhado de pacientes.</summary>
 public sealed class ModuloFaturamentoAplicativo : IModuloApp
 {
     // Os componentes administrativos da ficha continuam disponíveis a partir de uma
@@ -33,7 +33,7 @@ public sealed class ModuloFaturamentoAplicativo : IModuloApp
             Grupo = GrupoSidebar.Financeiro, Requer = i.Requer, RequerAlgum = i.RequerAlgum,
             PerfilExclusivo = i.PerfilExclusivo, Inicial = i.Chave == raiz.Chave,
             Oculto = i.Chave != raiz.Chave, Abas = i.Chave == raiz.Chave ? abas : i.Abas
-        }).ToArray();
+        }).Append(_componentes[1].Itens.Single(i => i.Chave == ChavesSuite.RetornoPacientes)).ToArray();
     }
 
     public void Registrar(IServiceCollection servicos)

@@ -185,6 +185,8 @@ public sealed class PrescricaoInternaPdfService
                     if (!string.IsNullOrWhiteSpace(prescricao.Indicacao))
                         Campo(col, "Indicação", prescricao.Indicacao!,prescricao.IndicacaoFormatada);
 
+                    if (prescricao.DiluicaoUnica)
+                        Campo(col, "Diluição para toda a infusão", $"Diluente: {prescricao.DiluenteGlobal ?? "Não informado"} · Volume total: {prescricao.VolumeTotal ?? "Não informado"}");
                     TabelaDaPrescricao(col, itens, camposDigitais);
                     if (camposDigitais)
                         foreach (var item in itens)
@@ -196,7 +198,7 @@ public sealed class PrescricaoInternaPdfService
                     if (prescricao.OrigemEnfermagem) { TabelaDaExecucao(col, itens); Justificativas(col, itens); Retificacoes(col, itens); }
 
                     if (!string.IsNullOrWhiteSpace(prescricao.Observacoes))
-                        Campo(col, "Orientações gerais", prescricao.Observacoes!,prescricao.ObservacoesFormatadas);
+                        Campo(col, "Observações", prescricao.Observacoes!,prescricao.ObservacoesFormatadas);
                 });
 
                 Rodape(page, prescricao, assinatura,
@@ -253,6 +255,8 @@ public sealed class PrescricaoInternaPdfService
                     IdentificacaoDoPaciente(col, prescricao);
                     BlocoDeAlergias(col, alergias);
                     BlocoDeIntercorrencias(col, prescricao);
+                    if (prescricao.DiluicaoUnica)
+                        Campo(col, "Diluição para toda a infusão", $"Diluente: {prescricao.DiluenteGlobal ?? "Não informado"} · Volume total: {prescricao.VolumeTotal ?? "Não informado"}");
 
                     TabelaDaExecucao(col, itens);
                     // ⚠️ A ordem não é estética: a tabela e as duas caixas seguintes falam
@@ -677,7 +681,7 @@ public sealed class PrescricaoInternaPdfService
                 .Text($"{checagem.HoraRealizacao:HH\\:mm}")
                 .SemiBold().FontSize(10).FontColor(VermelhoForte);
 
-            c.Item().PaddingTop(2).Text(RotulosEnum.De(checagem.Situacao))
+            c.Item().PaddingTop(2).Text(checagem.NaoExecutavel ? "Não executável" : RotulosEnum.De(checagem.Situacao))
                 .FontSize(7.5f).Bold().FontColor(VermelhoForte);
             c.Item().Text($"{(checagem.DataRealizacao ?? DateOnly.FromDateTime(checagem.RegistradoEm)):dd/MM/yyyy}")
                 .FontSize(7.5f).FontColor(TextoSecundario);
